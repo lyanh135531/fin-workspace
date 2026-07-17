@@ -16,6 +16,21 @@ export async function createWorkspaceUser(actorUserId: string, workspaceId: stri
   });
 }
 
+export async function createMemberAccount(actorUserId: string, workspaceIds: string[], input: { username: string; password: string }) {
+  if (workspaceIds.length === 0) throw new AppError("VALIDATION_ERROR", "Chọn ít nhất một workspace.");
+  await Promise.all(workspaceIds.map((workspaceId) => requireWorkspaceMember(actorUserId, workspaceId, true)));
+  const passwordHash = await argon2.hash(input.password);
+  return prisma.$transaction(async (tx) => {
+    if (await tx.user.findUnique({ where: { username: input.username } })) throw new AppError("CONFLICT", "Username is already in use.");
+    const role = await tx.role.findUnique({ where: { code: "MEMBER" } });
+    if (!role) throw new AppError("NOT_FOUND", "Vai trò MEMBER không tồn tại.");
+    const user = await tx.user.create({ data: { username: input.username, passwordHash } });
+    await tx.workspaceMember.createMany({ data: workspaceIds.map((workspaceId) => ({ userId: user.id, workspaceId, roleId: role.id })) });
+    await tx.auditLog.createMany({ data: workspaceIds.map((workspaceId) => ({ workspaceId, actorUserId, action: "workspace.member_account_created", entityType: "user", entityId: user.id, metadata: { username: user.username, roleCode: "MEMBER" } })) });
+    return user;
+  });
+}
+
 export async function changeWorkspaceMemberRole(actorUserId: string, workspaceId: string, memberId: string, roleCode: string) {
   await requireWorkspaceMember(actorUserId, workspaceId, true);
   const member = await prisma.workspaceMember.findFirst({ where: { id: memberId, workspaceId, status: "active", deletedAt: null } });
