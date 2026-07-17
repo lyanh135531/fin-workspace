@@ -1,0 +1,2 @@
+import { JoinForm } from "@/app/dashboard/join/join-form";
+export default function JoinPage(){return <main className="app-shell min-h-[100dvh] p-4 sm:p-8"><div className="mx-auto max-w-xl"><a href="/dashboard" className="text-sm text-slate-500">← Quay lại dashboard</a><h1 className="mt-6 text-3xl font-semibold">Tham gia workspace</h1><p className="mt-2 text-sm text-slate-500">Nhập mã mời do Admin workspace chia sẻ. Admin sẽ duyệt yêu cầu trước khi bạn có quyền hoạt động.</p><JoinForm/></div></main>}

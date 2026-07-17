@@ -1,0 +1,4 @@
+"use client";
+import { useState,useTransition } from "react";
+import { requestJoinAction } from "@/app/dashboard/join/actions";
+export function JoinForm(){const [message,setMessage]=useState<string|null>(null);const [pending,start]=useTransition();function submit(f:FormData){start(async()=>{const r=await requestJoinAction({inviteCode:f.get("inviteCode")});setMessage(r.ok?"Đã gửi yêu cầu. Hãy chờ Admin duyệt.":r.message);});}return <form action={submit} className="sunrise-card mt-6 space-y-3 p-6"><label className="block text-sm font-medium">Mã mời Workspace<input required name="inviteCode" className="field mt-2" placeholder="Dán mã mời vào đây"/></label><button disabled={pending} className="button-primary">{pending?"Đang gửi":"Gửi yêu cầu tham gia"}</button>{message&&<p className="text-sm" role="status">{message}</p>}</form>}

@@ -1,0 +1,6 @@
+"use client";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { selectWorkspaceAction } from "@/app/dashboard/workspace-actions";
+type Workspace={id:string;name:string;role:string};
+export function WorkspaceSwitcher({workspaces,currentId}:{workspaces:Workspace[];currentId:string}){const router=useRouter();const [pending,start]=useTransition();const [error,setError]=useState<string|null>(null);function choose(id:string){if(id===currentId)return;start(async()=>{try{await selectWorkspaceAction(id);router.refresh();}catch{setError("Không thể chuyển workspace.");}});}return <div className="workspace-menu"><a className="nav-item nav-item-active" href="#transactions">Workspace <span>{workspaces.length}</span></a><div className="workspace-menu-list" aria-label="Workspace bạn được phép hoạt động">{workspaces.map(item=><button type="button" key={item.id} disabled={pending||item.id===currentId} onClick={()=>choose(item.id)} className={`workspace-menu-item ${item.id===currentId?"workspace-menu-current":""}`}><span>{item.name}</span><small>{item.role}</small></button>)}{error&&<p className="px-2 pb-1 text-xs text-[#c63f2c]">{error}</p>}</div></div>}

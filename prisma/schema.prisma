@@ -1,0 +1,294 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Status {
+  active
+  deactive
+
+  @@map("STATUS")
+}
+
+enum TransactionType {
+  income
+  expense
+  transfer
+
+  @@map("TRANSACTION_TYPE")
+}
+
+enum WorkflowStatus {
+  pending
+  scheduled
+  approved
+  rejected
+
+  @@map("WORKFLOW_STATUS")
+}
+
+enum CategoryType {
+  income
+  expense
+
+  @@map("CATEGORY_TYPE")
+}
+
+enum ChangeRequestStatus {
+  pending
+  approved
+  rejected
+
+  @@map("CHANGE_REQUEST_STATUS")
+}
+
+enum WorkspaceInvitationStatus {
+  pending
+  accepted
+  rejected
+  cancelled
+
+  @@map("WORKSPACE_INVITATION_STATUS")
+}
+
+enum WorkspaceJoinRequestStatus {
+  pending
+  approved
+  rejected
+
+  @@map("WORKSPACE_JOIN_REQUEST_STATUS")
+}
+
+model Role {
+  id      String            @id @default(uuid()) @db.Uuid
+  name    String
+  code    String            @unique
+  members WorkspaceMember[]
+  invitations WorkspaceInvitation[]
+  joinRequests WorkspaceJoinRequest[]
+
+  @@map("ROLE")
+}
+
+model User {
+  id           String            @id @default(uuid()) @db.Uuid
+  username     String            @unique
+  passwordHash String            @map("password_hash")
+  status       Status            @default(active)
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  memberships  WorkspaceMember[]
+  auditLogs    AuditLog[]
+  receivedInvitations WorkspaceInvitation[] @relation("InvitationRecipient")
+  sentInvitations     WorkspaceInvitation[] @relation("InvitationSender")
+  joinRequests WorkspaceJoinRequest[] @relation("JoinRequester")
+  reviewedJoinRequests WorkspaceJoinRequest[]
+
+  @@index([status, deletedAt])
+  @@map("USERS")
+}
+
+model Workspace {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  status      Status            @default(active)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  baseCurrency String            @default("VND") @map("base_currency") @db.VarChar(3)
+  timeZone     String            @default("Asia/Ho_Chi_Minh") @map("time_zone")
+  approvalRequired Boolean       @default(true) @map("approval_required")
+  inviteCode   String            @unique @default(uuid()) @map("invite_code") @db.VarChar(36)
+  members     WorkspaceMember[]
+  wallets     WorkspaceWallet[]
+  categories  Category[]
+  auditLogs   AuditLog[]
+  invitations WorkspaceInvitation[]
+  joinRequests WorkspaceJoinRequest[]
+
+  @@index([status, deletedAt])
+  @@map("WORKSPACES")
+}
+
+model WorkspaceWallet {
+  workspaceId String    @map("workspace_id") @db.Uuid
+  walletId    String    @map("wallet_id") @db.Uuid
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  wallet      Wallet    @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  @@id([workspaceId, walletId])
+  @@index([walletId])
+  @@map("WORKSPACE_WALLET")
+}
+
+model WorkspaceMember {
+  id           String        @id @default(uuid()) @db.Uuid
+  workspaceId  String        @map("workspace_id") @db.Uuid
+  userId       String        @map("user_id") @db.Uuid
+  roleId       String        @map("role_id") @db.Uuid
+  status       Status        @default(active)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role         Role          @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  transactions Transaction[]
+  requestedChanges TransactionChangeRequest[] @relation("ChangeRequester")
+  reviewedChanges  TransactionChangeRequest[] @relation("ChangeReviewer")
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId, status, deletedAt])
+  @@index([userId, status, deletedAt])
+  @@map("WORKSPACE_MEMBERS")
+}
+
+model Wallet {
+  id                      String            @id @default(uuid()) @db.Uuid
+  name                    String
+  openingBalance          Decimal           @default(0) @map("opening_balance") @db.Decimal(20, 4)
+  currentBalance          Decimal           @default(0) @map("current_balance") @db.Decimal(20, 4)
+  status                  Status            @default(active)
+  description             String?
+  createdAt               DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt               DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  workspaceLinks          WorkspaceWallet[]
+  sourceTransactions      Transaction[]     @relation("TransactionSourceWallet")
+  destinationTransactions Transaction[]     @relation("TransactionDestinationWallet")
+
+  @@index([status, deletedAt])
+  @@map("WALLETS")
+}
+
+model Category {
+  id           String        @id @default(uuid()) @db.Uuid
+  workspaceId  String?       @map("workspace_id") @db.Uuid
+  name         String
+  code         String
+  color        String        @db.VarChar(7)
+  type         CategoryType  @default(expense)
+  icon         String?
+  parentId     String?       @map("parent_id") @db.Uuid
+  sortOrder    Int           @default(0) @map("order")
+  status       Status        @default(active)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
+  workspace    Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children     Category[]    @relation("CategoryHierarchy")
+  transactions Transaction[]
+
+  @@unique([workspaceId, code])
+  @@index([workspaceId, status, deletedAt, sortOrder])
+  @@map("CATEGORY")
+}
+
+model TransactionChangeRequest {
+  id                String              @id @default(uuid()) @db.Uuid
+  transactionId     String              @map("transaction_id") @db.Uuid
+  requesterMemberId String              @map("requester_member_id") @db.Uuid
+  reviewerMemberId  String?             @map("reviewer_member_id") @db.Uuid
+  previousData      Json                @map("previous_data")
+  proposedData      Json                @map("proposed_data")
+  status            ChangeRequestStatus @default(pending)
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  reviewedAt        DateTime?           @map("reviewed_at") @db.Timestamptz(6)
+  transaction       Transaction         @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  requester         WorkspaceMember     @relation("ChangeRequester", fields: [requesterMemberId], references: [id], onDelete: Restrict)
+  reviewer          WorkspaceMember?    @relation("ChangeReviewer", fields: [reviewerMemberId], references: [id], onDelete: Restrict)
+
+  @@index([transactionId, status])
+  @@index([requesterMemberId, status])
+  @@map("TRANSACTION_CHANGE_REQUEST")
+}
+
+model AuditLog {
+  id          String           @id @default(uuid()) @db.Uuid
+  workspaceId String           @map("workspace_id") @db.Uuid
+  actorUserId String?          @map("actor_user_id") @db.Uuid
+  action      String
+  entityType  String           @map("entity_type")
+  entityId    String?          @map("entity_id") @db.Uuid
+  metadata    Json?
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  actor       User?            @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@map("AUDIT_LOG")
+}
+
+model WorkspaceInvitation {
+  id          String                    @id @default(uuid()) @db.Uuid
+  workspaceId String                    @map("workspace_id") @db.Uuid
+  inviteeId   String                    @map("invitee_id") @db.Uuid
+  inviterId   String                    @map("inviter_id") @db.Uuid
+  roleId      String                    @map("role_id") @db.Uuid
+  status      WorkspaceInvitationStatus @default(pending)
+  createdAt   DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  respondedAt DateTime?                 @map("responded_at") @db.Timestamptz(6)
+  workspace   Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  invitee     User                      @relation("InvitationRecipient", fields: [inviteeId], references: [id], onDelete: Restrict)
+  inviter     User                      @relation("InvitationSender", fields: [inviterId], references: [id], onDelete: Restrict)
+  role        Role                      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@index([inviteeId, status])
+  @@index([workspaceId, status])
+  @@map("WORKSPACE_INVITATION")
+}
+
+model WorkspaceJoinRequest {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @map("workspace_id") @db.Uuid
+  requesterId String @map("requester_id") @db.Uuid
+  reviewerId String? @map("reviewer_id") @db.Uuid
+  roleId String? @map("role_id") @db.Uuid
+  status WorkspaceJoinRequestStatus @default(pending)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  respondedAt DateTime? @map("responded_at") @db.Timestamptz(6)
+  workspace Workspace @relation(fields:[workspaceId],references:[id],onDelete:Restrict)
+  requester User @relation("JoinRequester",fields:[requesterId],references:[id],onDelete:Restrict)
+  reviewer User? @relation(fields:[reviewerId],references:[id],onDelete:SetNull)
+  role Role? @relation(fields:[roleId],references:[id],onDelete:Restrict)
+  @@index([workspaceId,status])
+  @@index([requesterId,status])
+  @@map("WORKSPACE_JOIN_REQUEST")
+}
+
+model Transaction {
+  id             String          @id @default(uuid()) @db.Uuid
+  memberId       String          @map("member_id") @db.Uuid
+  walletId       String          @map("wallet_id") @db.Uuid
+  toWalletId     String?         @map("to_wallet_id") @db.Uuid
+  categoryId     String?         @map("category_id") @db.Uuid
+  type           TransactionType
+  workflowStatus WorkflowStatus  @default(pending) @map("workflow_status")
+  amount         Decimal         @db.Decimal(20, 4)
+  description    String?
+  date           DateTime        @db.Date
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  member         WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  wallet         Wallet          @relation("TransactionSourceWallet", fields: [walletId], references: [id], onDelete: Restrict)
+  toWallet       Wallet?         @relation("TransactionDestinationWallet", fields: [toWalletId], references: [id], onDelete: Restrict)
+  category       Category?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  changeRequests TransactionChangeRequest[]
+
+  @@index([memberId, date])
+  @@index([walletId, workflowStatus, date])
+  @@index([toWalletId, workflowStatus, date])
+  @@index([categoryId, date])
+  @@map("TRANSACTION")
+}
