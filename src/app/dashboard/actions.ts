@@ -7,8 +7,7 @@ import { createTransactionSchema, createWalletSchema } from "@/domain";
 import { debug } from "@/lib/debug";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
-import { createTransaction } from "@/services/transaction-service";
-import { approveTransaction } from "@/services/transaction-service";
+import { approveTransaction, createTransaction, rejectTransaction } from "@/services/transaction-service";
 import { idSchema } from "@/domain/common/schemas";
 import { createWalletForWorkspace } from "@/services/wallet-service";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
@@ -38,4 +37,10 @@ export async function approveTransactionAction(transactionId: string) {
   const requestId = crypto.randomUUID();
   try { const user = await actor(); const transaction = await approveTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId)); debug("transaction.approved", { requestId, transactionId: transaction.id, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); return { ok: true }; }
   catch (error) { debug("transaction.approve_failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to approve transaction." }; }
+}
+
+export async function rejectTransactionAction(transactionId: string) {
+  const requestId = crypto.randomUUID();
+  try { const user = await actor(); await rejectTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId)); debug("transaction.rejected", { requestId, transactionId, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); return { ok: true }; }
+  catch (error) { debug("transaction.reject_failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to reject transaction." }; }
 }

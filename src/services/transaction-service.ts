@@ -39,5 +39,5 @@ export async function approveTransaction(userId: string, workspaceId: string, tr
 
 export async function rejectTransaction(userId: string, workspaceId: string, transactionId: string) {
   await requireWorkspaceMember(userId, workspaceId, true);
-  return prisma.transaction.updateMany({ where: { id: transactionId, workflowStatus: "pending", member: { workspaceId } }, data: { workflowStatus: "rejected" } });
+  return prisma.transaction.updateMany({ where: { id: transactionId, workflowStatus: "pending", deletedAt: null, member: { workspaceId, status: "active", deletedAt: null } }, data: { workflowStatus: "rejected" } });
 }

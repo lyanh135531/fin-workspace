@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <head><script dangerouslySetInnerHTML={{ __html: "try{var t=localStorage.getItem('fin-workspace-theme');document.documentElement.dataset.theme=t==='light'?'light':'dark'}catch(e){}" }} /></head>
+      <head><script dangerouslySetInnerHTML={{ __html: "try{var e=document.documentElement,t=localStorage.getItem('fin-workspace-theme'),m=localStorage.getItem('fin-workspace-mode');e.dataset.theme=['sunrise','ocean','forest','lavender','midnight'].includes(t||'')?t:'sunrise';e.dataset.mode=m==='light'||m==='dark'?m:(t==='light'?'light':'dark')}catch(e){}" }} /></head>
       <body>{children}</body>
     </html>
   );
