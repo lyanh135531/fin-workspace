@@ -1,9 +1,32 @@
 # Fin Workspace
 
-## Local operations
+> Do not run raw balance updates. Financial mutations belong in `src/services` and must use Prisma transactions.
 
-1. Copy `.env.example` to `.env` and set `DATABASE_URL` and `NEXTAUTH_SECRET`.
-2. Run `pnpm prisma:deploy` to apply migrations.
-3. Run `pnpm dev` for local development, or `pnpm build` then `pnpm start` for production.
+---
 
-Do not run raw balance updates. Financial mutations belong in `src/services` and must use Prisma transactions.
+## Deploy với Docker *(khuyên dùng)*
+
+```bash
+cp .env.example .env
+# Sửa POSTGRES_PASSWORD và NEXTAUTH_SECRET trong .env
+
+docker compose up --build -d
+```
+
+Docker tự động chạy theo thứ tự: **PostgreSQL** → **migration** → **app** (port 3000).
+
+---
+
+## Local Development
+
+```bash
+cp .env.example .env
+# Sửa POSTGRES_PASSWORD, NEXTAUTH_SECRET
+# Đổi host trong DATABASE_URL: "db" → "localhost"
+
+pnpm install
+pnpm prisma:deploy
+pnpm dev
+```
+
+Yêu cầu: PostgreSQL đang chạy trên `localhost:5432`.

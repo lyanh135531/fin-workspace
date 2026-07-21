@@ -1,23 +1,37 @@
 services:
+  db:
+    image: postgres:16-alpine
+    env_file: .env
+    volumes:
+      - fin_workspace_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fin_workspace"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   migrate:
     build:
       context: .
       target: migrate
-    env_file: .env.docker
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
     restart: "no"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   app:
     build:
       context: .
       target: runner
-    env_file: .env.docker
+    env_file: .env
     ports:
       - "3000:3000"
     depends_on:
       migrate:
         condition: service_completed_successfully
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+
+volumes:
+  fin_workspace_postgres_data:
