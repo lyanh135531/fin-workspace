@@ -8,8 +8,8 @@ export default function SignInPage() {
   async function submit(formData: FormData) {
     setError(null);
     const result = await signIn("credentials", { username: String(formData.get("username")), password: String(formData.get("password")), redirect: false });
-    if (result?.error) return setError("Invalid username or password.");
+    if (result?.error) return setError("Tên đăng nhập hoặc mật khẩu không đúng.");
     window.location.assign("/overview");
   }
-  return <main className="mx-auto flex min-h-[100dvh] max-w-md items-center p-6"><form action={submit} className="w-full space-y-4"><h1 className="text-3xl font-semibold">Sign in</h1><label className="block">Username<input required name="username" className="mt-1 w-full border p-2" /></label><label className="block">Password<input required name="password" type="password" className="mt-1 w-full border p-2" /></label>{error && <p role="alert">{error}</p>}<button className="bg-zinc-900 px-4 py-2 text-white">Sign in</button></form></main>;
+  return <main className="auth-shell"><form action={submit} className="sunrise-card auth-card"><div><p className="public-eyebrow">Fin Workspace</p><h1>Đăng nhập</h1><p className="auth-copy">Tiếp tục vào không gian tài chính của bạn.</p></div><label>Tên đăng nhập<input required name="username" autoComplete="username" className="field" /></label><label>Mật khẩu<input required name="password" type="password" autoComplete="current-password" className="field" /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button className="button-primary">Đăng nhập</button></form></main>;
 }

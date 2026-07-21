@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- This one-off Node.js importer intentionally uses CommonJS. */
 /* One-off, idempotent importer for the approved legacy monthly CSV mapping. */
 require("dotenv").config();
 const fs = require("fs");

@@ -1,14 +1,11 @@
 export default function HomePage() {
   return (
-    <main className="mx-auto flex min-h-[100dvh] max-w-3xl items-center px-6 py-16">
-      <section>
-        <p className="text-sm font-medium text-zinc-500">Phase 0</p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight text-zinc-950">
-          Fin Workspace foundation is ready.
-        </h1>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-600">
-          Database schema, precision rules, and workspace data boundaries are being established before financial workflows are enabled.
-        </p>
+    <main className="public-shell">
+      <section className="public-panel">
+        <p className="public-eyebrow">Fin Workspace</p>
+        <h1>Quản lý tài chính theo từng không gian làm việc.</h1>
+        <p className="public-copy">Theo dõi ví, giao dịch và quy trình phê duyệt trong một giao diện nhất quán cho gia đình hoặc nhóm của bạn.</p>
+        <a className="button-primary public-cta" href="/sign-in">Đăng nhập</a>
       </section>
     </main>
   );
