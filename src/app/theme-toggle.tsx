@@ -1,7 +1,17 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Moon, Sun } from "lucide-react";
+import { MonitorCog, Moon, Sun } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type Mode = "light" | "dark";
 
@@ -22,6 +32,17 @@ function getMode(): Mode {
 
 export function ThemeToggle() {
   const mode = useSyncExternalStore(subscribeMode, getMode, () => "light");
-  const toggle = () => { const next = mode === "dark" ? "light" : "dark"; applyMode(next); };
-  return <button type="button" onClick={toggle} title={mode === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"} className="theme-toggle icon-button" aria-label={mode === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"} aria-pressed={mode === "dark"}>{mode === "dark" ? <Sun size={18}/> : <Moon size={18}/>}</button>;
+  return <DropdownMenu>
+    <DropdownMenuTrigger render={<button type="button" title="Chọn chế độ hiển thị" className="theme-toggle icon-button" aria-label="Chọn chế độ hiển thị" />}>
+      {mode === "dark" ? <Moon size={18}/> : <Sun size={18}/>}<span className="sr-only">Chế độ hiển thị</span>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" className="theme-mode-menu">
+      <DropdownMenuGroup><DropdownMenuLabel className="flex items-center gap-2"><MonitorCog size={14}/>Giao diện</DropdownMenuLabel></DropdownMenuGroup>
+      <DropdownMenuSeparator />
+      <DropdownMenuRadioGroup value={mode} onValueChange={(value) => applyMode(value as Mode)}>
+        <DropdownMenuRadioItem value="light"><Sun size={15}/>Sáng</DropdownMenuRadioItem>
+        <DropdownMenuRadioItem value="dark"><Moon size={15}/>Tối</DropdownMenuRadioItem>
+      </DropdownMenuRadioGroup>
+    </DropdownMenuContent>
+  </DropdownMenu>;
 }

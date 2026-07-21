@@ -3,6 +3,8 @@
 import { Download, Plus, Search, Trash2, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { addTransactionAction, addWalletAction, approveTransactionAction, deleteTransactionsAction } from "@/app/dashboard/actions";
+import { DatePickerField } from "@/components/finance/date-picker-field";
+import { FinanceSelect } from "@/components/finance/finance-select";
 import { formatAmount } from "@/lib/format";
 
 type Option = { id: string; name: string; color?: string };
@@ -14,24 +16,32 @@ export function DashboardActions({ wallets, categories, canManageWallets }: { wa
   const [transactionType, setTransactionType] = useState<TransactionType>("expense");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open || !dialogRef.current) return;
+    if (!open || !editorRef.current) return;
     const priorFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const dialog = dialogRef.current;
-    const focusable = [...dialog.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)")];
+    const editor = editorRef.current;
+    const focusable = [...editor.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)")];
     focusable[0]?.focus();
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(null);
-      if (event.key !== "Tab" || focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
-    dialog.addEventListener("keydown", handleKeyDown);
-    return () => { dialog.removeEventListener("keydown", handleKeyDown); priorFocus?.focus(); };
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (editor.contains(target) || actionsRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest('[data-slot="select-content"], [data-slot="popover-content"]')) return;
+      setOpen(null);
+    }
+    editor.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => {
+      editor.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      priorFocus?.focus();
+    };
   }, [open, transactionType]);
 
   function wallet(data: FormData) {
@@ -44,19 +54,20 @@ export function DashboardActions({ wallets, categories, canManageWallets }: { wa
 
   function transaction(data: FormData) {
     start(async () => {
-      const result = await addTransactionAction({ walletId: data.get("walletId"), toWalletId: data.get("toWalletId") || undefined, categoryId: data.get("categoryId") || undefined, type: data.get("type"), amount: data.get("amount"), description: data.get("description") || undefined, date: data.get("date") });
+      const categoryId = data.get("categoryId");
+      const result = await addTransactionAction({ walletId: data.get("walletId"), toWalletId: data.get("toWalletId") || undefined, categoryId: categoryId === "none" ? undefined : categoryId || undefined, type: data.get("type"), amount: data.get("amount"), description: data.get("description") || undefined, date: data.get("date") });
       setMessage(result.ok ? "Đã gửi giao dịch để xác nhận." : result.message ?? "Không thể lưu giao dịch.");
       if (result.ok) setOpen(null);
     });
   }
 
   return <>
-    <div className="ledger-create-actions">
+    <div ref={actionsRef} className="ledger-create-actions">
       <button disabled={!canManageWallets} aria-label="Thêm ví" title={canManageWallets ? "Thêm ví" : "Chỉ Admin được quản lý ví"} onClick={() => setOpen("wallet")} className="button-secondary icon-button"><WalletCards size={18}/></button>
       <button aria-label="Thêm giao dịch" title="Thêm giao dịch" onClick={() => setOpen("transaction")} className="button-primary icon-button"><Plus size={19}/></button>
     </div>
     {message && <p className="ledger-action-message" role="status">{message}</p>}
-    {open && <div ref={dialogRef} className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="dashboard-action-title">
+    {open && <div ref={editorRef} className={`ledger-inline-editor ledger-inline-editor-${open}`} role="region" aria-labelledby="dashboard-action-title">
       <form action={open === "wallet" ? wallet : transaction} className="sunrise-card dialog-card">
         <div><p className="public-eyebrow">{open === "wallet" ? "Quản lý ví" : "Sổ giao dịch"}</p><h2 id="dashboard-action-title">{open === "wallet" ? "Thêm ví" : "Thêm giao dịch"}</h2></div>
         {open === "wallet" ? <>
@@ -64,12 +75,12 @@ export function DashboardActions({ wallets, categories, canManageWallets }: { wa
           <Field name="openingBalance" label="Số dư đầu kỳ" inputMode="decimal" />
           <Field name="description" label="Ghi chú" required={false} />
         </> : <>
-          <label>Loại giao dịch<select required name="type" className="field" value={transactionType} onChange={(event) => setTransactionType(event.target.value as TransactionType)}><option value="expense">Chi tiêu</option><option value="income">Thu nhập</option><option value="transfer">Chuyển khoản</option></select></label>
-          <label>Ví thực hiện<select required name="walletId" className="field" defaultValue=""><option value="" disabled>Chọn ví</option>{wallets.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-          {transactionType === "transfer" && <label>Ví nhận<select required name="toWalletId" className="field" defaultValue=""><option value="" disabled>Chọn ví nhận</option>{wallets.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
-          <label>Danh mục<select name="categoryId" className="field" defaultValue=""><option value="">Không chọn danh mục</option>{categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label>Loại giao dịch<FinanceSelect required name="type" label="Loại giao dịch" value={transactionType} onValueChange={(value) => setTransactionType(value as TransactionType)} options={[{ value: "expense", label: "Chi tiêu" }, { value: "income", label: "Thu nhập" }, { value: "transfer", label: "Chuyển khoản" }]} /></label>
+          <label>Ví thực hiện<FinanceSelect required name="walletId" label="Ví thực hiện" defaultValue={wallets[0]?.id} placeholder="Chọn ví" disabled={!wallets.length} options={wallets.map((item) => ({ value: item.id, label: item.name }))} /></label>
+          {transactionType === "transfer" && <label>Ví nhận<FinanceSelect required name="toWalletId" label="Ví nhận" defaultValue={wallets[1]?.id ?? wallets[0]?.id} placeholder="Chọn ví nhận" disabled={!wallets.length} options={wallets.map((item) => ({ value: item.id, label: item.name }))} /></label>}
+          <label>Danh mục<FinanceSelect name="categoryId" label="Danh mục" defaultValue="none" options={[{ value: "none", label: "Không chọn danh mục" }, ...categories.map((item) => ({ value: item.id, label: item.name }))]} /></label>
           <Field name="amount" label="Số tiền" inputMode="decimal" />
-          <label>Ngày giao dịch<input required name="date" type="date" className="field" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
+          <label>Ngày giao dịch<DatePickerField required name="date" label="Ngày giao dịch" /></label>
           <Field name="description" label="Nội dung" required={false} />
         </>}
         <div className="dialog-actions"><button type="button" onClick={() => setOpen(null)} className="button-secondary">Hủy</button><button disabled={pending} className="button-primary">{pending ? "Đang lưu" : "Lưu"}</button></div>
@@ -118,16 +129,16 @@ export function Ledger({ transactions, canApprove, monthLabel, wallets, categori
     <div className="ledger-shell">
       <div className="ledger-toolbar">
         <label className="ledger-search"><Search size={16}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm giao dịch" aria-label="Tìm giao dịch hoặc ghi chú"/></label>
-        <select value={status} onChange={(event) => setStatus(event.target.value)} className="ledger-status" aria-label="Lọc trạng thái"><option value="all">Tất cả</option><option value="approved">Đã ghi nhận</option><option value="pending">Chờ xác nhận</option><option value="rejected">Đã từ chối</option></select>
+        <FinanceSelect value={status} onValueChange={setStatus} className="ledger-status" label="Lọc trạng thái" options={[{ value: "all", label: "Tất cả" }, { value: "approved", label: "Đã ghi nhận" }, { value: "pending", label: "Chờ xác nhận" }, { value: "rejected", label: "Đã từ chối" }]} />
         <button className="button-secondary icon-button" onClick={exportCsv} title="Xuất CSV" aria-label="Xuất CSV"><Download size={16}/></button>
         {canApprove && <button className="button-secondary icon-button ledger-delete-button" disabled={!selected.size || busy} onClick={() => setConfirmDelete(true)} title={selected.size ? `Xóa ${selected.size} giao dịch đã chọn` : "Chọn giao dịch để xóa"} aria-label="Xóa giao dịch đã chọn"><Trash2 size={16}/></button>}
         {!readonly && <DashboardActions wallets={wallets} categories={categories} canManageWallets={canManageWallets}/>}
       </div>
+      {confirmDelete && <section className="ledger-confirm-panel" aria-labelledby="delete-transactions-title"><div><p className="public-eyebrow">Thao tác không thể hoàn tác trực tiếp</p><h2 id="delete-transactions-title">Xóa {selected.size} giao dịch?</h2><p>Giao dịch đã ghi nhận sẽ được hoàn tác khỏi số dư ví.</p></div><div className="dialog-actions"><button type="button" autoFocus disabled={busy} onClick={() => setConfirmDelete(false)} className="button-secondary">Hủy</button><button type="button" disabled={busy} onClick={remove} className="button-danger">{busy ? "Đang xóa" : "Xác nhận xóa"}</button></div></section>}
       {message && <p className="ledger-inline-message" role="status">{message}</p>}
       <div className="ledger-scroll-area"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--text-muted)]">{canApprove && <th className="w-10"><input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Chọn tất cả giao dịch đang hiển thị"/></th>}<th>Giao dịch</th><th>Danh mục</th><th>Ví</th><th>Ngày</th><th className="text-right">Số tiền</th><th>Trạng thái</th><th></th></tr></thead><tbody>{rows.map((item, index) => <tr key={item.id} className="border-b border-[var(--border)]">{canApprove && <td><input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/></td>}<td><p className="font-medium">{item.description || "Không có nội dung"}</p><p className="mt-1 text-xs text-[var(--text-muted)]">#{String(transactions.length - index).padStart(5, "0")} · {item.member}</p></td><td>{item.category ? <span className="category-tag" style={{ backgroundColor: `${item.category.color}22`, color: item.category.color }}>{item.category.name}</span> : "—"}</td><td>{item.wallet}</td><td>{new Date(item.date).toLocaleDateString("vi-VN")}</td><td className={`ledger-amount amount-${item.type}`}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} ₫</td><td><Status value={item.status}/></td><td>{canApprove && item.status === "pending" && <button disabled={busy} onClick={() => start(async () => { const result = await approveTransactionAction(item.id); setMessage(result.ok ? "Đã duyệt giao dịch." : result.message ?? "Không thể duyệt giao dịch."); })} className="button-secondary text-xs">Duyệt</button>}</td></tr>)}{rows.length === 0 && <tr><td colSpan={canApprove ? 8 : 7} className="p-10 text-center text-[var(--text-muted)]">Chưa có giao dịch phù hợp.</td></tr>}</tbody></table></div>
       <p className="ledger-record-count">Hiển thị {rows.length} giao dịch trong {monthLabel}.</p>
     </div>
-    {confirmDelete && <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="delete-transactions-title"><section className="sunrise-card confirm-card"><p className="public-eyebrow">Thao tác không thể hoàn tác trực tiếp</p><h2 id="delete-transactions-title">Xóa {selected.size} giao dịch?</h2><p>Giao dịch đã ghi nhận sẽ được hoàn tác khỏi số dư ví.</p><div className="dialog-actions"><button type="button" autoFocus disabled={busy} onClick={() => setConfirmDelete(false)} className="button-secondary">Hủy</button><button type="button" disabled={busy} onClick={remove} className="button-danger">{busy ? "Đang xóa" : "Xác nhận xóa"}</button></div></section></div>}
   </>;
 }
 
