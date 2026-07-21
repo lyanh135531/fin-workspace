@@ -12,7 +12,7 @@ export async function requireWorkspaceMember(userId: string, workspaceId: string
       workspace: { status: "active", deletedAt: null },
       role: requireAdmin ? { code: "ADMIN" } : undefined,
     },
-    include: { role: true },
+    include: { role: true, workspace: { include: { monthlyRecord: true } } },
   });
   if (!member) throw new AppError("FORBIDDEN", "You do not have access to this workspace.");
   return member;

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { currentExpensePeriod } from "@/services/monthly-workspace-service";
+import { activateDueScheduledTransactions } from "@/services/transaction-service";
 
 function recentPeriods(count: number) {
   const [year, month] = currentExpensePeriod().split("-").map(Number);
@@ -27,6 +28,7 @@ export default async function OverviewPage() {
     include: { workspace: true },
   });
   if (!membership) return <p>Không có workspace đang hoạt động.</p>;
+  await activateDueScheduledTransactions(workspaceId);
 
   const periods = recentPeriods(12);
   const [walletLinks, categories, members, transactions, monthlyWorkspaces] = await Promise.all([

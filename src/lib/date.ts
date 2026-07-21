@@ -7,6 +7,10 @@ export function getCurrentBusinessDate(now = new Date()): string {
   return formatInTimeZone(now, env.APP_TIME_ZONE, BUSINESS_DATE_FORMAT);
 }
 
+export function getBusinessDateInTimeZone(timeZone: string, now = new Date()): string {
+  return formatInTimeZone(now, timeZone, BUSINESS_DATE_FORMAT);
+}
+
 export function isPastBusinessDate(date: string, now = new Date()): boolean {
   return date < getCurrentBusinessDate(now);
 }

@@ -36,6 +36,9 @@ export const createTransactionSchema = z
         message: "The source and destination wallets must be different.",
       });
     }
+
   });
 
 export type CreateTransactionInput = z.output<typeof createTransactionSchema>;
+
+export const changeReasonSchema = z.string().trim().max(2_000).optional().transform((reason) => reason || "Đã thông báo");

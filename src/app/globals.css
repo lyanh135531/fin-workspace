@@ -148,10 +148,33 @@ html[data-mode="dark"] .text-slate-500,html[data-mode="dark"] .text-slate-600 { 
 .dashboard-summary-content { position:static; width:100%; padding:1.1rem; border:1px solid var(--border); border-radius:1rem; background:var(--surface); box-shadow:0 8px 22px var(--shadow); opacity:1; pointer-events:auto; transform:none; }
 .dashboard-summary-rail { display:none; opacity:1; }
 .ledger-create-actions { display:flex; flex:0 0 auto; gap:.45rem; margin-left:auto; }
+.ledger-wallet-action,.ledger-edit-actions { display:flex; align-items:center; gap:.45rem; }
+.ledger-edit-actions button { display:inline-flex; align-items:center; gap:.35rem; min-height:2rem; padding:.4rem .65rem; }
 .ledger-action-message,.ledger-inline-message { margin:0; color:var(--text-secondary); font-size:.78rem; }
 .ledger-toolbar>.ledger-action-message { display:block; flex-basis:100%; order:5; padding:.15rem 0; }
 .ledger-inline-message { border-bottom:1px solid var(--border); padding:.55rem .75rem; }
 .ledger-delete-button { color:var(--danger); }
+.ledger-row-actions { display:flex; align-items:center; justify-content:flex-end; gap:.35rem; white-space:nowrap; }
+.ledger-row-actions .icon-button { min-width:2rem; min-height:2rem; padding:.4rem; }
+.ledger-change-pending { display:block; margin-top:.3rem; color:var(--pending); font-size:.64rem; font-weight:650; white-space:nowrap; }
+.ledger-reason { width:min(100%,30rem); min-height:4.5rem; margin-top:.65rem; resize:vertical; }
+.ledger-edit-reason-bar { display:flex; align-items:end; gap:1rem; border-bottom:1px solid var(--border); background:var(--surface-secondary); padding:.65rem .75rem; }
+.ledger-edit-reason-bar label { display:grid; width:min(100%,28rem); gap:.3rem; color:var(--text-secondary); font-size:.72rem; font-weight:650; }
+.ledger-edit-reason-bar input { min-height:2.25rem; padding:.45rem .65rem; }
+.ledger-edit-reason-bar span { padding-bottom:.5rem; color:var(--text-muted); font-size:.7rem; }
+.ledger-draft-row { background:color-mix(in srgb,var(--primary) 4%,var(--surface)); }
+.ledger-draft-row td { padding:.55rem .45rem; }
+.ledger-draft-row.disabled { background:var(--surface-secondary); opacity:.68; }
+.ledger-cell-input { width:100%; min-width:7.5rem; min-height:2.3rem; border:1px solid var(--border); border-radius:.55rem; background:var(--surface); padding:.45rem .55rem; color:var(--text-primary); font-size:.78rem; outline:0; }
+.ledger-cell-input:hover { border-color:var(--border-strong); }
+.ledger-cell-input:focus { border-color:var(--primary); box-shadow:0 0 0 2px color-mix(in srgb,var(--focus-ring) 28%,transparent); }
+.ledger-cell-input:disabled { cursor:not-allowed; background:var(--surface-secondary); color:var(--text-muted); }
+.ledger-date-input { min-width:8.8rem; color-scheme:light; }
+html[data-mode="dark"] .ledger-date-input { color-scheme:dark; }
+.ledger-amount-input { min-width:7rem; text-align:right; font-variant-numeric:tabular-nums; }
+.ledger-wallet-fields { display:grid; min-width:9rem; gap:.35rem; }
+.ledger-draft-row .finance-select-trigger { width:100%; min-width:7.5rem; min-height:2.3rem; background:var(--surface); font-size:.76rem; }
+.ledger-draft-row td:nth-last-child(2) { white-space:nowrap; }
 .ledger-amount { text-align:right; font-weight:650; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .ledger-amount.amount-income { color:var(--income); }
 .ledger-amount.amount-expense { color:var(--expense); }
@@ -215,6 +238,9 @@ html[data-mode="dark"] .text-slate-500,html[data-mode="dark"] .text-slate-600 { 
   .ledger-inline-editor,.ledger-inline-editor-transaction { right:.5rem; width:calc(100% - 1rem); }
   .ledger-inline-editor .dialog-card,.ledger-inline-editor-transaction .dialog-card { width:100%; max-height:min(32rem,calc(100dvh - 8rem)); grid-template-columns:1fr; padding:1rem; }
   .ledger-inline-editor .dialog-card>div:first-child,.ledger-inline-editor .dialog-actions { grid-column:auto; }
+  .ledger-edit-reason-bar { align-items:stretch; flex-direction:column; gap:.35rem; }
+  .ledger-edit-reason-bar label { width:100%; }
+  .ledger-edit-reason-bar span { padding-bottom:0; }
   .ledger-confirm-panel { align-items:flex-start; flex-direction:column; }
   .ledger-confirm-panel .dialog-actions { width:100%; justify-content:flex-end; }
   .dialog-card,.confirm-card { width:100%; max-height:92dvh; overflow:auto; padding:1.25rem; }

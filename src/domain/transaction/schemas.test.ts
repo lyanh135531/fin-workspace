@@ -21,4 +21,8 @@ describe("createTransactionSchema", () => {
   it("accepts fixed system category identifiers", () => {
     expect(createTransactionSchema.parse({ walletId, categoryId: "00000000-0000-0000-0000-000000000201", type: "expense", amount: "10", date: "2026-07-17" }).categoryId).toBe("00000000-0000-0000-0000-000000000201");
   });
+
+  it("always requires a transaction date", () => {
+    expect(() => createTransactionSchema.parse({ walletId, type: "expense", amount: "10" })).toThrow();
+  });
 });

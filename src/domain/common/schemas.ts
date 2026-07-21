@@ -9,7 +9,7 @@ export const businessDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date 
 
 export const statusSchema = z.enum(["active", "deactive"]);
 export const transactionTypeSchema = z.enum(["income", "expense", "transfer"]);
-export const workflowStatusSchema = z.enum(["pending", "approved", "rejected"]);
+export const workflowStatusSchema = z.enum(["pending", "scheduled", "approved", "rejected"]);
 
 export type Status = z.infer<typeof statusSchema>;
 export type TransactionType = z.infer<typeof transactionTypeSchema>;

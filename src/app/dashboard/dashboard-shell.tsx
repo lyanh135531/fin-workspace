@@ -9,11 +9,13 @@ import { DashboardHeaderSubtitle } from "@/app/dashboard/dashboard-header-subtit
 import { SidebarToggle } from "@/app/dashboard/sidebar-toggle";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { activateDueScheduledTransactions } from "@/services/transaction-service";
 
 export async function DashboardShell({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
   const activeWorkspaceId = userId ? await resolveActiveWorkspaceId(userId) : null;
+  if (activeWorkspaceId) await activateDueScheduledTransactions(activeWorkspaceId);
   const [membership, workspaces, archivedWorkspaces] = userId ? await Promise.all([
     activeWorkspaceId ? prisma.workspaceMember.findFirst({ where: { userId, workspaceId: activeWorkspaceId, status: "active", deletedAt: null, workspace: { status: "active", deletedAt: null } }, include: { workspace: true, role: true } }) : null,
     prisma.workspaceMember.findMany({ where: { userId, status: "active", deletedAt: null, workspace: { status: "active", deletedAt: null } }, include: { workspace: { select: { id: true, name: true } }, role: { select: { code: true } } }, orderBy: { workspace: { name: "asc" } } }),
