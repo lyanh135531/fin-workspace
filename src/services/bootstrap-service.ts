@@ -5,8 +5,8 @@ import { prisma } from "@/lib/prisma";
 export async function createInitialAdmin(username: string, password: string, workspaceName: string) {
   return prisma.$transaction(async (tx) => {
     if (await tx.user.count()) throw new AppError("CONFLICT", "Initial setup has already been completed.");
-    const role = await tx.role.findUnique({ where: { code: "ADMIN" } });
-    if (!role) throw new AppError("NOT_FOUND", "The ADMIN role is missing.");
+    const role = await tx.role.findUnique({ where: { code: "OWNER" } });
+    if (!role) throw new AppError("NOT_FOUND", "The OWNER role is missing.");
     const user = await tx.user.create({ data: { username, passwordHash: await argon2.hash(password) } });
     const workspace = await tx.workspace.create({ data: { name: workspaceName } });
     await tx.workspaceMember.create({ data: { userId: user.id, workspaceId: workspace.id, roleId: role.id } });

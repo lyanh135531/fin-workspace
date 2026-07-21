@@ -31,8 +31,10 @@ export async function ensureCurrentMonthlyWorkspace(userId: string, now = new Da
       return existing.workspaceId;
     }
 
-    const role = await tx.role.findUnique({ where: { code: "ADMIN" } });
-    if (!role) throw new AppError("NOT_FOUND", "The ADMIN role is missing.");
+    const ownsWorkspace = await tx.workspaceMember.count({ where: { userId, status: "active", deletedAt: null, role: { code: "OWNER" } } });
+    const creatorRole = ownsWorkspace ? "OWNER" : "ADMIN";
+    const role = await tx.role.findUnique({ where: { code: creatorRole } });
+    if (!role) throw new AppError("NOT_FOUND", `The ${creatorRole} role is missing.`);
     const workspace = await tx.workspace.create({ data: { name: expenseWorkspaceName(period), description: `Theo dõi chi tiêu tháng ${period}`, baseCurrency: "VND", timeZone, approvalRequired: true } });
     await tx.workspaceMember.create({ data: { workspaceId: workspace.id, userId, roleId: role.id } });
     await tx.monthlyWorkspace.create({ data: { userId, period, workspaceId: workspace.id } });

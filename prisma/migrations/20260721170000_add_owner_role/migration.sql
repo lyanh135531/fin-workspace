@@ -1,0 +1,3 @@
+INSERT INTO "ROLE" ("id", "name", "code")
+VALUES ('00000000-0000-0000-0000-000000000003', 'Owner', 'OWNER')
+ON CONFLICT ("code") DO UPDATE SET "name" = EXCLUDED."name";

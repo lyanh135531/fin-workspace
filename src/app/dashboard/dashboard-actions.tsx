@@ -150,7 +150,7 @@ function Field({ name, label, required = true, inputMode }: { name: string; labe
   return <label>{label}<input required={required} name={name} inputMode={inputMode} className="field"/></label>;
 }
 
-export function Ledger({ transactions, canApprove, isAdmin, monthLabel, wallets, categories, canManageWallets, readonly = false }: { transactions: LedgerItem[]; canApprove: boolean; isAdmin: boolean; monthLabel: string; wallets: Option[]; categories: Option[]; canManageWallets: boolean; readonly?: boolean }) {
+export function Ledger({ workspaceId, transactions, canApprove, canEditTransactions, isAdmin, monthLabel, wallets, categories, canManageWallets, readonly = false }: { workspaceId: string; transactions: LedgerItem[]; canApprove: boolean; canEditTransactions: boolean; isAdmin: boolean; monthLabel: string; wallets: Option[]; categories: Option[]; canManageWallets: boolean; readonly?: boolean }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -223,7 +223,7 @@ export function Ledger({ transactions, canApprove, isAdmin, monthLabel, wallets,
     });
     if (!changes.length) { setMessage("Không có thay đổi để lưu."); cancelEdit(); return; }
     start(async () => {
-      const result = await updateTransactionsAction(changes, editReason);
+      const result = await updateTransactionsAction(workspaceId, changes, editReason);
       setMessage(result.ok ? (result.requested ? `Đã gửi ${result.requested} yêu cầu sửa đến Admin.` : `Đã lưu ${result.updated} giao dịch.`) : result.message ?? "Không thể lưu các thay đổi.");
       if (result.ok || (result.updated ?? 0) + (result.requested ?? 0) > 0) cancelEdit();
     });
@@ -235,7 +235,7 @@ export function Ledger({ transactions, canApprove, isAdmin, monthLabel, wallets,
       <FinanceSelect value={status} onValueChange={setStatus} disabled={editMode} className="ledger-status" label="Lọc trạng thái" options={[{ value: "all", label: "Tất cả" }, { value: "approved", label: "Đã ghi nhận" }, { value: "pending", label: "Chờ xác nhận" }, { value: "scheduled", label: "Đã lên lịch" }, { value: "rejected", label: "Đã từ chối" }]}/>
       <button className="button-secondary icon-button" disabled={editMode} onClick={exportCsv} title="Xuất CSV" aria-label="Xuất CSV"><Download size={16}/></button>
       {canApprove && <button className="button-secondary icon-button ledger-delete-button" disabled={editMode || !selected.size || busy} onClick={() => setConfirmBulkDelete(true)} title={selected.size ? `Xóa ${selected.size} giao dịch đã chọn` : "Chọn giao dịch để xóa"} aria-label="Xóa giao dịch đã chọn"><Trash2 size={16}/></button>}
-      {!readonly && (editMode ? <div className="ledger-edit-actions"><button className="button-secondary" disabled={busy} onClick={cancelEdit}><X size={15}/>Hủy</button><button className="button-primary" disabled={busy} onClick={saveEdits}><Check size={15}/>{busy ? "Đang lưu" : "Lưu"}</button></div> : <button className="button-secondary icon-button" disabled={busy || !transactions.length || Boolean(createDraft)} onClick={beginEdit} title="Chỉnh sửa tất cả giao dịch" aria-label="Chỉnh sửa tất cả giao dịch"><Pencil size={16}/></button>)}
+      {canEditTransactions && (editMode ? <div className="ledger-edit-actions"><button className="button-secondary" disabled={busy} onClick={cancelEdit}><X size={15}/>Hủy</button><button className="button-primary" disabled={busy} onClick={saveEdits}><Check size={15}/>{busy ? "Đang lưu" : "Lưu"}</button></div> : <button className="button-secondary icon-button" disabled={busy || !transactions.length || Boolean(createDraft)} onClick={beginEdit} title="Chỉnh sửa tất cả giao dịch" aria-label="Chỉnh sửa tất cả giao dịch"><Pencil size={16}/></button>)}
       {!readonly && <div className="ledger-create-actions"><WalletAction canManageWallets={canManageWallets}/><button aria-label="Thêm giao dịch" title="Thêm giao dịch" disabled={busy || editMode || Boolean(createDraft) || !wallets.length} onClick={beginCreate} className="button-primary icon-button"><Plus size={19}/></button></div>}
     </div>
     {confirmBulkDelete && <ConfirmDelete count={selected.size} busy={busy} onCancel={() => setConfirmBulkDelete(false)} onConfirm={removeBulk}/>}

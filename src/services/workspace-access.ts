@@ -1,7 +1,8 @@
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
+import { ADMIN_ROLE_CODES } from "@/domain/role-policy";
 
-export async function requireWorkspaceMember(userId: string, workspaceId: string, requireAdmin = false) {
+export async function requireWorkspaceMember(userId: string, workspaceId: string, requireAdmin = false, allowArchived = false) {
   const member = await prisma.workspaceMember.findFirst({
     where: {
       userId,
@@ -9,8 +10,8 @@ export async function requireWorkspaceMember(userId: string, workspaceId: string
       status: "active",
       deletedAt: null,
       user: { status: "active", deletedAt: null },
-      workspace: { status: "active", deletedAt: null },
-      role: requireAdmin ? { code: "ADMIN" } : undefined,
+      workspace: allowArchived ? { deletedAt: null } : { status: "active", deletedAt: null },
+      role: requireAdmin ? { code: { in: [...ADMIN_ROLE_CODES] } } : undefined,
     },
     include: { role: true, workspace: { include: { monthlyRecord: true } } },
   });

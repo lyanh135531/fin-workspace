@@ -1,4 +1,5 @@
 import { AppError } from "@/lib/errors";
+import { isAdminRole } from "@/domain/role-policy";
 
 export type TransactionTiming = "past" | "now" | "future";
 
@@ -15,7 +16,7 @@ export function validateTransactionDate(date: string, monthlyPeriod?: string) {
 
 export function workflowStatusForCreation(roleCode: string, timing: TransactionTiming) {
   if (timing === "future") return "scheduled" as const;
-  if (timing === "past" && roleCode !== "ADMIN") return "pending" as const;
+  if (timing === "past" && !isAdminRole(roleCode)) return "pending" as const;
   return "approved" as const;
 }
 

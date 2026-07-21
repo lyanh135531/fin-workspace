@@ -21,6 +21,7 @@ import {
 import { idSchema } from "@/domain/common/schemas";
 import { createWalletForWorkspace } from "@/services/wallet-service";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { requireWorkspaceMember } from "@/services/workspace-access";
 
 async function actor() {
   const session = await getServerSession(authOptions);
@@ -49,10 +50,18 @@ export async function approveTransactionAction(transactionId: string) {
   catch (error) { debug("transaction.approve_failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to approve transaction." }; }
 }
 
-export async function updateTransactionAction(transactionId: string, input: unknown, reason?: unknown) {
+async function workspaceActor(workspaceIdInput: unknown) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new AppError("AUTHENTICATION_REQUIRED", "Please sign in.");
+  const workspaceId = idSchema.parse(workspaceIdInput);
+  await requireWorkspaceMember(session.user.id, workspaceId, false, true);
+  return { userId: session.user.id, workspaceId };
+}
+
+export async function updateTransactionAction(workspaceId: string, transactionId: string, input: unknown, reason?: unknown) {
   const requestId = crypto.randomUUID();
   try {
-    const user = await actor();
+    const user = await workspaceActor(workspaceId);
     const result = await updateTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId), createTransactionSchema.parse(input), changeReasonSchema.parse(reason));
     debug("transaction.update_processed", { requestId, transactionId, result: result.kind, workspaceId: user.workspaceId });
     revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview");
@@ -68,10 +77,10 @@ const updateTransactionsSchema = z.array(z.object({
   input: createTransactionSchema,
 })).min(1).max(100);
 
-export async function updateTransactionsAction(input: unknown, reason?: unknown) {
+export async function updateTransactionsAction(workspaceId: string, input: unknown, reason?: unknown) {
   const requestId = crypto.randomUUID();
   try {
-    const user = await actor();
+    const user = await workspaceActor(workspaceId);
     const changes = updateTransactionsSchema.parse(input);
     const normalizedReason = changeReasonSchema.parse(reason);
     let updated = 0;

@@ -8,6 +8,7 @@ import { WorkspaceSettings } from "@/app/dashboard/settings/workspace-settings";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { manageableCategoryWhere } from "@/services/category-visibility";
+import { isAdminRole } from "@/domain/role-policy";
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
@@ -16,7 +17,7 @@ export default async function SettingsPage() {
   if (!workspaceId) redirect("/overview");
   const membership = await prisma.workspaceMember.findFirst({ where: { userId: session.user.id, workspaceId, status: "active", deletedAt: null }, include: { workspace: { include: { monthlyRecord: true } }, role: true } });
   if (!membership) redirect("/overview");
-  const isAdmin = membership.role.code === "ADMIN";
+  const isAdmin = isAdminRole(membership.role.code);
   const [roles, members, categories] = await Promise.all([
     prisma.role.findMany({ select: { code: true, name: true }, orderBy: { code: "asc" } }),
     prisma.workspaceMember.findMany({ where: { workspaceId, status: "active", deletedAt: null }, include: { user: { select: { username: true } }, role: { select: { code: true } } }, orderBy: { user: { username: "asc" } } }),

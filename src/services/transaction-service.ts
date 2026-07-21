@@ -1,6 +1,7 @@
 import Decimal from "decimal.js";
 import { Prisma, type Transaction } from "@/generated/prisma/client";
 import { createTransactionSchema, type CreateTransactionInput } from "@/domain";
+import { isAdminRole, isOwnerRole } from "@/domain/role-policy";
 import { transactionTimingForDate, validateTransactionDate, workflowStatusForAppliedDate, workflowStatusForCreation, type TransactionTiming } from "@/domain/transaction/policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { AppError } from "@/lib/errors";
@@ -230,12 +231,18 @@ export async function updateTransaction(
   reason: string,
   now = new Date(),
 ) {
-  const member = await requireWorkspaceMember(userId, workspaceId);
-  const resolved = resolveTransactionInput(input, member.workspace.timeZone, now, member.workspace.monthlyRecord?.period);
+  const member = await requireWorkspaceMember(userId, workspaceId, false, true);
+  const archived = member.workspace.status === "deactive";
+  if (archived && (!member.workspace.monthlyRecord || !isOwnerRole(member.role.code))) {
+    throw new AppError("FORBIDDEN", "Chỉ Owner được chỉnh sửa giao dịch trong workspace quá khứ.");
+  }
   return prisma.$transaction(async (tx) => {
     const record = await findWorkspaceTransaction(tx, workspaceId, transactionId);
+    const existingDate = asBusinessDate(record.date);
+    const monthlyPeriod = input.date === existingDate ? undefined : member.workspace.monthlyRecord?.period;
+    const resolved = resolveTransactionInput(input, member.workspace.timeZone, now, monthlyPeriod);
     await requireMutationResources(tx, workspaceId, resolved);
-    if (member.role.code === "ADMIN") {
+    if (isAdminRole(member.role.code)) {
       const updated = await applyUpdate(tx, workspaceId, record, resolved, member.workspace.timeZone, now);
       await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.updated", entityType: "transaction", entityId: record.id, metadata: { previous: transactionSnapshot(record) } } });
       return { kind: "updated" as const, id: updated.id };
@@ -253,7 +260,7 @@ export async function deleteOrRequestTransaction(userId: string, workspaceId: st
   const member = await requireWorkspaceMember(userId, workspaceId);
   return prisma.$transaction(async (tx) => {
     const record = await findWorkspaceTransaction(tx, workspaceId, transactionId);
-    if (member.role.code === "ADMIN") {
+    if (isAdminRole(member.role.code)) {
       await softDelete(tx, record);
       await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.deleted", entityType: "transaction", entityId: record.id, metadata: { workflowStatus: record.workflowStatus, balanceReversed: record.workflowStatus === "approved" } } });
       return { kind: "deleted" as const, id: record.id };

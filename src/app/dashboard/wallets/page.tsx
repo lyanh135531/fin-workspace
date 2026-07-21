@@ -5,6 +5,7 @@ import { authOptions } from "@/auth";
 import { WalletManagement } from "@/app/dashboard/wallets/wallet-management";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { isAdminRole } from "@/domain/role-policy";
 
 export default async function WalletsPage() {
   const session = await getServerSession(authOptions);
@@ -25,7 +26,7 @@ export default async function WalletsPage() {
   return <WalletManagement
     workspace={{ name: membership.workspace.name, currency: membership.workspace.baseCurrency }}
     totalBalance={totalBalance.toString()}
-    isAdmin={membership.role.code === "ADMIN"}
+    isAdmin={isAdminRole(membership.role.code)}
     wallets={links.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, description: wallet.description, openingBalance: wallet.openingBalance.toString(), currentBalance: wallet.currentBalance.toString(), status: wallet.status, transactionCount: wallet._count.sourceTransactions + wallet._count.destinationTransactions, updatedAt: wallet.updatedAt.toISOString() }))}
   />;
 }

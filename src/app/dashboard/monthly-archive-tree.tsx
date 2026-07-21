@@ -4,7 +4,7 @@ import { Archive, ChevronDown, ChevronRight } from "lucide-react";
 import { useId, useState } from "react";
 import { usePathname } from "next/navigation";
 
-type ArchivedWorkspace = { id: string; name: string };
+type ArchivedWorkspace = { id: string; name: string; role: string };
 
 export function MonthlyArchiveTree({ workspaces }: { workspaces: ArchivedWorkspace[] }) {
   const pathname = usePathname();
@@ -21,7 +21,7 @@ export function MonthlyArchiveTree({ workspaces }: { workspaces: ArchivedWorkspa
       {workspaces.map((workspace) => <a key={workspace.id} href={`/workspace/${workspace.id}`} className={`workspace-tree-item ${pathname === `/workspace/${workspace.id}` ? "workspace-tree-current" : ""}`} aria-current={pathname === `/workspace/${workspace.id}` ? "page" : undefined}>
         <span className="workspace-tree-branch" aria-hidden="true"/>
         <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
-        <small>Chỉ xem</small>
+        <small>{workspace.role === "OWNER" ? "Owner · có thể sửa" : "Chỉ xem"}</small>
       </a>)}
     </div>}
   </div>;
