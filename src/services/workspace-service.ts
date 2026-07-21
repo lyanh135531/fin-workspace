@@ -23,3 +23,15 @@ export async function updateWorkspaceSettings(userId: string, workspaceId: strin
     return workspace;
   });
 }
+
+export async function deleteWorkspaceForUser(userId: string, workspaceId: string) {
+  await requireWorkspaceMember(userId, workspaceId, true);
+  return prisma.$transaction(async (tx) => {
+    const workspace = await tx.workspace.findUnique({ where: { id: workspaceId }, include: { monthlyRecord: true } });
+    if (!workspace || workspace.deletedAt) throw new AppError("NOT_FOUND", "Workspace was not found.");
+    if (workspace.monthlyRecord) throw new AppError("FORBIDDEN", "Monthly expense workspaces cannot be deleted. Older months are read-only archives.");
+    await tx.workspace.update({ where: { id: workspaceId }, data: { status: "deactive", deletedAt: new Date() } });
+    await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "workspace.deleted", entityType: "workspace", entityId: workspaceId, metadata: { softDeleted: true } } });
+    return workspace;
+  });
+}

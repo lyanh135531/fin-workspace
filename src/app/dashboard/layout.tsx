@@ -1,22 +1,3 @@
-import { getServerSession } from "next-auth";
-import { LayoutDashboard, Settings, SlidersHorizontal } from "lucide-react";
-import { authOptions } from "@/auth";
-import { ThemeToggle } from "@/app/theme-toggle";
-import { WorkspaceNotifications } from "@/app/dashboard/workspace-notifications";
-import { WorkspaceSwitcher } from "@/app/dashboard/workspace-switcher";
-import { SidebarToggle } from "@/app/dashboard/sidebar-toggle";
-import { prisma } from "@/lib/prisma";
-import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { DashboardShell } from "@/app/dashboard/dashboard-shell";
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-  const activeWorkspaceId = userId ? await resolveActiveWorkspaceId(userId) : null;
-  const [membership, workspaces] = userId ? await Promise.all([
-    activeWorkspaceId ? prisma.workspaceMember.findFirst({ where: { userId, workspaceId: activeWorkspaceId, status: "active", deletedAt: null, workspace: { status: "active", deletedAt: null } }, include: { workspace: true, role: true } }) : null,
-    prisma.workspaceMember.findMany({ where: { userId, status: "active", deletedAt: null, workspace: { status: "active", deletedAt: null } }, include: { workspace: { select: { id: true, name: true } }, role: { select: { code: true } } }, orderBy: { workspace: { name: "asc" } } }),
-  ]) : [null, []];
-  const isAdmin = membership?.role.code === "ADMIN";
-  const monthLabel = new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
-  return <div className="dashboard-app-shell"><aside className="dashboard-sidebar"><div className="dashboard-brand-row"><div className="dashboard-brand">Sunrise Finance</div><SidebarToggle/></div>{membership && <div className="dashboard-workspace-card"><p>Workspace đang mở</p><strong>{membership.workspace.name}</strong></div>}<nav className="dashboard-nav" aria-label="Điều hướng chính"><a className="nav-item dashboard-nav-link" href="/dashboard"><LayoutDashboard size={17}/><span>Tổng quan</span></a>{membership && <WorkspaceSwitcher currentId={membership.workspaceId} workspaces={workspaces.map((item) => ({ id: item.workspace.id, name: item.workspace.name, role: item.role.code }))} />}<a className="nav-item dashboard-nav-link" href="/dashboard/settings/general"><SlidersHorizontal size={17}/><span>Cài đặt chung</span></a></nav><div className="dashboard-user"><strong>{session?.user?.username}</strong><span>{membership ? (isAdmin ? "Quản trị viên" : "Thành viên") : "Chưa có workspace"}</span></div></aside><div className="dashboard-frame"><header className="dashboard-header"><div><p>{membership?.workspace.name ?? "Fin Workspace"}</p><span>{membership ? `Tổng quan · ${monthLabel}` : "Quản lý tài chính theo workspace"}</span></div><div className="flex items-center gap-2">{membership && <WorkspaceNotifications workspaceId={membership.workspaceId} isAdmin={isAdmin} />} {membership && <a className="button-secondary icon-button" href="/dashboard/settings" title="Cài đặt workspace" aria-label="Cài đặt workspace"><Settings size={18} /></a>}<ThemeToggle /></div></header><main className="dashboard-content">{children}</main><footer className="dashboard-footer"><span>Fin Workspace</span><span>VND · Asia/Ho_Chi_Minh</span></footer></div></div>;
-}
+export default function DashboardLayout({ children }: { children: React.ReactNode }) { return <DashboardShell>{children}</DashboardShell>; }

@@ -7,7 +7,7 @@ import { createTransactionSchema, createWalletSchema } from "@/domain";
 import { debug } from "@/lib/debug";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
-import { approveTransaction, createTransaction, rejectTransaction } from "@/services/transaction-service";
+import { approveTransaction, createTransaction, deleteTransaction, rejectTransaction } from "@/services/transaction-service";
 import { idSchema } from "@/domain/common/schemas";
 import { createWalletForWorkspace } from "@/services/wallet-service";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
@@ -43,4 +43,16 @@ export async function rejectTransactionAction(transactionId: string) {
   const requestId = crypto.randomUUID();
   try { const user = await actor(); await rejectTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId)); debug("transaction.rejected", { requestId, transactionId, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); return { ok: true }; }
   catch (error) { debug("transaction.reject_failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to reject transaction." }; }
+}
+
+export async function deleteTransactionAction(transactionId: string) {
+  const requestId = crypto.randomUUID();
+  try { const user = await actor(); const transaction = await deleteTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId)); debug("transaction.deleted", { requestId, transactionId: transaction.id, workspaceId: user.workspaceId }); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); return { ok: true }; }
+  catch (error) { debug("transaction.delete_failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to delete transaction." }; }
+}
+
+export async function deleteTransactionsAction(transactionIds: unknown) {
+  const requestId = crypto.randomUUID();
+  try { const user = await actor(); const ids = Array.from(new Set(idSchema.array().min(1).max(100).parse(transactionIds))); for (const id of ids) await deleteTransaction(user.userId, user.workspaceId, id); debug("transactions.deleted", { requestId, transactionCount: ids.length, workspaceId: user.workspaceId }); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); return { ok: true, count: ids.length }; }
+  catch (error) { debug("transactions.delete_failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to delete transactions." }; }
 }
