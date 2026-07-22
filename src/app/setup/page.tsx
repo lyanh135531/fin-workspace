@@ -3,8 +3,9 @@
 import { useState, useId, useCallback } from "react";
 import { setupInitialAdmin } from "@/app/setup/actions";
 import {
-  Eye, EyeOff, ShieldCheck, Building2, AlertCircle, CheckCircle2, Lock, User, Briefcase,
+  Eye, EyeOff, ShieldCheck, ShieldAlert, Building2, AlertCircle, CheckCircle2, Lock, User, Briefcase, Check,
 } from "lucide-react";
+import { FinLogo } from "@/components/fin-logo";
 
 /* ── Password strength ─────────────────────────────────────────── */
 type Strength = { score: 0 | 1 | 2 | 3 | 4; label: string; cls: string };
@@ -12,18 +13,18 @@ type Strength = { score: 0 | 1 | 2 | 3 | 4; label: string; cls: string };
 function getStrength(pw: string): Strength {
   if (!pw) return { score: 0, label: "", cls: "" };
   let score = 0;
-  if (pw.length >= 12) score++;
-  if (pw.length >= 16) score++;
+  if (pw.length >= 6) score++;
+  if (pw.length >= 10) score++;
   if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
   if (/\d/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
   const capped = Math.min(4, score) as 0 | 1 | 2 | 3 | 4;
   const map: Record<0 | 1 | 2 | 3 | 4, { label: string; cls: string }> = {
     0: { label: "", cls: "" },
-    1: { label: "Yếu", cls: "strength-weak" },
-    2: { label: "Tạm", cls: "strength-fair" },
+    1: { label: "Cơ bản", cls: "strength-weak" },
+    2: { label: "Khá", cls: "strength-fair" },
     3: { label: "Tốt", cls: "strength-good" },
-    4: { label: "Mạnh", cls: "strength-strong" },
+    4: { label: "Rất mạnh", cls: "strength-strong" },
   };
   return { score: capped, ...map[capped] };
 }
@@ -39,7 +40,7 @@ function barClass(barIndex: number, score: number): string {
 const CHECKLIST = [
   "Tạo tài khoản quản trị viên đầu tiên",
   "Đặt tên cho không gian làm việc",
-  "Thiết lập mật khẩu bảo mật (≥ 12 ký tự)",
+  "Thiết lập mật khẩu bảo mật (≥ 6 ký tự)",
   "Đăng nhập và bắt đầu sử dụng",
 ];
 
@@ -80,6 +81,9 @@ export default function SetupPage() {
     }
   }
 
+  const isMinLength = password.length >= 6;
+  const hasLettersAndNumbers = /[A-Za-z]/.test(password) && /\d/.test(password);
+
   return (
     <main className="auth-split-shell">
       {/* ── Left visual panel ── */}
@@ -90,7 +94,7 @@ export default function SetupPage() {
 
         {/* Brand */}
         <div className="auth-visual-brand">
-          <div className="auth-visual-logo">F</div>
+          <FinLogo size={34} />
           <span className="auth-visual-brand-name">Fin Workspace</span>
         </div>
 
@@ -99,7 +103,7 @@ export default function SetupPage() {
           <p className="auth-visual-tagline">Thiết lập hệ thống</p>
           <h1 className="auth-visual-headline">
             Chỉ mất<br />
-            <em>vài bước</em><br />
+            <em className="auth-headline-accent">vài bước</em><br />
             để bắt đầu.
           </h1>
           <p className="auth-visual-desc">
@@ -111,7 +115,7 @@ export default function SetupPage() {
           <div className="auth-visual-features" style={{ flexDirection: "column", gap: ".65rem", marginTop: "2rem" }}>
             {CHECKLIST.map((item, i) => (
               <span key={i} className="auth-visual-pill" style={{ borderRadius: ".6rem", backdropFilter: "blur(8px)" }}>
-                <CheckCircle2 size={12} strokeWidth={2} />
+                <CheckCircle2 size={14} strokeWidth={2} />
                 {item}
               </span>
             ))}
@@ -126,176 +130,187 @@ export default function SetupPage() {
 
       {/* ── Right form panel ── */}
       <div className="auth-form-panel">
-        <div className="auth-form-inner">
-          {/* Header */}
-          <div className="auth-form-header">
-            <p className="auth-form-eyebrow">Khởi tạo hệ thống</p>
-            <h2 className="auth-form-title">Tạo quản trị viên</h2>
-            <p className="auth-form-subtitle">
-              Thiết lập tài khoản quản trị viên đầu tiên và đặt tên cho không gian làm việc của bạn.
-            </p>
-          </div>
-
-          {/* Success */}
-          {done && (
-            <div className="auth-success-banner" role="status">
-              <CheckCircle2 size={16} strokeWidth={2} />
-              Khởi tạo thành công! Đang chuyển hướng đến trang đăng nhập…
+        <div className="auth-form-card">
+          <div className="auth-form-inner">
+            {/* Header */}
+            <div className="auth-form-header">
+              <span className="auth-form-eyebrow">KHỞI TẠO HỆ THỐNG</span>
+              <h2 className="auth-form-title">Tạo quản trị viên</h2>
+              <p className="auth-form-subtitle">
+                Thiết lập tài khoản quản trị viên đầu tiên và đặt tên cho không gian làm việc của bạn.
+              </p>
             </div>
-          )}
 
-          {/* Form */}
-          {!done && (
-            <form onSubmit={submit}>
-              <div className="auth-fields">
-                {/* Username */}
-                <div className="auth-floating-field">
-                  <label htmlFor={`${id}-username`}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: ".3rem" }}>
-                      <User size={12} strokeWidth={2} />
-                      Tên đăng nhập
-                    </span>
-                    <span aria-hidden> *</span>
-                  </label>
-                  <div className="auth-field-wrap">
-                    <input
-                      id={`${id}-username`}
-                      name="username"
-                      type="text"
-                      required
-                      minLength={3}
-                      maxLength={80}
-                      autoComplete="username"
-                      autoFocus
-                      placeholder="Tối thiểu 3 ký tự"
-                      className="auth-field-input"
-                    />
-                  </div>
-                </div>
+            {/* Success */}
+            {done && (
+              <div className="auth-success-banner" role="status">
+                <CheckCircle2 size={16} strokeWidth={2} />
+                Khởi tạo thành công! Đang chuyển hướng đến trang đăng nhập…
+              </div>
+            )}
 
-                {/* Workspace name */}
-                <div className="auth-floating-field">
-                  <label htmlFor={`${id}-workspace`}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: ".3rem" }}>
-                      <Briefcase size={12} strokeWidth={2} />
-                      Tên workspace
-                    </span>
-                    <span aria-hidden> *</span>
-                  </label>
-                  <div className="auth-field-wrap">
-                    <input
-                      id={`${id}-workspace`}
-                      name="workspaceName"
-                      type="text"
-                      required
-                      minLength={3}
-                      maxLength={120}
-                      autoComplete="organization"
-                      placeholder="Tên tổ chức hoặc nhóm của bạn"
-                      className="auth-field-input"
-                    />
-                  </div>
-                </div>
-
-                {/* Password */}
-                <div className="auth-floating-field">
-                  <label htmlFor={`${id}-password`}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: ".3rem" }}>
-                      <Lock size={12} strokeWidth={2} />
-                      Mật khẩu
-                    </span>
-                    <span aria-hidden> *</span>
-                  </label>
-                  <div className="auth-field-wrap">
-                    <input
-                      id={`${id}-password`}
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      required
-                      minLength={12}
-                      maxLength={128}
-                      autoComplete="new-password"
-                      placeholder="Tối thiểu 12 ký tự"
-                      className="auth-field-input has-icon"
-                      value={password}
-                      onChange={handlePasswordChange}
-                    />
-                    <button
-                      type="button"
-                      className="auth-password-toggle"
-                      aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                      onClick={() => setShowPassword((v) => !v)}
-                    >
-                      {showPassword
-                        ? <EyeOff size={15} strokeWidth={1.75} />
-                        : <Eye size={15} strokeWidth={1.75} />}
-                    </button>
-                  </div>
-
-                  {/* Strength indicator */}
-                  {password.length > 0 && (
-                    <div className="auth-strength-wrap">
-                      <div className="auth-strength-bars" role="progressbar" aria-valuenow={strength.score} aria-valuemax={4} aria-label={`Độ mạnh mật khẩu: ${strength.label}`}>
-                        {[0, 1, 2, 3].map((i) => (
-                          <div key={i} className={`auth-strength-bar ${barClass(i, strength.score)}`} />
-                        ))}
-                      </div>
-                      {strength.label && (
-                        <p className={`auth-strength-label ${strength.cls}`}>
-                          {strength.label}
-                        </p>
-                      )}
+            {/* Form */}
+            {!done && (
+              <form onSubmit={submit}>
+                <div className="auth-fields">
+                  {/* Username */}
+                  <div className="auth-floating-field">
+                    <label htmlFor={`${id}-username`}>
+                      Tên đăng nhập <span aria-hidden>*</span>
+                    </label>
+                    <div className="auth-field-wrap has-left-icon">
+                      <span className="auth-field-left-icon" aria-hidden>
+                        <User size={16} strokeWidth={2} />
+                      </span>
+                      <input
+                        id={`${id}-username`}
+                        name="username"
+                        type="text"
+                        required
+                        minLength={3}
+                        maxLength={80}
+                        autoComplete="username"
+                        autoFocus
+                        placeholder="Tối thiểu 3 ký tự"
+                        className="auth-field-input"
+                      />
                     </div>
-                  )}
-                  <span className="auth-field-hint">
-                    Nên dùng chữ hoa, chữ thường, số và ký tự đặc biệt để tăng bảo mật.
-                  </span>
+                  </div>
+
+                  {/* Workspace name */}
+                  <div className="auth-floating-field">
+                    <label htmlFor={`${id}-workspace`}>
+                      Tên workspace <span aria-hidden>*</span>
+                    </label>
+                    <div className="auth-field-wrap has-left-icon">
+                      <span className="auth-field-left-icon" aria-hidden>
+                        <Briefcase size={16} strokeWidth={2} />
+                      </span>
+                      <input
+                        id={`${id}-workspace`}
+                        name="workspaceName"
+                        type="text"
+                        required
+                        minLength={3}
+                        maxLength={120}
+                        autoComplete="organization"
+                        placeholder="Tên tổ chức hoặc nhóm của bạn"
+                        className="auth-field-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password */}
+                  <div className="auth-floating-field">
+                    <label htmlFor={`${id}-password`}>
+                      Mật khẩu <span aria-hidden>*</span>
+                    </label>
+                    <div className="auth-field-wrap has-left-icon">
+                      <span className="auth-field-left-icon" aria-hidden>
+                        <Lock size={16} strokeWidth={2} />
+                      </span>
+                      <input
+                        id={`${id}-password`}
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        minLength={6}
+                        maxLength={128}
+                        autoComplete="new-password"
+                        placeholder="Tối thiểu 6 ký tự"
+                        className="auth-field-input has-icon"
+                        value={password}
+                        onChange={handlePasswordChange}
+                      />
+                      <button
+                        type="button"
+                        className="auth-password-toggle"
+                        aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                        onClick={() => setShowPassword((v) => !v)}
+                      >
+                        {showPassword
+                          ? <EyeOff size={16} strokeWidth={2} />
+                          : <Eye size={16} strokeWidth={2} />}
+                      </button>
+                    </div>
+
+                    {/* Ultra-Minimalist Password Strength Indicator */}
+                    {password.length > 0 && (
+                      <div className="auth-minimal-strength">
+                        <div className="auth-minimal-bars" role="progressbar" aria-valuenow={strength.score} aria-valuemax={4} aria-label={`Độ mạnh mật khẩu: ${strength.label}`}>
+                          {[1, 2, 3, 4].map((barLevel) => (
+                            <div
+                              key={barLevel}
+                              className={`auth-minimal-bar ${barLevel <= strength.score ? `active-${strength.score}` : ""}`}
+                            />
+                          ))}
+                        </div>
+
+                        <div className="auth-minimal-row">
+                          <div className="auth-minimal-rules">
+                            <span className={`auth-minimal-rule ${isMinLength ? "is-valid" : ""}`}>
+                              {isMinLength ? <Check size={11} strokeWidth={2.5} /> : "•"} 6+ ký tự
+                            </span>
+                            <span className={`auth-minimal-rule ${hasLettersAndNumbers ? "is-valid" : ""}`}>
+                              {hasLettersAndNumbers ? <Check size={11} strokeWidth={2.5} /> : "•"} Chữ & Số
+                            </span>
+                          </div>
+
+                          {strength.label && (
+                            <span className={`auth-minimal-label score-${strength.score}`}>
+                              {strength.label}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Global error */}
-              {message && (
-                <div
-                  key={errorKey}
-                  className="auth-global-error"
-                  role="alert"
-                  style={{ marginTop: "1rem" }}
-                >
-                  <AlertCircle size={15} strokeWidth={2} />
-                  {message}
+                {/* Global error */}
+                {message && (
+                  <div
+                    key={errorKey}
+                    className="auth-global-error"
+                    role="alert"
+                    style={{ marginTop: "1rem" }}
+                  >
+                    <AlertCircle size={15} strokeWidth={2} />
+                    {message}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="auth-form-actions">
+                  <button
+                    type="submit"
+                    id="setup-submit"
+                    className="auth-submit-btn"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <span className="btn-spinner" aria-hidden />
+                        Đang khởi tạo…
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck size={17} strokeWidth={2} />
+                        Khởi tạo hệ thống
+                      </>
+                    )}
+                  </button>
+
+                  <p className="auth-form-link-row">
+                    Đã có tài khoản?{" "}
+                    <a href="/sign-in" className="auth-form-link">
+                      Đăng nhập
+                    </a>
+                  </p>
                 </div>
-              )}
-
-              {/* Actions */}
-              <div className="auth-form-actions">
-                <button
-                  type="submit"
-                  id="setup-submit"
-                  className="auth-submit-btn"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <span className="btn-spinner" aria-hidden />
-                      Đang khởi tạo…
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck size={16} strokeWidth={2} />
-                      Tạo quản trị viên
-                    </>
-                  )}
-                </button>
-
-                <p className="auth-form-link-row">
-                  Đã có tài khoản?{" "}
-                  <a href="/sign-in" className="auth-form-link">
-                    Đăng nhập
-                  </a>
-                </p>
-              </div>
-            </form>
-          )}
+              </form>
+            )}
+          </div>
         </div>
       </div>
     </main>

@@ -910,6 +910,71 @@ html[data-mode="dark"] .ledger-date-input { color-scheme:dark; }
 }
 .auth-password-toggle:hover { color: var(--foreground); background: var(--surface-hover); }
 
+/* Ultra-Minimalist Password Strength Bar */
+.auth-minimal-strength {
+  margin-top: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  animation: auth-fade-in 0.2s ease both;
+}
+
+.auth-minimal-bars {
+  display: flex;
+  gap: 0.25rem;
+  height: 3px;
+  width: 100%;
+}
+
+.auth-minimal-bar {
+  flex: 1;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.auth-minimal-bar.active-1 { background: #f43f5e; box-shadow: 0 0 6px rgba(244, 63, 94, 0.4); }
+.auth-minimal-bar.active-2 { background: #f59e0b; box-shadow: 0 0 6px rgba(245, 158, 11, 0.4); }
+.auth-minimal-bar.active-3 { background: #3b82f6; box-shadow: 0 0 6px rgba(59, 130, 246, 0.4); }
+.auth-minimal-bar.active-4 { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.45); }
+
+.auth-minimal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+}
+
+.auth-minimal-rules {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-muted);
+}
+
+.auth-minimal-rule {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  transition: color 0.2s ease;
+}
+.auth-minimal-rule.is-valid {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.auth-minimal-label {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-left: auto;
+}
+.auth-minimal-label.score-1 { color: #f43f5e; }
+.auth-minimal-label.score-2 { color: #f59e0b; }
+.auth-minimal-label.score-3 { color: #3b82f6; }
+.auth-minimal-label.score-4 { color: #10b981; }
+
 /* Form actions */
 .auth-form-actions { margin-top: 1.5rem; display: grid; gap: 0.85rem; }
 
