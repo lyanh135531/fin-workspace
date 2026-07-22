@@ -139,10 +139,10 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
 
           {/* Center: active workspace pill */}
           {membership && (
-            <div style={{ display: "flex", justifyContent: "center" }}>
+            <div className="header-workspace-center">
               <span className="header-workspace-pill" title={membership.workspace.name}>
                 <span className="header-workspace-pill-dot" aria-hidden />
-                {membership.workspace.name}
+                <span className="header-workspace-pill-name">{membership.workspace.name}</span>
               </span>
             </div>
           )}
@@ -157,12 +157,11 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
             )}
             {membership && (
               <Link
-                className="icon-button"
+                className="icon-button header-action-btn"
                 href="/settings/workspace"
-                title="Cài đặt workspace"
                 aria-label="Cài đặt workspace"
               >
-                <Settings size={17} />
+                <Settings size={17} strokeWidth={2} />
               </Link>
             )}
             <ThemeToggle />

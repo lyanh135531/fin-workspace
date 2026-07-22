@@ -34,10 +34,10 @@ export function ThemeToggle() {
   const mode = useSyncExternalStore(subscribeMode, getMode, () => "light");
   const Icon = mode === "dark" ? Moon : Sun;
   return <DropdownMenu>
-    <DropdownMenuTrigger render={<button type="button" title="Chọn chế độ hiển thị" className="theme-toggle icon-button" aria-label="Chọn chế độ hiển thị" />}>
+    <DropdownMenuTrigger render={<button type="button" className="theme-toggle icon-button header-action-btn" aria-label="Chọn chế độ hiển thị" />}>
       {/* Key forces remount → triggers CSS animation */}
       <span key={mode} className="theme-toggle-icon" aria-hidden>
-        <Icon size={18} />
+        <Icon size={17} strokeWidth={2} />
       </span>
       <span className="sr-only">Chế độ hiển thị</span>
     </DropdownMenuTrigger>

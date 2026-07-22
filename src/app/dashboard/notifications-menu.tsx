@@ -25,8 +25,8 @@ export function NotificationsMenu({ items }: { items: NotificationItem[] }) {
     });
   }
   return <Popover>
-    <PopoverTrigger render={<button className="button-secondary icon-button relative" title="Giao dịch cần xử lý" aria-label="Giao dịch cần xử lý"/>}>
-      <Bell size={18}/>{items.length > 0 && <span className="notification-badge">{items.length}</span>}
+    <PopoverTrigger render={<button type="button" className="icon-button header-action-btn relative" aria-label="Giao dịch cần xử lý"/>}>
+      <Bell size={17} strokeWidth={2} />{items.length > 0 && <span className="notification-badge">{items.length}</span>}
     </PopoverTrigger>
     <PopoverContent align="end" className="notification-menu notification-popover">
       <header><strong>Cần xử lý</strong><span>{items.length} yêu cầu</span></header>
