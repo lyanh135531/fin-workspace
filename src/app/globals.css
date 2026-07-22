@@ -1164,62 +1164,189 @@ html[data-sidebar-collapsed="true"] .sidebar-nav-section { opacity:0; max-height
 
 /* ── User section (bottom sidebar) ─────────────────────────────────────────── */
 .sidebar-user-section {
-  position:relative;
-  margin-top:auto;
-  border-top:1px solid var(--border);
-  padding:.85rem .3rem .3rem;
+  position: relative;
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding: 0.85rem 0.35rem 0.35rem;
 }
-.sidebar-user-row {
-  display:flex;
-  align-items:center;
-  gap:.65rem;
-  border-radius:.65rem;
-  padding:.45rem .55rem;
-  cursor:default;
-  transition:background-color 140ms ease;
+
+.sidebar-user-card {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--surface-muted) 65%, var(--surface));
+  padding: 0.55rem 0.65rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
-.sidebar-user-row:hover { background:var(--surface-hover); }
+
+.sidebar-user-card:hover,
+.sidebar-user-card[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
+  background: var(--surface);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--shadow) 80%, transparent);
+}
+
+.sidebar-user-avatar-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+
 .sidebar-user-avatar {
-  display:grid;
-  flex:0 0 auto;
-  width:2rem; height:2rem;
-  place-items:center;
-  border-radius:.55rem;
-  background:color-mix(in srgb,var(--primary) 14%,var(--surface));
-  color:var(--primary);
-  font-size:.72rem;
-  font-weight:800;
-  letter-spacing:-.02em;
-  user-select:none;
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: 0.65rem;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 20%, var(--surface)), color-mix(in srgb, var(--primary) 10%, var(--surface)));
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  user-select: none;
 }
-.sidebar-user-info { min-width:0; flex:1; overflow:hidden; white-space:nowrap; transition:opacity 120ms ease, width 180ms var(--sb-easing), margin 180ms var(--sb-easing); }
+
+.sidebar-avatar-lg {
+  width: 2.4rem;
+  height: 2.4rem;
+  font-size: 0.84rem;
+}
+
+.sidebar-user-status-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #10b981;
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #10b981 30%, transparent);
+}
+
+.sidebar-user-info {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  overflow: hidden;
+}
+
+.sidebar-user-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
 .sidebar-user-name {
-  display:block;
-  font-size:.82rem;
-  font-weight:650;
-  color:var(--text-primary);
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+  font-size: 0.83rem;
+  font-weight: 700;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.015em;
 }
+
 .sidebar-user-role {
-  display:inline-block;
-  margin-top:.18rem;
-  border-radius:999px;
-  padding:.1rem .42rem;
-  font-size:.6rem;
-  font-weight:700;
-  letter-spacing:.05em;
-  text-transform:uppercase;
-  background:color-mix(in srgb,var(--primary) 12%,var(--surface));
-  color:var(--primary);
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.08rem 0.4rem;
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  flex: 0 0 auto;
+  line-height: 1.2;
 }
+
+.sidebar-user-role.role-admin {
+  background: color-mix(in srgb, var(--primary) 15%, var(--surface));
+  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
 .sidebar-user-role.role-member {
-  background:color-mix(in srgb,var(--text-muted) 12%,var(--surface));
-  color:var(--text-secondary);
+  background: color-mix(in srgb, var(--text-muted) 14%, var(--surface));
+  color: var(--text-secondary);
+  border: 1px solid color-mix(in srgb, var(--text-muted) 25%, transparent);
 }
-html[data-sidebar-collapsed="true"] .sidebar-user-info { opacity:0; width:0; margin:0; pointer-events:none; }
-html[data-sidebar-collapsed="true"] .sidebar-user-row { justify-content:center; padding:.45rem; }
+
+.sidebar-user-subtext {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.sidebar-user-chevron-wrap {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 0.4rem;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+  transition: color 160ms ease;
+}
+
+.sidebar-user-card:hover .sidebar-user-chevron-wrap {
+  color: var(--primary);
+}
+
+.sidebar-user-chevron {
+  transition: transform 200ms ease;
+}
+
+/* User Popover Menu Link & Styling */
+.sidebar-user-popover-content {
+  min-width: 14.5rem !important;
+  padding: 0.65rem !important;
+}
+
+.sidebar-user-flyout-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.sidebar-flyout-username {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-user-popover-link {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  border-radius: 0.55rem;
+  padding: 0.5rem 0.65rem;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.sidebar-user-popover-link:hover {
+  background: var(--surface-hover);
+  color: var(--primary);
+}
 
 /* Logout button — reveal on hover */
 .sidebar-logout-btn {
@@ -2237,7 +2364,8 @@ html[data-sidebar-collapsed="true"] .sidebar-user-row:hover {
 }
 
 /* ── 9. Hide text inside user row ── */
-html[data-sidebar-collapsed="true"] .sidebar-user-info {
+html[data-sidebar-collapsed="true"] .sidebar-user-info,
+html[data-sidebar-collapsed="true"] .sidebar-user-chevron-wrap {
   display: none !important;
 }
 html[data-sidebar-collapsed="true"] .sidebar-user-name,
