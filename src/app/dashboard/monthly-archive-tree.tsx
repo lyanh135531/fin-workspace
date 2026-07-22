@@ -60,7 +60,6 @@ export function MonthlyArchiveTree({ workspaces }: { workspaces: ArchivedWorkspa
             <button
               type="button"
               className={`nav-item dashboard-nav-link ${isAnyArchiveActive ? "nav-item-active" : ""}`}
-              title="Lưu trữ theo tháng"
               aria-label="Lưu trữ theo tháng"
             />
           }

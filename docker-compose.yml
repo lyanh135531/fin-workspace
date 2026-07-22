@@ -28,6 +28,9 @@ services:
       context: .
       target: runner
     env_file: .env
+    environment:
+      - PORT=15730
+      - NEXTAUTH_URL=http://localhost:15730
     ports:
       - "${PORT:-15730}:15730"
     depends_on:

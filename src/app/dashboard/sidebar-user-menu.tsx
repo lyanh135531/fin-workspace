@@ -58,15 +58,13 @@ export function SidebarUserMenu({ username, role }: Props) {
   /* ── Collapsed: avatar icon → right flyout popover ── */
   if (collapsed) {
     return (
-      <div className="sidebar-user-section" style={{ paddingTop: ".6rem" }}>
+      <div className="sidebar-user-section">
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger
             render={
               <button
                 type="button"
                 className="sidebar-user-row"
-                style={{ justifyContent: "center", padding: ".45rem" }}
-                title={username}
                 aria-label={`Tài khoản: ${username}. Nhấn để xem tùy chọn.`}
               />
             }

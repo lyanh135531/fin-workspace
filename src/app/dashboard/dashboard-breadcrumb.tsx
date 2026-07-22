@@ -38,18 +38,24 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
     { label: "Cài đặt workspace" },
   ],
   "/settings/users": [
+    { label: "Tổng quan", href: "/overview" },
     { label: "Cài đặt chung", href: "/setting" },
     { label: "Tài khoản thành viên" },
   ],
   "/settings/workspaces/create": [
+    { label: "Tổng quan", href: "/overview" },
     { label: "Cài đặt chung", href: "/setting" },
     { label: "Tạo workspace" },
   ],
   "/settings/join": [
+    { label: "Tổng quan", href: "/overview" },
     { label: "Cài đặt chung", href: "/setting" },
     { label: "Tham gia workspace" },
   ],
-  "/dashboard": [{ label: "Sổ giao dịch" }],
+  "/dashboard": [
+    { label: "Tổng quan", href: "/overview" },
+    { label: "Sổ giao dịch" },
+  ],
   "/dashboard/overview": [{ label: "Tổng quan" }],
   "/dashboard/wallets": [
     { label: "Tổng quan", href: "/overview" },
@@ -64,14 +70,17 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
     { label: "Cài đặt chung" },
   ],
   "/dashboard/users": [
+    { label: "Tổng quan", href: "/overview" },
     { label: "Cài đặt chung", href: "/setting" },
     { label: "Tài khoản thành viên" },
   ],
   "/dashboard/workspaces/create": [
+    { label: "Tổng quan", href: "/overview" },
     { label: "Cài đặt chung", href: "/setting" },
     { label: "Tạo workspace" },
   ],
   "/dashboard/join": [
+    { label: "Tổng quan", href: "/overview" },
     { label: "Cài đặt chung", href: "/setting" },
     { label: "Tham gia workspace" },
   ],
@@ -80,24 +89,26 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
     { label: "Lời mời workspace" },
   ],
   "/dashboard/join-requests": [
+    { label: "Tổng quan", href: "/overview" },
     { label: "Cài đặt workspace", href: "/settings/workspace" },
     { label: "Yêu cầu tham gia" },
   ],
 }
 
 const segmentLabels: Record<string, string> = {
-  dashboard: "Dashboard",
+  dashboard: "Sổ giao dịch",
   invitations: "Lời mời workspace",
   join: "Tham gia workspace",
   overview: "Tổng quan",
   setting: "Cài đặt chung",
   settings: "Cài đặt",
-  users: "Thành viên",
+  users: "Tài khoản thành viên",
   wallets: "Quản lý ví",
   workspace: "Workspace",
   workspaces: "Workspace",
   create: "Tạo mới",
   general: "Cài đặt chung",
+  "join-requests": "Yêu cầu tham gia",
 }
 
 function getTrail(
@@ -107,33 +118,47 @@ function getTrail(
 ): BreadcrumbEntry[] {
   const normalizedPath = pathname !== "/" ? pathname.replace(/\/$/, "") : pathname
 
-  if (currentWorkspace && (normalizedPath === "/wallets" || normalizedPath === "/dashboard/wallets")) {
-    return [
-      { label: "Tổng quan", href: "/overview" },
-      { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
-      { label: "Quản lý ví" },
-    ]
+  // 1. Contextual trails for active workspace
+  if (currentWorkspace) {
+    if (normalizedPath === "/dashboard") {
+      return [
+        { label: "Tổng quan", href: "/overview" },
+        { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
+        { label: "Sổ giao dịch" },
+      ]
+    }
+
+    if (normalizedPath === "/wallets" || normalizedPath === "/dashboard/wallets") {
+      return [
+        { label: "Tổng quan", href: "/overview" },
+        { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
+        { label: "Quản lý ví" },
+      ]
+    }
+
+    if (normalizedPath === "/settings/workspace" || normalizedPath === "/dashboard/settings") {
+      return [
+        { label: "Tổng quan", href: "/overview" },
+        { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
+        { label: "Cài đặt workspace" },
+      ]
+    }
+
+    if (normalizedPath === "/dashboard/join-requests") {
+      return [
+        { label: "Tổng quan", href: "/overview" },
+        { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
+        { label: "Cài đặt workspace", href: "/settings/workspace" },
+        { label: "Yêu cầu tham gia" },
+      ]
+    }
   }
 
-  if (currentWorkspace && (normalizedPath === "/settings/workspace" || normalizedPath === "/dashboard/settings")) {
-    return [
-      { label: "Tổng quan", href: "/overview" },
-      { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
-      { label: "Cài đặt workspace" },
-    ]
-  }
-
-  if (currentWorkspace && normalizedPath === "/dashboard/join-requests") {
-    return [
-      { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
-      { label: "Cài đặt workspace", href: "/settings/workspace" },
-      { label: "Yêu cầu tham gia" },
-    ]
-  }
-
+  // 2. Fixed trails lookup
   const fixedTrail = fixedTrails[normalizedPath]
   if (fixedTrail) return fixedTrail
 
+  // 3. Dynamic workspace detail page (/workspace/[id])
   const workspaceMatch = normalizedPath.match(/^\/workspace\/([^/]+)$/)
   if (workspaceMatch) {
     const workspaceId = decodeURIComponent(workspaceMatch[1])
@@ -144,17 +169,27 @@ function getTrail(
     ]
   }
 
-  const segments = normalizedPath.split("/").filter(Boolean)
-  if (!segments.length) return [{ label: "Trang chủ" }]
+  // 4. Dynamic fallback route handling
+  const cleanPath = normalizedPath.replace(/^\/dashboard(?=\/|$)/, "")
+  const segments = cleanPath.split("/").filter(Boolean)
+  if (!segments.length) return [{ label: "Tổng quan", href: "/overview" }, { label: "Sổ giao dịch" }]
 
-  return segments.map((segment, index) => {
-    const isCurrent = index === segments.length - 1
+  const result: BreadcrumbEntry[] = [{ label: "Tổng quan", href: "/overview" }]
+  let accumulatedPath = ""
+
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i]
+    const isLast = i === segments.length - 1
+    accumulatedPath += `/${segment}`
+
     const label = segmentLabels[segment] ?? decodeURIComponent(segment).replaceAll("-", " ")
-    return {
+    result.push({
       label,
-      href: isCurrent ? undefined : `/${segments.slice(0, index + 1).join("/")}`,
-    }
-  })
+      href: isLast ? undefined : accumulatedPath,
+    })
+  }
+
+  return result
 }
 
 export function DashboardBreadcrumb({

@@ -33,7 +33,6 @@ export function SidebarToggle() {
       className="dashboard-sidebar-toggle"
       type="button"
       onClick={toggle}
-      title={collapsed ? "Mở rộng điều hướng" : "Thu gọn điều hướng"}
       aria-label={collapsed ? "Mở rộng điều hướng" : "Thu gọn điều hướng"}
       aria-pressed={collapsed}
       aria-expanded={!collapsed}

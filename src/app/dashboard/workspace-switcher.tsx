@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown, ChevronRight, FolderTree } from "lucide-react";
+import { Check, ChevronsUpDown, PlusCircle, UserPlus } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition, useSyncExternalStore } from "react";
 import { selectWorkspaceAction } from "@/app/dashboard/workspace-actions";
@@ -8,7 +9,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 type Workspace = { id: string; name: string; role: string };
 
-/* Reads sidebar collapsed state from the root data attribute */
 function useSidebarCollapsed() {
   return useSyncExternalStore(
     (cb) => {
@@ -31,20 +31,22 @@ export function WorkspaceSwitcher({
   const router = useRouter();
   const pathname = usePathname();
   const collapsed = useSidebarCollapsed();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const isAnyWorkspaceActive = workspaces.some(
-    (ws) => pathname === `/workspace/${ws.id}`,
-  );
+  const currentWorkspace = workspaces.find((ws) => ws.id === currentId) ?? workspaces[0];
 
   function choose(id: string) {
-    if (id === currentId && pathname === `/workspace/${id}`) return;
+    if (id === currentId && pathname === `/workspace/${id}`) {
+      setOpen(false);
+      return;
+    }
     setError(null);
     start(async () => {
       try {
         await selectWorkspaceAction(id);
+        setOpen(false);
         if (pathname === "/wallets") router.refresh();
         else router.push(`/workspace/${id}`);
       } catch {
@@ -53,82 +55,124 @@ export function WorkspaceSwitcher({
     });
   }
 
-  const workspaceList = (
-    <div className="workspace-tree-list" aria-label="Workspace bạn được phép hoạt động">
-      {workspaces.map((ws) => (
-        <button
-          type="button"
-          key={ws.id}
-          disabled={pending}
-          onClick={() => choose(ws.id)}
-          className={`workspace-tree-item ${pathname === `/workspace/${ws.id}` ? "workspace-tree-current" : ""}`}
-        >
-          <span className="workspace-tree-branch" aria-hidden />
-          <span className="min-w-0 flex-1 truncate text-left">{ws.name}</span>
-          <small>{ws.role === "ADMIN" ? "Admin" : "Member"}</small>
-        </button>
-      ))}
-      {error && <p className="workspace-tree-error">{error}</p>}
-    </div>
-  );
+  const activeInitial = currentWorkspace?.name.charAt(0).toUpperCase() ?? "W";
 
-  /* ── Collapsed: icon trigger → right flyout popover ── */
   if (collapsed) {
+    const wsName = currentWorkspace?.name || "Workspace";
+    const initialLetter = wsName.charAt(0).toUpperCase();
+
     return (
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
             <button
               type="button"
-              className={`nav-item dashboard-nav-link ${isAnyWorkspaceActive ? "nav-item-active" : ""}`}
-              title="Workspace"
-              aria-label="Chọn workspace"
+              className="sidebar-workspace-collapsed-btn"
+              aria-label={`Workspace hiện tại: ${wsName}. Click để đổi.`}
             />
           }
         >
-          <FolderTree size={18} strokeWidth={1.8} />
+          <div className="sidebar-ws-avatar">
+            <span className="sidebar-ws-initial-letter">{initialLetter}</span>
+            <span className="sidebar-ws-collapsed-dot" />
+          </div>
         </PopoverTrigger>
-        <PopoverContent
-          side="right"
-          align="start"
-          sideOffset={8}
-          className="sidebar-flyout-popover"
-        >
-          <header className="sidebar-flyout-header">
-            <FolderTree size={14} strokeWidth={2} />
-            <strong>Workspace</strong>
+        <PopoverContent side="right" align="start" sideOffset={10} className="sidebar-ws-popover">
+          <div className="sidebar-ws-popover-header">
+            <span>CHỌN WORKSPACE</span>
             <small>{workspaces.length}</small>
-          </header>
-          {workspaceList}
+          </div>
+          <div className="sidebar-ws-popover-list">
+            {workspaces.map((ws) => {
+              const isSelected = ws.id === currentId;
+              return (
+                <button
+                  type="button"
+                  key={ws.id}
+                  disabled={pending}
+                  onClick={() => choose(ws.id)}
+                  className={`sidebar-ws-item ${isSelected ? "sidebar-ws-item-active" : ""}`}
+                >
+                  <div className="sidebar-ws-avatar">{ws.name.charAt(0).toUpperCase()}</div>
+                  <div className="sidebar-ws-info">
+                    <span className="sidebar-ws-name">{ws.name}</span>
+                    <span className="sidebar-ws-role">{ws.role === "ADMIN" || ws.role === "OWNER" ? "Admin" : "Thành viên"}</span>
+                  </div>
+                  {isSelected && <Check size={14} className="text-[var(--primary)]" />}
+                </button>
+              );
+            })}
+          </div>
         </PopoverContent>
       </Popover>
     );
   }
 
-  /* ── Expanded: inline accordion ── */
+  /* ── Expanded: High-end card dropdown ── */
   return (
-    <div className="workspace-tree">
-      <button
-        type="button"
-        className={`nav-item workspace-tree-trigger ${isAnyWorkspaceActive ? "nav-item-active" : ""}`}
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls="workspace-tree-list"
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="sidebar-workspace-selector-card"
+            aria-expanded={open}
+            aria-label={`Workspace: ${currentWorkspace?.name}. Click để chuyển đổi.`}
+          />
+        }
       >
-        <span className="flex items-center gap-2">
-          <FolderTree size={18} strokeWidth={1.8} />
-          <span className="workspace-tree-title">Workspace</span>
-        </span>
-        <span className="workspace-tree-meta flex items-center gap-2">
-          <small>{workspaces.length}</small>
-          {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-        </span>
-      </button>
-      {open && (
-        <div id="workspace-tree-list">
-          {workspaceList}
+        <div className="sidebar-ws-avatar">
+          <span className="sidebar-ws-initial">{activeInitial}</span>
         </div>
-      )}
-    </div>
+        <div className="sidebar-ws-meta">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="sidebar-ws-title truncate">{currentWorkspace?.name}</span>
+          </div>
+          <span className="sidebar-ws-sub">
+            <span className="sidebar-ws-dot" aria-hidden />
+            {currentWorkspace?.role === "ADMIN" || currentWorkspace?.role === "OWNER" ? "Quản trị viên" : "Thành viên"}
+          </span>
+        </div>
+        <ChevronsUpDown size={15} className="sidebar-ws-chevron" />
+      </PopoverTrigger>
+
+      <PopoverContent side="bottom" align="start" sideOffset={6} className="sidebar-ws-popover">
+        <div className="sidebar-ws-popover-header">
+          <span>DANH SÁCH WORKSPACE ({workspaces.length})</span>
+        </div>
+        <div className="sidebar-ws-popover-list">
+          {workspaces.map((ws) => {
+            const isSelected = ws.id === currentId;
+            return (
+              <button
+                type="button"
+                key={ws.id}
+                disabled={pending}
+                onClick={() => choose(ws.id)}
+                className={`sidebar-ws-item ${isSelected ? "sidebar-ws-item-active" : ""}`}
+              >
+                <div className="sidebar-ws-avatar">{ws.name.charAt(0).toUpperCase()}</div>
+                <div className="sidebar-ws-info">
+                  <span className="sidebar-ws-name">{ws.name}</span>
+                  <span className="sidebar-ws-role">{ws.role === "ADMIN" || ws.role === "OWNER" ? "Quản trị viên" : "Thành viên"}</span>
+                </div>
+                {isSelected && <Check size={14} className="text-[var(--primary)]" />}
+              </button>
+            );
+          })}
+        </div>
+        {error && <p className="sidebar-ws-error">{error}</p>}
+        <div className="sidebar-ws-popover-footer">
+          <Link href="/settings/workspaces/create" onClick={() => setOpen(false)} className="sidebar-ws-footer-link">
+            <PlusCircle size={14} />
+            <span>Tạo workspace mới</span>
+          </Link>
+          <Link href="/settings/join" onClick={() => setOpen(false)} className="sidebar-ws-footer-link">
+            <UserPlus size={14} />
+            <span>Tham gia workspace</span>
+          </Link>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

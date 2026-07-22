@@ -93,18 +93,6 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
           <SidebarToggle />
         </div>
 
-        {/* Active workspace card */}
-        {membership && (
-          <div className="sidebar-workspace-card">
-            <div className="sidebar-workspace-dot" aria-hidden />
-            <div className="sidebar-workspace-meta">
-              <p className="sidebar-workspace-label">Workspace đang mở</p>
-              <p className="sidebar-workspace-name" title={membership.workspace.name}>
-                {membership.workspace.name}
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Navigation */}
         <DashboardNavigation

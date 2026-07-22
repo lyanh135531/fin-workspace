@@ -169,13 +169,26 @@ html[data-sidebar-collapsed="true"] .sidebar-nav-section {
   overflow: hidden;
   white-space: nowrap;
 }
-html[data-sidebar-collapsed="true"] .dashboard-nav-link span,
-html[data-sidebar-collapsed="true"] .workspace-tree-title,
-html[data-sidebar-collapsed="true"] .workspace-tree-meta {
-  opacity: 0;
-  width: 0;
-  margin: 0;
-  pointer-events: none;
+html[data-sidebar-collapsed="true"] .dashboard-sidebar .dashboard-nav-link > span,
+html[data-sidebar-collapsed="true"] .dashboard-sidebar .workspace-tree-title:not(.sidebar-flyout-popover *),
+html[data-sidebar-collapsed="true"] .dashboard-sidebar .workspace-tree-meta:not(.sidebar-flyout-popover *) {
+  display: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+}
+.sidebar-ws-initial {
+  display: inline-block !important;
+  color: #ffffff !important;
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 .workspace-tree-list {
   transition: opacity 100ms ease, max-height 200ms var(--sb-easing);
@@ -195,12 +208,22 @@ html[data-sidebar-collapsed="true"] .workspace-tree-list {
               background-color 140ms ease, color 140ms ease, border-left-color 140ms ease;
 }
 html[data-sidebar-collapsed="true"] .dashboard-nav-link {
-  justify-content: center;
-  padding: .7rem;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
 }
 html[data-sidebar-collapsed="true"] .workspace-tree-trigger {
-  justify-content: center;
-  padding: .7rem;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
 }
 
 /* Brand row */
@@ -241,9 +264,7 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
 /* Old .dashboard-brand / .dashboard-workspace-card / .dashboard-user transitions (legacy line 93) — keep sidebar padding transition */
 .dashboard-sidebar { transition: width var(--sb-duration) var(--sb-easing), padding var(--sb-duration) var(--sb-easing); }
 .dashboard-brand { transition: opacity 160ms ease, width 160ms ease; }
-html[data-sidebar-collapsed="true"] .dashboard-brand { width: 0; margin: 0; overflow: hidden; opacity: 0; white-space: nowrap; }
-@media (max-width: 900px) { html[data-sidebar-collapsed="true"] .dashboard-sidebar { width:100%; padding:1.25rem; } html[data-sidebar-collapsed="true"] .dashboard-brand { width:auto; margin:0 .5rem; opacity:1; } html[data-sidebar-collapsed="true"] .sidebar-workspace-card { opacity:0; max-height:0; margin:0; padding:0; overflow:hidden; } html[data-sidebar-collapsed="true"] .dashboard-nav-link { justify-content:flex-start; padding:10px 12px; } html[data-sidebar-collapsed="true"] .dashboard-nav-link span,html[data-sidebar-collapsed="true"] .workspace-tree-title,html[data-sidebar-collapsed="true"] .workspace-tree-meta { opacity:1; width:auto; visibility:visible; pointer-events:auto; } }
-@media (max-width: 760px) { .dashboard-workspace-view { display:block; } html[data-sidebar-collapsed="true"] .workspace-tree-meta { display:flex; } }
+@media (max-width: 760px) { .dashboard-workspace-view { display:block; } }
 @media (max-width: 760px) { .dashboard-workspace-view { height:auto; overflow:visible; }.dashboard-ledger-card { min-height:32rem; }.dashboard-summary-panel { width:100%; min-height:0; margin-top:1rem; }.dashboard-summary-content { position:relative; width:100%; opacity:1; pointer-events:auto; transform:none; box-shadow:none; }.dashboard-summary-rail { display:none; } }
 
 /* Semantic bindings for the existing application primitives. */
@@ -1692,3 +1713,543 @@ html[data-sidebar-collapsed="true"] .sidebar-flyout-popover .workspace-tree-meta
   visibility:visible !important;
   pointer-events:auto !important;
 }
+
+/* ── NEW WOW SIDEBAR & WORKSPACE SELECTOR STYLES ── */
+.sidebar-ws-switcher-wrapper {
+  margin-bottom: 0.85rem;
+}
+
+.sidebar-workspace-selector-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
+}
+.sidebar-workspace-selector-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  background: var(--surface-hover);
+  box-shadow: 0 4px 14px var(--shadow);
+}
+.sidebar-workspace-selector-card[aria-expanded="true"] {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+.sidebar-ws-avatar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: 0 0 auto;
+  border-radius: 0.65rem;
+  background: var(--primary) !important;
+  color: #ffffff !important;
+  font-size: 0.95rem;
+  font-weight: 800;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.sidebar-ws-initial {
+  display: inline-block !important;
+  color: #ffffff !important;
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  text-transform: uppercase !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.sidebar-ws-meta {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.sidebar-ws-title {
+  color: var(--foreground);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.sidebar-ws-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.sidebar-ws-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--success) 25%, transparent);
+}
+
+.sidebar-ws-chevron {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  transition: transform 180ms ease, color 180ms ease;
+}
+.sidebar-workspace-selector-card:hover .sidebar-ws-chevron {
+  color: var(--primary);
+}
+
+.sidebar-workspace-collapsed-btn {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  margin-bottom: 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  cursor: pointer;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+.sidebar-workspace-collapsed-btn:hover {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+}
+
+.sidebar-ws-badge {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 0.55rem;
+  background: var(--primary);
+  color: var(--text-on-primary);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+/* Popover Dropdown */
+.sidebar-ws-popover {
+  min-width: 20.5rem !important;
+  width: clamp(20.5rem, 24vw, 24rem) !important;
+  max-width: calc(100vw - 2rem) !important;
+  padding: 0.75rem;
+  border-radius: 0.95rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 16px 40px var(--shadow);
+  overflow-x: hidden !important;
+  box-sizing: border-box;
+}
+.sidebar-ws-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.5rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+.sidebar-ws-popover-list {
+  display: flex;
+  max-height: 15rem;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding-top: 0.45rem;
+  scrollbar-width: thin;
+  width: 100%;
+  box-sizing: border-box;
+}
+.sidebar-ws-item {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  text-align: left;
+  box-sizing: border-box;
+  transition: background-color 140ms ease;
+}
+.sidebar-ws-item:hover {
+  background: var(--surface-hover);
+}
+.sidebar-ws-item-active {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface)) !important;
+}
+.sidebar-ws-info {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-ws-name {
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: 0.84rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.sidebar-ws-role {
+  margin-top: 0.1rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+.sidebar-ws-error {
+  margin: 0.35rem 0.5rem 0;
+  color: var(--danger);
+  font-size: 0.75rem;
+}
+.sidebar-ws-popover-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-ws-footer-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.55rem;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 550;
+  text-decoration: none;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+.sidebar-ws-footer-link:hover {
+  background: var(--surface-hover);
+  color: var(--primary);
+}
+
+/* Nav Links & Sections Polish */
+.nav-section-group {
+  margin-bottom: 0.85rem;
+}
+.sidebar-nav-section {
+  margin: 0.85rem 0.5rem 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.dashboard-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.7rem;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 550;
+  text-decoration: none;
+  transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dashboard-nav-link:hover {
+  background: var(--surface-hover);
+  color: var(--foreground);
+}
+.dashboard-nav-link.nav-item-active {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface)) !important;
+  color: var(--primary) !important;
+  font-weight: 700 !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+.dashboard-nav-link.nav-item-active svg {
+  color: var(--primary) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   HIGH-END COLLAPSED SIDEBAR — PREMIUM ICON RAIL
+   Goal: Clean vertical icon rail. All items are 40×40px squares,
+   perfectly centered, with uniform 6px gaps. No awkward stacking.
+   ══════════════════════════════════════════════════════════════════ */
+
+
+/* ── 1. Sidebar container reset to icon-rail ── */
+html[data-sidebar-collapsed="true"] .dashboard-sidebar {
+  padding: 0.7rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+/* ── 2. Brand row: put toggle & logo badge in a single centered column ── */
+html[data-sidebar-collapsed="true"] .dashboard-brand-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  width: 100%;
+}
+
+/* Hide the logo icon (F) in collapsed mode — only show toggle */
+html[data-sidebar-collapsed="true"] .dashboard-brand {
+  display: none !important;
+}
+
+/* Toggle button: bare icon button matching nav icon weight */
+html[data-sidebar-collapsed="true"] .dashboard-sidebar-toggle {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  border: none;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  transition: background-color 180ms ease, color 180ms ease;
+}
+html[data-sidebar-collapsed="true"] .dashboard-sidebar-toggle:hover {
+  background: var(--surface-hover);
+  color: var(--foreground);
+  transform: none;
+}
+
+/* ── 3. Workspace switcher badge ── */
+html[data-sidebar-collapsed="true"] .sidebar-workspace-collapsed-btn {
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+  border-radius: 0.75rem !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  margin: 0 auto !important;
+  flex: 0 0 auto !important;
+  cursor: pointer;
+  outline: none !important;
+}
+
+html[data-sidebar-collapsed="true"] .sidebar-ws-avatar,
+.sidebar-ws-avatar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 2.2rem !important;
+  height: 2.2rem !important;
+  border-radius: 0.65rem !important;
+  background: var(--primary) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--primary) 30%, transparent) !important;
+  position: relative !important;
+}
+
+.sidebar-ws-initial-letter {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #ffffff !important;
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1 !important;
+  text-transform: uppercase !important;
+}
+
+/* Status dot: smaller, sharper on top right of avatar */
+.sidebar-ws-collapsed-dot {
+  position: absolute;
+  top: -0.1rem;
+  right: -0.1rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 1.5px solid var(--sidebar);
+  z-index: 2 !important;
+}
+
+/* ── 5. Nav wrapper: fill remaining space, stack icons ── */
+html[data-sidebar-collapsed="true"] .dashboard-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+  width: 100%;
+  overflow: visible;
+}
+html[data-sidebar-collapsed="true"] .nav-section-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+/* Section label: completely hidden */
+html[data-sidebar-collapsed="true"] .sidebar-nav-section {
+  display: none !important;
+}
+
+/* ── 6. Nav links: uniform 40×40 icon squares ── */
+html[data-sidebar-collapsed="true"] .dashboard-nav-link,
+html[data-sidebar-collapsed="true"] .nav-item {
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+  min-height: 2.5rem !important;
+  max-height: 2.5rem !important;
+  border-radius: 0.75rem !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  border: none !important;
+  border-left: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: var(--text-secondary);
+  background: transparent;
+  transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  box-sizing: border-box !important;
+  outline: none !important;
+}
+html[data-sidebar-collapsed="true"] .dashboard-nav-link > span,
+html[data-sidebar-collapsed="true"] .nav-item > span {
+  display: none !important;
+}
+html[data-sidebar-collapsed="true"] .dashboard-nav-link svg,
+html[data-sidebar-collapsed="true"] .nav-item svg {
+  display: block !important;
+  margin: auto !important;
+  align-self: center !important;
+  justify-self: center !important;
+  flex: 0 0 auto !important;
+}
+html[data-sidebar-collapsed="true"] .dashboard-nav-link::after,
+html[data-sidebar-collapsed="true"] .dashboard-nav-link::before,
+html[data-sidebar-collapsed="true"] .nav-item::after,
+html[data-sidebar-collapsed="true"] .nav-item::before,
+.dashboard-nav-link::after,
+.dashboard-nav-link::before,
+.nav-item::after,
+.nav-item::before {
+  display: none !important;
+  content: none !important;
+}
+html[data-sidebar-collapsed="true"] .dashboard-nav-link:hover,
+html[data-sidebar-collapsed="true"] .nav-item:hover {
+  background: var(--surface-hover) !important;
+  color: var(--foreground) !important;
+  transform: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+html[data-sidebar-collapsed="true"] .dashboard-nav-link.nav-item-active,
+html[data-sidebar-collapsed="true"] .nav-item.nav-item-active,
+html[data-sidebar-collapsed="true"] .nav-item-active {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface)) !important;
+  color: var(--primary) !important;
+  font-weight: 700 !important;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--primary) 32%, transparent) !important;
+  border-left: none !important;
+}
+html[data-sidebar-collapsed="true"] .dashboard-nav-link.nav-item-active svg,
+html[data-sidebar-collapsed="true"] .nav-item.nav-item-active svg {
+  color: var(--primary) !important;
+}
+
+/* ── 7. Divider between nav groups ── */
+.sidebar-collapsed-divider {
+  display: none;
+}
+html[data-sidebar-collapsed="true"] .sidebar-collapsed-divider {
+  display: block;
+  width: 1.25rem;
+  height: 1px;
+  background: var(--border);
+  margin: 0.35rem auto;
+  border-radius: 1px;
+  opacity: 0.6;
+}
+
+/* ── 8. User section at the bottom ── */
+html[data-sidebar-collapsed="true"] .sidebar-user-section {
+  margin-top: auto;
+  padding: 0.5rem 0 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+html[data-sidebar-collapsed="true"] .sidebar-user-row {
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+  border-radius: 0.75rem !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  transition: background-color 180ms ease, color 180ms ease;
+  outline: none !important;
+}
+html[data-sidebar-collapsed="true"] .sidebar-user-row:hover {
+  background: var(--surface-hover);
+  color: var(--foreground);
+}
+
+/* ── 9. Hide text inside user row ── */
+html[data-sidebar-collapsed="true"] .sidebar-user-info {
+  display: none !important;
+}
+html[data-sidebar-collapsed="true"] .sidebar-user-name,
+html[data-sidebar-collapsed="true"] .sidebar-user-role {
+  display: none !important;
+}
+/* Scale avatar inside the 40px collapsed slot */
+html[data-sidebar-collapsed="true"] .sidebar-user-avatar {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 0.65rem;
+  font-size: 0.78rem;
+}
+
+

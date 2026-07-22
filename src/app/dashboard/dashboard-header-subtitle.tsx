@@ -7,6 +7,7 @@ export function DashboardHeaderSubtitle({ fallback }: { fallback: string }) {
   const subtitles: Record<string, string> = {
     "/overview": "Tình hình tài chính của workspace",
     "/dashboard/overview": "Tình hình tài chính của workspace",
+    "/dashboard": "Nhật ký thu chi & quản lý giao dịch",
     "/wallets": "Danh sách và cấu hình ví",
     "/dashboard/wallets": "Danh sách và cấu hình ví",
     "/setting": "Hệ thống, danh mục chung và tài khoản",
@@ -22,5 +23,7 @@ export function DashboardHeaderSubtitle({ fallback }: { fallback: string }) {
     "/dashboard/invitations": "Các lời mời đang chờ phản hồi",
     "/dashboard/join-requests": "Duyệt thành viên muốn tham gia workspace",
   };
-  return <span className="dashboard-header-subtitle">{subtitles[pathname] ?? fallback}</span>;
+
+  const matchedSubtitle = subtitles[pathname] ?? (pathname.startsWith("/workspace/") ? "Nhật ký thu chi & quản lý giao dịch" : undefined);
+  return <span className="dashboard-header-subtitle">{matchedSubtitle ?? fallback}</span>;
 }

@@ -12,6 +12,8 @@ FROM dependencies AS builder
 COPY . .
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build?schema=public"
 ENV APP_TIME_ZONE="Asia/Ho_Chi_Minh"
+ENV PORT=15730
+ENV NEXTAUTH_URL="http://localhost:15730"
 RUN pnpm prisma:generate && pnpm build
 
 FROM dependencies AS migrate
