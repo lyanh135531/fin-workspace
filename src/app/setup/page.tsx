@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useId, useCallback } from "react";
-import { setupInitialAdmin } from "@/app/setup/actions";
+import { registerAccountAction } from "@/app/setup/actions";
 import {
   Eye, EyeOff, ShieldCheck, ShieldAlert, Building2, AlertCircle, CheckCircle2, Lock, User, Briefcase, Check,
 } from "lucide-react";
@@ -38,8 +38,8 @@ function barClass(barIndex: number, score: number): string {
 
 /* ── Checklist shown on visual panel ──────────────────────────── */
 const CHECKLIST = [
-  "Tạo tài khoản quản trị viên đầu tiên",
-  "Đặt tên cho không gian làm việc",
+  "Tạo tài khoản cá nhân",
+  "Đặt tên cho workspace của bạn",
   "Thiết lập mật khẩu bảo mật (≥ 6 ký tự)",
   "Đăng nhập và bắt đầu sử dụng",
 ];
@@ -47,6 +47,7 @@ const CHECKLIST = [
 export default function SetupPage() {
   const id = useId();
   const [message, setMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string; workspaceName?: string }>({});
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -63,19 +64,28 @@ export default function SetupPage() {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
+    setFieldErrors({});
 
     const formData = new FormData(e.currentTarget);
     try {
-      await setupInitialAdmin({
+      const res = await registerAccountAction({
         username: String(formData.get("username")),
         password: String(formData.get("password")),
         workspaceName: String(formData.get("workspaceName")),
       });
-      setDone(true);
-      setTimeout(() => window.location.assign("/sign-in"), 1800);
+      if (res.ok) {
+        setDone(true);
+        setTimeout(() => window.location.assign("/sign-in"), 1800);
+      } else {
+        setErrorKey((k) => k + 1);
+        setMessage(res.message || "Không thể tạo tài khoản.");
+        if (res.fieldErrors) {
+          setFieldErrors(res.fieldErrors);
+        }
+      }
     } catch {
       setErrorKey((k) => k + 1);
-      setMessage("Không thể khởi tạo hệ thống — thông tin chưa hợp lệ hoặc hệ thống đã được thiết lập.");
+      setMessage("Không thể kết nối tới máy chủ. Vui lòng thử lại sau.");
     } finally {
       setLoading(false);
     }
@@ -100,15 +110,15 @@ export default function SetupPage() {
 
         {/* Main copy */}
         <div className="auth-visual-body">
-          <p className="auth-visual-tagline">Thiết lập hệ thống</p>
+          <p className="auth-visual-tagline">Đăng ký tài khoản</p>
           <h1 className="auth-visual-headline">
             Chỉ mất<br />
             <em className="auth-headline-accent">vài bước</em><br />
             để bắt đầu.
           </h1>
           <p className="auth-visual-desc">
-            Biểu mẫu này chỉ hoạt động một lần duy nhất—khi hệ thống chưa có tài khoản nào.
-            Sau khi hoàn tất, bạn sẽ là quản trị viên đầu tiên.
+            Tạo tài khoản và workspace riêng của bạn.
+            Bạn sẽ là quản trị viên (Owner) của workspace này.
           </p>
 
           {/* Checklist */}
@@ -124,7 +134,7 @@ export default function SetupPage() {
 
         {/* Footer */}
         <p className="auth-visual-footer">
-          Biểu mẫu này bị vô hiệu hóa sau khi tài khoản đầu tiên được tạo.
+          © {new Date().getFullYear()} Fin Workspace · Mọi quyền được bảo lưu
         </p>
       </div>
 
@@ -134,10 +144,10 @@ export default function SetupPage() {
           <div className="auth-form-inner">
             {/* Header */}
             <div className="auth-form-header">
-              <span className="auth-form-eyebrow">KHỞI TẠO HỆ THỐNG</span>
-              <h2 className="auth-form-title">Tạo quản trị viên</h2>
+              <span className="auth-form-eyebrow">ĐĂNG KÝ TÀI KHOẢN</span>
+              <h2 className="auth-form-title">Tạo tài khoản mới</h2>
               <p className="auth-form-subtitle">
-                Thiết lập tài khoản quản trị viên đầu tiên và đặt tên cho không gian làm việc của bạn.
+                Đăng ký tài khoản và tạo workspace riêng của bạn.
               </p>
             </div>
 
@@ -145,7 +155,7 @@ export default function SetupPage() {
             {done && (
               <div className="auth-success-banner" role="status">
                 <CheckCircle2 size={16} strokeWidth={2} />
-                Khởi tạo thành công! Đang chuyển hướng đến trang đăng nhập…
+                Đăng ký thành công! Đang chuyển hướng đến trang đăng nhập…
               </div>
             )}
 
@@ -175,6 +185,9 @@ export default function SetupPage() {
                         className="auth-field-input"
                       />
                     </div>
+                    {fieldErrors.username && (
+                      <p className="text-xs text-rose-500 mt-1" role="alert">{fieldErrors.username}</p>
+                    )}
                   </div>
 
                   {/* Workspace name */}
@@ -198,6 +211,9 @@ export default function SetupPage() {
                         className="auth-field-input"
                       />
                     </div>
+                    {fieldErrors.workspaceName && (
+                      <p className="text-xs text-rose-500 mt-1" role="alert">{fieldErrors.workspaceName}</p>
+                    )}
                   </div>
 
                   {/* Password */}
@@ -233,6 +249,9 @@ export default function SetupPage() {
                           : <Eye size={16} strokeWidth={2} />}
                       </button>
                     </div>
+                    {fieldErrors.password && (
+                      <p className="text-xs text-rose-500 mt-1" role="alert">{fieldErrors.password}</p>
+                    )}
 
                     {/* Ultra-Minimalist Password Strength Indicator */}
                     {password.length > 0 && (
@@ -291,12 +310,12 @@ export default function SetupPage() {
                     {loading ? (
                       <>
                         <span className="btn-spinner" aria-hidden />
-                        Đang khởi tạo…
+                        Đang đăng ký…
                       </>
                     ) : (
                       <>
                         <ShieldCheck size={17} strokeWidth={2} />
-                        Khởi tạo hệ thống
+                        Đăng ký
                       </>
                     )}
                   </button>

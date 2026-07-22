@@ -187,7 +187,7 @@ export default function SignInPage() {
 
                 <p className="auth-form-link-row">
                   <a href="/setup" className="auth-form-link">
-                    Chưa có hệ thống? Khởi tạo ngay
+                    Chưa có tài khoản? Đăng ký ngay
                   </a>
                 </p>
               </div>

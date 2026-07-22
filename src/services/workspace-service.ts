@@ -6,13 +6,11 @@ export async function createWorkspaceForUser(userId: string, input: { name: stri
   const user = await prisma.user.findFirst({ where: { id: userId, status: "active", deletedAt: null } });
   if (!user) throw new AppError("AUTHENTICATION_REQUIRED", "Active user is required.");
   return prisma.$transaction(async (tx) => {
-    const ownsWorkspace = await tx.workspaceMember.count({ where: { userId, status: "active", deletedAt: null, role: { code: "OWNER" } } });
-    const creatorRole = ownsWorkspace ? "OWNER" : "ADMIN";
-    const role = await tx.role.findUnique({ where: { code: creatorRole } });
-    if (!role) throw new AppError("NOT_FOUND", `The ${creatorRole} role is missing.`);
+    const role = await tx.role.findUnique({ where: { code: "OWNER" } });
+    if (!role) throw new AppError("NOT_FOUND", "The OWNER role is missing.");
     const workspace = await tx.workspace.create({ data: input });
     await tx.workspaceMember.create({ data: { workspaceId: workspace.id, userId, roleId: role.id } });
-    await tx.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: userId, action: "workspace.created", entityType: "workspace", entityId: workspace.id, metadata: { creatorRole } } });
+    await tx.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: userId, action: "workspace.created", entityType: "workspace", entityId: workspace.id, metadata: { creatorRole: "OWNER" } } });
     return workspace;
   });
 }
