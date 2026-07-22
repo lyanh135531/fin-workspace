@@ -2,6 +2,8 @@ services:
   db:
     image: postgres:16-alpine
     env_file: .env
+    ports:
+      - "${DB_PORT:-15432}:5432"
     volumes:
       - fin_workspace_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,7 +29,7 @@ services:
       target: runner
     env_file: .env
     ports:
-      - "3000:3000"
+      - "${PORT:-15730}:15730"
     depends_on:
       migrate:
         condition: service_completed_successfully

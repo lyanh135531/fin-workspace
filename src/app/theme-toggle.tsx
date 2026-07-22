@@ -32,9 +32,14 @@ function getMode(): Mode {
 
 export function ThemeToggle() {
   const mode = useSyncExternalStore(subscribeMode, getMode, () => "light");
+  const Icon = mode === "dark" ? Moon : Sun;
   return <DropdownMenu>
     <DropdownMenuTrigger render={<button type="button" title="Chọn chế độ hiển thị" className="theme-toggle icon-button" aria-label="Chọn chế độ hiển thị" />}>
-      {mode === "dark" ? <Moon size={18}/> : <Sun size={18}/>}<span className="sr-only">Chế độ hiển thị</span>
+      {/* Key forces remount → triggers CSS animation */}
+      <span key={mode} className="theme-toggle-icon" aria-hidden>
+        <Icon size={18} />
+      </span>
+      <span className="sr-only">Chế độ hiển thị</span>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="theme-mode-menu">
       <DropdownMenuGroup><DropdownMenuLabel className="flex items-center gap-2"><MonitorCog size={14}/>Giao diện</DropdownMenuLabel></DropdownMenuGroup>

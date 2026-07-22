@@ -13,7 +13,7 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-Docker tự động chạy theo thứ tự: **PostgreSQL** → **migration** → **app** (port 3000).
+Docker tự động chạy theo thứ tự: **PostgreSQL** → **migration** → **app** (port 15730).
 
 ---
 
@@ -22,11 +22,11 @@ Docker tự động chạy theo thứ tự: **PostgreSQL** → **migration** →
 ```bash
 cp .env.example .env
 # Sửa POSTGRES_PASSWORD, NEXTAUTH_SECRET
-# Đổi host trong DATABASE_URL: "db" → "localhost"
+# Đổi host trong DATABASE_URL: "db" → "localhost", port "5432" → "15432"
 
 pnpm install
 pnpm prisma:deploy
 pnpm dev
 ```
 
-Yêu cầu: PostgreSQL đang chạy trên `localhost:5432`.
+Yêu cầu: PostgreSQL đang chạy trên `localhost:15432` (hoặc `localhost:5432` nếu không dùng Docker).
