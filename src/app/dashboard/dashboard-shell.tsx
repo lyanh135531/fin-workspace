@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { activateDueScheduledTransactions } from "@/services/transaction-service";
 import { isAdminRole } from "@/domain/role-policy";
+import { getPendingJoinRequestCount } from "@/services/join-request-query";
 
 export async function DashboardShell({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -66,6 +67,8 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
     ])
     : [null, [], []];
 
+  const pendingJoinCount = userId ? await getPendingJoinRequestCount(userId) : 0;
+
   const isAdmin = membership?.role.code === "ADMIN";
   const userRole: "admin" | "member" | "none" = membership
     ? isAdmin
@@ -108,6 +111,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
             name: item.workspace.name,
             role: item.role.code,
           }))}
+          pendingJoinCount={pendingJoinCount}
         />
 
         {/* User section with logout */}

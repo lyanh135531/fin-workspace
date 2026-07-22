@@ -1,10 +1,11 @@
 "use client";
 
-import { Check, ChevronsUpDown, PlusCircle, UserPlus } from "lucide-react";
+import { Check, ChevronsUpDown, Clock, KeyRound, Loader2, PlusCircle, Send } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useTransition, useSyncExternalStore } from "react";
+import { useState, useTransition, useSyncExternalStore, useRef } from "react";
 import { selectWorkspaceAction } from "@/app/dashboard/workspace-actions";
+import { requestJoinAction } from "@/app/dashboard/join/actions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type Workspace = { id: string; name: string; role: string };
@@ -21,12 +22,75 @@ function useSidebarCollapsed() {
   );
 }
 
+/* ── Inline Join Mini‑Form ───────────────────────────────────────── */
+function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
+  const [value, setValue] = useState("");
+  const [pending, start] = useTransition();
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const code = value.trim();
+    if (code.length < 8) {
+      setFeedback({ ok: false, text: "Mã mời tối thiểu 8 ký tự." });
+      return;
+    }
+    setFeedback(null);
+    start(async () => {
+      const r = await requestJoinAction({ inviteCode: code });
+      if (r.ok) {
+        setFeedback({ ok: true, text: "Đã gửi! Chờ Admin duyệt." });
+        setValue("");
+        onSuccess?.();
+      } else {
+        setFeedback({ ok: false, text: r.message ?? "Không thể gửi yêu cầu." });
+      }
+    });
+  }
+
+  return (
+    <form onSubmit={submit} className="ws-inline-join">
+      <div className="ws-inline-join-row">
+        <KeyRound size={14} className="ws-inline-join-icon" aria-hidden />
+        <input
+          ref={inputRef}
+          className="ws-inline-join-input"
+          placeholder="Dán mã mời workspace…"
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            if (feedback) setFeedback(null);
+          }}
+          disabled={pending}
+          aria-label="Nhập mã mời workspace"
+        />
+        <button
+          type="submit"
+          className="ws-inline-join-btn"
+          disabled={pending || value.trim().length < 8}
+          aria-label="Gửi yêu cầu tham gia"
+        >
+          {pending ? <Loader2 size={14} className="ws-join-spinner" /> : <Send size={13} />}
+        </button>
+      </div>
+      {feedback && (
+        <p className={`ws-inline-join-feedback ${feedback.ok ? "ws-join-ok" : "ws-join-err"}`} role="status">
+          {feedback.text}
+        </p>
+      )}
+    </form>
+  );
+}
+
 export function WorkspaceSwitcher({
   workspaces,
   currentId,
+  pendingJoinCount = 0,
 }: {
   workspaces: Workspace[];
   currentId: string;
+  pendingJoinCount?: number;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -103,6 +167,9 @@ export function WorkspaceSwitcher({
               );
             })}
           </div>
+          <div className="sidebar-ws-popover-footer">
+            <InlineJoinForm onSuccess={() => router.refresh()} />
+          </div>
         </PopoverContent>
       </Popover>
     );
@@ -167,10 +234,17 @@ export function WorkspaceSwitcher({
             <PlusCircle size={14} />
             <span>Tạo workspace mới</span>
           </Link>
-          <Link href="/settings/join" onClick={() => setOpen(false)} className="sidebar-ws-footer-link">
-            <UserPlus size={14} />
-            <span>Tham gia workspace</span>
-          </Link>
+
+          {/* Pending join requests indicator */}
+          {pendingJoinCount > 0 && (
+            <Link href="/settings/join" onClick={() => setOpen(false)} className="sidebar-ws-footer-link ws-pending-link">
+              <Clock size={14} />
+              <span>Đang chờ duyệt ({pendingJoinCount})</span>
+            </Link>
+          )}
+
+          {/* Inline Join Form */}
+          <InlineJoinForm onSuccess={() => router.refresh()} />
         </div>
       </PopoverContent>
     </Popover>
