@@ -1,3 +1,4 @@
+import { FinLogo } from "@/components/fin-logo";
 import { getServerSession } from "next-auth";
 import { Settings } from "lucide-react";
 import Link from "next/link";
@@ -87,7 +88,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
         {/* Brand row */}
         <div className="dashboard-brand-row">
           <div className="dashboard-brand" style={{ display: "flex", alignItems: "center", gap: ".55rem", margin: "0 .35rem" }}>
-            <div className="sidebar-brand-logo" aria-hidden>F</div>
+            <FinLogo size={28} />
             <span className="sidebar-brand-text">Fin Workspace</span>
           </div>
           <SidebarToggle />
@@ -175,15 +176,17 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
         <footer className="dashboard-footer">
           {/* Left: brand */}
           <div className="footer-brand">
-            <div className="footer-brand-logo" aria-hidden>F</div>
-            <span>Fin Workspace</span>
-            <span className="footer-version">v1</span>
+            <FinLogo size={20} />
+            <span className="footer-brand-title">Fin Workspace</span>
+            <span className="footer-version-tag">v1.0</span>
           </div>
 
           {/* Center: connection status */}
-          <div className="footer-status" aria-label="Trạng thái kết nối: Đang hoạt động">
-            <span className="footer-status-dot" aria-hidden />
-            <span className="footer-status-label">Đang hoạt động</span>
+          <div className="footer-status" aria-label="Trạng thái kết nối: Hệ thống hoạt động">
+            <div className="footer-status-badge">
+              <span className="footer-status-dot" aria-hidden />
+              <span className="footer-status-label">Hệ thống hoạt động</span>
+            </div>
           </div>
 
           {/* Right: live clock + timezone */}
@@ -195,8 +198,10 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
               aria-live="polite"
               hidden
             />
-            <FooterClock />
-            <span className="footer-tz">ICT · VND</span>
+            <div className="footer-clock-pill">
+              <FooterClock />
+            </div>
+            <span className="footer-tz-badge">VND</span>
           </div>
         </footer>
       </div>
