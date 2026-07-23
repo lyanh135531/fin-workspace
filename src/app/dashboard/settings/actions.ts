@@ -7,7 +7,7 @@ import { authOptions } from "@/auth";
 import { idSchema } from "@/domain/common/schemas";
 import { AppError } from "@/lib/errors";
 import { changeWorkspaceMemberRole, deactivateWorkspaceMember } from "@/services/member-management-service";
-import { createWorkspaceForUser, deleteWorkspaceForUser, updateWorkspaceSettings } from "@/services/workspace-service";
+import { createWorkspaceForUser, deleteWorkspaceForUser, regenerateWorkspaceInviteCode, updateWorkspaceSettings } from "@/services/workspace-service";
 import { activeWorkspaceCookie, resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
@@ -57,6 +57,18 @@ export async function deleteWorkspaceAction(password: string) {
     revalidatePath("/overview");
     revalidatePath("/settings/workspace");
     return { ok: true, message: null };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function regenerateInviteCodeAction() {
+  try {
+    const actor = await adminActor();
+    const newCode = await regenerateWorkspaceInviteCode(actor.userId, actor.workspaceId);
+    revalidatePath("/settings/workspace");
+    revalidatePath("/dashboard/settings");
+    return { ok: true, inviteCode: newCode, message: null };
   } catch (error) {
     return fail(error);
   }

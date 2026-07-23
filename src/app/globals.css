@@ -3305,3 +3305,92 @@ html[data-mode="dark"] .mini-card {
   }
 }
 
+/* ═══════════════════════════════════════════════════
+   Wallet Management Redesign CSS
+   ═══════════════════════════════════════════════════ */
+.wallet-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .wallet-kpi-grid {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+}
+
+.wallet-kpi-card {
+  position: relative;
+  overflow: hidden;
+  padding: 1.25rem 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 4px 16px var(--shadow);
+  transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.wallet-kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+.wallet-kpi-icon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  font-weight: 700;
+}
+
+.wallet-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  gap: 1.25rem;
+}
+
+.wallet-card-redesigned {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: 1.1rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1), border-color 200ms ease, box-shadow 220ms ease;
+}
+
+.wallet-card-redesigned:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  box-shadow: 0 10px 30px var(--shadow);
+}
+
+.wallet-card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.wallet-card-badge-active {
+  background: rgb(34 197 94 / 10%);
+  border: 1px solid rgb(34 197 94 / 25%);
+  color: #16a34a;
+}
+
+.wallet-card-badge-deactive {
+  background: rgb(245 158 11 / 10%);
+  border: 1px solid rgb(245 158 11 / 25%);
+  color: #d97706;
+}
+
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings2, Trash2, AlertTriangle, ShieldCheck, Clock, Banknote } from "lucide-react";
+import { Settings2, Trash2, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useState, useTransition } from "react";
 import { deleteWorkspaceAction, updateWorkspaceSettingsAction } from "@/app/dashboard/settings/actions";
 import { showToast } from "@/components/toast-container";
@@ -105,34 +105,15 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
             />
           </div>
 
-          {/* Status + Fixed Values row */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label htmlFor="ws-status" className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
-                Trạng thái hoạt động
-              </label>
-              <select id="ws-status" name="status" defaultValue={workspace.status} className="field w-full text-sm">
-                <option value="active">🟢 Đang hoạt động</option>
-                <option value="deactive">🟡 Tạm ngưng</option>
-              </select>
-            </div>
-
-            {/* Fixed values as pill badges */}
-            <div className="space-y-2">
-              <span className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
-                Cấu hình cố định
-              </span>
-              <div className="flex flex-wrap gap-2 pt-1">
-                <span className="ws-fixed-pill">
-                  <Banknote size={13} />
-                  <strong>{workspace.baseCurrency}</strong>
-                </span>
-                <span className="ws-fixed-pill">
-                  <Clock size={13} />
-                  <strong>UTC+7</strong> HCM
-                </span>
-              </div>
-            </div>
+          {/* Status */}
+          <div className="space-y-2">
+            <label htmlFor="ws-status" className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
+              Trạng thái hoạt động
+            </label>
+            <select id="ws-status" name="status" defaultValue={workspace.status} className="field w-full text-sm">
+              <option value="active">🟢 Đang hoạt động</option>
+              <option value="deactive">🟡 Tạm ngưng</option>
+            </select>
           </div>
 
           {/* Description with character hint */}
@@ -221,7 +202,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
               setConfirmPassword("");
               setDeleteDialog(true);
             }}
-            className="button-primary bg-rose-600 hover:bg-rose-700 text-white inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold shrink-0 shadow-sm transition-all"
+            className="button-danger inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold shrink-0 shadow-sm transition-all"
           >
             <Trash2 size={15} />
             Xóa Workspace
@@ -288,7 +269,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
                 type="button"
                 disabled={pending || !confirmPassword.trim()}
                 onClick={remove}
-                className="button-primary bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 inline-flex items-center gap-1.5"
+                className="button-danger text-xs font-semibold px-4 py-2 inline-flex items-center gap-1.5"
               >
                 {pending ? (
                   <>

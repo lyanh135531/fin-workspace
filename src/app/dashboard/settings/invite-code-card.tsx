@@ -1,11 +1,14 @@
 "use client";
 
-import { Check, Copy, KeyRound, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { Check, Copy, KeyRound, RefreshCw, Sparkles } from "lucide-react";
+import { useState, useTransition } from "react";
+import { regenerateInviteCodeAction } from "@/app/dashboard/settings/actions";
 import { showToast } from "@/components/toast-container";
 
-export function InviteCodeCard({ code }: { code: string }) {
+export function InviteCodeCard({ code: initialCode }: { code: string }) {
+  const [code, setCode] = useState(initialCode);
   const [copied, setCopied] = useState(false);
+  const [pending, startTransition] = useTransition();
 
   async function copy() {
     try {
@@ -17,6 +20,24 @@ export function InviteCodeCard({ code }: { code: string }) {
       showToast("Không thể sao chép tự động. Vui lòng sao chép thủ công.", "error");
     }
   }
+
+  function handleRegenerate() {
+    startTransition(async () => {
+      const result = await regenerateInviteCodeAction();
+      if (result.ok && "inviteCode" in result && result.inviteCode) {
+        setCode(result.inviteCode);
+        showToast("Đã tạo mã mời 6 chữ số mới thành công!", "success");
+      } else {
+        showToast(result.message ?? "Không thể đổi mã mời.", "error");
+      }
+    });
+  }
+
+  // Format code for display if it's 6 digits e.g. "892-415" -> "892 - 415"
+  const formattedDisplay =
+    code.length === 7 && code.includes("-")
+      ? code.replace("-", " · ")
+      : code;
 
   return (
     <section className="sunrise-card p-6 flex flex-col justify-between space-y-5 relative overflow-hidden">
@@ -30,45 +51,59 @@ export function InviteCodeCard({ code }: { code: string }) {
           </div>
           <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-blue-600">
             <Sparkles size={11} />
-            Mã chia sẻ
+            Mã chia sẻ 6 số
           </span>
         </div>
 
         <div>
           <h2 className="text-base font-bold text-[var(--foreground)]">Mã mời Workspace</h2>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
-            Chia sẻ mã này với thành viên mới. Họ dùng mã này để gửi yêu cầu tham gia và bạn duyệt trong phần thông báo.
+            Chia sẻ mã 6 chữ số này với thành viên mới. Họ dùng mã này để gửi yêu cầu tham gia và bạn duyệt trong phần thông báo.
           </p>
         </div>
       </div>
 
-      <div className="relative">
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-muted)] p-4">
-          <code className="font-mono text-lg font-bold tracking-[0.15em] text-[var(--foreground)] truncate select-all">
-            {code}
+      <div className="space-y-3 relative">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-muted)] p-4">
+          <code className="font-mono text-2xl font-bold tracking-[0.2em] text-[var(--foreground)] truncate select-all text-center sm:text-left">
+            {formattedDisplay}
           </code>
-          <button
-            type="button"
-            onClick={copy}
-            className={`button-secondary inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold shrink-0 transition-all ${
-              copied ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" : ""
-            }`}
-          >
-            {copied ? (
-              <>
-                <Check size={14} />
-                Đã chép
-              </>
-            ) : (
-              <>
-                <Copy size={14} />
-                Sao chép
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={copy}
+              className={`button-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all ${
+                copied ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" : ""
+              }`}
+            >
+              {copied ? (
+                <>
+                  <Check size={14} />
+                  Đã chép
+                </>
+              ) : (
+                <>
+                  <Copy size={14} />
+                  Sao chép
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              disabled={pending}
+              onClick={handleRegenerate}
+              className="button-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all hover:text-[var(--primary)]"
+              title="Đổi mã mời 6 số mới"
+            >
+              <RefreshCw size={14} className={pending ? "animate-spin" : ""} />
+              Đổi mã
+            </button>
+          </div>
         </div>
-        <p className="mt-2 text-[11px] text-slate-400 text-center">
-          Mã mời là cố định — không thể đổi sau khi tạo workspace
+
+        <p className="text-[11px] text-slate-400 text-center">
+          Mã 6 chữ số ngắn gọn, dễ gõ và dễ truyền đạt cho thành viên mới
         </p>
       </div>
     </section>
