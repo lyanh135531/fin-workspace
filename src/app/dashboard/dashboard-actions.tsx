@@ -11,6 +11,7 @@ import {
   deleteTransactionsAction,
   updateTransactionsAction,
 } from "@/app/dashboard/actions";
+import { showToast } from "@/components/toast-container";
 import { FinanceSelect } from "@/components/finance/finance-select";
 import { formatAmount } from "@/lib/format";
 
@@ -161,7 +162,6 @@ export function Ledger({ workspaceId, transactions, canApprove, canEditTransacti
   const [editMode, setEditMode] = useState(false);
   const [editDrafts, setEditDrafts] = useState<Record<string, TransactionDraft>>({});
   const [editReason, setEditReason] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
   const [busy, start] = useTransition();
   const rows = useMemo(() => transactions.filter((item) => (status === "all" || item.status === status) && `${item.description ?? ""} ${item.category?.name ?? ""} ${item.wallet} ${item.member}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())), [transactions, query, status]);
   const allSelected = rows.length > 0 && rows.every((row) => selected.has(row.id));
@@ -176,28 +176,45 @@ export function Ledger({ workspaceId, transactions, canApprove, canEditTransacti
   function toggleAll() { setSelected((current) => { const next = new Set(current); if (allSelected) rows.forEach((row) => next.delete(row.id)); else rows.forEach((row) => next.add(row.id)); return next; }); }
   function removeBulk() {
     const ids = [...selected]; if (!ids.length) return;
-    start(async () => { const result = await deleteTransactionsAction(ids); setMessage(result.ok ? `Đã xóa ${ids.length} giao dịch.` : result.message ?? "Không thể xóa giao dịch."); if (result.ok) setSelected(new Set()); setConfirmBulkDelete(false); });
+    start(async () => {
+      const result = await deleteTransactionsAction(ids);
+      if (result.ok) {
+        showToast(`Đã xóa ${ids.length} giao dịch.`, "success");
+        setSelected(new Set());
+        setConfirmBulkDelete(false);
+      } else {
+        showToast(result.message ?? "Không thể xóa giao dịch.", "error");
+      }
+    });
   }
   function removeOne() {
     if (!deleteTarget) return;
     start(async () => {
       const result = await deleteTransactionAction(deleteTarget.id, deleteReason);
-      setMessage(result.ok ? (result.kind === "requested" ? "Đã gửi yêu cầu xóa đến Admin." : "Đã xóa giao dịch và cập nhật lại số dư ví.") : result.message ?? "Không thể xử lý yêu cầu xóa.");
-      if (result.ok) { setDeleteTarget(null); setDeleteReason(""); }
+      if (result.ok) {
+        showToast(result.kind === "requested" ? "Đã gửi yêu cầu xóa đến Admin." : "Đã xóa giao dịch và cập nhật lại số dư ví.", "success");
+        setDeleteTarget(null);
+        setDeleteReason("");
+      } else {
+        showToast(result.message ?? "Không thể xử lý yêu cầu xóa.", "error");
+      }
     });
   }
   function beginCreate() {
     setEditMode(false);
     setEditDrafts({});
     setCreateDraft(newTransactionDraft(wallets, categories));
-    setMessage(null);
   }
   function saveCreate() {
     if (!createDraft) return;
     start(async () => {
       const result = await addTransactionAction(transactionInput(createDraft));
-      setMessage(result.ok ? (result.status === "pending" ? "Đã gửi giao dịch quá khứ để Admin duyệt." : result.status === "scheduled" ? "Đã lên lịch giao dịch tương lai." : "Đã ghi nhận giao dịch và cập nhật số dư ví.") : result.message ?? "Không thể lưu giao dịch.");
-      if (result.ok) setCreateDraft(null);
+      if (result.ok) {
+        showToast(result.status === "pending" ? "Đã gửi giao dịch quá khứ để Admin duyệt." : result.status === "scheduled" ? "Đã lên lịch giao dịch tương lai." : "Đã ghi nhận giao dịch và cập nhật số dư ví.", "success");
+        setCreateDraft(null);
+      } else {
+        showToast(result.message ?? "Không thể lưu giao dịch.", "error");
+      }
     });
   }
   function beginEdit() {
@@ -206,7 +223,6 @@ export function Ledger({ workspaceId, transactions, canApprove, canEditTransacti
     setEditDrafts(Object.fromEntries(transactions.map((item) => [item.id, draftFromTransaction(item, wallets)])));
     setEditReason("");
     setEditMode(true);
-    setMessage(null);
   }
   function cancelEdit() {
     setEditMode(false);
@@ -221,10 +237,14 @@ export function Ledger({ workspaceId, transactions, canApprove, canEditTransacti
       const draft = editDrafts[item.id];
       return draft && isChanged(item, draft) ? [{ transactionId: item.id, input: transactionInput(draft) }] : [];
     });
-    if (!changes.length) { setMessage("Không có thay đổi để lưu."); cancelEdit(); return; }
+    if (!changes.length) { showToast("Không có thay đổi để lưu.", "info"); cancelEdit(); return; }
     start(async () => {
       const result = await updateTransactionsAction(workspaceId, changes, editReason);
-      setMessage(result.ok ? (result.requested ? `Đã gửi ${result.requested} yêu cầu sửa đến Admin.` : `Đã lưu ${result.updated} giao dịch.`) : result.message ?? "Không thể lưu các thay đổi.");
+      if (result.ok) {
+        showToast(result.requested ? `Đã gửi ${result.requested} yêu cầu sửa đến Admin.` : `Đã lưu ${result.updated} giao dịch.`, "success");
+      } else {
+        showToast(result.message ?? "Không thể lưu các thay đổi.", "error");
+      }
       if (result.ok || (result.updated ?? 0) + (result.requested ?? 0) > 0) cancelEdit();
     });
   }
@@ -241,10 +261,10 @@ export function Ledger({ workspaceId, transactions, canApprove, canEditTransacti
     {confirmBulkDelete && <ConfirmDelete count={selected.size} busy={busy} onCancel={() => setConfirmBulkDelete(false)} onConfirm={removeBulk}/>}
     {deleteTarget && <section className="ledger-confirm-panel" aria-labelledby="delete-transaction-title"><div><p className="public-eyebrow">{isAdmin ? "Thao tác có hiệu lực ngay" : "Yêu cầu Admin phê duyệt"}</p><h2 id="delete-transaction-title">Xóa “{deleteTarget.description || "giao dịch này"}”?</h2><p>{isAdmin ? "Nếu đã ghi nhận, số dư ví sẽ được hoàn tác." : "Giao dịch chỉ bị xóa sau khi Admin duyệt."}</p>{!isAdmin && <textarea className="field ledger-reason" value={deleteReason} onChange={(event) => setDeleteReason(event.target.value)} placeholder="Lý do (mặc định: Đã thông báo)" maxLength={2000}/>}</div><div className="dialog-actions"><button type="button" disabled={busy} onClick={() => { setDeleteTarget(null); setDeleteReason(""); }} className="button-secondary">Hủy</button><button type="button" disabled={busy} onClick={removeOne} className="button-danger">{busy ? "Đang xử lý" : isAdmin ? "Xác nhận xóa" : "Gửi yêu cầu"}</button></div></section>}
     {editMode && !isAdmin && <div className="ledger-edit-reason-bar"><label>Lý do chỉnh sửa<input className="field" value={editReason} onChange={(event) => setEditReason(event.target.value)} placeholder="Mặc định: Đã thông báo" maxLength={2000}/></label><span>Áp dụng cho các hàng đã thay đổi.</span></div>}
-    {message && <p className="ledger-inline-message" role="status">{message}</p>}
+
     <div className="ledger-scroll-area"><table className="ledger-table w-full min-w-[1080px] text-left text-sm"><thead><tr className="border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--text-muted)]">{canApprove && <th className="w-10"><input type="checkbox" checked={allSelected} disabled={editMode} onChange={toggleAll} aria-label="Chọn tất cả giao dịch đang hiển thị"/></th>}<th>Giao dịch</th><th>Loại</th><th>Danh mục</th><th>Ví</th><th>Ngày</th><th className="text-right">Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
       {createDraft && <DraftRow mode="create" draft={createDraft} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} onChange={(patch) => setCreateDraft((current) => current ? { ...current, ...patch } : current)} onSave={saveCreate} onCancel={() => setCreateDraft(null)}/>}
-      {rows.map((item, index) => editMode ? <DraftRow key={item.id} mode="edit" draft={editDrafts[item.id] ?? draftFromTransaction(item, wallets)} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} disabled={!isAdmin && item.hasPendingChange} autoFocus={index === 0} status={<><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</>} onChange={(patch) => updateDraft(item.id, patch)}/> : <tr key={item.id} className="border-b border-[var(--border)]">{canApprove && <td><input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/></td>}<td><p className="font-medium">{item.description || "Không có nội dung"}</p><p className="mt-1 text-xs text-[var(--text-muted)]">#{String(transactions.length - index).padStart(5, "0")} · {item.member}</p></td><td>{typeOptions.find((option) => option.value === item.type)?.label}</td><td>{item.category ? <span className="category-tag" style={{ backgroundColor: `${item.category.color}22`, color: item.category.color }}>{item.category.name}</span> : "—"}</td><td>{item.wallet}</td><td>{new Date(item.date).toLocaleDateString("vi-VN")}</td><td className={`ledger-amount amount-${item.type}`}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} ₫</td><td><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</td><td><div className="ledger-row-actions">{canApprove && (item.status === "pending" || item.status === "scheduled") && <button disabled={busy} onClick={() => start(async () => { const result = await approveTransactionAction(item.id); setMessage(result.ok ? "Đã ghi nhận giao dịch." : result.message ?? "Không thể duyệt giao dịch."); })} className="button-secondary text-xs">{item.status === "scheduled" ? "Ghi nhận sớm" : "Duyệt"}</button>}{!readonly && <button disabled={busy || item.hasPendingChange} onClick={() => setDeleteTarget(item)} className="button-secondary icon-button ledger-delete-button" title="Xóa giao dịch" aria-label={`Xóa ${item.description || "giao dịch"}`}><Trash2 size={14}/></button>}</div></td></tr>)}
+      {rows.map((item, index) => editMode ? <DraftRow key={item.id} mode="edit" draft={editDrafts[item.id] ?? draftFromTransaction(item, wallets)} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} disabled={!isAdmin && item.hasPendingChange} autoFocus={index === 0} status={<><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</>} onChange={(patch) => updateDraft(item.id, patch)}/> : <tr key={item.id} className="border-b border-[var(--border)]">{canApprove && <td><input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/></td>}<td><p className="font-medium">{item.description || "Không có nội dung"}</p><p className="mt-1 text-xs text-[var(--text-muted)]">#{String(transactions.length - index).padStart(5, "0")} · {item.member}</p></td><td>{typeOptions.find((option) => option.value === item.type)?.label}</td><td>{item.category ? <span className="category-tag" style={{ backgroundColor: `${item.category.color}22`, color: item.category.color }}>{item.category.name}</span> : "—"}</td><td>{item.wallet}</td><td>{new Date(item.date).toLocaleDateString("vi-VN")}</td><td className={`ledger-amount amount-${item.type}`}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} ₫</td><td><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</td><td><div className="ledger-row-actions">{canApprove && (item.status === "pending" || item.status === "scheduled") && <button disabled={busy} onClick={() => start(async () => { const result = await approveTransactionAction(item.id); if (result.ok) showToast("Đã ghi nhận giao dịch.", "success"); else showToast(result.message ?? "Không thể duyệt giao dịch.", "error"); })} className="button-secondary text-xs">{item.status === "scheduled" ? "Ghi nhận sớm" : "Duyệt"}</button>}{!readonly && <button disabled={busy || item.hasPendingChange} onClick={() => setDeleteTarget(item)} className="button-secondary icon-button ledger-delete-button" title="Xóa giao dịch" aria-label={`Xóa ${item.description || "giao dịch"}`}><Trash2 size={14}/></button>}</div></td></tr>)}
       {!createDraft && rows.length === 0 && <tr><td colSpan={columnCount} className="p-10 text-center text-[var(--text-muted)]">Chưa có giao dịch phù hợp.</td></tr>}
     </tbody></table></div>
     <p className="ledger-record-count">Hiển thị {rows.length} giao dịch trong {scopeLabel}.</p>

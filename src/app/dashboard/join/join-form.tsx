@@ -1,23 +1,22 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
-import { KeyRound, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { useTransition, useRef } from "react";
+import { KeyRound, Send, Loader2 } from "lucide-react";
 import { requestJoinAction } from "@/app/dashboard/join/actions";
+import { showToast } from "@/components/toast-container";
 
 export function JoinForm() {
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
   function submit(f: FormData) {
-    setMessage(null);
     start(async () => {
       const r = await requestJoinAction({ inviteCode: f.get("inviteCode") });
       if (r.ok) {
-        setMessage({ ok: true, text: "Đã gửi yêu cầu thành công! Hãy chờ Admin workspace duyệt." });
+        showToast("Đã gửi yêu cầu thành công! Hãy chờ Admin workspace duyệt.", "success");
         formRef.current?.reset();
       } else {
-        setMessage({ ok: false, text: r.message ?? "Không thể gửi yêu cầu." });
+        showToast(r.message ?? "Không thể gửi yêu cầu.", "error");
       }
     });
   }
@@ -54,15 +53,6 @@ export function JoinForm() {
             spellCheck={false}
           />
         </div>
-
-        {message && (
-          <div className={`join-form-feedback ${message.ok ? "join-feedback-ok" : "join-feedback-err"}`} role="status">
-            {message.ok
-              ? <CheckCircle2 size={15} strokeWidth={2} />
-              : <AlertCircle size={15} strokeWidth={2} />}
-            {message.text}
-          </div>
-        )}
 
         <button disabled={pending} className="join-form-submit" type="submit">
           {pending ? (

@@ -1,13 +1,13 @@
-/** Chỉ các category toàn cục hoặc thuộc đúng workspace mới được sử dụng. */
+/** Chỉ các category thuộc đúng workspace mới được sử dụng trong giao dịch. */
 export function availableCategoryWhere(workspaceId: string) {
   return {
     status: "active" as const,
     deletedAt: null,
-    OR: [{ workspaceId: null }, { workspaceId }],
+    workspaceId,
   };
 }
 
-/** Dùng ở màn quản trị để xem cả category riêng đã vô hiệu hóa. */
+/** Dùng ở màn quản trị workspace để xem cả category đã vô hiệu hóa. */
 export function manageableCategoryWhere(workspaceId: string) {
-  return { deletedAt: null, OR: [{ workspaceId: null }, { workspaceId }] };
+  return { deletedAt: null, workspaceId };
 }

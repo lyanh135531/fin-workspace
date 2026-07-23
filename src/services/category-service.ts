@@ -57,6 +57,18 @@ export async function setWorkspaceCategoryStatus(userId: string, workspaceId: st
   });
 }
 
+export async function reorderWorkspaceCategories(userId: string, workspaceId: string, orderedIds: string[]) {
+  await requireWorkspaceMember(userId, workspaceId, true);
+  return prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.category.updateMany({
+        where: { id, workspaceId },
+        data: { sortOrder: index },
+      })
+    )
+  );
+}
+
 export async function getAvailableCategories(userId: string, workspaceId: string) {
   await requireWorkspaceMember(userId, workspaceId);
   return prisma.category.findMany({ where: availableCategoryWhere(workspaceId), orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });

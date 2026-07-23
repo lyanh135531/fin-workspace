@@ -1,46 +1,586 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { BriefcaseBusiness, Car, CircleDollarSign, Heart, House, Pencil, Plus, ShoppingCart, Tag } from "lucide-react";
-import { createCategoryAction, setCategoryStatusAction, updateCategoryAction } from "@/app/dashboard/settings/category-actions";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Pencil,
+  Plus,
+  Tag,
+  X,
+  AlertCircle,
+  CheckCircle2,
+} from "lucide-react";
+import { useState, useTransition } from "react";
+import {
+  createCategoryAction,
+  reorderCategoriesAction,
+  setCategoryStatusAction,
+  updateCategoryAction,
+} from "@/app/dashboard/settings/category-actions";
+import { ICON_MAP, slugifyCode } from "@/app/dashboard/settings/global-category-management";
+import { showToast } from "@/components/toast-container";
 
-type Category = { id: string; name: string; code: string; color: string; type: "income" | "expense"; icon: string | null; parentId: string | null; system: boolean; status: "active" | "deactive"; transactionCount: number };
-const icons = { tag: Tag, house: House, car: Car, shopping: ShoppingCart, heart: Heart, work: BriefcaseBusiness, money: CircleDollarSign };
-type IconName = keyof typeof icons;
-function iconName(value: string | null): IconName { return value && value in icons ? value as IconName : "tag"; }
+type Category = {
+  id: string;
+  name: string;
+  code: string;
+  color: string;
+  type: "income" | "expense";
+  icon: string | null;
+  parentId: string | null;
+  status: "active" | "deactive";
+  transactionCount: number;
+};
 
-export function CategoryManagement({ categories, isAdmin }: { categories: Category[]; isAdmin: boolean }) {
-  const [message, setMessage] = useState<string | null>(null);
+const COLOR_PRESETS = [
+  "#FF5B3D",
+  "#69B7F3",
+  "#F6B94A",
+  "#41A862",
+  "#7959C8",
+  "#E58EB3",
+  "#008E9B",
+  "#334E8C",
+];
+
+const ICON_LIST = [
+  { id: "tag", label: "Nhãn" },
+  { id: "utensils", label: "Ăn uống" },
+  { id: "coffee", label: "Cà phê" },
+  { id: "house", label: "Nhà cửa" },
+  { id: "car", label: "Xe cộ" },
+  { id: "fuel", label: "Xăng dầu" },
+  { id: "shopping", label: "Mua sắm" },
+  { id: "heart", label: "Sức khỏe" },
+  { id: "work", label: "Công việc" },
+  { id: "money", label: "Tiền bạc" },
+  { id: "landmark", label: "Ngân hàng" },
+  { id: "card", label: "Thẻ" },
+  { id: "education", label: "Học tập" },
+  { id: "travel", label: "Du lịch" },
+  { id: "gift", label: "Quà tặng" },
+  { id: "shield", label: "Bảo hiểm" },
+  { id: "tech", label: "Thiết bị" },
+  { id: "entertainment", label: "Giải trí" },
+  { id: "sport", label: "Thể thao" },
+  { id: "service", label: "Sửa chữa" },
+  { id: "book", label: "Sách vở" },
+];
+
+export function CategoryManagement({ categories }: { categories: Category[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [filterType, setFilterType] = useState<"expense" | "income">("expense");
   const [pending, start] = useTransition();
-  const workspaceCategories = useMemo(() => categories.filter((item) => !item.system), [categories]);
+
   function submit(form: FormData, id?: string) {
+    const category = {
+      name: String(form.get("name") ?? ""),
+      code: String(form.get("code") ?? ""),
+      color: String(form.get("color") ?? COLOR_PRESETS[0]),
+      type: String(form.get("type") ?? "expense") as "income" | "expense",
+      icon: String(form.get("icon") ?? "tag"),
+      parentId: (form.get("parentId") as string) || undefined,
+    };
     start(async () => {
-      const input = { name: form.get("name"), code: form.get("code"), color: form.get("color"), type: form.get("type"), icon: form.get("icon"), parentId: form.get("parentId") || undefined, sortOrder: form.get("sortOrder") };
-      const result = id ? await updateCategoryAction({ ...input, categoryId: id }) : await createCategoryAction(input);
-      setMessage(result.ok ? (id ? "Đã cập nhật danh mục." : "Đã tạo danh mục.") : result.message);
-      if (result.ok) { setEditing(null); setCreating(false); }
+      const result = id
+        ? await updateCategoryAction({ ...category, categoryId: id })
+        : await createCategoryAction(category);
+      if (result.ok) {
+        showToast(id ? "Đã cập nhật danh mục." : "Đã tạo danh mục mới.", "success");
+        setEditing(null);
+        setCreating(false);
+      } else {
+        showToast(result.message ?? "Có lỗi xảy ra.", "error");
+      }
     });
   }
-  function setStatus(id: string, status: "active" | "deactive") { start(async () => { const result = await setCategoryStatusAction(id, status); setMessage(result.ok ? (status === "active" ? "Đã kích hoạt danh mục." : "Đã vô hiệu hóa danh mục.") : result.message); }); }
-  const roots = categories.filter((item) => !item.parentId);
-  return <section className="sunrise-card mt-4 p-6">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm text-slate-500">Danh mục</p><h2 className="mt-1 text-xl font-semibold">Quản lý danh mục</h2><p className="mt-1 text-sm text-slate-500">Danh mục hệ thống dùng chung; danh mục riêng chỉ áp dụng cho workspace này.</p></div>{isAdmin && <button className="button-primary inline-flex items-center gap-2" onClick={() => { setCreating(true); setEditing(null); }} disabled={pending}><Plus size={17} />Thêm danh mục</button>}</div>
-    {message && <p className="mt-3 text-sm" role="status">{message}</p>}
-    {isAdmin && creating && <CategoryForm title="Thêm danh mục riêng cho workspace này" categories={workspaceCategories} pending={pending} onCancel={() => setCreating(false)} onSubmit={submit} />}
-    <div className="mt-5 space-y-2">{roots.map((category) => <CategoryNode key={category.id} category={category} categories={categories} isAdmin={isAdmin} pending={pending} editing={editing} onEdit={setEditing} onStatus={setStatus} onSubmit={submit} onCancel={() => setEditing(null)} />)}{roots.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Chưa có danh mục.</p>}</div>
-    {!isAdmin && <p className="mt-4 text-sm text-slate-500">Bạn có thể xem các danh mục đang áp dụng trong workspace.</p>}
-  </section>;
+
+  function setStatus(id: string, status: "active" | "deactive") {
+    start(async () => {
+      const result = await setCategoryStatusAction(id, status);
+      if (result.ok) {
+        showToast(
+          status === "active" ? "Đã kích hoạt danh mục." : "Đã vô hiệu hóa danh mục.",
+          "success"
+        );
+      } else {
+        showToast(result.message ?? "Không thể đổi trạng thái.", "error");
+      }
+    });
+  }
+
+  function handleReorder(items: Category[]) {
+    const orderedIds = items.map((c) => c.id);
+    start(async () => {
+      const result = await reorderCategoriesAction(orderedIds);
+      if (result.ok) {
+        showToast("Đã cập nhật thứ tự danh mục.", "success");
+      } else {
+        showToast(result.message ?? "Không thể sắp xếp lại.", "error");
+      }
+    });
+  }
+
+  const currentCategories = categories.filter((c) => c.type === filterType);
+  const rootCategories = currentCategories.filter((c) => !c.parentId);
+
+  function moveRootItem(index: number, direction: "up" | "down") {
+    const newRoots = [...rootCategories];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newRoots.length) return;
+    const [moved] = newRoots.splice(index, 1);
+    newRoots.splice(targetIndex, 0, moved);
+
+    const allOrdered: Category[] = [];
+    newRoots.forEach((root) => {
+      allOrdered.push(root);
+      allOrdered.push(...categories.filter((c) => c.parentId === root.id));
+    });
+    const otherTypeItems = categories.filter((c) => c.type !== filterType);
+    handleReorder([...allOrdered, ...otherTypeItems]);
+  }
+
+  function moveChildItem(parentId: string, index: number, direction: "up" | "down") {
+    const siblings = currentCategories.filter((c) => c.parentId === parentId);
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= siblings.length) return;
+    const [moved] = siblings.splice(index, 1);
+    siblings.splice(targetIndex, 0, moved);
+
+    const allOrdered: Category[] = [];
+    rootCategories.forEach((root) => {
+      allOrdered.push(root);
+      if (root.id === parentId) {
+        allOrdered.push(...siblings);
+      } else {
+        allOrdered.push(...categories.filter((c) => c.parentId === root.id));
+      }
+    });
+    const otherTypeItems = categories.filter((c) => c.type !== filterType);
+    handleReorder([...allOrdered, ...otherTypeItems]);
+  }
+
+  return (
+    <section className="sunrise-card mt-4 p-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm text-slate-500">Danh mục workspace</p>
+          <h2 className="mt-1 text-xl font-semibold">Quản lý danh mục workspace</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Danh mục thuộc workspace này. Bạn có thể tạo mới hoặc import từ danh mục mẫu cá nhân.
+          </p>
+        </div>
+        <button
+          className="button-primary inline-flex items-center gap-2"
+          onClick={() => {
+            setCreating(true);
+            setEditing(null);
+          }}
+          disabled={pending}
+        >
+          <Plus size={17} />
+          Thêm danh mục
+        </button>
+      </div>
+
+      {/* Tabs: Chi tiêu & Thu nhập ONLY */}
+      <div className="mt-5 flex items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2 p-1 bg-[var(--surface-muted)] rounded-xl border border-[var(--border)]">
+          <button
+            type="button"
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              filterType === "expense"
+                ? "bg-[var(--surface)] text-rose-600 shadow-sm border border-rose-500/20"
+                : "text-[var(--text-secondary)] hover:text-rose-600"
+            }`}
+            onClick={() => {
+              setFilterType("expense");
+              setCreating(false);
+              setEditing(null);
+            }}
+          >
+            <ArrowUpRight size={14} />
+            Chi tiêu ({categories.filter((c) => c.type === "expense").length})
+          </button>
+          <button
+            type="button"
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              filterType === "income"
+                ? "bg-[var(--surface)] text-emerald-600 shadow-sm border border-emerald-500/20"
+                : "text-[var(--text-secondary)] hover:text-emerald-600"
+            }`}
+            onClick={() => {
+              setFilterType("income");
+              setCreating(false);
+              setEditing(null);
+            }}
+          >
+            <ArrowDownLeft size={14} />
+            Thu nhập ({categories.filter((c) => c.type === "income").length})
+          </button>
+        </div>
+        <p className="text-xs text-slate-400 font-medium hidden sm:block">
+          Dùng mũi tên <ChevronUp size={12} className="inline" /> <ChevronDown size={12} className="inline" /> để thay đổi thứ tự danh mục
+        </p>
+      </div>
+
+      {/* Creation form */}
+      {creating && (
+        <CategoryForm
+          title={`Thêm danh mục ${filterType === "expense" ? "Chi tiêu" : "Thu nhập"} cho workspace`}
+          defaultType={filterType}
+          categories={categories}
+          pending={pending}
+          onCancel={() => setCreating(false)}
+          onSubmit={submit}
+        />
+      )}
+
+      {/* Tree list */}
+      <div className="mt-5 space-y-2">
+        {rootCategories.map((category, index) => (
+          <CategoryNode
+            key={category.id}
+            category={category}
+            categories={categories}
+            index={index}
+            totalRoots={rootCategories.length}
+            pending={pending}
+            editing={editing}
+            onEdit={setEditing}
+            onStatus={setStatus}
+            onMoveRoot={moveRootItem}
+            onMoveChild={moveChildItem}
+            onSubmit={submit}
+            onCancel={() => setEditing(null)}
+          />
+        ))}
+        {rootCategories.length === 0 && (
+          <div className="p-8 text-center border border-dashed border-[var(--border)] rounded-xl">
+            <Tag size={28} className="mx-auto text-slate-400 opacity-60 mb-2" />
+            <p className="text-sm font-medium text-slate-500">
+              Chưa có danh mục {filterType === "expense" ? "Chi tiêu" : "Thu nhập"} nào trong workspace
+            </p>
+            <p className="text-xs text-slate-400 mt-1">Import từ bộ mẫu cá nhân hoặc bấm Thêm danh mục</p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
-function CategoryNode({ category, categories, isAdmin, pending, editing, onEdit, onStatus, onSubmit, onCancel }: { category: Category; categories: Category[]; isAdmin: boolean; pending: boolean; editing: string | null; onEdit: (id: string) => void; onStatus: (id: string, status: "active" | "deactive") => void; onSubmit: (form: FormData, id?: string) => void; onCancel: () => void }) {
-  const Icon = icons[iconName(category.icon)]; const children = categories.filter((item) => item.parentId === category.id);
-  return <div className={category.parentId ? "ml-5 border-l border-[var(--border)] pl-3" : ""}>
-    <div className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2"><div className="flex min-w-0 items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={{ backgroundColor: `${category.color}22`, color: category.color }}><Icon size={18} /></span><div className="min-w-0"><p className="truncate font-medium">{category.name} <span className="ml-1 text-xs font-normal text-slate-500">{category.code}</span></p><p className="text-xs text-slate-500">{category.system ? "Hệ thống · dùng chung · chỉ đọc" : "Riêng workspace này"} · {category.type === "income" ? "Thu" : "Chi"} · {category.status === "active" ? "Đang hoạt động" : "Đã vô hiệu hóa"} · {category.transactionCount} giao dịch</p></div></div>{isAdmin && !category.system && <div className="flex shrink-0 gap-2"><button className="button-secondary icon-button" title="Chỉnh sửa" aria-label={`Chỉnh sửa ${category.name}`} onClick={() => onEdit(category.id)} disabled={pending}><Pencil size={16} /></button><button className="button-secondary text-xs" onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")} disabled={pending}>{category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}</button></div>}</div>
-    {editing === category.id && <CategoryForm title={`Chỉnh sửa: ${category.name}`} categories={categories.filter((item) => !item.system && item.id !== category.id)} category={category} pending={pending} onCancel={onCancel} onSubmit={(form) => onSubmit(form, category.id)} />}
-    {children.map((child) => <CategoryNode key={child.id} category={child} categories={categories} isAdmin={isAdmin} pending={pending} editing={editing} onEdit={onEdit} onStatus={onStatus} onSubmit={onSubmit} onCancel={onCancel} />)}
-  </div>;
+
+function CategoryNode({
+  category,
+  categories,
+  index,
+  totalRoots,
+  pending,
+  editing,
+  onEdit,
+  onStatus,
+  onMoveRoot,
+  onMoveChild,
+  onSubmit,
+  onCancel,
+}: {
+  category: Category;
+  categories: Category[];
+  index: number;
+  totalRoots: number;
+  pending: boolean;
+  editing: string | null;
+  onEdit: (id: string) => void;
+  onStatus: (id: string, status: "active" | "deactive") => void;
+  onMoveRoot: (index: number, dir: "up" | "down") => void;
+  onMoveChild: (parentId: string, index: number, dir: "up" | "down") => void;
+  onSubmit: (form: FormData, id?: string) => void;
+  onCancel: () => void;
+}) {
+  const IconComponent = ICON_MAP[category.icon ?? "tag"] ?? Tag;
+  const children = categories.filter((item) => item.parentId === category.id);
+
+  return (
+    <div className={category.parentId ? "ml-6 border-l-2 border-[var(--border)] pl-4 mt-2" : ""}>
+      <article className="group flex min-h-14 items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm transition-all hover:border-[var(--primary)] hover:shadow-md">
+        <div className="flex min-w-0 items-center gap-3">
+          {/* Reorder Buttons */}
+          <div className="flex flex-col gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+            <button
+              type="button"
+              className="p-0.5 hover:text-[var(--primary)] disabled:opacity-20"
+              disabled={pending || index === 0}
+              onClick={() =>
+                category.parentId
+                  ? onMoveChild(category.parentId, index, "up")
+                  : onMoveRoot(index, "up")
+              }
+              title="Di chuyển lên"
+            >
+              <ChevronUp size={14} />
+            </button>
+            <button
+              type="button"
+              className="p-0.5 hover:text-[var(--primary)] disabled:opacity-20"
+              disabled={pending || index === totalRoots - 1}
+              onClick={() =>
+                category.parentId
+                  ? onMoveChild(category.parentId, index, "down")
+                  : onMoveRoot(index, "down")
+              }
+              title="Di chuyển xuống"
+            >
+              <ChevronDown size={14} />
+            </button>
+          </div>
+
+          <span
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl font-bold shadow-inner"
+            style={{ backgroundColor: `${category.color}22`, color: category.color, border: `1px solid ${category.color}33` }}
+          >
+            <IconComponent size={18} />
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <strong className="text-sm font-semibold truncate">{category.name}</strong>
+              <span className="px-2 py-0.5 rounded-md bg-[var(--surface-muted)] text-[10px] font-mono text-slate-500 font-bold border border-[var(--border)]">
+                {category.code}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+              <span
+                className={`w-1.5 h-1.5 rounded-full inline-block ${
+                  category.status === "active" ? "bg-emerald-500" : "bg-slate-400"
+                }`}
+              />
+              <span>{category.status === "active" ? "Đang hoạt động" : "Đã vô hiệu hóa"}</span>
+              <span>•</span>
+              <span>{category.transactionCount} giao dịch</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            className="button-secondary icon-button !min-h-[34px] !min-w-[34px] !p-1.5"
+            title="Chỉnh sửa"
+            aria-label={`Chỉnh sửa ${category.name}`}
+            onClick={() => onEdit(category.id)}
+            disabled={pending}
+          >
+            <Pencil size={15} />
+          </button>
+          <button
+            className={`button-secondary icon-button !min-h-[34px] !min-w-[34px] !p-1.5 ${
+              category.status === "active" ? "hover:text-rose-500" : "hover:text-emerald-500"
+            }`}
+            onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}
+            disabled={pending}
+            title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
+          >
+            {category.status === "active" ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
+      </article>
+
+      {editing === category.id && (
+        <CategoryForm
+          title={`Chỉnh sửa: ${category.name}`}
+          defaultType={category.type}
+          categories={categories.filter((item) => item.id !== category.id)}
+          category={category}
+          pending={pending}
+          onCancel={onCancel}
+          onSubmit={(form) => onSubmit(form, category.id)}
+        />
+      )}
+
+      {children.map((child, childIdx) => (
+        <CategoryNode
+          key={child.id}
+          category={child}
+          categories={categories}
+          index={childIdx}
+          totalRoots={children.length}
+          pending={pending}
+          editing={editing}
+          onEdit={onEdit}
+          onStatus={onStatus}
+          onMoveRoot={onMoveRoot}
+          onMoveChild={onMoveChild}
+          onSubmit={onSubmit}
+          onCancel={onCancel}
+        />
+      ))}
+    </div>
+  );
 }
-function CategoryForm({ title, categories, category, pending, onCancel, onSubmit }: { title: string; categories: Category[]; category?: Category; pending: boolean; onCancel: () => void; onSubmit: (form: FormData) => void }) {
-  return <form action={onSubmit} className="mt-4 grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-4 sm:grid-cols-2"><h3 className="font-medium sm:col-span-2">{title}</h3><input className="field" name="name" required defaultValue={category?.name} placeholder="Tên danh mục"/><input className="field" name="code" required defaultValue={category?.code} placeholder="Mã, ví dụ: FOOD"/><select className="field" name="type" defaultValue={category?.type ?? "expense"}><option value="expense">Chi</option><option value="income">Thu</option></select><select className="field" name="parentId" defaultValue={category?.parentId ?? ""}><option value="">Không có danh mục cha</option>{categories.filter((item) => item.status === "active" && (!category || item.type === category.type)).map((item) => <option key={item.id} value={item.id}>{item.name} ({item.type === "income" ? "Thu" : "Chi"})</option>)}</select><label className="text-sm">Màu<input className="field mt-1" name="color" required defaultValue={category?.color ?? "#FF5B3D"} pattern="#[0-9A-Fa-f]{6}"/></label><label className="text-sm">Icon<select className="field mt-1" name="icon" defaultValue={iconName(category?.icon ?? null)}>{Object.keys(icons).map((name) => <option key={name} value={name}>{name}</option>)}</select></label><input className="field" name="sortOrder" type="number" min="0" defaultValue="0" placeholder="Thứ tự hiển thị"/><div className="flex items-end justify-end gap-2"><button type="button" className="button-secondary" onClick={onCancel}>Hủy</button><button className="button-primary" disabled={pending}>{pending ? "Đang lưu" : "Lưu danh mục"}</button></div></form>;
+
+function CategoryForm({
+  title,
+  defaultType,
+  categories,
+  category,
+  pending,
+  onCancel,
+  onSubmit,
+}: {
+  title: string;
+  defaultType: "income" | "expense";
+  categories: Category[];
+  category?: Category;
+  pending: boolean;
+  onCancel: () => void;
+  onSubmit: (form: FormData) => void;
+}) {
+  const [name, setName] = useState(category?.name ?? "");
+  const [code, setCode] = useState(category?.code ?? "");
+  const [autoCode, setAutoCode] = useState(!category);
+  const [selectedColor, setSelectedColor] = useState(category?.color ?? COLOR_PRESETS[0]);
+  const [selectedIcon, setSelectedIcon] = useState(category?.icon ?? "tag");
+
+  function handleNameChange(val: string) {
+    setName(val);
+    if (autoCode) {
+      setCode(slugifyCode(val));
+    }
+  }
+
+  return (
+    <form
+      action={onSubmit}
+      className="mt-4 rounded-xl border border-[var(--primary)] bg-[var(--surface-muted)] p-5 shadow-lg space-y-4"
+    >
+      <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
+        <h3 className="font-bold text-base text-[var(--foreground)]">{title}</h3>
+        <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600 p-1">
+          <X size={18} />
+        </button>
+      </div>
+
+      <input type="hidden" name="type" value={category?.type ?? defaultType} />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Name Input */}
+        <div>
+          <label className="text-xs font-semibold text-slate-500 mb-1 block">Tên danh mục *</label>
+          <input
+            className="field"
+            name="name"
+            required
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
+            placeholder="Ví dụ: Ăn uống, Lương..."
+          />
+        </div>
+
+        {/* Code Input (Auto-generated) */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-semibold text-slate-500">Mã danh mục (Code) *</label>
+            <span className="text-[10px] text-slate-400">Tự động tạo từ tên</span>
+          </div>
+          <input
+            className="field font-mono text-sm uppercase"
+            name="code"
+            required
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value.toUpperCase());
+              setAutoCode(false);
+            }}
+            placeholder="FOOD_DRINK, SALARY..."
+          />
+        </div>
+
+        {/* Parent Category */}
+        <div className="sm:col-span-2">
+          <label className="text-xs font-semibold text-slate-500 mb-1 block">Danh mục cha</label>
+          <select className="field" name="parentId" defaultValue={category?.parentId ?? ""}>
+            <option value="">Không có (Danh mục gốc)</option>
+            {categories
+              .filter(
+                (item) =>
+                  item.status === "active" &&
+                  item.type === (category?.type ?? defaultType) &&
+                  (!category || item.id !== category.id)
+              )
+              .map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} ({item.code})
+                </option>
+              ))}
+          </select>
+        </div>
+
+        {/* Color Picker */}
+        <div className="sm:col-span-2">
+          <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Màu đại diện</label>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            {COLOR_PRESETS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                className={`w-7 h-7 rounded-full border-2 transition-transform ${
+                  selectedColor === color ? "scale-110 border-white shadow-md ring-2 ring-[var(--primary)]" : "border-transparent"
+                }`}
+                style={{ backgroundColor: color }}
+                onClick={() => setSelectedColor(color)}
+              />
+            ))}
+            <input
+              type="color"
+              name="color"
+              value={selectedColor}
+              onChange={(e) => setSelectedColor(e.target.value)}
+              className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent"
+            />
+          </div>
+          <input type="hidden" name="color" value={selectedColor} />
+        </div>
+
+        {/* Visual Icon Picker Grid */}
+        <div className="sm:col-span-2">
+          <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Chọn Biểu tượng (Icon)</label>
+          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 max-h-40 overflow-y-auto p-2 border border-[var(--border)] rounded-xl bg-[var(--surface)]">
+            {ICON_LIST.map((item) => {
+              const IconComp = ICON_MAP[item.id] ?? Tag;
+              const isSelected = selectedIcon === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSelectedIcon(item.id)}
+                  className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all text-xs gap-1 ${
+                    isSelected
+                      ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] font-bold shadow-sm"
+                      : "border-transparent hover:bg-[var(--surface-muted)] text-slate-600 dark:text-slate-400"
+                  }`}
+                  title={item.label}
+                >
+                  <IconComp size={18} />
+                  <span className="text-[10px] truncate max-w-full">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <input type="hidden" name="icon" value={selectedIcon} />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
+        <button type="button" className="button-secondary" onClick={onCancel}>
+          Hủy bỏ
+        </button>
+        <button className="button-primary" disabled={pending}>
+          {pending ? "Đang lưu..." : "Lưu danh mục"}
+        </button>
+      </div>
+    </form>
+  );
 }

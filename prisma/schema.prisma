@@ -76,6 +76,8 @@ model User {
   auditLogs    AuditLog[]
   joinRequests WorkspaceJoinRequest[] @relation("JoinRequester")
   reviewedJoinRequests WorkspaceJoinRequest[]
+  categoryTemplates Category[]
+
   @@index([status, deletedAt])
   @@map("USERS")
 }
@@ -155,6 +157,7 @@ model Wallet {
 model Category {
   id           String        @id @default(uuid()) @db.Uuid
   workspaceId  String?       @map("workspace_id") @db.Uuid
+  userId       String?       @map("user_id") @db.Uuid
   name         String
   code         String
   color        String        @db.VarChar(7)
@@ -167,12 +170,14 @@ model Category {
   updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
   workspace    Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Restrict)
   parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
   children     Category[]    @relation("CategoryHierarchy")
   transactions Transaction[]
 
-  @@unique([workspaceId, code])
+  @@unique([workspaceId, userId, code])
   @@index([workspaceId, status, deletedAt, sortOrder])
+  @@index([userId, status, deletedAt])
   @@map("CATEGORY")
 }
 

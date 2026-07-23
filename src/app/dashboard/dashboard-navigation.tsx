@@ -11,10 +11,12 @@ export function DashboardNavigation({
   currentId,
   workspaces,
   pendingJoinCount = 0,
+  isOwner = false,
 }: {
   currentId?: string;
   workspaces: Workspace[];
   pendingJoinCount?: number;
+  isOwner?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -92,15 +94,17 @@ export function DashboardNavigation({
               <span>Quản lý thành viên</span>
             </Link>
 
-            <Link
-              className={`nav-item dashboard-nav-link ${workspaceSettingsActive ? "nav-item-active" : ""}`}
-              href="/settings/workspace"
-              aria-current={workspaceSettingsActive ? "page" : undefined}
-              aria-label="Cơ chế phê duyệt, mã mời và cấu hình"
-            >
-              <Settings size={18} strokeWidth={1.8} />
-              <span>Cài đặt workspace</span>
-            </Link>
+            {isOwner && (
+              <Link
+                className={`nav-item dashboard-nav-link ${workspaceSettingsActive ? "nav-item-active" : ""}`}
+                href="/settings/workspace"
+                aria-current={workspaceSettingsActive ? "page" : undefined}
+                aria-label="Cơ chế phê duyệt, mã mời và cấu hình"
+              >
+                <Settings size={18} strokeWidth={1.8} />
+                <span>Cài đặt workspace</span>
+              </Link>
+            )}
           </>
         )}
       </div>
@@ -125,7 +129,7 @@ export function DashboardNavigation({
           className={`nav-item dashboard-nav-link ${generalSettingsActive ? "nav-item-active" : ""}`}
           href="/setting"
           aria-current={generalSettingsActive ? "page" : undefined}
-          aria-label="Giao diện hiển thị và danh mục hệ thống"
+          aria-label="Giao diện hiển thị và danh mục mẫu cá nhân"
         >
           <SlidersHorizontal size={18} strokeWidth={1.8} />
           <span>Cài đặt chung</span>

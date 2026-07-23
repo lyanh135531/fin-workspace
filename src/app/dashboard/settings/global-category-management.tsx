@@ -1,29 +1,50 @@
 "use client";
 
 import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  BookOpen,
+  Briefcase,
+  Car,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  CircleDollarSign,
+  Coffee,
+  CreditCard,
+  Dumbbell,
   Eye,
   EyeOff,
+  Film,
   FolderTree,
-  Lock,
+  Fuel,
+  Gift,
+  GraduationCap,
+  GripVertical,
+  Heart,
+  House,
+  Landmark,
   Pencil,
+  Plane,
   Plus,
-  Search,
-  ShieldCheck,
-  ShieldAlert,
+  Shield,
+  ShoppingBag,
+  Smartphone,
+  Sparkles,
   Tag,
+  Utensils,
+  Wrench,
   X,
-  CheckCircle2,
   AlertCircle,
-  ArrowUpRight,
-  ArrowDownLeft,
 } from "lucide-react";
 import { useState, useTransition } from "react";
 import {
-  createGlobalCategoryAction,
-  setGlobalCategoryStatusAction,
-  updateGlobalCategoryAction,
-  verifyGlobalCategoryPasswordAction,
+  createTemplateCategoryAction,
+  reorderTemplateCategoriesAction,
+  setTemplateCategoryStatusAction,
+  updateTemplateCategoryAction,
 } from "@/app/dashboard/settings/general-actions";
+import { showToast } from "@/components/toast-container";
 
 type Category = {
   id: string;
@@ -35,7 +56,6 @@ type Category = {
   parentId: string | null;
   sortOrder?: number;
   status: "active" | "deactive";
-  transactionCount: number;
 };
 
 const COLOR_PRESETS = [
@@ -49,85 +69,162 @@ const COLOR_PRESETS = [
   "#334E8C",
 ];
 
-export function GlobalCategoryManagement({ categories }: { categories: Category[] }) {
-  const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
-  const [message, setMessage] = useState<{ text: string; success?: boolean } | null>(null);
+export const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  tag: Tag,
+  utensils: Utensils,
+  coffee: Coffee,
+  house: House,
+  car: Car,
+  fuel: Fuel,
+  shopping: ShoppingBag,
+  heart: Heart,
+  work: Briefcase,
+  money: CircleDollarSign,
+  landmark: Landmark,
+  card: CreditCard,
+  education: GraduationCap,
+  travel: Plane,
+  utilities: Sparkles,
+  gift: Gift,
+  shield: Shield,
+  tech: Smartphone,
+  entertainment: Film,
+  sport: Dumbbell,
+  service: Wrench,
+  book: BookOpen,
+};
+
+const ICON_LIST = [
+  { id: "tag", label: "Nhãn" },
+  { id: "utensils", label: "Ăn uống" },
+  { id: "coffee", label: "Cà phê" },
+  { id: "house", label: "Nhà cửa" },
+  { id: "car", label: "Xe cộ" },
+  { id: "fuel", label: "Xăng dầu" },
+  { id: "shopping", label: "Mua sắm" },
+  { id: "heart", label: "Sức khỏe" },
+  { id: "work", label: "Công việc" },
+  { id: "money", label: "Tiền bạc" },
+  { id: "landmark", label: "Ngân hàng" },
+  { id: "card", label: "Thẻ" },
+  { id: "education", label: "Học tập" },
+  { id: "travel", label: "Du lịch" },
+  { id: "gift", label: "Quà tặng" },
+  { id: "shield", label: "Bảo hiểm" },
+  { id: "tech", label: "Thiết bị" },
+  { id: "entertainment", label: "Giải trí" },
+  { id: "sport", label: "Thể thao" },
+  { id: "service", label: "Sửa chữa" },
+  { id: "book", label: "Sách vở" },
+];
+
+export function slugifyCode(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .replace(/[^a-zA-Z0-9\s_]/g, "")
+    .trim()
+    .replace(/[\s-]+/g, "_")
+    .toUpperCase();
+}
+
+export function UserCategoryTemplateManagement({ categories }: { categories: Category[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [filterType, setFilterType] = useState<"all" | "income" | "expense">("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState<"expense" | "income">("expense");
   const [pending, start] = useTransition();
-
-  function verify() {
-    start(async () => {
-      const result = await verifyGlobalCategoryPasswordAction(password);
-      setUnlocked(result.ok);
-      setMessage({
-        text: result.ok
-          ? "Đã mở thực thi quản lý danh mục hệ thống cho phiên làm việc này."
-          : (result.message ?? "Mật khẩu không chính xác."),
-        success: result.ok,
-      });
-    });
-  }
 
   function submit(form: FormData, categoryId?: string) {
     const category = {
-      name: form.get("name"),
-      code: form.get("code"),
-      color: form.get("color"),
-      type: form.get("type"),
-      icon: form.get("icon"),
-      parentId: form.get("parentId") || undefined,
-      sortOrder: form.get("sortOrder"),
+      name: String(form.get("name") ?? ""),
+      code: String(form.get("code") ?? ""),
+      color: String(form.get("color") ?? COLOR_PRESETS[0]),
+      type: String(form.get("type") ?? "expense") as "income" | "expense",
+      icon: String(form.get("icon") ?? "tag"),
+      parentId: (form.get("parentId") as string) || undefined,
     };
     start(async () => {
       const result = categoryId
-        ? await updateGlobalCategoryAction({ password, category: { ...category, categoryId } })
-        : await createGlobalCategoryAction({ password, category });
-      setMessage({
-        text: result.ok ? "Đã lưu danh mục hệ thống." : (result.message ?? "Không thể lưu thay đổi."),
-        success: result.ok,
-      });
+        ? await updateTemplateCategoryAction({ ...category, categoryId })
+        : await createTemplateCategoryAction(category);
       if (result.ok) {
+        showToast("Đã lưu danh mục mẫu.", "success");
         setCreating(false);
         setEditing(null);
+      } else {
+        showToast(result.message ?? "Không thể lưu thay đổi.", "error");
       }
     });
   }
 
   function status(id: string, value: "active" | "deactive") {
     start(async () => {
-      const result = await setGlobalCategoryStatusAction({
-        password,
+      const result = await setTemplateCategoryStatusAction({
         categoryId: id,
         status: value,
       });
-      setMessage({
-        text: result.ok ? "Đã cập nhật trạng thái danh mục." : (result.message ?? "Không thể thay đổi trạng thái."),
-        success: result.ok,
-      });
+      if (result.ok) {
+        showToast("Đã cập nhật trạng thái danh mục.", "success");
+      } else {
+        showToast(result.message ?? "Không thể thay đổi trạng thái.", "error");
+      }
     });
   }
 
-  // Filter root categories
-  const filteredCategories = categories.filter((c) => {
-    if (filterType !== "all" && c.type !== filterType) return false;
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      const matchSelf = c.name.toLowerCase().includes(query) || c.code.toLowerCase().includes(query);
-      const matchChild = categories.some(
-        (child) =>
-          child.parentId === c.id &&
-          (child.name.toLowerCase().includes(query) || child.code.toLowerCase().includes(query))
-      );
-      return matchSelf || matchChild;
-    }
-    return true;
-  });
+  function handleReorder(items: Category[]) {
+    const orderedIds = items.map((c) => c.id);
+    start(async () => {
+      const result = await reorderTemplateCategoriesAction(orderedIds);
+      if (result.ok) {
+        showToast("Đã cập nhật thứ tự danh mục.", "success");
+      } else {
+        showToast(result.message ?? "Không thể sắp xếp lại.", "error");
+      }
+    });
+  }
 
-  const rootCategories = filteredCategories.filter((c) => !c.parentId);
+  const currentCategories = categories.filter((c) => c.type === filterType);
+  const rootCategories = currentCategories.filter((c) => !c.parentId);
+
+  function moveRootItem(index: number, direction: "up" | "down") {
+    const newRoots = [...rootCategories];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newRoots.length) return;
+    const [moved] = newRoots.splice(index, 1);
+    newRoots.splice(targetIndex, 0, moved);
+
+    // Flatten all items preserving new root order
+    const allOrdered: Category[] = [];
+    newRoots.forEach((root) => {
+      allOrdered.push(root);
+      allOrdered.push(...categories.filter((c) => c.parentId === root.id));
+    });
+    // Add other type items
+    const otherTypeItems = categories.filter((c) => c.type !== filterType);
+    handleReorder([...allOrdered, ...otherTypeItems]);
+  }
+
+  function moveChildItem(parentId: string, index: number, direction: "up" | "down") {
+    const siblings = currentCategories.filter((c) => c.parentId === parentId);
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= siblings.length) return;
+    const [moved] = siblings.splice(index, 1);
+    siblings.splice(targetIndex, 0, moved);
+
+    const allOrdered: Category[] = [];
+    rootCategories.forEach((root) => {
+      allOrdered.push(root);
+      if (root.id === parentId) {
+        allOrdered.push(...siblings);
+      } else {
+        allOrdered.push(...categories.filter((c) => c.parentId === root.id));
+      }
+    });
+    const otherTypeItems = categories.filter((c) => c.type !== filterType);
+    handleReorder([...allOrdered, ...otherTypeItems]);
+  }
 
   return (
     <section className="sunrise-card p-6">
@@ -138,9 +235,9 @@ export function GlobalCategoryManagement({ categories }: { categories: Category[
             <FolderTree size={20} />
           </div>
           <div>
-            <p className="settings-eyebrow">Category Hệ Thống</p>
+            <p className="settings-eyebrow">Danh mục mẫu</p>
             <h2 className="text-xl font-bold tracking-tight mt-0.5">
-              Danh mục dùng chung
+              Danh mục mẫu của tôi
             </h2>
           </div>
         </div>
@@ -151,145 +248,61 @@ export function GlobalCategoryManagement({ categories }: { categories: Category[
             setCreating(true);
             setEditing(null);
           }}
-          disabled={!unlocked || pending}
-          title={!unlocked ? "Vui lòng xác nhận mật khẩu Admin để mở khóa" : undefined}
+          disabled={pending}
         >
           <Plus size={18} />
-          Thêm danh mục chung
+          Thêm danh mục mẫu
         </button>
       </div>
 
-      {/* Password Security Verification Panel */}
-      <div className={`mt-5 p-4 rounded-xl border transition-all ${
-        unlocked
-          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200"
-          : "bg-[var(--surface-muted)] border-[var(--border)]"
-      }`}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className={`w-9 h-9 rounded-lg grid place-items-center flex-shrink-0 ${
-              unlocked ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
-            }`}>
-              {unlocked ? <ShieldCheck size={20} /> : <Lock size={18} />}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm">
-                  {unlocked ? "Đã mở khóa thao tác Admin" : "Xác minh quyền quản trị"}
-                </span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                  unlocked ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
-                }`}>
-                  {unlocked ? "Mở khóa" : "Yêu cầu mật khẩu"}
-                </span>
-              </div>
-              <p className="text-xs opacity-80 mt-0.5">
-                Các danh mục hệ thống áp dụng cho tất cả Workspace. Cần xác thực mật khẩu trước khi thêm hoặc chỉnh sửa.
-              </p>
-            </div>
-          </div>
+      {/* Info banner */}
 
-          {/* Password Input form */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <input
-              className="field min-w-48 sm:w-64 text-sm"
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setUnlocked(false);
-              }}
-              placeholder="Nhập mật khẩu xác thực..."
-              autoComplete="off"
-              disabled={pending}
-            />
-            <button
-              type="button"
-              className="button-secondary text-sm whitespace-nowrap"
-              onClick={verify}
-              disabled={!password || pending}
-            >
-              {pending ? "Đang xử lý..." : unlocked ? "Mở lại" : "Xác nhận"}
-            </button>
-          </div>
-        </div>
-
-        {message && (
-          <div className={`mt-3 pt-3 border-t border-black/5 dark:border-white/10 text-xs flex items-center gap-2 ${
-            message.success ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-          }`}>
-            {message.success ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
-            <span>{message.text}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Toolbar: Search & Filter Tabs */}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 p-1 bg-[var(--surface-muted)] rounded-xl border border-[var(--border)]">
+      {/* Tabs: Chi tiêu & Thu nhập ONLY (No All, No Search) */}
+      <div className="mt-5 flex items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2 p-1 bg-[var(--surface-muted)] rounded-xl border border-[var(--border)]">
           <button
             type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              filterType === "all"
-                ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-                : "text-[var(--text-secondary)] hover:text-[var(--foreground)]"
-            }`}
-            onClick={() => setFilterType("all")}
-          >
-            Tất cả ({categories.length})
-          </button>
-          <button
-            type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
-              filterType === "income"
-                ? "bg-[var(--surface)] text-emerald-600 shadow-sm"
-                : "text-[var(--text-secondary)] hover:text-emerald-600"
-            }`}
-            onClick={() => setFilterType("income")}
-          >
-            <ArrowDownLeft size={13} />
-            Thu nhập ({categories.filter((c) => c.type === "income").length})
-          </button>
-          <button
-            type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               filterType === "expense"
-                ? "bg-[var(--surface)] text-rose-600 shadow-sm"
+                ? "bg-[var(--surface)] text-rose-600 shadow-sm border border-rose-500/20"
                 : "text-[var(--text-secondary)] hover:text-rose-600"
             }`}
-            onClick={() => setFilterType("expense")}
+            onClick={() => {
+              setFilterType("expense");
+              setCreating(false);
+              setEditing(null);
+            }}
           >
-            <ArrowUpRight size={13} />
+            <ArrowUpRight size={14} />
             Chi tiêu ({categories.filter((c) => c.type === "expense").length})
           </button>
+          <button
+            type="button"
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              filterType === "income"
+                ? "bg-[var(--surface)] text-emerald-600 shadow-sm border border-emerald-500/20"
+                : "text-[var(--text-secondary)] hover:text-emerald-600"
+            }`}
+            onClick={() => {
+              setFilterType("income");
+              setCreating(false);
+              setEditing(null);
+            }}
+          >
+            <ArrowDownLeft size={14} />
+            Thu nhập ({categories.filter((c) => c.type === "income").length})
+          </button>
         </div>
-
-        {/* Search input */}
-        <div className="relative flex-1 max-w-xs">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            className="field pl-9 py-1.5 text-xs"
-            placeholder="Tìm danh mục..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              onClick={() => setSearchQuery("")}
-            >
-              <X size={13} />
-            </button>
-          )}
-        </div>
+        <p className="text-xs text-slate-400 font-medium hidden sm:block">
+          Dùng mũi tên <ChevronUp size={12} className="inline" /> <ChevronDown size={12} className="inline" /> để thay đổi thứ tự danh mục
+        </p>
       </div>
 
       {/* Form: Adding Category */}
-      {creating && unlocked && (
-        <GlobalForm
-          title="Thêm danh mục hệ thống mới"
+      {creating && (
+        <TemplateForm
+          title={`Thêm danh mục mẫu ${filterType === "expense" ? "Chi tiêu" : "Thu nhập"}`}
+          defaultType={filterType}
           categories={categories}
           pending={pending}
           onCancel={() => setCreating(false)}
@@ -298,23 +311,27 @@ export function GlobalCategoryManagement({ categories }: { categories: Category[
       )}
 
       {/* Category Tree List */}
-      <div className="mt-5 space-y-2.5">
+      <div className="mt-5 space-y-2">
         {rootCategories.length === 0 ? (
           <div className="p-8 text-center border border-dashed border-[var(--border)] rounded-xl">
             <Tag size={28} className="mx-auto text-slate-400 opacity-60 mb-2" />
-            <p className="text-sm font-medium text-slate-500">Không tìm thấy danh mục chung nào phù hợp</p>
+            <p className="text-sm font-medium text-slate-500">Chưa có danh mục mẫu {filterType === "expense" ? "Chi tiêu" : "Thu nhập"}</p>
+            <p className="text-xs text-slate-400 mt-1">Tạo danh mục mới để sử dụng và import vào workspace</p>
           </div>
         ) : (
-          rootCategories.map((category) => (
+          rootCategories.map((category, index) => (
             <Node
               key={category.id}
               category={category}
               categories={categories}
+              index={index}
+              totalRoots={rootCategories.length}
               editing={editing}
               pending={pending}
-              unlocked={unlocked}
               onEdit={setEditing}
               onStatus={status}
+              onMoveRoot={moveRootItem}
+              onMoveChild={moveChildItem}
               onSubmit={submit}
               onCancel={() => setEditing(null)}
             />
@@ -328,40 +345,77 @@ export function GlobalCategoryManagement({ categories }: { categories: Category[
 function Node({
   category,
   categories,
+  index,
+  totalRoots,
   editing,
   pending,
-  unlocked,
   onEdit,
   onStatus,
+  onMoveRoot,
+  onMoveChild,
   onSubmit,
   onCancel,
 }: {
   category: Category;
   categories: Category[];
+  index: number;
+  totalRoots: number;
   editing: string | null;
   pending: boolean;
-  unlocked: boolean;
   onEdit: (id: string) => void;
   onStatus: (id: string, value: "active" | "deactive") => void;
+  onMoveRoot: (index: number, dir: "up" | "down") => void;
+  onMoveChild: (parentId: string, index: number, dir: "up" | "down") => void;
   onSubmit: (form: FormData, id?: string) => void;
   onCancel: () => void;
 }) {
   const children = categories.filter((item) => item.parentId === category.id);
+  const IconComponent = ICON_MAP[category.icon ?? "tag"] ?? Tag;
   const isIncome = category.type === "income";
 
   return (
     <div className={category.parentId ? "ml-6 border-l-2 border-[var(--border)] pl-4 mt-2" : ""}>
-      <article className="group flex min-h-14 items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3.5 shadow-sm transition-all hover:border-[var(--primary)] hover:shadow-md">
-        <div className="flex min-w-0 items-center gap-3.5">
+      <article className="group flex min-h-14 items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm transition-all hover:border-[var(--primary)] hover:shadow-md">
+        <div className="flex min-w-0 items-center gap-3">
+          {/* Reorder Buttons */}
+          <div className="flex flex-col gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+            <button
+              type="button"
+              className="p-0.5 hover:text-[var(--primary)] disabled:opacity-20"
+              disabled={pending || index === 0}
+              onClick={() =>
+                category.parentId
+                  ? onMoveChild(category.parentId, index, "up")
+                  : onMoveRoot(index, "up")
+              }
+              title="Di chuyển lên"
+            >
+              <ChevronUp size={14} />
+            </button>
+            <button
+              type="button"
+              className="p-0.5 hover:text-[var(--primary)] disabled:opacity-20"
+              disabled={pending || index === totalRoots - 1}
+              onClick={() =>
+                category.parentId
+                  ? onMoveChild(category.parentId, index, "down")
+                  : onMoveRoot(index, "down")
+              }
+              title="Di chuyển xuống"
+            >
+              <ChevronDown size={14} />
+            </button>
+          </div>
+
           <span
-            className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl font-bold transition-transform group-hover:scale-105 shadow-inner"
+            className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl font-bold transition-transform group-hover:scale-105 shadow-inner"
             style={{
               backgroundColor: `${category.color}18`,
               color: category.color,
               border: `1px solid ${category.color}33`,
             }}
           >
-            <Tag size={19} />
+            <IconComponent size={18} />
           </span>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -371,26 +425,14 @@ function Node({
               <span className="px-2 py-0.5 rounded-md bg-[var(--surface-muted)] text-[10px] font-mono text-slate-500 font-bold border border-[var(--border)]">
                 {category.code}
               </span>
-              <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-0.5 ${
-                  isIncome
-                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                    : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                }`}
-              >
-                {isIncome ? <ArrowDownLeft size={10} /> : <ArrowUpRight size={10} />}
-                {isIncome ? "Thu nhập" : "Chi tiêu"}
-              </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
               <span
-                className={`w-2 h-2 rounded-full inline-block ${
+                className={`w-1.5 h-1.5 rounded-full inline-block ${
                   category.status === "active" ? "bg-emerald-500" : "bg-slate-400"
                 }`}
               />
               <span>{category.status === "active" ? "Hoạt động" : "Đã tắt"}</span>
-              <span>•</span>
-              <span><strong>{category.transactionCount}</strong> giao dịch liên kết</span>
             </p>
           </div>
         </div>
@@ -398,29 +440,23 @@ function Node({
         {/* Actions */}
         <div className="flex items-center gap-1.5">
           <button
-            className="button-secondary icon-button !min-h-[36px] !min-w-[36px] !p-1.5"
+            className="button-secondary icon-button !min-h-[34px] !min-w-[34px] !p-1.5"
             onClick={() => onEdit(category.id)}
-            disabled={!unlocked || pending}
-            title={!unlocked ? "Vui lòng mở khóa Admin" : "Chỉnh sửa danh mục"}
+            disabled={pending}
+            title="Chỉnh sửa danh mục mẫu"
             aria-label={`Chỉnh sửa ${category.name}`}
           >
             <Pencil size={15} />
           </button>
           <button
-            className={`button-secondary icon-button !min-h-[36px] !min-w-[36px] !p-1.5 ${
+            className={`button-secondary icon-button !min-h-[34px] !min-w-[34px] !p-1.5 ${
               category.status === "active" ? "hover:text-rose-500" : "hover:text-emerald-500"
             }`}
             onClick={() =>
               onStatus(category.id, category.status === "active" ? "deactive" : "active")
             }
-            disabled={!unlocked || pending}
-            title={
-              !unlocked
-                ? "Vui lòng mở khóa Admin"
-                : category.status === "active"
-                ? "Vô hiệu hóa"
-                : "Kích hoạt"
-            }
+            disabled={pending}
+            title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
             aria-label={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
           >
             {category.status === "active" ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -429,9 +465,10 @@ function Node({
       </article>
 
       {/* Editing Form */}
-      {editing === category.id && unlocked && (
-        <GlobalForm
-          title={`Chỉnh sửa danh mục: ${category.name}`}
+      {editing === category.id && (
+        <TemplateForm
+          title={`Chỉnh sửa: ${category.name}`}
+          defaultType={category.type}
           categories={categories.filter((item) => item.id !== category.id)}
           category={category}
           pending={pending}
@@ -441,16 +478,19 @@ function Node({
       )}
 
       {/* Children Tree Nodes */}
-      {children.map((child) => (
+      {children.map((child, childIdx) => (
         <Node
           key={child.id}
           category={child}
           categories={categories}
+          index={childIdx}
+          totalRoots={children.length}
           editing={editing}
           pending={pending}
-          unlocked={unlocked}
           onEdit={onEdit}
           onStatus={onStatus}
+          onMoveRoot={onMoveRoot}
+          onMoveChild={onMoveChild}
           onSubmit={onSubmit}
           onCancel={onCancel}
         />
@@ -459,8 +499,9 @@ function Node({
   );
 }
 
-function GlobalForm({
+function TemplateForm({
   title,
+  defaultType,
   categories,
   category,
   pending,
@@ -468,13 +509,25 @@ function GlobalForm({
   onSubmit,
 }: {
   title: string;
+  defaultType: "income" | "expense";
   categories: Category[];
   category?: Category;
   pending: boolean;
   onCancel: () => void;
   onSubmit: (form: FormData) => void;
 }) {
+  const [name, setName] = useState(category?.name ?? "");
+  const [code, setCode] = useState(category?.code ?? "");
+  const [autoCode, setAutoCode] = useState(!category); // Auto-generate code when creating new
   const [selectedColor, setSelectedColor] = useState(category?.color ?? COLOR_PRESETS[0]);
+  const [selectedIcon, setSelectedIcon] = useState(category?.icon ?? "tag");
+
+  function handleNameChange(val: string) {
+    setName(val);
+    if (autoCode) {
+      setCode(slugifyCode(val));
+    }
+  }
 
   return (
     <form
@@ -492,38 +545,43 @@ function GlobalForm({
         </button>
       </div>
 
+      <input type="hidden" name="type" value={category?.type ?? defaultType} />
+
       <div className="grid gap-4 sm:grid-cols-2">
+        {/* Name Input */}
         <div>
           <label className="text-xs font-semibold text-slate-500 mb-1 block">Tên danh mục *</label>
           <input
             className="field"
             name="name"
             required
-            defaultValue={category?.name}
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
             placeholder="Ví dụ: Ăn uống, Lương..."
           />
         </div>
 
+        {/* Code Input (Auto-generated) */}
         <div>
-          <label className="text-xs font-semibold text-slate-500 mb-1 block">Mã danh mục (Code) *</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-semibold text-slate-500">Mã danh mục (Code) *</label>
+            <span className="text-[10px] text-slate-400">Tự động tạo từ tên</span>
+          </div>
           <input
-            className="field font-mono text-sm"
+            className="field font-mono text-sm uppercase"
             name="code"
             required
-            defaultValue={category?.code}
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value.toUpperCase());
+              setAutoCode(false);
+            }}
             placeholder="FOOD_DRINK, SALARY..."
           />
         </div>
 
-        <div>
-          <label className="text-xs font-semibold text-slate-500 mb-1 block">Loại phân loại</label>
-          <select className="field" name="type" defaultValue={category?.type ?? "expense"}>
-            <option value="expense">Chi tiêu (Expense)</option>
-            <option value="income">Thu nhập (Income)</option>
-          </select>
-        </div>
-
-        <div>
+        {/* Parent Category */}
+        <div className="sm:col-span-2">
           <label className="text-xs font-semibold text-slate-500 mb-1 block">Danh mục cha</label>
           <select className="field" name="parentId" defaultValue={category?.parentId ?? ""}>
             <option value="">Không có (Danh mục gốc)</option>
@@ -531,7 +589,8 @@ function GlobalForm({
               .filter(
                 (item) =>
                   item.status === "active" &&
-                  (!category || item.type === category.type)
+                  item.type === (category?.type ?? defaultType) &&
+                  (!category || item.id !== category.id)
               )
               .map((item) => (
                 <option key={item.id} value={item.id}>
@@ -541,6 +600,7 @@ function GlobalForm({
           </select>
         </div>
 
+        {/* Color Picker */}
         <div className="sm:col-span-2">
           <label className="text-xs font-semibold text-slate-500 mb-1.5 block">
             Màu đại diện
@@ -568,26 +628,34 @@ function GlobalForm({
           <input type="hidden" name="color" value={selectedColor} />
         </div>
 
-        <div>
-          <label className="text-xs font-semibold text-slate-500 mb-1 block">Mã Icon</label>
-          <input
-            className="field"
-            name="icon"
-            required
-            defaultValue={category?.icon ?? "tag"}
-            placeholder="tag, wallet, shopping-bag..."
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold text-slate-500 mb-1 block">Thứ tự sắp xếp</label>
-          <input
-            className="field"
-            name="sortOrder"
-            type="number"
-            min="0"
-            defaultValue={category?.sortOrder ?? 0}
-          />
+        {/* Visual Icon Picker Grid */}
+        <div className="sm:col-span-2">
+          <label className="text-xs font-semibold text-slate-500 mb-1.5 block">
+            Chọn Biểu tượng (Icon)
+          </label>
+          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 max-h-40 overflow-y-auto p-2 border border-[var(--border)] rounded-xl bg-[var(--surface)]">
+            {ICON_LIST.map((item) => {
+              const IconComp = ICON_MAP[item.id] ?? Tag;
+              const isSelected = selectedIcon === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSelectedIcon(item.id)}
+                  className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all text-xs gap-1 ${
+                    isSelected
+                      ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] font-bold shadow-sm"
+                      : "border-transparent hover:bg-[var(--surface-muted)] text-slate-600 dark:text-slate-400"
+                  }`}
+                  title={item.label}
+                >
+                  <IconComp size={18} />
+                  <span className="text-[10px] truncate max-w-full">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <input type="hidden" name="icon" value={selectedIcon} />
         </div>
       </div>
 
@@ -602,4 +670,3 @@ function GlobalForm({
     </form>
   );
 }
-

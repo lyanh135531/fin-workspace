@@ -14,6 +14,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { changePasswordAction } from "@/app/dashboard/settings/general-actions";
+import { showToast } from "@/components/toast-container";
 
 function getInitials(username: string): string {
   const parts = username.trim().split(/[\s_\-\.]+/);
@@ -26,37 +27,35 @@ export function AccountSettingsClient({
 }: {
   username: string;
 }) {
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const [confirmPassword, setConfirmPassword] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setMessage(null);
 
     const formData = new FormData(e.currentTarget);
     const currentPassword = String(formData.get("currentPassword") || "");
     const newPassword = String(formData.get("newPassword") || "");
 
     if (newPassword !== confirmPassword) {
-      setMessage({ ok: false, text: "Mật khẩu xác nhận không trùng khớp với mật khẩu mới." });
+      showToast("Mật khẩu xác nhận không trùng khớp với mật khẩu mới.", "error");
       return;
     }
 
     if (newPassword.length < 6) {
-      setMessage({ ok: false, text: "Mật khẩu mới phải có tối thiểu 6 ký tự." });
+      showToast("Mật khẩu mới phải có tối thiểu 6 ký tự.", "error");
       return;
     }
 
     start(async () => {
       const result = await changePasswordAction({ currentPassword, newPassword });
       if (result.ok) {
-        setMessage({ ok: true, text: "Đã đổi mật khẩu thành công!" });
+        showToast("Đã đổi mật khẩu thành công!", "success");
         formRef.current?.reset();
         setConfirmPassword("");
       } else {
-        setMessage({ ok: false, text: result.message ?? "Không thể đổi mật khẩu." });
+        showToast(result.message ?? "Không thể đổi mật khẩu.", "error");
       }
     });
   }
@@ -179,19 +178,7 @@ export function AccountSettingsClient({
               </div>
             </div>
 
-            {message && (
-              <div
-                className={`flex items-center gap-2 rounded-lg p-3 text-xs font-semibold leading-relaxed ${
-                  message.ok
-                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                    : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
-                }`}
-                role="status"
-              >
-                {message.ok ? <CheckCircle2 size={16} className="shrink-0" /> : <AlertCircle size={16} className="shrink-0" />}
-                <span>{message.text}</span>
-              </div>
-            )}
+
 
             <div className="pt-2 flex justify-end">
               <button

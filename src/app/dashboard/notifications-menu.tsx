@@ -1,9 +1,10 @@
 "use client";
 
 import { Bell } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { approveTransactionAction, rejectTransactionAction, reviewTransactionChangeAction } from "@/app/dashboard/actions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { showToast } from "@/components/toast-container";
 
 export type NotificationItem =
   | { kind: "transaction"; id: string; username: string; description: string | null; category: string | null; wallet: string; type: "income" | "expense" | "transfer"; amount: string; status: "pending" | "scheduled" }
@@ -11,17 +12,24 @@ export type NotificationItem =
 
 export function NotificationsMenu({ items }: { items: NotificationItem[] }) {
   const [pending, start] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
   function reviewTransaction(id: string, approve: boolean) {
     start(async () => {
       const result = approve ? await approveTransactionAction(id) : await rejectTransactionAction(id);
-      setMessage(result.ok ? "Đã xử lý giao dịch." : result.message ?? "Không thể xử lý giao dịch.");
+      if (result.ok) {
+        showToast("Đã xử lý giao dịch.", "success");
+      } else {
+        showToast(result.message ?? "Không thể xử lý giao dịch.", "error");
+      }
     });
   }
   function reviewChange(id: string, approve: boolean) {
     start(async () => {
       const result = await reviewTransactionChangeAction(id, approve);
-      setMessage(result.ok ? "Đã xử lý yêu cầu thay đổi." : result.message ?? "Không thể xử lý yêu cầu thay đổi.");
+      if (result.ok) {
+        showToast("Đã xử lý yêu cầu thay đổi.", "success");
+      } else {
+        showToast(result.message ?? "Không thể xử lý yêu cầu thay đổi.", "error");
+      }
     });
   }
   return <Popover>
@@ -40,7 +48,6 @@ export function NotificationsMenu({ items }: { items: NotificationItem[] }) {
         <div><button disabled={pending} onClick={() => reviewChange(item.id, false)} className="button-secondary">Từ chối</button><button disabled={pending} onClick={() => reviewChange(item.id, true)} className="button-primary">Duyệt</button></div>
       </article>)}
       {items.length === 0 && <p className="p-5 text-sm text-slate-500">Không có yêu cầu nào cần xử lý.</p>}
-      {message && <p className="p-3 text-sm" role="status">{message}</p>}
     </PopoverContent>
   </Popover>;
 }

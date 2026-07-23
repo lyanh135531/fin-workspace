@@ -4,6 +4,7 @@ import { CirclePlus, Pencil, WalletCards, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createManagedWalletAction, updateManagedWalletAction } from "@/app/dashboard/wallets/actions";
+import { showToast } from "@/components/toast-container";
 import { formatAmount } from "@/lib/format";
 
 type WalletItem = {
@@ -31,7 +32,6 @@ export function WalletManagement({
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const activeCount = wallets.filter((wallet) => wallet.status === "active").length;
   const transactionCount = wallets.reduce((total, wallet) => total + wallet.transactionCount, 0);
@@ -42,8 +42,14 @@ export function WalletManagement({
     const data = new FormData(form);
     startTransition(async () => {
       const result = await createManagedWalletAction({ name: data.get("name"), openingBalance: data.get("openingBalance"), description: data.get("description") || undefined });
-      setMessage(result.ok ? "Đã tạo ví mới." : result.message ?? "Không thể tạo ví.");
-      if (result.ok) { form.reset(); setCreating(false); router.refresh(); }
+      if (result.ok) {
+        showToast("Đã tạo ví mới.", "success");
+        form.reset();
+        setCreating(false);
+        router.refresh();
+      } else {
+        showToast(result.message ?? "Không thể tạo ví.", "error");
+      }
     });
   }
 
@@ -52,8 +58,13 @@ export function WalletManagement({
     const data = new FormData(event.currentTarget);
     startTransition(async () => {
       const result = await updateManagedWalletAction({ walletId, name: data.get("name"), description: data.get("description") });
-      setMessage(result.ok ? "Đã cập nhật thông tin ví." : result.message ?? "Không thể cập nhật ví.");
-      if (result.ok) { setEditing(null); router.refresh(); }
+      if (result.ok) {
+        showToast("Đã cập nhật thông tin ví.", "success");
+        setEditing(null);
+        router.refresh();
+      } else {
+        showToast(result.message ?? "Không thể cập nhật ví.", "error");
+      }
     });
   }
 
@@ -76,8 +87,6 @@ export function WalletManagement({
       <label className="wallet-manager-wide">Mô tả<input className="field" name="description" maxLength={2000} placeholder="Mục đích sử dụng của ví"/></label>
       <div className="wallet-manager-form-actions"><button type="button" className="button-secondary" onClick={() => setCreating(false)}>Hủy</button><button className="button-primary" disabled={pending}>{pending ? "Đang tạo" : "Tạo ví"}</button></div>
     </form>}
-
-    {message && <p className="wallet-manager-message" role="status">{message}</p>}
 
     <section className="wallet-manager-list" aria-label="Danh sách ví">
       {wallets.map((wallet) => <article className="wallet-manager-card" key={wallet.id}>

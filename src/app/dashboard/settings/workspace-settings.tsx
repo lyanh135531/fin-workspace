@@ -3,6 +3,7 @@
 import { Settings2, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { deleteWorkspaceAction, updateWorkspaceSettingsAction } from "@/app/dashboard/settings/actions";
+import { showToast } from "@/components/toast-container";
 
 type Workspace = {
   name: string;
@@ -14,7 +15,6 @@ type Workspace = {
 };
 
 export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace; isAdmin: boolean }) {
-  const [message, setMessage] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [pending, start] = useTransition();
 
@@ -28,15 +28,23 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
         approvalRequired: form.get("approvalRequired") === "on",
         status: form.get("status"),
       });
-      setMessage(result.ok ? "Đã lưu cấu hình workspace." : result.message);
+      if (result.ok) {
+        showToast("Đã lưu cấu hình workspace.", "success");
+      } else {
+        showToast(result.message ?? "Không thể lưu cấu hình.", "error");
+      }
     });
   }
 
   function remove() {
     start(async () => {
       const result = await deleteWorkspaceAction();
-      setMessage(result.ok ? "Đã xóa workspace. Đang chuyển về tổng quan..." : result.message);
-      if (result.ok) window.location.assign("/overview");
+      if (result.ok) {
+        showToast("Đã xóa workspace. Đang chuyển về tổng quan...", "success");
+        window.location.assign("/overview");
+      } else {
+        showToast(result.message ?? "Không thể xóa workspace.", "error");
+      }
     });
   }
 
@@ -81,7 +89,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
             <span>Múi giờ <strong>{workspace.timeZone}</strong></span>
           </div>
           <div className="settings-form-footer">
-            <p role="status">{message}</p>
+            <div />
             <span className="flex gap-2">
               <button disabled={pending} className="button-primary">{pending ? "Đang lưu" : "Lưu thay đổi"}</button>
               <button type="button" disabled={pending} onClick={() => setDeleteDialog(true)} className="button-secondary inline-flex items-center gap-2 text-red-600"><Trash2 size={16}/>Xóa workspace</button>
