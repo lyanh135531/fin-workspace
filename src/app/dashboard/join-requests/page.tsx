@@ -17,5 +17,5 @@ export default async function JoinRequestsPage() {
     prisma.workspaceJoinRequest.findMany({ where: { workspaceId, status: "pending" }, include: { requester: { select: { username: true } } }, orderBy: { createdAt: "asc" } }),
     prisma.role.findMany({ select: { code: true, name: true } }),
   ]);
-  return <div className="mx-auto max-w-3xl"><a href="/dashboard/settings" className="text-sm text-slate-500">← Quay lại dashboard</a><h1 className="mt-6 text-3xl font-semibold">Yêu cầu tham gia</h1><p className="mt-2 text-sm text-slate-500">{member.workspace.name}</p><JoinRequestsClient roles={roles} requests={requests.map((request) => ({ id: request.id, username: request.requester.username }))}/></div>;
+  return <div className="workspace-settings-page"><div className="workspace-settings-container"><header className="settings-hero"><div><p className="settings-eyebrow">Quản lý workspace</p><h1>Yêu cầu tham gia</h1><p className="settings-hero-copy">{member.workspace.name}</p></div></header><JoinRequestsClient roles={roles} requests={requests.map((request) => ({ id: request.id, username: request.requester.username }))}/></div></div>;
 }

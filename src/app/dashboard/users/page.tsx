@@ -14,5 +14,5 @@ export default async function MemberAccountsPage() {
     orderBy: { workspace: { name: "asc" } },
   });
   if (workspaces.length === 0) redirect("/overview");
-  return <div className="mx-auto max-w-4xl"><a href="/setting" className="settings-back">← Quay lại cài đặt chung</a><div className="mt-6"><MemberAccountForm workspaces={workspaces.map((item) => item.workspace)}/></div></div>;
+  return <div className="workspace-settings-page"><div className="workspace-settings-container"><MemberAccountForm workspaces={workspaces.map((item) => item.workspace)}/></div></div>;
 }

@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { HelpCircle, ArrowLeft, History } from "lucide-react";
+import { HelpCircle, History } from "lucide-react";
 import { authOptions } from "@/auth";
 import { JoinForm } from "@/app/dashboard/join/join-form";
 import { JoinRequestHistory } from "@/app/dashboard/join/join-request-history";
@@ -25,11 +25,6 @@ export default async function JoinPage() {
   return (
     <div className="join-page">
       <div className="join-page-container">
-        {/* Back link */}
-        <a href="/setting" className="join-back-link">
-          <ArrowLeft size={15} strokeWidth={2} />
-          Cài đặt chung
-        </a>
 
         {/* Hero */}
         <header className="join-page-hero">
