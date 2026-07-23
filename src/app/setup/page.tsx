@@ -3,7 +3,7 @@
 import { useState, useId, useCallback } from "react";
 import { registerAccountAction } from "@/app/setup/actions";
 import {
-  Eye, EyeOff, ShieldCheck, ShieldAlert, Building2, AlertCircle, CheckCircle2, Lock, User, Briefcase, Check,
+  Eye, EyeOff, ShieldCheck, AlertCircle, CheckCircle2, Lock, User, Check,
 } from "lucide-react";
 import { FinLogo } from "@/components/fin-logo";
 
@@ -39,7 +39,6 @@ function barClass(barIndex: number, score: number): string {
 /* ── Checklist shown on visual panel ──────────────────────────── */
 const CHECKLIST = [
   "Tạo tài khoản cá nhân",
-  "Đặt tên cho workspace của bạn",
   "Thiết lập mật khẩu bảo mật (≥ 6 ký tự)",
   "Đăng nhập và bắt đầu sử dụng",
 ];
@@ -47,7 +46,7 @@ const CHECKLIST = [
 export default function SetupPage() {
   const id = useId();
   const [message, setMessage] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string; workspaceName?: string }>({});
+  const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -71,7 +70,6 @@ export default function SetupPage() {
       const res = await registerAccountAction({
         username: String(formData.get("username")),
         password: String(formData.get("password")),
-        workspaceName: String(formData.get("workspaceName")),
       });
       if (res.ok) {
         setDone(true);
@@ -117,8 +115,7 @@ export default function SetupPage() {
             để bắt đầu.
           </h1>
           <p className="auth-visual-desc">
-            Tạo tài khoản và workspace riêng của bạn.
-            Bạn sẽ là quản trị viên (Owner) của workspace này.
+            Tạo tài khoản cá nhân của bạn để bắt đầu sử dụng hệ thống.
           </p>
 
           {/* Checklist */}
@@ -147,7 +144,7 @@ export default function SetupPage() {
               <span className="auth-form-eyebrow">ĐĂNG KÝ TÀI KHOẢN</span>
               <h2 className="auth-form-title">Tạo tài khoản mới</h2>
               <p className="auth-form-subtitle">
-                Đăng ký tài khoản và tạo workspace riêng của bạn.
+                Đăng ký tài khoản cá nhân của bạn.
               </p>
             </div>
 
@@ -190,31 +187,6 @@ export default function SetupPage() {
                     )}
                   </div>
 
-                  {/* Workspace name */}
-                  <div className="auth-floating-field">
-                    <label htmlFor={`${id}-workspace`}>
-                      Tên workspace <span aria-hidden>*</span>
-                    </label>
-                    <div className="auth-field-wrap has-left-icon">
-                      <span className="auth-field-left-icon" aria-hidden>
-                        <Briefcase size={16} strokeWidth={2} />
-                      </span>
-                      <input
-                        id={`${id}-workspace`}
-                        name="workspaceName"
-                        type="text"
-                        required
-                        minLength={3}
-                        maxLength={120}
-                        autoComplete="organization"
-                        placeholder="Tên tổ chức hoặc nhóm của bạn"
-                        className="auth-field-input"
-                      />
-                    </div>
-                    {fieldErrors.workspaceName && (
-                      <p className="text-xs text-rose-500 mt-1" role="alert">{fieldErrors.workspaceName}</p>
-                    )}
-                  </div>
 
                   {/* Password */}
                   <div className="auth-floating-field">

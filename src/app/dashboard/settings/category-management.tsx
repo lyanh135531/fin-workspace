@@ -9,12 +9,11 @@ import {
   EyeOff,
   Pencil,
   Plus,
+  Search,
   Tag,
   X,
-  AlertCircle,
-  CheckCircle2,
 } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import {
   createCategoryAction,
   reorderCategoriesAction,
@@ -75,6 +74,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [filterType, setFilterType] = useState<"expense" | "income">("expense");
+  const [searchQuery, setSearchQuery] = useState("");
   const [pending, start] = useTransition();
 
   function submit(form: FormData, id?: string) {
@@ -127,12 +127,23 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   }
 
   const currentCategories = categories.filter((c) => c.type === filterType);
-  const rootCategories = currentCategories.filter((c) => !c.parentId);
+
+  // Filter by search query
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return currentCategories;
+    const q = searchQuery.toLowerCase().trim();
+    return currentCategories.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
+    );
+  }, [currentCategories, searchQuery]);
+
+  const rootCategories = filteredCategories.filter((c) => !c.parentId);
 
   function moveRootItem(index: number, direction: "up" | "down") {
-    const newRoots = [...rootCategories];
+    const allRoots = currentCategories.filter((c) => !c.parentId);
     const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= newRoots.length) return;
+    if (targetIndex < 0 || targetIndex >= allRoots.length) return;
+    const newRoots = [...allRoots];
     const [moved] = newRoots.splice(index, 1);
     newRoots.splice(targetIndex, 0, moved);
 
@@ -152,8 +163,9 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
     const [moved] = siblings.splice(index, 1);
     siblings.splice(targetIndex, 0, moved);
 
+    const allRoots = currentCategories.filter((c) => !c.parentId);
     const allOrdered: Category[] = [];
-    rootCategories.forEach((root) => {
+    allRoots.forEach((root) => {
       allOrdered.push(root);
       if (root.id === parentId) {
         allOrdered.push(...siblings);
@@ -189,8 +201,8 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         </button>
       </div>
 
-      {/* Tabs: Chi tiêu & Thu nhập ONLY */}
-      <div className="mt-5 flex items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
+      {/* Tabs: Chi tiêu & Thu nhập + Search */}
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
         <div className="flex items-center gap-2 p-1 bg-[var(--surface-muted)] rounded-xl border border-[var(--border)]">
           <button
             type="button"
@@ -203,6 +215,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
               setFilterType("expense");
               setCreating(false);
               setEditing(null);
+              setSearchQuery("");
             }}
           >
             <ArrowUpRight size={14} />
@@ -219,15 +232,26 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
               setFilterType("income");
               setCreating(false);
               setEditing(null);
+              setSearchQuery("");
             }}
           >
             <ArrowDownLeft size={14} />
             Thu nhập ({categories.filter((c) => c.type === "income").length})
           </button>
         </div>
-        <p className="text-xs text-slate-400 font-medium hidden sm:block">
-          Dùng mũi tên <ChevronUp size={12} className="inline" /> <ChevronDown size={12} className="inline" /> để thay đổi thứ tự danh mục
-        </p>
+
+        {/* Search Bar */}
+        <div className="ws-category-search">
+          <span className="ws-category-search-icon">
+            <Search size={15} />
+          </span>
+          <input
+            type="text"
+            placeholder="Tìm kiếm danh mục..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* Creation form */}
@@ -248,7 +272,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           <CategoryNode
             key={category.id}
             category={category}
-            categories={categories}
+            categories={filteredCategories}
             index={index}
             totalRoots={rootCategories.length}
             pending={pending}
@@ -265,9 +289,15 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           <div className="p-8 text-center border border-dashed border-[var(--border)] rounded-xl">
             <Tag size={28} className="mx-auto text-slate-400 opacity-60 mb-2" />
             <p className="text-sm font-medium text-slate-500">
-              Chưa có danh mục {filterType === "expense" ? "Chi tiêu" : "Thu nhập"} nào trong workspace
+              {searchQuery
+                ? `Không tìm thấy danh mục "${searchQuery}"`
+                : `Chưa có danh mục ${filterType === "expense" ? "Chi tiêu" : "Thu nhập"} nào trong workspace`}
             </p>
-            <p className="text-xs text-slate-400 mt-1">Import từ bộ mẫu cá nhân hoặc bấm Thêm danh mục</p>
+            <p className="text-xs text-slate-400 mt-1">
+              {searchQuery
+                ? "Thử từ khóa khác hoặc xóa bộ lọc tìm kiếm"
+                : "Import từ bộ mẫu cá nhân hoặc bấm Thêm danh mục"}
+            </p>
           </div>
         )}
       </div>
@@ -339,9 +369,14 @@ function CategoryNode({
             </button>
           </div>
 
+          {/* Gradient Icon Badge */}
           <span
             className="grid h-9 w-9 shrink-0 place-items-center rounded-xl font-bold shadow-inner"
-            style={{ backgroundColor: `${category.color}22`, color: category.color, border: `1px solid ${category.color}33` }}
+            style={{
+              background: `linear-gradient(135deg, ${category.color}22, ${category.color}11)`,
+              color: category.color,
+              border: `1px solid ${category.color}33`,
+            }}
           >
             <IconComponent size={18} />
           </span>
@@ -454,9 +489,15 @@ function CategoryForm({
   return (
     <form
       action={onSubmit}
-      className="mt-4 rounded-xl border border-[var(--primary)] bg-[var(--surface-muted)] p-5 shadow-lg space-y-4"
+      className="mt-4 rounded-xl border border-[var(--primary)] bg-[var(--surface-muted)] p-5 shadow-lg space-y-4 relative overflow-hidden"
     >
-      <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
+      {/* Subtle accent glow */}
+      <div
+        className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl pointer-events-none opacity-10"
+        style={{ backgroundColor: selectedColor }}
+      />
+
+      <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] relative">
         <h3 className="font-bold text-base text-[var(--foreground)]">{title}</h3>
         <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600 p-1">
           <X size={18} />
@@ -465,7 +506,7 @@ function CategoryForm({
 
       <input type="hidden" name="type" value={category?.type ?? defaultType} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 relative">
         {/* Name Input */}
         <div>
           <label className="text-xs font-semibold text-slate-500 mb-1 block">Tên danh mục *</label>
@@ -521,13 +562,13 @@ function CategoryForm({
         {/* Color Picker */}
         <div className="sm:col-span-2">
           <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Màu đại diện</label>
-          <div className="flex flex-wrap items-center gap-2 mb-2">
+          <div className="flex flex-wrap items-center gap-2.5 mb-2">
             {COLOR_PRESETS.map((color) => (
               <button
                 key={color}
                 type="button"
-                className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                  selectedColor === color ? "scale-110 border-white shadow-md ring-2 ring-[var(--primary)]" : "border-transparent"
+                className={`w-8 h-8 rounded-full border-2 transition-all ${
+                  selectedColor === color ? "scale-110 border-white shadow-lg ring-2 ring-[var(--primary)]" : "border-transparent hover:scale-105"
                 }`}
                 style={{ backgroundColor: color }}
                 onClick={() => setSelectedColor(color)}
@@ -573,7 +614,7 @@ function CategoryForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
+      <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)] relative">
         <button type="button" className="button-secondary" onClick={onCancel}>
           Hủy bỏ
         </button>

@@ -2,16 +2,55 @@ import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
+export async function generateUniqueInviteCode(tx: any): Promise<string> {
+  for (let i = 0; i < 10; i++) {
+    const num = Math.floor(100000 + Math.random() * 900000);
+    const code = `${num.toString().slice(0, 3)}-${num.toString().slice(3)}`;
+    const existing = await tx.workspace.findFirst({ where: { inviteCode: code } });
+    if (!existing) return code;
+  }
+  const num = Math.floor(100000 + Math.random() * 900000);
+  return `${num.toString().slice(0, 3)}-${num.toString().slice(3)}`;
+}
+
 export async function createWorkspaceForUser(userId: string, input: { name: string; description?: string; baseCurrency: string; timeZone: string; approvalRequired: boolean }) {
   const user = await prisma.user.findFirst({ where: { id: userId, status: "active", deletedAt: null } });
   if (!user) throw new AppError("AUTHENTICATION_REQUIRED", "Active user is required.");
   return prisma.$transaction(async (tx) => {
     const role = await tx.role.findUnique({ where: { code: "OWNER" } });
     if (!role) throw new AppError("NOT_FOUND", "The OWNER role is missing.");
-    const workspace = await tx.workspace.create({ data: input });
+    const inviteCode = await generateUniqueInviteCode(tx);
+    const workspace = await tx.workspace.create({ data: { ...input, inviteCode } });
     await tx.workspaceMember.create({ data: { workspaceId: workspace.id, userId, roleId: role.id } });
+
+    // Create a default wallet with 0 balance for the new workspace
+    const wallet = await tx.wallet.create({
+      data: {
+        name: "Ví chính",
+        description: "Ví mặc định",
+        openingBalance: 0,
+        currentBalance: 0,
+      },
+    });
+    await tx.workspaceWallet.create({
+      data: {
+        workspaceId: workspace.id,
+        walletId: wallet.id,
+      },
+    });
+
     await tx.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: userId, action: "workspace.created", entityType: "workspace", entityId: workspace.id, metadata: { creatorRole: "OWNER" } } });
     return workspace;
+  });
+}
+
+export async function regenerateWorkspaceInviteCode(userId: string, workspaceId: string) {
+  await requireWorkspaceMember(userId, workspaceId, true);
+  return prisma.$transaction(async (tx) => {
+    const inviteCode = await generateUniqueInviteCode(tx);
+    await tx.workspace.update({ where: { id: workspaceId }, data: { inviteCode } });
+    await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "workspace.invite_code_regenerated", entityType: "workspace", entityId: workspaceId, metadata: { inviteCode } } });
+    return inviteCode;
   });
 }
 

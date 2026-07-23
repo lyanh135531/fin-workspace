@@ -45,18 +45,16 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
     { label: "Tổng quan", href: "/overview" },
     { label: "Cài đặt workspace" },
   ],
-  "/members": [
+  "/workspaces/create": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Quản lý thành viên" },
+    { label: "Tạo Workspace mới" },
   ],
   "/settings/workspaces/create": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Cài đặt chung", href: "/setting" },
-    { label: "Tạo workspace" },
+    { label: "Tạo Workspace mới" },
   ],
   "/settings/join": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Cài đặt chung", href: "/setting" },
     { label: "Tham gia workspace" },
   ],
   "/dashboard": [
@@ -87,8 +85,7 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
   ],
   "/dashboard/workspaces/create": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Cài đặt chung", href: "/setting" },
-    { label: "Tạo workspace" },
+    { label: "Tạo Workspace mới" },
   ],
   "/dashboard/join": [
     { label: "Tổng quan", href: "/overview" },

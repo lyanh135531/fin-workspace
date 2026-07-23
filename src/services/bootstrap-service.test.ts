@@ -5,7 +5,10 @@ import { prisma } from "@/lib/prisma";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    $transaction: vi.fn(),
+    user: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+    },
   },
 }));
 
@@ -21,89 +24,34 @@ describe("bootstrap-service & registerAccountAction", () => {
   });
 
   describe("registerAccount", () => {
-    it("throws NOT_FOUND AppError when OWNER role is missing", async () => {
-      const mockTx = {
-        role: {
-          findUnique: vi.fn().mockResolvedValue(null),
-        },
-      };
-
-      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (cb: (tx: typeof mockTx) => Promise<unknown>) => {
-        return cb(mockTx);
-      });
-
-      await expect(registerAccount("admin", "password123", "Workspace A")).rejects.toThrow(
-        "Vai trò OWNER không tồn tại trong hệ thống."
-      );
-    });
-
     it("throws CONFLICT AppError when username already exists", async () => {
-      const mockTx = {
-        role: {
-          findUnique: vi.fn().mockResolvedValue({ id: "role-owner", code: "OWNER" }),
-        },
-        user: {
-          findUnique: vi.fn().mockResolvedValue({ id: "user-1", username: "admin" }),
-        },
-      };
+      (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "user-1", username: "admin" });
 
-      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (cb: (tx: typeof mockTx) => Promise<unknown>) => {
-        return cb(mockTx);
-      });
-
-      await expect(registerAccount("admin", "password123", "Workspace A")).rejects.toThrow(
+      await expect(registerAccount("admin", "password123")).rejects.toThrow(
         "Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên đăng nhập khác."
       );
     });
 
-    it("creates user, workspace, and membership successfully", async () => {
-      const mockTx = {
-        role: {
-          findUnique: vi.fn().mockResolvedValue({ id: "role-owner", code: "OWNER" }),
-        },
-        user: {
-          findUnique: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({ id: "u-100", username: "admin" }),
-        },
-        workspace: {
-          create: vi.fn().mockResolvedValue({ id: "w-100", name: "Workspace A" }),
-        },
-        workspaceMember: {
-          create: vi.fn().mockResolvedValue({ id: "wm-100" }),
-        },
-      };
+    it("creates user successfully without workspace", async () => {
+      (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (prisma.user.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "u-100", username: "admin" });
 
-      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (cb: (tx: typeof mockTx) => Promise<unknown>) => {
-        return cb(mockTx);
+      const res = await registerAccount("admin", "password123");
+      expect(res).toEqual({ userId: "u-100" });
+      expect(prisma.user.create).toHaveBeenCalledWith({
+        data: {
+          username: "admin",
+          passwordHash: "hashed_password",
+        },
       });
-
-      const res = await registerAccount("admin", "password123", "Workspace A");
-      expect(res).toEqual({ userId: "u-100", workspaceId: "w-100" });
     });
 
     it("allows creating a second account when one already exists", async () => {
-      const mockTx = {
-        role: {
-          findUnique: vi.fn().mockResolvedValue({ id: "role-owner", code: "OWNER" }),
-        },
-        user: {
-          findUnique: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({ id: "u-200", username: "user2" }),
-        },
-        workspace: {
-          create: vi.fn().mockResolvedValue({ id: "w-200", name: "Workspace B" }),
-        },
-        workspaceMember: {
-          create: vi.fn().mockResolvedValue({ id: "wm-200" }),
-        },
-      };
+      (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (prisma.user.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "u-200", username: "user2" });
 
-      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (cb: (tx: typeof mockTx) => Promise<unknown>) => {
-        return cb(mockTx);
-      });
-
-      const res = await registerAccount("user2", "password456", "Workspace B");
-      expect(res).toEqual({ userId: "u-200", workspaceId: "w-200" });
+      const res = await registerAccount("user2", "password456");
+      expect(res).toEqual({ userId: "u-200" });
     });
   });
 
@@ -112,34 +60,20 @@ describe("bootstrap-service & registerAccountAction", () => {
       const res = await registerAccountAction({
         username: "a",
         password: "123",
-        workspaceName: "",
       });
 
       expect(res.ok).toBe(false);
       expect(res.message).toBe("Thông tin nhập vào chưa hợp lệ. Vui lòng kiểm tra lại các trường bên dưới.");
       expect(res.fieldErrors?.username).toBe("Tên đăng nhập phải có ít nhất 3 ký tự.");
       expect(res.fieldErrors?.password).toBe("Mật khẩu phải có ít nhất 6 ký tự.");
-      expect(res.fieldErrors?.workspaceName).toBe("Tên workspace phải có ít nhất 3 ký tự.");
     });
 
     it("returns specific AppError message when username is taken", async () => {
-      const mockTx = {
-        role: {
-          findUnique: vi.fn().mockResolvedValue({ id: "role-owner", code: "OWNER" }),
-        },
-        user: {
-          findUnique: vi.fn().mockResolvedValue({ id: "existing", username: "admin" }),
-        },
-      };
-
-      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (cb: (tx: typeof mockTx) => Promise<unknown>) => {
-        return cb(mockTx);
-      });
+      (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "existing", username: "admin" });
 
       const res = await registerAccountAction({
         username: "admin",
         password: "password123",
-        workspaceName: "Workspace A",
       });
 
       expect(res.ok).toBe(false);
@@ -147,3 +81,4 @@ describe("bootstrap-service & registerAccountAction", () => {
     });
   });
 });
+
