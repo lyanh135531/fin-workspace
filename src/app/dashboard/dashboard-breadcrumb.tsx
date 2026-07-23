@@ -37,10 +37,9 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
     { label: "Tổng quan", href: "/overview" },
     { label: "Cài đặt workspace" },
   ],
-  "/settings/users": [
+  "/members": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Cài đặt chung", href: "/setting" },
-    { label: "Tài khoản thành viên" },
+    { label: "Quản lý thành viên" },
   ],
   "/settings/workspaces/create": [
     { label: "Tổng quan", href: "/overview" },

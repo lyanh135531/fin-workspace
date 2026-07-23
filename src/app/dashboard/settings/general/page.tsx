@@ -3,16 +3,11 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/auth";
 import { GeneralSettingsClient } from "@/app/dashboard/settings/general-settings-client";
 import { GlobalCategoryManagement } from "@/app/dashboard/settings/global-category-management";
-import { GeneralWorkspaceActions } from "@/app/dashboard/settings/general-workspace-actions";
-import { ADMIN_ROLE_CODES } from "@/domain/role-policy";
 import { prisma } from "@/lib/prisma";
 
 export default async function GeneralSettingsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/sign-in");
-  const [categories, adminWorkspaceCount] = await Promise.all([
-    prisma.category.findMany({ where: { workspaceId: null, deletedAt: null }, include: { _count: { select: { transactions: { where: { deletedAt: null } } } } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-    prisma.workspaceMember.count({ where: { userId: session.user.id, status: "active", deletedAt: null, role: { code: { in: [...ADMIN_ROLE_CODES] } }, workspace: { status: "active", deletedAt: null } } }),
-  ]);
-  return <div className="workspace-settings-page"><div className="workspace-settings-container"><header className="settings-hero"><div><p className="settings-eyebrow">Cài đặt chung</p><h1>Hệ thống & tài khoản</h1><p className="settings-hero-copy">Category dùng chung cho toàn bộ workspace và thông tin tài khoản cá nhân.</p></div></header><GeneralWorkspaceActions canCreateMember={adminWorkspaceCount > 0}/><GlobalCategoryManagement categories={categories.map((category) => ({ id: category.id, name: category.name, code: category.code, color: category.color, type: category.type, icon: category.icon, parentId: category.parentId, status: category.status, transactionCount: category._count.transactions }))}/><GeneralSettingsClient username={session.user.username}/></div></div>;
+  const categories = await prisma.category.findMany({ where: { workspaceId: null, deletedAt: null }, include: { _count: { select: { transactions: { where: { deletedAt: null } } } } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
+  return <div className="workspace-settings-page"><div className="workspace-settings-container"><header className="settings-hero"><div><p className="settings-eyebrow">Cài đặt chung</p><h1>Hệ thống &amp; tài khoản</h1><p className="settings-hero-copy">Category dùng chung cho toàn bộ workspace và thông tin tài khoản cá nhân.</p></div></header><GlobalCategoryManagement categories={categories.map((category) => ({ id: category.id, name: category.name, code: category.code, color: category.color, type: category.type, icon: category.icon, parentId: category.parentId, status: category.status, transactionCount: category._count.transactions }))}/><GeneralSettingsClient username={session.user.username}/></div></div>;
 }

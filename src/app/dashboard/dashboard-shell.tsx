@@ -112,6 +112,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
             role: item.role.code,
           }))}
           pendingJoinCount={pendingJoinCount}
+          isAdmin={isAdmin}
         />
 
         {/* User section with logout */}

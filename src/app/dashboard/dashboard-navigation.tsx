@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, LayoutDashboard, Settings, SlidersHorizontal, WalletCards } from "lucide-react";
+import { BookOpen, LayoutDashboard, Settings, SlidersHorizontal, Users, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MonthlyArchiveTree } from "@/app/dashboard/monthly-archive-tree";
@@ -13,11 +13,13 @@ export function DashboardNavigation({
   workspaces,
   archivedWorkspaces,
   pendingJoinCount = 0,
+  isAdmin = false,
 }: {
   currentId?: string;
   workspaces: Workspace[];
   archivedWorkspaces: Workspace[];
   pendingJoinCount?: number;
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -29,6 +31,9 @@ export function DashboardNavigation({
     pathname === "/settings/workspace" ||
     pathname === "/dashboard/settings" ||
     pathname === "/dashboard/join-requests";
+  const membersActive =
+    pathname === "/members" ||
+    pathname === "/dashboard/members";
   const generalSettingsActive =
     pathname === "/setting" ||
     (pathname.startsWith("/settings/") && !workspaceSettingsActive);
@@ -79,10 +84,20 @@ export function DashboardNavigation({
             </Link>
 
             <Link
+              className={`nav-item dashboard-nav-link ${membersActive ? "nav-item-active" : ""}`}
+              href="/members"
+              aria-current={membersActive ? "page" : undefined}
+              aria-label="Quản lý thành viên workspace"
+            >
+              <Users size={18} strokeWidth={1.8} />
+              <span>Quản lý thành viên</span>
+            </Link>
+
+            <Link
               className={`nav-item dashboard-nav-link ${workspaceSettingsActive ? "nav-item-active" : ""}`}
               href="/settings/workspace"
               aria-current={workspaceSettingsActive ? "page" : undefined}
-              aria-label="Cơ chế phê duyệt, mã mời và thành viên"
+              aria-label="Cơ chế phê duyệt, mã mời và cấu hình"
             >
               <Settings size={18} strokeWidth={1.8} />
               <span>Cài đặt workspace</span>
