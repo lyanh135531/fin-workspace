@@ -54,7 +54,7 @@ async function workspaceActor(workspaceIdInput: unknown) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) throw new AppError("AUTHENTICATION_REQUIRED", "Please sign in.");
   const workspaceId = idSchema.parse(workspaceIdInput);
-  await requireWorkspaceMember(session.user.id, workspaceId, false, true);
+  await requireWorkspaceMember(session.user.id, workspaceId);
   return { userId: session.user.id, workspaceId };
 }
 

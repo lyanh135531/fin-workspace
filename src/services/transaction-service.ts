@@ -1,8 +1,8 @@
 import Decimal from "decimal.js";
 import { Prisma, type Transaction } from "@/generated/prisma/client";
 import { createTransactionSchema, type CreateTransactionInput } from "@/domain";
-import { isAdminRole, isOwnerRole } from "@/domain/role-policy";
-import { transactionTimingForDate, validateTransactionDate, workflowStatusForAppliedDate, workflowStatusForCreation, type TransactionTiming } from "@/domain/transaction/policy";
+import { isAdminRole } from "@/domain/role-policy";
+import { transactionTimingForDate, workflowStatusForAppliedDate, workflowStatusForCreation, type TransactionTiming } from "@/domain/transaction/policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
@@ -20,10 +20,9 @@ function asBusinessDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function resolveTransactionInput(input: CreateTransactionInput, timeZone: string, now = new Date(), monthlyPeriod?: string): ResolvedTransactionInput {
+function resolveTransactionInput(input: CreateTransactionInput, timeZone: string, now = new Date()): ResolvedTransactionInput {
   const today = getBusinessDateInTimeZone(timeZone, now);
-  const date = validateTransactionDate(input.date, monthlyPeriod);
-  return { ...input, date, timing: transactionTimingForDate(date, today) };
+  return { ...input, timing: transactionTimingForDate(input.date, today) };
 }
 
 async function requireMutationResources(tx: TransactionClient, workspaceId: string, input: CreateTransactionInput) {
@@ -141,7 +140,7 @@ async function ensureNoPendingChange(tx: TransactionClient, transactionId: strin
 
 export async function createTransaction(userId: string, workspaceId: string, input: CreateTransactionInput, now = new Date()) {
   const member = await requireWorkspaceMember(userId, workspaceId);
-  const resolved = resolveTransactionInput(input, member.workspace.timeZone, now, member.workspace.monthlyRecord?.period);
+  const resolved = resolveTransactionInput(input, member.workspace.timeZone, now);
   const workflowStatus = workflowStatusForCreation(member.role.code, resolved.timing);
   return prisma.$transaction(async (tx) => {
     await requireMutationResources(tx, workspaceId, resolved);
@@ -231,16 +230,10 @@ export async function updateTransaction(
   reason: string,
   now = new Date(),
 ) {
-  const member = await requireWorkspaceMember(userId, workspaceId, false, true);
-  const archived = member.workspace.status === "deactive";
-  if (archived && (!member.workspace.monthlyRecord || !isOwnerRole(member.role.code))) {
-    throw new AppError("FORBIDDEN", "Chỉ Owner được chỉnh sửa giao dịch trong workspace quá khứ.");
-  }
+  const member = await requireWorkspaceMember(userId, workspaceId);
   return prisma.$transaction(async (tx) => {
     const record = await findWorkspaceTransaction(tx, workspaceId, transactionId);
-    const existingDate = asBusinessDate(record.date);
-    const monthlyPeriod = input.date === existingDate ? undefined : member.workspace.monthlyRecord?.period;
-    const resolved = resolveTransactionInput(input, member.workspace.timeZone, now, monthlyPeriod);
+    const resolved = resolveTransactionInput(input, member.workspace.timeZone, now);
     await requireMutationResources(tx, workspaceId, resolved);
     if (isAdminRole(member.role.code)) {
       const updated = await applyUpdate(tx, workspaceId, record, resolved, member.workspace.timeZone, now);
@@ -308,7 +301,6 @@ export async function approveTransactionChange(userId: string, workspaceId: stri
     const proposed = readProposedData(request.proposedData);
     if (proposed.action === "delete") await softDelete(tx, request.transaction);
     if (proposed.action === "update") {
-      if (reviewer.workspace.monthlyRecord?.period && proposed.transaction.date.slice(0, 7) !== reviewer.workspace.monthlyRecord.period) throw new AppError("VALIDATION_ERROR", `Ngày giao dịch phải thuộc kỳ ${reviewer.workspace.monthlyRecord.period} của workspace này.`);
       await applyUpdate(tx, workspaceId, request.transaction, proposed.transaction, reviewer.workspace.timeZone, now);
     }
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: `transaction.${proposed.action}_approved`, entityType: "transaction", entityId: request.transactionId, metadata: { changeRequestId: request.id, reason: proposed.reason } } });

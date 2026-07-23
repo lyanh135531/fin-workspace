@@ -3,7 +3,6 @@
 import { BookOpen, LayoutDashboard, Settings, SlidersHorizontal, User, Users, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MonthlyArchiveTree } from "@/app/dashboard/monthly-archive-tree";
 import { WorkspaceSwitcher } from "@/app/dashboard/workspace-switcher";
 
 type Workspace = { id: string; name: string; role: string };
@@ -11,15 +10,11 @@ type Workspace = { id: string; name: string; role: string };
 export function DashboardNavigation({
   currentId,
   workspaces,
-  archivedWorkspaces,
   pendingJoinCount = 0,
-  isAdmin = false,
 }: {
   currentId?: string;
   workspaces: Workspace[];
-  archivedWorkspaces: Workspace[];
   pendingJoinCount?: number;
-  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -111,13 +106,6 @@ export function DashboardNavigation({
       </div>
 
       <div className="sidebar-collapsed-divider" aria-hidden />
-
-      {/* ── Monthly Archive Section ── */}
-      {archivedWorkspaces.length > 0 && (
-        <div className="nav-section-group">
-          <MonthlyArchiveTree workspaces={archivedWorkspaces} />
-        </div>
-      )}
 
       {/* ── Account & General Settings ── */}
       <div className="nav-section-group">

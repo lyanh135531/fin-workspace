@@ -63,29 +63,11 @@ async function importPreparedData(preparedPath) {
   const now = new Date();
 
   const userId = randomUUID();
+  const workspaceId = randomUUID();
+  const memberId = randomUUID();
+  const inviteCode = randomUUID();
   const walletId = randomUUID();
   const categoryIds = new Map();
-  const workspaceBySourceFile = new Map();
-
-  for (const report of prepared.reports) {
-    const sourceTransactions = prepared.transactions.filter((item) => item.sourceFile === report.file);
-    const yearCounts = new Map();
-    for (const item of sourceTransactions) {
-      const year = item.date.slice(0, 4);
-      yearCounts.set(year, (yearCounts.get(year) ?? 0) + 1);
-    }
-    const year = [...yearCounts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0];
-    if (!year) throw new Error(`Unable to determine workspace year for ${report.file}`);
-    const month = String(report.month).padStart(2, "0");
-    workspaceBySourceFile.set(report.file, {
-      workspaceId: randomUUID(),
-      memberId: randomUUID(),
-      inviteCode: randomUUID(),
-      name: `Chi tiêu ${month}/${year}`,
-      period: `${year}-${month}`,
-      sourceFile: report.file,
-    });
-  }
 
   const openingBalance = new Decimal(prepared.openingBalance);
   let currentBalance = openingBalance;
@@ -115,24 +97,18 @@ async function importPreparedData(preparedPath) {
       [walletId, "Ví chính", openingBalance.toFixed(4), currentBalance.toFixed(4), "Ví dùng chung cho dữ liệu CSV đã nhập", now],
     );
 
-    for (const workspace of workspaceBySourceFile.values()) {
-      await client.query(
-        'INSERT INTO "WORKSPACES" ("id", "name", "description", "status", "created_at", "updated_at", "base_currency", "time_zone", "approval_required", "invite_code") VALUES ($1, $2, $3, \'active\', $4, $4, \'VND\', \'Asia/Ho_Chi_Minh\', true, $5)',
-        [workspace.workspaceId, workspace.name, `Dữ liệu nhập từ ${workspace.sourceFile}`, now, workspace.inviteCode],
-      );
-      await client.query(
-        'INSERT INTO "WORKSPACE_MEMBERS" ("id", "workspace_id", "user_id", "role_id", "status", "created_at", "updated_at") VALUES ($1, $2, $3, $4, \'active\', $5, $5)',
-        [workspace.memberId, workspace.workspaceId, userId, ownerRole.rows[0].id, now],
-      );
-      await client.query(
-        'INSERT INTO "WORKSPACE_WALLET" ("workspace_id", "wallet_id") VALUES ($1, $2)',
-        [workspace.workspaceId, walletId],
-      );
-      await client.query(
-        'INSERT INTO "MONTHLY_WORKSPACES" ("user_id", "period", "workspace_id", "created_at") VALUES ($1, $2, $3, $4)',
-        [userId, workspace.period, workspace.workspaceId, now],
-      );
-    }
+    await client.query(
+      'INSERT INTO "WORKSPACES" ("id", "name", "description", "status", "created_at", "updated_at", "base_currency", "time_zone", "approval_required", "invite_code") VALUES ($1, $2, $3, \'active\', $4, $4, \'VND\', \'Asia/Ho_Chi_Minh\', true, $5)',
+      [workspaceId, "Tài chính cá nhân", "Dữ liệu tài chính cá nhân đã nhập", now, inviteCode],
+    );
+    await client.query(
+      'INSERT INTO "WORKSPACE_MEMBERS" ("id", "workspace_id", "user_id", "role_id", "status", "created_at", "updated_at") VALUES ($1, $2, $3, $4, \'active\', $5, $5)',
+      [memberId, workspaceId, userId, ownerRole.rows[0].id, now],
+    );
+    await client.query(
+      'INSERT INTO "WORKSPACE_WALLET" ("workspace_id", "wallet_id") VALUES ($1, $2)',
+      [workspaceId, walletId],
+    );
 
     for (const [index, category] of prepared.categories.entries()) {
       const categoryId = randomUUID();
@@ -146,21 +122,16 @@ async function importPreparedData(preparedPath) {
     for (const transaction of prepared.transactions) {
       const categoryId = categoryIds.get(transaction.category);
       if (!categoryId) throw new Error(`Unknown category: ${transaction.category}`);
-      const workspace = workspaceBySourceFile.get(transaction.sourceFile);
-      if (!workspace) throw new Error(`Unknown source workspace: ${transaction.sourceFile}`);
       await client.query(
         'INSERT INTO "TRANSACTION" ("id", "member_id", "wallet_id", "category_id", "type", "workflow_status", "amount", "description", "date", "created_at", "updated_at") VALUES ($1, $2, $3, $4, $5, \'approved\', $6, $7, $8, $9, $9)',
-        [randomUUID(), workspace.memberId, walletId, categoryId, transaction.type, transaction.amount, transaction.description, transaction.date, now],
+        [randomUUID(), memberId, walletId, categoryId, transaction.type, transaction.amount, transaction.description, transaction.date, now],
       );
     }
 
-    for (const workspace of workspaceBySourceFile.values()) {
-      const transactionCount = prepared.transactions.filter((item) => item.sourceFile === workspace.sourceFile).length;
-      await client.query(
-        'INSERT INTO "AUDIT_LOG" ("id", "workspace_id", "actor_user_id", "action", "entity_type", "entity_id", "metadata") VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)',
-        [randomUUID(), workspace.workspaceId, userId, "CSV_IMPORT_COMPLETED", "WORKSPACE", workspace.workspaceId, JSON.stringify({ sourceFile: workspace.sourceFile, transactions: transactionCount })],
-      );
-    }
+    await client.query(
+      'INSERT INTO "AUDIT_LOG" ("id", "workspace_id", "actor_user_id", "action", "entity_type", "entity_id", "metadata") VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)',
+      [randomUUID(), workspaceId, userId, "CSV_IMPORT_COMPLETED", "WORKSPACE", workspaceId, JSON.stringify({ sourceFiles: prepared.reports.map((report) => report.file), transactions: prepared.transactions.length })],
+    );
 
     await client.query("COMMIT");
   } catch (error) {
@@ -173,7 +144,7 @@ async function importPreparedData(preparedPath) {
   console.log(JSON.stringify({
     database: TARGET_DATABASE,
     username: USERNAME,
-    workspaces: [...workspaceBySourceFile.values()].map((workspace) => workspace.name),
+    workspace: "Tài chính cá nhân",
     categories: prepared.categories.length,
     transactions: prepared.transactions.length,
     openingBalance: openingBalance.toFixed(4),
@@ -206,8 +177,7 @@ async function verifyImport() {
     const result = await client.query(`
       SELECT
         (SELECT COUNT(*)::int FROM "USERS") AS users,
-        (SELECT COUNT(*)::int FROM "MONTHLY_WORKSPACES" WHERE "period" BETWEEN '2026-01' AND '2026-06') AS imported_workspaces,
-        (SELECT COUNT(*)::int FROM "MONTHLY_WORKSPACES") AS monthly_workspaces,
+        (SELECT COUNT(*)::int FROM "WORKSPACES" WHERE "deleted_at" IS NULL) AS workspaces,
         (SELECT COUNT(DISTINCT "wallet_id")::int FROM "WORKSPACE_WALLET") AS wallets,
         (SELECT COUNT(*)::int FROM "WORKSPACE_WALLET") AS wallet_links,
         (SELECT COUNT(*)::int FROM "CATEGORY" WHERE "deleted_at" IS NULL) AS categories,
@@ -220,14 +190,13 @@ async function verifyImport() {
         (SELECT "password_hash" FROM "USERS" WHERE "username" = $1) AS password_hash
     `, [USERNAME]);
     const workspaceResult = await client.query(`
-      SELECT mw."period", ws."name", COUNT(t."id")::int AS transactions
-      FROM "MONTHLY_WORKSPACES" mw
-      JOIN "WORKSPACES" ws ON ws."id" = mw."workspace_id"
+      SELECT ws."name", COUNT(t."id")::int AS transactions
+      FROM "WORKSPACES" ws
       JOIN "WORKSPACE_MEMBERS" wm ON wm."workspace_id" = ws."id"
       LEFT JOIN "TRANSACTION" t ON t."member_id" = wm."id" AND t."deleted_at" IS NULL
-      WHERE mw."period" BETWEEN '2026-01' AND '2026-06'
-      GROUP BY mw."period", ws."name"
-      ORDER BY mw."period"
+      WHERE ws."deleted_at" IS NULL
+      GROUP BY ws."name"
+      ORDER BY ws."name"
     `);
     const row = result.rows[0];
     const passwordValid = row.password_hash ? await argon2.verify(row.password_hash, PASSWORD) : false;

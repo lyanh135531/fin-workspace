@@ -88,8 +88,6 @@ model User {
   sentInvitations     WorkspaceInvitation[] @relation("InvitationSender")
   joinRequests WorkspaceJoinRequest[] @relation("JoinRequester")
   reviewedJoinRequests WorkspaceJoinRequest[]
-  monthlyWorkspaces MonthlyWorkspace[]
-
   @@index([status, deletedAt])
   @@map("USERS")
 }
@@ -112,23 +110,8 @@ model Workspace {
   auditLogs   AuditLog[]
   invitations WorkspaceInvitation[]
   joinRequests WorkspaceJoinRequest[]
-  monthlyRecord MonthlyWorkspace?
-
   @@index([status, deletedAt])
   @@map("WORKSPACES")
-}
-
-model MonthlyWorkspace {
-  userId      String    @map("user_id") @db.Uuid
-  period      String    @db.VarChar(7)
-  workspaceId String    @unique @map("workspace_id") @db.Uuid
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Restrict)
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-
-  @@id([userId, period])
-  @@index([period])
-  @@map("MONTHLY_WORKSPACES")
 }
 
 model WorkspaceWallet {

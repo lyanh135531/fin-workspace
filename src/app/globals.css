@@ -77,7 +77,6 @@ button, input, select, textarea { font: inherit; }
 .nav-item { display:flex; align-items:center; justify-content:space-between; border-radius:10px; padding:10px 12px; color:#536178; transition: transform 180ms cubic-bezier(0.32,0.72,0,1), background-color 180ms ease, color 180ms ease; }
 .nav-item:hover:not(.nav-item-active):not(.nav-item-muted) { transform: translateX(2px); }
 .nav-item-active { background:#fff0e8; color:#d9482d; font-weight:700; }.nav-item-muted { opacity:.52; cursor:not-allowed; }
-.workspace-tree { margin:.1rem 0; }.workspace-tree-trigger { width:100%; border:0; background:transparent; cursor:pointer; }.workspace-tree-trigger:hover { background:var(--surface-muted); color:var(--foreground); }.workspace-tree-trigger small { color:#8b95a6; font-size:.66rem; font-weight:700; }.workspace-tree-list { position:relative; display:grid; gap:.15rem; margin:.25rem 0 .45rem 1.05rem; padding-left:.75rem; border-left:1px solid var(--border); }.workspace-tree-item { display:flex; min-height:2.3rem; width:100%; align-items:center; gap:.5rem; border:0; border-radius:.5rem; padding:.45rem .55rem .45rem .1rem; color:#68758a; font-size:.82rem; transition:background-color 160ms ease,color 160ms ease; }.workspace-tree-item:not(:disabled):hover { background:var(--surface-muted); color:var(--foreground); }.workspace-tree-item:disabled { cursor:default; }.workspace-tree-item small { color:#8b95a6; font-size:.64rem; font-weight:700; }.workspace-tree-branch { width:.45rem; height:1px; background:var(--border); }.workspace-tree-current { color:var(--coral); font-weight:700; }.workspace-tree-current small { color:var(--coral); }.workspace-tree-error { margin:.25rem 0; color:#c63f2c; font-size:.72rem; }
 .workspace-settings-link { display:block; margin-top:6px; border-top:1px solid var(--border); padding:10px; color:#536178; font-size:13px; font-weight:650; }.workspace-settings-link:hover { color:#d9482d; }
 .button-primary,.button-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; border-radius:11px; padding:10px 16px; font-size:.88rem; font-weight:650; letter-spacing:-.01em; user-select:none; transition:transform 200ms cubic-bezier(0.32,0.72,0,1), background-color 180ms ease, border-color 180ms ease, box-shadow 200ms ease, opacity 180ms ease; }.button-primary { border:1px solid transparent; background:var(--primary); color:var(--text-on-primary); box-shadow: inset 0 1px 0.5px rgb(255 255 255 / 35%), 0 3px 12px rgb(255 91 61 / 28%); }.button-primary:hover:not(:disabled) { background:color-mix(in srgb, var(--primary) 92%, #000); box-shadow: inset 0 1px 0.5px rgb(255 255 255 / 45%), 0 6px 18px rgb(255 91 61 / 38%); transform: translateY(-1px); }.button-secondary { border:1px solid var(--border); background:var(--surface); color:var(--text-primary); box-shadow: inset 0 1px 0 rgb(255 255 255 / 50%), 0 1.5px 4px rgb(0 0 0 / 4%); }.button-secondary:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-hover); box-shadow: inset 0 1px 0 rgb(255 255 255 / 60%), 0 4px 12px rgb(0 0 0 / 6%); transform: translateY(-1px); }.button-primary:active:not(:disabled),.button-secondary:active:not(:disabled) { transform:scale(.97) translateY(0); }.button-primary:disabled,.button-secondary:disabled { opacity:.5; cursor:not-allowed; box-shadow: none; transform: none; }
 .field { width:100%; border:1px solid #ece4da; border-radius:9px; background:#fffdfa; padding:10px 12px; color:#17233c; transition: border-color 180ms ease, box-shadow 180ms ease; }.field:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgb(255 91 61 / 15%); }.metric-card { border:1px solid #ece4da; border-radius:16px; padding:20px; background:#fff; box-shadow: inset 0 1px 1px rgb(255 255 255 / 40%), 0 2px 8px rgb(0 0 0 / 3%); transition: transform 220ms cubic-bezier(0.32,0.72,0,1), box-shadow 220ms ease; }.metric-card:hover { transform: translateY(-2px); box-shadow: inset 0 1px 1px rgb(255 255 255 / 60%), 0 6px 18px rgb(0 0 0 / 6%); }.metric-income { border-top:3px solid #41a862; }.metric-expense { border-top:3px solid #e84335; }.metric-pending { border-top:3px solid #f0a13c; }.metric-navy { border-top:3px solid #17233c; }
@@ -174,17 +173,13 @@ html[data-sidebar-collapsed="true"] .sidebar-nav-section {
   pointer-events: none;
 }
 
-/* Nav link text spans, workspace tree title/meta/list */
-.dashboard-nav-link span,
-.workspace-tree-title,
-.workspace-tree-meta {
+/* Nav link text spans */
+.dashboard-nav-link span {
   transition: opacity 100ms ease, width 180ms var(--sb-easing), margin 180ms var(--sb-easing);
   overflow: hidden;
   white-space: nowrap;
 }
-html[data-sidebar-collapsed="true"] .dashboard-sidebar .dashboard-nav-link > span,
-html[data-sidebar-collapsed="true"] .dashboard-sidebar .workspace-tree-title:not(.sidebar-flyout-popover *),
-html[data-sidebar-collapsed="true"] .dashboard-sidebar .workspace-tree-meta:not(.sidebar-flyout-popover *) {
+html[data-sidebar-collapsed="true"] .dashboard-sidebar .dashboard-nav-link > span {
   display: none !important;
   opacity: 0 !important;
   width: 0 !important;
@@ -203,17 +198,6 @@ html[data-sidebar-collapsed="true"] .dashboard-sidebar .workspace-tree-meta:not(
   visibility: visible !important;
   pointer-events: auto !important;
 }
-.workspace-tree-list {
-  transition: opacity 100ms ease, max-height 200ms var(--sb-easing);
-  max-height: 30rem;
-  overflow: hidden;
-}
-html[data-sidebar-collapsed="true"] .workspace-tree-list {
-  opacity: 0;
-  max-height: 0;
-  pointer-events: none;
-}
-
 /* Nav links: center icons when collapsed */
 .dashboard-nav-link {
   justify-content: flex-start;
@@ -229,16 +213,6 @@ html[data-sidebar-collapsed="true"] .dashboard-nav-link {
   padding: 0 !important;
   margin: 0 auto !important;
 }
-html[data-sidebar-collapsed="true"] .workspace-tree-trigger {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 2.5rem !important;
-  height: 2.5rem !important;
-  padding: 0 !important;
-  margin: 0 auto !important;
-}
-
 /* Brand row */
 .dashboard-brand-row {
   transition: margin var(--sb-duration) var(--sb-easing), justify-content 0ms;
@@ -286,9 +260,8 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
 .sunrise-card:hover { box-shadow:0 6px 16px var(--shadow); }
 .nav-item,.workspace-settings-link { color:var(--text-secondary); }
 .nav-item-active { background:var(--primary-soft); color:var(--primary); }
-.workspace-tree-trigger small,.workspace-tree-item small,.dashboard-workspace-card p,.dashboard-user span,.dashboard-header-subtitle,.dashboard-footer,.settings-eyebrow,.settings-hero-copy,.settings-summary span,.settings-card-copy,.settings-section-heading p:last-child,.settings-readonly-card>p:last-child,.settings-members-card header p:last-child,.settings-toggle small,.settings-fixed-values,.settings-form-footer p,.members-count,.settings-inline-message,.member-identity span,.member-self,.dashboard-summary-metric p,.dashboard-summary-metric small,.dashboard-summary-wallets>div:first-child>span,.dashboard-summary-wallets small,.dashboard-summary-rail span { color:var(--text-muted); }
-.workspace-tree-current,.workspace-tree-current small,.workspace-settings-link:hover { color:var(--primary); }
-.workspace-tree-error { color:var(--danger); }
+.dashboard-workspace-card p,.dashboard-user span,.dashboard-header-subtitle,.dashboard-footer,.settings-eyebrow,.settings-hero-copy,.settings-summary span,.settings-card-copy,.settings-section-heading p:last-child,.settings-readonly-card>p:last-child,.settings-members-card header p:last-child,.settings-toggle small,.settings-fixed-values,.settings-form-footer p,.members-count,.settings-inline-message,.member-identity span,.member-self,.dashboard-summary-metric p,.dashboard-summary-metric small,.dashboard-summary-wallets>div:first-child>span,.dashboard-summary-wallets small,.dashboard-summary-rail span { color:var(--text-muted); }
+.workspace-settings-link:hover { color:var(--primary); }
 .button-primary { background:var(--primary); color:var(--text-on-primary); }
 .button-primary:hover { background:var(--primary-hover); }.button-primary:active { background:var(--primary-active); }
 .button-secondary { border-color:var(--border); background:var(--surface); color:var(--text-primary); }
@@ -386,8 +359,6 @@ html[data-mode="dark"] .ledger-date-input { color-scheme:dark; }
 .button-danger:disabled { cursor:not-allowed; opacity:.5; box-shadow:none; transform:none; }
 .confirm-card>p:not(.public-eyebrow) { margin:.8rem 0 0; color:var(--text-secondary); line-height:1.55; }
 .dashboard-footer-brand,.dashboard-footer-meta { flex:0 0 auto; }
-.dashboard-footer-notice { min-width:0; flex:1 1 auto; overflow:hidden; color:var(--warning); font-weight:650; text-align:center; text-overflow:ellipsis; white-space:nowrap; }
-.dashboard-footer-notice[hidden] { display:none; }
 
 @media (max-width:1279px) {
   .dashboard-workspace-view { grid-template-columns:1fr; }
@@ -410,8 +381,6 @@ html[data-mode="dark"] .ledger-date-input { color-scheme:dark; }
   .dashboard-header-subtitle { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .dashboard-content { padding:1rem; }
   .dashboard-footer { position:relative; }
-  .dashboard-footer:has(.dashboard-footer-notice:not([hidden])) { display:grid; grid-template-columns:minmax(0,1fr) auto; row-gap:.35rem; }
-  .dashboard-footer-notice:not([hidden]) { grid-column:1 / -1; grid-row:1; text-align:left; white-space:normal; }
   .dashboard-footer-brand { grid-column:1; grid-row:2; }
   .dashboard-footer-meta { grid-column:2; grid-row:2; }
   .dashboard-ledger-card { height:auto; min-height:32rem; }
@@ -1214,10 +1183,6 @@ html[data-sidebar-collapsed="true"] .sidebar-workspace-card { opacity:0; max-hei
 }
 html[data-sidebar-collapsed="true"] .sidebar-nav-section { opacity:0; max-height:0; margin:0; pointer-events:none; }
 
-/* workspace tree item border accent */
-.workspace-tree-item { border-left:2px solid transparent; transition:background-color 140ms ease, color 140ms ease, border-left-color 140ms ease; }
-.workspace-tree-current { border-left-color:var(--primary); }
-
 /* ── User section (bottom sidebar) ─────────────────────────────────────────── */
 .sidebar-user-section {
   position: relative;
@@ -1887,19 +1852,6 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn { opacity:0; max-height:
   font-weight:700;
   color:var(--text-muted);
 }
-.sidebar-flyout-popover .workspace-tree-list {
-  margin:0;
-  padding-left:0;
-  border-left:0;
-  gap:.2rem;
-}
-.sidebar-flyout-popover .workspace-tree-item {
-  border-radius:.55rem;
-  border-left:2px solid transparent;
-  padding:.5rem .6rem;
-}
-.sidebar-flyout-popover .workspace-tree-item:hover { background:var(--surface-hover); }
-
 /* User flyout specifics */
 .sidebar-flyout-user-header {
   display:flex;
@@ -1960,37 +1912,6 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn { opacity:0; max-height:
 
 /* ChevronUp indicator in expanded user row */
 .sidebar-user-row[aria-expanded="true"] { background:var(--surface-hover); }
-
-/* ── Fix: workspace-tree-list inside flyout popovers must always show ── */
-/* Popovers are mounted in document.body via Portal, outside the sidebar,
-   but html[data-sidebar-collapsed] selector still applies to descendants
-   that inherit. Override it specifically for flyout context. */
-.sidebar-flyout-popover .workspace-tree-list {
-  display:grid !important;
-  margin:0 !important;
-  padding-left:0 !important;
-  border-left:0 !important;
-}
-
-/* ── Specificity boost: flyout list must always show regardless of sidebar state ── */
-html[data-sidebar-collapsed="true"] .sidebar-flyout-popover .workspace-tree-list {
-  display:grid !important;
-  opacity:1 !important;
-  max-height:none !important;
-  visibility:visible !important;
-  pointer-events:auto !important;
-  margin:0 !important;
-  padding-left:0 !important;
-  border-left:0 !important;
-}
-html[data-sidebar-collapsed="true"] .sidebar-flyout-popover .workspace-tree-title,
-html[data-sidebar-collapsed="true"] .sidebar-flyout-popover .workspace-tree-meta {
-  display:flex !important;
-  opacity:1 !important;
-  width:auto !important;
-  visibility:visible !important;
-  pointer-events:auto !important;
-}
 
 /* ── NEW WOW SIDEBAR & WORKSPACE SELECTOR STYLES ── */
 .sidebar-ws-switcher-wrapper {

@@ -3,14 +3,14 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/auth";
 import { OverviewDashboard } from "@/app/dashboard/overview/overview-dashboard";
+import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
-import { currentExpensePeriod } from "@/services/monthly-workspace-service";
 import { activateDueScheduledTransactions } from "@/services/transaction-service";
 
-function recentPeriods(count: number) {
-  const [year, month] = currentExpensePeriod().split("-").map(Number);
+function recentPeriods(currentPeriod: string, count: number) {
+  const [year, month] = currentPeriod.split("-").map(Number);
   return Array.from({ length: count }, (_, index) => {
     const date = new Date(Date.UTC(year, month - count + index, 1));
     return date.toISOString().slice(0, 7);
@@ -30,8 +30,9 @@ export default async function OverviewPage() {
   if (!membership) return <p>Không có workspace đang hoạt động.</p>;
   await activateDueScheduledTransactions(workspaceId);
 
-  const periods = recentPeriods(12);
-  const [walletLinks, categories, members, transactions, monthlyWorkspaces] = await Promise.all([
+  const currentPeriod = getBusinessDateInTimeZone(membership.workspace.timeZone).slice(0, 7);
+  const periods = recentPeriods(currentPeriod, 12);
+  const [walletLinks, categories, members, transactions] = await Promise.all([
     prisma.workspaceWallet.findMany({ where: { workspaceId, wallet: { status: "active", deletedAt: null } }, include: { wallet: true }, orderBy: { wallet: { name: "asc" } } }),
     prisma.category.findMany({ where: availableCategoryWhere(workspaceId), select: { id: true, name: true, color: true }, orderBy: { sortOrder: "asc" } }),
     prisma.workspaceMember.findMany({ where: { workspaceId, status: "active", deletedAt: null }, select: { id: true, user: { select: { username: true } } }, orderBy: { user: { username: "asc" } } }),
@@ -40,40 +41,23 @@ export default async function OverviewPage() {
       include: { wallet: { select: { name: true } }, category: { select: { name: true, color: true } }, member: { include: { user: { select: { username: true } } } } },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     }),
-    prisma.monthlyWorkspace.findMany({
-      where: { userId: session.user.id, period: { in: periods }, workspace: { deletedAt: null } },
-      select: {
-        period: true,
-        workspace: {
-          select: {
-            wallets: {
-              where: { wallet: { status: "active", deletedAt: null } },
-              select: { wallet: { select: { currentBalance: true } } },
-            },
-            members: {
-              select: {
-                transactions: {
-                  where: { type: "expense", workflowStatus: "approved", deletedAt: null },
-                  select: { amount: true, date: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    }),
   ]);
 
-  const monthlyWorkspaceByPeriod = new Map(monthlyWorkspaces.map((item) => [item.period, item]));
+  const openingBalance = walletLinks.reduce(
+    (total, link) => total.plus(link.wallet.openingBalance.toString()),
+    new Decimal(0),
+  );
+  const approvedTransactions = transactions.filter((transaction) => transaction.workflowStatus === "approved");
   const monthlyFinancials = periods.map((period) => {
-    const monthlyWorkspace = monthlyWorkspaceByPeriod.get(period);
-    const balance = monthlyWorkspace?.workspace.wallets.reduce(
-      (total, link) => total.plus(link.wallet.currentBalance.toString()),
-      new Decimal(0),
-    ) ?? new Decimal(0);
-    const expense = monthlyWorkspace?.workspace.members.flatMap((member) => member.transactions)
-      .filter((transaction) => transaction.date.toISOString().slice(0, 7) === period)
-      .reduce((total, transaction) => total.plus(transaction.amount.toString()), new Decimal(0)) ?? new Decimal(0);
+    const balance = approvedTransactions.reduce((total, transaction) => {
+      if (transaction.date.toISOString().slice(0, 7) > period) return total;
+      if (transaction.type === "income") return total.plus(transaction.amount.toString());
+      if (transaction.type === "expense") return total.minus(transaction.amount.toString());
+      return total;
+    }, openingBalance);
+    const expense = approvedTransactions
+      .filter((transaction) => transaction.type === "expense" && transaction.date.toISOString().slice(0, 7) === period)
+      .reduce((total, transaction) => total.plus(transaction.amount.toString()), new Decimal(0));
     return { period, balance: balance.toString(), expense: expense.toString() };
   });
 

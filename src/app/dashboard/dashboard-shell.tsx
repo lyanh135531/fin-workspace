@@ -22,7 +22,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
 
   if (activeWorkspaceId) await activateDueScheduledTransactions(activeWorkspaceId);
 
-  const [membership, workspaces, archivedWorkspaces] = userId
+  const [membership, workspaces] = userId
     ? await Promise.all([
       activeWorkspaceId
         ? prisma.workspaceMember.findFirst({
@@ -49,32 +49,19 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
         },
         orderBy: { workspace: { name: "asc" } },
       }),
-      prisma.workspaceMember.findMany({
-        where: {
-          userId,
-          status: "active",
-          deletedAt: null,
-          workspace: { status: "deactive", deletedAt: null, monthlyRecord: { isNot: null } },
-        },
-        include: {
-          workspace: { select: { id: true, name: true } },
-          role: { select: { code: true } },
-        },
-        orderBy: { workspace: { name: "asc" } },
-      }),
     ])
-    : [null, [], []];
+    : [null, []];
 
   const pendingJoinCount = userId ? await getPendingJoinRequestCount(userId) : 0;
 
-  const isAdmin = membership?.role.code === "ADMIN";
+  const isAdmin = membership ? isAdminRole(membership.role.code) : false;
   const userRole: "admin" | "member" | "none" = membership
     ? isAdmin
       ? "admin"
       : "member"
     : "none";
 
-  const breadcrumbWorkspaces = [...workspaces, ...archivedWorkspaces].map((item) => ({
+  const breadcrumbWorkspaces = workspaces.map((item) => ({
     id: item.workspace.id,
     name: item.workspace.name,
   }));
@@ -104,13 +91,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
             name: item.workspace.name,
             role: item.role.code,
           }))}
-          archivedWorkspaces={archivedWorkspaces.map((item) => ({
-            id: item.workspace.id,
-            name: item.workspace.name,
-            role: item.role.code,
-          }))}
           pendingJoinCount={pendingJoinCount}
-          isAdmin={isAdmin}
         />
 
         {/* User section with logout */}
@@ -185,13 +166,6 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
 
           {/* Right: live clock + timezone */}
           <div className="footer-right">
-            <span
-              id="dashboard-footer-notice"
-              className="dashboard-footer-notice"
-              role="status"
-              aria-live="polite"
-              hidden
-            />
             <div className="footer-clock-pill">
               <FooterClock />
             </div>
