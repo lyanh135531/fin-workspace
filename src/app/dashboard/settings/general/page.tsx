@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
+import { Palette, ShieldCheck } from "lucide-react";
 import { authOptions } from "@/auth";
 import { GeneralSettingsClient } from "@/app/dashboard/settings/general-settings-client";
 import { GlobalCategoryManagement } from "@/app/dashboard/settings/global-category-management";
@@ -14,31 +15,60 @@ export default async function GeneralSettingsPage() {
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
 
+  const activeCategoryCount = categories.filter((c) => c.status === "active").length;
+
   return (
     <div className="workspace-settings-page">
       <div className="workspace-settings-container">
+        {/* Hero Banner Header */}
         <header className="settings-hero">
           <div>
-            <p className="settings-eyebrow">Cài đặt chung</p>
-            <h1>Hệ thống &amp; giao diện</h1>
-            <p className="settings-hero-copy">Giao diện hiển thị và danh mục dùng chung cho toàn bộ workspace.</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="settings-badge">
+                <Palette size={13} className="text-[var(--primary)]" />
+                Cấu hình toàn hệ thống
+              </span>
+            </div>
+            <h1>Giao diện &amp; Danh mục hệ thống</h1>
+            <p className="settings-hero-copy">
+              Tùy chỉnh phong cách giao diện cá nhân và quản lý danh mục phân loại dùng chung cho mọi workspace.
+            </p>
+          </div>
+          <div className="settings-summary" aria-label="Tổng quan hệ thống">
+            <span>
+              <Palette size={14} className="inline mr-1 text-[var(--primary)]" />
+              <strong>5</strong> Chủ đề màu
+            </span>
+            <span>
+              <strong>{activeCategoryCount}</strong> / {categories.length} Danh mục hoạt động
+            </span>
+            <span className="settings-role settings-role-admin">
+              <ShieldCheck size={14} className="inline mr-1 text-[var(--coral)]" />
+              Khóa xác minh Admin
+            </span>
           </div>
         </header>
-        <GlobalCategoryManagement
-          categories={categories.map((category) => ({
-            id: category.id,
-            name: category.name,
-            code: category.code,
-            color: category.color,
-            type: category.type,
-            icon: category.icon,
-            parentId: category.parentId,
-            status: category.status,
-            transactionCount: category._count.transactions,
-          }))}
-        />
-        <GeneralSettingsClient />
+
+        {/* Content sections */}
+        <div className="settings-sections-grid mt-6 space-y-6">
+          <GeneralSettingsClient />
+          <GlobalCategoryManagement
+            categories={categories.map((category) => ({
+              id: category.id,
+              name: category.name,
+              code: category.code,
+              color: category.color,
+              type: category.type,
+              icon: category.icon,
+              parentId: category.parentId,
+              sortOrder: category.sortOrder,
+              status: category.status,
+              transactionCount: category._count.transactions,
+            }))}
+          />
+        </div>
       </div>
     </div>
   );
 }
+
