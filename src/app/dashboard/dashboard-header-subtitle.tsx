@@ -8,6 +8,7 @@ export function DashboardHeaderSubtitle({ fallback }: { fallback: string }) {
     "/overview": "Tình hình tài chính của workspace",
     "/dashboard/overview": "Tình hình tài chính của workspace",
     "/dashboard": "Nhật ký thu chi & quản lý giao dịch",
+    "/recurring-transactions": "Tự động ghi nhận các khoản thu chi hằng tháng",
     "/wallets": "Danh sách và cấu hình ví",
     "/dashboard/wallets": "Danh sách và cấu hình ví",
     "/setting": "Giao diện và danh mục mẫu cá nhân",

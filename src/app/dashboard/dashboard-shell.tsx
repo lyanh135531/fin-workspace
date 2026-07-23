@@ -12,7 +12,7 @@ import { FooterClock } from "@/app/dashboard/footer-clock";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { activateDueScheduledTransactions } from "@/services/transaction-service";
-import { isOwnerRole } from "@/domain/role-policy";
+import { isAdminRole, isOwnerRole } from "@/domain/role-policy";
 import { getPendingJoinRequestCount } from "@/services/join-request-query";
 
 export async function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -55,8 +55,9 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
   const pendingJoinCount = userId ? await getPendingJoinRequestCount(userId) : 0;
 
   const isOwner = membership ? isOwnerRole(membership.role.code) : false;
+  const isAdmin = membership ? isAdminRole(membership.role.code) : false;
   const userRole: "admin" | "member" | "none" = membership
-    ? isOwner
+    ? isAdmin
       ? "admin"
       : "member"
     : "none";
@@ -92,6 +93,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
             role: item.role.code,
           }))}
           pendingJoinCount={pendingJoinCount}
+          isAdmin={isAdmin}
           isOwner={isOwner}
         />
 
@@ -138,7 +140,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
             {membership && (
               <WorkspaceNotifications
                 workspaceId={membership.workspaceId}
-                isAdmin={isOwner}
+                isAdmin={isAdmin}
               />
             )}
             <ThemeToggle />

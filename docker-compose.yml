@@ -38,5 +38,18 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  recurring-worker:
+    build:
+      context: .
+      target: worker
+    env_file: .env
+    environment:
+      - RECURRING_WORKER_URL=http://app:15730/api/internal/recurring/run
+      - RECURRING_WORKER_INTERVAL_MS=60000
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   fin_workspace_postgres_data:

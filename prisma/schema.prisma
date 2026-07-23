@@ -99,6 +99,7 @@ model Workspace {
   categories  Category[]
   auditLogs   AuditLog[]
   joinRequests WorkspaceJoinRequest[]
+  recurringTransactions RecurringTransaction[]
   @@index([status, deletedAt])
   @@map("WORKSPACES")
 }
@@ -129,6 +130,7 @@ model WorkspaceMember {
   transactions Transaction[]
   requestedChanges TransactionChangeRequest[] @relation("ChangeRequester")
   reviewedChanges  TransactionChangeRequest[] @relation("ChangeReviewer")
+  createdRecurringTransactions RecurringTransaction[]
 
   @@unique([workspaceId, userId])
   @@index([workspaceId, status, deletedAt])
@@ -149,6 +151,8 @@ model Wallet {
   workspaceLinks          WorkspaceWallet[]
   sourceTransactions      Transaction[]     @relation("TransactionSourceWallet")
   destinationTransactions Transaction[]     @relation("TransactionDestinationWallet")
+  sourceRecurringTransactions RecurringTransaction[] @relation("RecurringTransactionSourceWallet")
+  destinationRecurringTransactions RecurringTransaction[] @relation("RecurringTransactionDestinationWallet")
 
   @@index([status, deletedAt])
   @@map("WALLETS")
@@ -174,6 +178,7 @@ model Category {
   parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
   children     Category[]    @relation("CategoryHierarchy")
   transactions Transaction[]
+  recurringTransactions RecurringTransaction[]
 
   @@unique([workspaceId, userId, code])
   @@index([workspaceId, status, deletedAt, sortOrder])
@@ -250,15 +255,53 @@ model Transaction {
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  recurringTransactionId String? @map("recurring_transaction_id") @db.Uuid
+  recurringPeriod String?        @map("recurring_period") @db.VarChar(7)
   member         WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Restrict)
   wallet         Wallet          @relation("TransactionSourceWallet", fields: [walletId], references: [id], onDelete: Restrict)
   toWallet       Wallet?         @relation("TransactionDestinationWallet", fields: [toWalletId], references: [id], onDelete: Restrict)
   category       Category?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   changeRequests TransactionChangeRequest[]
+  recurringTransaction RecurringTransaction? @relation(fields: [recurringTransactionId], references: [id], onDelete: Restrict)
 
   @@index([memberId, date])
   @@index([walletId, workflowStatus, date])
   @@index([toWalletId, workflowStatus, date])
   @@index([categoryId, date])
+  @@unique([recurringTransactionId, recurringPeriod])
   @@map("TRANSACTION")
+}
+
+model RecurringTransaction {
+  id                String          @id @default(uuid()) @db.Uuid
+  workspaceId       String          @map("workspace_id") @db.Uuid
+  createdByMemberId String          @map("created_by_member_id") @db.Uuid
+  walletId          String          @map("wallet_id") @db.Uuid
+  toWalletId        String?         @map("to_wallet_id") @db.Uuid
+  categoryId        String?         @map("category_id") @db.Uuid
+  type              TransactionType
+  amount            Decimal         @db.Decimal(20, 4)
+  description       String?
+  dayOfMonth        Int             @map("day_of_month")
+  startDate         DateTime        @map("start_date") @db.Date
+  endDate           DateTime?       @map("end_date") @db.Date
+  nextExecutionDate DateTime        @map("next_execution_date") @db.Date
+  status            Status          @default(active)
+  completedAt       DateTime?       @map("completed_at") @db.Timestamptz(6)
+  lastError         String?         @map("last_error")
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdBy         WorkspaceMember @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  wallet            Wallet          @relation("RecurringTransactionSourceWallet", fields: [walletId], references: [id], onDelete: Restrict)
+  toWallet          Wallet?         @relation("RecurringTransactionDestinationWallet", fields: [toWalletId], references: [id], onDelete: Restrict)
+  category          Category?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  transactions      Transaction[]
+
+  @@index([workspaceId, status, nextExecutionDate])
+  @@index([walletId])
+  @@index([toWalletId])
+  @@index([categoryId])
+  @@map("RECURRING_TRANSACTION")
 }

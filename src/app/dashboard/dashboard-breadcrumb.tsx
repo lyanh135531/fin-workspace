@@ -63,6 +63,10 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
     { label: "Tổng quan", href: "/overview" },
     { label: "Sổ giao dịch" },
   ],
+  "/recurring-transactions": [
+    { label: "Tổng quan", href: "/overview" },
+    { label: "Giao dịch định kỳ" },
+  ],
   "/dashboard/overview": [{ label: "Tổng quan" }],
   "/dashboard/wallets": [
     { label: "Tổng quan", href: "/overview" },
@@ -136,6 +140,14 @@ function getTrail(
         { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
         { label: "Quản lý ví" },
       ]
+    }
+
+    if (normalizedPath === "/recurring-transactions") {
+      return [
+        { label: "Tổng quan", href: "/overview" },
+        { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
+        { label: "Giao dịch định kỳ" },
+      ];
     }
 
     if (normalizedPath === "/settings/workspace" || normalizedPath === "/dashboard/settings") {

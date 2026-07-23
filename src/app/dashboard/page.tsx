@@ -84,6 +84,7 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
     category: item.category ? { name: item.category.name, color: item.category.color } : null,
     member: item.member.user.username,
     hasPendingChange: item.changeRequests.length > 0,
+    isRecurring: Boolean(item.recurringTransactionId),
   }));
   const pendingCount = transactions.filter((item) => item.workflowStatus === "pending").length;
   const isAdmin = isAdminRole(membership.role.code);

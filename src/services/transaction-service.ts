@@ -25,7 +25,11 @@ function resolveTransactionInput(input: CreateTransactionInput, timeZone: string
   return { ...input, timing: transactionTimingForDate(input.date, today) };
 }
 
-async function requireMutationResources(tx: TransactionClient, workspaceId: string, input: CreateTransactionInput) {
+export async function requireTransactionResources(
+  tx: TransactionClient,
+  workspaceId: string,
+  input: Pick<CreateTransactionInput, "walletId" | "toWalletId" | "categoryId">,
+) {
   const walletIds = [input.walletId, input.toWalletId].filter((id): id is string => Boolean(id));
   const links = await tx.workspaceWallet.findMany({
     where: { workspaceId, walletId: { in: walletIds }, wallet: { status: "active", deletedAt: null } },
@@ -53,6 +57,33 @@ async function applyBalance(tx: TransactionClient, record: Pick<Transaction, "ty
     await tx.wallet.update({ where: { id: record.walletId }, data: { currentBalance: reverse ? { increment: amount } : { decrement: amount } } });
     await tx.wallet.update({ where: { id: record.toWalletId }, data: { currentBalance: reverse ? { decrement: amount } : { increment: amount } } });
   }
+}
+
+export async function createApprovedTransactionInTransaction(
+  tx: TransactionClient,
+  workspaceId: string,
+  memberId: string,
+  input: CreateTransactionInput,
+  recurring?: { id: string; period: string },
+) {
+  await requireTransactionResources(tx, workspaceId, input);
+  const record = await tx.transaction.create({
+    data: {
+      memberId,
+      walletId: input.walletId,
+      toWalletId: input.toWalletId ?? null,
+      categoryId: input.categoryId ?? null,
+      type: input.type,
+      amount: input.amount,
+      description: input.description ?? null,
+      date: asDatabaseDate(input.date),
+      workflowStatus: "approved",
+      recurringTransactionId: recurring?.id,
+      recurringPeriod: recurring?.period,
+    },
+  });
+  await applyBalance(tx, record);
+  return record;
 }
 
 async function lockTransaction(tx: TransactionClient, transactionId: string) {
@@ -95,7 +126,7 @@ async function applyUpdate(
   await lockTransaction(tx, record.id);
   const current = await tx.transaction.findFirst({ where: { id: record.id, deletedAt: null } });
   if (!current) throw new AppError("NOT_FOUND", "Giao dịch không còn tồn tại.");
-  await requireMutationResources(tx, workspaceId, input);
+  await requireTransactionResources(tx, workspaceId, input);
   if (current.workflowStatus === "approved") await applyBalance(tx, current, true);
   const workflowStatus = workflowStatusForAppliedDate(input.date, getBusinessDateInTimeZone(timeZone, now));
   const updated = await tx.transaction.update({
@@ -143,7 +174,7 @@ export async function createTransaction(userId: string, workspaceId: string, inp
   const resolved = resolveTransactionInput(input, member.workspace.timeZone, now);
   const workflowStatus = workflowStatusForCreation(member.role.code, resolved.timing);
   return prisma.$transaction(async (tx) => {
-    await requireMutationResources(tx, workspaceId, resolved);
+    await requireTransactionResources(tx, workspaceId, resolved);
     const record = await tx.transaction.create({
       data: {
         memberId: member.id,
@@ -234,7 +265,7 @@ export async function updateTransaction(
   return prisma.$transaction(async (tx) => {
     const record = await findWorkspaceTransaction(tx, workspaceId, transactionId);
     const resolved = resolveTransactionInput(input, member.workspace.timeZone, now);
-    await requireMutationResources(tx, workspaceId, resolved);
+    await requireTransactionResources(tx, workspaceId, resolved);
     if (isAdminRole(member.role.code)) {
       const updated = await applyUpdate(tx, workspaceId, record, resolved, member.workspace.timeZone, now);
       await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.updated", entityType: "transaction", entityId: record.id, metadata: { previous: transactionSnapshot(record) } } });

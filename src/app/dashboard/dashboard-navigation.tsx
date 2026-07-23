@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, LayoutDashboard, Settings, SlidersHorizontal, User, Users, WalletCards } from "lucide-react";
+import { BookOpen, LayoutDashboard, Repeat2, Settings, SlidersHorizontal, User, Users, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WorkspaceSwitcher } from "@/app/dashboard/workspace-switcher";
@@ -11,11 +11,13 @@ export function DashboardNavigation({
   currentId,
   workspaces,
   pendingJoinCount = 0,
+  isAdmin = false,
   isOwner = false,
 }: {
   currentId?: string;
   workspaces: Workspace[];
   pendingJoinCount?: number;
+  isAdmin?: boolean;
   isOwner?: boolean;
 }) {
   const pathname = usePathname();
@@ -24,6 +26,7 @@ export function DashboardNavigation({
   const ledgerActive =
     pathname === "/dashboard" || pathname.startsWith("/workspace/");
   const walletsActive = pathname === "/wallets";
+  const recurringActive = pathname === "/recurring-transactions";
   const workspaceSettingsActive =
     pathname === "/settings/workspace" ||
     pathname === "/dashboard/settings" ||
@@ -73,6 +76,18 @@ export function DashboardNavigation({
               <BookOpen size={18} strokeWidth={1.8} />
               <span>Sổ giao dịch</span>
             </Link>
+
+            {isAdmin && (
+              <Link
+                className={`nav-item dashboard-nav-link ${recurringActive ? "nav-item-active" : ""}`}
+                href="/recurring-transactions"
+                aria-current={recurringActive ? "page" : undefined}
+                aria-label="Đăng ký giao dịch tự động hằng tháng"
+              >
+                <Repeat2 size={18} strokeWidth={1.8} />
+                <span>Giao dịch định kỳ</span>
+              </Link>
+            )}
 
             <Link
               className={`nav-item dashboard-nav-link ${walletsActive ? "nav-item-active" : ""}`}

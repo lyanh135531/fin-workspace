@@ -14,6 +14,9 @@ docker compose up --build -d
 ```
 
 Docker tự động chạy theo thứ tự: **PostgreSQL** → **migration** → **app** (port 15730).
+Container `recurring-worker` kiểm tra giao dịch định kỳ mỗi phút và gọi endpoint nội bộ
+bằng token được dẫn xuất từ `NEXTAUTH_SECRET`. Có thể cấu hình secret riêng bằng
+`RECURRING_WORKER_SECRET` (`openssl rand -hex 32`).
 
 ---
 

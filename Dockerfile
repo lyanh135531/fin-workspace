@@ -20,6 +20,13 @@ FROM dependencies AS migrate
 COPY . .
 CMD ["pnpm", "prisma:deploy"]
 
+FROM node:22-alpine AS worker
+WORKDIR /app
+ENV NODE_ENV=production
+COPY scripts/recurring-worker.mjs ./recurring-worker.mjs
+USER node
+CMD ["node", "recurring-worker.mjs"]
+
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
