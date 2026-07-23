@@ -10,6 +10,23 @@ export async function createWorkspaceForUser(userId: string, input: { name: stri
     if (!role) throw new AppError("NOT_FOUND", "The OWNER role is missing.");
     const workspace = await tx.workspace.create({ data: input });
     await tx.workspaceMember.create({ data: { workspaceId: workspace.id, userId, roleId: role.id } });
+
+    // Create a default wallet with 0 balance for the new workspace
+    const wallet = await tx.wallet.create({
+      data: {
+        name: "Ví chính",
+        description: "Ví mặc định",
+        openingBalance: 0,
+        currentBalance: 0,
+      },
+    });
+    await tx.workspaceWallet.create({
+      data: {
+        workspaceId: workspace.id,
+        walletId: wallet.id,
+      },
+    });
+
     await tx.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: userId, action: "workspace.created", entityType: "workspace", entityId: workspace.id, metadata: { creatorRole: "OWNER" } } });
     return workspace;
   });

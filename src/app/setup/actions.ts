@@ -14,11 +14,6 @@ const registerSchema = z.object({
     .string()
     .min(6, "Mật khẩu phải có ít nhất 6 ký tự.")
     .max(128, "Mật khẩu tối đa 128 ký tự."),
-  workspaceName: z
-    .string()
-    .trim()
-    .min(3, "Tên workspace phải có ít nhất 3 ký tự.")
-    .max(120, "Tên workspace tối đa 120 ký tự."),
 });
 
 export type RegisterActionResult = {
@@ -27,7 +22,6 @@ export type RegisterActionResult = {
   fieldErrors?: {
     username?: string;
     password?: string;
-    workspaceName?: string;
   };
 };
 
@@ -42,13 +36,12 @@ export async function registerAccountAction(input: unknown): Promise<RegisterAct
         fieldErrors: {
           username: formatted.username?._errors[0],
           password: formatted.password?._errors[0],
-          workspaceName: formatted.workspaceName?._errors[0],
         },
       };
     }
 
-    const { username, password, workspaceName } = parsed.data;
-    await registerAccount(username, password, workspaceName);
+    const { username, password } = parsed.data;
+    await registerAccount(username, password);
     return { ok: true, message: null };
   } catch (error) {
     if (error instanceof AppError) {
@@ -60,5 +53,6 @@ export async function registerAccountAction(input: unknown): Promise<RegisterAct
     return { ok: false, message: "Không thể tạo tài khoản. Vui lòng thử lại sau." };
   }
 }
+
 
 

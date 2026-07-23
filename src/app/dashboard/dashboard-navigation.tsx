@@ -35,9 +35,14 @@ export function DashboardNavigation({
     pathname === "/settings/account" ||
     pathname === "/account" ||
     pathname === "/dashboard/settings/account";
+  const isCreateWorkspace =
+    pathname === "/workspaces/create" ||
+    pathname === "/dashboard/workspaces/create" ||
+    pathname === "/settings/workspaces/create";
   const generalSettingsActive =
-    pathname === "/setting" ||
-    (pathname.startsWith("/settings/") && !workspaceSettingsActive && !accountSettingsActive);
+    (pathname === "/setting" ||
+    (pathname.startsWith("/settings/") && !workspaceSettingsActive && !accountSettingsActive)) &&
+    !isCreateWorkspace;
 
   return (
     <nav className="dashboard-nav" aria-label="Điều hướng chính">

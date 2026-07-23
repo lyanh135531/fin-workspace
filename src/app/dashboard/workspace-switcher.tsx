@@ -230,7 +230,7 @@ export function WorkspaceSwitcher({
         </div>
         {error && <p className="sidebar-ws-error">{error}</p>}
         <div className="sidebar-ws-popover-footer">
-          <Link href="/settings/workspaces/create" onClick={() => setOpen(false)} className="sidebar-ws-footer-link">
+          <Link href="/workspaces/create" onClick={() => setOpen(false)} className="sidebar-ws-footer-link">
             <PlusCircle size={14} />
             <span>Tạo workspace mới</span>
           </Link>

@@ -15,6 +15,7 @@ export function DashboardHeaderSubtitle({ fallback }: { fallback: string }) {
     "/account": "Thông tin cá nhân, đổi mật khẩu và bảo mật",
     "/settings/workspace": "Vận hành, danh mục và quyền truy cập",
     "/members": "Quản lý vai trò và quyền của thành viên",
+    "/workspaces/create": "Khởi tạo không gian dữ liệu mới",
     "/settings/workspaces/create": "Khởi tạo không gian dữ liệu mới",
     "/settings/join": "Gửi yêu cầu tham gia bằng mã mời",
     "/dashboard/settings": "Vận hành, danh mục và quyền truy cập",
