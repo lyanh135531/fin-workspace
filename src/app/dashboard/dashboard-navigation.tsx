@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, LayoutDashboard, Settings, SlidersHorizontal, User, Users, WalletCards } from "lucide-react";
+import { BookOpen, LayoutDashboard, Settings, SlidersHorizontal, User, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WorkspaceSwitcher } from "@/app/dashboard/workspace-switcher";
@@ -28,9 +28,7 @@ export function DashboardNavigation({
     pathname === "/settings/workspace" ||
     pathname === "/dashboard/settings" ||
     pathname === "/dashboard/join-requests";
-  const membersActive =
-    pathname === "/members" ||
-    pathname === "/dashboard/members";
+
   const accountSettingsActive =
     pathname === "/settings/account" ||
     pathname === "/account" ||
@@ -89,15 +87,7 @@ export function DashboardNavigation({
               <span>Quản lý ví</span>
             </Link>
 
-            <Link
-              className={`nav-item dashboard-nav-link ${membersActive ? "nav-item-active" : ""}`}
-              href="/members"
-              aria-current={membersActive ? "page" : undefined}
-              aria-label="Quản lý thành viên workspace"
-            >
-              <Users size={18} strokeWidth={1.8} />
-              <span>Quản lý thành viên</span>
-            </Link>
+
 
             {isOwner && (
               <Link

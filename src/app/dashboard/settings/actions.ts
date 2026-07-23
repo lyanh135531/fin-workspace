@@ -39,6 +39,26 @@ export async function createWorkspaceAction(input: unknown) {
   }
 }
 
+import argon2 from "argon2";
+import { prisma } from "@/lib/prisma";
+
 export async function updateWorkspaceSettingsAction(input: unknown) { try { const actor = await adminActor(); const data = workspaceSchema.parse(input); await updateWorkspaceSettings(actor.userId, actor.workspaceId, { ...data, description: data.description || undefined }); revalidatePath("/dashboard/settings"); revalidatePath("/dashboard"); return { ok: true, message: null }; } catch (error) { return fail(error); } }
-export async function deleteWorkspaceAction() { try { const actor = await adminActor(); await deleteWorkspaceForUser(actor.userId, actor.workspaceId); revalidatePath("/overview"); revalidatePath("/settings/workspace"); return { ok: true, message: null }; } catch (error) { return fail(error); } }
+export async function deleteWorkspaceAction(password: string) {
+  try {
+    const actor = await adminActor();
+    if (!password || typeof password !== "string" || !password.trim()) {
+      throw new AppError("VALIDATION_ERROR", "Vui lòng nhập mật khẩu xác nhận.");
+    }
+    const user = await prisma.user.findFirst({ where: { id: actor.userId, status: "active", deletedAt: null } });
+    if (!user || !(await argon2.verify(user.passwordHash, password))) {
+      throw new AppError("FORBIDDEN", "Mật khẩu xác nhận không chính xác.");
+    }
+    await deleteWorkspaceForUser(actor.userId, actor.workspaceId);
+    revalidatePath("/overview");
+    revalidatePath("/settings/workspace");
+    return { ok: true, message: null };
+  } catch (error) {
+    return fail(error);
+  }
+}
 
