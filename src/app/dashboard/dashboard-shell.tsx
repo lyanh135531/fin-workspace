@@ -1,7 +1,5 @@
 import { FinLogo } from "@/components/fin-logo";
 import { getServerSession } from "next-auth";
-import { Settings } from "lucide-react";
-import Link from "next/link";
 import { authOptions } from "@/auth";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { WorkspaceNotifications } from "@/app/dashboard/workspace-notifications";
@@ -160,15 +158,6 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
                 workspaceId={membership.workspaceId}
                 isAdmin={isAdmin}
               />
-            )}
-            {membership && (
-              <Link
-                className="icon-button header-action-btn"
-                href="/settings/workspace"
-                aria-label="Cài đặt workspace"
-              >
-                <Settings size={17} strokeWidth={2} />
-              </Link>
             )}
             <ThemeToggle />
           </div>

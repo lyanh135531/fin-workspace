@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, LayoutDashboard, Settings, SlidersHorizontal, Users, WalletCards } from "lucide-react";
+import { BookOpen, LayoutDashboard, Settings, SlidersHorizontal, User, Users, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MonthlyArchiveTree } from "@/app/dashboard/monthly-archive-tree";
@@ -34,9 +34,13 @@ export function DashboardNavigation({
   const membersActive =
     pathname === "/members" ||
     pathname === "/dashboard/members";
+  const accountSettingsActive =
+    pathname === "/settings/account" ||
+    pathname === "/account" ||
+    pathname === "/dashboard/settings/account";
   const generalSettingsActive =
     pathname === "/setting" ||
-    (pathname.startsWith("/settings/") && !workspaceSettingsActive);
+    (pathname.startsWith("/settings/") && !workspaceSettingsActive && !accountSettingsActive);
 
   return (
     <nav className="dashboard-nav" aria-label="Điều hướng chính">
@@ -118,11 +122,22 @@ export function DashboardNavigation({
       {/* ── Account & General Settings ── */}
       <div className="nav-section-group">
         <p className="sidebar-nav-section">TÀI KHOẢN CÁ NHÂN</p>
+
+        <Link
+          className={`nav-item dashboard-nav-link ${accountSettingsActive ? "nav-item-active" : ""}`}
+          href="/settings/account"
+          aria-current={accountSettingsActive ? "page" : undefined}
+          aria-label="Hồ sơ cá nhân, bảo mật và đổi mật khẩu"
+        >
+          <User size={18} strokeWidth={1.8} />
+          <span>Cài đặt tài khoản</span>
+        </Link>
+
         <Link
           className={`nav-item dashboard-nav-link ${generalSettingsActive ? "nav-item-active" : ""}`}
           href="/setting"
           aria-current={generalSettingsActive ? "page" : undefined}
-          aria-label="Giao diện, đổi mật khẩu và danh mục hệ thống"
+          aria-label="Giao diện hiển thị và danh mục hệ thống"
         >
           <SlidersHorizontal size={18} strokeWidth={1.8} />
           <span>Cài đặt chung</span>

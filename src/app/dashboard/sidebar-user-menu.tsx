@@ -1,7 +1,7 @@
 "use client";
 
 import { signOut } from "next-auth/react";
-import { LogOut, ChevronUp, Settings, User } from "lucide-react";
+import { LogOut, ChevronUp, User } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition, useSyncExternalStore } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -97,11 +97,11 @@ export function SidebarUserMenu({ username, role }: Props) {
             </div>
             <div className="sidebar-flyout-divider" />
             <Link
-              href="/setting"
+              href="/settings/account"
               className="sidebar-user-popover-link"
               onClick={() => setPopoverOpen(false)}
             >
-              <Settings size={14} strokeWidth={2} />
+              <User size={14} strokeWidth={2} />
               <span>Cài đặt tài khoản</span>
             </Link>
             {LogoutButton}
@@ -167,11 +167,11 @@ export function SidebarUserMenu({ username, role }: Props) {
           </div>
           <div className="sidebar-flyout-divider" />
           <Link
-            href="/setting"
+            href="/settings/account"
             className="sidebar-user-popover-link"
             onClick={() => setPopoverOpen(false)}
           >
-            <Settings size={14} strokeWidth={2} />
+            <User size={14} strokeWidth={2} />
             <span>Cài đặt tài khoản</span>
           </Link>
           {LogoutButton}
