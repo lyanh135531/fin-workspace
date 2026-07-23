@@ -23,7 +23,6 @@ export function DashboardHeaderSubtitle({ fallback }: { fallback: string }) {
     "/dashboard/members": "Quản lý vai trò và quyền của thành viên",
     "/dashboard/workspaces/create": "Khởi tạo không gian dữ liệu mới",
     "/dashboard/join": "Gửi yêu cầu tham gia bằng mã mời",
-    "/dashboard/invitations": "Các lời mời đang chờ phản hồi",
     "/dashboard/join-requests": "Duyệt thành viên muốn tham gia workspace",
   };
 

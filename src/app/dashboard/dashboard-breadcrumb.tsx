@@ -91,10 +91,6 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
     { label: "Cài đặt chung", href: "/setting" },
     { label: "Tham gia workspace" },
   ],
-  "/dashboard/invitations": [
-    { label: "Tổng quan", href: "/overview" },
-    { label: "Lời mời workspace" },
-  ],
   "/dashboard/join-requests": [
     { label: "Tổng quan", href: "/overview" },
     { label: "Cài đặt workspace", href: "/settings/workspace" },
@@ -104,7 +100,6 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
 
 const segmentLabels: Record<string, string> = {
   dashboard: "Sổ giao dịch",
-  invitations: "Lời mời workspace",
   join: "Tham gia workspace",
   overview: "Tổng quan",
   setting: "Cài đặt chung",

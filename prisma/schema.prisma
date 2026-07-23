@@ -46,15 +46,6 @@ enum ChangeRequestStatus {
   @@map("CHANGE_REQUEST_STATUS")
 }
 
-enum WorkspaceInvitationStatus {
-  pending
-  accepted
-  rejected
-  cancelled
-
-  @@map("WORKSPACE_INVITATION_STATUS")
-}
-
 enum WorkspaceJoinRequestStatus {
   pending
   approved
@@ -68,7 +59,6 @@ model Role {
   name    String
   code    String            @unique
   members WorkspaceMember[]
-  invitations WorkspaceInvitation[]
   joinRequests WorkspaceJoinRequest[]
 
   @@map("ROLE")
@@ -84,8 +74,6 @@ model User {
   deletedAt    DateTime?         @map("deleted_at") @db.Timestamptz(6)
   memberships  WorkspaceMember[]
   auditLogs    AuditLog[]
-  receivedInvitations WorkspaceInvitation[] @relation("InvitationRecipient")
-  sentInvitations     WorkspaceInvitation[] @relation("InvitationSender")
   joinRequests WorkspaceJoinRequest[] @relation("JoinRequester")
   reviewedJoinRequests WorkspaceJoinRequest[]
   @@index([status, deletedAt])
@@ -108,7 +96,6 @@ model Workspace {
   wallets     WorkspaceWallet[]
   categories  Category[]
   auditLogs   AuditLog[]
-  invitations WorkspaceInvitation[]
   joinRequests WorkspaceJoinRequest[]
   @@index([status, deletedAt])
   @@map("WORKSPACES")
@@ -223,26 +210,6 @@ model AuditLog {
 
   @@index([workspaceId, createdAt])
   @@map("AUDIT_LOG")
-}
-
-model WorkspaceInvitation {
-  id          String                    @id @default(uuid()) @db.Uuid
-  workspaceId String                    @map("workspace_id") @db.Uuid
-  inviteeId   String                    @map("invitee_id") @db.Uuid
-  inviterId   String                    @map("inviter_id") @db.Uuid
-  roleId      String                    @map("role_id") @db.Uuid
-  status      WorkspaceInvitationStatus @default(pending)
-  createdAt   DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  respondedAt DateTime?                 @map("responded_at") @db.Timestamptz(6)
-  workspace   Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  invitee     User                      @relation("InvitationRecipient", fields: [inviteeId], references: [id], onDelete: Restrict)
-  inviter     User                      @relation("InvitationSender", fields: [inviterId], references: [id], onDelete: Restrict)
-  role        Role                      @relation(fields: [roleId], references: [id], onDelete: Restrict)
-
-  @@index([inviteeId, status])
-  @@index([workspaceId, status])
-  @@map("WORKSPACE_INVITATION")
 }
 
 model WorkspaceJoinRequest {
