@@ -2,12 +2,25 @@
 
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { authOptions } from "@/auth";
-import { createWalletSchema, updateWalletSchema } from "@/domain";
+import { createWalletSchema, idSchema, statusSchema, updateWalletSchema } from "@/domain";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
-import { createWalletForWorkspace, updateWalletForWorkspace } from "@/services/wallet-service";
+import {
+  createWalletForWorkspace,
+  setWalletStatusForWorkspace,
+  softDeleteWalletForWorkspace,
+  updateWalletForWorkspace,
+} from "@/services/wallet-service";
+
+function revalidateWalletViews(workspaceId: string) {
+  revalidatePath("/wallets");
+  revalidatePath(`/workspace/${workspaceId}`);
+  revalidatePath("/overview");
+  revalidatePath("/recurring-transactions");
+}
 
 async function walletActor() {
   const session = await getServerSession(authOptions);
@@ -26,9 +39,7 @@ export async function createManagedWalletAction(input: unknown) {
   try {
     const actor = await walletActor();
     await createWalletForWorkspace(actor.userId, actor.workspaceId, createWalletSchema.parse(input));
-    revalidatePath("/wallets");
-    revalidatePath(`/workspace/${actor.workspaceId}`);
-    revalidatePath("/overview");
+    revalidateWalletViews(actor.workspaceId);
     return { ok: true };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Không thể tạo ví." };
@@ -39,11 +50,38 @@ export async function updateManagedWalletAction(input: unknown) {
   try {
     const actor = await walletActor();
     await updateWalletForWorkspace(actor.userId, actor.workspaceId, updateWalletSchema.parse(input));
-    revalidatePath("/wallets");
-    revalidatePath(`/workspace/${actor.workspaceId}`);
-    revalidatePath("/overview");
+    revalidateWalletViews(actor.workspaceId);
     return { ok: true };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Không thể cập nhật ví." };
+  }
+}
+
+export async function setManagedWalletStatusAction(input: unknown) {
+  try {
+    const actor = await walletActor();
+    const data = z.object({ walletId: idSchema, status: statusSchema }).parse(input);
+    await setWalletStatusForWorkspace(
+      actor.userId,
+      actor.workspaceId,
+      data.walletId,
+      data.status,
+    );
+    revalidateWalletViews(actor.workspaceId);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Không thể đổi trạng thái ví." };
+  }
+}
+
+export async function softDeleteManagedWalletAction(input: unknown) {
+  try {
+    const actor = await walletActor();
+    const walletId = idSchema.parse(input);
+    await softDeleteWalletForWorkspace(actor.userId, actor.workspaceId, walletId);
+    revalidateWalletViews(actor.workspaceId);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Không thể xóa ví." };
   }
 }

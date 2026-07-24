@@ -574,7 +574,12 @@ html[data-mode="dark"] .ledger-date-input { color-scheme:dark; }
 .overview-flow>header p { max-width:44rem; line-height:1.45; }
 .overview-expense-chart { width:100%; height:16rem; aspect-ratio:auto; }
 .overview-expense-chart .recharts-cartesian-grid-horizontal line { stroke:var(--border); stroke-opacity:.7; }
+.overview-chart-title-row { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .65rem; }
+.overview-chart-warning { display:inline-flex; align-items:center; gap:.3rem; border-radius:.45rem; background:color-mix(in srgb,var(--warning) 15%,var(--surface)); padding:.25rem .42rem; color:var(--warning); font-size:.66rem; font-weight:700; white-space:nowrap; }
+.overview-expense-chart .recharts-area-curve { stroke-linecap:round; stroke-linejoin:round; }
+.overview-expense-chart .recharts-legend-wrapper { color:var(--text-secondary); }
 .notification-menu.notification-popover { position:relative; inset:auto; display:block; width:min(380px,calc(100vw - 32px)); gap:0; padding:0; }
+.notification-role-field { display:grid; grid-template-columns:auto minmax(8rem,1fr); align-items:center; gap:.75rem; margin-top:.75rem; color:var(--text-muted); font-size:.72rem; font-weight:650; }.notification-role-field .field { min-height:2.1rem; padding:.35rem .55rem; font-size:.78rem; }.notification-join-request { background:color-mix(in srgb,var(--primary) 4%,var(--surface)); }
 .theme-mode-menu { min-width:10.5rem; border:1px solid var(--border); background:var(--popover); box-shadow:0 12px 28px var(--shadow); }
 .dialog-card .finance-select-trigger,.dialog-card .finance-date-trigger { width:100%; background:var(--surface); }
 

@@ -19,7 +19,20 @@ export default async function WalletsPage() {
   if (!membership) redirect("/overview");
   const links = await prisma.workspaceWallet.findMany({
     where: { workspaceId, wallet: { deletedAt: null } },
-    include: { wallet: { include: { _count: { select: { sourceTransactions: { where: { deletedAt: null } }, destinationTransactions: { where: { deletedAt: null } } } } } } },
+    include: {
+      wallet: {
+        include: {
+          _count: {
+            select: {
+              sourceTransactions: { where: { deletedAt: null } },
+              destinationTransactions: { where: { deletedAt: null } },
+              sourceRecurringTransactions: { where: { deletedAt: null, workspaceId } },
+              destinationRecurringTransactions: { where: { deletedAt: null, workspaceId } },
+            },
+          },
+        },
+      },
+    },
     orderBy: { wallet: { name: "asc" } },
   });
   const totalBalance = links.filter(({ wallet }) => wallet.status === "active").reduce((total, { wallet }) => total.plus(wallet.currentBalance.toString()), new Decimal(0));
@@ -27,6 +40,16 @@ export default async function WalletsPage() {
     workspace={{ name: membership.workspace.name, currency: membership.workspace.baseCurrency }}
     totalBalance={totalBalance.toString()}
     isAdmin={isAdminRole(membership.role.code)}
-    wallets={links.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, description: wallet.description, openingBalance: wallet.openingBalance.toString(), currentBalance: wallet.currentBalance.toString(), status: wallet.status, transactionCount: wallet._count.sourceTransactions + wallet._count.destinationTransactions, updatedAt: wallet.updatedAt.toISOString() }))}
+    wallets={links.map(({ wallet }) => ({
+      id: wallet.id,
+      name: wallet.name,
+      description: wallet.description,
+      openingBalance: wallet.openingBalance.toString(),
+      currentBalance: wallet.currentBalance.toString(),
+      status: wallet.status,
+      transactionCount: wallet._count.sourceTransactions + wallet._count.destinationTransactions,
+      recurringTransactionCount: wallet._count.sourceRecurringTransactions + wallet._count.destinationRecurringTransactions,
+      updatedAt: wallet.updatedAt.toISOString(),
+    }))}
   />;
 }

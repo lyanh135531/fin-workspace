@@ -1,13 +1,17 @@
 "use client";
 
 import {
+  AlertTriangle,
   ArrowLeftRight,
   CheckCircle2,
   Clock,
+  PauseCircle,
   Pencil,
+  PlayCircle,
   Plus,
+  Repeat2,
   Search,
-  Sparkles,
+  Trash2,
   WalletCards,
   X,
 } from "lucide-react";
@@ -15,6 +19,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import {
   createManagedWalletAction,
+  setManagedWalletStatusAction,
+  softDeleteManagedWalletAction,
   updateManagedWalletAction,
 } from "@/app/dashboard/wallets/actions";
 import { formatAmount } from "@/lib/format";
@@ -32,7 +38,13 @@ type WalletItem = {
   currentBalance: string;
   status: "active" | "deactive";
   transactionCount: number;
+  recurringTransactionCount: number;
   updatedAt: string;
+};
+
+type DestructiveWalletOperation = {
+  wallet: WalletItem;
+  kind: "deactivate" | "delete";
 };
 
 /* Deterministic gradient color generator based on wallet name */
@@ -71,6 +83,8 @@ export function WalletManagement({
   const [editingWallet, setEditingWallet] = useState<WalletItem | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "deactive">("all");
+  const [confirmOperation, setConfirmOperation] = useState<DestructiveWalletOperation | null>(null);
+  const [blockedOperation, setBlockedOperation] = useState<DestructiveWalletOperation | null>(null);
   const [pending, startTransition] = useTransition();
 
   const activeCount = wallets.filter((wallet) => wallet.status === "active").length;
@@ -124,6 +138,56 @@ export function WalletManagement({
         router.refresh();
       } else {
         toast.error(result.message ?? "Không thể cập nhật ví.");
+      }
+    });
+  }
+
+  function requestDestructiveOperation(
+    wallet: WalletItem,
+    kind: DestructiveWalletOperation["kind"],
+  ) {
+    const operation = { wallet, kind };
+    if (wallet.recurringTransactionCount > 0) {
+      setBlockedOperation(operation);
+      return;
+    }
+    setConfirmOperation(operation);
+  }
+
+  function activateWallet(wallet: WalletItem) {
+    startTransition(async () => {
+      const result = await setManagedWalletStatusAction({
+        walletId: wallet.id,
+        status: "active",
+      });
+      if (result.ok) {
+        toast.success(`Đã kích hoạt lại ví “${wallet.name}”.`);
+        setEditingWallet(null);
+        router.refresh();
+      } else {
+        toast.error(result.message ?? "Không thể kích hoạt lại ví.");
+      }
+    });
+  }
+
+  function confirmDestructiveOperation() {
+    if (!confirmOperation) return;
+    const { wallet, kind } = confirmOperation;
+    startTransition(async () => {
+      const result = kind === "deactivate"
+        ? await setManagedWalletStatusAction({ walletId: wallet.id, status: "deactive" })
+        : await softDeleteManagedWalletAction(wallet.id);
+      if (result.ok) {
+        toast.success(
+          kind === "deactivate"
+            ? `Đã tạm ngưng ví “${wallet.name}”.`
+            : `Đã xóa ví “${wallet.name}”.`,
+        );
+        setConfirmOperation(null);
+        setEditingWallet(null);
+        router.refresh();
+      } else {
+        toast.error(result.message ?? "Không thể xử lý ví.");
       }
     });
   }
@@ -324,6 +388,13 @@ export function WalletManagement({
                 {wallet.description || "Chưa có mô tả cho ví này."}
               </p>
 
+              {wallet.recurringTransactionCount > 0 && (
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-600">
+                  <Repeat2 size={13} />
+                  {wallet.recurringTransactionCount} giao dịch định kỳ đang sử dụng
+                </p>
+              )}
+
               {/* Footer */}
               <div className="flex items-center justify-between pt-3 border-t border-[var(--border)] text-xs text-slate-400 font-medium">
                 <span>{wallet.transactionCount} giao dịch</span>
@@ -443,6 +514,7 @@ export function WalletManagement({
                   className="settings-textarea w-full text-sm resize-none"
                 />
               </div>
+
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)] relative">
@@ -453,7 +525,7 @@ export function WalletManagement({
               >
                 Hủy
               </Button>
-              <Button variant="default" size="sm" className="px-5 py-2" disabled={pending}>
+              <Button type="submit" variant="default" size="sm" className="px-5 py-2" disabled={pending}>
                 {pending ? (
                   <>
                     <span className="btn-spinner" aria-hidden />
@@ -533,6 +605,57 @@ export function WalletManagement({
                   className="settings-textarea w-full text-sm resize-none"
                 />
               </div>
+
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold text-[var(--foreground)]">Trạng thái và xóa ví</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                      Ví tạm ngưng không thể dùng cho giao dịch mới. Chỉ ví đã tạm ngưng mới có thể xóa.
+                    </p>
+                  </div>
+                  <span className={editingWallet.status === "active" ? "wallet-card-badge wallet-card-badge-active" : "wallet-card-badge wallet-card-badge-deactive"}>
+                    {editingWallet.status === "active" ? "Hoạt động" : "Tạm ngưng"}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {editingWallet.status === "active" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => requestDestructiveOperation(editingWallet, "deactivate")}
+                    >
+                      <PauseCircle size={15} />
+                      Tạm ngưng
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => activateWallet(editingWallet)}
+                      >
+                        <PlayCircle size={15} />
+                        Kích hoạt lại
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => requestDestructiveOperation(editingWallet, "delete")}
+                      >
+                        <Trash2 size={15} />
+                        Xóa ví
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)] relative">
@@ -543,7 +666,7 @@ export function WalletManagement({
               >
                 Hủy
               </Button>
-              <Button variant="default" size="sm" className="px-5 py-2" disabled={pending}>
+              <Button type="submit" variant="default" size="sm" className="px-5 py-2" disabled={pending}>
                 {pending ? (
                   <>
                     <span className="btn-spinner" aria-hidden />
@@ -555,6 +678,91 @@ export function WalletManagement({
               </Button>
             </div>
           </form>
+        </div>
+      )}
+
+      {blockedOperation && (
+        <div
+          className="fixed inset-0 z-[60] grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="wallet-operation-blocked-title"
+        >
+          <section className="sunrise-card w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="ws-danger-icon shrink-0"><AlertTriangle size={20} /></div>
+              <div>
+                <h2 id="wallet-operation-blocked-title" className="text-lg font-bold text-[var(--foreground)]">
+                  Không thể {blockedOperation.kind === "delete" ? "xóa" : "tạm ngưng"} ví
+                </h2>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  Ví <strong>“{blockedOperation.wallet.name}”</strong> đang được sử dụng bởi{" "}
+                  <strong>{blockedOperation.wallet.recurringTransactionCount} giao dịch định kỳ</strong>.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/8 p-4 text-xs leading-relaxed text-slate-600">
+              Để tiếp tục, hãy mở Giao dịch định kỳ và đổi sang ví khác, hoặc xóa các đăng ký
+              đang sử dụng ví này. Lịch sử giao dịch đã phát sinh vẫn được giữ nguyên.
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--border)] pt-4">
+              <Button type="button" variant="outline" onClick={() => setBlockedOperation(null)}>
+                Đóng
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                onClick={() => {
+                  setBlockedOperation(null);
+                  setEditingWallet(null);
+                  router.push("/recurring-transactions");
+                }}
+              >
+                <Repeat2 size={15} />
+                Mở Giao dịch định kỳ
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {confirmOperation && (
+        <div
+          className="fixed inset-0 z-[60] grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-wallet-operation-title"
+        >
+          <section className="sunrise-card w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="ws-danger-icon shrink-0">
+                {confirmOperation.kind === "delete" ? <Trash2 size={20} /> : <PauseCircle size={20} />}
+              </div>
+              <div>
+                <h2 id="confirm-wallet-operation-title" className="text-lg font-bold text-[var(--foreground)]">
+                  {confirmOperation.kind === "delete" ? "Xóa ví?" : "Tạm ngưng ví?"}
+                </h2>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  {confirmOperation.kind === "delete"
+                    ? `Ví “${confirmOperation.wallet.name}” sẽ được ẩn khỏi workspace nhưng lịch sử giao dịch vẫn được giữ lại.`
+                    : `Ví “${confirmOperation.wallet.name}” sẽ không thể dùng cho giao dịch mới cho đến khi được kích hoạt lại.`}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
+              <Button type="button" variant="outline" disabled={pending} onClick={() => setConfirmOperation(null)}>
+                Hủy
+              </Button>
+              <Button
+                type="button"
+                variant={confirmOperation.kind === "delete" ? "destructive" : "default"}
+                disabled={pending}
+                onClick={confirmDestructiveOperation}
+              >
+                {pending ? "Đang xử lý…" : confirmOperation.kind === "delete" ? "Xác nhận xóa" : "Xác nhận tạm ngưng"}
+              </Button>
+            </div>
+          </section>
         </div>
       )}
     </div>

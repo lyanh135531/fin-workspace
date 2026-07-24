@@ -32,8 +32,8 @@ function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const code = value.trim();
-    if (code.length < 8) {
-      setFeedback({ ok: false, text: "Mã mời tối thiểu 8 ký tự." });
+    if (code.length < 6) {
+      setFeedback({ ok: false, text: "Mã mời tối thiểu 6 ký tự." });
       return;
     }
     setFeedback(null);
@@ -64,11 +64,13 @@ function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
           }}
           disabled={pending}
           aria-label="Nhập mã mời workspace"
+          minLength={6}
+          maxLength={36}
         />
         <button
           type="submit"
           className="ws-inline-join-btn"
-          disabled={pending || value.trim().length < 8}
+          disabled={pending || value.trim().length < 6}
           aria-label="Gửi yêu cầu tham gia"
         >
           {pending ? <Loader2 size={14} className="ws-join-spinner" /> : <Send size={13} />}

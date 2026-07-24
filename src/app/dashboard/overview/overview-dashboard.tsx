@@ -3,7 +3,12 @@
 import Decimal from "decimal.js";
 import { ChevronDown, CircleAlert, Funnel, RefreshCw, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import { useState } from "react";
-import { Bar, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import {
+  buildMonthlyCashflow,
+  getVisibleCashflowTypes,
+  type CashflowRange,
+} from "@/app/dashboard/overview/overview-chart-data";
 import { FinanceSelect } from "@/components/finance/finance-select";
 import { MonthPicker } from "@/components/finance/date-picker-field";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -12,16 +17,16 @@ import { formatAmount } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 
 type Transaction = { id: string; amount: string; type: "income" | "expense" | "transfer"; status: "pending" | "scheduled" | "approved" | "rejected"; description: string | null; date: string; walletId: string; toWalletId: string | null; wallet: string; categoryId: string | null; category: { name: string; color: string } | null; memberId: string; member: string };
-type MonthlyFinancial = { period: string; balance: string; expense: string };
-type Props = { workspace: { id: string; name: string; currency: string }; wallets: { id: string; name: string; balance: string; updatedAt: string }[]; totalByCurrency: Record<string, string>; categories: { id: string; name: string; color: string }[]; members: { id: string; name: string }[]; transactions: Transaction[]; monthlyFinancials: MonthlyFinancial[] };
+type Props = { workspace: { id: string; name: string; currency: string }; wallets: { id: string; name: string; balance: string; updatedAt: string }[]; totalByCurrency: Record<string, string>; categories: { id: string; name: string; color: string; type: "income" | "expense" }[]; members: { id: string; name: string }[]; transactions: Transaction[] };
 const money = (value: Decimal.Value, currency: string) => `${formatAmount(value)} ${currency}`;
 const statusLabel = { approved: "Đã ghi nhận", pending: "Chờ duyệt", scheduled: "Đã lên lịch", rejected: "Đã từ chối" };
 const monthlyChartConfig = {
-  balance: { label: "Tổng số dư cuối tháng", color: "var(--primary)" },
-  expense: { label: "Tổng chi tiêu", color: "var(--expense)" },
+  income: { label: "Thu nhập", color: "var(--income)" },
+  expense: { label: "Chi tiêu", color: "var(--expense)" },
+  warning: { label: "Chi vượt thu", color: "var(--warning)" },
 } satisfies ChartConfig;
 
-export function OverviewDashboard({ workspace, wallets, totalByCurrency, categories, members, transactions, monthlyFinancials }: Props) {
+export function OverviewDashboard({ workspace, wallets, totalByCurrency, categories, members, transactions }: Props) {
   const now = new Date(); const initialMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const [month, setMonth] = useState(initialMonth); const [walletId, setWalletId] = useState("all"); const [categoryId, setCategoryId] = useState("all"); const [memberId, setMemberId] = useState("all"); const [type, setType] = useState("all"); const [showPending, setShowPending] = useState(false);
   const filtered = transactions.filter((item) => item.date.slice(0, 7) === month && (walletId === "all" || item.walletId === walletId || item.toWalletId === walletId) && (categoryId === "all" || item.categoryId === categoryId) && (memberId === "all" || item.memberId === memberId) && (type === "all" || item.type === type));
@@ -49,7 +54,7 @@ export function OverviewDashboard({ workspace, wallets, totalByCurrency, categor
       </div>
     </section>
     <div className="overview-kpis"><Metric title="Tổng số dư ví" value={Object.entries(totalByCurrency).map(([currency, total]) => money(total, currency)).join(" · ")} note={`${wallets.length} ví đang hoạt động`} icon={<WalletCards size={18}/>} tone="primary"/><Metric title="Thu nhập trong kỳ" value={money(totals.income, workspace.currency)} note="Chỉ giao dịch đã ghi nhận" icon={<TrendingUp size={18}/>} tone="income"/><Metric title="Chi phí trong kỳ" value={money(totals.expense, workspace.currency)} note="Chỉ giao dịch đã ghi nhận" icon={<TrendingDown size={18}/>} tone="expense"/><Metric title="Dòng tiền ròng" value={money(totals.income.minus(totals.expense), workspace.currency)} note="Thu nhập trừ chi phí" icon={<TrendingUp size={18}/>} tone="primary"/></div>
-    <div className="overview-grid"><MonthlyFinancialChart financials={monthlyFinancials} currency={workspace.currency}/>
+    <div className="overview-grid"><MonthlyFinancialChart transactions={transactions} currency={workspace.currency} month={month} walletId={walletId} categoryId={categoryId} memberId={memberId} transactionType={type} categoryType={categories.find((category) => category.id === categoryId)?.type}/>
       <section className="overview-card overview-category"><header><div><h2>Chi phí theo hạng mục</h2><p>Chỉ tính giao dịch đã ghi nhận</p></div></header>{expenseByCategory.length ? <div className="category-list">{expenseByCategory.map((item) => <div className="category-row" key={item.name}><span className="category-dot" style={{ background: item.color }}/><div><strong>{item.name}</strong><div className="category-track"><span style={{ width: `${item.amount.div(totals.expense).times(100)}%`, background: item.color }}/></div></div><b>{item.amount.div(totals.expense).times(100).toFixed(0)}%</b><small>{money(item.amount, workspace.currency)}</small></div>)}</div> : <Empty text="Chưa có chi phí đã ghi nhận để phân bổ." />}</section>
       <section className="overview-card overview-wallets"><header><div><h2>Ví trong workspace</h2><p>Số dư hiện tại theo dữ liệu ví</p></div></header>{wallets.length ? <div className="wallet-list">{wallets.map((wallet) => <article key={wallet.id}><span><WalletCards size={17}/></span><div><strong>{wallet.name}</strong><small>Cập nhật {new Intl.DateTimeFormat("vi-VN", { dateStyle: "short" }).format(new Date(wallet.updatedAt))}</small></div><b>{money(wallet.balance, workspace.currency)}</b></article>)}</div> : <Empty text="Workspace này chưa có ví đang hoạt động." />}</section>
       <section className="overview-card overview-recent"><header><div><h2>Giao dịch gần đây</h2><p>Được sắp xếp theo ngày mới nhất</p></div><a href={`/workspace/${workspace.id}`}>Xem tất cả</a></header><div className="recent-table">{filtered.slice(0, 6).map((item) => <article key={item.id}><div><strong title={item.description ?? "Không có nội dung"}>{item.description ?? "Không có nội dung"}</strong><small>{item.category?.name ?? "Chưa phân loại"} · {item.wallet} · {item.member}</small></div><time>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(new Date(item.date))}</time><b className={item.type}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{money(item.amount, workspace.currency)}</b><span className={`overview-status ${item.status}`}>{statusLabel[item.status]}</span></article>)}{!filtered.length && <Empty text="Không có giao dịch phù hợp với bộ lọc." />}</div></section>
@@ -57,10 +62,70 @@ export function OverviewDashboard({ workspace, wallets, totalByCurrency, categor
     </div>
   </div>;
 }
-function MonthlyFinancialChart({ financials, currency }: { financials: MonthlyFinancial[]; currency: string }) {
-  const [range, setRange] = useState<3 | 6 | 12>(3);
-  const rows = financials.slice(-range).map((item) => { const [year, month] = item.period.split("-"); return { period: item.period, label: `${month}/${year.slice(2)}`, balance: new Decimal(item.balance).toNumber(), expense: new Decimal(item.expense).toNumber() }; });
-  return <section className="overview-card overview-flow"><header><div><h2>Số dư và chi tiêu theo tháng</h2><p>Cột biểu diễn số dư cuối tháng, đường biểu diễn chi tiêu đã ghi nhận. Tháng hiện tại tính đến hôm nay.</p></div><Tabs value={String(range)} onValueChange={(value) => setRange(Number(value) as 3 | 6 | 12)}><TabsList aria-label="Khoảng thời gian biểu đồ">{([3, 6, 12] as const).map((value) => <TabsTrigger key={value} value={String(value)}>{value} tháng</TabsTrigger>)}</TabsList></Tabs></header>{rows.length ? <ChartContainer config={monthlyChartConfig} className="overview-expense-chart" aria-label={`Biểu đồ số dư và chi tiêu ${range} tháng gần nhất`}><ComposedChart data={rows} accessibilityLayer margin={{ top: 4, right: 4, left: 4, bottom: 0 }}><CartesianGrid vertical={false}/><XAxis dataKey="label" tickLine={false} tickMargin={8} axisLine={false}/><YAxis yAxisId="balance" width={62} tickLine={false} axisLine={false} tickFormatter={(value) => formatAmount(value)}/><YAxis yAxisId="expense" orientation="right" width={62} tickLine={false} axisLine={false} tickFormatter={(value) => formatAmount(value)}/><ChartTooltip cursor={false} content={<ChartTooltipContent labelKey="label" hideIndicator formatter={(value, name) => { const isBalance = name === "balance"; return <div className="flex min-w-48 items-center justify-between gap-4"><span className="flex items-center gap-2 text-muted-foreground"><i className="size-2 rounded-[2px]" style={{ background: isBalance ? "var(--color-balance)" : "var(--color-expense)" }}/>{isBalance ? "Tổng số dư cuối tháng" : "Tổng chi tiêu"}</span><strong className="tabular-nums text-foreground">{money(String(value), currency)}</strong></div>; }}/>} /><ChartLegend verticalAlign="top" content={<ChartLegendContent className="justify-start pb-2 pt-0"/>}/><Bar yAxisId="balance" dataKey="balance" fill="var(--color-balance)" radius={[7, 7, 2, 2]} maxBarSize={34}/><Line yAxisId="expense" dataKey="expense" type="monotone" stroke="var(--color-expense)" strokeWidth={2.25} dot={{ r: 3, fill: "var(--color-expense)", strokeWidth: 0 }} activeDot={{ r: 5 }}/></ComposedChart></ChartContainer> : <Empty text="Chưa có dữ liệu số dư và chi tiêu theo tháng." />}</section>;
+function MonthlyFinancialChart({ transactions, currency, month, walletId, categoryId, memberId, transactionType, categoryType }: {
+  transactions: Transaction[];
+  currency: string;
+  month: string;
+  walletId: string;
+  categoryId: string;
+  memberId: string;
+  transactionType: string;
+  categoryType?: "income" | "expense";
+}) {
+  const [range, setRange] = useState<CashflowRange>(3);
+  const visibleTypes = getVisibleCashflowTypes(transactionType, categoryType);
+  const cashflow = buildMonthlyCashflow(transactions, { endPeriod: month, range, walletId, categoryId, memberId, transactionType, categoryType });
+  const showComparison = visibleTypes.length === 2;
+  const warningCount = showComparison ? cashflow.filter((row) => row.hasWarning).length : 0;
+  const hasData = cashflow.some((row) =>
+    visibleTypes.some((visibleType) => !new Decimal(row[visibleType]).isZero()),
+  );
+  const rows = cashflow.map((item) => {
+    const [year, rowMonth] = item.period.split("-");
+    return {
+      ...item,
+      label: `${rowMonth}/${year.slice(2)}`,
+      fullLabel: `Tháng ${rowMonth}/${year}`,
+      income: new Decimal(item.income).toNumber(),
+      expense: new Decimal(item.expense).toNumber(),
+      warning: [new Decimal(item.warningFrom).toNumber(), new Decimal(item.warningTo).toNumber()],
+    };
+  });
+  const emptyText = transactionType === "transfer"
+    ? "Biểu đồ thu và chi không áp dụng cho giao dịch chuyển khoản."
+    : visibleTypes.length === 0
+      ? "Loại giao dịch không thuộc hạng mục đang chọn."
+      : "Chưa có giao dịch đã ghi nhận phù hợp với bộ lọc.";
+
+  return <section className="overview-card overview-flow">
+    <header>
+      <div>
+        <div className="overview-chart-title-row">
+          <h2>Thu nhập và chi tiêu theo tháng</h2>
+          {warningCount > 0 && <span className="overview-chart-warning"><CircleAlert size={13}/>{warningCount} tháng chi vượt thu</span>}
+        </div>
+        <p>Giao dịch đã ghi nhận · kỳ biểu đồ kết thúc vào tháng {month.slice(5, 7)}/{month.slice(0, 4)}</p>
+      </div>
+      <Tabs value={String(range)} onValueChange={(value) => setRange(Number(value) as CashflowRange)}><TabsList aria-label="Khoảng thời gian biểu đồ">{([3, 6, 12] as const).map((value) => <TabsTrigger key={value} value={String(value)}>{value} tháng</TabsTrigger>)}</TabsList></Tabs>
+    </header>
+    {hasData ? <ChartContainer config={monthlyChartConfig} className="overview-expense-chart" aria-label={`Biểu đồ thu nhập và chi tiêu ${range} tháng, kết thúc tháng ${month}`}>
+      <AreaChart data={rows} accessibilityLayer margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id="overview-income-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--color-income)" stopOpacity={0.38}/><stop offset="95%" stopColor="var(--color-income)" stopOpacity={0.04}/></linearGradient>
+          <linearGradient id="overview-expense-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--color-expense)" stopOpacity={0.34}/><stop offset="95%" stopColor="var(--color-expense)" stopOpacity={0.04}/></linearGradient>
+          <linearGradient id="overview-warning-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--color-warning)" stopOpacity={0.78}/><stop offset="95%" stopColor="var(--color-warning)" stopOpacity={0.18}/></linearGradient>
+        </defs>
+        <CartesianGrid vertical={false}/>
+        <XAxis dataKey="label" tickLine={false} tickMargin={10} axisLine={false}/>
+        <YAxis width={64} tickLine={false} axisLine={false} tickFormatter={(value) => formatAmount(value)}/>
+        <ChartTooltip cursor={false} content={<ChartTooltipContent labelKey="label" indicator="line" labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? ""} formatter={(value, name) => <div className="flex min-w-48 items-center justify-between gap-4"><span className="text-muted-foreground">{name === "income" ? "Thu nhập" : "Chi tiêu"}</span><strong className="tabular-nums text-foreground">{money(String(value), currency)}</strong></div>}/>} />
+        <ChartLegend content={<ChartLegendContent className="justify-start pt-3"/>}/>
+        {visibleTypes.includes("income") && <Area dataKey="income" type="natural" fill="url(#overview-income-fill)" stroke="var(--color-income)" strokeWidth={2.25} activeDot={{ r: 4, strokeWidth: 0 }}/>}
+        {visibleTypes.includes("expense") && <Area dataKey="expense" type="natural" fill="url(#overview-expense-fill)" stroke="var(--color-expense)" strokeWidth={2.25} activeDot={{ r: 4, strokeWidth: 0 }}/>}
+        {showComparison && warningCount > 0 && <Area dataKey="warning" name="warning" type="natural" fill="url(#overview-warning-fill)" stroke="transparent" tooltipType="none" activeDot={false}/>}
+      </AreaChart>
+    </ChartContainer> : <Empty text={emptyText} />}
+  </section>;
 }
 function FilterField({ label, children }: { label: string; children: React.ReactNode }) { return <div className="overview-filter-field" role="group" aria-label={label}><span>{label}</span>{children}</div>; }
 function Metric({ title, value, note, icon, tone }: { title: string; value: string; note: string; icon: React.ReactNode; tone: string }) { return <section className={`overview-metric ${tone}`}><span>{icon}</span><p>{title}</p><strong>{value}</strong><small>{note}</small></section>; }

@@ -12,13 +12,11 @@ export function DashboardNavigation({
   workspaces,
   pendingJoinCount = 0,
   isAdmin = false,
-  isOwner = false,
 }: {
   currentId?: string;
   workspaces: Workspace[];
   pendingJoinCount?: number;
   isAdmin?: boolean;
-  isOwner?: boolean;
   username?: string;
 }) {
   const pathname = usePathname();
@@ -103,9 +101,7 @@ export function DashboardNavigation({
               <span>Quản lý ví</span>
             </Link>
 
-
-
-            {isOwner && (
+            {isAdmin && (
               <Link
                 className={`nav-item dashboard-nav-link ${workspaceSettingsActive ? "nav-item-active" : ""}`}
                 href="/settings/workspace"

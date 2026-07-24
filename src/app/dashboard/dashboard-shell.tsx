@@ -87,7 +87,6 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
           }))}
           pendingJoinCount={pendingJoinCount}
           isAdmin={isAdmin}
-          isOwner={isOwner}
           username={username}
         />
 
@@ -117,6 +116,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
               <WorkspaceNotifications
                 workspaceId={membership.workspaceId}
                 isAdmin={isAdmin}
+                canAssignOwner={isOwner}
               />
             )}
             <ThemeToggle />

@@ -6,10 +6,15 @@ import { WorkspaceSettingsTabsClient } from "@/app/dashboard/settings/workspace-
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { manageableCategoryWhere } from "@/services/category-visibility";
-import { isOwnerRole } from "@/domain/role-policy";
+import { isAdminRole, isOwnerRole } from "@/domain/role-policy";
 import { getUserTemplatesForImport } from "@/services/import-category-service";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const params = await searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/sign-in");
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
@@ -18,11 +23,11 @@ export default async function SettingsPage() {
   if (!membership) redirect("/overview");
 
   const isOwner = isOwnerRole(membership.role.code);
+  const isAdmin = isAdminRole(membership.role.code);
 
-  // Only workspace owner can access settings
-  if (!isOwner) redirect("/dashboard");
+  if (!isAdmin) redirect("/dashboard");
 
-  const [members, categories, templates, roles] = await Promise.all([
+  const [members, categories, templates, roles, joinRequests] = await Promise.all([
     prisma.workspaceMember.findMany({
       where: { workspaceId, status: "active", deletedAt: null },
       select: {
@@ -34,11 +39,22 @@ export default async function SettingsPage() {
     }),
     prisma.category.findMany({ where: manageableCategoryWhere(workspaceId), include: { _count: { select: { transactions: { where: { deletedAt: null } } } } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     getUserTemplatesForImport(session.user.id),
-    prisma.role.findMany({ select: { code: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.role.findMany({
+      where: isOwner ? undefined : { code: { not: "OWNER" } },
+      select: { code: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.workspaceJoinRequest.findMany({
+      where: { workspaceId, status: "pending" },
+      select: {
+        id: true,
+        requester: { select: { username: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   const existingCodes = categories.map((c) => c.code);
-  const activeCategories = categories.filter((c) => c.status === "active");
 
   return (
     <div className="workspace-settings-page">
@@ -58,7 +74,8 @@ export default async function SettingsPage() {
             status: membership.workspace.status,
             inviteCode: membership.workspace.inviteCode,
           }}
-          isAdmin={isOwner}
+          isAdmin={isAdmin}
+          isOwner={isOwner}
           templates={templates}
           existingCodes={existingCodes}
           categories={categories.map((category) => ({
@@ -79,6 +96,11 @@ export default async function SettingsPage() {
             isSelf: m.userId === session.user.id,
           }))}
           roles={roles.map((r) => ({ code: r.code, name: r.name }))}
+          joinRequests={joinRequests.map((request) => ({
+            id: request.id,
+            username: request.requester.username,
+          }))}
+          initialTab={params.tab === "joinRequests" ? "joinRequests" : "general"}
         />
       </div>
     </div>

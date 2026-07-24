@@ -1,6 +1,7 @@
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { requireWorkspaceMember } from "@/services/workspace-access";
+
 export async function requestWorkspaceJoin(userId: string, inviteCode: string) {
   const cleanCode = inviteCode.trim();
   const digitsOnly = cleanCode.replace(/\D/g, "");
@@ -26,4 +27,70 @@ export async function requestWorkspaceJoin(userId: string, inviteCode: string) {
     return request;
   });
 }
-export async function reviewWorkspaceJoinRequest(adminId:string,workspaceId:string,requestId:string,approve:boolean){await requireWorkspaceMember(adminId,workspaceId,true);return prisma.$transaction(async tx=>{const request=await tx.workspaceJoinRequest.findFirst({where:{id:requestId,workspaceId,status:"pending"}});if(!request)throw new AppError("NOT_FOUND","Yêu cầu đang chờ không tồn tại.");let roleId:string|undefined;if(approve){const role=await tx.role.findUnique({where:{code:"MEMBER"}});if(!role)throw new AppError("NOT_FOUND","Vai trò MEMBER không tồn tại.");roleId=role.id;const existing=await tx.workspaceMember.findUnique({where:{workspaceId_userId:{workspaceId,userId:request.requesterId}}});if(existing){if(existing.status==="active"&&existing.deletedAt===null)throw new AppError("CONFLICT","User đã là thành viên.");await tx.workspaceMember.update({where:{id:existing.id},data:{status:"active",deletedAt:null,roleId}});}else await tx.workspaceMember.create({data:{workspaceId,userId:request.requesterId,roleId}});}const updated=await tx.workspaceJoinRequest.update({where:{id:request.id},data:{status:approve?"approved":"rejected",reviewerId:adminId,roleId,respondedAt:new Date()}});await tx.auditLog.create({data:{workspaceId,actorUserId:adminId,action:approve?"workspace.join_approved":"workspace.join_rejected",entityType:"workspace_join_request",entityId:request.id,metadata:{roleCode:approve?"MEMBER":null}}});return updated;});}
+
+export async function reviewWorkspaceJoinRequest(
+  adminId: string,
+  workspaceId: string,
+  requestId: string,
+  approve: boolean,
+  roleCode?: string,
+) {
+  const reviewer = await requireWorkspaceMember(adminId, workspaceId, true);
+
+  return prisma.$transaction(async (tx) => {
+    const request = await tx.workspaceJoinRequest.findFirst({
+      where: { id: requestId, workspaceId, status: "pending" },
+    });
+    if (!request) throw new AppError("NOT_FOUND", "Yêu cầu đang chờ không tồn tại.");
+
+    const selectedRoleCode = approve ? roleCode ?? "MEMBER" : undefined;
+    let roleId: string | undefined;
+
+    if (approve) {
+      if (selectedRoleCode === "OWNER" && reviewer.role.code !== "OWNER") {
+        throw new AppError("FORBIDDEN", "Chỉ Owner workspace mới có thể cấp vai trò Owner.");
+      }
+      const role = await tx.role.findUnique({ where: { code: selectedRoleCode } });
+      if (!role) throw new AppError("NOT_FOUND", "Vai trò được chọn không tồn tại.");
+      roleId = role.id;
+
+      const existing = await tx.workspaceMember.findUnique({
+        where: { workspaceId_userId: { workspaceId, userId: request.requesterId } },
+      });
+      if (existing) {
+        if (existing.status === "active" && existing.deletedAt === null) {
+          throw new AppError("CONFLICT", "User đã là thành viên.");
+        }
+        await tx.workspaceMember.update({
+          where: { id: existing.id },
+          data: { status: "active", deletedAt: null, roleId },
+        });
+      } else {
+        await tx.workspaceMember.create({
+          data: { workspaceId, userId: request.requesterId, roleId },
+        });
+      }
+    }
+
+    const updated = await tx.workspaceJoinRequest.update({
+      where: { id: request.id },
+      data: {
+        status: approve ? "approved" : "rejected",
+        reviewerId: adminId,
+        roleId,
+        respondedAt: new Date(),
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        workspaceId,
+        actorUserId: adminId,
+        action: approve ? "workspace.join_approved" : "workspace.join_rejected",
+        entityType: "workspace_join_request",
+        entityId: request.id,
+        metadata: { roleCode: selectedRoleCode ?? null },
+      },
+    });
+    return updated;
+  });
+}
