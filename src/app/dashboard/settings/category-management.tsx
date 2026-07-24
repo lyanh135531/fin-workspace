@@ -21,7 +21,9 @@ import {
   updateCategoryAction,
 } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP, slugifyCode } from "@/app/dashboard/settings/global-category-management";
-import { showToast } from "@/components/toast-container";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 type Category = {
   id: string;
@@ -91,11 +93,11 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         ? await updateCategoryAction({ ...category, categoryId: id })
         : await createCategoryAction(category);
       if (result.ok) {
-        showToast(id ? "Đã cập nhật danh mục." : "Đã tạo danh mục mới.", "success");
+        toast.success(id ? "Đã cập nhật danh mục." : "Đã tạo danh mục mới.");
         setEditing(null);
         setCreating(false);
       } else {
-        showToast(result.message ?? "Có lỗi xảy ra.", "error");
+        toast.error(result.message ?? "Có lỗi xảy ra.");
       }
     });
   }
@@ -104,12 +106,11 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
     start(async () => {
       const result = await setCategoryStatusAction(id, status);
       if (result.ok) {
-        showToast(
-          status === "active" ? "Đã kích hoạt danh mục." : "Đã vô hiệu hóa danh mục.",
-          "success"
+        toast.success(
+          status === "active" ? "Đã kích hoạt danh mục." : "Đã vô hiệu hóa danh mục."
         );
       } else {
-        showToast(result.message ?? "Không thể đổi trạng thái.", "error");
+        toast.error(result.message ?? "Không thể đổi trạng thái.");
       }
     });
   }
@@ -119,9 +120,9 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
     start(async () => {
       const result = await reorderCategoriesAction(orderedIds);
       if (result.ok) {
-        showToast("Đã cập nhật thứ tự danh mục.", "success");
+        toast.success("Đã cập nhật thứ tự danh mục.");
       } else {
-        showToast(result.message ?? "Không thể sắp xếp lại.", "error");
+        toast.error(result.message ?? "Không thể sắp xếp lại.");
       }
     });
   }
@@ -188,8 +189,8 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             Danh mục thuộc workspace này. Bạn có thể tạo mới hoặc import từ danh mục mẫu cá nhân.
           </p>
         </div>
-        <button
-          className="button-primary inline-flex items-center gap-2"
+        <Button
+          variant="default"
           onClick={() => {
             setCreating(true);
             setEditing(null);
@@ -198,7 +199,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         >
           <Plus size={17} />
           Thêm danh mục
-        </button>
+        </Button>
       </div>
 
       {/* Tabs: Chi tiêu & Thu nhập + Search */}
@@ -401,15 +402,15 @@ function CategoryNode({
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            className="button-secondary icon-button !min-h-[34px] !min-w-[34px] !p-1.5"
+          <Button
+            variant="outline" size="icon-sm" className="!min-h-[34px] !min-w-[34px] !p-1.5"
             title="Chỉnh sửa"
             aria-label={`Chỉnh sửa ${category.name}`}
             onClick={() => onEdit(category.id)}
             disabled={pending}
           >
             <Pencil size={15} />
-          </button>
+          </Button>
           <button
             className={`button-secondary icon-button !min-h-[34px] !min-w-[34px] !p-1.5 ${
               category.status === "active" ? "hover:text-rose-500" : "hover:text-emerald-500"
@@ -510,8 +511,8 @@ function CategoryForm({
         {/* Name Input */}
         <div>
           <label className="text-xs font-semibold text-slate-500 mb-1 block">Tên danh mục *</label>
-          <input
-            className="field"
+          <Input
+            
             name="name"
             required
             value={name}
@@ -526,8 +527,8 @@ function CategoryForm({
             <label className="text-xs font-semibold text-slate-500">Mã danh mục (Code) *</label>
             <span className="text-[10px] text-slate-400">Tự động tạo từ tên</span>
           </div>
-          <input
-            className="field font-mono text-sm uppercase"
+          <Input
+            className="font-mono text-sm uppercase"
             name="code"
             required
             value={code}
@@ -615,12 +616,12 @@ function CategoryForm({
       </div>
 
       <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)] relative">
-        <button type="button" className="button-secondary" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Hủy bỏ
-        </button>
-        <button className="button-primary" disabled={pending}>
+        </Button>
+        <Button variant="default" disabled={pending}>
           {pending ? "Đang lưu..." : "Lưu danh mục"}
-        </button>
+        </Button>
       </div>
     </form>
   );

@@ -3,7 +3,8 @@
 import { Check, Copy, KeyRound, RefreshCw, Sparkles } from "lucide-react";
 import { useState, useTransition } from "react";
 import { regenerateInviteCodeAction } from "@/app/dashboard/settings/actions";
-import { showToast } from "@/components/toast-container";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export function InviteCodeCard({ code: initialCode }: { code: string }) {
   const [code, setCode] = useState(initialCode);
@@ -14,10 +15,10 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
-      showToast("Đã sao chép mã mời vào bộ nhớ tạm!", "success");
+      toast.success("Đã sao chép mã mời vào bộ nhớ tạm!");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      showToast("Không thể sao chép tự động. Vui lòng sao chép thủ công.", "error");
+      toast.error("Không thể sao chép tự động. Vui lòng sao chép thủ công.");
     }
   }
 
@@ -26,9 +27,9 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
       const result = await regenerateInviteCodeAction();
       if (result.ok && "inviteCode" in result && result.inviteCode) {
         setCode(result.inviteCode);
-        showToast("Đã tạo mã mời 6 chữ số mới thành công!", "success");
+        toast.success("Đã tạo mã mời 6 chữ số mới thành công!");
       } else {
-        showToast(result.message ?? "Không thể đổi mã mời.", "error");
+        toast.error(result.message ?? "Không thể đổi mã mời.");
       }
     });
   }
@@ -69,10 +70,12 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
             {formattedDisplay}
           </code>
           <div className="flex items-center gap-2 shrink-0">
-            <button
+            <Button
               type="button"
               onClick={copy}
-              className={`button-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all ${
+              variant="outline"
+              size="sm"
+              className={`px-3 py-1.5 ${
                 copied ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" : ""
               }`}
             >
@@ -87,18 +90,18 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
                   Sao chép
                 </>
               )}
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
               disabled={pending}
               onClick={handleRegenerate}
-              className="button-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all hover:text-[var(--primary)]"
+              variant="outline" size="sm" className="px-3 py-1.5 hover:text-[var(--primary)]"
               title="Đổi mã mời 6 số mới"
             >
               <RefreshCw size={14} className={pending ? "animate-spin" : ""} />
               Đổi mã
-            </button>
+            </Button>
           </div>
         </div>
 

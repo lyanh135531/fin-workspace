@@ -21,8 +21,10 @@ import {
 } from "@/app/dashboard/recurring-transactions/actions";
 import { DatePickerField } from "@/components/finance/date-picker-field";
 import { FinanceSelect } from "@/components/finance/finance-select";
-import { showToast } from "@/components/toast-container";
 import { formatAmount } from "@/lib/format";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 type Option = { id: string; name: string; color?: string };
 type TransactionType = "income" | "expense" | "transfer";
@@ -172,10 +174,10 @@ export function RecurringTransactionsManager({
         ? await updateRecurringTransactionAction(editingId, actionInput(draft))
         : await createRecurringTransactionAction(actionInput(draft));
       if (result.ok) {
-        showToast(editingId ? "Đã cập nhật giao dịch định kỳ." : "Đã đăng ký giao dịch định kỳ.", "success");
+        toast.success(editingId ? "Đã cập nhật giao dịch định kỳ." : "Đã đăng ký giao dịch định kỳ.");
         closeEditor();
       } else {
-        showToast(result.message, "error");
+        toast.error(result.message);
       }
     });
   }
@@ -185,9 +187,9 @@ export function RecurringTransactionsManager({
     startTransition(async () => {
       const result = await setRecurringTransactionStatusAction(schedule.id, nextStatus);
       if (result.ok) {
-        showToast(nextStatus === "active" ? "Đã kích hoạt lại lịch." : "Đã tạm dừng lịch.", "success");
+        toast.success(nextStatus === "active" ? "Đã kích hoạt lại lịch." : "Đã tạm dừng lịch.");
       } else {
-        showToast(result.message, "error");
+        toast.error(result.message);
       }
     });
   }
@@ -197,10 +199,10 @@ export function RecurringTransactionsManager({
     startTransition(async () => {
       const result = await deleteRecurringTransactionAction(deleteTarget.id);
       if (result.ok) {
-        showToast("Đã xóa đăng ký. Các giao dịch đã phát sinh được giữ nguyên.", "success");
+        toast.success("Đã xóa đăng ký. Các giao dịch đã phát sinh được giữ nguyên.");
         setDeleteTarget(null);
       } else {
-        showToast(result.message, "error");
+        toast.error(result.message);
       }
     });
   }
@@ -231,13 +233,13 @@ export function RecurringTransactionsManager({
               { value: "completed", label: "Đã kết thúc" },
             ]}
           />
-          <button
-            className="button-primary"
+          <Button
+            variant="default"
             disabled={busy || Boolean(draft) || wallets.length === 0}
             onClick={beginCreate}
           >
             <Plus size={17} /> Đăng ký
-          </button>
+          </Button>
         </div>
 
         {draft && (
@@ -261,8 +263,8 @@ export function RecurringTransactionsManager({
               <p>Các giao dịch đã được ghi vào Sổ giao dịch và số dư hiện tại vẫn được giữ nguyên.</p>
             </div>
             <div className="dialog-actions">
-              <button className="button-secondary" disabled={busy} onClick={() => setDeleteTarget(null)}>Hủy</button>
-              <button className="button-danger" disabled={busy} onClick={remove}>{busy ? "Đang xóa" : "Xác nhận xóa"}</button>
+              <Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>Hủy</Button>
+              <Button variant="destructive" disabled={busy} onClick={remove}>{busy ? "Đang xóa" : "Xác nhận xóa"}</Button>
             </div>
           </section>
         )}
@@ -328,34 +330,34 @@ export function RecurringTransactionsManager({
                   <td>
                     <div className="ledger-row-actions">
                       {!schedule.completedAt && (
-                        <button
-                          className="button-secondary icon-button"
+                        <Button
+                          variant="outline" size="icon-sm"
                           disabled={busy || Boolean(draft)}
                           onClick={() => toggleStatus(schedule)}
                           title={schedule.status === "active" ? "Tạm dừng" : "Kích hoạt lại"}
                           aria-label={schedule.status === "active" ? "Tạm dừng lịch" : "Kích hoạt lại lịch"}
                         >
                           {schedule.status === "active" ? <Pause size={14} /> : <Play size={14} />}
-                        </button>
+                        </Button>
                       )}
-                      <button
-                        className="button-secondary icon-button"
+                      <Button
+                        variant="outline" size="icon-sm"
                         disabled={busy || Boolean(draft)}
                         onClick={() => beginEdit(schedule)}
                         title="Chỉnh sửa"
                         aria-label="Chỉnh sửa lịch"
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
-                        className="button-secondary icon-button ledger-delete-button"
+                      </Button>
+                      <Button
+                        variant="outline" size="icon-sm" className="ledger-delete-button"
                         disabled={busy || Boolean(draft)}
                         onClick={() => setDeleteTarget(schedule)}
                         title="Xóa"
                         aria-label="Xóa lịch"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -367,7 +369,7 @@ export function RecurringTransactionsManager({
                       <span><Repeat2 size={22} /></span>
                       <strong>{schedules.length ? "Không có lịch phù hợp" : "Chưa có giao dịch định kỳ"}</strong>
                       <p>{schedules.length ? "Thử thay đổi bộ lọc hoặc từ khóa." : "Đăng ký khoản lương, tiền nhà hoặc đầu tư để hệ thống tự ghi nhận mỗi tháng."}</p>
-                      {!schedules.length && wallets.length > 0 && <button className="button-secondary" onClick={beginCreate}>Tạo đăng ký đầu tiên</button>}
+                      {!schedules.length && wallets.length > 0 && <Button variant="outline" onClick={beginCreate}>Tạo đăng ký đầu tiên</Button>}
                     </div>
                   </td>
                 </tr>
@@ -412,9 +414,9 @@ function RecurringEditor({
       <div className="recurring-editor-grid">
         <label className="recurring-field recurring-field-wide">
           Nội dung
-          <input
+          <Input
             autoFocus
-            className="field"
+            
             value={draft.description}
             onChange={(event) => onChange({ description: event.target.value })}
             placeholder="Ví dụ: Lương tháng, tiền thuê nhà"
@@ -500,8 +502,8 @@ function RecurringEditor({
         </div>
         <label className="recurring-field">
           Số tiền
-          <input
-            className="field"
+          <Input
+            
             inputMode="decimal"
             value={draft.amount}
             onChange={(event) => onChange({ amount: event.target.value })}
@@ -512,8 +514,8 @@ function RecurringEditor({
       <div className="recurring-editor-footer">
         <p>Giao dịch đến hạn được ghi nhận ngay, không qua bước phê duyệt.</p>
         <div className="dialog-actions">
-          <button className="button-secondary" disabled={busy} onClick={onCancel}><X size={15} /> Hủy</button>
-          <button className="button-primary" disabled={busy} onClick={onSave}><Check size={15} /> {busy ? "Đang lưu" : "Lưu đăng ký"}</button>
+          <Button variant="outline" disabled={busy} onClick={onCancel}><X size={15} /> Hủy</Button>
+          <Button variant="default" disabled={busy} onClick={onSave}><Check size={15} /> {busy ? "Đang lưu" : "Lưu đăng ký"}</Button>
         </div>
       </div>
     </section>

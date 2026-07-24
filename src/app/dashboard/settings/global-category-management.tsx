@@ -44,7 +44,9 @@ import {
   setTemplateCategoryStatusAction,
   updateTemplateCategoryAction,
 } from "@/app/dashboard/settings/general-actions";
-import { showToast } from "@/components/toast-container";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 type Category = {
   id: string;
@@ -150,11 +152,11 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
         ? await updateTemplateCategoryAction({ ...category, categoryId })
         : await createTemplateCategoryAction(category);
       if (result.ok) {
-        showToast("Đã lưu danh mục mẫu.", "success");
+        toast.success("Đã lưu danh mục mẫu.");
         setCreating(false);
         setEditing(null);
       } else {
-        showToast(result.message ?? "Không thể lưu thay đổi.", "error");
+        toast.error(result.message ?? "Không thể lưu thay đổi.");
       }
     });
   }
@@ -166,9 +168,9 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
         status: value,
       });
       if (result.ok) {
-        showToast("Đã cập nhật trạng thái danh mục.", "success");
+        toast.success("Đã cập nhật trạng thái danh mục.");
       } else {
-        showToast(result.message ?? "Không thể thay đổi trạng thái.", "error");
+        toast.error(result.message ?? "Không thể thay đổi trạng thái.");
       }
     });
   }
@@ -178,9 +180,9 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
     start(async () => {
       const result = await reorderTemplateCategoriesAction(orderedIds);
       if (result.ok) {
-        showToast("Đã cập nhật thứ tự danh mục.", "success");
+        toast.success("Đã cập nhật thứ tự danh mục.");
       } else {
-        showToast(result.message ?? "Không thể sắp xếp lại.", "error");
+        toast.error(result.message ?? "Không thể sắp xếp lại.");
       }
     });
   }
@@ -242,8 +244,8 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
           </div>
         </div>
 
-        <button
-          className="button-primary inline-flex items-center gap-2"
+        <Button
+          variant="default"
           onClick={() => {
             setCreating(true);
             setEditing(null);
@@ -252,7 +254,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
         >
           <Plus size={18} />
           Thêm danh mục mẫu
-        </button>
+        </Button>
       </div>
 
       {/* Info banner */}
@@ -439,15 +441,15 @@ function Node({
 
         {/* Actions */}
         <div className="flex items-center gap-1.5">
-          <button
-            className="button-secondary icon-button !min-h-[34px] !min-w-[34px] !p-1.5"
+          <Button
+            variant="outline" size="icon-sm" className="!min-h-[34px] !min-w-[34px] !p-1.5"
             onClick={() => onEdit(category.id)}
             disabled={pending}
             title="Chỉnh sửa danh mục mẫu"
             aria-label={`Chỉnh sửa ${category.name}`}
           >
             <Pencil size={15} />
-          </button>
+          </Button>
           <button
             className={`button-secondary icon-button !min-h-[34px] !min-w-[34px] !p-1.5 ${
               category.status === "active" ? "hover:text-rose-500" : "hover:text-emerald-500"
@@ -551,8 +553,8 @@ function TemplateForm({
         {/* Name Input */}
         <div>
           <label className="text-xs font-semibold text-slate-500 mb-1 block">Tên danh mục *</label>
-          <input
-            className="field"
+          <Input
+            
             name="name"
             required
             value={name}
@@ -567,8 +569,8 @@ function TemplateForm({
             <label className="text-xs font-semibold text-slate-500">Mã danh mục (Code) *</label>
             <span className="text-[10px] text-slate-400">Tự động tạo từ tên</span>
           </div>
-          <input
-            className="field font-mono text-sm uppercase"
+          <Input
+            className="font-mono text-sm uppercase"
             name="code"
             required
             value={code}
@@ -660,12 +662,12 @@ function TemplateForm({
       </div>
 
       <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
-        <button type="button" className="button-secondary text-sm" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Hủy bỏ
-        </button>
-        <button className="button-primary text-sm" disabled={pending}>
+        </Button>
+        <Button variant="default" disabled={pending}>
           {pending ? "Đang xử lý..." : "Lưu danh mục"}
-        </button>
+        </Button>
       </div>
     </form>
   );

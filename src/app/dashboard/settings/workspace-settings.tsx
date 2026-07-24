@@ -3,7 +3,12 @@
 import { Settings2, Trash2, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useState, useTransition } from "react";
 import { deleteWorkspaceAction, updateWorkspaceSettingsAction } from "@/app/dashboard/settings/actions";
-import { showToast } from "@/components/toast-container";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 
 type Workspace = {
   name: string;
@@ -33,25 +38,25 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
         status: form.get("status"),
       });
       if (result.ok) {
-        showToast("Đã lưu cấu hình workspace thành công!", "success");
+        toast.success("Đã lưu cấu hình workspace thành công!");
       } else {
-        showToast(result.message ?? "Không thể lưu cấu hình.", "error");
+        toast.error(result.message ?? "Không thể lưu cấu hình.");
       }
     });
   }
 
   function remove() {
     if (!confirmPassword.trim()) {
-      showToast("Vui lòng nhập mật khẩu tài khoản để xác nhận xóa.", "error");
+      toast.error("Vui lòng nhập mật khẩu tài khoản để xác nhận xóa.");
       return;
     }
     start(async () => {
       const result = await deleteWorkspaceAction(confirmPassword);
       if (result.ok) {
-        showToast("Đã xóa workspace. Đang chuyển về tổng quan...", "success");
+        toast.success("Đã xóa workspace. Đang chuyển về tổng quan...");
         window.location.assign("/overview");
       } else {
-        showToast(result.message ?? "Không thể xóa workspace.", "error");
+        toast.error(result.message ?? "Không thể xóa workspace.");
       }
     });
   }
@@ -93,23 +98,23 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
         <form onSubmit={save} className="space-y-5 pt-2 relative">
           {/* Name — full width, prominent */}
           <div className="space-y-2">
-            <label htmlFor="ws-name" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+            <Label htmlFor="ws-name" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
               Tên workspace <span className="text-rose-500">*</span>
-            </label>
-            <input
+            </Label>
+            <Input
               id="ws-name"
               required
               name="name"
               defaultValue={workspace.name}
-              className="field w-full text-base font-semibold"
+              className="w-full text-base font-semibold"
             />
           </div>
 
           {/* Status */}
           <div className="space-y-2">
-            <label htmlFor="ws-status" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+            <Label htmlFor="ws-status" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
               Trạng thái
-            </label>
+            </Label>
             <select id="ws-status" name="status" defaultValue={workspace.status} className="field w-full text-sm">
               <option value="active">🟢 Đang hoạt động</option>
               <option value="deactive">🟡 Tạm ngưng</option>
@@ -118,43 +123,32 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
 
           {/* Description with character hint */}
           <div className="space-y-2">
-            <label htmlFor="ws-desc" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+            <Label htmlFor="ws-desc" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
               Mô tả
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               id="ws-desc"
               name="description"
               rows={3}
               maxLength={500}
               defaultValue={workspace.description ?? ""}
               placeholder="Mục đích hoặc phạm vi sử dụng của workspace..."
-              className="field settings-textarea w-full text-sm resize-none"
+              className="settings-textarea w-full text-sm resize-none"
             />
           </div>
 
-          {/* Approval Workflow — Custom Toggle Switch */}
-          <div
-            className={`ws-toggle-card ${approvalOn ? "ws-toggle-card-active" : ""}`}
-            role="button"
-            tabIndex={0}
-            onClick={() => setApprovalOn(!approvalOn)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setApprovalOn(!approvalOn);
-              }
-            }}
-          >
-            <div
-              className={`ws-toggle-track ${approvalOn ? "ws-toggle-track-on" : ""}`}
-              role="switch"
-              aria-checked={approvalOn}
+          {/* Approval Workflow — Switch */}
+          <div className="ws-toggle-card" onClick={() => setApprovalOn(!approvalOn)}>
+            <Switch
+              id="approval-switch"
+              checked={approvalOn}
+              onCheckedChange={setApprovalOn}
               aria-label="Yêu cầu duyệt giao dịch"
             />
             <div className="space-y-0.5">
-              <span className="font-bold text-[var(--foreground)] block text-sm">
+              <Label htmlFor="approval-switch" className="font-bold text-[var(--foreground)] block text-sm cursor-pointer">
                 Yêu cầu duyệt giao dịch
-              </span>
+              </Label>
               <p className="text-xs text-slate-500 leading-relaxed">
                 Giao dịch do thành viên tạo sẽ chờ duyệt trước khi ảnh hưởng đến số dư thực tế.
               </p>
@@ -162,10 +156,10 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
           </div>
 
           <div className="flex items-center justify-end pt-2 border-t border-[var(--border)]">
-            <button
+            <Button
               type="submit"
               disabled={pending}
-              className="button-primary inline-flex items-center gap-2 font-semibold text-sm px-6 py-2.5 shadow-sm"
+              variant="default" className="px-6 py-2.5"
             >
               {pending ? (
                 <>
@@ -175,7 +169,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
               ) : (
                 "Lưu thay đổi"
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </section>
@@ -195,18 +189,18 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
             </div>
           </div>
 
-          <button
+          <Button
             type="button"
             disabled={pending}
             onClick={() => {
               setConfirmPassword("");
               setDeleteDialog(true);
             }}
-            className="button-danger inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold shrink-0 shadow-sm transition-all"
+            variant="destructive" size="sm" className="px-4 py-2 shrink-0"
           >
             <Trash2 size={15} />
             Xóa Workspace
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -232,9 +226,9 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
             </p>
 
             <div className="space-y-1.5 relative">
-              <label htmlFor="confirm-password-input" className="block text-xs font-bold text-[var(--foreground)]">
+              <Label htmlFor="confirm-password-input" className="block text-xs font-bold text-[var(--foreground)]">
                 Mật khẩu tài khoản <span className="text-rose-500">*</span>
-              </label>
+              </Label>
               <input
                 id="confirm-password-input"
                 type="password"
@@ -254,22 +248,22 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border)] relative">
-              <button
+              <Button
                 type="button"
                 disabled={pending}
                 onClick={() => {
                   setDeleteDialog(false);
                   setConfirmPassword("");
                 }}
-                className="button-secondary text-xs font-semibold px-4 py-2"
+                variant="outline" size="sm" className="px-4 py-2"
               >
                 Hủy
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 disabled={pending || !confirmPassword.trim()}
                 onClick={remove}
-                className="button-danger text-xs font-semibold px-4 py-2 inline-flex items-center gap-1.5"
+                variant="destructive" size="sm" className="px-4 py-2"
               >
                 {pending ? (
                   <>
@@ -279,7 +273,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
                 ) : (
                   "Xác nhận xóa"
                 )}
-              </button>
+              </Button>
             </div>
           </section>
         </div>

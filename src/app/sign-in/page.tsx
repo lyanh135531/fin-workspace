@@ -6,6 +6,7 @@ import {
   Eye, EyeOff, ShieldCheck, TrendingUp, Wallet, BarChart3, AlertCircle, User, Lock,
 } from "lucide-react";
 import { FinLogo } from "@/components/fin-logo";
+import { Label } from "@/components/ui/label";
 
 export default function SignInPage() {
   const id = useId();
@@ -107,9 +108,9 @@ export default function SignInPage() {
               <div className="auth-fields">
                 {/* Username */}
                 <div className="auth-floating-field">
-                  <label htmlFor={`${id}-username`}>
+                  <Label htmlFor={`${id}-username`}>
                     Tên đăng nhập <span aria-hidden>*</span>
-                  </label>
+                  </Label>
                   <div className="auth-field-wrap has-left-icon">
                     <span className="auth-field-left-icon" aria-hidden>
                       <User size={16} strokeWidth={2} />
@@ -129,9 +130,9 @@ export default function SignInPage() {
 
                 {/* Password */}
                 <div className="auth-floating-field">
-                  <label htmlFor={`${id}-password`}>
+                  <Label htmlFor={`${id}-password`}>
                     Mật khẩu <span aria-hidden>*</span>
-                  </label>
+                  </Label>
                   <div className="auth-field-wrap has-left-icon">
                     <span className="auth-field-left-icon" aria-hidden>
                       <Lock size={16} strokeWidth={2} />

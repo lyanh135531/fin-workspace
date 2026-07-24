@@ -3,7 +3,9 @@
 import { UserPlus } from "lucide-react";
 import { useTransition } from "react";
 import { createMemberAccountAction } from "@/app/dashboard/users/actions";
-import { showToast } from "@/components/toast-container";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 type Workspace = { id: string; name: string };
 
@@ -19,10 +21,10 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
         workspaceIds,
       });
       if (result.ok) {
-        showToast("Đã tạo tài khoản Member và cấp quyền workspace đã chọn.", "success");
+        toast.success("Đã tạo tài khoản Member và cấp quyền workspace đã chọn.");
         (document.getElementById("member-account-form") as HTMLFormElement | null)?.reset();
       } else {
-        showToast(result.message ?? "Không thể tạo tài khoản.", "error");
+        toast.error(result.message ?? "Không thể tạo tài khoản.");
       }
     });
   }
@@ -42,11 +44,11 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
       <form id="member-account-form" action={submit} className="mt-6 grid gap-4 md:grid-cols-2">
         <label className="text-sm font-medium">
           Username
-          <input className="field mt-2" required name="username" minLength={3} maxLength={80} autoComplete="username" placeholder="Ví dụ: minh"/>
+          <Input className="mt-2" required name="username" minLength={3} maxLength={80} autoComplete="username" placeholder="Ví dụ: minh"/>
         </label>
         <label className="text-sm font-medium">
           Mật khẩu ban đầu
-          <input className="field mt-2" required name="password" type="password" minLength={6} maxLength={128} autoComplete="new-password" placeholder="Tối thiểu 6 ký tự"/>
+          <Input className="mt-2" required name="password" type="password" minLength={6} maxLength={128} autoComplete="new-password" placeholder="Tối thiểu 6 ký tự"/>
         </label>
         <fieldset className="rounded-xl border border-[var(--border)] p-4 md:col-span-2">
           <legend className="px-1 text-sm font-medium">Workspace được quyền tham gia</legend>
@@ -62,10 +64,10 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
           </div>
         </fieldset>
         <div className="flex items-center justify-end gap-3 md:col-span-2">
-          <button disabled={pending} className="button-primary inline-flex items-center gap-2">
+          <Button disabled={pending} variant="default">
             <UserPlus size={17}/>
             {pending ? "Đang tạo..." : "Tạo tài khoản"}
-          </button>
+          </Button>
         </div>
       </form>
     </section>

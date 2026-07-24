@@ -3,7 +3,8 @@
 import { ShieldCheck, UserRoundX, UsersRound } from "lucide-react";
 import { useState, useTransition } from "react";
 import { changeMemberRoleAction, removeMemberAction } from "@/app/dashboard/settings/actions";
-import { showToast } from "@/components/toast-container";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 type Role = { code: string; name: string };
 type Member = { id: string; username: string; roleCode: string; isSelf: boolean };
@@ -49,9 +50,9 @@ export function SettingsClient({
     start(async () => {
       const result = await changeMemberRoleAction({ memberId: id, roleCode });
       if (result.ok) {
-        showToast("Đã cập nhật vai trò thành viên.", "success");
+        toast.success("Đã cập nhật vai trò thành viên.");
       } else {
-        showToast(result.message ?? "Không thể cập nhật vai trò.", "error");
+        toast.error(result.message ?? "Không thể cập nhật vai trò.");
       }
     });
   }
@@ -60,9 +61,9 @@ export function SettingsClient({
     start(async () => {
       const result = await removeMemberAction(id);
       if (result.ok) {
-        showToast("Đã gỡ thành viên khỏi workspace.", "success");
+        toast.success("Đã gỡ thành viên khỏi workspace.");
       } else {
-        showToast(result.message ?? "Không thể gỡ thành viên.", "error");
+        toast.error(result.message ?? "Không thể gỡ thành viên.");
       }
     });
   }
@@ -143,15 +144,15 @@ export function SettingsClient({
               <div className="member-actions">
                 {member.isSelf ? null : (
                   isAdmin && (
-                    <button
+                    <Button
                       disabled={pending}
-                      className="button-secondary icon-button !min-h-[34px] !min-w-[34px] !p-1.5 hover:text-rose-500 hover:border-rose-500/30"
+                      variant="outline" size="icon-sm" className="!min-h-[34px] !min-w-[34px] !p-1.5 hover:text-rose-500 hover:border-rose-500/30"
                       title={`Gỡ ${member.username} khỏi workspace`}
                       aria-label={`Gỡ ${member.username} khỏi workspace`}
                       onClick={() => remove(member.id)}
                     >
                       <UserRoundX size={16} />
-                    </button>
+                    </Button>
                   )
                 )}
               </div>

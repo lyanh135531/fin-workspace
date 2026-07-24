@@ -2,7 +2,8 @@
 
 import { useTransition } from "react";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
-import { showToast } from "@/components/toast-container";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 type Role = { code: string; name: string };
 type Request = { id: string; username: string };
@@ -14,9 +15,9 @@ export function JoinRequestsClient({ requests, roles }: { requests: Request[]; r
     start(async () => {
       const r = await reviewJoinAction({ requestId: id, approve, roleCode });
       if (r.ok) {
-        showToast("Đã xử lý yêu cầu tham gia.", "success");
+        toast.success("Đã xử lý yêu cầu tham gia.");
       } else {
-        showToast(r.message ?? "Không thể xử lý yêu cầu.", "error");
+        toast.error(r.message ?? "Không thể xử lý yêu cầu.");
       }
     });
   }
@@ -34,16 +35,17 @@ export function JoinRequestsClient({ requests, roles }: { requests: Request[]; r
                 </option>
               ))}
             </select>
-            <button disabled={pending} onClick={() => review(r.id, false)} className="button-secondary">
+            <Button disabled={pending} onClick={() => review(r.id, false)} variant="outline" size="sm">
               Từ chối
-            </button>
-            <button
+            </Button>
+            <Button
               disabled={pending}
               onClick={() => review(r.id, true, (document.getElementById(`role-${r.id}`) as HTMLSelectElement)?.value)}
-              className="button-primary"
+              variant="default"
+              size="sm"
             >
               Duyệt
-            </button>
+            </Button>
           </div>
         </article>
       ))}

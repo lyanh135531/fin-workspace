@@ -3,7 +3,10 @@
 import { Building2, Plus, Sparkles, Wallet, ShieldCheck, KeyRound, ArrowRight } from "lucide-react";
 import { useState, useTransition } from "react";
 import { createWorkspaceAction } from "@/app/dashboard/settings/actions";
-import { showToast } from "@/components/toast-container";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 const NAME_SUGGESTIONS = [
   "Chi tiêu gia đình",
@@ -27,12 +30,12 @@ export function CreateWorkspaceForm() {
         approvalRequired: form.get("approvalRequired") === "on",
       });
       if (result.ok) {
-        showToast("Tạo workspace thành công! Đang chuyển hướng...", "success");
+        toast.success("Tạo workspace thành công! Đang chuyển hướng...");
         setTimeout(() => {
           window.location.assign("/overview");
         }, 800);
       } else {
-        showToast(result.message ?? "Không thể tạo workspace.", "error");
+        toast.error(result.message ?? "Không thể tạo workspace.");
       }
     });
   }
@@ -60,9 +63,9 @@ export function CreateWorkspaceForm() {
           <form onSubmit={submit} className="space-y-5 pt-2">
             {/* Workspace Name & Suggestions */}
             <div className="space-y-2">
-              <label htmlFor="workspace-name-input" className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
+              <Label htmlFor="workspace-name-input" className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
                 Tên workspace <span className="text-rose-500">*</span>
-              </label>
+              </Label>
               <input
                 id="workspace-name-input"
                 required
@@ -98,16 +101,16 @@ export function CreateWorkspaceForm() {
 
             {/* Description */}
             <div className="space-y-2">
-              <label htmlFor="workspace-desc-input" className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
+              <Label htmlFor="workspace-desc-input" className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
                 Mô tả ngắn <span className="text-slate-400 font-normal lowercase">(tùy chọn)</span>
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 id="workspace-desc-input"
                 name="description"
                 maxLength={500}
                 rows={3}
                 placeholder="Mục đích hoặc phạm vi sử dụng của workspace..."
-                className="field settings-textarea w-full text-sm resize-none"
+                className="settings-textarea w-full text-sm resize-none"
               />
             </div>
 
@@ -133,10 +136,10 @@ export function CreateWorkspaceForm() {
 
             {/* Submit Button */}
             <div className="pt-2 flex justify-end">
-              <button
+              <Button
                 type="submit"
                 disabled={pending || !name.trim()}
-                className="button-primary inline-flex items-center gap-2 font-semibold text-sm px-6 py-2.5 shadow-sm"
+                variant="default" className="px-6 py-2.5"
               >
                 {pending ? (
                   <>
@@ -150,7 +153,7 @@ export function CreateWorkspaceForm() {
                     <ArrowRight size={15} />
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           </form>
         </section>

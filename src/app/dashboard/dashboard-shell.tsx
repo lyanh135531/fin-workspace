@@ -88,6 +88,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
           pendingJoinCount={pendingJoinCount}
           isAdmin={isAdmin}
           isOwner={isOwner}
+          username={username}
         />
 
         {/* User section with logout */}

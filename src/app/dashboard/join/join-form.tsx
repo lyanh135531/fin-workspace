@@ -3,7 +3,8 @@
 import { useTransition, useRef } from "react";
 import { KeyRound, Send, Loader2 } from "lucide-react";
 import { requestJoinAction } from "@/app/dashboard/join/actions";
-import { showToast } from "@/components/toast-container";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 export function JoinForm() {
   const [pending, start] = useTransition();
@@ -13,10 +14,10 @@ export function JoinForm() {
     start(async () => {
       const r = await requestJoinAction({ inviteCode: f.get("inviteCode") });
       if (r.ok) {
-        showToast("Đã gửi yêu cầu thành công! Hãy chờ Admin workspace duyệt.", "success");
+        toast.success("Đã gửi yêu cầu thành công! Hãy chờ Admin workspace duyệt.");
         formRef.current?.reset();
       } else {
-        showToast(r.message ?? "Không thể gửi yêu cầu.", "error");
+        toast.error(r.message ?? "Không thể gửi yêu cầu.");
       }
     });
   }
@@ -37,9 +38,9 @@ export function JoinForm() {
       </div>
 
       <div className="join-form-body">
-        <label className="join-form-label" htmlFor="join-invite-code">
+        <Label className="join-form-label" htmlFor="join-invite-code">
           Mã mời Workspace
-        </label>
+        </Label>
         <div className="join-form-input-row">
           <input
             id="join-invite-code"

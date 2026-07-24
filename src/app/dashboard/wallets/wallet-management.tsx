@@ -17,8 +17,12 @@ import {
   createManagedWalletAction,
   updateManagedWalletAction,
 } from "@/app/dashboard/wallets/actions";
-import { showToast } from "@/components/toast-container";
 import { formatAmount } from "@/lib/format";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 type WalletItem = {
   id: string;
@@ -94,12 +98,12 @@ export function WalletManagement({
         description: data.get("description") || undefined,
       });
       if (result.ok) {
-        showToast("Đã tạo ví mới thành công!", "success");
+        toast.success("Đã tạo ví mới thành công!");
         form.reset();
         setCreatingModal(false);
         router.refresh();
       } else {
-        showToast(result.message ?? "Không thể tạo ví.", "error");
+        toast.error(result.message ?? "Không thể tạo ví.");
       }
     });
   }
@@ -115,11 +119,11 @@ export function WalletManagement({
         description: data.get("description"),
       });
       if (result.ok) {
-        showToast("Đã cập nhật thông tin ví thành công!", "success");
+        toast.success("Đã cập nhật thông tin ví thành công!");
         setEditingWallet(null);
         router.refresh();
       } else {
-        showToast(result.message ?? "Không thể cập nhật ví.", "error");
+        toast.error(result.message ?? "Không thể cập nhật ví.");
       }
     });
   }
@@ -130,14 +134,14 @@ export function WalletManagement({
       <div className="page-header">
         <h1 className="page-title">Ví</h1>
         {isAdmin && (
-          <button
+          <Button
             type="button"
-            className="button-primary inline-flex items-center gap-2 font-semibold text-sm px-4 py-2 shadow-sm shrink-0"
+            variant="default" className="px-4 py-2 shrink-0"
             onClick={() => setCreatingModal(true)}
           >
             <Plus size={16} />
             <span>Thêm ví</span>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -290,15 +294,15 @@ export function WalletManagement({
                 </div>
 
                 {isAdmin && (
-                  <button
+                  <Button
                     type="button"
-                    className="button-secondary icon-button !min-h-[34px] !min-w-[34px] !p-1.5 shrink-0"
+                    variant="outline" size="icon-sm" className="!min-h-[34px] !min-w-[34px] !p-1.5 shrink-0"
                     title={`Chỉnh sửa ${wallet.name}`}
                     aria-label={`Chỉnh sửa ${wallet.name}`}
                     onClick={() => setEditingWallet(wallet)}
                   >
                     <Pencil size={15} />
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -347,14 +351,14 @@ export function WalletManagement({
                 : "Admin chưa khởi tạo ví cho workspace này."}
             </p>
             {isAdmin && !searchQuery && (
-              <button
+              <Button
                 type="button"
-                className="button-primary inline-flex items-center gap-2 font-semibold text-xs px-4 py-2 mt-4"
+                variant="default" size="sm" className="px-4 py-2 mt-4"
                 onClick={() => setCreatingModal(true)}
               >
                 <Plus size={15} />
                 Tạo ví đầu tiên
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -398,58 +402,58 @@ export function WalletManagement({
 
             <div className="space-y-4 relative">
               <div>
-                <label htmlFor="create-name" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
+                <Label htmlFor="create-name" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
                   Tên ví <span className="text-rose-500">*</span>
-                </label>
-                <input
+                </Label>
+                <Input
                   id="create-name"
                   name="name"
                   required
                   maxLength={120}
                   autoFocus
                   placeholder="Ví dụ: Tiền mặt, Ngân hàng VCB..."
-                  className="field w-full text-sm font-medium"
+                  className="w-full text-sm font-medium"
                 />
               </div>
 
               <div>
-                <label htmlFor="create-opening" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
+                <Label htmlFor="create-opening" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
                   Số dư đầu kỳ <span className="text-rose-500">*</span>
-                </label>
-                <input
+                </Label>
+                <Input
                   id="create-opening"
                   name="openingBalance"
                   required
                   inputMode="decimal"
                   placeholder="0"
-                  className="field w-full text-sm font-semibold tabular-nums"
+                  className="w-full text-sm font-semibold tabular-nums"
                 />
               </div>
 
               <div>
-                <label htmlFor="create-desc" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
+                <Label htmlFor="create-desc" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
                   Mô tả ví <span className="text-slate-400 font-normal lowercase">(tùy chọn)</span>
-                </label>
-                <textarea
+                </Label>
+                <Textarea
                   id="create-desc"
                   name="description"
                   rows={3}
                   maxLength={2000}
                   placeholder="Mục đích sử dụng của ví..."
-                  className="field settings-textarea w-full text-sm resize-none"
+                  className="settings-textarea w-full text-sm resize-none"
                 />
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)] relative">
-              <button
+              <Button
                 type="button"
-                className="button-secondary text-xs font-semibold px-4 py-2"
+                variant="outline" size="sm" className="px-4 py-2"
                 onClick={() => setCreatingModal(false)}
               >
                 Hủy
-              </button>
-              <button className="button-primary text-xs font-semibold px-5 py-2 inline-flex items-center gap-1.5" disabled={pending}>
+              </Button>
+              <Button variant="default" size="sm" className="px-5 py-2" disabled={pending}>
                 {pending ? (
                   <>
                     <span className="btn-spinner" aria-hidden />
@@ -458,7 +462,7 @@ export function WalletManagement({
                 ) : (
                   "Tạo ví"
                 )}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -502,44 +506,44 @@ export function WalletManagement({
 
             <div className="space-y-4 relative">
               <div>
-                <label htmlFor="edit-name" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
+                <Label htmlFor="edit-name" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
                   Tên ví <span className="text-rose-500">*</span>
-                </label>
-                <input
+                </Label>
+                <Input
                   id="edit-name"
                   name="name"
                   required
                   maxLength={120}
                   defaultValue={editingWallet.name}
-                  className="field w-full text-sm font-medium"
+                  className="w-full text-sm font-medium"
                 />
               </div>
 
               <div>
-                <label htmlFor="edit-desc" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
+                <Label htmlFor="edit-desc" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
                   Mô tả ví <span className="text-slate-400 font-normal lowercase">(tùy chọn)</span>
-                </label>
-                <textarea
+                </Label>
+                <Textarea
                   id="edit-desc"
                   name="description"
                   rows={3}
                   maxLength={2000}
                   defaultValue={editingWallet.description ?? ""}
                   placeholder="Mục đích sử dụng của ví..."
-                  className="field settings-textarea w-full text-sm resize-none"
+                  className="settings-textarea w-full text-sm resize-none"
                 />
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)] relative">
-              <button
+              <Button
                 type="button"
-                className="button-secondary text-xs font-semibold px-4 py-2"
+                variant="outline" size="sm" className="px-4 py-2"
                 onClick={() => setEditingWallet(null)}
               >
                 Hủy
-              </button>
-              <button className="button-primary text-xs font-semibold px-5 py-2 inline-flex items-center gap-1.5" disabled={pending}>
+              </Button>
+              <Button variant="default" size="sm" className="px-5 py-2" disabled={pending}>
                 {pending ? (
                   <>
                     <span className="btn-spinner" aria-hidden />
@@ -548,7 +552,7 @@ export function WalletManagement({
                 ) : (
                   "Lưu thay đổi"
                 )}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

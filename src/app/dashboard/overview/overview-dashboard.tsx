@@ -9,6 +9,7 @@ import { MonthPicker } from "@/components/finance/date-picker-field";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatAmount } from "@/lib/format";
+import { Button } from "@/components/ui/button";
 
 type Transaction = { id: string; amount: string; type: "income" | "expense" | "transfer"; status: "pending" | "scheduled" | "approved" | "rejected"; description: string | null; date: string; walletId: string; toWalletId: string | null; wallet: string; categoryId: string | null; category: { name: string; color: string } | null; memberId: string; member: string };
 type MonthlyFinancial = { period: string; balance: string; expense: string };
@@ -36,7 +37,7 @@ export function OverviewDashboard({ workspace, wallets, totalByCurrency, categor
   const reset = () => { setMonth(initialMonth); setWalletId("all"); setCategoryId("all"); setMemberId("all"); setType("all"); setShowPending(false); };
 
   return <div className="overview-shell">
-    <div className="overview-title"><div><p>Workspace · {workspace.name}</p><h1>Tổng quan tài chính</h1></div><a className="button-primary overview-add" href={`/workspace/${workspace.id}`} aria-label="Thêm giao dịch">Thêm giao dịch</a></div>
+    <div className="overview-title"><div><p>Workspace · {workspace.name}</p><h1>Tổng quan tài chính</h1></div><Button render={<a href={`/workspace/${workspace.id}`} aria-label="Thêm giao dịch" />} className="overview-add">Thêm giao dịch</Button></div>
     <section className="overview-filter-panel" aria-label="Bộ lọc báo cáo">
       <div className="overview-filter-heading"><div className="overview-filter-title"><span><Funnel size={16}/></span><div><strong>Bộ lọc báo cáo</strong><small>{activeFilterCount ? `${activeFilterCount} điều kiện đang áp dụng` : "Đang hiển thị toàn bộ dữ liệu trong tháng"}</small></div></div><button type="button" onClick={reset} className="overview-reset" disabled={!activeFilterCount}><RefreshCw size={15}/>Đặt lại</button></div>
       <div className="overview-filter-grid">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Building2, KeyRound, Plus, ArrowRight, Clock, Sparkles } from "lucide-react";
 import { JoinRequestRecord } from "@/services/join-request-query";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   username: string;
@@ -89,14 +90,11 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
           </div>
 
           <div className="mt-6 pt-4 border-t border-[var(--border)]">
-            <Link
-              href="/workspaces/create"
-              className="button-primary w-full inline-flex items-center justify-center gap-2 text-sm font-semibold"
-            >
+            <Button render={<Link href="/workspaces/create" />} className="w-full justify-center">
               <Plus size={18} />
               Tạo Workspace ngay
               <ArrowRight size={16} />
-            </Link>
+            </Button>
           </div>
         </section>
 
@@ -123,14 +121,11 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
           </div>
 
           <div className="mt-6 pt-4 border-t border-[var(--border)]">
-            <Link
-              href="/settings/join"
-              className="button-secondary w-full inline-flex items-center justify-center gap-2 text-sm font-semibold"
-            >
+            <Button variant="outline" render={<Link href="/settings/join" />} className="w-full justify-center">
               <KeyRound size={18} />
               Nhập mã tham gia
               <ArrowRight size={16} />
-            </Link>
+            </Button>
           </div>
         </section>
       </div>

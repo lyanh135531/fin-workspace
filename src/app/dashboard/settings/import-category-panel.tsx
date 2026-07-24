@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import { ArrowDownLeft, ArrowUpRight, Download, Tag, CheckCircle2 } from "lucide-react";
 import { importCategoriesAction } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP } from "@/app/dashboard/settings/global-category-management";
-import { showToast } from "@/components/toast-container";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 type TemplateCategory = {
   id: string;
@@ -51,15 +52,14 @@ export function ImportCategoryPanel({
     start(async () => {
       const result = await importCategoriesAction([...selected]);
       if (result.ok) {
-        showToast(
+        toast.success(
           `Đã import ${result.importedCount ?? 0} danh mục${
             result.skippedCount ? `, bỏ qua ${result.skippedCount} trùng mã` : ""
-          }.`,
-          "success"
+          }.`
         );
         setSelected(new Set());
       } else {
-        showToast(result.message ?? "Không thể import danh mục.", "error");
+        toast.error(result.message ?? "Không thể import danh mục.");
       }
     });
   }
@@ -102,23 +102,23 @@ export function ImportCategoryPanel({
         </div>
         <div className="flex items-center gap-2">
           {importableTemplates.length > 0 && (
-            <button
+            <Button
               type="button"
-              className="button-secondary text-xs"
+              variant="outline" size="sm"
               onClick={toggleAll}
               disabled={pending}
             >
               {selected.size === importableTemplates.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-            </button>
+            </Button>
           )}
-          <button
-            className="button-primary inline-flex items-center gap-2"
+          <Button
+            variant="default"
             onClick={doImport}
             disabled={pending || selected.size === 0}
           >
             <Download size={17} />
             {pending ? "Đang import..." : `Import (${selected.size})`}
-          </button>
+          </Button>
         </div>
       </div>
 

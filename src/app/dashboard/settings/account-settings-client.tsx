@@ -14,7 +14,10 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { changePasswordAction } from "@/app/dashboard/settings/general-actions";
-import { showToast } from "@/components/toast-container";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 function getInitials(username: string): string {
   const parts = username.trim().split(/[\s_\-\.]+/);
@@ -39,23 +42,23 @@ export function AccountSettingsClient({
     const newPassword = String(formData.get("newPassword") || "");
 
     if (newPassword !== confirmPassword) {
-      showToast("Mật khẩu xác nhận không trùng khớp với mật khẩu mới.", "error");
+      toast.error("Mật khẩu xác nhận không trùng khớp với mật khẩu mới.");
       return;
     }
 
     if (newPassword.length < 6) {
-      showToast("Mật khẩu mới phải có tối thiểu 6 ký tự.", "error");
+      toast.error("Mật khẩu mới phải có tối thiểu 6 ký tự.");
       return;
     }
 
     start(async () => {
       const result = await changePasswordAction({ currentPassword, newPassword });
       if (result.ok) {
-        showToast("Đã đổi mật khẩu thành công!", "success");
+        toast.success("Đã đổi mật khẩu thành công!");
         formRef.current?.reset();
         setConfirmPassword("");
       } else {
-        showToast(result.message ?? "Không thể đổi mật khẩu.", "error");
+        toast.error(result.message ?? "Không thể đổi mật khẩu.");
       }
     });
   }
@@ -117,18 +120,18 @@ export function AccountSettingsClient({
 
           <form ref={formRef} onSubmit={handleSubmit} className="mt-5 space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="currentPassword">
+              <Label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="currentPassword">
                 Mật khẩu hiện tại <span className="text-red-500">*</span>
-              </label>
+              </Label>
               <div className="relative">
-                <input
+                <Input
                   id="currentPassword"
                   required
                   name="currentPassword"
                   type="password"
                   autoComplete="current-password"
                   placeholder="Nhập mật khẩu đang sử dụng"
-                  className="field pr-10 text-sm"
+                  className="pr-10 text-sm"
                 />
                 <Lock size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
               </div>
@@ -136,11 +139,11 @@ export function AccountSettingsClient({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="newPassword">
+                <Label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="newPassword">
                   Mật khẩu mới <span className="text-red-500">*</span>
-                </label>
+                </Label>
                 <div className="relative">
-                  <input
+                  <Input
                     id="newPassword"
                     required
                     name="newPassword"
@@ -149,16 +152,16 @@ export function AccountSettingsClient({
                     maxLength={128}
                     autoComplete="new-password"
                     placeholder="Tối thiểu 6 ký tự"
-                    className="field pr-10 text-sm"
+                    className="pr-10 text-sm"
                   />
                   <Lock size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="confirmPassword">
+                <Label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="confirmPassword">
                   Xác nhận mật khẩu mới <span className="text-red-500">*</span>
-                </label>
+                </Label>
                 <div className="relative">
                   <input
                     id="confirmPassword"
@@ -181,14 +184,14 @@ export function AccountSettingsClient({
 
 
             <div className="pt-2 flex justify-end">
-              <button
+              <Button
                 disabled={pending}
                 type="submit"
-                className="button-primary inline-flex items-center gap-2 text-sm"
+                variant="default"
               >
                 <ShieldCheck size={16} />
                 {pending ? "Đang cập nhật…" : "Cập nhật mật khẩu"}
-              </button>
+              </Button>
             </div>
           </form>
         </section>
@@ -224,14 +227,14 @@ export function AccountSettingsClient({
           </div>
 
           <div className="mt-6 pt-4 border-t border-[var(--border)]">
-            <button
+            <Button
               type="button"
-              className="button-secondary w-full inline-flex items-center justify-center gap-2 text-red-600 dark:text-red-400 border-red-500/20 hover:bg-red-500/10"
+              variant="outline" className="w-full text-red-600 dark:text-red-400 border-red-500/20 hover:bg-red-500/10"
               onClick={() => signOut({ callbackUrl: "/sign-in" })}
             >
               <LogOut size={16} />
               <span>Đăng xuất khỏi tài khoản</span>
-            </button>
+            </Button>
           </div>
         </section>
       </div>
