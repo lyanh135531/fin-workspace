@@ -23,6 +23,8 @@ import {
 import { ICON_MAP, slugifyCode } from "@/app/dashboard/settings/global-category-management";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+
 import { toast } from "sonner";
 
 type Category = {
@@ -204,13 +206,11 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
 
       {/* Tabs: Chi tiêu & Thu nhập + Search */}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
-        <div className="flex items-center gap-2 p-1 bg-[var(--surface-muted)] rounded-xl border border-[var(--border)]">
+        <div className="settings-segmented-control">
           <button
             type="button"
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-              filterType === "expense"
-                ? "bg-[var(--surface)] text-rose-600 shadow-sm border border-rose-500/20"
-                : "text-[var(--text-secondary)] hover:text-rose-600"
+            className={`segmented-btn ${
+              filterType === "expense" ? "segmented-btn-active !text-rose-600" : ""
             }`}
             onClick={() => {
               setFilterType("expense");
@@ -219,15 +219,13 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
               setSearchQuery("");
             }}
           >
-            <ArrowUpRight size={14} />
-            Chi tiêu ({categories.filter((c) => c.type === "expense").length})
+            <ArrowUpRight size={13} />
+            <span>Chi tiêu ({categories.filter((c) => c.type === "expense").length})</span>
           </button>
           <button
             type="button"
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-              filterType === "income"
-                ? "bg-[var(--surface)] text-emerald-600 shadow-sm border border-emerald-500/20"
-                : "text-[var(--text-secondary)] hover:text-emerald-600"
+            className={`segmented-btn ${
+              filterType === "income" ? "segmented-btn-active !text-emerald-600" : ""
             }`}
             onClick={() => {
               setFilterType("income");
@@ -236,10 +234,11 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
               setSearchQuery("");
             }}
           >
-            <ArrowDownLeft size={14} />
-            Thu nhập ({categories.filter((c) => c.type === "income").length})
+            <ArrowDownLeft size={13} />
+            <span>Thu nhập ({categories.filter((c) => c.type === "income").length})</span>
           </button>
         </div>
+
 
         {/* Search Bar */}
         <div className="ws-category-search">
@@ -411,16 +410,20 @@ function CategoryNode({
           >
             <Pencil size={15} />
           </Button>
-          <button
-            className={`button-secondary icon-button !min-h-[34px] !min-w-[34px] !p-1.5 ${
+          <Button
+            variant="outline"
+            size="icon-sm"
+            className={cn(
+              "!min-h-[34px] !min-w-[34px] !p-1.5",
               category.status === "active" ? "hover:text-rose-500" : "hover:text-emerald-500"
-            }`}
+            )}
             onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}
             disabled={pending}
             title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
           >
             {category.status === "active" ? <EyeOff size={15} /> : <Eye size={15} />}
-          </button>
+          </Button>
+
         </div>
       </article>
 

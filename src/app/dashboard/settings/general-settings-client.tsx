@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Laptop, Moon, Palette, Sun, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const themes = [
   {
@@ -56,30 +56,42 @@ function applyAppearance(theme: ThemeName, mode: Mode) {
   localStorage.setItem("fin-workspace-mode", mode);
 }
 
-export function GeneralSettingsClient() {
-  const [theme, setTheme] = useState<ThemeName>(() => {
-    if (typeof window === "undefined") return "sunrise";
-    const savedTheme = localStorage.getItem("fin-workspace-theme");
-    return themes.some((item) => item.value === savedTheme)
-      ? (savedTheme as ThemeName)
-      : "sunrise";
-  });
+function getMode(): Mode {
+  if (typeof document === "undefined") return "dark";
+  return document.documentElement.dataset.mode === "light" ? "light" : "dark";
+}
 
-  const [mode, setMode] = useState<Mode>(() => {
-    if (typeof window === "undefined") return "dark";
-    const savedMode = localStorage.getItem("fin-workspace-mode");
-    return savedMode === "light" || savedMode === "dark" ? savedMode : "dark";
-  });
+function subscribeMode(callback: () => void) {
+  const observer = new MutationObserver(callback);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-mode"] });
+  return () => observer.disconnect();
+}
+
+function getTheme(): ThemeName {
+  if (typeof document === "undefined") return "sunrise";
+  const current = document.documentElement.dataset.theme as ThemeName;
+  return themes.some((t) => t.value === current) ? current : "sunrise";
+}
+
+function subscribeTheme(callback: () => void) {
+  const observer = new MutationObserver(callback);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  return () => observer.disconnect();
+}
+
+export function GeneralSettingsClient() {
+  const mode = useSyncExternalStore<Mode>(subscribeMode, getMode, () => "dark");
+  const theme = useSyncExternalStore<ThemeName>(subscribeTheme, getTheme, () => "sunrise");
+
 
   function selectTheme(nextTheme: ThemeName) {
-    setTheme(nextTheme);
     applyAppearance(nextTheme, mode);
   }
 
   function selectMode(nextMode: Mode) {
-    setMode(nextMode);
     applyAppearance(theme, nextMode);
   }
+
 
   return (
     <section className="sunrise-card p-6 relative overflow-hidden">
@@ -92,17 +104,17 @@ export function GeneralSettingsClient() {
         }}
       />
 
-      <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl grid place-items-center bg-[var(--surface-muted)] text-[var(--primary)] border border-[var(--border)]">
-            <Palette size={20} />
+      <header className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8.5 h-8.5 rounded-lg grid place-items-center bg-[var(--surface-muted)] text-[var(--primary)] border border-[var(--border)]">
+            <Palette size={18} />
           </div>
           <div>
             <p className="settings-eyebrow flex items-center gap-1">
-              <Sparkles size={12} className="text-[var(--primary)]" />
+              <Sparkles size={11} className="text-[var(--primary)]" />
               Tùy chỉnh giao diện
             </p>
-            <h2 className="text-xl font-bold tracking-tight mt-0.5">
+            <h2 className="text-base font-bold tracking-tight mt-0.5">
               Chủ đề &amp; Chế độ hiển thị
             </h2>
           </div>
@@ -115,7 +127,7 @@ export function GeneralSettingsClient() {
             className={`segmented-btn ${mode === "light" ? "segmented-btn-active" : ""}`}
             onClick={() => selectMode("light")}
           >
-            <Sun size={15} />
+            <Sun size={14} />
             <span>Sáng</span>
           </button>
           <button
@@ -123,21 +135,22 @@ export function GeneralSettingsClient() {
             className={`segmented-btn ${mode === "dark" ? "segmented-btn-active" : ""}`}
             onClick={() => selectMode("dark")}
           >
-            <Moon size={15} />
+            <Moon size={14} />
             <span>Tối</span>
           </button>
         </div>
       </header>
 
-      <p className="settings-card-copy mt-4 text-slate-500 dark:text-slate-400">
+      <p className="text-xs text-[var(--text-muted)] mt-3 leading-relaxed">
         Chọn chủ đề màu phù hợp với sở thích của bạn. Cài đặt này được đồng bộ tức thì trên trình duyệt thiết bị này.
       </p>
 
       {/* Theme Cards Grid */}
       <div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 mt-5"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 mt-4"
         role="radiogroup"
         aria-label="Chọn chủ đề màu"
+
       >
         {themes.map((item) => {
           const isSelected = theme === item.value;
