@@ -4,11 +4,22 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { authOptions } from "@/auth";
 import { createCategorySchema, idSchema, updateCategorySchema } from "@/domain";
-import { createUserCategoryTemplate, reorderUserCategoryTemplates, setUserCategoryTemplateStatus, updateUserCategoryTemplate } from "@/services/user-category-template-service";
+import { createUserCategoryTemplate, deleteUserCategoryTemplate, reorderUserCategoryTemplates, setUserCategoryTemplateStatus, updateUserCategoryTemplate } from "@/services/user-category-template-service";
 import { changeOwnPassword } from "@/services/user-profile-service";
 
 async function actor() { const session = await getServerSession(authOptions); if (!session?.user?.id) throw new Error("Cần đăng nhập."); return session.user.id; }
 function result(error: unknown) { return { ok: false, message: error instanceof Error ? error.message : "Không thể lưu thay đổi." }; }
+
+export async function deleteTemplateCategoryAction(categoryId: string) {
+  try {
+    const id = idSchema.parse(categoryId);
+    await deleteUserCategoryTemplate(await actor(), id);
+    revalidatePath("/dashboard/settings/general");
+    revalidatePath("/dashboard");
+    return { ok: true, message: null };
+  } catch (error) { return result(error); }
+}
+
 
 export async function createTemplateCategoryAction(input: unknown) {
   try {

@@ -34,7 +34,9 @@ import {
   Smartphone,
   Sparkles,
   Tag,
+  Trash2,
   Utensils,
+
   Wrench,
   X,
   AlertCircle,
@@ -42,6 +44,7 @@ import {
 import { useState, useTransition } from "react";
 import {
   createTemplateCategoryAction,
+  deleteTemplateCategoryAction,
   reorderTemplateCategoriesAction,
   setTemplateCategoryStatusAction,
   updateTemplateCategoryAction,
@@ -69,6 +72,17 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Check } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 import { toast } from "sonner";
 
@@ -160,8 +174,10 @@ export function slugifyCode(name: string): string {
 export function UserCategoryTemplateManagement({ categories }: { categories: Category[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<"expense" | "income">("expense");
   const [pending, start] = useTransition();
+
 
   function submit(form: FormData, categoryId?: string) {
     const category = {
@@ -201,7 +217,12 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
     });
   }
 
+  function deleteItem(categoryId: string) {
+    setDeletingCategoryId(categoryId);
+  }
+
   function handleReorder(items: Category[]) {
+
     const orderedIds = items.map((c) => c.id);
     start(async () => {
       const result = await reorderTemplateCategoriesAction(orderedIds);
@@ -381,6 +402,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
               pending={pending}
               onEdit={setEditing}
               onStatus={status}
+              onDelete={deleteItem}
               onMoveRoot={moveRootItem}
               onMoveChild={moveChildItem}
               onSubmit={submit}
@@ -389,6 +411,43 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
           ))
         )}
       </div>
+
+      <AlertDialog open={deletingCategoryId !== null} onOpenChange={(open) => { if (!open) setDeletingCategoryId(null); }}>
+        <AlertDialogContent className="bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[var(--foreground)] text-left">Xác nhận xóa danh mục</AlertDialogTitle>
+            <AlertDialogDescription className="text-left">
+              Bạn có chắc chắn muốn xóa danh mục mẫu này không? Thao tác này sẽ xóa danh mục khỏi danh sách mẫu và không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending} className="cursor-pointer">Hủy bỏ</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={pending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deletingCategoryId) {
+                  start(async () => {
+                    const result = await deleteTemplateCategoryAction(deletingCategoryId);
+                    if (result.ok) {
+                      toast.success("Đã xóa danh mục mẫu.");
+                      setDeletingCategoryId(null);
+                      if (editing === deletingCategoryId) {
+                        setEditing(null);
+                      }
+                    } else {
+                      toast.error(result.message ?? "Không thể xóa danh mục.");
+                    }
+                  });
+                }
+              }}
+              className="bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
+            >
+              {pending ? "Đang xóa..." : "Xác nhận xóa"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
@@ -402,6 +461,7 @@ function Node({
   pending,
   onEdit,
   onStatus,
+  onDelete,
   onMoveRoot,
   onMoveChild,
   onSubmit,
@@ -415,6 +475,7 @@ function Node({
   pending: boolean;
   onEdit: (id: string) => void;
   onStatus: (id: string, value: "active" | "deactive") => void;
+  onDelete: (id: string) => void;
   onMoveRoot: (index: number, dir: "up" | "down") => void;
   onMoveChild: (parentId: string, index: number, dir: "up" | "down") => void;
   onSubmit: (form: FormData, id?: string) => void;
@@ -491,7 +552,9 @@ function Node({
         {/* Actions */}
         <div className="flex items-center gap-1.5">
           <Button
-            variant="outline" size="icon-sm" className="!min-h-[34px] !min-w-[34px] !p-1.5"
+            variant="outline"
+            size="icon-sm"
+            className="!min-h-[34px] !min-w-[34px] !p-1.5 hover:bg-[var(--surface-hover)] hover:text-current"
             onClick={() => onEdit(category.id)}
             disabled={pending}
             title="Chỉnh sửa danh mục mẫu"
@@ -503,7 +566,7 @@ function Node({
             variant="outline"
             size="icon-sm"
             className={cn(
-              "!min-h-[34px] !min-w-[34px] !p-1.5",
+              "!min-h-[34px] !min-w-[34px] !p-1.5 hover:bg-[var(--surface-hover)]",
               category.status === "active" ? "hover:text-rose-500" : "hover:text-emerald-500"
             )}
             onClick={() =>
@@ -515,11 +578,20 @@ function Node({
           >
             {category.status === "active" ? <EyeOff size={15} /> : <Eye size={15} />}
           </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            className="!min-h-[34px] !min-w-[34px] !p-1.5 hover:bg-[var(--surface-hover)] hover:text-rose-500 hover:border-rose-200"
+            onClick={() => onDelete(category.id)}
+            disabled={pending}
+            title="Xóa danh mục mẫu"
+            aria-label={`Xóa ${category.name}`}
+          >
+            <Trash2 size={15} />
+          </Button>
 
         </div>
       </article>
-
-
 
       {/* Children Tree Nodes */}
       {children.map((child, childIdx) => (
@@ -533,11 +605,13 @@ function Node({
           pending={pending}
           onEdit={onEdit}
           onStatus={onStatus}
+          onDelete={onDelete}
           onMoveRoot={onMoveRoot}
           onMoveChild={onMoveChild}
           onSubmit={onSubmit}
           onCancel={onCancel}
         />
+
       ))}
     </div>
   );
@@ -801,6 +875,7 @@ function TemplateForm({
           {pending ? "Đang xử lý..." : "Lưu danh mục"}
         </Button>
       </div>
+
     </form>
 
   );
