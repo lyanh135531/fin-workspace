@@ -93,7 +93,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
         <form onSubmit={save} className="space-y-5 pt-2 relative">
           {/* Name — full width, prominent */}
           <div className="space-y-2">
-            <label htmlFor="ws-name" className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
+            <label htmlFor="ws-name" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
               Tên workspace <span className="text-rose-500">*</span>
             </label>
             <input
@@ -107,8 +107,8 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
 
           {/* Status */}
           <div className="space-y-2">
-            <label htmlFor="ws-status" className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
-              Trạng thái hoạt động
+            <label htmlFor="ws-status" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+              Trạng thái
             </label>
             <select id="ws-status" name="status" defaultValue={workspace.status} className="field w-full text-sm">
               <option value="active">🟢 Đang hoạt động</option>
@@ -118,8 +118,8 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
 
           {/* Description with character hint */}
           <div className="space-y-2">
-            <label htmlFor="ws-desc" className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
-              Mô tả workspace <span className="text-slate-400 font-normal lowercase">(tùy chọn)</span>
+            <label htmlFor="ws-desc" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+              Mô tả
             </label>
             <textarea
               id="ws-desc"
@@ -153,10 +153,10 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
             />
             <div className="space-y-0.5">
               <span className="font-bold text-[var(--foreground)] block text-sm">
-                Yêu cầu duyệt giao dịch (Approval Workflow)
+                Yêu cầu duyệt giao dịch
               </span>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Giao dịch mới tạo bởi Member sẽ ở trạng thái Chờ duyệt (Pending) cho đến khi Admin phê duyệt mới làm thay đổi số dư thực tế.
+                Giao dịch do thành viên tạo sẽ chờ duyệt trước khi ảnh hưởng đến số dư thực tế.
               </p>
             </div>
           </div>

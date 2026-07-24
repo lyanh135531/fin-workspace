@@ -207,22 +207,6 @@ export function RecurringTransactionsManager({
 
   return (
     <div className="recurring-page">
-      <section className="recurring-hero">
-        <div>
-          <p className="settings-eyebrow">Tự động hóa dòng tiền</p>
-          <h1>Giao dịch định kỳ</h1>
-          <p>
-            Đăng ký khoản thu, chi hoặc chuyển ví trong một khoảng thời gian.
-            Đến ngày đã chọn mỗi tháng, hệ thống tự ghi vào Sổ giao dịch và cập nhật số dư ví.
-          </p>
-        </div>
-        <div className="recurring-hero-stats" aria-label="Tóm tắt lịch định kỳ">
-          <span><strong>{activeCount}</strong> đang chạy</span>
-          <span><strong>{pausedCount}</strong> tạm dừng</span>
-          <span><strong>{completedCount}</strong> đã kết thúc</span>
-          <span><strong>{schedules.reduce((sum, item) => sum + item.occurrenceCount, 0)}</strong> kỳ đã ghi</span>
-        </div>
-      </section>
 
       <section className="sunrise-card recurring-ledger-card">
         <div className="recurring-toolbar">

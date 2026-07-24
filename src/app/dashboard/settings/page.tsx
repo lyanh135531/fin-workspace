@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { Settings2 } from "lucide-react";
+
 import { authOptions } from "@/auth";
 import { WorkspaceSettingsTabsClient } from "@/app/dashboard/settings/workspace-settings-tabs-client";
 import { prisma } from "@/lib/prisma";
@@ -43,24 +43,10 @@ export default async function SettingsPage() {
   return (
     <div className="workspace-settings-page">
       <div className="workspace-settings-container space-y-6">
-        {/* ── Hero Section (đồng nhất General Settings) ── */}
-        <header className="settings-hero">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="settings-badge">
-                <Settings2 size={13} className="text-[var(--primary)]" />
-                Cài đặt workspace
-              </span>
-            </div>
-            <h1>{membership.workspace.name}</h1>
-            <p className="settings-hero-copy">Thiết lập vận hành, danh mục thu/chi, mã mời và quản lý thành viên của workspace.</p>
-          </div>
-          <div className="settings-summary" aria-label="Tổng quan workspace">
-            <span><strong>{members.length}</strong> thành viên</span>
-            <span><strong>{activeCategories.length}</strong> / {categories.length} danh mục</span>
-            <span className="settings-role settings-role-admin">Chủ sở hữu</span>
-          </div>
-        </header>
+        {/* ── Page Header ── */}
+        <div className="page-header">
+          <h1 className="page-title">Cài đặt</h1>
+        </div>
 
         <WorkspaceSettingsTabsClient
           workspace={{

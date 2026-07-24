@@ -4,11 +4,9 @@ import { authOptions } from "@/auth";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { WorkspaceNotifications } from "@/app/dashboard/workspace-notifications";
 import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
-import { DashboardBreadcrumb } from "@/app/dashboard/dashboard-breadcrumb";
 import { DashboardHeaderSubtitle } from "@/app/dashboard/dashboard-header-subtitle";
 import { SidebarToggle } from "@/app/dashboard/sidebar-toggle";
 import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
-import { FooterClock } from "@/app/dashboard/footer-clock";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { activateDueScheduledTransactions } from "@/services/transaction-service";
@@ -62,11 +60,6 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
       : "member"
     : "none";
 
-  const breadcrumbWorkspaces = workspaces.map((item) => ({
-    id: item.workspace.id,
-    name: item.workspace.name,
-  }));
-
   const username = session?.user?.username ?? "User";
 
   return (
@@ -106,34 +99,16 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
 
         {/* ── HEADER ── */}
         <header className="dashboard-header">
-          {/* Left: breadcrumb + subtitle */}
+          {/* Left: page subtitle (context) */}
           <div className="dashboard-header-copy">
-            <DashboardBreadcrumb
-              workspaces={breadcrumbWorkspaces}
-              currentWorkspace={
-                membership
-                  ? { id: membership.workspaceId, name: membership.workspace.name }
-                  : undefined
-              }
-            />
             <DashboardHeaderSubtitle
               fallback={
                 membership
-                  ? `${membership.workspace.name} · ${new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date())}`
-                  : "Quản lý tài chính theo workspace"
+                  ? membership.workspace.name
+                  : "Fin Workspace"
               }
             />
           </div>
-
-          {/* Center: active workspace pill */}
-          {membership && (
-            <div className="header-workspace-center">
-              <span className="header-workspace-pill" title={membership.workspace.name}>
-                <span className="header-workspace-pill-dot" aria-hidden />
-                <span className="header-workspace-pill-name">{membership.workspace.name}</span>
-              </span>
-            </div>
-          )}
 
           {/* Right: action group */}
           <div className="header-action-group">
@@ -150,32 +125,8 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
         {/* ── CONTENT ── */}
         <main className="dashboard-content">{children}</main>
 
-        {/* ── FOOTER ── */}
-        <footer className="dashboard-footer">
-          {/* Left: brand */}
-          <div className="footer-brand">
-            <FinLogo size={20} />
-            <span className="footer-brand-title">Fin Workspace</span>
-            <span className="footer-version-tag">v1.0</span>
-          </div>
-
-          {/* Center: connection status */}
-          <div className="footer-status" aria-label="Trạng thái kết nối: Hệ thống hoạt động">
-            <div className="footer-status-badge">
-              <span className="footer-status-dot" aria-hidden />
-              <span className="footer-status-label">Hệ thống hoạt động</span>
-            </div>
-          </div>
-
-          {/* Right: live clock + timezone */}
-          <div className="footer-right">
-            <div className="footer-clock-pill">
-              <FooterClock />
-            </div>
-            <span className="footer-tz-badge">VND</span>
-          </div>
-        </footer>
       </div>
     </div>
   );
 }
+

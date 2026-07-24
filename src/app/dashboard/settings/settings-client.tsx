@@ -75,7 +75,6 @@ export function SettingsClient({
           <UsersRound size={18} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="settings-eyebrow">Quyền truy cập</p>
           <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)] mt-0.5">
             Thành viên workspace
           </h2>

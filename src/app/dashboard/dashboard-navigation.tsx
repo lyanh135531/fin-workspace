@@ -56,7 +56,6 @@ export function DashboardNavigation({
 
       {/* ── Main Workspace Navigation ── */}
       <div className="nav-section-group">
-        <p className="sidebar-nav-section">WORKSPACE</p>
 
         <Link
           className={`nav-item dashboard-nav-link ${overviewActive ? "nav-item-active" : ""}`}
@@ -119,11 +118,10 @@ export function DashboardNavigation({
         )}
       </div>
 
-      <div className="sidebar-collapsed-divider" aria-hidden />
+      <div className="sidebar-nav-divider" aria-hidden />
 
       {/* ── Account & General Settings ── */}
       <div className="nav-section-group">
-        <p className="sidebar-nav-section">TÀI KHOẢN CÁ NHÂN</p>
 
         <Link
           className={`nav-item dashboard-nav-link ${accountSettingsActive ? "nav-item-active" : ""}`}

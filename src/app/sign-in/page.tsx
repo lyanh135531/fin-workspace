@@ -96,7 +96,6 @@ export default function SignInPage() {
           <div className="auth-form-inner">
             {/* Header */}
             <div className="auth-form-header">
-              <span className="auth-form-eyebrow">ĐĂNG NHẬP</span>
               <h2 className="auth-form-title">Chào mừng trở lại</h2>
               <p className="auth-form-subtitle">
                 Nhập thông tin tài khoản để tiếp tục vào không gian tài chính của bạn.

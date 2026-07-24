@@ -126,32 +126,20 @@ export function WalletManagement({
 
   return (
     <div className="workspace-settings-container space-y-6">
-      {/* ── Header Hero Section ── */}
-      <header className="settings-hero">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="settings-badge">
-              <WalletCards size={13} className="text-[var(--primary)]" />
-              Quản lý ví · {workspace.name}
-            </span>
-          </div>
-          <h1>Quản lý ví</h1>
-          <p className="settings-hero-copy">
-            Theo dõi số dư, trạng thái hoạt động và cấu hình thông tin từng tài khoản ví trong workspace.
-          </p>
-        </div>
-
+      {/* ── Page Header ── */}
+      <div className="page-header">
+        <h1 className="page-title">Ví</h1>
         {isAdmin && (
           <button
             type="button"
-            className="button-primary inline-flex items-center gap-2 font-semibold text-sm px-5 py-2.5 shadow-sm shrink-0"
+            className="button-primary inline-flex items-center gap-2 font-semibold text-sm px-4 py-2 shadow-sm shrink-0"
             onClick={() => setCreatingModal(true)}
           >
-            <Plus size={17} />
-            <span>Thêm ví mới</span>
+            <Plus size={16} />
+            <span>Thêm ví</span>
           </button>
         )}
-      </header>
+      </div>
 
       {/* ── KPI Summary Cards ── */}
       <section className="wallet-kpi-grid" aria-label="Tổng quan ví">

@@ -1028,22 +1028,19 @@ html[data-mode="dark"] .ledger-date-input { color-scheme:dark; }
 }
 .auth-form-link:hover { opacity:.78; text-decoration:underline; }
 
-/* Inline global error */
+/* Inline global error — plain small text, no box */
 .auth-global-error {
-  display:flex;
-  align-items:flex-start;
-  gap:.55rem;
-  border-radius:.65rem;
-  border:1px solid color-mix(in srgb,var(--danger) 22%,transparent);
-  background:color-mix(in srgb,var(--danger) 8%,var(--surface));
-  padding:.65rem .8rem;
-  color:var(--danger);
-  font-size:.82rem;
-  font-weight:600;
-  line-height:1.4;
-  animation:auth-shake 480ms cubic-bezier(.36,.07,.19,.97);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  color: var(--danger);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.4;
+  animation: auth-shake 480ms cubic-bezier(.36,.07,.19,.97);
 }
-.auth-global-error svg { flex:0 0 auto; margin-top:.1rem; }
+.auth-global-error svg { flex: 0 0 auto; }
 
 /* Success banner */
 .auth-success-banner {
@@ -1446,8 +1443,8 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn { opacity:0; max-height:
   top: 0;
   z-index: 10;
   display: flex;
-  min-height: 4.2rem;
-  height: 4.2rem;
+  min-height: 3.2rem;
+  height: 3.2rem;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -1456,7 +1453,7 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn { opacity:0; max-height:
   background: color-mix(in srgb, var(--background) 90%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 4px 20px color-mix(in srgb, var(--shadow) 40%, transparent);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--shadow) 30%, transparent);
 }
 
 /* ▸ Header copy area — entrance */
@@ -1493,54 +1490,7 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn { opacity:0; max-height:
   letter-spacing: -0.02em;
 }
 
-/* ▸ Center active workspace pill container */
-.header-workspace-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-}
-
-.header-workspace-pill {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
-  background: color-mix(in srgb, var(--surface) 85%, var(--primary-soft));
-  padding: 0.32rem 0.85rem 0.32rem 0.65rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--foreground);
-  max-width: 18rem;
-  overflow: hidden;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 8%, transparent);
-  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
-  animation: header-action-in 400ms cubic-bezier(.4,0,.2,1) 200ms both;
-}
-
-.header-workspace-pill:hover {
-  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 15%, transparent);
-  transform: translateY(-1px);
-}
-
-.header-workspace-pill-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.header-workspace-pill-dot {
-  flex: 0 0 auto;
-  width: 0.48rem;
-  height: 0.48rem;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 0 2px color-mix(in srgb, #10b981 30%, transparent);
-  animation: header-badge-pulse 2.2s ease-in-out infinite;
-}
+/* ▸ Center workspace pill — removed (info duplicated in sidebar) */
 
 /* ▸ Action group — floating icon buttons */
 .header-action-group {
@@ -1655,11 +1605,15 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn { opacity:0; max-height:
   animation:notification-slide-in 220ms cubic-bezier(.4,0,.2,1);
 }
 
-/* ▸ Header subtitle — entrance */
+/* ▸ Header subtitle — compact workspace context */
 .dashboard-header-subtitle {
-  font-size:.7rem;
-  font-style:italic;
-  animation:header-breadcrumb-in 380ms cubic-bezier(.4,0,.2,1) 200ms both;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ▸ Reduced motion — accessibility */
@@ -1680,149 +1634,14 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn { opacity:0; max-height:
   }
 }
 
-/* ── Modern Footer v3 ────────────────────────────────────────────────────────── */
-@keyframes footer-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 2px color-mix(in srgb, #10b981 30%, transparent); }
-  50% { opacity: 0.6; transform: scale(0.85); box-shadow: 0 0 0 4px color-mix(in srgb, #10b981 10%, transparent); }
-}
-
-.dashboard-footer {
-  position: sticky;
-  bottom: 0;
-  z-index: 8;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 1rem;
-  min-height: 2.6rem;
-  height: 2.6rem;
-  padding: 0 clamp(1rem, 3vw, 2.25rem);
-  border-top: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-  background: color-mix(in srgb, var(--background) 92%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  color: var(--text-muted);
-  font-size: 0.72rem;
-}
-
-.footer-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  font-weight: 650;
-  color: var(--text-secondary);
-  font-size: 0.72rem;
-}
-
-.footer-brand-logo {
-  display: grid;
-  width: 1.35rem;
-  height: 1.35rem;
-  place-items: center;
-  border-radius: 0.4rem;
-  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 75%, #000));
-  color: #ffffff;
-  font-size: 0.58rem;
-  font-weight: 850;
-  flex: 0 0 auto;
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--primary) 30%, transparent);
-}
-
-.footer-brand-title {
-  font-weight: 700;
-  font-size: 0.75rem;
-  color: var(--foreground);
-  letter-spacing: -0.01em;
-}
-
-.footer-version-tag {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
-  padding: 0.08rem 0.48rem;
-  font-size: 0.6rem;
-  font-weight: 750;
-  color: var(--primary);
-  letter-spacing: 0.02em;
-}
-
-.footer-status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.footer-status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, #10b981 10%, var(--surface));
-  border: 1px solid color-mix(in srgb, #10b981 25%, transparent);
-  padding: 0.2rem 0.7rem 0.2rem 0.55rem;
-}
-
-.footer-status-dot {
-  width: 0.42rem;
-  height: 0.42rem;
-  border-radius: 50%;
-  background: #10b981;
-  animation: footer-pulse 2.4s ease-in-out infinite;
-  flex: 0 0 auto;
-}
-
-.footer-status-label {
-  font-size: 0.68rem;
-  font-weight: 650;
-  color: var(--foreground);
-  letter-spacing: -0.01em;
-}
-
-.footer-right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.55rem;
-  font-size: 0.68rem;
-  color: var(--text-muted);
-}
-
-.footer-clock-pill {
-  display: inline-flex;
-  align-items: center;
-  background: color-mix(in srgb, var(--surface-secondary) 85%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  border-radius: 0.55rem;
-  padding: 0.18rem 0.55rem;
-}
-
-.footer-clock {
-  font-family: var(--font-mono, "Geist Mono", "Cascadia Code", ui-monospace, monospace);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.72rem;
-  font-weight: 650;
-  color: var(--foreground);
-  letter-spacing: 0.04em;
-}
-
-.footer-tz-badge {
-  display: inline-flex;
-  align-items: center;
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
-  border-radius: 0.55rem;
-  padding: 0.18rem 0.48rem;
-  font-size: 0.62rem;
-  font-weight: 750;
-  color: var(--text-secondary);
-  letter-spacing: 0.03em;
-}
+/* ── Footer removed — clean layout, content uses full height ── */
+.dashboard-footer,
+.footer-brand, .footer-brand-logo, .footer-brand-title, .footer-version-tag,
+.footer-status, .footer-status-badge, .footer-status-dot, .footer-status-label,
+.footer-right, .footer-clock-pill, .footer-clock, .footer-tz-badge { display: none !important; }
 
 @media(max-width:900px) {
   .sidebar-workspace-card,.sidebar-user-section { display:none; }
-  .dashboard-footer { grid-template-columns:auto 1fr auto; padding:0 1rem; }
-  .footer-status { display:none; }
 }
 
 /* ── Sidebar flyout popover (right-side panel when collapsed) ───────────────── */
@@ -2157,13 +1976,20 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn { opacity:0; max-height:
 .nav-section-group {
   margin-bottom: 0.85rem;
 }
-.sidebar-nav-section {
-  margin: 0.85rem 0.5rem 0.4rem;
-  color: var(--text-muted);
-  font-size: 0.66rem;
-  font-weight: 750;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+/* sidebar-nav-section: replaced by thin divider in JSX */
+.sidebar-nav-section { display: none; }
+
+/* Thin divider between nav groups */
+.sidebar-nav-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.6rem 0.5rem;
+  opacity: 0.7;
+  border-radius: 1px;
+}
+html[data-sidebar-collapsed="true"] .sidebar-nav-divider {
+  width: 1.25rem;
+  margin: 0.35rem auto;
 }
 .dashboard-nav-link {
   display: flex;
@@ -2557,24 +2383,9 @@ html[data-sidebar-collapsed="true"] .sidebar-user-avatar {
   margin-inline: auto;
   padding-bottom: 1.5rem;
 }
-.join-page-hero {
-  padding: 2.25rem 0 2rem;
-  border-bottom: 1px solid var(--border);
-}
-.join-page-hero h1 {
-  margin: 0.35rem 0 0;
-  font-size: clamp(2rem, 4vw, 3.4rem);
-  font-weight: 700;
-  letter-spacing: -0.055em;
-  line-height: 1;
-}
-.join-hero-copy {
-  max-width: 36rem;
-  margin: 0.65rem 0 0;
-  color: var(--text-muted);
-  font-size: 0.92rem;
-  line-height: 1.55;
-}
+/* join-page-hero: replaced by compact page-header */
+.join-page-hero { display: none; }
+.join-hero-copy { display: none; }
 .join-page-grid {
   display: grid;
   grid-template-columns: 1.35fr 1fr;
@@ -2859,49 +2670,9 @@ html[data-sidebar-collapsed="true"] .sidebar-user-avatar {
   margin-inline: auto;
   padding-bottom: 1.5rem;
 }
-.recurring-hero {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 2rem;
-  padding: 2rem 0 1.6rem;
-  border-bottom: 1px solid var(--border);
-}
-.recurring-hero h1 {
-  margin: .35rem 0 0;
-  font-size: clamp(2rem, 4vw, 3.35rem);
-  font-weight: 720;
-  letter-spacing: -.055em;
-  line-height: 1;
-  text-wrap: balance;
-}
-.recurring-hero > div:first-child > p:last-child {
-  max-width: 43rem;
-  margin: .75rem 0 0;
-  color: var(--text-secondary);
-  font-size: .94rem;
-  line-height: 1.6;
-  text-wrap: pretty;
-}
-.recurring-hero-stats {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: .5rem;
-}
-.recurring-hero-stats span {
-  padding: .55rem .75rem;
-  border: 1px solid var(--border);
-  border-radius: .72rem;
-  background: var(--surface);
-  color: var(--text-secondary);
-  font-size: .75rem;
-  white-space: nowrap;
-}
-.recurring-hero-stats strong {
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
+/* recurring-hero: replaced by compact page-header */
+.recurring-hero { display: none; }
+.recurring-hero-stats { display: none; }
 .recurring-ledger-card {
   margin-top: 1.25rem;
   overflow: hidden;
@@ -3665,3 +3436,97 @@ html[data-mode="dark"] .mini-card {
 }
 
 
+/* ═══════════════════════════════════════════════════
+   REDESIGN — Compact Page Header (replaces hero sections)
+   ═══════════════════════════════════════════════════ */
+
+/* Compact page-header: title + action inline, clean */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+/* Hide settings hero in the workspace-settings redesign */
+.settings-hero { display: none !important; }
+.settings-eyebrow { display: none !important; }
+.settings-hero-copy { display: none !important; }
+.settings-summary { display: none !important; }
+
+/* Sign-in form eyebrow: replace all-caps with subtle label */
+.auth-form-eyebrow {
+  display: inline-block;
+  margin: 0 0 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+/* Table headers: remove all-caps */
+th {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+/* Overview page: hide "Workspace · name" subtitle, keep h1 small */
+.overview-title p { display: none; }
+.overview-title h1 {
+  font-size: 1.15rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.03em !important;
+  margin: 0 !important;
+}
+.overview-title {
+  margin-bottom: 1rem;
+}
+
+/* Filter panel: hide "Bộ lọc báo cáo" heading */
+.overview-filter-heading { display: none; }
+.overview-filter-panel {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+.overview-filter-grid {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.overview-filter-field {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.overview-filter-field > span {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+/* Wallet card: hide SỐ DƯ HIỆN TẠI all-caps label */
+.wallet-balance-label { display: none !important; }
+
+/* Recurring table headers */
+.recurring-table thead tr {
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  font-size: 0.74rem !important;
+  font-weight: 600 !important;
+}
