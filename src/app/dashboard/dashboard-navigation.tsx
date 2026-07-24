@@ -1,11 +1,9 @@
 "use client";
 
-import { BookOpen, LayoutDashboard, Repeat2, Settings, SlidersHorizontal, User, WalletCards } from "lucide-react";
+import { BookOpen, LayoutDashboard, Repeat2, Settings, SlidersHorizontal, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 import { WorkspaceSwitcher } from "@/app/dashboard/workspace-switcher";
-import { AccountSettingsModal } from "@/app/dashboard/account-settings-modal";
 
 type Workspace = { id: string; name: string; role: string };
 
@@ -15,7 +13,6 @@ export function DashboardNavigation({
   pendingJoinCount = 0,
   isAdmin = false,
   isOwner = false,
-  username = "User",
 }: {
   currentId?: string;
   workspaces: Workspace[];
@@ -25,7 +22,7 @@ export function DashboardNavigation({
   username?: string;
 }) {
   const pathname = usePathname();
-  const [accountModalOpen, setAccountModalOpen] = useState(false);
+
 
   const overviewActive = pathname === "/overview";
   const ledgerActive =
@@ -125,19 +122,8 @@ export function DashboardNavigation({
 
       <div className="sidebar-nav-divider" aria-hidden />
 
-      {/* ── Account & General Settings ── */}
+      {/* ── General Settings ── */}
       <div className="nav-section-group">
-
-        <button
-          type="button"
-          className={`nav-item dashboard-nav-link${accountModalOpen ? " nav-item-active" : ""}`}
-          aria-label="Hồ sơ cá nhân, bảo mật và đổi mật khẩu"
-          onClick={() => setAccountModalOpen(true)}
-        >
-          <User size={18} strokeWidth={1.8} />
-          <span>Cài đặt tài khoản</span>
-        </button>
-
         <Link
           className={`nav-item dashboard-nav-link ${generalSettingsActive ? "nav-item-active" : ""}`}
           href="/setting"
@@ -148,13 +134,7 @@ export function DashboardNavigation({
           <span>Cài đặt chung</span>
         </Link>
       </div>
-
-      {/* Account Settings Modal */}
-      <AccountSettingsModal
-        open={accountModalOpen}
-        onClose={() => setAccountModalOpen(false)}
-        username={username}
-      />
     </nav>
   );
 }
+

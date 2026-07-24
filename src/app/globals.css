@@ -3621,3 +3621,41 @@ th {
   font-size: 0.74rem !important;
   font-weight: 600 !important;
 }
+
+/* ── Account Settings Sheet ─────────────────────────────────────────── */
+.account-settings-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(100vw, 520px) !important;
+  max-width: 520px !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  background: var(--surface) !important;
+  border-left: 1px solid var(--border) !important;
+}
+
+.account-settings-sheet-header {
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.account-settings-sheet-header [data-slot="sheet-title"] {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+.account-settings-sheet-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem;
+}
+
+/* Sheet backdrop blur */
+.account-settings-sheet ~ [data-slot="sheet-overlay"],
+[data-slot="sheet-overlay"] {
+  background: var(--overlay) !important;
+}

@@ -2,9 +2,9 @@
 
 import { signOut } from "next-auth/react";
 import { LogOut, ChevronUp, User } from "lucide-react";
-import Link from "next/link";
 import { useState, useTransition, useSyncExternalStore } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AccountSettingsModal } from "@/app/dashboard/account-settings-modal";
 
 function initials(username: string): string {
   const parts = username.trim().split(/[\s_\-\.]+/);
@@ -29,6 +29,7 @@ type Props = { username: string; role: "admin" | "member" | "none" };
 export function SidebarUserMenu({ username, role }: Props) {
   const [pending, start] = useTransition();
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
   const collapsed = useSidebarCollapsed();
 
   const roleLabel =
@@ -53,6 +54,20 @@ export function SidebarUserMenu({ username, role }: Props) {
     >
       <LogOut size={14} strokeWidth={2} />
       {pending ? "Đang đăng xuất…" : "Đăng xuất"}
+    </button>
+  );
+
+  const OpenAccountSettingsBtn = (
+    <button
+      type="button"
+      className="sidebar-user-popover-link"
+      onClick={() => {
+        setPopoverOpen(false);
+        setAccountModalOpen(true);
+      }}
+    >
+      <User size={14} strokeWidth={2} />
+      <span>Cài đặt tài khoản</span>
     </button>
   );
 
@@ -96,17 +111,16 @@ export function SidebarUserMenu({ username, role }: Props) {
               </div>
             </div>
             <div className="sidebar-flyout-divider" />
-            <Link
-              href="/settings/account"
-              className="sidebar-user-popover-link"
-              onClick={() => setPopoverOpen(false)}
-            >
-              <User size={14} strokeWidth={2} />
-              <span>Cài đặt tài khoản</span>
-            </Link>
+            {OpenAccountSettingsBtn}
             {LogoutButton}
           </PopoverContent>
         </Popover>
+
+        <AccountSettingsModal
+          open={accountModalOpen}
+          onClose={() => setAccountModalOpen(false)}
+          username={username}
+        />
       </div>
     );
   }
@@ -166,17 +180,17 @@ export function SidebarUserMenu({ username, role }: Props) {
             </div>
           </div>
           <div className="sidebar-flyout-divider" />
-          <Link
-            href="/settings/account"
-            className="sidebar-user-popover-link"
-            onClick={() => setPopoverOpen(false)}
-          >
-            <User size={14} strokeWidth={2} />
-            <span>Cài đặt tài khoản</span>
-          </Link>
+          {OpenAccountSettingsBtn}
           {LogoutButton}
         </PopoverContent>
       </Popover>
+
+      <AccountSettingsModal
+        open={accountModalOpen}
+        onClose={() => setAccountModalOpen(false)}
+        username={username}
+      />
     </div>
   );
 }
+
