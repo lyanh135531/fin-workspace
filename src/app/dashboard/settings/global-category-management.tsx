@@ -421,7 +421,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending} className="cursor-pointer">Hủy bỏ</AlertDialogCancel>
+            <AlertDialogCancel disabled={pending} className="hover:bg-[var(--surface-secondary)] hover:text-current cursor-pointer">Hủy bỏ</AlertDialogCancel>
             <AlertDialogAction
               disabled={pending}
               onClick={(e) => {
@@ -554,7 +554,7 @@ function Node({
           <Button
             variant="outline"
             size="icon-sm"
-            className="!min-h-[34px] !min-w-[34px] !p-1.5 hover:bg-[var(--surface-hover)] hover:text-current"
+            className="!min-h-[34px] !min-w-[34px] !p-1.5 hover:bg-[var(--surface-secondary)] hover:text-current"
             onClick={() => onEdit(category.id)}
             disabled={pending}
             title="Chỉnh sửa danh mục mẫu"
@@ -566,7 +566,7 @@ function Node({
             variant="outline"
             size="icon-sm"
             className={cn(
-              "!min-h-[34px] !min-w-[34px] !p-1.5 hover:bg-[var(--surface-hover)]",
+              "!min-h-[34px] !min-w-[34px] !p-1.5 hover:bg-[var(--surface-secondary)]",
               category.status === "active" ? "hover:text-rose-500" : "hover:text-emerald-500"
             )}
             onClick={() =>
@@ -581,7 +581,7 @@ function Node({
           <Button
             variant="outline"
             size="icon-sm"
-            className="!min-h-[34px] !min-w-[34px] !p-1.5 hover:bg-[var(--surface-hover)] hover:text-rose-500 hover:border-rose-200"
+            className="!min-h-[34px] !min-w-[34px] !p-1.5 hover:bg-[var(--surface-secondary)] hover:text-rose-500 hover:border-rose-200"
             onClick={() => onDelete(category.id)}
             disabled={pending}
             title="Xóa danh mục mẫu"
@@ -868,7 +868,7 @@ function TemplateForm({
       </div>
 
       <div className="flex justify-end gap-2 pt-4 border-t border-[var(--border)] mt-auto">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" className="hover:bg-[var(--surface-secondary)] hover:text-current" onClick={onCancel}>
           Hủy bỏ
         </Button>
         <Button type="submit" variant="default" disabled={pending}>
