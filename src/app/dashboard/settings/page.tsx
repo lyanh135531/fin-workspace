@@ -100,7 +100,11 @@ export default async function SettingsPage({
             id: request.id,
             username: request.requester.username,
           }))}
-          initialTab={params.tab === "joinRequests" ? "joinRequests" : "general"}
+          initialTab={params.tab === "members" || params.tab === "joinRequests"
+            ? "members"
+            : params.tab === "categories" && isOwner
+              ? "categories"
+              : "general"}
         />
       </div>
     </div>

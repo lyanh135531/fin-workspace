@@ -78,6 +78,7 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
     (sum, item) => sum.plus(item.wallet.currentBalance.toString()),
     new Decimal(0),
   );
+  const isAdmin = isAdminRole(membership.role.code);
   const ledger = transactions.map((item) => ({
     id: item.id,
     amount: item.amount.toString(),
@@ -91,11 +92,11 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
     wallet: item.wallet.name,
     category: item.category ? { name: item.category.name, color: item.category.color } : null,
     member: item.member.user.username,
+    canRequestDelete: isAdmin || item.memberId === membership.id,
     hasPendingChange: item.changeRequests.length > 0,
     isRecurring: Boolean(item.recurringTransactionId),
   }));
   const pendingCount = transactions.filter((item) => item.workflowStatus === "pending").length;
-  const isAdmin = isAdminRole(membership.role.code);
 
   return (
     <div className="dashboard-workspace-view">
@@ -103,6 +104,7 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
         <section className="sunrise-card dashboard-ledger-card overflow-hidden">
           <Ledger
             workspaceId={workspaceId}
+            initialMonth={currentPeriod}
             transactions={ledger}
             isAdmin={isAdmin}
             canEditTransactions

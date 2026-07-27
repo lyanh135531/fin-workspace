@@ -12,10 +12,12 @@ function changeDetails(value: unknown) {
 
 export async function WorkspaceNotifications({
   workspaceId,
+  currency,
   isAdmin,
   canAssignOwner,
 }: {
   workspaceId: string;
+  currency: string;
   isAdmin: boolean;
   canAssignOwner: boolean;
 }) {
@@ -29,7 +31,17 @@ export async function WorkspaceNotifications({
     }),
     prisma.transactionChangeRequest.findMany({
       where: { status: "pending", transaction: { deletedAt: null, member: { workspaceId } } },
-      include: { requester: { include: { user: { select: { username: true } } } }, transaction: { select: { description: true } } },
+      include: {
+        requester: { include: { user: { select: { username: true } } } },
+        transaction: {
+          select: {
+            description: true,
+            amount: true,
+            type: true,
+            wallet: { select: { name: true } },
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
@@ -55,7 +67,16 @@ export async function WorkspaceNotifications({
       username: item.requester.username,
     })),
     ...transactions.map((item) => ({ kind: "transaction" as const, id: item.id, username: item.member.user.username, description: item.description, category: item.category?.name ?? null, wallet: item.wallet.name, type: item.type, amount: item.amount.toString(), status: item.workflowStatus as "pending" | "scheduled" })),
-    ...changes.map((item) => ({ kind: "change" as const, id: item.id, username: item.requester.user.username, description: item.transaction.description, ...changeDetails(item.proposedData) })),
+    ...changes.map((item) => ({
+      kind: "change" as const,
+      id: item.id,
+      username: item.requester.user.username,
+      description: item.transaction.description,
+      amount: item.transaction.amount.toString(),
+      type: item.transaction.type,
+      wallet: item.transaction.wallet.name,
+      ...changeDetails(item.proposedData),
+    })),
   ];
-  return <NotificationsMenu items={items} roles={roles}/>;
+  return <NotificationsMenu items={items} roles={roles} currency={currency}/>;
 }

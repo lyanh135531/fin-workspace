@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildMemberMonthlyTotals,
+  buildMonthlyBalances,
   buildMonthlyCashflow,
   getVisibleCashflowTypes,
   type CashflowFilters,
@@ -89,5 +91,125 @@ describe("overview monthly cashflow", () => {
     expect(getVisibleCashflowTypes("all", "income")).toEqual(["income"]);
     expect(getVisibleCashflowTypes("expense", "income")).toEqual([]);
     expect(getVisibleCashflowTypes("transfer")).toEqual([]);
+  });
+
+  it("groups every workspace member's expenses by month", () => {
+    const rows = buildMemberMonthlyTotals(
+      [
+        { id: "member-a", name: "An" },
+        { id: "member-b", name: "Bình" },
+        { id: "member-c", name: "Chi" },
+      ],
+      transactions,
+      {
+        endPeriod: "2026-07",
+        range: 3,
+        walletId: "all",
+        categoryId: "all",
+        type: "expense",
+      },
+    );
+
+    expect(rows).toEqual([
+      { period: "2026-05", totals: { "member-a": "0", "member-b": "0", "member-c": "0" } },
+      { period: "2026-06", totals: { "member-a": "0", "member-b": "400", "member-c": "0" } },
+      { period: "2026-07", totals: { "member-a": "1500.5", "member-b": "0", "member-c": "0" } },
+    ]);
+  });
+
+  it("switches the monthly groups to income and applies report filters", () => {
+    const rows = buildMemberMonthlyTotals(
+      [
+        { id: "member-a", name: "An" },
+        { id: "member-b", name: "Bình" },
+      ],
+      transactions,
+      {
+        endPeriod: "2026-07",
+        range: 3,
+        walletId: "wallet-a",
+        categoryId: "income-category",
+        type: "income",
+      },
+    );
+
+    expect(rows).toEqual([
+      { period: "2026-05", totals: { "member-a": "0", "member-b": "0" } },
+      { period: "2026-06", totals: { "member-a": "0", "member-b": "0" } },
+      { period: "2026-07", totals: { "member-a": "1250.25", "member-b": "0" } },
+    ]);
+  });
+
+  it("reconstructs each wallet's closing balance by reversing approved transactions", () => {
+    const rows = buildMonthlyBalances(
+      [
+        { id: "wallet-a", name: "Ví chính", balance: "1000" },
+        { id: "wallet-b", name: "Tiền mặt", balance: "600" },
+      ],
+      [
+        ...transactions,
+        {
+          amount: "500",
+          type: "income" as const,
+          status: "approved" as const,
+          date: "2026-07-05T00:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: null,
+          categoryId: "income-category",
+          memberId: "member-a",
+        },
+        {
+          amount: "100",
+          type: "transfer" as const,
+          status: "approved" as const,
+          date: "2026-07-08T00:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: "wallet-b",
+          categoryId: null,
+          memberId: "member-a",
+        },
+      ],
+      { endPeriod: "2026-07", range: 3, walletId: "all" },
+    );
+
+    expect(rows).toEqual([
+      {
+        period: "2026-05",
+        total: "1750.25",
+        wallets: { "wallet-a": "850.25", "wallet-b": "900" },
+        hasNegativeBalance: false,
+      },
+      {
+        period: "2026-06",
+        total: "1350.25",
+        wallets: { "wallet-a": "850.25", "wallet-b": "500" },
+        hasNegativeBalance: false,
+      },
+      {
+        period: "2026-07",
+        total: "1600",
+        wallets: { "wallet-a": "1000", "wallet-b": "600" },
+        hasNegativeBalance: false,
+      },
+    ]);
+  });
+
+  it("limits balance history to the selected wallet and flags negative balances", () => {
+    const rows = buildMonthlyBalances(
+      [
+        { id: "wallet-a", name: "Ví chính", balance: "-50" },
+        { id: "wallet-b", name: "Tiền mặt", balance: "900" },
+      ],
+      transactions,
+      { endPeriod: "2026-07", range: 3, walletId: "wallet-a" },
+    );
+
+    expect(rows[2]).toEqual({
+      period: "2026-07",
+      total: "-50",
+      wallets: { "wallet-a": "-50" },
+      hasNegativeBalance: true,
+    });
+    expect(Object.keys(rows[0].wallets)).toEqual(["wallet-a"]);
   });
 });

@@ -1,8 +1,10 @@
+import Decimal from "decimal.js";
+import type { Prisma } from "@/generated/prisma/client";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
-export async function generateUniqueInviteCode(tx: any): Promise<string> {
+export async function generateUniqueInviteCode(tx: Prisma.TransactionClient): Promise<string> {
   for (let i = 0; i < 10; i++) {
     const num = Math.floor(100000 + Math.random() * 900000);
     const code = `${num.toString().slice(0, 3)}-${num.toString().slice(3)}`;
@@ -24,12 +26,13 @@ export async function createWorkspaceForUser(userId: string, input: { name: stri
     await tx.workspaceMember.create({ data: { workspaceId: workspace.id, userId, roleId: role.id } });
 
     // Create a default wallet with 0 balance for the new workspace
+    const zero = new Decimal(0);
     const wallet = await tx.wallet.create({
       data: {
         name: "Ví chính",
         description: "Ví mặc định",
-        openingBalance: 0,
-        currentBalance: 0,
+        openingBalance: zero,
+        currentBalance: zero,
       },
     });
     await tx.workspaceWallet.create({

@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Check, Download, Pencil, Plus, Search, Trash2, WalletCards, X } from "lucide-react";
+import { Check, Download, FilterX, Pencil, Plus, Search, Trash2, WalletCards, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   addTransactionAction,
@@ -34,6 +34,7 @@ type LedgerItem = {
   wallet: string;
   category: { name: string; color: string } | null;
   member: string;
+  canRequestDelete: boolean;
   hasPendingChange: boolean;
   isRecurring: boolean;
 };
@@ -129,7 +130,7 @@ function WalletAction({ canManageWallets }: { canManageWallets: boolean }) {
 
   function createWallet(data: FormData) {
     start(async () => {
-      const result = await addWalletAction({ name: data.get("name"), openingBalance: data.get("openingBalance"), description: data.get("description") || undefined });
+      const result = await addWalletAction({ name: data.get("name"), description: data.get("description") || undefined });
       setMessage(result.ok ? "Đã tạo ví." : result.message ?? "Không thể tạo ví.");
       if (result.ok) setOpen(false);
     });
@@ -144,7 +145,7 @@ function WalletAction({ canManageWallets }: { canManageWallets: boolean }) {
       <form action={createWallet} className="sunrise-card dialog-card">
         <div><p className="public-eyebrow">Quản lý ví</p><h2 id="wallet-action-title">Thêm ví</h2></div>
         <Field name="name" label="Tên ví"/>
-        <Field name="openingBalance" label="Số dư đầu kỳ" inputMode="decimal"/>
+        <p className="text-xs leading-relaxed text-muted-foreground">Ví mới có số dư 0. Hãy tạo giao dịch thu nhập đầu tiên trong Sổ giao dịch để cập nhật số dư.</p>
         <Field name="description" label="Ghi chú" required={false}/>
         <div className="dialog-actions"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Hủy</Button><Button disabled={pending} variant="default">{pending ? "Đang lưu" : "Lưu"}</Button></div>
       </form>
@@ -157,8 +158,9 @@ function Field({ name, label, required = true, inputMode }: { name: string; labe
   return <label>{label}<Input required={required} name={name} inputMode={inputMode} /></label>;
 }
 
-export function Ledger({ workspaceId, transactions, canApprove, canEditTransactions, isAdmin, scopeLabel, wallets, categories, canManageWallets, readonly = false }: { workspaceId: string; transactions: LedgerItem[]; canApprove: boolean; canEditTransactions: boolean; isAdmin: boolean; scopeLabel: string; wallets: Option[]; categories: Option[]; canManageWallets: boolean; readonly?: boolean }) {
+export function Ledger({ workspaceId, initialMonth, transactions, canApprove, canEditTransactions, isAdmin, scopeLabel, wallets, categories, canManageWallets, readonly = false }: { workspaceId: string; initialMonth: string; transactions: LedgerItem[]; canApprove: boolean; canEditTransactions: boolean; isAdmin: boolean; scopeLabel: string; wallets: Option[]; categories: Option[]; canManageWallets: boolean; readonly?: boolean }) {
   const [query, setQuery] = useState("");
+  const [month, setMonth] = useState(initialMonth);
   const [status, setStatus] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
@@ -169,13 +171,33 @@ export function Ledger({ workspaceId, transactions, canApprove, canEditTransacti
   const [editDrafts, setEditDrafts] = useState<Record<string, TransactionDraft>>({});
   const [editReason, setEditReason] = useState("");
   const [busy, start] = useTransition();
-  const rows = useMemo(() => transactions.filter((item) => (status === "all" || item.status === status) && `${item.description ?? ""} ${item.category?.name ?? ""} ${item.wallet} ${item.member}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())), [transactions, query, status]);
+  const hasActiveFilters = query.trim().length > 0 || month !== "all" || status !== "all";
+  const monthOptions = useMemo(() => [
+    { value: "all", label: "Tất cả tháng" },
+    ...[...new Set([initialMonth, ...transactions.map((item) => item.date.slice(0, 7))])]
+      .sort((left, right) => right.localeCompare(left))
+      .map((value) => {
+        const [year, monthNumber] = value.split("-");
+        return { value, label: `Tháng ${monthNumber}/${year}` };
+      }),
+  ], [initialMonth, transactions]);
+  const rows = useMemo(() => transactions.filter((item) =>
+    (month === "all" || item.date.slice(0, 7) === month)
+    && (status === "all" || item.status === status)
+    && `${item.description ?? ""} ${item.category?.name ?? ""} ${item.wallet} ${item.member}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+  ), [transactions, month, query, status]);
   const allSelected = rows.length > 0 && rows.every((row) => selected.has(row.id));
   const columnCount = canApprove ? 9 : 8;
 
   function exportCsv() {
     const csv = ["Ngày,Loại,Danh mục,Ví,Số tiền,Trạng thái,Ghi chú", ...rows.map((item) => [new Date(item.date).toLocaleDateString("vi-VN"), item.type, item.category?.name ?? "", item.wallet, item.amount, item.status, item.description ?? ""].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))].join("\n");
     const anchor = document.createElement("a"); anchor.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); anchor.download = "so-thu-chi.csv"; anchor.click(); URL.revokeObjectURL(anchor.href);
+  }
+
+  function clearFilters() {
+    setQuery("");
+    setMonth("all");
+    setStatus("all");
   }
 
   function toggle(id: string) { setSelected((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
@@ -258,7 +280,9 @@ export function Ledger({ workspaceId, transactions, canApprove, canEditTransacti
   return <div className="ledger-shell">
     <div className="ledger-toolbar">
       <label className="ledger-search"><Search size={16}/><input value={query} onChange={(event) => setQuery(event.target.value)} disabled={editMode} placeholder="Tìm giao dịch" aria-label="Tìm giao dịch hoặc ghi chú"/></label>
+      <FinanceSelect value={month} onValueChange={setMonth} disabled={editMode} className="ledger-month" label="Lọc theo tháng" options={monthOptions}/>
       <FinanceSelect value={status} onValueChange={setStatus} disabled={editMode} className="ledger-status" label="Lọc trạng thái" options={[{ value: "all", label: "Tất cả" }, { value: "approved", label: "Đã ghi nhận" }, { value: "pending", label: "Chờ xác nhận" }, { value: "scheduled", label: "Đã lên lịch" }, { value: "rejected", label: "Đã từ chối" }]}/>
+      <Button variant="ghost" size="sm" className="ledger-clear-filter" disabled={editMode || !hasActiveFilters} onClick={clearFilters} title="Xóa tìm kiếm và bộ lọc" aria-label="Xóa bộ lọc"><FilterX size={15}/>Xóa lọc</Button>
       <Button variant="outline" size="icon" disabled={editMode} onClick={exportCsv} title="Xuất CSV" aria-label="Xuất CSV"><Download size={16}/></Button>
       {canApprove && <Button variant="outline" size="icon" className="ledger-delete-button" disabled={editMode || !selected.size || busy} onClick={() => setConfirmBulkDelete(true)} title={selected.size ? `Xóa ${selected.size} giao dịch đã chọn` : "Chọn giao dịch để xóa"} aria-label="Xóa giao dịch đã chọn"><Trash2 size={16}/></Button>}
       {canEditTransactions && (editMode ? <div className="ledger-edit-actions"><Button variant="outline" disabled={busy} onClick={cancelEdit}><X size={15}/>Hủy</Button><Button variant="default" disabled={busy} onClick={saveEdits}><Check size={15}/>{busy ? "Đang lưu" : "Lưu"}</Button></div> : <Button variant="outline" size="icon" disabled={busy || !transactions.length || Boolean(createDraft)} onClick={beginEdit} title="Chỉnh sửa tất cả giao dịch" aria-label="Chỉnh sửa tất cả giao dịch"><Pencil size={16}/></Button>)}
@@ -270,7 +294,7 @@ export function Ledger({ workspaceId, transactions, canApprove, canEditTransacti
 
     <div className="ledger-scroll-area"><table className="ledger-table w-full min-w-[1080px] text-left text-sm"><thead><tr className="border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--text-muted)]">{canApprove && <th className="w-10"><input type="checkbox" checked={allSelected} disabled={editMode} onChange={toggleAll} aria-label="Chọn tất cả giao dịch đang hiển thị"/></th>}<th>Giao dịch</th><th>Loại</th><th>Danh mục</th><th>Ví</th><th>Ngày</th><th className="text-right">Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
       {createDraft && <DraftRow mode="create" draft={createDraft} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} onChange={(patch) => setCreateDraft((current) => current ? { ...current, ...patch } : current)} onSave={saveCreate} onCancel={() => setCreateDraft(null)}/>}
-      {rows.map((item, index) => editMode ? <DraftRow key={item.id} mode="edit" draft={editDrafts[item.id] ?? draftFromTransaction(item, wallets)} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} disabled={!isAdmin && item.hasPendingChange} autoFocus={index === 0} status={<><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</>} onChange={(patch) => updateDraft(item.id, patch)}/> : <tr key={item.id} className="border-b border-[var(--border)]">{canApprove && <td><input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/></td>}<td><p className="font-medium">{item.description || "Không có nội dung"}</p><p className="mt-1 text-xs text-[var(--text-muted)]">#{String(transactions.length - index).padStart(5, "0")} · {item.member}{item.isRecurring ? " · Tự động" : ""}</p></td><td>{typeOptions.find((option) => option.value === item.type)?.label}</td><td>{item.category ? <span className="category-tag" style={{ backgroundColor: `${item.category.color}22`, color: item.category.color }}>{item.category.name}</span> : "—"}</td><td>{item.wallet}</td><td>{new Date(item.date).toLocaleDateString("vi-VN")}</td><td className={`ledger-amount amount-${item.type}`}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} ₫</td><td><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</td><td><div className="ledger-row-actions">{canApprove && (item.status === "pending" || item.status === "scheduled") && <Button variant="outline" size="sm" disabled={busy} onClick={() => start(async () => { const result = await approveTransactionAction(item.id); if (result.ok) toast.success("Đã ghi nhận giao dịch."); else toast.error(result.message ?? "Không thể duyệt giao dịch."); })}>{item.status === "scheduled" ? "Ghi nhận sớm" : "Duyệt"}</Button>}{!readonly && <Button variant="outline" size="icon-sm" disabled={busy || item.hasPendingChange} onClick={() => setDeleteTarget(item)} className="ledger-delete-button" title="Xóa giao dịch" aria-label={`Xóa ${item.description || "giao dịch"}`}><Trash2 size={14}/></Button>}</div></td></tr>)}
+      {rows.map((item, index) => editMode ? <DraftRow key={item.id} mode="edit" draft={editDrafts[item.id] ?? draftFromTransaction(item, wallets)} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} disabled={!isAdmin && item.hasPendingChange} autoFocus={index === 0} status={<><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</>} onChange={(patch) => updateDraft(item.id, patch)}/> : <tr key={item.id} className="border-b border-[var(--border)]">{canApprove && <td><input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/></td>}<td><p className="font-medium">{item.description || "Không có nội dung"}</p><p className="mt-1 text-xs text-[var(--text-muted)]">#{String(transactions.length - index).padStart(5, "0")} · {item.member}{item.isRecurring ? " · Tự động" : ""}</p></td><td>{typeOptions.find((option) => option.value === item.type)?.label}</td><td>{item.category ? <span className="category-tag" style={{ backgroundColor: `${item.category.color}22`, color: item.category.color }}>{item.category.name}</span> : "—"}</td><td>{item.wallet}</td><td>{new Date(item.date).toLocaleDateString("vi-VN")}</td><td className={`ledger-amount amount-${item.type}`}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} ₫</td><td><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</td><td><div className="ledger-row-actions">{canApprove && (item.status === "pending" || item.status === "scheduled") && <Button variant="outline" size="sm" disabled={busy} onClick={() => start(async () => { const result = await approveTransactionAction(item.id); if (result.ok) toast.success("Đã ghi nhận giao dịch."); else toast.error(result.message ?? "Không thể duyệt giao dịch."); })}>{item.status === "scheduled" ? "Ghi nhận sớm" : "Duyệt"}</Button>}{!readonly && item.canRequestDelete && <Button variant="outline" size="icon-sm" disabled={busy || item.hasPendingChange} onClick={() => setDeleteTarget(item)} className="ledger-delete-button" title="Xóa giao dịch" aria-label={`Xóa ${item.description || "giao dịch"}`}><Trash2 size={14}/></Button>}</div></td></tr>)}
       {!createDraft && rows.length === 0 && <tr><td colSpan={columnCount} className="p-10 text-center text-[var(--text-muted)]">Chưa có giao dịch phù hợp.</td></tr>}
     </tbody></table></div>
     <p className="ledger-record-count">Hiển thị {rows.length} giao dịch trong {scopeLabel}.</p>

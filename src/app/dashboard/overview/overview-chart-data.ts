@@ -14,6 +14,19 @@ type ChartTransaction = {
   memberId: string;
 };
 
+export type BalanceWallet = {
+  id: string;
+  name: string;
+  balance: string;
+};
+
+export type MonthlyBalance = {
+  period: string;
+  total: string;
+  wallets: Record<string, string>;
+  hasNegativeBalance: boolean;
+};
+
 export type CashflowFilters = {
   endPeriod: string;
   range: CashflowRange;
@@ -31,6 +44,19 @@ export type MonthlyCashflow = {
   warningFrom: string;
   warningTo: string;
   hasWarning: boolean;
+};
+
+export type MemberMonthlyTotal = {
+  period: string;
+  totals: Record<string, string>;
+};
+
+export type MemberTransactionFilters = {
+  endPeriod: string;
+  range: CashflowRange;
+  walletId: string;
+  categoryId: string;
+  type: CashflowType;
 };
 
 export function getVisibleCashflowTypes(
@@ -100,5 +126,130 @@ export function buildMonthlyCashflow(
       warningTo: expense.toString(),
       hasWarning,
     };
+  });
+}
+
+export function buildMemberMonthlyTotals(
+  members: { id: string; name: string }[],
+  transactions: ChartTransaction[],
+  filters: MemberTransactionFilters,
+): MemberMonthlyTotal[] {
+  const periods = recentPeriods(filters.endPeriod, filters.range);
+  const periodSet = new Set(periods);
+  const totals = new Map(
+    periods.map((period) => [
+      period,
+      new Map(members.map((member) => [member.id, new Decimal(0)])),
+    ]),
+  );
+  const memberIds = new Set(members.map((member) => member.id));
+
+  for (const transaction of transactions) {
+    const period = transaction.date.slice(0, 7);
+    if (
+      transaction.status !== "approved"
+      || transaction.type !== filters.type
+      || !periodSet.has(period)
+      || !memberIds.has(transaction.memberId)
+      || (filters.walletId !== "all"
+        && transaction.walletId !== filters.walletId
+        && transaction.toWalletId !== filters.walletId)
+      || (filters.categoryId !== "all" && transaction.categoryId !== filters.categoryId)
+    ) {
+      continue;
+    }
+
+    const periodTotals = totals.get(period);
+    if (!periodTotals) continue;
+    periodTotals.set(
+      transaction.memberId,
+      (periodTotals.get(transaction.memberId) ?? new Decimal(0)).plus(transaction.amount),
+    );
+  }
+
+  return periods.map((period) => ({
+    period,
+    totals: Object.fromEntries(
+      members.map((member) => [
+        member.id,
+        (totals.get(period)?.get(member.id) ?? new Decimal(0)).toString(),
+      ]),
+    ),
+  }));
+}
+
+export function buildMonthlyBalances(
+  wallets: BalanceWallet[],
+  transactions: ChartTransaction[],
+  filters: {
+    endPeriod: string;
+    range: CashflowRange;
+    walletId: string;
+  },
+): MonthlyBalance[] {
+  const periods = recentPeriods(filters.endPeriod, filters.range);
+  const visibleWallets = filters.walletId === "all"
+    ? wallets
+    : wallets.filter((wallet) => wallet.id === filters.walletId);
+  const balances = new Map(
+    visibleWallets.map((wallet) => [wallet.id, new Decimal(wallet.balance)]),
+  );
+  const rows = new Map<string, MonthlyBalance>();
+
+  for (let index = periods.length - 1; index >= 0; index -= 1) {
+    const period = periods[index];
+    const walletBalances = Object.fromEntries(
+      visibleWallets.map((wallet) => [
+        wallet.id,
+        (balances.get(wallet.id) ?? new Decimal(0)).toString(),
+      ]),
+    );
+    const total = visibleWallets.reduce(
+      (sum, wallet) => sum.plus(balances.get(wallet.id) ?? 0),
+      new Decimal(0),
+    );
+
+    rows.set(period, {
+      period,
+      total: total.toString(),
+      wallets: walletBalances,
+      hasNegativeBalance: visibleWallets.some((wallet) =>
+        (balances.get(wallet.id) ?? new Decimal(0)).isNegative()),
+    });
+
+    if (index === 0) continue;
+
+    for (const transaction of transactions) {
+      if (
+        transaction.status !== "approved"
+        || transaction.date.slice(0, 7) !== period
+      ) {
+        continue;
+      }
+
+      const amount = new Decimal(transaction.amount);
+      const sourceBalance = balances.get(transaction.walletId);
+      if (sourceBalance) {
+        if (transaction.type === "income") {
+          balances.set(transaction.walletId, sourceBalance.minus(amount));
+        } else {
+          balances.set(transaction.walletId, sourceBalance.plus(amount));
+        }
+      }
+
+      if (transaction.type === "transfer" && transaction.toWalletId) {
+        const destinationBalance = balances.get(transaction.toWalletId);
+        if (destinationBalance) {
+          balances.set(transaction.toWalletId, destinationBalance.minus(amount));
+        }
+      }
+    }
+  }
+
+  return periods.map((period) => rows.get(period) ?? {
+    period,
+    total: "0",
+    wallets: {},
+    hasNegativeBalance: false,
   });
 }

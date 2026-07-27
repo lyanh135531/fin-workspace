@@ -289,6 +289,9 @@ export async function deleteOrRequestTransaction(userId: string, workspaceId: st
       await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.deleted", entityType: "transaction", entityId: record.id, metadata: { workflowStatus: record.workflowStatus, balanceReversed: record.workflowStatus === "approved" } } });
       return { kind: "deleted" as const, id: record.id };
     }
+    if (record.memberId !== member.id) {
+      throw new AppError("FORBIDDEN", "Bạn chỉ có thể gửi yêu cầu xóa giao dịch do mình tạo.");
+    }
     await ensureNoPendingChange(tx, record.id);
     const request = await tx.transactionChangeRequest.create({
       data: { transactionId: record.id, requesterMemberId: member.id, previousData: transactionSnapshot(record), proposedData: { action: "delete", reason } },

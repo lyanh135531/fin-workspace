@@ -113,7 +113,7 @@ export async function rejectTransactionAction(transactionId: string) {
 
 export async function deleteTransactionAction(transactionId: string, reason?: unknown) {
   const requestId = crypto.randomUUID();
-  try { const user = await actor(); const result = await deleteOrRequestTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId), changeReasonSchema.parse(reason)); debug("transaction.delete_processed", { requestId, transactionId, result: result.kind, workspaceId: user.workspaceId }); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); return { ok: true, kind: result.kind }; }
+  try { const user = await actor(); const result = await deleteOrRequestTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId), changeReasonSchema.parse(reason)); debug("transaction.delete_processed", { requestId, transactionId, result: result.kind, workspaceId: user.workspaceId }); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/dashboard"); revalidatePath("/overview"); return { ok: true, kind: result.kind }; }
   catch (error) { debug("transaction.delete_failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to delete transaction." }; }
 }
 

@@ -115,6 +115,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
             {membership && (
               <WorkspaceNotifications
                 workspaceId={membership.workspaceId}
+                currency={membership.workspace.baseCurrency}
                 isAdmin={isAdmin}
                 canAssignOwner={isOwner}
               />

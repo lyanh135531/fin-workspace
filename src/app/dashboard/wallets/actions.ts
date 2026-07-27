@@ -77,8 +77,16 @@ export async function setManagedWalletStatusAction(input: unknown) {
 export async function softDeleteManagedWalletAction(input: unknown) {
   try {
     const actor = await walletActor();
-    const walletId = idSchema.parse(input);
-    await softDeleteWalletForWorkspace(actor.userId, actor.workspaceId, walletId);
+    const data = z.object({
+      walletId: idSchema,
+      settlementWalletId: idSchema.optional(),
+    }).parse(input);
+    await softDeleteWalletForWorkspace(
+      actor.userId,
+      actor.workspaceId,
+      data.walletId,
+      data.settlementWalletId,
+    );
     revalidateWalletViews(actor.workspaceId);
     return { ok: true };
   } catch (error) {

@@ -1,5 +1,6 @@
 "use client";
 
+import Decimal from "decimal.js";
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -23,6 +24,7 @@ import {
   softDeleteManagedWalletAction,
   updateManagedWalletAction,
 } from "@/app/dashboard/wallets/actions";
+import { FinanceSelect } from "@/components/finance/finance-select";
 import { formatAmount } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,15 +82,24 @@ export function WalletManagement({
 }) {
   const router = useRouter();
   const [creatingModal, setCreatingModal] = useState(false);
+  const [createFundingType, setCreateFundingType] = useState<"none" | "transfer" | "income">("none");
+  const [createFundingWalletId, setCreateFundingWalletId] = useState("");
   const [editingWallet, setEditingWallet] = useState<WalletItem | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "deactive">("all");
   const [confirmOperation, setConfirmOperation] = useState<DestructiveWalletOperation | null>(null);
+  const [settlementWalletId, setSettlementWalletId] = useState("");
   const [blockedOperation, setBlockedOperation] = useState<DestructiveWalletOperation | null>(null);
   const [pending, startTransition] = useTransition();
 
   const activeCount = wallets.filter((wallet) => wallet.status === "active").length;
+  const activeWallets = wallets.filter((wallet) => wallet.status === "active");
   const transactionCount = wallets.reduce((total, wallet) => total + wallet.transactionCount, 0);
+  const confirmedBalance = new Decimal(confirmOperation?.wallet.currentBalance ?? 0);
+  const requiresSettlement = confirmOperation?.kind === "delete" && !confirmedBalance.isZero();
+  const settlementWallets = wallets.filter((wallet) =>
+    wallet.status === "active" && wallet.id !== confirmOperation?.wallet.id
+  );
 
   // Filtered wallets list based on search and status filter
   const filteredWallets = useMemo(() => {
@@ -108,12 +119,22 @@ export function WalletManagement({
     startTransition(async () => {
       const result = await createManagedWalletAction({
         name: data.get("name"),
-        openingBalance: data.get("openingBalance"),
         description: data.get("description") || undefined,
+        funding: createFundingType === "none"
+          ? { type: "none" }
+          : createFundingType === "income"
+            ? { type: "income", amount: data.get("fundingAmount") }
+            : {
+                type: "transfer",
+                amount: data.get("fundingAmount"),
+                sourceWalletId: createFundingWalletId,
+              },
       });
       if (result.ok) {
-        toast.success("Đã tạo ví mới thành công!");
+        toast.success("Đã tạo ví mới.");
         form.reset();
+        setCreateFundingType("none");
+        setCreateFundingWalletId("");
         setCreatingModal(false);
         router.refresh();
       } else {
@@ -151,6 +172,11 @@ export function WalletManagement({
       setBlockedOperation(operation);
       return;
     }
+    setSettlementWalletId(
+      kind === "delete"
+        ? wallets.find((candidate) => candidate.status === "active" && candidate.id !== wallet.id)?.id ?? ""
+        : "",
+    );
     setConfirmOperation(operation);
   }
 
@@ -176,7 +202,10 @@ export function WalletManagement({
     startTransition(async () => {
       const result = kind === "deactivate"
         ? await setManagedWalletStatusAction({ walletId: wallet.id, status: "deactive" })
-        : await softDeleteManagedWalletAction(wallet.id);
+        : await softDeleteManagedWalletAction({
+            walletId: wallet.id,
+            settlementWalletId: requiresSettlement ? settlementWalletId : undefined,
+          });
       if (result.ok) {
         toast.success(
           kind === "deactivate"
@@ -184,6 +213,7 @@ export function WalletManagement({
             : `Đã xóa ví “${wallet.name}”.`,
         );
         setConfirmOperation(null);
+        setSettlementWalletId("");
         setEditingWallet(null);
         router.refresh();
       } else {
@@ -445,7 +475,7 @@ export function WalletManagement({
         >
           <form
             onSubmit={handleCreate}
-            className="sunrise-card w-full max-w-md p-6 space-y-4 relative overflow-hidden"
+            className="sunrise-card max-h-[calc(100dvh-2rem)] w-full max-w-md space-y-4 overflow-y-auto p-6 relative"
           >
             {/* Accent glow */}
             <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-blue-500" />
@@ -464,7 +494,11 @@ export function WalletManagement({
               </div>
               <button
                 type="button"
-                onClick={() => setCreatingModal(false)}
+                onClick={() => {
+                  setCreatingModal(false);
+                  setCreateFundingType("none");
+                  setCreateFundingWalletId("");
+                }}
                 className="text-slate-400 hover:text-slate-600 p-1"
               >
                 <X size={18} />
@@ -487,18 +521,67 @@ export function WalletManagement({
                 />
               </div>
 
-              <div>
-                <Label htmlFor="create-opening" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
-                  Số dư đầu kỳ <span className="text-rose-500">*</span>
-                </Label>
-                <Input
-                  id="create-opening"
-                  name="openingBalance"
-                  required
-                  inputMode="decimal"
-                  placeholder="0"
-                  className="w-full text-sm font-semibold tabular-nums"
+              <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3.5">
+                <div>
+                  <Label className="text-xs font-bold text-[var(--foreground)]">
+                    Cập nhật số dư sau khi tạo
+                  </Label>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                    Số dư khởi tạo luôn là 0. Khoản tiền đầu tiên sẽ được ghi thành giao dịch trong Sổ giao dịch.
+                  </p>
+                </div>
+                <FinanceSelect
+                  value={createFundingType}
+                  onValueChange={(value) => {
+                    const nextType = value as "none" | "transfer" | "income";
+                    setCreateFundingType(nextType);
+                    if (nextType === "transfer" && !createFundingWalletId) {
+                      setCreateFundingWalletId(activeWallets[0]?.id ?? "");
+                    }
+                  }}
+                  label="Cách cập nhật số dư"
+                  className="w-full"
+                  options={[
+                    { value: "none", label: "Giữ số dư 0" },
+                    { value: "transfer", label: "Chuyển từ ví khác", disabled: activeWallets.length === 0 },
+                    { value: "income", label: "Tạo giao dịch thu nhập" },
+                  ]}
                 />
+                {createFundingType !== "none" && (
+                  <div className="space-y-3 border-t border-[var(--border)] pt-3">
+                    {createFundingType === "transfer" && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-[var(--foreground)]">Ví chuyển tiền</Label>
+                        <FinanceSelect
+                          value={createFundingWalletId}
+                          onValueChange={setCreateFundingWalletId}
+                          label="Chọn ví chuyển tiền"
+                          className="w-full"
+                          options={activeWallets.map((wallet) => ({
+                            value: wallet.id,
+                            label: `${wallet.name} · ${formatAmount(wallet.currentBalance)} ${workspace.currency}`,
+                          }))}
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <Label htmlFor="create-funding-amount" className="mb-1 block text-xs font-bold text-[var(--foreground)]">
+                        Số tiền <span className="text-rose-500">*</span>
+                      </Label>
+                      <Input
+                        id="create-funding-amount"
+                        name="fundingAmount"
+                        required
+                        inputMode="decimal"
+                        placeholder="0"
+                        className="w-full text-sm font-semibold tabular-nums"
+                      />
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-slate-500">
+                      Nội dung giao dịch sẽ là “Tạo ví mới” và được ghi nhận ngay.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -521,11 +604,15 @@ export function WalletManagement({
               <Button
                 type="button"
                 variant="outline" size="sm" className="px-4 py-2"
-                onClick={() => setCreatingModal(false)}
+                onClick={() => {
+                  setCreatingModal(false);
+                  setCreateFundingType("none");
+                  setCreateFundingWalletId("");
+                }}
               >
                 Hủy
               </Button>
-              <Button type="submit" variant="default" size="sm" className="px-5 py-2" disabled={pending}>
+              <Button type="submit" variant="default" size="sm" className="px-5 py-2" disabled={pending || (createFundingType === "transfer" && !createFundingWalletId)}>
                 {pending ? (
                   <>
                     <span className="btn-spinner" aria-hidden />
@@ -749,17 +836,72 @@ export function WalletManagement({
                 </p>
               </div>
             </div>
+            {confirmOperation.kind === "delete" && (
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-xs font-semibold text-slate-500">Số dư cần tất toán</span>
+                  <strong className={`text-sm tabular-nums ${requiresSettlement ? "text-amber-600" : "text-emerald-600"}`}>
+                    {formatAmount(confirmOperation.wallet.currentBalance)} {workspace.currency}
+                  </strong>
+                </div>
+                {requiresSettlement ? (
+                  <div className="mt-3 space-y-3 border-t border-[var(--border)] pt-3">
+                    <div className="flex items-start gap-2 text-xs leading-relaxed text-slate-600">
+                      <ArrowLeftRight size={15} className="mt-0.5 shrink-0 text-amber-600" />
+                      <p>
+                        {confirmedBalance.isPositive()
+                          ? `Hệ thống sẽ chuyển ${formatAmount(confirmedBalance)} ${workspace.currency} từ ví này sang ví bạn chọn.`
+                          : `Hệ thống sẽ chuyển ${formatAmount(confirmedBalance.abs())} ${workspace.currency} từ ví bạn chọn vào ví này.`}
+                        {" "}Giao dịch được ghi nhận ngay để đưa số dư về 0.
+                      </p>
+                    </div>
+                    {settlementWallets.length ? (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-[var(--foreground)]">
+                          {confirmedBalance.isPositive() ? "Ví nhận tiền" : "Ví chuyển tiền"}
+                        </Label>
+                        <FinanceSelect
+                          value={settlementWalletId}
+                          onValueChange={setSettlementWalletId}
+                          label={confirmedBalance.isPositive() ? "Chọn ví nhận tiền" : "Chọn ví chuyển tiền"}
+                          className="w-full"
+                          options={settlementWallets.map((wallet) => ({
+                            value: wallet.id,
+                            label: `${wallet.name} · ${formatAmount(wallet.currentBalance)} ${workspace.currency}`,
+                          }))}
+                        />
+                      </div>
+                    ) : (
+                      <p className="rounded-lg border border-rose-500/20 bg-rose-500/8 p-3 text-xs leading-relaxed text-rose-600">
+                        Không có ví đang hoạt động để tất toán. Hãy tạo hoặc kích hoạt một ví khác trước khi xóa.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                    Số dư đã bằng 0. Không cần tạo giao dịch tất toán.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
-              <Button type="button" variant="outline" disabled={pending} onClick={() => setConfirmOperation(null)}>
+              <Button type="button" variant="outline" disabled={pending} onClick={() => {
+                setConfirmOperation(null);
+                setSettlementWalletId("");
+              }}>
                 Hủy
               </Button>
               <Button
                 type="button"
                 variant={confirmOperation.kind === "delete" ? "destructive" : "default"}
-                disabled={pending}
+                disabled={pending || (requiresSettlement && !settlementWalletId)}
                 onClick={confirmDestructiveOperation}
               >
-                {pending ? "Đang xử lý…" : confirmOperation.kind === "delete" ? "Xác nhận xóa" : "Xác nhận tạm ngưng"}
+                {pending
+                  ? "Đang xử lý…"
+                  : confirmOperation.kind === "delete"
+                    ? requiresSettlement ? "Tất toán và xóa" : "Xác nhận xóa"
+                    : "Xác nhận tạm ngưng"}
               </Button>
             </div>
           </section>

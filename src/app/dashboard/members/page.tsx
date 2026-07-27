@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function MembersPage() {
-  redirect("/settings/workspace");
+  redirect("/settings/workspace?tab=members");
 }

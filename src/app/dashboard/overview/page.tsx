@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/auth";
 import { OverviewDashboard } from "@/app/dashboard/overview/overview-dashboard";
 import { NoWorkspaceOnboarding } from "@/components/no-workspace-onboarding";
+import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
@@ -29,6 +30,7 @@ export default async function OverviewPage() {
   }
 
   await activateDueScheduledTransactions(workspaceId);
+  const reportPeriod = getBusinessDateInTimeZone(membership.workspace.timeZone).slice(0, 7);
 
   const [walletLinks, categories, members, transactions] = await Promise.all([
     prisma.workspaceWallet.findMany({ where: { workspaceId, wallet: { status: "active", deletedAt: null } }, include: { wallet: true }, orderBy: { wallet: { name: "asc" } } }),
@@ -49,6 +51,7 @@ export default async function OverviewPage() {
 
   return <OverviewDashboard
     workspace={{ id: workspaceId, name: membership.workspace.name, currency: membership.workspace.baseCurrency }}
+    reportPeriod={reportPeriod}
     wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString(), updatedAt: wallet.updatedAt.toISOString() }))}
     totalByCurrency={totalByCurrency}
     categories={categories.map((category) => ({ ...category, type: category.type as "income" | "expense" }))}

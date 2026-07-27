@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sliders, Folders, UserPlus, UsersRound } from "lucide-react";
+import { Sliders, Folders, UsersRound } from "lucide-react";
 import { WorkspaceSettings } from "./workspace-settings";
 import { InviteCodeCard } from "./invite-code-card";
 import { ImportCategoryPanel } from "./import-category-panel";
@@ -49,7 +49,7 @@ interface Props {
   initialTab?: TabKey;
 }
 
-type TabKey = "general" | "categories" | "members" | "joinRequests";
+type TabKey = "general" | "categories" | "members";
 
 export function WorkspaceSettingsTabsClient({
   workspace,
@@ -69,7 +69,6 @@ export function WorkspaceSettingsTabsClient({
     { key: "general", label: "Cấu hình & Vận hành", icon: Sliders },
     ...(isOwner ? [{ key: "categories" as const, label: "Danh mục thu/chi", icon: Folders, count: categories.length }] : []),
     { key: "members", label: "Thành viên", icon: UsersRound, count: members.length },
-    { key: "joinRequests", label: "Yêu cầu tham gia", icon: UserPlus, count: joinRequests.length },
   ];
 
   return (
@@ -120,12 +119,10 @@ export function WorkspaceSettingsTabsClient({
 
       {/* ── Tab 3: Thành viên ── */}
       {activeTab === "members" && (
-        <SettingsClient roles={roles} members={members} isAdmin={isAdmin} />
-      )}
-
-      {/* ── Tab 4: Yêu cầu tham gia ── */}
-      {activeTab === "joinRequests" && (
-        <JoinRequestsClient roles={roles} requests={joinRequests} />
+        <div className="space-y-6">
+          <SettingsClient roles={roles} members={members} isAdmin={isAdmin} />
+          <JoinRequestsClient roles={roles} requests={joinRequests} />
+        </div>
       )}
     </div>
   );

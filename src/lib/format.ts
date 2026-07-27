@@ -26,3 +26,18 @@ export function formatAmount(value: Decimal.Value, options: AmountFormatOptions 
 
   return fraction ? `${sign}${groupedInteger}${settings.decimalSeparator}${fraction}` : `${sign}${groupedInteger}`;
 }
+
+export function formatCompactAmount(value: Decimal.Value): string {
+  const amount = new Decimal(value);
+  const absoluteAmount = amount.abs();
+  const units = [
+    { threshold: new Decimal("1000000000"), label: "tỷ" },
+    { threshold: new Decimal("1000000"), label: "triệu" },
+    { threshold: new Decimal("1000"), label: "nghìn" },
+  ];
+
+  const unit = units.find((item) => absoluteAmount.greaterThanOrEqualTo(item.threshold));
+  if (!unit) return formatAmount(amount, { maximumFractionDigits: 0 });
+
+  return `${formatAmount(amount.dividedBy(unit.threshold), { maximumFractionDigits: 1 })} ${unit.label}`;
+}
