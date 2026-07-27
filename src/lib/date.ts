@@ -1,4 +1,4 @@
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { env } from "@/lib/env";
 
 const BUSINESS_DATE_FORMAT = "yyyy-MM-dd";
@@ -9,6 +9,30 @@ export function getCurrentBusinessDate(now = new Date()): string {
 
 export function getBusinessDateInTimeZone(timeZone: string, now = new Date()): string {
   return formatInTimeZone(now, timeZone, BUSINESS_DATE_FORMAT);
+}
+
+function nextIsoDate(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+}
+
+export function getBusinessNotificationRange(timeZone: string, now = new Date()) {
+  const today = getBusinessDateInTimeZone(timeZone, now);
+  const [year, month] = today.split("-").map(Number);
+  const currentMonthStart = new Date(Date.UTC(year, month - 1, 1));
+  const nextMonthStart = new Date(Date.UTC(year, month, 1));
+  const todayAsDatabaseDate = new Date(`${today}T00:00:00.000Z`);
+  const businessDayStart = fromZonedTime(`${today}T00:00:00`, timeZone);
+  const nextBusinessDayStart = fromZonedTime(`${nextIsoDate(today)}T00:00:00`, timeZone);
+
+  return {
+    today,
+    currentMonthStart,
+    nextMonthStart,
+    todayAsDatabaseDate,
+    businessDayStart,
+    nextBusinessDayStart,
+  };
 }
 
 export function isPastBusinessDate(date: string, now = new Date()): boolean {

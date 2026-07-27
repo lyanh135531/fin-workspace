@@ -131,6 +131,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
               <WorkspaceNotifications
                 workspaceId={membership.workspaceId}
                 currency={membership.workspace.baseCurrency}
+                timeZone={membership.workspace.timeZone}
                 isAdmin={isAdmin}
                 canAssignOwner={isOwner}
               />

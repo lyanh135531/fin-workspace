@@ -2,4 +2,22 @@ import { CircleDollarSign, Clock3, Landmark, TrendingDown, TrendingUp, WalletCar
 type Metric = { label: string; value: string; note: string; tone: "balance" | "income" | "expense" | "pending" };
 type Wallet = { id: string; name: string; balance: string };
 const icons = { balance: CircleDollarSign, income: TrendingUp, expense: TrendingDown, pending: Clock3 };
-export function DashboardSummaryPanel({ metrics, wallets }: { metrics: Metric[]; wallets: Wallet[] }) { return <aside className="dashboard-summary-panel" aria-label="Tổng quan tài chính"><div className="dashboard-summary-content"><header><div><p className="settings-eyebrow">Tổng quan</p><h2>Tình hình tài chính</h2></div></header><div className="dashboard-summary-metrics">{metrics.map((metric) => { const Icon = icons[metric.tone]; return <article key={metric.label} className={`dashboard-summary-metric metric-${metric.tone}`}><span><Icon size={16}/></span><div><p>{metric.label}</p><strong>{metric.value}</strong><small>{metric.note}</small></div></article>; })}</div><section className="dashboard-summary-wallets"><div className="flex items-center justify-between"><h3>Ví đang hoạt động</h3><span>{wallets.length}</span></div><div className="mt-3 space-y-2">{wallets.map((wallet) => <article key={wallet.id}><span className="wallet-summary-mark"><WalletCards size={15}/></span><div><strong>{wallet.name}</strong><small>Số dư hiện tại</small></div><b>{wallet.balance}</b></article>)}{wallets.length === 0 && <p className="text-sm text-slate-500">Chưa có ví đang hoạt động.</p>}</div></section></div><div className="dashboard-summary-rail" aria-hidden="true"><Landmark size={19}/><span>{wallets.length}</span></div></aside>; }
+export function DashboardSummaryPanel({ metrics, wallets }: { metrics: Metric[]; wallets: Wallet[] }) {
+  return <aside className="dashboard-summary-panel" aria-label="Tổng quan tài chính">
+    <div className="dashboard-summary-content">
+      <header><div><p className="settings-eyebrow">Tổng quan</p><h2>Tình hình tài chính</h2></div></header>
+      <div className="dashboard-summary-metrics">{metrics.map((metric) => {
+        const Icon = icons[metric.tone];
+        return <article key={metric.label} className={`dashboard-summary-metric metric-${metric.tone}`}><span><Icon size={16}/></span><div><p>{metric.label}</p><strong>{metric.value}</strong><small>{metric.note}</small></div></article>;
+      })}</div>
+      <section className="dashboard-summary-wallets">
+        <div className="flex items-center justify-between"><h3>Ví đang hoạt động</h3><span>{wallets.length}</span></div>
+        <div className="dashboard-summary-wallet-list" tabIndex={wallets.length ? 0 : -1} aria-label="Danh sách ví đang hoạt động">
+          {wallets.map((wallet) => <article key={wallet.id}><span className="wallet-summary-mark"><WalletCards size={15}/></span><div><strong>{wallet.name}</strong><small>Số dư hiện tại</small></div><b>{wallet.balance}</b></article>)}
+          {wallets.length === 0 && <p className="text-sm text-slate-500">Chưa có ví đang hoạt động.</p>}
+        </div>
+      </section>
+    </div>
+    <div className="dashboard-summary-rail" aria-hidden="true"><Landmark size={19}/><span>{wallets.length}</span></div>
+  </aside>;
+}
