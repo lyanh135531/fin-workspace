@@ -14,7 +14,7 @@ import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getUserJoinRequests } from "@/services/join-request-query";
 import { activateDueScheduledTransactions } from "@/services/transaction-service";
 
-const LEDGER_PAGE_SIZE = 50;
+const LEDGER_PAGE_SIZE = 20;
 
 export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspaceId?: string } = {}) {
   const session = await getServerSession(authOptions);
@@ -116,6 +116,15 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
   return (
     <div className="dashboard-workspace-view">
       <div className="dashboard-ledger-column">
+        <DashboardSummaryPanel
+          metrics={[
+            { label: "Tổng số dư", value: `${formatAmount(balance)} ₫`, note: `${walletLinks.length} ví đang hoạt động`, tone: "balance" },
+            { label: "Thu nhập", value: `${formatAmount(income)} ₫`, note: "Tháng hiện tại", tone: "income" },
+            { label: "Chi tiêu", value: `${formatAmount(expense)} ₫`, note: "Tháng hiện tại", tone: "expense" },
+            { label: "Chờ xác nhận", value: `${pendingCount} giao dịch`, note: "Chưa thay đổi số dư", tone: "pending" },
+          ]}
+          wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: `${formatAmount(wallet.currentBalance.toString())} ₫` }))}
+        />
         <section className="sunrise-card dashboard-ledger-card overflow-hidden">
           <Ledger
             workspaceId={workspaceId}
@@ -134,15 +143,6 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
           />
         </section>
       </div>
-      <DashboardSummaryPanel
-        metrics={[
-          { label: "Tổng số dư", value: `${formatAmount(balance)} ₫`, note: `${walletLinks.length} ví đang hoạt động`, tone: "balance" },
-          { label: "Thu nhập", value: `${formatAmount(income)} ₫`, note: "Tháng hiện tại", tone: "income" },
-          { label: "Chi tiêu", value: `${formatAmount(expense)} ₫`, note: "Tháng hiện tại", tone: "expense" },
-          { label: "Chờ xác nhận", value: `${pendingCount} giao dịch`, note: "Chưa thay đổi số dư", tone: "pending" },
-        ]}
-        wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: `${formatAmount(wallet.currentBalance.toString())} ₫` }))}
-      />
     </div>
   );
 }
