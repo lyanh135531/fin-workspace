@@ -9,7 +9,7 @@ import {
   Plus,
   WalletCards,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { addQuickTransactionAction } from "@/app/dashboard/actions";
 import { FinanceSelect } from "@/components/finance/finance-select";
@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 type TransactionType = "income" | "expense" | "transfer";
-type QuickWorkspace = {
+export type QuickWorkspace = {
   id: string;
   name: string;
   currency: string;
@@ -39,6 +39,20 @@ type QuickWorkspace = {
     type: "income" | "expense";
   }[];
 };
+
+function isSettingsRelatedRoute(pathname: string) {
+  return pathname === "/setting"
+    || pathname.startsWith("/setting/")
+    || pathname === "/account"
+    || pathname.startsWith("/account/")
+    || pathname.startsWith("/settings")
+    || pathname.startsWith("/dashboard/settings")
+    || pathname.startsWith("/dashboard/users")
+    || pathname.startsWith("/dashboard/members")
+    || pathname.startsWith("/dashboard/join-requests")
+    || pathname.startsWith("/dashboard/workspaces")
+    || pathname.startsWith("/workspaces/create");
+}
 
 const transactionTypes: {
   value: TransactionType;
@@ -61,11 +75,14 @@ function isAdminRole(role: string) {
 export function QuickTransactionSheet({
   initialWorkspaceId,
   workspaces,
+  triggerMode,
 }: {
   initialWorkspaceId: string;
   workspaces: QuickWorkspace[];
+  triggerMode: "overview" | "mobile-global";
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const initialWorkspace =
     workspaces.find((workspace) => workspace.id === initialWorkspaceId) ??
     workspaces[0];
@@ -159,7 +176,7 @@ export function QuickTransactionSheet({
     });
   }
 
-  if (!workspace) return null;
+  if (!workspace || (triggerMode === "mobile-global" && isSettingsRelatedRoute(pathname))) return null;
 
   const statusHint = date > workspace.businessDate
     ? "Giao dịch sẽ được lên lịch."
@@ -171,23 +188,23 @@ export function QuickTransactionSheet({
 
   return (
     <>
-      <Button
+      {triggerMode === "overview" && <Button
         type="button"
         onClick={() => setOpen(true)}
         className="overview-quick-entry-trigger"
       >
         <Plus size={17} />
         Nhập giao dịch
-      </Button>
-      <button
+      </Button>}
+      {triggerMode === "mobile-global" && <button
         type="button"
-        className="overview-mobile-quick-entry"
+        className="overview-mobile-quick-entry dashboard-global-quick-entry"
         onClick={() => setOpen(true)}
         aria-label="Nhập nhanh giao dịch"
       >
         <Plus size={20} />
         <span>Giao dịch</span>
-      </button>
+      </button>}
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent

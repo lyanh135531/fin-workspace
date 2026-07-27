@@ -67,7 +67,7 @@ export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCur
   const reset = () => { setWalletId("all"); setCategoryId("all"); setMemberId("all"); setType("all"); };
 
   return <div className="overview-shell">
-    <div className="overview-title"><div><p>Workspace · {workspace.name}</p><h1>Tổng quan tài chính</h1></div><QuickTransactionSheet initialWorkspaceId={workspace.id} workspaces={quickWorkspaces} /></div>
+    <div className="overview-title"><div><p>Workspace · {workspace.name}</p><h1>Tổng quan tài chính</h1></div><QuickTransactionSheet initialWorkspaceId={workspace.id} workspaces={quickWorkspaces} triggerMode="overview" /></div>
     <section className="overview-filter-panel" aria-label="Bộ lọc báo cáo">
       <div className="overview-filter-heading"><div className="overview-filter-title"><span><Funnel size={16}/></span><div><strong>Bộ lọc báo cáo</strong><small>{activeFilterCount ? `${activeFilterCount} điều kiện đang áp dụng` : "Đang hiển thị toàn bộ dữ liệu trong tháng"}</small></div></div><button type="button" onClick={reset} className="overview-reset" disabled={!activeFilterCount}><RefreshCw size={15}/>Đặt lại</button></div>
       <div className="overview-mobile-filter-meta"><span>{activeFilterCount ? `${activeFilterCount} bộ lọc` : "Bộ lọc"}</span><button type="button" onClick={reset} disabled={!activeFilterCount}>Đặt lại</button></div>

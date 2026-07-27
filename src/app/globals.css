@@ -4319,8 +4319,8 @@ html[data-sidebar-collapsed="true"] .mobile-navigation-sheet .sidebar-user-secti
     transform: scale(.97);
   }
 
-  .overview-shell {
-    padding-bottom: 5.5rem !important;
+  .dashboard-frame:has(.dashboard-global-quick-entry) .dashboard-content {
+    padding-bottom: max(5.5rem, calc(4.5rem + env(safe-area-inset-bottom)));
   }
 
   .quick-transaction-sheet {

@@ -13,6 +13,8 @@ import { activateDueScheduledTransactions } from "@/services/transaction-service
 import { isAdminRole, isOwnerRole } from "@/domain/role-policy";
 import { getPendingJoinRequestCount } from "@/services/join-request-query";
 import { MobileNavigation } from "@/app/dashboard/mobile-navigation";
+import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transaction-sheet";
+import { getBusinessDateInTimeZone } from "@/lib/date";
 
 export async function DashboardShell({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -43,13 +45,44 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
           workspace: { status: "active", deletedAt: null },
         },
         include: {
-          workspace: { select: { id: true, name: true } },
+          workspace: { select: { id: true, name: true, baseCurrency: true, timeZone: true } },
           role: { select: { code: true } },
         },
         orderBy: { workspace: { name: "asc" } },
       }),
     ])
     : [null, []];
+
+  const quickWorkspaceIds = workspaces.map((item) => item.workspaceId);
+  const [quickWalletLinks, quickCategories] = quickWorkspaceIds.length
+    ? await Promise.all([
+      prisma.workspaceWallet.findMany({
+        where: {
+          workspaceId: { in: quickWorkspaceIds },
+          wallet: { status: "active", deletedAt: null },
+        },
+        select: {
+          workspaceId: true,
+          wallet: { select: { id: true, name: true } },
+        },
+        orderBy: { wallet: { name: "asc" } },
+      }),
+      prisma.category.findMany({
+        where: {
+          status: "active",
+          deletedAt: null,
+          workspaceId: { in: quickWorkspaceIds },
+        },
+        select: {
+          id: true,
+          workspaceId: true,
+          name: true,
+          type: true,
+        },
+        orderBy: { sortOrder: "asc" },
+      }),
+    ])
+    : [[], []];
 
   const pendingJoinCount = userId ? await getPendingJoinRequestCount(userId) : 0;
 
@@ -142,6 +175,27 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
 
         {/* ── CONTENT ── */}
         <main className="dashboard-content">{children}</main>
+        <QuickTransactionSheet
+          initialWorkspaceId={membership?.workspaceId ?? workspaces[0]?.workspaceId ?? ""}
+          workspaces={workspaces.map((item) => ({
+            id: item.workspaceId,
+            name: item.workspace.name,
+            currency: item.workspace.baseCurrency,
+            businessDate: getBusinessDateInTimeZone(item.workspace.timeZone),
+            role: item.role.code,
+            wallets: quickWalletLinks
+              .filter((link) => link.workspaceId === item.workspaceId)
+              .map((link) => link.wallet),
+            categories: quickCategories
+              .filter((category) => category.workspaceId === item.workspaceId)
+              .map((category) => ({
+                id: category.id,
+                name: category.name,
+                type: category.type as "income" | "expense",
+              })),
+          }))}
+          triggerMode="mobile-global"
+        />
 
       </div>
     </div>
