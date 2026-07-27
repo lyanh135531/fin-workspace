@@ -426,11 +426,19 @@ export function Ledger({ workspaceId, businessDate, initialMonth, transactions, 
       {rows.map((item, index) => <article className="ledger-mobile-card" key={item.id}>
         <div className="ledger-mobile-card-heading">
           {canApprove && <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/>}
-          <div>
-            <strong>{item.description || "Không có nội dung"}</strong>
-            <small>#{String(Math.max(1, totalTransactions - ((page - 1) * pageSize + index))).padStart(5, "0")} · {item.member}{item.isRecurring ? " · Tự động" : ""}</small>
+          <div className="ledger-mobile-card-copy">
+            <strong title={item.description || "Không có nội dung"}>{item.description || "Không có nội dung"}</strong>
+            <div className="ledger-mobile-card-subline">
+              <small>#{String(Math.max(1, totalTransactions - ((page - 1) * pageSize + index))).padStart(5, "0")} · {item.member}{item.isRecurring ? " · Tự động" : ""}</small>
+              <b
+                className={`ledger-amount amount-${item.type}`}
+                title={`${item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}${formatAmount(item.amount)} ₫`}
+                aria-label={`Số tiền ${formatAmount(item.amount)} đồng`}
+              >
+                {item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} ₫
+              </b>
+            </div>
           </div>
-          <b className={`ledger-amount amount-${item.type}`}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} ₫</b>
         </div>
         <div className="ledger-mobile-card-meta">
           <span><small>Loại</small>{typeOptions.find((option) => option.value === item.type)?.label}</span>
