@@ -12,6 +12,7 @@ import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { activateDueScheduledTransactions } from "@/services/transaction-service";
 import { isAdminRole, isOwnerRole } from "@/domain/role-policy";
 import { getPendingJoinRequestCount } from "@/services/join-request-query";
+import { MobileNavigation } from "@/app/dashboard/mobile-navigation";
 
 export async function DashboardShell({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -100,14 +101,28 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
         {/* ── HEADER ── */}
         <header className="dashboard-header">
           {/* Left: page subtitle (context) */}
-          <div className="dashboard-header-copy">
-            <DashboardHeaderSubtitle
-              fallback={
-                membership
-                  ? membership.workspace.name
-                  : "Fin Workspace"
-              }
+          <div className="dashboard-header-leading">
+            <MobileNavigation
+              currentId={membership?.workspaceId}
+              workspaces={workspaces.map((item) => ({
+                id: item.workspace.id,
+                name: item.workspace.name,
+                role: item.role.code,
+              }))}
+              pendingJoinCount={pendingJoinCount}
+              isAdmin={isAdmin}
+              username={username}
+              role={userRole}
             />
+            <div className="dashboard-header-copy">
+              <DashboardHeaderSubtitle
+                fallback={
+                  membership
+                    ? membership.workspace.name
+                    : "Fin Workspace"
+                }
+              />
+            </div>
           </div>
 
           {/* Right: action group */}

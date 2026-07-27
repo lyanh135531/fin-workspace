@@ -146,10 +146,6 @@ export function RecurringTransactionsManager({
     }),
     [query, schedules, status],
   );
-  const activeCount = schedules.filter((item) => item.status === "active").length;
-  const completedCount = schedules.filter((item) => item.completedAt).length;
-  const pausedCount = schedules.length - activeCount - completedCount;
-
   function beginCreate() {
     setEditingId(null);
     setDeleteTarget(null);
@@ -268,6 +264,48 @@ export function RecurringTransactionsManager({
             </div>
           </section>
         )}
+
+        <div className="recurring-mobile-list" aria-label="Danh sách giao dịch định kỳ">
+          {visibleSchedules.map((schedule) => (
+            <article className="recurring-mobile-card" key={schedule.id}>
+              <div className="recurring-mobile-heading">
+                <div>
+                  <strong>{schedule.description || "Không có nội dung"}</strong>
+                  <small>{scheduleDayLabel(schedule.dayOfMonth)} · {schedule.occurrenceCount} kỳ</small>
+                </div>
+                <b className={`ledger-amount amount-${schedule.type}`}>
+                  {schedule.type === "income" ? "+" : schedule.type === "expense" ? "−" : "↔"}
+                  {formatAmount(schedule.amount)} {workspace.currency === "VND" ? "₫" : workspace.currency}
+                </b>
+              </div>
+              <div className="recurring-mobile-meta">
+                <span><small>Ví</small>{schedule.wallet}{schedule.toWallet ? ` → ${schedule.toWallet}` : ""}</span>
+                <span><small>Danh mục</small>{schedule.category?.name ?? "Chưa phân loại"}</span>
+                <span><small>Lần tới</small>{schedule.completedAt ? "Đã hoàn tất" : dateLabel(schedule.nextExecutionDate)}</span>
+                <span><small>Hiệu lực</small>{dateLabel(schedule.startDate)} → {schedule.endDate ? dateLabel(schedule.endDate) : "Không giới hạn"}</span>
+              </div>
+              <div className="recurring-mobile-footer">
+                <div>
+                  <span className={`status recurring-status-${schedule.completedAt ? "completed" : schedule.status}`}>
+                    {schedule.completedAt ? "Đã kết thúc" : schedule.status === "active" ? "Đang hoạt động" : "Tạm dừng"}
+                  </span>
+                  {schedule.lastError && <span className="recurring-error" title={schedule.lastError}><AlertTriangle size={13} /> Cần kiểm tra</span>}
+                </div>
+                <div className="ledger-row-actions">
+                  {!schedule.completedAt && <Button variant="outline" size="icon" disabled={busy || Boolean(draft)} onClick={() => toggleStatus(schedule)} title={schedule.status === "active" ? "Tạm dừng" : "Kích hoạt lại"} aria-label={schedule.status === "active" ? "Tạm dừng lịch" : "Kích hoạt lại lịch"}>{schedule.status === "active" ? <Pause size={15} /> : <Play size={15} />}</Button>}
+                  <Button variant="outline" size="icon" disabled={busy || Boolean(draft)} onClick={() => beginEdit(schedule)} title="Chỉnh sửa" aria-label="Chỉnh sửa lịch"><Pencil size={15} /></Button>
+                  <Button variant="outline" size="icon" className="ledger-delete-button" disabled={busy || Boolean(draft)} onClick={() => setDeleteTarget(schedule)} title="Xóa" aria-label="Xóa lịch"><Trash2 size={15} /></Button>
+                </div>
+              </div>
+            </article>
+          ))}
+          {visibleSchedules.length === 0 && !draft && <div className="recurring-mobile-empty">
+            <Repeat2 size={23} />
+            <strong>{schedules.length ? "Không có lịch phù hợp" : "Chưa có giao dịch định kỳ"}</strong>
+            <p>{schedules.length ? "Thử thay đổi bộ lọc hoặc từ khóa." : "Đăng ký khoản lặp lại để hệ thống tự ghi nhận mỗi tháng."}</p>
+            {!schedules.length && wallets.length > 0 && <Button variant="outline" onClick={beginCreate}>Tạo đăng ký đầu tiên</Button>}
+          </div>}
+        </div>
 
         <div className="recurring-table-wrap">
           <table className="ledger-table recurring-table">

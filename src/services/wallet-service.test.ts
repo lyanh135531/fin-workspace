@@ -92,7 +92,7 @@ describe("wallet-service lifecycle", () => {
     expect(tx.wallet.update).not.toHaveBeenCalled();
   });
 
-  it("creates every wallet with a zero opening and current balance", async () => {
+  it("creates a zero-balance wallet without a transaction when income funding is zero", async () => {
     const tx = {
       $queryRaw: vi.fn().mockResolvedValue([{}]),
       workspaceWallet: {
@@ -110,6 +110,7 @@ describe("wallet-service lifecycle", () => {
     await createWalletForWorkspace("admin-1", "workspace-1", {
       name: "Tiền mặt",
       description: "Chi tiêu hằng ngày",
+      funding: { type: "income", amount: new Decimal(0) },
     });
 
     const createData = tx.wallet.create.mock.calls[0][0].data;

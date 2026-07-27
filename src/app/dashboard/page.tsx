@@ -14,6 +14,8 @@ import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getUserJoinRequests } from "@/services/join-request-query";
 import { activateDueScheduledTransactions } from "@/services/transaction-service";
 
+const LEDGER_PAGE_SIZE = 50;
+
 export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspaceId?: string } = {}) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/sign-in");
@@ -40,9 +42,13 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
   }
 
   await activateDueScheduledTransactions(workspaceId);
-  const currentPeriod = getBusinessDateInTimeZone(membership.workspace.timeZone).slice(0, 7);
+  const businessDate = getBusinessDateInTimeZone(membership.workspace.timeZone);
+  const currentPeriod = businessDate.slice(0, 7);
+  const [currentYear, currentMonth] = currentPeriod.split("-").map(Number);
+  const periodStart = new Date(Date.UTC(currentYear, currentMonth - 1, 1));
+  const nextPeriodStart = new Date(Date.UTC(currentYear, currentMonth, 1));
 
-  const [walletLinks, categories, transactions] = await Promise.all([
+  const [walletLinks, categories, transactions, currentMonthTransactions, pendingCount] = await Promise.all([
     prisma.workspaceWallet.findMany({
       where: { workspaceId, wallet: { status: "active", deletedAt: null } },
       include: { wallet: true },
@@ -57,21 +63,31 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
       where: { deletedAt: null, member: { workspaceId } },
       include: {
         wallet: { select: { name: true } },
+        toWallet: { select: { name: true } },
         category: { select: { name: true, color: true } },
         member: { include: { user: { select: { username: true } } } },
         changeRequests: { where: { status: "pending" }, select: { id: true } },
       },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      take: 100,
+    }),
+    prisma.transaction.findMany({
+      where: {
+        deletedAt: null,
+        member: { workspaceId },
+        workflowStatus: "approved",
+        date: { gte: periodStart, lt: nextPeriodStart },
+      },
+      select: { amount: true, type: true },
+    }),
+    prisma.transaction.count({
+      where: { deletedAt: null, member: { workspaceId }, workflowStatus: "pending" },
     }),
   ]);
-
-  const currentMonthTransactions = transactions.filter((item) => item.date.toISOString().slice(0, 7) === currentPeriod);
-  const approved = currentMonthTransactions.filter((item) => item.workflowStatus === "approved");
-  const income = approved
+  const totalTransactions = transactions.length;
+  const income = currentMonthTransactions
     .filter((item) => item.type === "income")
     .reduce((sum, item) => sum.plus(item.amount.toString()), new Decimal(0));
-  const expense = approved
+  const expense = currentMonthTransactions
     .filter((item) => item.type === "expense")
     .reduce((sum, item) => sum.plus(item.amount.toString()), new Decimal(0));
   const balance = walletLinks.reduce(
@@ -90,22 +106,24 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
     toWalletId: item.toWalletId,
     categoryId: item.categoryId,
     wallet: item.wallet.name,
+    toWallet: item.toWallet?.name ?? null,
     category: item.category ? { name: item.category.name, color: item.category.color } : null,
     member: item.member.user.username,
     canRequestDelete: isAdmin || item.memberId === membership.id,
     hasPendingChange: item.changeRequests.length > 0,
     isRecurring: Boolean(item.recurringTransactionId),
   }));
-  const pendingCount = transactions.filter((item) => item.workflowStatus === "pending").length;
-
   return (
     <div className="dashboard-workspace-view">
       <div className="dashboard-ledger-column">
         <section className="sunrise-card dashboard-ledger-card overflow-hidden">
           <Ledger
             workspaceId={workspaceId}
+            businessDate={businessDate}
             initialMonth={currentPeriod}
             transactions={ledger}
+            totalTransactions={totalTransactions}
+            pageSize={LEDGER_PAGE_SIZE}
             isAdmin={isAdmin}
             canEditTransactions
             canApprove={isAdmin}

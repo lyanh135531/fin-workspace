@@ -27,6 +27,7 @@ type FinanceSelectProps = {
   required?: boolean;
   disabled?: boolean;
   className?: string;
+  contentClassName?: string;
 };
 
 export function FinanceSelect({
@@ -40,6 +41,7 @@ export function FinanceSelect({
   required,
   disabled,
   className,
+  contentClassName,
 }: FinanceSelectProps) {
   const [internalValue, setInternalValue] = useState(defaultValue);
   const selectedValue = value ?? internalValue;
@@ -59,7 +61,7 @@ export function FinanceSelect({
       <SelectTrigger className={cn("finance-select-trigger", className)} aria-label={label}>
         <SelectValue placeholder={placeholder ?? label}>{selectedLabel}</SelectValue>
       </SelectTrigger>
-      <SelectContent align="start" className="finance-select-content">
+      <SelectContent align="start" className={cn("finance-select-content", contentClassName)}>
         {options.map((option) => (
           <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
             {option.label}

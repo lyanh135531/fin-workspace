@@ -3,7 +3,7 @@
 import Decimal from "decimal.js";
 import { CircleAlert, Funnel, RefreshCw, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import { useState } from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ReferenceLine, XAxis, YAxis } from "recharts";
 import {
   buildMonthlyBalances,
   buildMemberMonthlyTotals,
@@ -16,10 +16,19 @@ import { FinanceSelect } from "@/components/finance/finance-select";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatAmount, formatCompactAmount } from "@/lib/format";
-import { Button } from "@/components/ui/button";
+import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transaction-sheet";
 
 type Transaction = { id: string; amount: string; type: "income" | "expense" | "transfer"; status: "pending" | "scheduled" | "approved" | "rejected"; description: string | null; date: string; walletId: string; toWalletId: string | null; wallet: string; categoryId: string | null; category: { name: string; color: string } | null; memberId: string; member: string };
-type Props = { workspace: { id: string; name: string; currency: string }; reportPeriod: string; wallets: { id: string; name: string; balance: string; updatedAt: string }[]; totalByCurrency: Record<string, string>; categories: { id: string; name: string; color: string; type: "income" | "expense" }[]; members: { id: string; name: string }[]; transactions: Transaction[] };
+type QuickWorkspace = {
+  id: string;
+  name: string;
+  currency: string;
+  businessDate: string;
+  role: string;
+  wallets: { id: string; name: string }[];
+  categories: { id: string; name: string; type: "income" | "expense" }[];
+};
+type Props = { workspace: { id: string; name: string; currency: string }; reportPeriod: string; wallets: { id: string; name: string; balance: string; updatedAt: string }[]; totalByCurrency: Record<string, string>; categories: { id: string; name: string; color: string; type: "income" | "expense" }[]; members: { id: string; name: string }[]; transactions: Transaction[]; quickWorkspaces: QuickWorkspace[] };
 const money = (value: Decimal.Value, currency: string) => `${formatAmount(value)} ${currency}`;
 const statusLabel = { approved: "Đã ghi nhận", pending: "Chờ duyệt", scheduled: "Đã lên lịch", rejected: "Đã từ chối" };
 const monthlyChartConfig = {
@@ -43,7 +52,7 @@ const balanceChartConfig = {
   total: { label: "Tổng số dư", color: "var(--primary)" },
 } satisfies ChartConfig;
 
-export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCurrency, categories, members, transactions }: Props) {
+export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCurrency, categories, members, transactions, quickWorkspaces }: Props) {
   const [walletId, setWalletId] = useState("all"); const [categoryId, setCategoryId] = useState("all"); const [memberId, setMemberId] = useState("all"); const [type, setType] = useState("all"); const [range, setRange] = useState<CashflowRange>(6);
   const filtered = transactions.filter((item) => item.date.slice(0, 7) === reportPeriod && (walletId === "all" || item.walletId === walletId || item.toWalletId === walletId) && (categoryId === "all" || item.categoryId === categoryId) && (memberId === "all" || item.memberId === memberId) && (type === "all" || item.type === type));
   const posted = filtered.filter((item) => item.status === "approved");
@@ -58,22 +67,30 @@ export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCur
   const reset = () => { setWalletId("all"); setCategoryId("all"); setMemberId("all"); setType("all"); };
 
   return <div className="overview-shell">
-    <div className="overview-title"><div><p>Workspace · {workspace.name}</p><h1>Tổng quan tài chính</h1></div><Button render={<a href={`/workspace/${workspace.id}`} aria-label="Thêm giao dịch" />} className="overview-add">Thêm giao dịch</Button></div>
+    <div className="overview-title"><div><p>Workspace · {workspace.name}</p><h1>Tổng quan tài chính</h1></div><QuickTransactionSheet initialWorkspaceId={workspace.id} workspaces={quickWorkspaces} /></div>
     <section className="overview-filter-panel" aria-label="Bộ lọc báo cáo">
       <div className="overview-filter-heading"><div className="overview-filter-title"><span><Funnel size={16}/></span><div><strong>Bộ lọc báo cáo</strong><small>{activeFilterCount ? `${activeFilterCount} điều kiện đang áp dụng` : "Đang hiển thị toàn bộ dữ liệu trong tháng"}</small></div></div><button type="button" onClick={reset} className="overview-reset" disabled={!activeFilterCount}><RefreshCw size={15}/>Đặt lại</button></div>
+      <div className="overview-mobile-filter-meta"><span>{activeFilterCount ? `${activeFilterCount} bộ lọc` : "Bộ lọc"}</span><button type="button" onClick={reset} disabled={!activeFilterCount}>Đặt lại</button></div>
       <div className="overview-filter-grid">
-        <FilterField label="Ví"><FinanceSelect value={walletId} onValueChange={setWalletId} label="Lọc theo ví" options={[{ value: "all", label: "Tất cả ví" }, ...wallets.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
-        <FilterField label="Hạng mục"><FinanceSelect value={categoryId} onValueChange={setCategoryId} label="Lọc theo hạng mục" options={[{ value: "all", label: "Tất cả hạng mục" }, ...categories.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
-        <FilterField label="Loại giao dịch"><FinanceSelect value={type} onValueChange={setType} label="Lọc theo loại giao dịch" options={[{ value: "all", label: "Tất cả loại" }, { value: "income", label: "Thu nhập" }, { value: "expense", label: "Chi phí" }, { value: "transfer", label: "Chuyển khoản" }]} /></FilterField>
-        <FilterField label="Thành viên"><FinanceSelect value={memberId} onValueChange={setMemberId} label="Lọc theo thành viên" options={[{ value: "all", label: "Tất cả thành viên" }, ...members.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
+        <FilterField label="Ví"><FinanceSelect value={walletId} onValueChange={setWalletId} label="Lọc theo ví" contentClassName="overview-minimal-select-content" options={[{ value: "all", label: "Tất cả ví" }, ...wallets.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
+        <FilterField label="Hạng mục"><FinanceSelect value={categoryId} onValueChange={setCategoryId} label="Lọc theo hạng mục" contentClassName="overview-minimal-select-content" options={[{ value: "all", label: "Tất cả hạng mục" }, ...categories.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
+        <FilterField label="Loại giao dịch"><FinanceSelect value={type} onValueChange={setType} label="Lọc theo loại giao dịch" contentClassName="overview-minimal-select-content" options={[{ value: "all", label: "Tất cả loại" }, { value: "income", label: "Thu nhập" }, { value: "expense", label: "Chi phí" }, { value: "transfer", label: "Chuyển khoản" }]} /></FilterField>
+        <FilterField label="Thành viên"><FinanceSelect value={memberId} onValueChange={setMemberId} label="Lọc theo thành viên" contentClassName="overview-minimal-select-content" options={[{ value: "all", label: "Tất cả thành viên" }, ...members.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
       </div>
     </section>
+    <MobileFinanceDonut
+      balance={Object.entries(totalByCurrency).map(([currency, total]) => money(total, currency)).join(" · ")}
+      income={totals.income}
+      expense={totals.expense}
+      currency={workspace.currency}
+    />
     <div className="overview-kpis"><Metric title="Tổng số dư ví" value={Object.entries(totalByCurrency).map(([currency, total]) => money(total, currency)).join(" · ")} note={`${wallets.length} ví đang hoạt động`} icon={<WalletCards size={18}/>} tone="primary"/><Metric title="Thu nhập trong kỳ" value={money(totals.income, workspace.currency)} note="Chỉ giao dịch đã ghi nhận" icon={<TrendingUp size={18}/>} tone="income"/><Metric title="Chi phí trong kỳ" value={money(totals.expense, workspace.currency)} note="Chỉ giao dịch đã ghi nhận" icon={<TrendingDown size={18}/>} tone="expense"/><Metric title="Dòng tiền ròng" value={money(totals.income.minus(totals.expense), workspace.currency)} note="Thu nhập trừ chi phí" icon={<TrendingUp size={18}/>} tone="primary"/></div>
     <div className="overview-grid"><CashflowOverviewCharts members={members} transactions={transactions} currency={workspace.currency} month={reportPeriod} range={range} onRangeChange={setRange} walletId={walletId} categoryId={categoryId} memberId={memberId} transactionType={type} categoryType={categories.find((category) => category.id === categoryId)?.type}/>
       <BalanceHistoryChart wallets={wallets} transactions={transactions} currency={workspace.currency} month={reportPeriod} range={range} walletId={walletId}/>
       <div className="overview-detail-grid">
         <section className="overview-card overview-category">
           <header><div><h2>Chi phí theo hạng mục</h2><p>Phân bổ chi phí đã ghi nhận</p></div><span className="overview-card-count">{expenseByCategory.length}</span></header>
+          <MobileCategoryPie items={expenseByCategory} total={totals.expense} currency={workspace.currency}/>
           {expenseByCategory.length ? <div className="category-list">{expenseByCategory.map((item) => {
             const percentage = item.amount.div(totals.expense).times(100);
             return <div className="category-row" key={item.name}><span className="category-dot" style={{ background: item.color }}/><div><span className="category-row-heading"><strong>{item.name}</strong><b>{percentage.toFixed(0)}%</b></span><div className="category-track"><span style={{ width: `${percentage}%`, background: item.color }}/></div><small>{formatCompactAmount(item.amount)} {workspace.currency}</small></div></div>;
@@ -303,6 +320,116 @@ function MemberExpenseChart({ members, transactions, currency, period, range, wa
     </div> : <Empty text={isTransfer ? "Biểu đồ theo thành viên không áp dụng cho giao dịch chuyển khoản." : `Chưa có ${metricLabel.toLocaleLowerCase("vi")} đã ghi nhận phù hợp trong ${range} tháng này.`} />}
   </section>;
 }
+
+function MobileFinanceDonut({ balance, income, expense, currency }: {
+  balance: string;
+  income: Decimal;
+  expense: Decimal;
+  currency: string;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const cashflow = income.minus(expense);
+  const data = [
+    { key: "income", name: "Thu nhập", amount: income.abs().toNumber(), display: money(income, currency), color: "var(--income)" },
+    { key: "expense", name: "Chi phí", amount: expense.abs().toNumber(), display: money(expense, currency), color: "var(--expense)" },
+    { key: "cashflow", name: "Dòng tiền", amount: cashflow.abs().toNumber(), display: money(cashflow, currency), color: "var(--primary)" },
+  ];
+  const active = data[Math.min(activeIndex, data.length - 1)];
+  const hasData = data.some((item) => item.amount > 0);
+  const config = Object.fromEntries(data.map((item) => [item.key, { label: item.name, color: item.color }])) satisfies ChartConfig;
+
+  return <section className="overview-mobile-finance" aria-label="Thu nhập, chi phí và dòng tiền trong kỳ">
+    <header><div><span>Số dư hiện tại</span><strong>{balance}</strong></div><small>Kỳ báo cáo hiện tại</small></header>
+    <div className="overview-mobile-finance-body">
+      <div className={`overview-mobile-donut-wrap ${hasData ? "" : "empty"}`}>
+        {hasData && <ChartContainer config={config} className="overview-mobile-donut">
+          <PieChart accessibilityLayer>
+            <Pie
+              data={data}
+              dataKey="amount"
+              nameKey="name"
+              innerRadius={52}
+              outerRadius={72}
+              paddingAngle={3}
+              cornerRadius={5}
+              onClick={(_, index) => setActiveIndex(index)}
+            >
+              {data.map((item, index) => <Cell key={item.key} fill={item.color} stroke="var(--surface)" strokeWidth={3} opacity={index === activeIndex ? 1 : .58}/>)}
+            </Pie>
+          </PieChart>
+        </ChartContainer>}
+        <div className="overview-mobile-donut-center"><span>{active.name}</span><strong>{active.display}</strong></div>
+      </div>
+      <div className="overview-mobile-donut-list" role="list" aria-label="Chọn chỉ số hiển thị">
+        {data.map((item, index) => <button type="button" role="listitem" className={index === activeIndex ? "active" : ""} key={item.key} onClick={() => setActiveIndex(index)}>
+          <i style={{ background: item.color }}/>
+          <span>{item.name}</span>
+          <strong>{item.display}</strong>
+        </button>)}
+      </div>
+    </div>
+  </section>;
+}
+
+function MobileCategoryPie({ items, total, currency }: {
+  items: { name: string; color: string; amount: Decimal }[];
+  total: Decimal;
+  currency: string;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const visibleItems = items.length > 6
+    ? [
+      ...items.slice(0, 5),
+      {
+        name: "Khác",
+        color: "var(--chart-7)",
+        amount: items.slice(5).reduce((sum, item) => sum.plus(item.amount), new Decimal(0)),
+      },
+    ]
+    : items;
+  const data = visibleItems.map((item) => ({
+    name: item.name,
+    color: item.color,
+    amount: item.amount.toNumber(),
+    display: `${formatCompactAmount(item.amount)} ${currency}`,
+    percentage: total.isZero() ? "0" : item.amount.div(total).times(100).toFixed(0),
+  }));
+  const safeActiveIndex = Math.min(activeIndex, Math.max(0, data.length - 1));
+  const active = data[safeActiveIndex];
+  const config = Object.fromEntries(data.map((item, index) => [`category_${index}`, { label: item.name, color: item.color }])) satisfies ChartConfig;
+
+  if (!data.length) return null;
+
+  return <div className="overview-mobile-category-pie">
+    <div className="overview-mobile-category-chart">
+      <ChartContainer config={config} className="overview-mobile-category-donut">
+        <PieChart accessibilityLayer>
+          <Pie
+            data={data}
+            dataKey="amount"
+            nameKey="name"
+            innerRadius={38}
+            outerRadius={62}
+            paddingAngle={2}
+            cornerRadius={4}
+            onClick={(_, index) => setActiveIndex(index)}
+          >
+            {data.map((item, index) => <Cell key={`${item.name}-${index}`} fill={item.color} stroke="var(--surface)" strokeWidth={2.5} opacity={index === safeActiveIndex ? 1 : .62}/>)}
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+      <div className="overview-mobile-category-center"><strong>{active.percentage}%</strong><span>{active.name}</span></div>
+    </div>
+    <div className="overview-mobile-category-labels" role="list" aria-label="Chi phí theo hạng mục">
+      {data.map((item, index) => <button type="button" role="listitem" className={index === safeActiveIndex ? "active" : ""} key={`${item.name}-label-${index}`} onClick={() => setActiveIndex(index)}>
+        <i style={{ background: item.color }}/>
+        <span><strong>{item.name}</strong><small>{item.display}</small></span>
+        <b>{item.percentage}%</b>
+      </button>)}
+    </div>
+  </div>;
+}
+
 function FilterField({ label, children }: { label: string; children: React.ReactNode }) { return <div className="overview-filter-field" role="group" aria-label={label}><span>{label}</span>{children}</div>; }
 function Metric({ title, value, note, icon, tone }: { title: string; value: string; note: string; icon: React.ReactNode; tone: string }) { return <section className={`overview-metric ${tone}`}><span>{icon}</span><p>{title}</p><strong>{value}</strong><small>{note}</small></section>; }
 function Empty({ text }: { text: string }) { return <div className="overview-empty">{text}</div>; }

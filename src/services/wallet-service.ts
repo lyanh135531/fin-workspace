@@ -56,7 +56,7 @@ export async function createWalletForWorkspace(userId: string, workspaceId: stri
       },
     });
     await tx.workspaceWallet.create({ data: { workspaceId, walletId: wallet.id } });
-    if (input.funding && input.funding.type !== "none") {
+    if (input.funding && input.funding.amount.gt(0)) {
       const businessDate = getBusinessDateInTimeZone(
         member.workspace.timeZone,
         new Date(),

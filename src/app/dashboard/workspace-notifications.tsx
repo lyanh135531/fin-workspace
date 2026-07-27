@@ -78,5 +78,5 @@ export async function WorkspaceNotifications({
       ...changeDetails(item.proposedData),
     })),
   ];
-  return <NotificationsMenu items={items} roles={roles} currency={currency}/>;
+  return <NotificationsMenu workspaceId={workspaceId} items={items} roles={roles} currency={currency}/>;
 }

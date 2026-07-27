@@ -15,4 +15,25 @@ describe("wallet schemas", () => {
     });
     expect("openingBalance" in result).toBe(false);
   });
+
+  it("accepts zero for the default income flow", () => {
+    const result = createWalletSchema.parse({
+      name: "Ví mới",
+      funding: { type: "income", amount: "0" },
+    });
+
+    expect(result.funding?.type).toBe("income");
+    expect(result.funding?.amount.toString()).toBe("0");
+  });
+
+  it("requires a positive amount for transfer funding", () => {
+    expect(() => createWalletSchema.parse({
+      name: "Ví mới",
+      funding: {
+        type: "transfer",
+        amount: "0",
+        sourceWalletId: "11111111-1111-1111-1111-111111111111",
+      },
+    })).toThrow();
+  });
 });

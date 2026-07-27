@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { idSchema, optionalTrimmedTextSchema } from "@/domain/common/schemas";
-import { positiveMoneySchema } from "@/lib/decimal";
+import { moneySchema, positiveMoneySchema } from "@/lib/decimal";
 
 const walletNameSchema = z
   .string()
@@ -10,10 +10,11 @@ const walletNameSchema = z
   .transform((name) => name.normalize("NFC"));
 
 const walletFundingSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("none") }),
   z.object({
     type: z.literal("income"),
-    amount: positiveMoneySchema,
+    amount: moneySchema.refine((amount) => amount.gte(0), {
+      message: "Income funding amount must be zero or greater.",
+    }),
   }),
   z.object({
     type: z.literal("transfer"),

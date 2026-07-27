@@ -89,14 +89,16 @@ export function WorkspaceSwitcher({
   workspaces,
   currentId,
   pendingJoinCount = 0,
+  forceExpanded = false,
 }: {
   workspaces: Workspace[];
   currentId: string;
   pendingJoinCount?: number;
+  forceExpanded?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const collapsed = useSidebarCollapsed();
+  const collapsed = useSidebarCollapsed() && !forceExpanded;
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);

@@ -32,7 +32,22 @@ export default async function OverviewPage() {
   await activateDueScheduledTransactions(workspaceId);
   const reportPeriod = getBusinessDateInTimeZone(membership.workspace.timeZone).slice(0, 7);
 
-  const [walletLinks, categories, members, transactions] = await Promise.all([
+  const quickMemberships = await prisma.workspaceMember.findMany({
+    where: {
+      userId: session.user.id,
+      status: "active",
+      deletedAt: null,
+      workspace: { status: "active", deletedAt: null },
+    },
+    include: {
+      workspace: true,
+      role: { select: { code: true } },
+    },
+    orderBy: { workspace: { name: "asc" } },
+  });
+  const quickWorkspaceIds = quickMemberships.map((item) => item.workspaceId);
+
+  const [walletLinks, categories, members, transactions, quickWalletLinks, quickCategories] = await Promise.all([
     prisma.workspaceWallet.findMany({ where: { workspaceId, wallet: { status: "active", deletedAt: null } }, include: { wallet: true }, orderBy: { wallet: { name: "asc" } } }),
     prisma.category.findMany({ where: availableCategoryWhere(workspaceId), select: { id: true, name: true, color: true, type: true }, orderBy: { sortOrder: "asc" } }),
     prisma.workspaceMember.findMany({ where: { workspaceId, status: "active", deletedAt: null }, select: { id: true, user: { select: { username: true } } }, orderBy: { user: { username: "asc" } } }),
@@ -40,6 +55,31 @@ export default async function OverviewPage() {
       where: { deletedAt: null, member: { workspaceId } },
       include: { wallet: { select: { name: true } }, category: { select: { name: true, color: true } }, member: { include: { user: { select: { username: true } } } } },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    }),
+    prisma.workspaceWallet.findMany({
+      where: {
+        workspaceId: { in: quickWorkspaceIds },
+        wallet: { status: "active", deletedAt: null },
+      },
+      select: {
+        workspaceId: true,
+        wallet: { select: { id: true, name: true } },
+      },
+      orderBy: { wallet: { name: "asc" } },
+    }),
+    prisma.category.findMany({
+      where: {
+        status: "active",
+        deletedAt: null,
+        workspaceId: { in: quickWorkspaceIds },
+      },
+      select: {
+        id: true,
+        workspaceId: true,
+        name: true,
+        type: true,
+      },
+      orderBy: { sortOrder: "asc" },
     }),
   ]);
 
@@ -57,5 +97,22 @@ export default async function OverviewPage() {
     categories={categories.map((category) => ({ ...category, type: category.type as "income" | "expense" }))}
     members={members.map((member) => ({ id: member.id, name: member.user.username }))}
     transactions={transactions.map((transaction) => ({ id: transaction.id, amount: transaction.amount.toString(), type: transaction.type, status: transaction.workflowStatus, description: transaction.description, date: transaction.date.toISOString(), walletId: transaction.walletId, toWalletId: transaction.toWalletId, wallet: transaction.wallet.name, categoryId: transaction.categoryId, category: transaction.category, memberId: transaction.memberId, member: transaction.member.user.username }))}
+    quickWorkspaces={quickMemberships.map((item) => ({
+      id: item.workspaceId,
+      name: item.workspace.name,
+      currency: item.workspace.baseCurrency,
+      businessDate: getBusinessDateInTimeZone(item.workspace.timeZone),
+      role: item.role.code,
+      wallets: quickWalletLinks
+        .filter((link) => link.workspaceId === item.workspaceId)
+        .map((link) => link.wallet),
+      categories: quickCategories
+        .filter((category) => category.workspaceId === item.workspaceId)
+        .map((category) => ({
+          id: category.id,
+          name: category.name,
+          type: category.type as "income" | "expense",
+        })),
+    }))}
   />;
 }

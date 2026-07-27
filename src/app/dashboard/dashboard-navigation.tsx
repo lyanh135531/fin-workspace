@@ -12,12 +12,14 @@ export function DashboardNavigation({
   workspaces,
   pendingJoinCount = 0,
   isAdmin = false,
+  forceExpandedWorkspaceSwitcher = false,
 }: {
   currentId?: string;
   workspaces: Workspace[];
   pendingJoinCount?: number;
   isAdmin?: boolean;
   username?: string;
+  forceExpandedWorkspaceSwitcher?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -50,7 +52,12 @@ export function DashboardNavigation({
       {/* ── Workspace Dropdown Switcher at top ── */}
       {currentId && (
         <div className="sidebar-ws-switcher-wrapper">
-          <WorkspaceSwitcher currentId={currentId} workspaces={workspaces} pendingJoinCount={pendingJoinCount} />
+          <WorkspaceSwitcher
+            currentId={currentId}
+            workspaces={workspaces}
+            pendingJoinCount={pendingJoinCount}
+            forceExpanded={forceExpandedWorkspaceSwitcher}
+          />
         </div>
       )}
 

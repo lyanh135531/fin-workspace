@@ -20,14 +20,14 @@ type Role = { code: string; name: string };
 const transactionTypeLabel = { income: "Thu", expense: "Chi", transfer: "Chuyển khoản" };
 const money = (value: string, currency: string) => `${formatAmount(value)} ${currency === "VND" ? "₫" : currency}`;
 
-export function NotificationsMenu({ items, roles, currency }: { items: NotificationItem[]; roles: Role[]; currency: string }) {
+export function NotificationsMenu({ workspaceId, items, roles, currency }: { workspaceId: string; items: NotificationItem[]; roles: Role[]; currency: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const defaultRoleCode = roles.find((role) => role.code === "MEMBER")?.code ?? roles[0]?.code ?? "MEMBER";
   const [joinRoles, setJoinRoles] = useState<Record<string, string>>({});
   function reviewTransaction(id: string, approve: boolean) {
     start(async () => {
-      const result = approve ? await approveTransactionAction(id) : await rejectTransactionAction(id);
+      const result = approve ? await approveTransactionAction(workspaceId, id) : await rejectTransactionAction(workspaceId, id);
       if (result.ok) {
         toast.success("Đã xử lý giao dịch.");
         router.refresh();
@@ -38,7 +38,7 @@ export function NotificationsMenu({ items, roles, currency }: { items: Notificat
   }
   function reviewChange(id: string, approve: boolean, action: "update" | "delete") {
     start(async () => {
-      const result = await reviewTransactionChangeAction(id, approve);
+      const result = await reviewTransactionChangeAction(workspaceId, id, approve);
       if (result.ok) {
         toast.success(action === "delete"
           ? approve ? "Đã duyệt xóa giao dịch và cập nhật lại số dư ví." : "Đã từ chối yêu cầu xóa giao dịch."

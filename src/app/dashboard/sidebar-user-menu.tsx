@@ -24,13 +24,17 @@ function useSidebarCollapsed() {
   );
 }
 
-type Props = { username: string; role: "admin" | "member" | "none" };
+type Props = {
+  username: string;
+  role: "admin" | "member" | "none";
+  forceExpanded?: boolean;
+};
 
-export function SidebarUserMenu({ username, role }: Props) {
+export function SidebarUserMenu({ username, role, forceExpanded = false }: Props) {
   const [pending, start] = useTransition();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
-  const collapsed = useSidebarCollapsed();
+  const collapsed = useSidebarCollapsed() && !forceExpanded;
 
   const roleLabel =
     role === "admin" ? "Admin" : role === "member" ? "Member" : "Chưa có ws";

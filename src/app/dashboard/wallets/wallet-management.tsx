@@ -82,7 +82,8 @@ export function WalletManagement({
 }) {
   const router = useRouter();
   const [creatingModal, setCreatingModal] = useState(false);
-  const [createFundingType, setCreateFundingType] = useState<"none" | "transfer" | "income">("none");
+  const [createFundingType, setCreateFundingType] = useState<"transfer" | "income">("income");
+  const [createFundingAmount, setCreateFundingAmount] = useState("0");
   const [createFundingWalletId, setCreateFundingWalletId] = useState("");
   const [editingWallet, setEditingWallet] = useState<WalletItem | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -100,6 +101,16 @@ export function WalletManagement({
   const settlementWallets = wallets.filter((wallet) =>
     wallet.status === "active" && wallet.id !== confirmOperation?.wallet.id
   );
+  const createFundingAmountIsValid = (() => {
+    try {
+      const amount = new Decimal(createFundingAmount);
+      return amount.isFinite()
+        && amount.decimalPlaces() <= 4
+        && (createFundingType === "transfer" ? amount.gt(0) : amount.gte(0));
+    } catch {
+      return false;
+    }
+  })();
 
   // Filtered wallets list based on search and status filter
   const filteredWallets = useMemo(() => {
@@ -120,20 +131,19 @@ export function WalletManagement({
       const result = await createManagedWalletAction({
         name: data.get("name"),
         description: data.get("description") || undefined,
-        funding: createFundingType === "none"
-          ? { type: "none" }
-          : createFundingType === "income"
-            ? { type: "income", amount: data.get("fundingAmount") }
-            : {
-                type: "transfer",
-                amount: data.get("fundingAmount"),
-                sourceWalletId: createFundingWalletId,
-              },
+        funding: createFundingType === "income"
+          ? { type: "income", amount: createFundingAmount }
+          : {
+              type: "transfer",
+              amount: createFundingAmount,
+              sourceWalletId: createFundingWalletId,
+            },
       });
       if (result.ok) {
         toast.success("Đã tạo ví mới.");
         form.reset();
-        setCreateFundingType("none");
+        setCreateFundingType("income");
+        setCreateFundingAmount("0");
         setCreateFundingWalletId("");
         setCreatingModal(false);
         router.refresh();
@@ -468,14 +478,14 @@ export function WalletManagement({
       {/* ── Modal Thêm Ví Mới ── */}
       {creatingModal && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
+          className="wallet-modal-overlay fixed inset-0 z-50 grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="create-wallet-title"
         >
           <form
             onSubmit={handleCreate}
-            className="sunrise-card max-h-[calc(100dvh-2rem)] w-full max-w-md space-y-4 overflow-y-auto p-6 relative"
+            className="wallet-modal-panel sunrise-card max-h-[calc(100dvh-2rem)] w-full max-w-md space-y-4 overflow-y-auto p-6 relative"
           >
             {/* Accent glow */}
             <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-blue-500" />
@@ -496,7 +506,8 @@ export function WalletManagement({
                 type="button"
                 onClick={() => {
                   setCreatingModal(false);
-                  setCreateFundingType("none");
+                  setCreateFundingType("income");
+                  setCreateFundingAmount("0");
                   setCreateFundingWalletId("");
                 }}
                 className="text-slate-400 hover:text-slate-600 p-1"
@@ -533,7 +544,7 @@ export function WalletManagement({
                 <FinanceSelect
                   value={createFundingType}
                   onValueChange={(value) => {
-                    const nextType = value as "none" | "transfer" | "income";
+                    const nextType = value as "transfer" | "income";
                     setCreateFundingType(nextType);
                     if (nextType === "transfer" && !createFundingWalletId) {
                       setCreateFundingWalletId(activeWallets[0]?.id ?? "");
@@ -542,46 +553,47 @@ export function WalletManagement({
                   label="Cách cập nhật số dư"
                   className="w-full"
                   options={[
-                    { value: "none", label: "Giữ số dư 0" },
-                    { value: "transfer", label: "Chuyển từ ví khác", disabled: activeWallets.length === 0 },
                     { value: "income", label: "Tạo giao dịch thu nhập" },
+                    { value: "transfer", label: "Chuyển từ ví khác", disabled: activeWallets.length === 0 },
                   ]}
                 />
-                {createFundingType !== "none" && (
-                  <div className="space-y-3 border-t border-[var(--border)] pt-3">
-                    {createFundingType === "transfer" && (
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-bold text-[var(--foreground)]">Ví chuyển tiền</Label>
-                        <FinanceSelect
-                          value={createFundingWalletId}
-                          onValueChange={setCreateFundingWalletId}
-                          label="Chọn ví chuyển tiền"
-                          className="w-full"
-                          options={activeWallets.map((wallet) => ({
-                            value: wallet.id,
-                            label: `${wallet.name} · ${formatAmount(wallet.currentBalance)} ${workspace.currency}`,
-                          }))}
-                        />
-                      </div>
-                    )}
-                    <div>
-                      <Label htmlFor="create-funding-amount" className="mb-1 block text-xs font-bold text-[var(--foreground)]">
-                        Số tiền <span className="text-rose-500">*</span>
-                      </Label>
-                      <Input
-                        id="create-funding-amount"
-                        name="fundingAmount"
-                        required
-                        inputMode="decimal"
-                        placeholder="0"
-                        className="w-full text-sm font-semibold tabular-nums"
+                <div className="space-y-3 border-t border-[var(--border)] pt-3">
+                  {createFundingType === "transfer" && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-[var(--foreground)]">Ví chuyển tiền</Label>
+                      <FinanceSelect
+                        value={createFundingWalletId}
+                        onValueChange={setCreateFundingWalletId}
+                        label="Chọn ví chuyển tiền"
+                        className="w-full"
+                        options={activeWallets.map((wallet) => ({
+                          value: wallet.id,
+                          label: `${wallet.name} · ${formatAmount(wallet.currentBalance)} ${workspace.currency}`,
+                        }))}
                       />
                     </div>
-                    <p className="text-[11px] leading-relaxed text-slate-500">
-                      Nội dung giao dịch sẽ là “Tạo ví mới” và được ghi nhận ngay.
-                    </p>
+                  )}
+                  <div>
+                    <Label htmlFor="create-funding-amount" className="mb-1 block text-xs font-bold text-[var(--foreground)]">
+                      Số tiền <span className="text-rose-500">*</span>
+                    </Label>
+                    <Input
+                      id="create-funding-amount"
+                      name="fundingAmount"
+                      required
+                      inputMode="decimal"
+                      value={createFundingAmount}
+                      onChange={(event) => setCreateFundingAmount(event.target.value)}
+                      placeholder="0"
+                      className="w-full text-sm font-semibold tabular-nums"
+                    />
                   </div>
-                )}
+                  <p className="text-[11px] leading-relaxed text-slate-500">
+                    {createFundingType === "income"
+                      ? "Nhập 0 để chỉ tạo ví. Giá trị lớn hơn 0 sẽ tạo giao dịch thu nhập đã ghi nhận."
+                      : "Chuyển khoản yêu cầu số tiền lớn hơn 0 và sẽ được ghi nhận ngay trong Sổ giao dịch."}
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -606,13 +618,14 @@ export function WalletManagement({
                 variant="outline" size="sm" className="px-4 py-2"
                 onClick={() => {
                   setCreatingModal(false);
-                  setCreateFundingType("none");
+                  setCreateFundingType("income");
+                  setCreateFundingAmount("0");
                   setCreateFundingWalletId("");
                 }}
               >
                 Hủy
               </Button>
-              <Button type="submit" variant="default" size="sm" className="px-5 py-2" disabled={pending || (createFundingType === "transfer" && !createFundingWalletId)}>
+              <Button type="submit" variant="default" size="sm" className="px-5 py-2" disabled={pending || !createFundingAmountIsValid || (createFundingType === "transfer" && !createFundingWalletId)}>
                 {pending ? (
                   <>
                     <span className="btn-spinner" aria-hidden />
@@ -630,14 +643,14 @@ export function WalletManagement({
       {/* ── Modal Chỉnh Sửa Ví ── */}
       {editingWallet && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
+          className="wallet-modal-overlay fixed inset-0 z-50 grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="edit-wallet-title"
         >
           <form
             onSubmit={handleUpdate}
-            className="sunrise-card w-full max-w-md p-6 space-y-4 relative overflow-hidden"
+            className="wallet-modal-panel sunrise-card w-full max-w-md p-6 space-y-4 relative overflow-hidden"
           >
             {/* Accent glow */}
             <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-amber-500" />
@@ -770,12 +783,12 @@ export function WalletManagement({
 
       {blockedOperation && (
         <div
-          className="fixed inset-0 z-[60] grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
+          className="wallet-modal-overlay fixed inset-0 z-[60] grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
           role="alertdialog"
           aria-modal="true"
           aria-labelledby="wallet-operation-blocked-title"
         >
-          <section className="sunrise-card w-full max-w-md p-6 space-y-4">
+          <section className="wallet-modal-panel sunrise-card w-full max-w-md p-6 space-y-4">
             <div className="flex items-start gap-3">
               <div className="ws-danger-icon shrink-0"><AlertTriangle size={20} /></div>
               <div>
@@ -815,12 +828,12 @@ export function WalletManagement({
 
       {confirmOperation && (
         <div
-          className="fixed inset-0 z-[60] grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
+          className="wallet-modal-overlay fixed inset-0 z-[60] grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-wallet-operation-title"
         >
-          <section className="sunrise-card w-full max-w-md p-6 space-y-4">
+          <section className="wallet-modal-panel sunrise-card w-full max-w-md p-6 space-y-4">
             <div className="flex items-start gap-3">
               <div className="ws-danger-icon shrink-0">
                 {confirmOperation.kind === "delete" ? <Trash2 size={20} /> : <PauseCircle size={20} />}
