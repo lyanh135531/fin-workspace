@@ -13,13 +13,11 @@ import {
   createTransaction,
   deleteOrRequestTransaction,
   deleteTransaction,
-  importTransactions,
   rejectTransaction,
   rejectTransactionChange,
   updateTransaction,
 } from "@/services/transaction-service";
 import { idSchema } from "@/domain/common/schemas";
-import { TRANSACTION_CSV_MAX_ROWS } from "@/lib/transaction-csv";
 import { createWalletForWorkspace } from "@/services/wallet-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
@@ -61,41 +59,6 @@ export async function addQuickTransactionAction(workspaceId: unknown, input: unk
     return {
       ok: false,
       message: error instanceof Error ? error.message : "Không thể lưu giao dịch.",
-    };
-  }
-}
-
-const importTransactionSchema = createTransactionSchema.and(z.object({
-  categoryName: z.string().trim().min(1).max(120).optional(),
-}));
-const importTransactionsSchema = z.array(importTransactionSchema).min(1).max(TRANSACTION_CSV_MAX_ROWS);
-
-export async function importTransactionsAction(workspaceId: string, input: unknown) {
-  const requestId = crypto.randomUUID();
-  try {
-    const user = await workspaceActor(workspaceId);
-    const result = await importTransactions(user.userId, user.workspaceId, importTransactionsSchema.parse(input));
-    debug("transactions.csv_imported", {
-      requestId,
-      workspaceId: user.workspaceId,
-      importedCount: result.importedCount,
-      approved: result.approved,
-      pending: result.pending,
-      scheduled: result.scheduled,
-      createdCategoryCount: result.createdCategoryCount,
-    });
-    revalidatePath("/dashboard");
-    revalidatePath(`/workspace/${user.workspaceId}`);
-    revalidatePath("/overview");
-    return { ok: true as const, ...result };
-  } catch (error) {
-    debug("transactions.csv_import_failed", {
-      requestId,
-      message: error instanceof Error ? error.message : "unknown",
-    });
-    return {
-      ok: false as const,
-      message: error instanceof Error ? error.message : "Không thể import giao dịch.",
     };
   }
 }
