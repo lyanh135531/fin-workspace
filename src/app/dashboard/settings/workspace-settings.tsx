@@ -3,7 +3,7 @@
 import { Settings2, Trash2, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useState, useTransition } from "react";
 import { deleteWorkspaceAction, updateWorkspaceSettingsAction } from "@/app/dashboard/settings/actions";
-import { Button, Card } from "@/components/base";
+import { Button, Card, Select } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -116,10 +116,16 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
             <Label htmlFor="ws-status" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
               Trạng thái
             </Label>
-            <select id="ws-status" name="status" defaultValue={workspace.status} className="field w-full text-sm">
-              <option value="active">🟢 Đang hoạt động</option>
-              <option value="deactive">🟡 Tạm ngưng</option>
-            </select>
+            <Select
+              id="ws-status"
+              name="status"
+              defaultValue={workspace.status}
+              label="Trạng thái"
+              options={[
+                { value: "active", label: "🟢 Đang hoạt động" },
+                { value: "deactive", label: "🟡 Tạm ngưng" },
+              ]}
+            />
           </div>
 
           {/* Description with character hint */}

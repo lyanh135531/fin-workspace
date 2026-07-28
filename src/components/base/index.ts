@@ -10,4 +10,18 @@ export {
   CardTitle,
 } from "./card"
 export type { CardProps } from "./card"
+export {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectRoot,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "./select"
+export type { SelectOption, SelectProps } from "./select"
 export { Tabs, TabsContent, TabsCount, TabsList, TabsTrigger } from "./tabs"

@@ -24,9 +24,8 @@ import {
   softDeleteManagedWalletAction,
   updateManagedWalletAction,
 } from "@/app/dashboard/wallets/actions";
-import { FinanceSelect } from "@/components/finance/finance-select";
 import { formatAmount } from "@/lib/format";
-import { Button, Card, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
+import { Button, Card, Select, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -523,7 +522,7 @@ export function WalletManagement({
                     Số dư khởi tạo luôn là 0. Khoản tiền đầu tiên sẽ được ghi thành giao dịch trong Sổ giao dịch.
                   </p>
                 </div>
-                <FinanceSelect
+                <Select
                   value={createFundingType}
                   onValueChange={(value) => {
                     const nextType = value as "transfer" | "income";
@@ -543,7 +542,7 @@ export function WalletManagement({
                   {createFundingType === "transfer" && (
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-[var(--foreground)]">Ví chuyển tiền</Label>
-                      <FinanceSelect
+                      <Select
                         value={createFundingWalletId}
                         onValueChange={setCreateFundingWalletId}
                         label="Chọn ví chuyển tiền"
@@ -856,7 +855,7 @@ export function WalletManagement({
                         <Label className="text-xs font-bold text-[var(--foreground)]">
                           {confirmedBalance.isPositive() ? "Ví nhận tiền" : "Ví chuyển tiền"}
                         </Label>
-                        <FinanceSelect
+                        <Select
                           value={settlementWalletId}
                           onValueChange={setSettlementWalletId}
                           label={confirmedBalance.isPositive() ? "Chọn ví nhận tiền" : "Chọn ví chuyển tiền"}

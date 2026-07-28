@@ -6,7 +6,6 @@ import {
   BookOpen,
   Briefcase,
   Car,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   CircleDollarSign,
@@ -20,7 +19,6 @@ import {
   Fuel,
   Gift,
   GraduationCap,
-  GripVertical,
   Heart,
   House,
   Landmark,
@@ -29,8 +27,6 @@ import {
   Plus,
   Shield,
   ShoppingBag,
-  Search,
-
   Smartphone,
   Sparkles,
   Tag,
@@ -38,8 +34,6 @@ import {
   Utensils,
 
   Wrench,
-  X,
-  AlertCircle,
 } from "lucide-react";
 import { useState, useTransition } from "react";
 import {
@@ -49,7 +43,7 @@ import {
   setTemplateCategoryStatusAction,
   updateTemplateCategoryAction,
 } from "@/app/dashboard/settings/general-actions";
-import { Button, Card, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
+import { Button, Card, Select, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -59,19 +53,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Check } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -472,8 +453,6 @@ function Node({
 }) {
   const children = categories.filter((item) => item.parentId === category.id);
   const IconComponent = ICON_MAP[category.icon ?? "tag"] ?? Tag;
-  const isIncome = category.type === "income";
-
   return (
     <div className={category.parentId ? "ml-6 border-l-2 border-[var(--border)] pl-4 mt-2" : ""}>
       <article className="group flex min-h-14 items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm transition-all hover:border-[var(--primary)] hover:shadow-md">
@@ -606,110 +585,6 @@ function Node({
   );
 }
 
-function CategoryCombobox({
-  name,
-  defaultValue,
-  categories,
-  placeholder = "Chọn danh mục...",
-  searchPlaceholder = "Tìm kiếm danh mục...",
-  emptyMessage = "Không tìm thấy danh mục nào.",
-}: {
-  name: string;
-  defaultValue: string;
-  categories: Category[];
-  placeholder?: string;
-  searchPlaceholder?: string;
-  emptyMessage?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(defaultValue);
-  const [search, setSearch] = useState("");
-
-  const filteredCategories = categories.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.code.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const selectedCategory = categories.find((c) => c.id === value);
-  const triggerText = selectedCategory
-    ? `${selectedCategory.name} (${selectedCategory.code})`
-    : "Không có (Danh mục gốc)";
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <input type="hidden" name={name} value={value} />
-      <PopoverTrigger
-        type="button"
-        role="combobox"
-        aria-expanded={open}
-        className="w-full justify-between flex h-8 px-2.5 py-1 text-sm bg-transparent border border-input text-[var(--foreground)] rounded-lg transition-colors outline-none select-none focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary/20 text-left items-center cursor-pointer hover:bg-[var(--surface-hover)]"
-      >
-        <span className="truncate">{triggerText}</span>
-        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-      </PopoverTrigger>
-
-      <PopoverContent className="w-[var(--anchor-width)] min-w-[240px] p-1 bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)] shadow-md rounded-lg z-50">
-        <div className="flex items-center gap-2 border-b border-[var(--border)] px-2.5 py-1.5 bg-transparent">
-          <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60" />
-          <input
-            type="text"
-            placeholder={searchPlaceholder}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-transparent text-xs border-0 outline-none focus:outline-none focus:ring-0 p-0 text-[var(--foreground)] placeholder:text-muted-foreground no-focus-style"
-          />
-        </div>
-
-        <div className="max-h-48 overflow-y-auto p-1 space-y-0.5">
-          <Button variant="unstyled" size="auto"
-            type="button"
-            onClick={() => {
-              setValue("none");
-              setOpen(false);
-              setSearch("");
-            }}
-            className={cn(
-              "w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md text-left transition-colors cursor-pointer",
-              value === "none"
-                ? "bg-[var(--surface-secondary)] text-[var(--foreground)] font-semibold"
-                : "hover:bg-[var(--surface-hover)] text-[var(--foreground)]"
-            )}
-          >
-            <span>Không có (Danh mục gốc)</span>
-            {value === "none" && <Check className="h-3.5 w-3.5 text-[var(--primary)]" />}
-          </Button>
-          
-          {filteredCategories.map((item) => (
-            <Button variant="unstyled" size="auto"
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setValue(item.id);
-                setOpen(false);
-                setSearch("");
-              }}
-              className={cn(
-                "w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md text-left transition-colors cursor-pointer",
-                value === item.id
-                  ? "bg-[var(--surface-secondary)] text-[var(--foreground)] font-semibold"
-                  : "hover:bg-[var(--surface-hover)] text-[var(--foreground)]"
-              )}
-            >
-              <span className="truncate">{item.name} ({item.code})</span>
-              {value === item.id && <Check className="h-3.5 w-3.5 text-[var(--primary)]" />}
-            </Button>
-          ))}
-
-          {filteredCategories.length === 0 && search !== "" && (
-            <div className="py-6 text-center text-xs text-muted-foreground">{emptyMessage}</div>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-
 function TemplateForm({
   defaultType,
   categories,
@@ -783,15 +658,24 @@ function TemplateForm({
         {/* Parent Category */}
         <div>
           <label className="text-xs font-semibold text-slate-500 mb-1 block">Danh mục cha</label>
-          <CategoryCombobox
+          <Select
             name="parentId"
             defaultValue={category?.parentId ?? "none"}
-            categories={categories.filter(
-              (item) =>
-                item.status === "active" &&
-                item.type === (category?.type ?? defaultType) &&
-                (!category || item.id !== category.id)
-            )}
+            label="Danh mục cha"
+            options={[
+              { value: "none", label: "Không có (Danh mục gốc)" },
+              ...categories
+                .filter(
+                  (item) =>
+                    item.status === "active" &&
+                    item.type === (category?.type ?? defaultType) &&
+                    (!category || item.id !== category.id)
+                )
+                .map((item) => ({
+                  value: item.id,
+                  label: `${item.name} (${item.code})`,
+                })),
+            ]}
           />
         </div>
 

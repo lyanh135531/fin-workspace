@@ -2,9 +2,9 @@
 
 import { UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
-import { Button, Card } from "@/components/base";
+import { Button, Card, Select } from "@/components/base";
 import { toast } from "sonner";
 
 type Role = { code: string; name: string };
@@ -13,6 +13,8 @@ type Request = { id: string; username: string };
 export function JoinRequestsClient({ requests, roles }: { requests: Request[]; roles: Role[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const defaultRoleCode = roles.find((role) => role.code === "MEMBER")?.code ?? roles[0]?.code ?? "";
+  const [selectedRoles, setSelectedRoles] = useState<Record<string, string>>({});
 
   function review(id: string, approve: boolean, roleCode?: string) {
     start(async () => {
@@ -46,19 +48,21 @@ export function JoinRequestsClient({ requests, roles }: { requests: Request[]; r
             <p className="mt-1 text-xs text-slate-500">Đang chờ được thêm vào workspace</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <select id={`role-${r.id}`} className="field w-auto" defaultValue={roles.find((role) => role.code === "MEMBER")?.code}>
-              {roles.map((role) => (
-                <option key={role.code} value={role.code}>
-                  {role.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={selectedRoles[r.id] ?? defaultRoleCode}
+              onValueChange={(roleCode) =>
+                setSelectedRoles((current) => ({ ...current, [r.id]: roleCode }))
+              }
+              label={`Vai trò cấp cho ${r.username}`}
+              options={roles.map((role) => ({ value: role.code, label: role.name }))}
+              className="w-auto min-w-34"
+            />
             <Button disabled={pending} onClick={() => review(r.id, false)} variant="outline" size="default">
               Từ chối
             </Button>
             <Button
               disabled={pending}
-              onClick={() => review(r.id, true, (document.getElementById(`role-${r.id}`) as HTMLSelectElement)?.value)}
+              onClick={() => review(r.id, true, selectedRoles[r.id] ?? defaultRoleCode)}
               variant="default"
               size="default"
             >

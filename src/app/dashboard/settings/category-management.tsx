@@ -21,7 +21,7 @@ import {
   updateCategoryAction,
 } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP, slugifyCode } from "@/app/dashboard/settings/global-category-management";
-import { Button, Card, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
+import { Button, Card, Select, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -88,7 +88,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       color: String(form.get("color") ?? COLOR_PRESETS[0]),
       type: String(form.get("type") ?? "expense") as "income" | "expense",
       icon: String(form.get("icon") ?? "tag"),
-      parentId: (form.get("parentId") as string) || undefined,
+      parentId: form.get("parentId") === "none" ? undefined : (form.get("parentId") as string) || undefined,
     };
     start(async () => {
       const result = id
@@ -533,21 +533,25 @@ function CategoryForm({
         {/* Parent Category */}
         <div className="sm:col-span-2">
           <label className="text-xs font-semibold text-slate-500 mb-1 block">Danh mục cha</label>
-          <select className="field" name="parentId" defaultValue={category?.parentId ?? ""}>
-            <option value="">Không có (Danh mục gốc)</option>
-            {categories
+          <Select
+            name="parentId"
+            defaultValue={category?.parentId ?? "none"}
+            label="Danh mục cha"
+            options={[
+              { value: "none", label: "Không có (Danh mục gốc)" },
+              ...categories
               .filter(
                 (item) =>
                   item.status === "active" &&
                   item.type === (category?.type ?? defaultType) &&
                   (!category || item.id !== category.id)
               )
-              .map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} ({item.code})
-                </option>
-              ))}
-          </select>
+              .map((item) => ({
+                value: item.id,
+                label: `${item.name} (${item.code})`,
+              })),
+            ]}
+          />
         </div>
 
         {/* Color Picker */}

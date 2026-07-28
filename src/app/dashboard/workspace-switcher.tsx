@@ -50,6 +50,7 @@ function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
     });
   }
 
+  /* ── Expanded: High-end card dropdown ── */
   return (
     <form onSubmit={submit} className="ws-inline-join">
       <div className="ws-inline-join-row">
@@ -180,7 +181,6 @@ export function WorkspaceSwitcher({
     );
   }
 
-  /* ── Expanded: High-end card dropdown ── */
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger

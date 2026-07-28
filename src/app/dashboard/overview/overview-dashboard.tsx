@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, Tabs, TabsList, TabsTrigger } from "@/components/base";
+import { Button, Card, Select, Tabs, TabsList, TabsTrigger } from "@/components/base";
 import Decimal from "decimal.js";
 import { CircleAlert, Funnel, RefreshCw, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import { useState } from "react";
@@ -13,7 +13,6 @@ import {
   type CashflowRange,
   type CashflowType,
 } from "@/app/dashboard/overview/overview-chart-data";
-import { FinanceSelect } from "@/components/finance/finance-select";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { formatAmount, formatCompactAmount } from "@/lib/format";
 import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transaction-sheet";
@@ -72,10 +71,10 @@ export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCur
       <div className="overview-filter-heading"><div className="overview-filter-title"><span><Funnel size={16}/></span><div><strong>Bộ lọc báo cáo</strong><small>{activeFilterCount ? `${activeFilterCount} điều kiện đang áp dụng` : "Đang hiển thị toàn bộ dữ liệu trong tháng"}</small></div></div><Button variant="unstyled" size="auto" type="button" onClick={reset} className="overview-reset" disabled={!activeFilterCount}><RefreshCw size={15}/>Đặt lại</Button></div>
       <div className="overview-mobile-filter-meta"><span>{activeFilterCount ? `${activeFilterCount} bộ lọc` : "Bộ lọc"}</span><Button variant="unstyled" size="auto" type="button" onClick={reset} disabled={!activeFilterCount}>Đặt lại</Button></div>
       <div className="overview-filter-grid">
-        <FilterField label="Ví"><FinanceSelect value={walletId} onValueChange={setWalletId} label="Lọc theo ví" contentClassName="overview-minimal-select-content" options={[{ value: "all", label: "Tất cả ví" }, ...wallets.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
-        <FilterField label="Hạng mục"><FinanceSelect value={categoryId} onValueChange={setCategoryId} label="Lọc theo hạng mục" contentClassName="overview-minimal-select-content" options={[{ value: "all", label: "Tất cả hạng mục" }, ...categories.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
-        <FilterField label="Loại giao dịch"><FinanceSelect value={type} onValueChange={setType} label="Lọc theo loại giao dịch" contentClassName="overview-minimal-select-content" options={[{ value: "all", label: "Tất cả loại" }, { value: "income", label: "Thu nhập" }, { value: "expense", label: "Chi phí" }, { value: "transfer", label: "Chuyển khoản" }]} /></FilterField>
-        <FilterField label="Thành viên"><FinanceSelect value={memberId} onValueChange={setMemberId} label="Lọc theo thành viên" contentClassName="overview-minimal-select-content" options={[{ value: "all", label: "Tất cả thành viên" }, ...members.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
+        <FilterField label="Ví"><Select value={walletId} onValueChange={setWalletId} label="Lọc theo ví" options={[{ value: "all", label: "Tất cả ví" }, ...wallets.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
+        <FilterField label="Hạng mục"><Select value={categoryId} onValueChange={setCategoryId} label="Lọc theo hạng mục" options={[{ value: "all", label: "Tất cả hạng mục" }, ...categories.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
+        <FilterField label="Loại giao dịch"><Select value={type} onValueChange={setType} label="Lọc theo loại giao dịch" options={[{ value: "all", label: "Tất cả loại" }, { value: "income", label: "Thu nhập" }, { value: "expense", label: "Chi phí" }, { value: "transfer", label: "Chuyển khoản" }]} /></FilterField>
+        <FilterField label="Thành viên"><Select value={memberId} onValueChange={setMemberId} label="Lọc theo thành viên" options={[{ value: "all", label: "Tất cả thành viên" }, ...members.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
       </div>
     </section>
     <MobileFinanceDonut

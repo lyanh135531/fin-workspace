@@ -12,8 +12,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { addQuickTransactionAction } from "@/app/dashboard/actions";
-import { FinanceSelect } from "@/components/finance/finance-select";
-import { Button } from "@/components/base";
+import { Button, Select } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -228,7 +227,7 @@ export function QuickTransactionSheet({
             <div className="quick-transaction-scroll">
               <label className="quick-field">
                 <span>Workspace</span>
-                <FinanceSelect
+                <Select
                   value={workspace.id}
                   onValueChange={chooseWorkspace}
                   label="Chọn workspace"
@@ -278,7 +277,7 @@ export function QuickTransactionSheet({
                 <div className="quick-transaction-grid">
                   <label className="quick-field">
                     <span>{type === "transfer" ? "Ví gửi" : "Ví"}</span>
-                    <FinanceSelect
+                    <Select
                       value={walletId}
                       onValueChange={(nextWalletId) => {
                         setWalletId(nextWalletId);
@@ -297,7 +296,7 @@ export function QuickTransactionSheet({
                   {type === "transfer" ? (
                     <label className="quick-field">
                       <span>Ví nhận</span>
-                      <FinanceSelect
+                      <Select
                         value={toWalletId}
                         onValueChange={setToWalletId}
                         label="Chọn ví nhận"
@@ -311,7 +310,7 @@ export function QuickTransactionSheet({
                   ) : (
                     <label className="quick-field">
                       <span>Danh mục</span>
-                      <FinanceSelect
+                      <Select
                         value={categoryId}
                         onValueChange={setCategoryId}
                         label="Chọn danh mục"

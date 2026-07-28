@@ -5,11 +5,12 @@ import {
   DayPicker,
   getDefaultClassNames,
   type DayButton,
+  type DropdownProps,
   type Locale,
 } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
-import { Button, buttonVariants } from "@/components/base"
+import { Button, Select, buttonVariants } from "@/components/base"
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from "lucide-react"
 
 function Calendar({
@@ -161,6 +162,31 @@ function Calendar({
             <ChevronDownIcon className={cn("size-4", className)} {...props} />
           )
         },
+        Dropdown: ({
+          options = [],
+          value,
+          onChange,
+          disabled,
+          "aria-label": ariaLabel,
+        }: DropdownProps) => (
+          <Select
+            value={String(value)}
+            onValueChange={(nextValue) =>
+              onChange?.({
+                target: { value: nextValue },
+              } as React.ChangeEvent<HTMLSelectElement>)
+            }
+            disabled={disabled}
+            label={ariaLabel ?? "Chọn giá trị"}
+            options={options.map((option) => ({
+              value: String(option.value),
+              label: option.label,
+              disabled: option.disabled,
+            }))}
+            className="w-auto"
+            size="sm"
+          />
+        ),
         DayButton: ({ ...props }) => (
           <CalendarDayButton locale={locale} {...props} />
         ),

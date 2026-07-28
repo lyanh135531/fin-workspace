@@ -84,6 +84,12 @@ button, input, select, textarea { font: inherit; }
   height: 1rem;
 }
 
+/* Shadcn Select trigger typography must not inherit arbitrary page font sizes. */
+[data-slot="select-trigger"] {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
 /* ── Universal Pointer Cursor & Interactive State Alignment ── */
 a,
 button,

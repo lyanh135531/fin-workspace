@@ -1,9 +1,9 @@
 "use client";
 
 import { ShieldCheck, UserRoundX, UsersRound } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { changeMemberRoleAction, removeMemberAction } from "@/app/dashboard/settings/actions";
-import { Button, Card } from "@/components/base";
+import { Button, Card, Select } from "@/components/base";
 import { toast } from "sonner";
 
 type Role = { code: string; name: string };
@@ -119,19 +119,14 @@ export function SettingsClient({
               {/* Role */}
               <div className="member-role">
                 {isAdmin && !member.isSelf ? (
-                  <select
-                    className="field"
+                  <Select
                     value={member.roleCode}
                     disabled={pending}
-                    aria-label={`Vai trò của ${member.username}`}
-                    onChange={(event) => changeRole(member.id, event.target.value)}
-                  >
-                    {roles.map((role) => (
-                      <option key={role.code} value={role.code}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
+                    label={`Vai trò của ${member.username}`}
+                    onValueChange={(roleCode) => changeRole(member.id, roleCode)}
+                    options={roles.map((role) => ({ value: role.code, label: role.name }))}
+                    className="min-w-34"
+                  />
                 ) : (
                   <span className={roleBadgeClass(member.roleCode)}>
                     <ShieldCheck size={13} />

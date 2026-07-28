@@ -20,9 +20,8 @@ import {
   updateRecurringTransactionAction,
 } from "@/app/dashboard/recurring-transactions/actions";
 import { DatePickerField } from "@/components/finance/date-picker-field";
-import { FinanceSelect } from "@/components/finance/finance-select";
 import { formatAmount } from "@/lib/format";
-import { Button, Card } from "@/components/base";
+import { Button, Card, Select } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
@@ -217,10 +216,9 @@ export function RecurringTransactionsManager({
               aria-label="Tìm lịch giao dịch"
             />
           </label>
-          <FinanceSelect
+          <Select
             value={status}
             onValueChange={setStatus}
-            className="ledger-status"
             label="Lọc trạng thái"
             options={[
               { value: "all", label: "Tất cả" },
@@ -463,7 +461,7 @@ function RecurringEditor({
         </label>
         <label className="recurring-field">
           Loại giao dịch
-          <FinanceSelect
+          <Select
             value={draft.type}
             onValueChange={(value) => onChange({ type: value as TransactionType })}
             label="Loại giao dịch"
@@ -475,7 +473,7 @@ function RecurringEditor({
         </label>
         <label className="recurring-field">
           Danh mục
-          <FinanceSelect
+          <Select
             value={draft.categoryId}
             onValueChange={(categoryId) => onChange({ categoryId })}
             label="Danh mục"
@@ -487,7 +485,7 @@ function RecurringEditor({
         </label>
         <label className="recurring-field">
           Ví thực hiện
-          <FinanceSelect
+          <Select
             value={draft.walletId}
             onValueChange={(walletId) => onChange({
               walletId,
@@ -502,7 +500,7 @@ function RecurringEditor({
         {draft.type === "transfer" && (
           <label className="recurring-field">
             Ví nhận
-            <FinanceSelect
+            <Select
               value={draft.toWalletId}
               onValueChange={(toWalletId) => onChange({ toWalletId })}
               label="Ví nhận"

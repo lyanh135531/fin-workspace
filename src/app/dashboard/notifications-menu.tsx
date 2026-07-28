@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { approveTransactionAction, rejectTransactionAction, reviewTransactionChangeAction } from "@/app/dashboard/actions";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
-import { Button } from "@/components/base";
+import { Button, Select } from "@/components/base";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatAmount } from "@/lib/format";
 
@@ -132,15 +132,13 @@ export function NotificationsMenu({
                   <p><strong>{item.username}</strong> đang chờ được cấp quyền thành viên.</p>
                   <label className="notification-role-field">
                     <span>Vai trò</span>
-                    <select
-                      className="field"
+                    <Select
                       value={joinRoles[item.id] ?? defaultRoleCode}
                       disabled={pending}
-                      onChange={(event) => setJoinRoles((current) => ({ ...current, [item.id]: event.target.value }))}
-                      aria-label={`Vai trò cấp cho ${item.username}`}
-                    >
-                      {roles.map((role) => <option key={role.code} value={role.code}>{role.name}</option>)}
-                    </select>
+                      onValueChange={(roleCode) => setJoinRoles((current) => ({ ...current, [item.id]: roleCode }))}
+                      label={`Vai trò cấp cho ${item.username}`}
+                      options={roles.map((role) => ({ value: role.code, label: role.name }))}
+                    />
                   </label>
                   <div>
                     <Button size="default" variant="outline" disabled={pending} onClick={() => reviewJoin(item.id, false)}>Từ chối</Button>
