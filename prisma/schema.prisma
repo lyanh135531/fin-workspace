@@ -97,6 +97,7 @@ model Workspace {
   members     WorkspaceMember[]
   wallets     WorkspaceWallet[]
   categories  Category[]
+  categoryAliases CategoryAlias[]
   auditLogs   AuditLog[]
   joinRequests WorkspaceJoinRequest[]
   recurringTransactions RecurringTransaction[]
@@ -168,6 +169,8 @@ model Category {
   type         CategoryType  @default(expense)
   icon         String?
   parentId     String?       @map("parent_id") @db.Uuid
+  mergedIntoId String?       @map("merged_into_id") @db.Uuid
+  mergedAt     DateTime?     @map("merged_at") @db.Timestamptz(6)
   sortOrder    Int           @default(0) @map("order")
   status       Status        @default(active)
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -177,6 +180,9 @@ model Category {
   user         User?         @relation(fields: [userId], references: [id], onDelete: Restrict)
   parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
   children     Category[]    @relation("CategoryHierarchy")
+  mergedInto   Category?     @relation("CategoryMerge", fields: [mergedIntoId], references: [id], onDelete: Restrict)
+  mergedCategories Category[] @relation("CategoryMerge")
+  aliases      CategoryAlias[]
   transactions Transaction[]
   recurringTransactions RecurringTransaction[]
 
@@ -184,6 +190,22 @@ model Category {
   @@index([workspaceId, status, deletedAt, sortOrder])
   @@index([userId, status, deletedAt])
   @@map("CATEGORY")
+}
+
+model CategoryAlias {
+  id              String   @id @default(uuid()) @db.Uuid
+  workspaceId     String   @map("workspace_id") @db.Uuid
+  categoryId      String   @map("category_id") @db.Uuid
+  kind            String   @db.VarChar(24)
+  value           String
+  normalizedValue String   @map("normalized_value")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  category        Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([workspaceId, kind, normalizedValue])
+  @@index([categoryId])
+  @@map("CATEGORY_ALIAS")
 }
 
 model TransactionChangeRequest {

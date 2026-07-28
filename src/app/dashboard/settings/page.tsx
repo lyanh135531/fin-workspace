@@ -37,7 +37,7 @@ export default async function SettingsPage({
         user: { select: { username: true } },
       },
     }),
-    prisma.category.findMany({ where: manageableCategoryWhere(workspaceId), include: { _count: { select: { transactions: { where: { deletedAt: null } } } } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    prisma.category.findMany({ where: manageableCategoryWhere(workspaceId), include: { _count: { select: { transactions: { where: { deletedAt: null } }, recurringTransactions: { where: { deletedAt: null } } } } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     getUserTemplatesForImport(session.user.id),
     prisma.role.findMany({
       where: isOwner ? undefined : { code: { not: "OWNER" } },
@@ -88,6 +88,8 @@ export default async function SettingsPage({
             parentId: category.parentId,
             status: category.status,
             transactionCount: category._count.transactions,
+            recurringCount: category._count.recurringTransactions,
+            mergedIntoId: category.mergedIntoId,
           }))}
           members={members.map((m) => ({
             id: m.id,

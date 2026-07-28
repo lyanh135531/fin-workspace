@@ -13,6 +13,11 @@ const categoryFields = z.object({
 
 export const createCategorySchema = categoryFields;
 export const updateCategorySchema = categoryFields.extend({ categoryId: idSchema });
+export const mergeCategorySchema = z.object({
+  sourceCategoryId: idSchema,
+  targetCategoryId: idSchema,
+});
 
 export type CreateCategoryInput = z.output<typeof createCategorySchema>;
 export type UpdateCategoryInput = z.output<typeof updateCategorySchema>;
+export type MergeCategoryInput = z.output<typeof mergeCategorySchema>;

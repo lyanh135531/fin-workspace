@@ -11,68 +11,78 @@ export async function importCategoriesToWorkspace(userId: string, workspaceId: s
   const member = await requireWorkspaceMember(userId, workspaceId);
   if (!isOwnerRole(member.role.code)) throw new AppError("FORBIDDEN", "Chỉ Owner workspace mới được import danh mục.");
 
-  // Fetch selected template categories belonging to this user
-  const templates = await prisma.category.findMany({
-    where: { id: { in: categoryIds }, workspaceId: null, userId, deletedAt: null, status: "active" },
+  // Fetch the full active template tree so selected children can bring their ancestors.
+  const availableTemplates = await prisma.category.findMany({
+    where: { workspaceId: null, userId, deletedAt: null, status: "active" },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
+  const availableById = new Map(availableTemplates.map((template) => [template.id, template]));
+  const selectedIds = new Set(categoryIds.filter((id) => availableById.has(id)));
+  for (const selectedId of [...selectedIds]) {
+    let parentId = availableById.get(selectedId)?.parentId;
+    while (parentId) {
+      const parent = availableById.get(parentId);
+      if (!parent) break;
+      selectedIds.add(parent.id);
+      parentId = parent.parentId;
+    }
+  }
+  const templates = availableTemplates.filter((template) => selectedIds.has(template.id));
   if (templates.length === 0) throw new AppError("VALIDATION_ERROR", "Không tìm thấy danh mục mẫu hợp lệ để import.");
 
-  // Check which codes already exist in the workspace
-  const existingCodes = new Set(
-    (await prisma.category.findMany({ where: { workspaceId, deletedAt: null }, select: { code: true } }))
-      .map((c) => c.code)
+  const existingCategories = await prisma.category.findMany({
+    where: { workspaceId, deletedAt: null },
+    select: { id: true, code: true, type: true },
+  });
+  const existingByCode = new Map(
+    existingCategories.map((category) => [category.code.toLocaleUpperCase("vi-VN"), category]),
   );
-
-  // Separate root categories and children, preserving hierarchy
-  const rootTemplates = templates.filter((t) => !t.parentId || !categoryIds.includes(t.parentId));
-  const childTemplates = templates.filter((t) => t.parentId && categoryIds.includes(t.parentId));
 
   const idMap = new Map<string, string>(); // old template ID → new workspace category ID
   let importedCount = 0;
   let skippedCount = 0;
 
   return prisma.$transaction(async (tx) => {
-    // Import root categories first
-    for (const template of rootTemplates) {
-      if (existingCodes.has(template.code)) { skippedCount++; continue; }
-      const created = await tx.category.create({
-        data: {
-          workspaceId,
-          userId: null,
-          name: template.name,
-          code: template.code,
-          color: template.color,
-          type: template.type,
-          icon: template.icon,
-          parentId: null,
-          sortOrder: template.sortOrder,
-        },
-      });
-      idMap.set(template.id, created.id);
-      importedCount++;
-    }
-
-    // Import child categories, mapping parentId to new IDs
-    for (const template of childTemplates) {
-      if (existingCodes.has(template.code)) { skippedCount++; continue; }
-      const newParentId = idMap.get(template.parentId!);
-      if (!newParentId) { skippedCount++; continue; } // Parent was skipped (duplicate code)
-      const created = await tx.category.create({
-        data: {
-          workspaceId,
-          userId: null,
-          name: template.name,
-          code: template.code,
-          color: template.color,
-          type: template.type,
-          icon: template.icon,
-          parentId: newParentId,
-          sortOrder: template.sortOrder,
-        },
-      });
-      idMap.set(template.id, created.id);
-      importedCount++;
+    const pending = [...templates];
+    while (pending.length) {
+      let progressed = false;
+      for (let index = pending.length - 1; index >= 0; index -= 1) {
+        const template = pending[index];
+        const existing = existingByCode.get(template.code.toLocaleUpperCase("vi-VN"));
+        if (existing) {
+          if (existing.type !== template.type) {
+            throw new AppError("CONFLICT", `Mã hạng mục “${template.code}” đã tồn tại với loại giao dịch khác.`);
+          }
+          idMap.set(template.id, existing.id);
+          skippedCount += 1;
+          pending.splice(index, 1);
+          progressed = true;
+          continue;
+        }
+        const newParentId = template.parentId ? idMap.get(template.parentId) : null;
+        if (template.parentId && !newParentId) continue;
+        const created = await tx.category.create({
+          data: {
+            workspaceId,
+            userId: null,
+            name: template.name,
+            code: template.code,
+            color: template.color,
+            type: template.type,
+            icon: template.icon,
+            parentId: newParentId,
+            sortOrder: template.sortOrder,
+          },
+        });
+        idMap.set(template.id, created.id);
+        existingByCode.set(template.code.toLocaleUpperCase("vi-VN"), created);
+        importedCount += 1;
+        pending.splice(index, 1);
+        progressed = true;
+      }
+      if (!progressed) {
+        throw new AppError("VALIDATION_ERROR", "Cây danh mục mẫu có quan hệ cha/con không hợp lệ.");
+      }
     }
 
     await tx.auditLog.create({

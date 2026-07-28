@@ -70,9 +70,55 @@ describe("transaction CSV", () => {
 
     const result = parseTransactionCsv(csv, wallets, categories);
     expect(result.errors).toEqual([]);
-    expect(result.missingCategories).toEqual([{ name: "Chăm sóc thú cưng", type: "expense" }]);
+    expect(result.missingCategories).toEqual([{
+      name: "Chăm sóc thú cưng",
+      namePath: ["Chăm sóc thú cưng"],
+      codePath: [],
+      type: "expense",
+    }]);
     expect(result.transactions[0]).toMatchObject({
       categoryName: "Chăm sóc thú cưng",
+      type: "expense",
+    });
+  });
+
+  it("preserves and resolves a multi-level category path", () => {
+    const hierarchicalCategories = [
+      {
+        id: "00000000-0000-0000-0000-000000000210",
+        name: "Sinh hoạt",
+        code: "LIVING",
+        type: "expense" as const,
+        namePath: ["Sinh hoạt"],
+        codePath: ["LIVING"],
+      },
+      {
+        id: "00000000-0000-0000-0000-000000000211",
+        name: "Cà phê",
+        code: "COFFEE",
+        type: "expense" as const,
+        namePath: ["Sinh hoạt", "Cà phê"],
+        codePath: ["LIVING", "COFFEE"],
+      },
+    ];
+    const csv = buildTransactionCsv([{
+      date: "2026-07-28",
+      type: "expense",
+      category: "Cà phê",
+      categoryCode: "COFFEE",
+      categoryPath: "Sinh hoạt > Cà phê",
+      categoryCodePath: "LIVING > COFFEE",
+      categoryType: "expense",
+      wallet: "Ví chính",
+      amount: "50000",
+      status: "approved",
+      description: "",
+    }]);
+
+    const result = parseTransactionCsv(csv, wallets, hierarchicalCategories);
+    expect(result.errors).toEqual([]);
+    expect(result.transactions[0]).toMatchObject({
+      categoryId: hierarchicalCategories[1].id,
       type: "expense",
     });
   });

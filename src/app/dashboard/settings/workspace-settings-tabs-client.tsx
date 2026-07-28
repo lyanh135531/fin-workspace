@@ -34,6 +34,8 @@ type TemplateCategory = {
 type Category = TemplateCategory & {
   status: "active" | "deactive";
   transactionCount: number;
+  recurringCount: number;
+  mergedIntoId: string | null;
 };
 
 interface Props {

@@ -4,8 +4,8 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { authOptions } from "@/auth";
-import { createCategorySchema, idSchema, updateCategorySchema } from "@/domain";
-import { createWorkspaceCategory, reorderWorkspaceCategories, setWorkspaceCategoryStatus, updateWorkspaceCategory } from "@/services/category-service";
+import { createCategorySchema, idSchema, mergeCategorySchema, updateCategorySchema } from "@/domain";
+import { createWorkspaceCategory, mergeWorkspaceCategory, reorderWorkspaceCategories, setWorkspaceCategoryStatus, updateWorkspaceCategory } from "@/services/category-service";
 import { importCategoriesToWorkspace } from "@/services/import-category-service";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 
@@ -16,14 +16,34 @@ async function actor() {
   if (!workspaceId) throw new Error("Không có workspace.");
   return { userId: session.user.id, workspaceId };
 }
-function fail(error: unknown) { return { ok: false, message: error instanceof Error ? error.message : "Có lỗi xảy ra.", importedCount: 0, skippedCount: 0 }; }
-function done() { revalidatePath("/dashboard/settings"); revalidatePath("/dashboard"); return { ok: true, message: null, importedCount: 0, skippedCount: 0 }; }
+function fail(error: unknown) { return { ok: false as const, message: error instanceof Error ? error.message : "Có lỗi xảy ra.", importedCount: 0, skippedCount: 0 }; }
+function done() { revalidatePath("/dashboard/settings"); revalidatePath("/dashboard"); return { ok: true as const, message: null, importedCount: 0, skippedCount: 0 }; }
 
 export async function createCategoryAction(input: unknown) {
   try { const a = await actor(); await createWorkspaceCategory(a.userId, a.workspaceId, createCategorySchema.parse(input)); return done(); } catch (error) { return fail(error); }
 }
 export async function updateCategoryAction(input: unknown) {
   try { const a = await actor(); await updateWorkspaceCategory(a.userId, a.workspaceId, updateCategorySchema.parse(input)); return done(); } catch (error) { return fail(error); }
+}
+export async function mergeCategoryAction(input: unknown) {
+  try {
+    const a = await actor();
+    const result = await mergeWorkspaceCategory(a.userId, a.workspaceId, mergeCategorySchema.parse(input));
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard");
+    revalidatePath("/overview");
+    return {
+      ok: true as const,
+      message: null,
+      importedCount: 0,
+      skippedCount: 0,
+      transactionCount: result.transactionCount,
+      recurringCount: result.recurringCount,
+      childCount: result.childCount,
+    };
+  } catch (error) {
+    return fail(error);
+  }
 }
 export async function setCategoryStatusAction(categoryId: string, status: "active" | "deactive") {
   try { const a = await actor(); await setWorkspaceCategoryStatus(a.userId, a.workspaceId, idSchema.parse(categoryId), status); return done(); } catch (error) { return fail(error); }

@@ -196,6 +196,11 @@ describe("transaction CSV import", () => {
         }]),
         createMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
+      categoryAlias: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({}),
+      },
       transaction: {
         createMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
@@ -266,7 +271,21 @@ describe("transaction CSV import", () => {
       },
       category: {
         findMany: vi.fn().mockResolvedValue([]),
-        createMany: vi.fn().mockResolvedValue({ count: 1 }),
+        create: vi.fn().mockResolvedValue({
+          id: "00000000-0000-0000-0000-000000000301",
+          name: "Chăm sóc thú cưng",
+          code: "CHAM_SOC_THU_CUNG",
+          type: "expense",
+          status: "active",
+          sortOrder: 0,
+          parentId: null,
+          mergedIntoId: null,
+        }),
+      },
+      categoryAlias: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({}),
       },
       transaction: {
         createMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -296,13 +315,15 @@ describe("transaction CSV import", () => {
     }], new Date("2026-07-27T10:00:00.000Z"));
 
     expect(result.createdCategoryCount).toBe(1);
-    expect(tx.category.createMany).toHaveBeenCalledWith({
-      data: [expect.objectContaining({
+    expect(tx.category.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
         name: "Chăm sóc thú cưng",
         code: "CHAM_SOC_THU_CUNG",
         workspaceId: "workspace-1",
         type: "expense",
-      })],
+        parentId: null,
+      }),
+      select: expect.any(Object),
     });
     const transactionData = tx.transaction.createMany.mock.calls[0]?.[0].data[0];
     expect(transactionData.categoryId).toEqual(expect.any(String));
@@ -312,5 +333,90 @@ describe("transaction CSV import", () => {
         metadata: expect.objectContaining({ createdCategoryCount: 1 }),
       }),
     });
+  });
+
+  it("creates imported category ancestors before their child", async () => {
+    const rootId = "00000000-0000-0000-0000-000000000310";
+    const childId = "00000000-0000-0000-0000-000000000311";
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      workspaceWallet: {
+        findMany: vi.fn().mockResolvedValue([
+          { walletId: "00000000-0000-0000-0000-000000000101" },
+        ]),
+      },
+      category: {
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn()
+          .mockResolvedValueOnce({
+            id: rootId,
+            name: "Sinh hoạt",
+            code: "LIVING",
+            type: "expense",
+            status: "active",
+            sortOrder: 0,
+            parentId: null,
+            mergedIntoId: null,
+          })
+          .mockResolvedValueOnce({
+            id: childId,
+            name: "Cà phê",
+            code: "COFFEE",
+            type: "expense",
+            status: "active",
+            sortOrder: 1,
+            parentId: rootId,
+            mergedIntoId: null,
+          }),
+      },
+      categoryAlias: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({}),
+      },
+      transaction: {
+        createMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      wallet: {
+        update: vi.fn().mockResolvedValue({}),
+      },
+      auditLog: {
+        create: vi.fn().mockResolvedValue({}),
+      },
+    };
+    (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "member-1",
+      role: { code: "MEMBER" },
+      workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+    });
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
+
+    const result = await importTransactions("user-1", "workspace-1", [{
+      walletId: "00000000-0000-0000-0000-000000000101",
+      categoryName: "Cà phê",
+      categoryCode: "COFFEE",
+      categoryPath: "Sinh hoạt > Cà phê",
+      categoryCodePath: "LIVING > COFFEE",
+      type: "expense",
+      amount: new Decimal(50000),
+      date: "2026-07-27",
+    }], new Date("2026-07-27T10:00:00.000Z"));
+
+    expect(result.createdCategoryCount).toBe(2);
+    expect(tx.category.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        data: expect.objectContaining({ name: "Sinh hoạt", parentId: null }),
+      }),
+    );
+    expect(tx.category.create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: expect.objectContaining({ name: "Cà phê", parentId: rootId }),
+      }),
+    );
+    expect(tx.transaction.createMany.mock.calls[0]?.[0].data[0].categoryId).toBe(childId);
   });
 });

@@ -1,13 +1,51 @@
-export const TRANSACTION_CSV_HEADERS = ["Ngày", "Loại", "Danh mục", "Ví", "Số tiền", "Trạng thái", "Ghi chú"] as const;
+import {
+  CATEGORY_PATH_SEPARATOR,
+  categoryPathKey,
+  normalizeCategoryKey,
+  splitCategoryPath,
+} from "@/lib/category-path";
+
+export const TRANSACTION_CSV_HEADERS = [
+  "Ngày",
+  "Loại",
+  "Danh mục",
+  "Mã danh mục",
+  "Đường dẫn danh mục",
+  "Đường dẫn mã danh mục",
+  "Loại hạng mục",
+  "Ví",
+  "Số tiền",
+  "Trạng thái",
+  "Ghi chú",
+] as const;
 export const TRANSACTION_CSV_MAX_ROWS = 50_000;
 
 type NamedResource = { id: string; name: string };
+export type TransactionCsvCategory = NamedResource & {
+  code?: string;
+  parentId?: string | null;
+  type?: "income" | "expense";
+  namePath?: string[];
+  codePath?: string[];
+  aliases?: Array<{ kind: string; value: string }>;
+};
+
+export type TransactionCsvCategoryReference = {
+  name: string;
+  code?: string;
+  namePath: string[];
+  codePath: string[];
+  type: "income" | "expense";
+};
 
 export type TransactionCsvInput = {
   walletId: string;
   toWalletId?: string;
   categoryId?: string;
   categoryName?: string;
+  categoryCode?: string;
+  categoryPath?: string;
+  categoryCodePath?: string;
   type: "income" | "expense" | "transfer";
   amount: string;
   description?: string;
@@ -18,6 +56,10 @@ export type TransactionCsvExportRow = {
   date: string;
   type: string;
   category: string;
+  categoryCode?: string;
+  categoryPath?: string;
+  categoryCodePath?: string;
+  categoryType?: "income" | "expense" | "";
   wallet: string;
   toWallet?: string | null;
   amount: string;
@@ -27,7 +69,7 @@ export type TransactionCsvExportRow = {
 
 export type TransactionCsvParseResult = {
   transactions: TransactionCsvInput[];
-  missingCategories: Array<{ name: string; type: "income" | "expense" }>;
+  missingCategories: TransactionCsvCategoryReference[];
   errors: string[];
   totalRows: number;
 };
@@ -48,6 +90,10 @@ export function buildTransactionCsv(rows: TransactionCsvExportRow[]) {
       formatCsvDate(row.date),
       row.type,
       row.category,
+      row.categoryCode ?? "",
+      row.categoryPath ?? row.category,
+      row.categoryCodePath ?? row.categoryCode ?? "",
+      row.categoryType ?? "",
       row.toWallet ? `${row.wallet} → ${row.toWallet}` : row.wallet,
       row.amount,
       row.status,
@@ -106,14 +152,10 @@ function normalizeLabel(value: string) {
     .toLocaleLowerCase("vi-VN");
 }
 
-function normalizeResourceName(value: string) {
-  return value.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi-VN");
-}
-
-function uniqueResourceMap(resources: NamedResource[]) {
-  const map = new Map<string, NamedResource | null>();
+function uniqueResourceMap<T extends NamedResource>(resources: T[]) {
+  const map = new Map<string, T | null>();
   for (const resource of resources) {
-    const key = normalizeResourceName(resource.name);
+    const key = normalizeCategoryKey(resource.name);
     map.set(key, map.has(key) ? null : resource);
   }
   return map;
@@ -175,7 +217,7 @@ function splitWallets(value: string) {
 export function parseTransactionCsv(
   text: string,
   wallets: NamedResource[],
-  categories: NamedResource[],
+  categories: TransactionCsvCategory[],
   maximumRows = TRANSACTION_CSV_MAX_ROWS,
 ): TransactionCsvParseResult {
   const parsed = readCsv(text);
@@ -206,9 +248,39 @@ export function parseTransactionCsv(
   }
 
   const walletMap = uniqueResourceMap(wallets);
-  const categoryMap = uniqueResourceMap(categories);
+  const categoryNameMap = uniqueResourceMap(categories);
+  const categoryCodeMap = new Map<string, TransactionCsvCategory | null>();
+  const categoryNamePathMap = new Map<string, TransactionCsvCategory | null>();
+  const categoryCodePathMap = new Map<string, TransactionCsvCategory | null>();
+  for (const category of categories) {
+    if (category.code) {
+      const key = normalizeCategoryKey(category.code);
+      categoryCodeMap.set(key, categoryCodeMap.has(key) ? null : category);
+    }
+    if (category.namePath?.length) {
+      const key = categoryPathKey(category.namePath);
+      categoryNamePathMap.set(key, categoryNamePathMap.has(key) ? null : category);
+    }
+    if (category.codePath?.length) {
+      const key = categoryPathKey(category.codePath);
+      categoryCodePathMap.set(key, categoryCodePathMap.has(key) ? null : category);
+    }
+    for (const alias of category.aliases ?? []) {
+      const key = alias.kind === "path" || alias.kind === "code_path"
+        ? categoryPathKey(splitCategoryPath(alias.value))
+        : normalizeCategoryKey(alias.value);
+      const targetMap = alias.kind === "code"
+        ? categoryCodeMap
+        : alias.kind === "path"
+          ? categoryNamePathMap
+          : alias.kind === "code_path"
+            ? categoryCodePathMap
+            : categoryNameMap;
+      targetMap.set(key, targetMap.has(key) ? null : category);
+    }
+  }
   const transactions: TransactionCsvInput[] = [];
-  const missingCategoryMap = new Map<string, { name: string; type: "income" | "expense" }>();
+  const missingCategoryMap = new Map<string, TransactionCsvCategoryReference>();
   const errors: string[] = [];
   const valueAt = (row: string[], header: string) => row[headerIndexes.get(header) ?? -1] ?? "";
 
@@ -219,9 +291,24 @@ export function parseTransactionCsv(
     const type = parseType(valueAt(row, "loai"));
     const amount = normalizeAmount(valueAt(row, "so tien"));
     const walletNames = splitWallets(valueAt(row, "vi"));
-    const sourceWallet = walletMap.get(normalizeResourceName(walletNames[0] ?? ""));
+    const sourceWallet = walletMap.get(normalizeCategoryKey(walletNames[0] ?? ""));
     const categoryName = valueAt(row, "danh muc").trim();
-    const category = categoryName ? categoryMap.get(normalizeResourceName(categoryName)) : undefined;
+    const categoryCode = valueAt(row, "ma danh muc").trim();
+    const categoryNamePath = splitCategoryPath(valueAt(row, "duong dan danh muc").trim());
+    const categoryCodePath = splitCategoryPath(valueAt(row, "duong dan ma danh muc").trim());
+    const effectiveNamePath = categoryNamePath.length ? categoryNamePath : categoryName ? [categoryName] : [];
+    const effectiveCodePath = categoryCodePath.length ? categoryCodePath : categoryCode ? [categoryCode] : [];
+    const categoryCandidates = effectiveCodePath.length
+      ? [
+          categoryCodePathMap.get(categoryPathKey(effectiveCodePath)),
+          effectiveCodePath.length === 1 ? categoryCodeMap.get(normalizeCategoryKey(effectiveCodePath[0])) : undefined,
+        ]
+      : effectiveNamePath.length > 1
+        ? [categoryNamePathMap.get(categoryPathKey(effectiveNamePath))]
+        : categoryName
+          ? [categoryNameMap.get(normalizeCategoryKey(categoryName))]
+          : [];
+    const category = categoryCandidates.find((candidate) => candidate !== undefined);
     const description = valueAt(row, "ghi chu").trim();
 
     if (!date) rowErrors.push("ngày không hợp lệ");
@@ -229,14 +316,22 @@ export function parseTransactionCsv(
     if (!amount) rowErrors.push("số tiền không hợp lệ");
     if (sourceWallet === undefined) rowErrors.push(`không tìm thấy ví “${walletNames[0] ?? ""}”`);
     if (sourceWallet === null) rowErrors.push(`tên ví “${walletNames[0]}” đang bị trùng`);
-    if (categoryName && category === null) rowErrors.push(`tên danh mục “${categoryName}” đang bị trùng`);
+    if ((effectiveNamePath.length || effectiveCodePath.length) && category === null) {
+      rowErrors.push(`hạng mục “${effectiveNamePath.join(CATEGORY_PATH_SEPARATOR) || effectiveCodePath.join(CATEGORY_PATH_SEPARATOR)}” đang bị trùng`);
+    }
+    if (category && type !== "transfer" && category.type && category.type !== type) {
+      rowErrors.push(`hạng mục “${category.name}” không thuộc loại giao dịch này`);
+    }
+    if (type === "transfer" && (effectiveNamePath.length || effectiveCodePath.length)) {
+      rowErrors.push("giao dịch chuyển khoản không được gán hạng mục Thu/Chi");
+    }
     if (description.length > 2_000) rowErrors.push("ghi chú vượt quá 2.000 ký tự");
 
     let destinationWallet: NamedResource | null | undefined;
     if (type === "transfer") {
       if (walletNames.length !== 2 || !walletNames[1]) rowErrors.push("chuyển khoản phải có dạng “Ví nguồn → Ví nhận”");
       else {
-        destinationWallet = walletMap.get(normalizeResourceName(walletNames[1]));
+        destinationWallet = walletMap.get(normalizeCategoryKey(walletNames[1]));
         if (destinationWallet === undefined) rowErrors.push(`không tìm thấy ví nhận “${walletNames[1]}”`);
         if (destinationWallet === null) rowErrors.push(`tên ví nhận “${walletNames[1]}” đang bị trùng`);
         if (sourceWallet && destinationWallet && sourceWallet.id === destinationWallet.id) rowErrors.push("ví nguồn và ví nhận phải khác nhau");
@@ -250,19 +345,37 @@ export function parseTransactionCsv(
       return;
     }
 
-    if (categoryName && category === undefined) {
-      const key = normalizeResourceName(categoryName);
+    if (effectiveNamePath.length && category === undefined && type !== "transfer") {
+      const key = effectiveCodePath.length
+        ? `code:${categoryPathKey(effectiveCodePath)}`
+        : `name:${categoryPathKey(effectiveNamePath)}`;
       const inferredType = type === "income" ? "income" : "expense";
       const existing = missingCategoryMap.get(key);
-      if (!existing) missingCategoryMap.set(key, { name: categoryName, type: inferredType });
-      else if (existing.type !== inferredType) existing.type = "expense";
+      if (!existing) {
+        missingCategoryMap.set(key, {
+          name: effectiveNamePath.at(-1) ?? categoryName,
+          ...(categoryCode ? { code: categoryCode } : {}),
+          namePath: effectiveNamePath,
+          codePath: effectiveCodePath,
+          type: inferredType,
+        });
+      } else if (existing.type !== inferredType) {
+        rowErrors.push(`hạng mục “${existing.name}” được dùng cho cả Thu và Chi`);
+        errors.push(`Dòng ${line}: ${rowErrors.join("; ")}.`);
+        return;
+      }
     }
 
     transactions.push({
       walletId: sourceWallet.id,
       ...(destinationWallet ? { toWalletId: destinationWallet.id } : {}),
       ...(category ? { categoryId: category.id } : {}),
-      ...(categoryName && category === undefined ? { categoryName } : {}),
+      ...(effectiveNamePath.length && category === undefined ? {
+        categoryName: effectiveNamePath.at(-1) ?? categoryName,
+        ...(categoryCode ? { categoryCode } : {}),
+        categoryPath: effectiveNamePath.join(CATEGORY_PATH_SEPARATOR),
+        ...(effectiveCodePath.length ? { categoryCodePath: effectiveCodePath.join(CATEGORY_PATH_SEPARATOR) } : {}),
+      } : {}),
       type,
       amount,
       ...(description ? { description } : {}),

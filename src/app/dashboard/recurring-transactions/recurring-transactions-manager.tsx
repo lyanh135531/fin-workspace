@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-type Option = { id: string; name: string; color?: string };
+type Option = { id: string; name: string; color?: string; type?: "income" | "expense" };
 type TransactionType = "income" | "expense" | "transfer";
 type Schedule = {
   id: string;
@@ -440,6 +440,9 @@ function RecurringEditor({
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const eligibleCategories = draft.type === "transfer"
+    ? []
+    : categories.filter((category) => !category.type || category.type === draft.type);
   return (
     <section className="recurring-editor" aria-labelledby="recurring-editor-title">
       <div className="recurring-editor-heading">
@@ -465,7 +468,7 @@ function RecurringEditor({
           Loại giao dịch
           <FinanceSelect
             value={draft.type}
-            onValueChange={(value) => onChange({ type: value as TransactionType })}
+            onValueChange={(value) => onChange({ type: value as TransactionType, categoryId: "none" })}
             label="Loại giao dịch"
             options={typeOptions.map((option) => ({
               ...option,
@@ -481,7 +484,7 @@ function RecurringEditor({
             label="Danh mục"
             options={[
               { value: "none", label: "Không chọn" },
-              ...categories.map((category) => ({ value: category.id, label: category.name })),
+              ...eligibleCategories.map((category) => ({ value: category.id, label: category.name })),
             ]}
           />
         </label>

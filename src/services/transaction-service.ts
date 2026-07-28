@@ -7,12 +7,34 @@ import { getBusinessDateInTimeZone } from "@/lib/date";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { TRANSACTION_CSV_MAX_ROWS } from "@/lib/transaction-csv";
+import {
+  CATEGORY_PATH_SEPARATOR,
+  buildCategoryPaths,
+  categoryPathKey,
+  normalizeCategoryKey,
+  splitCategoryPath,
+} from "@/lib/category-path";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
 type TransactionClient = Prisma.TransactionClient;
 type ResolvedTransactionInput = CreateTransactionInput & { timing: TransactionTiming };
-type ImportTransactionInput = CreateTransactionInput & { categoryName?: string };
+type MutableImportCategory = {
+  id: string;
+  name: string;
+  code: string;
+  type: "income" | "expense";
+  status: "active" | "deactive";
+  sortOrder: number;
+  parentId: string | null;
+  mergedIntoId: string | null;
+};
+type ImportTransactionInput = CreateTransactionInput & {
+  categoryName?: string;
+  categoryCode?: string;
+  categoryPath?: string;
+  categoryCodePath?: string;
+};
 
 function asDatabaseDate(date: string) {
   return new Date(`${date}T00:00:00.000Z`);
@@ -30,7 +52,7 @@ function resolveTransactionInput(input: CreateTransactionInput, timeZone: string
 export async function requireTransactionResources(
   tx: TransactionClient,
   workspaceId: string,
-  input: Pick<CreateTransactionInput, "walletId" | "toWalletId" | "categoryId">,
+  input: Pick<CreateTransactionInput, "walletId" | "toWalletId" | "categoryId" | "type">,
 ) {
   const walletIds = [input.walletId, input.toWalletId].filter((id): id is string => Boolean(id));
   const links = await tx.workspaceWallet.findMany({
@@ -41,8 +63,14 @@ export async function requireTransactionResources(
     throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Ví không thuộc workspace này hoặc không còn hoạt động.");
   }
   if (input.categoryId) {
-    const category = await tx.category.findFirst({ where: { id: input.categoryId, ...availableCategoryWhere(workspaceId) }, select: { id: true } });
+    const category = await tx.category.findFirst({ where: { id: input.categoryId, ...availableCategoryWhere(workspaceId) }, select: { id: true, type: true } });
     if (!category) throw new AppError("FORBIDDEN", "Danh mục không khả dụng trong workspace này.");
+    if (input.type === "transfer") {
+      throw new AppError("VALIDATION_ERROR", "Giao dịch chuyển khoản không được gán hạng mục Thu/Chi.");
+    }
+    if (category.type !== input.type) {
+      throw new AppError("VALIDATION_ERROR", "Loại hạng mục không khớp với loại giao dịch.");
+    }
   }
 }
 
@@ -209,9 +237,12 @@ export async function importTransactions(
   }
 
   const member = await requireWorkspaceMember(userId, workspaceId);
-  const rows = inputs.map(({ categoryName, ...input }) => ({
+  const rows = inputs.map(({ categoryName, categoryCode, categoryPath, categoryCodePath, ...input }) => ({
     input: resolveTransactionInput(input, member.workspace.timeZone, now),
     categoryName,
+    categoryCode,
+    categoryPath,
+    categoryCodePath,
     workflowStatus: workflowStatusForCreation(
       member.role.code,
       transactionTimingForDate(input.date, getBusinessDateInTimeZone(member.workspace.timeZone, now)),
@@ -232,38 +263,41 @@ export async function importTransactions(
 
     const existingCategories = await tx.category.findMany({
       where: { workspaceId, deletedAt: null },
-      select: { id: true, name: true, code: true, type: true, status: true, sortOrder: true },
+      select: { id: true, name: true, code: true, type: true, status: true, sortOrder: true, parentId: true, mergedIntoId: true },
     });
-    const activeCategoryIds = new Set(existingCategories.filter((category) => category.status === "active").map((category) => category.id));
+    const activeCategories = existingCategories.filter(
+      (category) => category.status === "active" && !category.mergedIntoId,
+    );
+    const activeCategoryById = new Map(activeCategories.map((category) => [category.id, category]));
     const categoryIds = [...new Set(rows.flatMap(({ input }) => input.categoryId ? [input.categoryId] : []))];
-    if (categoryIds.some((categoryId) => !activeCategoryIds.has(categoryId))) {
+    if (categoryIds.some((categoryId) => !activeCategoryById.has(categoryId))) {
       throw new AppError("FORBIDDEN", "Một hoặc nhiều danh mục không khả dụng trong workspace này.");
     }
-
-    const normalizeCategoryName = (name: string) => name.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi-VN");
-    const categoryIdByName = new Map<string, string | null>();
-    for (const category of existingCategories.filter((item) => item.status === "active")) {
-      const key = normalizeCategoryName(category.name);
-      categoryIdByName.set(key, categoryIdByName.has(key) ? null : category.id);
-    }
-
-    const missingCategorySpecs = new Map<string, { name: string; type: "income" | "expense" }>();
     for (const row of rows) {
-      if (row.input.categoryId || !row.categoryName) continue;
-      const key = normalizeCategoryName(row.categoryName);
-      if (categoryIdByName.get(key) === null) {
-        throw new AppError("CONFLICT", `Workspace đang có nhiều danh mục trùng tên “${row.categoryName}”.`);
+      if (!row.input.categoryId) continue;
+      const category = activeCategoryById.get(row.input.categoryId);
+      if (!category || row.input.type === "transfer" || category.type !== row.input.type) {
+        throw new AppError("VALIDATION_ERROR", "Một hoặc nhiều hạng mục không khớp với loại giao dịch.");
       }
-      if (categoryIdByName.has(key)) continue;
-      const type = row.input.type === "income" ? "income" : "expense";
-      const existing = missingCategorySpecs.get(key);
-      if (!existing) missingCategorySpecs.set(key, { name: row.categoryName.trim(), type });
-      else if (existing.type !== type) existing.type = "expense";
     }
 
-    const usedCodes = new Set(existingCategories.map((category) => category.code.toLocaleUpperCase("vi-VN")));
-    const createCategoryCode = (name: string) => {
-      const normalized = name
+    const aliases = await tx.categoryAlias.findMany({
+      where: {
+        workspaceId,
+        category: { status: "active", deletedAt: null, mergedIntoId: null },
+      },
+      select: { categoryId: true, kind: true, normalizedValue: true },
+    });
+    const aliasMap = new Map(
+      aliases.map((alias) => [`${alias.kind}:${alias.normalizedValue}`, alias.categoryId]),
+    );
+    const mutableCategories: MutableImportCategory[] = [...activeCategories];
+    const usedCodes = new Set(existingCategories.map((category) => normalizeCategoryKey(category.code)));
+    const createdCategories: MutableImportCategory[] = [];
+    let nextSortOrder = Math.max(-1, ...existingCategories.map((category) => category.sortOrder)) + 1;
+
+    const generatedCode = (name: string, preferred?: string) => {
+      const normalized = (preferred || name)
         .normalize("NFD")
         .replace(/\p{Diacritic}/gu, "")
         .replaceAll("đ", "d")
@@ -271,55 +305,187 @@ export async function importTransactions(
         .toLocaleUpperCase("vi-VN")
         .replace(/[^A-Z0-9]+/g, "_")
         .replace(/^_+|_+$/g, "")
-        .slice(0, 68) || "CSV_CATEGORY";
+        .slice(0, 80) || "CSV_CATEGORY";
       let code = normalized;
       let suffix = 2;
-      while (usedCodes.has(code)) {
-        code = `${normalized.slice(0, 68 - String(suffix).length)}_${suffix}`;
+      while (usedCodes.has(normalizeCategoryKey(code))) {
+        code = `${normalized.slice(0, 79 - String(suffix).length)}_${suffix}`;
         suffix += 1;
       }
-      usedCodes.add(code);
+      usedCodes.add(normalizeCategoryKey(code));
       return code;
     };
 
-    const startingSortOrder = Math.max(-1, ...existingCategories.map((category) => category.sortOrder)) + 1;
-    const createdCategories = [...missingCategorySpecs.entries()].map(([key, category], index) => ({
-      id: crypto.randomUUID(),
-      workspaceId,
-      name: category.name,
-      code: createCategoryCode(category.name),
-      color: category.type === "income" ? "#2F9E76" : "#E36D5B",
-      type: category.type,
-      icon: "tag",
-      sortOrder: Math.min(10_000, startingSortOrder + index),
-      key,
-    }));
-    for (let index = 0; index < createdCategories.length; index += 1_000) {
-      const chunk = createdCategories.slice(index, index + 1_000);
-      await tx.category.createMany({
-        data: chunk.map((category) => ({
-          id: category.id,
-          workspaceId: category.workspaceId,
-          name: category.name,
-          code: category.code,
-          color: category.color,
-          type: category.type,
-          icon: category.icon,
-          sortOrder: category.sortOrder,
-        })),
-      });
-    }
-    for (const category of createdCategories) categoryIdByName.set(category.key, category.id);
-
-    const preparedRows = rows.map((row) => {
-      const categoryId = row.input.categoryId
-        ?? (row.categoryName ? categoryIdByName.get(normalizeCategoryName(row.categoryName)) : undefined)
-        ?? undefined;
-      if (row.categoryName && !categoryId) {
-        throw new AppError("VALIDATION_ERROR", `Không thể tạo hoặc ánh xạ danh mục “${row.categoryName}”.`);
+    const lookupCategory = (
+      nameSegments: string[],
+      codeSegments: string[],
+      allowLeafFallback: boolean,
+    ) => {
+      const paths = buildCategoryPaths(mutableCategories);
+      const namePathMap = new Map<string, string | null>();
+      const codePathMap = new Map<string, string | null>();
+      const nameLeafMap = new Map<string, string | null>();
+      const codeLeafMap = new Map<string, string | null>();
+      for (const category of mutableCategories) {
+        const path = paths.get(category.id);
+        if (path) {
+          const nameKey = categoryPathKey(path.names);
+          const codeKey = categoryPathKey(path.codes);
+          namePathMap.set(nameKey, namePathMap.has(nameKey) ? null : category.id);
+          codePathMap.set(codeKey, codePathMap.has(codeKey) ? null : category.id);
+        }
+        const nameKey = normalizeCategoryKey(category.name);
+        const codeKey = normalizeCategoryKey(category.code);
+        nameLeafMap.set(nameKey, nameLeafMap.has(nameKey) ? null : category.id);
+        codeLeafMap.set(codeKey, codeLeafMap.has(codeKey) ? null : category.id);
       }
-      return { ...row, categoryId };
-    });
+      const codePathKey = codeSegments.length ? categoryPathKey(codeSegments) : "";
+      const namePathKey = nameSegments.length ? categoryPathKey(nameSegments) : "";
+      const candidates = [
+        codePathKey ? codePathMap.get(codePathKey) : undefined,
+        namePathKey ? namePathMap.get(namePathKey) : undefined,
+        allowLeafFallback && codeSegments.length === 1
+          ? codeLeafMap.get(normalizeCategoryKey(codeSegments[0]))
+          : undefined,
+        allowLeafFallback && nameSegments.length === 1
+          ? nameLeafMap.get(normalizeCategoryKey(nameSegments[0]))
+          : undefined,
+        codePathKey ? aliasMap.get(`code_path:${normalizeCategoryKey(codeSegments.join(CATEGORY_PATH_SEPARATOR))}`) : undefined,
+        namePathKey ? aliasMap.get(`path:${normalizeCategoryKey(nameSegments.join(CATEGORY_PATH_SEPARATOR))}`) : undefined,
+        codeSegments.length === 1 ? aliasMap.get(`code:${normalizeCategoryKey(codeSegments[0])}`) : undefined,
+        nameSegments.length === 1 ? aliasMap.get(`name:${normalizeCategoryKey(nameSegments[0])}`) : undefined,
+      ];
+      return candidates.find((candidate) => candidate !== undefined);
+    };
+
+    const categoryReferenceCache = new Map<string, string>();
+    const preparedRows: Array<(typeof rows)[number] & { categoryId?: string }> = [];
+    for (const row of rows) {
+      if (row.input.categoryId) {
+        preparedRows.push({ ...row, categoryId: row.input.categoryId });
+        continue;
+      }
+      if (!row.categoryName && !row.categoryPath && !row.categoryCode && !row.categoryCodePath) {
+        preparedRows.push({ ...row, categoryId: undefined });
+        continue;
+      }
+      if (row.input.type === "transfer") {
+        throw new AppError("VALIDATION_ERROR", "Giao dịch chuyển khoản không được gán hạng mục Thu/Chi.");
+      }
+
+      const nameSegments = splitCategoryPath(row.categoryPath ?? row.categoryName ?? "");
+      const codeSegments = splitCategoryPath(row.categoryCodePath ?? row.categoryCode ?? "");
+      if (!nameSegments.length) {
+        throw new AppError("VALIDATION_ERROR", "Hạng mục import phải có tên hoặc đường dẫn tên.");
+      }
+      if (codeSegments.length > 1 && codeSegments.length !== nameSegments.length) {
+        throw new AppError("VALIDATION_ERROR", `Đường dẫn mã của “${nameSegments.join(CATEGORY_PATH_SEPARATOR)}” không khớp số cấp.`);
+      }
+      const referenceKey = `${row.input.type}:${categoryPathKey(nameSegments)}:${categoryPathKey(codeSegments)}`;
+      const cachedCategoryId = categoryReferenceCache.get(referenceKey);
+      if (cachedCategoryId) {
+        preparedRows.push({ ...row, categoryId: cachedCategoryId });
+        continue;
+      }
+
+      let parentId: string | null = null;
+      let resolvedCategoryId: string | null = null;
+      for (let depth = 0; depth < nameSegments.length; depth += 1) {
+        const namePrefix = nameSegments.slice(0, depth + 1);
+        const codePrefix = codeSegments.length > 1
+          ? codeSegments.slice(0, depth + 1)
+          : depth === nameSegments.length - 1 && codeSegments.length
+            ? [codeSegments[0]]
+            : [];
+        const matchedId = lookupCategory(namePrefix, codePrefix, nameSegments.length === 1);
+        if (matchedId === null) {
+          throw new AppError("CONFLICT", `Hạng mục “${namePrefix.join(CATEGORY_PATH_SEPARATOR)}” đang bị trùng và không thể tự ánh xạ.`);
+        }
+        if (matchedId) {
+          const matched = mutableCategories.find((category) => category.id === matchedId);
+          if (!matched || matched.type !== row.input.type) {
+            throw new AppError("CONFLICT", `Hạng mục “${namePrefix.join(CATEGORY_PATH_SEPARATOR)}” khác loại giao dịch.`);
+          }
+          parentId = matched.id;
+          resolvedCategoryId = matched.id;
+          continue;
+        }
+
+        const name = nameSegments[depth];
+        const preferredCode = codeSegments.length > 1
+          ? codeSegments[depth]
+          : depth === nameSegments.length - 1
+            ? codeSegments[0]
+            : undefined;
+        const created: MutableImportCategory = await tx.category.create({
+          data: {
+            workspaceId,
+            name,
+            code: generatedCode(name, preferredCode),
+            color: row.input.type === "income" ? "#2F9E76" : "#E36D5B",
+            type: row.input.type,
+            icon: "tag",
+            parentId,
+            sortOrder: Math.min(10_000, nextSortOrder),
+          },
+          select: { id: true, name: true, code: true, type: true, status: true, sortOrder: true, parentId: true, mergedIntoId: true },
+        });
+        nextSortOrder += 1;
+        mutableCategories.push(created);
+        createdCategories.push(created);
+        parentId = created.id;
+        resolvedCategoryId = created.id;
+      }
+      if (!resolvedCategoryId) {
+        throw new AppError("VALIDATION_ERROR", `Không thể tạo hoặc ánh xạ hạng mục “${row.categoryName ?? row.categoryPath}”.`);
+      }
+
+      const resolvedCategory = mutableCategories.find((category) => category.id === resolvedCategoryId);
+      const resolvedPath = buildCategoryPaths(mutableCategories).get(resolvedCategoryId);
+      const aliasCandidates = [
+        ...(nameSegments.length === 1 && resolvedCategory && normalizeCategoryKey(nameSegments[0]) !== normalizeCategoryKey(resolvedCategory.name)
+          ? [{ kind: "name", value: nameSegments[0] }]
+          : []),
+        ...(codeSegments.length === 1 && resolvedCategory && normalizeCategoryKey(codeSegments[0]) !== normalizeCategoryKey(resolvedCategory.code)
+          ? [{ kind: "code", value: codeSegments[0] }]
+          : []),
+        ...(resolvedPath && categoryPathKey(nameSegments) !== categoryPathKey(resolvedPath.names)
+          ? [{ kind: "path", value: nameSegments.join(CATEGORY_PATH_SEPARATOR) }]
+          : []),
+        ...(resolvedPath && codeSegments.length && categoryPathKey(codeSegments) !== categoryPathKey(resolvedPath.codes)
+          ? [{ kind: "code_path", value: codeSegments.join(CATEGORY_PATH_SEPARATOR) }]
+          : []),
+      ];
+      for (const alias of aliasCandidates) {
+        const normalizedValue = normalizeCategoryKey(alias.value);
+        const existingAlias = await tx.categoryAlias.findUnique({
+          where: {
+            workspaceId_kind_normalizedValue: {
+              workspaceId,
+              kind: alias.kind,
+              normalizedValue,
+            },
+          },
+        });
+        if (existingAlias && existingAlias.categoryId !== resolvedCategoryId) {
+          throw new AppError("CONFLICT", `Alias hạng mục “${alias.value}” đang được ánh xạ sang hạng mục khác.`);
+        }
+        if (!existingAlias) {
+          await tx.categoryAlias.create({
+            data: {
+              workspaceId,
+              categoryId: resolvedCategoryId,
+              kind: alias.kind,
+              value: alias.value,
+              normalizedValue,
+            },
+          });
+          aliasMap.set(`${alias.kind}:${normalizedValue}`, resolvedCategoryId);
+        }
+      }
+      categoryReferenceCache.set(referenceKey, resolvedCategoryId);
+      preparedRows.push({ ...row, categoryId: resolvedCategoryId });
+    }
 
     let importedCount = 0;
     for (let index = 0; index < preparedRows.length; index += 1_000) {

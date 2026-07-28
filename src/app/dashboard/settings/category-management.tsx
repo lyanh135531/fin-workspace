@@ -7,6 +7,7 @@ import {
   ChevronUp,
   Eye,
   EyeOff,
+  GitMerge,
   Pencil,
   Plus,
   Search,
@@ -16,6 +17,7 @@ import {
 import { useState, useTransition, useMemo } from "react";
 import {
   createCategoryAction,
+  mergeCategoryAction,
   reorderCategoriesAction,
   setCategoryStatusAction,
   updateCategoryAction,
@@ -37,6 +39,8 @@ type Category = {
   parentId: string | null;
   status: "active" | "deactive";
   transactionCount: number;
+  recurringCount: number;
+  mergedIntoId: string | null;
 };
 
 const COLOR_PRESETS = [
@@ -77,6 +81,7 @@ const ICON_LIST = [
 export function CategoryManagement({ categories }: { categories: Category[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [merging, setMerging] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<"expense" | "income">("expense");
   const [searchQuery, setSearchQuery] = useState("");
   const [pending, start] = useTransition();
@@ -113,6 +118,21 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         );
       } else {
         toast.error(result.message ?? "Không thể đổi trạng thái.");
+      }
+    });
+  }
+
+  function merge(sourceCategoryId: string, targetCategoryId: string) {
+    start(async () => {
+      const result = await mergeCategoryAction({ sourceCategoryId, targetCategoryId });
+      if (result.ok) {
+        toast.success(
+          `Đã hợp nhất ${result.transactionCount ?? 0} giao dịch và ${result.recurringCount ?? 0} lịch định kỳ.`,
+        );
+        setMerging(null);
+        setEditing(null);
+      } else {
+        toast.error(result.message ?? "Không thể hợp nhất hạng mục.");
       }
     });
   }
@@ -277,7 +297,10 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             totalRoots={rootCategories.length}
             pending={pending}
             editing={editing}
+            merging={merging}
             onEdit={setEditing}
+            onMergeOpen={setMerging}
+            onMerge={merge}
             onStatus={setStatus}
             onMoveRoot={moveRootItem}
             onMoveChild={moveChildItem}
@@ -312,7 +335,10 @@ function CategoryNode({
   totalRoots,
   pending,
   editing,
+  merging,
   onEdit,
+  onMergeOpen,
+  onMerge,
   onStatus,
   onMoveRoot,
   onMoveChild,
@@ -325,7 +351,10 @@ function CategoryNode({
   totalRoots: number;
   pending: boolean;
   editing: string | null;
+  merging: string | null;
   onEdit: (id: string) => void;
+  onMergeOpen: (id: string | null) => void;
+  onMerge: (sourceId: string, targetId: string) => void;
   onStatus: (id: string, status: "active" | "deactive") => void;
   onMoveRoot: (index: number, dir: "up" | "down") => void;
   onMoveChild: (parentId: string, index: number, dir: "up" | "down") => void;
@@ -334,6 +363,13 @@ function CategoryNode({
 }) {
   const IconComponent = ICON_MAP[category.icon ?? "tag"] ?? Tag;
   const children = categories.filter((item) => item.parentId === category.id);
+  const mergeTargets = categories.filter(
+    (item) =>
+      item.id !== category.id &&
+      item.type === category.type &&
+      item.status === "active" &&
+      !item.mergedIntoId,
+  );
 
   return (
     <div className={category.parentId ? "ml-6 border-l-2 border-[var(--border)] pl-4 mt-2" : ""}>
@@ -396,6 +432,14 @@ function CategoryNode({
               <span>{category.status === "active" ? "Đang hoạt động" : "Đã vô hiệu hóa"}</span>
               <span>•</span>
               <span>{category.transactionCount} giao dịch</span>
+              {category.recurringCount > 0 && <>
+                <span>•</span>
+                <span>{category.recurringCount} định kỳ</span>
+              </>}
+              {category.mergedIntoId && <>
+                <span>•</span>
+                <span className="text-amber-600">Đã hợp nhất</span>
+              </>}
             </p>
           </div>
         </div>
@@ -406,10 +450,23 @@ function CategoryNode({
             title="Chỉnh sửa"
             aria-label={`Chỉnh sửa ${category.name}`}
             onClick={() => onEdit(category.id)}
-            disabled={pending}
+            disabled={pending || Boolean(category.mergedIntoId)}
           >
             <Pencil size={15} />
           </Button>
+          {!category.mergedIntoId && (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              className="!min-h-[34px] !min-w-[34px] !p-1.5"
+              title="Thay thế bằng hạng mục khác"
+              aria-label={`Hợp nhất ${category.name}`}
+              onClick={() => onMergeOpen(merging === category.id ? null : category.id)}
+              disabled={pending || mergeTargets.length === 0}
+            >
+              <GitMerge size={15} />
+            </Button>
+          )}
           <Button
             variant="outline"
             size="icon-sm"
@@ -418,7 +475,7 @@ function CategoryNode({
               category.status === "active" ? "hover:text-rose-500" : "hover:text-emerald-500"
             )}
             onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}
-            disabled={pending}
+            disabled={pending || Boolean(category.mergedIntoId)}
             title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
           >
             {category.status === "active" ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -439,6 +496,16 @@ function CategoryNode({
         />
       )}
 
+      {merging === category.id && (
+        <CategoryMergeForm
+          category={category}
+          targets={mergeTargets}
+          pending={pending}
+          onCancel={() => onMergeOpen(null)}
+          onMerge={onMerge}
+        />
+      )}
+
       {children.map((child, childIdx) => (
         <CategoryNode
           key={child.id}
@@ -448,7 +515,10 @@ function CategoryNode({
           totalRoots={children.length}
           pending={pending}
           editing={editing}
+          merging={merging}
           onEdit={onEdit}
+          onMergeOpen={onMergeOpen}
+          onMerge={onMerge}
           onStatus={onStatus}
           onMoveRoot={onMoveRoot}
           onMoveChild={onMoveChild}
@@ -482,6 +552,7 @@ function CategoryForm({
   const [autoCode, setAutoCode] = useState(!category);
   const [selectedColor, setSelectedColor] = useState(category?.color ?? COLOR_PRESETS[0]);
   const [selectedIcon, setSelectedIcon] = useState(category?.icon ?? "tag");
+  const [selectedType, setSelectedType] = useState<"income" | "expense">(category?.type ?? defaultType);
 
   function handleNameChange(val: string) {
     setName(val);
@@ -508,8 +579,6 @@ function CategoryForm({
         </button>
       </div>
 
-      <input type="hidden" name="type" value={category?.type ?? defaultType} />
-
       <div className="grid gap-4 sm:grid-cols-2 relative">
         {/* Name Input */}
         <div>
@@ -522,6 +591,24 @@ function CategoryForm({
             onChange={(e) => handleNameChange(e.target.value)}
             placeholder="Ví dụ: Ăn uống, Lương..."
           />
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold text-slate-500 mb-1 block">Loại giao dịch *</label>
+          <select
+            className="field"
+            name="type"
+            value={selectedType}
+            onChange={(event) => setSelectedType(event.target.value as "income" | "expense")}
+          >
+            <option value="expense">Chi tiêu</option>
+            <option value="income">Thu nhập</option>
+          </select>
+          {category && (
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+              Khi đổi loại, toàn bộ hạng mục con sẽ đổi theo. Hệ thống sẽ chặn nếu dữ liệu liên kết không tương thích.
+            </p>
+          )}
         </div>
 
         {/* Code Input (Auto-generated) */}
@@ -552,7 +639,7 @@ function CategoryForm({
               .filter(
                 (item) =>
                   item.status === "active" &&
-                  item.type === (category?.type ?? defaultType) &&
+                  item.type === selectedType &&
                   (!category || item.id !== category.id)
               )
               .map((item) => (
@@ -627,5 +714,59 @@ function CategoryForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+function CategoryMergeForm({
+  category,
+  targets,
+  pending,
+  onCancel,
+  onMerge,
+}: {
+  category: Category;
+  targets: Category[];
+  pending: boolean;
+  onCancel: () => void;
+  onMerge: (sourceId: string, targetId: string) => void;
+}) {
+  const [targetId, setTargetId] = useState(targets[0]?.id ?? "");
+  return (
+    <section className="mt-3 rounded-xl border border-amber-300 bg-amber-50/70 p-4 dark:border-amber-800 dark:bg-amber-950/20">
+      <div className="flex items-start gap-3">
+        <GitMerge className="mt-0.5 shrink-0 text-amber-600" size={18} />
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold">Thay thế “{category.name}”</h3>
+          <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+            {category.transactionCount} giao dịch, {category.recurringCount} lịch định kỳ và các hạng mục con sẽ được chuyển sang hạng mục đích. Số dư ví không thay đổi.
+          </p>
+          <label className="mt-3 block text-xs font-semibold text-slate-500">
+            Hạng mục thay thế
+            <select
+              className="field mt-1"
+              value={targetId}
+              onChange={(event) => setTargetId(event.target.value)}
+            >
+              {targets.map((target) => (
+                <option key={target.id} value={target.id}>
+                  {target.name} ({target.code})
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="mt-3 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>Hủy</Button>
+            <Button
+              type="button"
+              variant="default"
+              disabled={pending || !targetId}
+              onClick={() => onMerge(category.id, targetId)}
+            >
+              {pending ? "Đang hợp nhất..." : "Xác nhận hợp nhất"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

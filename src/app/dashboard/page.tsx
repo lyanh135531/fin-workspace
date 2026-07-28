@@ -7,6 +7,7 @@ import { NoWorkspaceOnboarding } from "@/components/no-workspace-onboarding";
 import { isAdminRole } from "@/domain/role-policy";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { getBusinessDateInTimeZone } from "@/lib/date";
+import { buildCategoryPaths } from "@/lib/category-path";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getUserJoinRequests } from "@/services/join-request-query";
@@ -51,7 +52,15 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
     }),
     prisma.category.findMany({
       where: availableCategoryWhere(workspaceId),
-      select: { id: true, name: true, color: true },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        color: true,
+        type: true,
+        parentId: true,
+        aliases: { select: { kind: true, value: true } },
+      },
       orderBy: { sortOrder: "asc" },
     }),
     prisma.transaction.findMany({
@@ -67,6 +76,8 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
     }),
   ]);
   const totalTransactions = transactions.length;
+  const categoryPaths = buildCategoryPaths(categories);
+  const categoryById = new Map(categories.map((category) => [category.id, category]));
   const summaries = buildLedgerPeriodSummaries(transactions, currentPeriod);
   const isAdmin = isAdminRole(membership.role.code);
   const ledger = transactions.map((item) => ({
@@ -81,7 +92,14 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
     categoryId: item.categoryId,
     wallet: item.wallet.name,
     toWallet: item.toWallet?.name ?? null,
-    category: item.category ? { name: item.category.name, color: item.category.color } : null,
+    category: item.category ? {
+      name: item.category.name,
+      color: item.category.color,
+      code: categoryById.get(item.categoryId ?? "")?.code ?? "",
+      type: categoryById.get(item.categoryId ?? "")?.type ?? "expense",
+      namePath: categoryPaths.get(item.categoryId ?? "")?.names ?? [item.category.name],
+      codePath: categoryPaths.get(item.categoryId ?? "")?.codes ?? [],
+    } : null,
     member: item.member.user.username,
     canRequestDelete: isAdmin || item.memberId === membership.id,
     hasPendingChange: item.changeRequests.length > 0,
@@ -103,7 +121,11 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
       canApprove: isAdmin,
       scopeLabel: "workspace này",
       wallets: walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name })),
-      categories,
+      categories: categories.map((category) => ({
+        ...category,
+        namePath: categoryPaths.get(category.id)?.names ?? [category.name],
+        codePath: categoryPaths.get(category.id)?.codes ?? [category.code],
+      })),
       canManageWallets: isAdmin,
     }}
   />;

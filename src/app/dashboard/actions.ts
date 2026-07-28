@@ -67,6 +67,9 @@ export async function addQuickTransactionAction(workspaceId: unknown, input: unk
 
 const importTransactionSchema = createTransactionSchema.and(z.object({
   categoryName: z.string().trim().min(1).max(120).optional(),
+  categoryCode: z.string().trim().min(1).max(80).optional(),
+  categoryPath: z.string().trim().min(1).max(2_000).optional(),
+  categoryCodePath: z.string().trim().min(1).max(2_000).optional(),
 }));
 const importTransactionsSchema = z.array(importTransactionSchema).min(1).max(TRANSACTION_CSV_MAX_ROWS);
 
