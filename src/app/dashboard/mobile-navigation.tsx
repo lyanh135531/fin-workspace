@@ -1,20 +1,20 @@
 "use client";
 
-import { Button } from "@/components/base";
-import { Menu } from "lucide-react";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
-import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
-import { FinLogo } from "@/components/fin-logo";
 import {
+  Button,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet";
+} from "@/components/base";
+import { Menu } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
+import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
+import { FinLogo } from "@/components/fin-logo";
 
 type Workspace = { id: string; name: string; role: string };
 

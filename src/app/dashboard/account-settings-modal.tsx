@@ -6,7 +6,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from "@/components/ui/sheet";
+} from "@/components/base";
 import { AccountSettingsClient } from "@/app/dashboard/settings/account-settings-client";
 
 export function AccountSettingsModal({

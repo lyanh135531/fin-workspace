@@ -10,7 +10,6 @@ import {
   Pencil,
   Plus,
   Tag,
-  X,
 } from "lucide-react";
 import { useState, useTransition, useMemo } from "react";
 import {
@@ -20,7 +19,21 @@ import {
   updateCategoryAction,
 } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP, slugifyCode } from "@/app/dashboard/settings/global-category-management";
-import { Button, Card, Search, Select, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
+import {
+  Button,
+  Card,
+  Search,
+  Select,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  Tabs,
+  TabsCount,
+  TabsList,
+  TabsTrigger,
+} from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -140,6 +153,9 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   }, [currentCategories, searchQuery]);
 
   const rootCategories = filteredCategories.filter((c) => !c.parentId);
+  const editingCategory = editing
+    ? categories.find((category) => category.id === editing)
+    : undefined;
 
   function moveRootItem(index: number, direction: "up" | "down") {
     const allRoots = currentCategories.filter((c) => !c.parentId);
@@ -236,17 +252,50 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         />
       </div>
 
-      {/* Creation form */}
-      {creating && (
-        <CategoryForm
-          title={`Thêm danh mục ${filterType === "expense" ? "Chi tiêu" : "Thu nhập"} cho workspace`}
-          defaultType={filterType}
-          categories={categories}
-          pending={pending}
-          onCancel={() => setCreating(false)}
-          onSubmit={submit}
-        />
-      )}
+      <Sheet
+        open={creating || editing !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreating(false);
+            setEditing(null);
+          }
+        }}
+      >
+        <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-md">
+          <SheetHeader className="shrink-0 border-b border-border px-6 py-5 pr-14">
+            <SheetTitle>
+              {editingCategory
+                ? "Chỉnh sửa danh mục workspace"
+                : `Thêm danh mục ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`}
+            </SheetTitle>
+            <SheetDescription>
+              {editingCategory
+                ? `Cập nhật thông tin cho “${editingCategory.name}”.`
+                : "Tạo danh mục mới chỉ dùng trong workspace hiện tại."}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-6">
+            {(creating || editingCategory) && (
+              <CategoryForm
+                key={editingCategory?.id ?? `create-${filterType}`}
+                defaultType={editingCategory?.type ?? filterType}
+                categories={
+                  editingCategory
+                    ? categories.filter((item) => item.id !== editingCategory.id)
+                    : categories
+                }
+                category={editingCategory}
+                pending={pending}
+                onCancel={() => {
+                  setCreating(false);
+                  setEditing(null);
+                }}
+                onSubmit={(form) => submit(form, editingCategory?.id)}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Tree list */}
       <div className="mt-5 space-y-2">
@@ -258,13 +307,10 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             index={index}
             totalRoots={rootCategories.length}
             pending={pending}
-            editing={editing}
             onEdit={setEditing}
             onStatus={setStatus}
             onMoveRoot={moveRootItem}
             onMoveChild={moveChildItem}
-            onSubmit={submit}
-            onCancel={() => setEditing(null)}
           />
         ))}
         {rootCategories.length === 0 && (
@@ -293,26 +339,20 @@ function CategoryNode({
   index,
   totalRoots,
   pending,
-  editing,
   onEdit,
   onStatus,
   onMoveRoot,
   onMoveChild,
-  onSubmit,
-  onCancel,
 }: {
   category: Category;
   categories: Category[];
   index: number;
   totalRoots: number;
   pending: boolean;
-  editing: string | null;
   onEdit: (id: string) => void;
   onStatus: (id: string, status: "active" | "deactive") => void;
   onMoveRoot: (index: number, dir: "up" | "down") => void;
   onMoveChild: (parentId: string, index: number, dir: "up" | "down") => void;
-  onSubmit: (form: FormData, id?: string) => void;
-  onCancel: () => void;
 }) {
   const IconComponent = ICON_MAP[category.icon ?? "tag"] ?? Tag;
   const children = categories.filter((item) => item.parentId === category.id);
@@ -408,18 +448,6 @@ function CategoryNode({
         </div>
       </article>
 
-      {editing === category.id && (
-        <CategoryForm
-          title={`Chỉnh sửa: ${category.name}`}
-          defaultType={category.type}
-          categories={categories.filter((item) => item.id !== category.id)}
-          category={category}
-          pending={pending}
-          onCancel={onCancel}
-          onSubmit={(form) => onSubmit(form, category.id)}
-        />
-      )}
-
       {children.map((child, childIdx) => (
         <CategoryNode
           key={child.id}
@@ -428,13 +456,10 @@ function CategoryNode({
           index={childIdx}
           totalRoots={children.length}
           pending={pending}
-          editing={editing}
           onEdit={onEdit}
           onStatus={onStatus}
           onMoveRoot={onMoveRoot}
           onMoveChild={onMoveChild}
-          onSubmit={onSubmit}
-          onCancel={onCancel}
         />
       ))}
     </div>
@@ -442,7 +467,6 @@ function CategoryNode({
 }
 
 function CategoryForm({
-  title,
   defaultType,
   categories,
   category,
@@ -450,7 +474,6 @@ function CategoryForm({
   onCancel,
   onSubmit,
 }: {
-  title: string;
   defaultType: "income" | "expense";
   categories: Category[];
   category?: Category;
@@ -474,24 +497,11 @@ function CategoryForm({
   return (
     <form
       action={onSubmit}
-      className="mt-4 rounded-xl border border-[var(--primary)] bg-[var(--surface-muted)] p-5 shadow-lg space-y-4 relative overflow-hidden"
+      className="flex min-h-full flex-col gap-5 py-5"
     >
-      {/* Subtle accent glow */}
-      <div
-        className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl pointer-events-none opacity-10"
-        style={{ backgroundColor: selectedColor }}
-      />
-
-      <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] relative">
-        <h3 className="font-bold text-base text-[var(--foreground)]">{title}</h3>
-        <Button variant="unstyled" size="auto" type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600 p-1">
-          <X size={18} />
-        </Button>
-      </div>
-
       <input type="hidden" name="type" value={category?.type ?? defaultType} />
 
-      <div className="grid gap-4 sm:grid-cols-2 relative">
+      <div className="grid gap-4">
         {/* Name Input */}
         <div>
           <label className="text-xs font-semibold text-slate-500 mb-1 block">Tên danh mục *</label>
@@ -525,7 +535,7 @@ function CategoryForm({
         </div>
 
         {/* Parent Category */}
-        <div className="sm:col-span-2">
+        <div>
           <label className="text-xs font-semibold text-slate-500 mb-1 block">Danh mục cha</label>
           <Select
             name="parentId"
@@ -549,7 +559,7 @@ function CategoryForm({
         </div>
 
         {/* Color Picker */}
-        <div className="sm:col-span-2">
+        <div>
           <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Màu đại diện</label>
           <div className="flex flex-wrap items-center gap-2.5 mb-2">
             {COLOR_PRESETS.map((color) => (
@@ -575,7 +585,7 @@ function CategoryForm({
         </div>
 
         {/* Visual Icon Picker Grid */}
-        <div className="sm:col-span-2">
+        <div>
           <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Chọn Biểu tượng (Icon)</label>
           <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 max-h-40 overflow-y-auto p-2 border border-[var(--border)] rounded-xl bg-[var(--surface)]">
             {ICON_LIST.map((item) => {
@@ -603,7 +613,7 @@ function CategoryForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)] relative">
+      <div className="mt-auto flex justify-end gap-2 border-t border-border pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>
           Hủy bỏ
         </Button>

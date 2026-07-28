@@ -20,7 +20,17 @@ import {
 } from "@/app/dashboard/recurring-transactions/actions";
 import { DatePickerField } from "@/components/finance/date-picker-field";
 import { formatAmount } from "@/lib/format";
-import { Button, Card, Search, Select } from "@/components/base";
+import {
+  Button,
+  Card,
+  Search,
+  Select,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
@@ -233,18 +243,37 @@ export function RecurringTransactionsManager({
           </Button>
         </div>
 
-        {draft && (
-          <RecurringEditor
-            mode={editingId ? "edit" : "create"}
-            draft={draft}
-            wallets={wallets}
-            categories={categories}
-            busy={busy}
-            onChange={(patch) => setDraft((current) => current ? { ...current, ...patch } : current)}
-            onCancel={closeEditor}
-            onSave={save}
-          />
-        )}
+        <Sheet
+          open={draft !== null}
+          onOpenChange={(open) => {
+            if (!open) closeEditor();
+          }}
+        >
+          <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-xl">
+            <SheetHeader className="shrink-0 border-b border-border px-6 py-5 pr-14">
+              <SheetTitle>
+                {editingId ? "Chỉnh sửa giao dịch định kỳ" : "Tạo giao dịch định kỳ"}
+              </SheetTitle>
+              <SheetDescription>
+                Thiết lập giao dịch lặp lại hằng tháng theo khoảng hiệu lực.
+              </SheetDescription>
+            </SheetHeader>
+            {draft && (
+              <div className="min-h-0 flex-1 overflow-y-auto px-6">
+                <RecurringEditor
+                  mode={editingId ? "edit" : "create"}
+                  draft={draft}
+                  wallets={wallets}
+                  categories={categories}
+                  busy={busy}
+                  onChange={(patch) => setDraft((current) => current ? { ...current, ...patch } : current)}
+                  onCancel={closeEditor}
+                  onSave={save}
+                />
+              </div>
+            )}
+          </SheetContent>
+        </Sheet>
 
         {deleteTarget && (
           <Card as="section" className="ledger-confirm-panel recurring-delete-panel gap-0 py-0" aria-labelledby="delete-recurring-title">
@@ -436,14 +465,10 @@ function RecurringEditor({
   onSave: () => void;
 }) {
   return (
-    <section className="recurring-editor" aria-labelledby="recurring-editor-title">
-      <div className="recurring-editor-heading">
-        <div>
-          <p className="public-eyebrow">{mode === "create" ? "Đăng ký mới" : "Cập nhật chu kỳ"}</p>
-          <h2 id="recurring-editor-title">{mode === "create" ? "Thiết lập giao dịch hằng tháng" : "Chỉnh sửa giao dịch định kỳ"}</h2>
-        </div>
-        <span>Mỗi tháng · theo khoảng hiệu lực</span>
-      </div>
+    <section
+      className="recurring-editor !m-0 !rounded-none !border-0 !bg-transparent !px-0 !py-5 !shadow-none"
+      aria-label={mode === "create" ? "Tạo giao dịch định kỳ" : "Chỉnh sửa giao dịch định kỳ"}
+    >
       <div className="recurring-editor-grid">
         <label className="recurring-field recurring-field-wide">
           Nội dung

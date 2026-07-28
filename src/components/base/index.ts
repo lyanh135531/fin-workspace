@@ -13,6 +13,18 @@ export type { CardProps } from "./card"
 export { Search } from "./search"
 export type { SearchProps } from "./search"
 export {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetOverlay,
+  SheetPortal,
+  SheetTitle,
+  SheetTrigger,
+} from "./sheet"
+export {
   Select,
   SelectContent,
   SelectGroup,

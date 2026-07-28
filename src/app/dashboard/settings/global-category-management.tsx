@@ -43,16 +43,22 @@ import {
   setTemplateCategoryStatusAction,
   updateTemplateCategoryAction,
 } from "@/app/dashboard/settings/general-actions";
-import { Button, Card, Select, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import {
+  Button,
+  Card,
+  Select,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/sheet";
+  Tabs,
+  TabsCount,
+  TabsList,
+  TabsTrigger,
+} from "@/components/base";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,

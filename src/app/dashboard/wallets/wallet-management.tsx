@@ -13,7 +13,6 @@ import {
   Repeat2,
   Trash2,
   WalletCards,
-  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -24,7 +23,20 @@ import {
   updateManagedWalletAction,
 } from "@/app/dashboard/wallets/actions";
 import { formatAmount } from "@/lib/format";
-import { Button, Card, Select, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
+import {
+  Button,
+  Card,
+  Select,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  Tabs,
+  TabsCount,
+  TabsList,
+  TabsTrigger,
+} from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -113,6 +125,13 @@ export function WalletManagement({
     () => wallets.filter((wallet) => filterStatus === "all" || wallet.status === filterStatus),
     [wallets, filterStatus],
   );
+
+  function closeCreateSheet() {
+    setCreatingModal(false);
+    setCreateFundingType("income");
+    setCreateFundingAmount("0");
+    setCreateFundingWalletId("");
+  }
 
   function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -435,47 +454,31 @@ export function WalletManagement({
         )}
       </section>
 
-      {/* ── Modal Thêm Ví Mới ── */}
-      {creatingModal && (
-        <div
-          className="wallet-modal-overlay fixed inset-0 z-50 grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="create-wallet-title"
+      <Sheet
+        open={creatingModal}
+        onOpenChange={(open) => {
+          if (!open) closeCreateSheet();
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="w-full gap-0 overflow-y-auto p-6 sm:max-w-md"
         >
-          <Card
-            as="form"
-            onSubmit={handleCreate}
-            className="wallet-modal-panel sunrise-card gap-0 max-h-[calc(100dvh-2rem)] w-full max-w-md space-y-4 overflow-y-auto p-6 relative"
-          >
+          <form onSubmit={handleCreate} className="contents">
             {/* Accent glow */}
             <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-blue-500" />
 
-            <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] relative">
+            <SheetHeader className="relative border-b border-border p-0 pb-3 pr-10">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/15">
                   <WalletCards size={18} />
                 </div>
                 <div>
-                  <h2 id="create-wallet-title" className="text-lg font-bold text-[var(--foreground)]">
-                    Thêm ví mới
-                  </h2>
-                  <p className="text-xs text-slate-500">Khởi tạo tài khoản ví cho workspace</p>
+                  <SheetTitle>Thêm ví mới</SheetTitle>
+                  <SheetDescription>Khởi tạo tài khoản ví cho workspace</SheetDescription>
                 </div>
               </div>
-              <Button variant="unstyled" size="auto"
-                type="button"
-                onClick={() => {
-                  setCreatingModal(false);
-                  setCreateFundingType("income");
-                  setCreateFundingAmount("0");
-                  setCreateFundingWalletId("");
-                }}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
-                <X size={18} />
-              </Button>
-            </div>
+            </SheetHeader>
 
             <div className="space-y-4 relative">
               <div>
@@ -577,12 +580,7 @@ export function WalletManagement({
               <Button
                 type="button"
                 variant="outline" size="default"
-                onClick={() => {
-                  setCreatingModal(false);
-                  setCreateFundingType("income");
-                  setCreateFundingAmount("0");
-                  setCreateFundingWalletId("");
-                }}
+                onClick={closeCreateSheet}
               >
                 Hủy
               </Button>
@@ -597,47 +595,37 @@ export function WalletManagement({
                 )}
               </Button>
             </div>
-          </Card>
-        </div>
-      )}
+          </form>
+        </SheetContent>
+      </Sheet>
 
-      {/* ── Modal Chỉnh Sửa Ví ── */}
-      {editingWallet && (
-        <div
-          className="wallet-modal-overlay fixed inset-0 z-50 grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="edit-wallet-title"
+      <Sheet
+        open={editingWallet !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingWallet(null);
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="w-full gap-0 overflow-y-auto p-6 sm:max-w-md"
         >
-          <Card
-            as="form"
-            onSubmit={handleUpdate}
-            className="wallet-modal-panel sunrise-card gap-0 w-full max-w-md p-6 space-y-4 relative overflow-hidden"
-          >
-            {/* Accent glow */}
-            <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-amber-500" />
+          {/* Accent glow */}
+          <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-amber-500" />
 
-            <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] relative">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/15">
-                  <Pencil size={18} />
-                </div>
-                <div>
-                  <h2 id="edit-wallet-title" className="text-lg font-bold text-[var(--foreground)]">
-                    Chỉnh sửa ví
-                  </h2>
-                  <p className="text-xs text-slate-500">{editingWallet.name}</p>
-                </div>
+          <SheetHeader className="relative border-b border-border p-0 pb-3 pr-10">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/15">
+                <Pencil size={18} />
               </div>
-              <Button variant="unstyled" size="auto"
-                type="button"
-                onClick={() => setEditingWallet(null)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
-                <X size={18} />
-              </Button>
+              <div>
+                <SheetTitle>Chỉnh sửa ví</SheetTitle>
+                <SheetDescription>{editingWallet?.name ?? "Thông tin ví"}</SheetDescription>
+              </div>
             </div>
+          </SheetHeader>
 
+          {editingWallet && (
+          <form onSubmit={handleUpdate} className="contents">
             <div className="space-y-4 relative">
               <div>
                 <Label htmlFor="edit-name" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
@@ -739,9 +727,10 @@ export function WalletManagement({
                 )}
               </Button>
             </div>
-          </Card>
-        </div>
-      )}
+          </form>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {blockedOperation && (
         <div
