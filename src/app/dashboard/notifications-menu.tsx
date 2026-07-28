@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { approveTransactionAction, rejectTransactionAction, reviewTransactionChangeAction } from "@/app/dashboard/actions";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatAmount } from "@/lib/format";
 
@@ -117,7 +117,7 @@ export function NotificationsMenu({
 
   return (
     <Popover>
-      <PopoverTrigger render={<button type="button" className="icon-button header-action-btn relative" aria-label="Thông báo"/>}>
+      <PopoverTrigger render={<Button variant="unstyled" size="auto" type="button" className="icon-button header-action-btn relative" aria-label="Thông báo"/>}>
         <Bell size={17} strokeWidth={2}/>
         {items.length > 0 && <span className="notification-badge">{items.length}</span>}
       </PopoverTrigger>

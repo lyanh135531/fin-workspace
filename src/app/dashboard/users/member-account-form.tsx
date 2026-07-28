@@ -3,7 +3,7 @@
 import { UserPlus } from "lucide-react";
 import { useTransition } from "react";
 import { createMemberAccountAction } from "@/app/dashboard/users/actions";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 

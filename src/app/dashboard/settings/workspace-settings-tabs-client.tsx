@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import { useState } from "react";
 import { Sliders, Folders, UsersRound } from "lucide-react";
 import { WorkspaceSettings } from "./workspace-settings";
@@ -79,7 +80,7 @@ export function WorkspaceSettingsTabsClient({
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
           return (
-            <button
+            <Button variant="unstyled" size="auto"
               key={tab.key}
               type="button"
               role="tab"
@@ -92,7 +93,7 @@ export function WorkspaceSettingsTabsClient({
               {tab.count !== undefined && (
                 <span className="ws-pill-tab-count">{tab.count}</span>
               )}
-            </button>
+            </Button>
           );
         })}
       </div>

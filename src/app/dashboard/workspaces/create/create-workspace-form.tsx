@@ -3,7 +3,7 @@
 import { Building2, Plus, Sparkles, Wallet, ShieldCheck, KeyRound, ArrowRight } from "lucide-react";
 import { useState, useTransition } from "react";
 import { createWorkspaceAction } from "@/app/dashboard/settings/actions";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -83,7 +83,7 @@ export function CreateWorkspaceForm() {
               <div className="flex flex-nowrap items-center gap-1.5 pt-1 text-xs whitespace-nowrap overflow-x-auto">
                 <span className="text-slate-400 font-medium mr-1">Gợi ý:</span>
                 {NAME_SUGGESTIONS.map((sug) => (
-                  <button
+                  <Button variant="unstyled" size="auto"
                     key={sug}
                     type="button"
                     onClick={() => setName(sug)}
@@ -94,7 +94,7 @@ export function CreateWorkspaceForm() {
                     }`}
                   >
                     + {sug}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import { CircleDollarSign, Clock3, Landmark, PanelRightOpen, TrendingDown, TrendingUp, WalletCards, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -28,7 +29,7 @@ function SummaryContent({
         <h2 id={titleId}>Tình hình tài chính</h2>
         <small>Chỉ tính giao dịch đã ghi nhận trong kỳ đang lọc</small>
       </div>
-      {onClose && <button type="button" autoFocus className="finance-drawer-close" aria-label="Đóng tình hình tài chính" onClick={onClose}><X size={18}/></button>}
+      {onClose && <Button variant="unstyled" size="auto" type="button" autoFocus className="finance-drawer-close" aria-label="Đóng tình hình tài chính" onClick={onClose}><X size={18}/></Button>}
     </header>
 
     <div className="finance-drawer-metrics">{metrics.map((metric) => {
@@ -101,7 +102,7 @@ export function DashboardSummaryPanel({ metrics, wallets, periodLabel }: { metri
       />
     </aside>
 
-    <button
+    <Button variant="unstyled" size="auto"
       ref={launcherRef}
       type="button"
       className="finance-drawer-launcher"
@@ -116,10 +117,10 @@ export function DashboardSummaryPanel({ metrics, wallets, periodLabel }: { metri
       </span>
       <span className="finance-drawer-launcher-meta">{periodLabel}</span>
       <span className="finance-drawer-launcher-action">Xem chi tiết <PanelRightOpen size={16}/></span>
-    </button>
+    </Button>
 
     {open && <>
-      <button type="button" className="finance-drawer-backdrop" aria-label="Đóng tình hình tài chính" onClick={closePanel}/>
+      <Button variant="unstyled" size="auto" type="button" className="finance-drawer-backdrop" aria-label="Đóng tình hình tài chính" onClick={closePanel}/>
       <aside
         id="finance-summary-drawer"
         className="finance-drawer-panel"

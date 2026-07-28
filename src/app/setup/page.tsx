@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import { useState, useId, useCallback } from "react";
 import { registerAccountAction } from "@/app/setup/actions";
 import {
@@ -212,7 +213,7 @@ export default function SetupPage() {
                         value={password}
                         onChange={handlePasswordChange}
                       />
-                      <button
+                      <Button variant="unstyled" size="auto"
                         type="button"
                         className="auth-password-toggle"
                         aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
@@ -221,7 +222,7 @@ export default function SetupPage() {
                         {showPassword
                           ? <EyeOff size={16} strokeWidth={2} />
                           : <Eye size={16} strokeWidth={2} />}
-                      </button>
+                      </Button>
                     </div>
                     {fieldErrors.password && (
                       <p className="text-xs text-rose-500 mt-1" role="alert">{fieldErrors.password}</p>
@@ -275,7 +276,7 @@ export default function SetupPage() {
 
                 {/* Actions */}
                 <div className="auth-form-actions">
-                  <button
+                  <Button variant="unstyled" size="auto"
                     type="submit"
                     id="setup-submit"
                     className="auth-submit-btn"
@@ -292,7 +293,7 @@ export default function SetupPage() {
                         Đăng ký
                       </>
                     )}
-                  </button>
+                  </Button>
 
                   <p className="auth-form-link-row">
                     Đã có tài khoản?{" "}

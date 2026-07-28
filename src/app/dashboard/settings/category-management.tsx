@@ -21,7 +21,7 @@ import {
   updateCategoryAction,
 } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP, slugifyCode } from "@/app/dashboard/settings/global-category-management";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -207,7 +207,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       {/* Tabs: Chi tiêu & Thu nhập + Search */}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
         <div className="settings-segmented-control">
-          <button
+          <Button variant="unstyled" size="auto"
             type="button"
             className={`segmented-btn ${
               filterType === "expense" ? "segmented-btn-active !text-rose-600" : ""
@@ -221,8 +221,8 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           >
             <ArrowUpRight size={13} />
             <span>Chi tiêu ({categories.filter((c) => c.type === "expense").length})</span>
-          </button>
-          <button
+          </Button>
+          <Button variant="unstyled" size="auto"
             type="button"
             className={`segmented-btn ${
               filterType === "income" ? "segmented-btn-active !text-emerald-600" : ""
@@ -236,7 +236,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           >
             <ArrowDownLeft size={13} />
             <span>Thu nhập ({categories.filter((c) => c.type === "income").length})</span>
-          </button>
+          </Button>
         </div>
 
 
@@ -341,7 +341,7 @@ function CategoryNode({
         <div className="flex min-w-0 items-center gap-3">
           {/* Reorder Buttons */}
           <div className="flex flex-col gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-            <button
+            <Button variant="unstyled" size="auto"
               type="button"
               className="p-0.5 hover:text-[var(--primary)] disabled:opacity-20"
               disabled={pending || index === 0}
@@ -353,8 +353,8 @@ function CategoryNode({
               title="Di chuyển lên"
             >
               <ChevronUp size={14} />
-            </button>
-            <button
+            </Button>
+            <Button variant="unstyled" size="auto"
               type="button"
               className="p-0.5 hover:text-[var(--primary)] disabled:opacity-20"
               disabled={pending || index === totalRoots - 1}
@@ -366,7 +366,7 @@ function CategoryNode({
               title="Di chuyển xuống"
             >
               <ChevronDown size={14} />
-            </button>
+            </Button>
           </div>
 
           {/* Gradient Icon Badge */}
@@ -503,9 +503,9 @@ function CategoryForm({
 
       <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] relative">
         <h3 className="font-bold text-base text-[var(--foreground)]">{title}</h3>
-        <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600 p-1">
+        <Button variant="unstyled" size="auto" type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600 p-1">
           <X size={18} />
-        </button>
+        </Button>
       </div>
 
       <input type="hidden" name="type" value={category?.type ?? defaultType} />
@@ -568,7 +568,7 @@ function CategoryForm({
           <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Màu đại diện</label>
           <div className="flex flex-wrap items-center gap-2.5 mb-2">
             {COLOR_PRESETS.map((color) => (
-              <button
+              <Button variant="unstyled" size="auto"
                 key={color}
                 type="button"
                 className={`w-8 h-8 rounded-full border-2 transition-all ${
@@ -597,7 +597,7 @@ function CategoryForm({
               const IconComp = ICON_MAP[item.id] ?? Tag;
               const isSelected = selectedIcon === item.id;
               return (
-                <button
+                <Button variant="unstyled" size="auto"
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedIcon(item.id)}
@@ -610,7 +610,7 @@ function CategoryForm({
                 >
                   <IconComp size={18} />
                   <span className="text-[10px] truncate max-w-full">{item.label}</span>
-                </button>
+                </Button>
               );
             })}
           </div>

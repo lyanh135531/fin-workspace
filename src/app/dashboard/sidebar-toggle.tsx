@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -29,7 +30,7 @@ export function SidebarToggle() {
   }
 
   return (
-    <button
+    <Button variant="unstyled" size="auto"
       className="dashboard-sidebar-toggle"
       type="button"
       onClick={toggle}
@@ -40,6 +41,6 @@ export function SidebarToggle() {
       {collapsed
         ? <PanelLeftOpen size={16} strokeWidth={1.8} />
         : <PanelLeftClose size={16} strokeWidth={1.8} />}
-    </button>
+    </Button>
   );
 }

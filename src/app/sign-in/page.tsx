@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import { signIn } from "next-auth/react";
 import { useState, useId } from "react";
 import {
@@ -146,7 +147,7 @@ export default function SignInPage() {
                       placeholder="Nhập mật khẩu"
                       className={`auth-field-input has-icon${error ? " field-error" : ""}`}
                     />
-                    <button
+                    <Button variant="unstyled" size="auto"
                       type="button"
                       className="auth-password-toggle"
                       aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
@@ -156,7 +157,7 @@ export default function SignInPage() {
                       {showPassword
                         ? <EyeOff size={16} strokeWidth={2} />
                         : <Eye size={16} strokeWidth={2} />}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -175,7 +176,7 @@ export default function SignInPage() {
 
               {/* Actions */}
               <div className="auth-form-actions">
-                <button
+                <Button variant="unstyled" size="auto"
                   type="submit"
                   id="sign-in-submit"
                   className="auth-submit-btn"
@@ -183,7 +184,7 @@ export default function SignInPage() {
                 >
                   {loading && <span className="btn-spinner" aria-hidden />}
                   {loading ? "Đang xác thực..." : "Đăng nhập"}
-                </button>
+                </Button>
 
                 <p className="auth-form-link-row">
                   <a href="/setup" className="auth-form-link">

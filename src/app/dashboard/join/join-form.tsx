@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import { useTransition, useRef } from "react";
 import { KeyRound, Send, Loader2 } from "lucide-react";
 import { requestJoinAction } from "@/app/dashboard/join/actions";
@@ -55,7 +56,7 @@ export function JoinForm() {
           />
         </div>
 
-        <button disabled={pending} className="join-form-submit" type="submit">
+        <Button variant="unstyled" size="auto" disabled={pending} className="join-form-submit" type="submit">
           {pending ? (
             <>
               <Loader2 size={16} className="ws-join-spinner" />
@@ -67,7 +68,7 @@ export function JoinForm() {
               Gửi yêu cầu tham gia
             </>
           )}
-        </button>
+        </Button>
       </div>
     </form>
   );

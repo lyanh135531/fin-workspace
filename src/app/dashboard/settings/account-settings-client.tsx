@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { changePasswordAction } from "@/app/dashboard/settings/general-actions";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -143,7 +143,7 @@ export function AccountSettingsClient({
                 placeholder="Nhập mật khẩu hiện tại"
                 className="pr-10 text-sm"
               />
-              <button
+              <Button variant="unstyled" size="auto"
                 type="button"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
                 onClick={() => setShowCurrent(!showCurrent)}
@@ -151,7 +151,7 @@ export function AccountSettingsClient({
                 aria-label={showCurrent ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
                 {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -174,7 +174,7 @@ export function AccountSettingsClient({
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="pr-10 text-sm"
               />
-              <button
+              <Button variant="unstyled" size="auto"
                 type="button"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
                 onClick={() => setShowNew(!showNew)}
@@ -182,7 +182,7 @@ export function AccountSettingsClient({
                 aria-label={showNew ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
                 {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
+              </Button>
             </div>
 
             {/* Password strength meter */}
@@ -221,7 +221,7 @@ export function AccountSettingsClient({
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="pr-10 text-sm"
               />
-              <button
+              <Button variant="unstyled" size="auto"
                 type="button"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
                 onClick={() => setShowConfirm(!showConfirm)}
@@ -229,7 +229,7 @@ export function AccountSettingsClient({
                 aria-label={showConfirm ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
                 {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
+              </Button>
             </div>
           </div>
 

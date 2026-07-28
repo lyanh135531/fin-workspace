@@ -16,7 +16,7 @@ import { FinanceSelect } from "@/components/finance/finance-select";
 import { formatAmount } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { toast } from "sonner";
 
 
@@ -354,7 +354,7 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
         </> : <>
           {!readonly && <Button aria-label="Thêm giao dịch" title="Thêm giao dịch" disabled={busy || Boolean(createDraft) || !wallets.length} onClick={beginCreate} className="icon-button"><Plus size={18}/></Button>}
           <div className="ledger-mobile-menu" ref={mobileMenuRef}>
-            <button
+            <Button variant="unstyled" size="auto"
               ref={mobileMenuTriggerRef}
               type="button"
               className="ledger-mobile-menu-trigger"
@@ -365,12 +365,12 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
               onClick={() => setMobileMenuOpen((open) => !open)}
             >
               <Menu size={18}/>
-            </button>
+            </Button>
             {mobileMenuOpen && <div className="ledger-mobile-action-menu" role="menu" aria-label="Thao tác sổ giao dịch">
               <span className="ledger-mobile-action-menu-label">Thao tác</span>
-              <button type="button" role="menuitem" disabled={!hasActiveFilters} onClick={() => { setMobileMenuOpen(false); clearFilters(); }}><FilterX/>Xóa bộ lọc</button>
-              {canEditTransactions && <button type="button" role="menuitem" disabled={busy || !transactions.length || Boolean(createDraft)} onClick={() => { setMobileMenuOpen(false); beginEdit(); }}><Pencil/>Chỉnh sửa nhiều giao dịch</button>}
-              {canApprove && <button type="button" role="menuitem" className="destructive" disabled={!selected.size || busy} onClick={() => { setMobileMenuOpen(false); setConfirmBulkDelete(true); }}><Trash2/>Xóa {selected.size ? `${selected.size} mục đã chọn` : "mục đã chọn"}</button>}
+              <Button variant="unstyled" size="auto" type="button" role="menuitem" disabled={!hasActiveFilters} onClick={() => { setMobileMenuOpen(false); clearFilters(); }}><FilterX/>Xóa bộ lọc</Button>
+              {canEditTransactions && <Button variant="unstyled" size="auto" type="button" role="menuitem" disabled={busy || !transactions.length || Boolean(createDraft)} onClick={() => { setMobileMenuOpen(false); beginEdit(); }}><Pencil/>Chỉnh sửa nhiều giao dịch</Button>}
+              {canApprove && <Button variant="unstyled" size="auto" type="button" role="menuitem" className="destructive" disabled={!selected.size || busy} onClick={() => { setMobileMenuOpen(false); setConfirmBulkDelete(true); }}><Trash2/>Xóa {selected.size ? `${selected.size} mục đã chọn` : "mục đã chọn"}</Button>}
               {!readonly && canManageWallets && <>
                 <span className="ledger-mobile-action-menu-separator"/>
                 <Link href="/wallets" role="menuitem" onClick={() => setMobileMenuOpen(false)}><WalletCards/>Quản lý ví</Link>

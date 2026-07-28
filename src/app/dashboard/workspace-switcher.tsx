@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import { Check, ChevronsUpDown, Clock, KeyRound, Loader2, PlusCircle, Send } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -67,14 +68,14 @@ function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
           minLength={6}
           maxLength={36}
         />
-        <button
+        <Button variant="unstyled" size="auto"
           type="submit"
           className="ws-inline-join-btn"
           disabled={pending || value.trim().length < 6}
           aria-label="Gửi yêu cầu tham gia"
         >
           {pending ? <Loader2 size={14} className="ws-join-spinner" /> : <Send size={13} />}
-        </button>
+        </Button>
       </div>
       {feedback && (
         <p className={`ws-inline-join-feedback ${feedback.ok ? "ws-join-ok" : "ws-join-err"}`} role="status">
@@ -133,7 +134,7 @@ export function WorkspaceSwitcher({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
-            <button
+            <Button variant="unstyled" size="auto"
               type="button"
               className="sidebar-workspace-collapsed-btn"
               aria-label={`Workspace hiện tại: ${wsName}. Click để đổi.`}
@@ -154,7 +155,7 @@ export function WorkspaceSwitcher({
             {workspaces.map((ws) => {
               const isSelected = ws.id === currentId;
               return (
-                <button
+                <Button variant="unstyled" size="auto"
                   type="button"
                   key={ws.id}
                   disabled={pending}
@@ -167,7 +168,7 @@ export function WorkspaceSwitcher({
                     <span className="sidebar-ws-role">{ws.role === "ADMIN" || ws.role === "OWNER" ? "Admin" : "Thành viên"}</span>
                   </div>
                   {isSelected && <Check size={14} className="text-[var(--primary)]" />}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -184,7 +185,7 @@ export function WorkspaceSwitcher({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
-          <button
+          <Button variant="unstyled" size="auto"
             type="button"
             className="sidebar-workspace-selector-card"
             aria-expanded={open}
@@ -215,7 +216,7 @@ export function WorkspaceSwitcher({
           {workspaces.map((ws) => {
             const isSelected = ws.id === currentId;
             return (
-              <button
+              <Button variant="unstyled" size="auto"
                 type="button"
                 key={ws.id}
                 disabled={pending}
@@ -228,7 +229,7 @@ export function WorkspaceSwitcher({
                   <span className="sidebar-ws-role">{ws.role === "ADMIN" || ws.role === "OWNER" ? "Quản trị viên" : "Thành viên"}</span>
                 </div>
                 {isSelected && <Check size={14} className="text-[var(--primary)]" />}
-              </button>
+              </Button>
             );
           })}
         </div>

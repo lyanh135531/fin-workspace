@@ -49,7 +49,7 @@ import {
   setTemplateCategoryStatusAction,
   updateTemplateCategoryAction,
 } from "@/app/dashboard/settings/general-actions";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -311,7 +311,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
       {/* Tabs: Chi tiêu & Thu nhập ONLY (No All, No Search) */}
       <div className="mt-5 flex items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
         <div className="settings-segmented-control">
-          <button
+          <Button variant="unstyled" size="auto"
             type="button"
             className={`segmented-btn ${
               filterType === "expense" ? "segmented-btn-active !text-rose-600" : ""
@@ -324,8 +324,8 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
           >
             <ArrowUpRight size={13} />
             <span>Chi tiêu ({categories.filter((c) => c.type === "expense").length})</span>
-          </button>
-          <button
+          </Button>
+          <Button variant="unstyled" size="auto"
             type="button"
             className={`segmented-btn ${
               filterType === "income" ? "segmented-btn-active !text-emerald-600" : ""
@@ -338,7 +338,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
           >
             <ArrowDownLeft size={13} />
             <span>Thu nhập ({categories.filter((c) => c.type === "income").length})</span>
-          </button>
+          </Button>
         </div>
 
         <p className="text-xs text-slate-400 font-medium hidden sm:block">
@@ -491,7 +491,7 @@ function Node({
         <div className="flex min-w-0 items-center gap-3">
           {/* Reorder Buttons */}
           <div className="flex flex-col gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-            <button
+            <Button variant="unstyled" size="auto"
               type="button"
               className="p-0.5 hover:text-[var(--primary)] disabled:opacity-20"
               disabled={pending || index === 0}
@@ -503,8 +503,8 @@ function Node({
               title="Di chuyển lên"
             >
               <ChevronUp size={14} />
-            </button>
-            <button
+            </Button>
+            <Button variant="unstyled" size="auto"
               type="button"
               className="p-0.5 hover:text-[var(--primary)] disabled:opacity-20"
               disabled={pending || index === totalRoots - 1}
@@ -516,7 +516,7 @@ function Node({
               title="Di chuyển xuống"
             >
               <ChevronDown size={14} />
-            </button>
+            </Button>
           </div>
 
           <span
@@ -672,7 +672,7 @@ function CategoryCombobox({
         </div>
 
         <div className="max-h-48 overflow-y-auto p-1 space-y-0.5">
-          <button
+          <Button variant="unstyled" size="auto"
             type="button"
             onClick={() => {
               setValue("none");
@@ -688,10 +688,10 @@ function CategoryCombobox({
           >
             <span>Không có (Danh mục gốc)</span>
             {value === "none" && <Check className="h-3.5 w-3.5 text-[var(--primary)]" />}
-          </button>
+          </Button>
           
           {filteredCategories.map((item) => (
-            <button
+            <Button variant="unstyled" size="auto"
               key={item.id}
               type="button"
               onClick={() => {
@@ -708,7 +708,7 @@ function CategoryCombobox({
             >
               <span className="truncate">{item.name} ({item.code})</span>
               {value === item.id && <Check className="h-3.5 w-3.5 text-[var(--primary)]" />}
-            </button>
+            </Button>
           ))}
 
           {filteredCategories.length === 0 && search !== "" && (
@@ -815,7 +815,7 @@ function TemplateForm({
           </label>
           <div className="flex flex-wrap items-center gap-2 mb-2">
             {COLOR_PRESETS.map((color) => (
-              <button
+              <Button variant="unstyled" size="auto"
                 key={color}
                 type="button"
                 className={`w-7 h-7 rounded-full border-2 transition-transform ${
@@ -846,7 +846,7 @@ function TemplateForm({
               const IconComp = ICON_MAP[item.id] ?? Tag;
               const isSelected = selectedIcon === item.id;
               return (
-                <button
+                <Button variant="unstyled" size="auto"
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedIcon(item.id)}
@@ -859,7 +859,7 @@ function TemplateForm({
                 >
                   <IconComp size={18} />
                   <span className="text-[10px] truncate max-w-full">{item.label}</span>
-                </button>
+                </Button>
               );
             })}
           </div>

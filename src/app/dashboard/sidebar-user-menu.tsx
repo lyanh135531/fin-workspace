@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import { signOut } from "next-auth/react";
 import { LogOut, ChevronUp, User } from "lucide-react";
 import { useState, useTransition, useSyncExternalStore } from "react";
@@ -48,7 +49,7 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
   }
 
   const LogoutButton = (
-    <button
+    <Button variant="unstyled" size="auto"
       type="button"
       className="sidebar-logout-popover-btn"
       onClick={handleSignOut}
@@ -58,11 +59,11 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
     >
       <LogOut size={14} strokeWidth={2} />
       {pending ? "Đang đăng xuất…" : "Đăng xuất"}
-    </button>
+    </Button>
   );
 
   const OpenAccountSettingsBtn = (
-    <button
+    <Button variant="unstyled" size="auto"
       type="button"
       className="sidebar-user-popover-link"
       onClick={() => {
@@ -72,7 +73,7 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
     >
       <User size={14} strokeWidth={2} />
       <span>Cài đặt tài khoản</span>
-    </button>
+    </Button>
   );
 
   /* ── Collapsed: avatar icon → right flyout popover ── */
@@ -82,7 +83,7 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger
             render={
-              <button
+              <Button variant="unstyled" size="auto"
                 type="button"
                 className="sidebar-user-row sidebar-user-card-collapsed"
                 aria-label={`Tài khoản: ${username}. Nhấn để xem tùy chọn.`}
@@ -135,7 +136,7 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger
           render={
-            <button
+            <Button variant="unstyled" size="auto"
               type="button"
               className="sidebar-user-row sidebar-user-card"
               aria-label={`Tài khoản: ${username}. Nhấn để xem tùy chọn.`}

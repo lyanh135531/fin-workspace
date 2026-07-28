@@ -13,7 +13,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { addQuickTransactionAction } from "@/app/dashboard/actions";
 import { FinanceSelect } from "@/components/finance/finance-select";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -196,7 +196,7 @@ export function QuickTransactionSheet({
         <Plus size={17} />
         Nhập giao dịch
       </Button>}
-      {triggerMode === "mobile-global" && <button
+      {triggerMode === "mobile-global" && <Button variant="unstyled" size="auto"
         type="button"
         className="overview-mobile-quick-entry dashboard-global-quick-entry"
         onClick={() => setOpen(true)}
@@ -204,7 +204,7 @@ export function QuickTransactionSheet({
       >
         <Plus size={20} />
         <span>Giao dịch</span>
-      </button>}
+      </Button>}
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
@@ -244,7 +244,7 @@ export function QuickTransactionSheet({
                   const Icon = item.icon;
                   const disabled = item.value === "transfer" && transferDisabled;
                   return (
-                    <button
+                    <Button variant="unstyled" size="auto"
                       key={item.value}
                       type="button"
                       className={type === item.value ? "active" : ""}
@@ -254,7 +254,7 @@ export function QuickTransactionSheet({
                     >
                       <Icon size={17} />
                       {item.label}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -332,7 +332,7 @@ export function QuickTransactionSheet({
                 </div>
               )}
 
-              <button
+              <Button variant="unstyled" size="auto"
                 type="button"
                 className="quick-details-toggle"
                 onClick={() => setShowDetails((current) => !current)}
@@ -340,7 +340,7 @@ export function QuickTransactionSheet({
               >
                 <CalendarDays size={16} />
                 {showDetails ? "Ẩn thông tin bổ sung" : "Thêm nội dung hoặc đổi ngày"}
-              </button>
+              </Button>
 
               {showDetails && (
                 <div className="quick-details">

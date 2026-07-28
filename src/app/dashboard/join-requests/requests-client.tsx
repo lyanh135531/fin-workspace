@@ -4,7 +4,7 @@ import { UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { toast } from "sonner";
 
 type Role = { code: string; name: string };

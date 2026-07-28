@@ -26,7 +26,7 @@ import {
 } from "@/app/dashboard/wallets/actions";
 import { FinanceSelect } from "@/components/finance/finance-select";
 import { formatAmount } from "@/lib/format";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -305,7 +305,7 @@ export function WalletManagement({
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2 pb-1 border-b border-[var(--border)]">
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-1 p-1 bg-[var(--surface-muted)] rounded-xl border border-[var(--border)]">
-          <button
+          <Button variant="unstyled" size="auto"
             type="button"
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
               filterStatus === "all"
@@ -315,8 +315,8 @@ export function WalletManagement({
             onClick={() => setFilterStatus("all")}
           >
             Tất cả ({wallets.length})
-          </button>
-          <button
+          </Button>
+          <Button variant="unstyled" size="auto"
             type="button"
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               filterStatus === "active"
@@ -327,9 +327,9 @@ export function WalletManagement({
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
             Đang hoạt động ({activeCount})
-          </button>
+          </Button>
           {wallets.length - activeCount > 0 && (
-            <button
+            <Button variant="unstyled" size="auto"
               type="button"
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                 filterStatus === "deactive"
@@ -340,7 +340,7 @@ export function WalletManagement({
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
               Tạm ngưng ({wallets.length - activeCount})
-            </button>
+            </Button>
           )}
         </div>
 
@@ -502,7 +502,7 @@ export function WalletManagement({
                   <p className="text-xs text-slate-500">Khởi tạo tài khoản ví cho workspace</p>
                 </div>
               </div>
-              <button
+              <Button variant="unstyled" size="auto"
                 type="button"
                 onClick={() => {
                   setCreatingModal(false);
@@ -513,7 +513,7 @@ export function WalletManagement({
                 className="text-slate-400 hover:text-slate-600 p-1"
               >
                 <X size={18} />
-              </button>
+              </Button>
             </div>
 
             <div className="space-y-4 relative">
@@ -667,13 +667,13 @@ export function WalletManagement({
                   <p className="text-xs text-slate-500">{editingWallet.name}</p>
                 </div>
               </div>
-              <button
+              <Button variant="unstyled" size="auto"
                 type="button"
                 onClick={() => setEditingWallet(null)}
                 className="text-slate-400 hover:text-slate-600 p-1"
               >
                 <X size={18} />
-              </button>
+              </Button>
             </div>
 
             <div className="space-y-4 relative">

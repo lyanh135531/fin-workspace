@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CalendarDays, X } from "lucide-react";
@@ -50,7 +51,7 @@ export function DatePickerField({
     <Popover>
       <PopoverTrigger
         render={
-          <button type="button" className={cn("finance-date-trigger", className)} aria-label={label} />
+          <Button variant="unstyled" size="auto" type="button" className={cn("finance-date-trigger", className)} aria-label={label} />
         }
       >
         <CalendarDays size={16} />
@@ -68,9 +69,9 @@ export function DatePickerField({
           autoFocus
         />
         {allowClear && date && (
-          <button type="button" className="finance-calendar-clear" onClick={() => selectDate(undefined)}>
+          <Button variant="unstyled" size="auto" type="button" className="finance-calendar-clear" onClick={() => selectDate(undefined)}>
             <X size={14} /> Bỏ ngày đã chọn
-          </button>
+          </Button>
         )}
       </PopoverContent>
       {name && <input type="hidden" name={name} value={date ? toIsoDate(date) : ""} required={required} />}
@@ -84,7 +85,7 @@ export function MonthPicker({ value, onValueChange }: { value: string; onValueCh
   return (
     <Popover>
       <PopoverTrigger
-        render={<button type="button" className="finance-month-trigger" aria-label="Chọn tháng báo cáo" />}
+        render={<Button variant="unstyled" size="auto" type="button" className="finance-month-trigger" aria-label="Chọn tháng báo cáo" />}
       >
         <CalendarDays size={16} />
         <span>{format(selected, "MM/yyyy", { locale: vi })}</span>

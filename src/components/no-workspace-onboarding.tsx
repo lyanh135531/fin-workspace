@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Building2, KeyRound, Plus, ArrowRight, Clock, Sparkles } from "lucide-react";
 import { JoinRequestRecord } from "@/services/join-request-query";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 
 interface Props {
   username: string;

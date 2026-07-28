@@ -22,7 +22,7 @@ import {
 import { DatePickerField } from "@/components/finance/date-picker-field";
 import { FinanceSelect } from "@/components/finance/finance-select";
 import { formatAmount } from "@/lib/format";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 

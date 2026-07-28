@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import { Check, Laptop, Moon, Palette, Sun, Sparkles } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
@@ -122,22 +123,22 @@ export function GeneralSettingsClient() {
 
         {/* Mode Segmented Switcher */}
         <div className="settings-segmented-control">
-          <button
+          <Button variant="unstyled" size="auto"
             type="button"
             className={`segmented-btn ${mode === "light" ? "segmented-btn-active" : ""}`}
             onClick={() => selectMode("light")}
           >
             <Sun size={14} />
             <span>Sáng</span>
-          </button>
-          <button
+          </Button>
+          <Button variant="unstyled" size="auto"
             type="button"
             className={`segmented-btn ${mode === "dark" ? "segmented-btn-active" : ""}`}
             onClick={() => selectMode("dark")}
           >
             <Moon size={14} />
             <span>Tối</span>
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -155,7 +156,7 @@ export function GeneralSettingsClient() {
         {themes.map((item) => {
           const isSelected = theme === item.value;
           return (
-            <button
+            <Button variant="unstyled" size="auto"
               key={item.value}
               type="button"
               role="radio"
@@ -217,7 +218,7 @@ export function GeneralSettingsClient() {
                   <Check size={14} strokeWidth={3} />
                 </div>
               </div>
-            </button>
+            </Button>
           );
         })}
       </div>

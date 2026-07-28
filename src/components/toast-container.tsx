@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 
@@ -130,14 +131,14 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: () => void }) 
         </p>
       </div>
 
-      <button
+      <Button variant="unstyled" size="auto"
         type="button"
         onClick={onClose}
         className="shrink-0 p-0.5 rounded-md hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
         aria-label="Đóng thông báo"
       >
         <X size={14} />
-      </button>
+      </Button>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import Decimal from "decimal.js";
 import { CircleAlert, Funnel, RefreshCw, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import { useState } from "react";
@@ -69,8 +70,8 @@ export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCur
   return <div className="overview-shell">
     <div className="overview-title"><div><p>Workspace · {workspace.name}</p><h1>Tổng quan tài chính</h1></div><QuickTransactionSheet initialWorkspaceId={workspace.id} workspaces={quickWorkspaces} triggerMode="overview" /></div>
     <section className="overview-filter-panel" aria-label="Bộ lọc báo cáo">
-      <div className="overview-filter-heading"><div className="overview-filter-title"><span><Funnel size={16}/></span><div><strong>Bộ lọc báo cáo</strong><small>{activeFilterCount ? `${activeFilterCount} điều kiện đang áp dụng` : "Đang hiển thị toàn bộ dữ liệu trong tháng"}</small></div></div><button type="button" onClick={reset} className="overview-reset" disabled={!activeFilterCount}><RefreshCw size={15}/>Đặt lại</button></div>
-      <div className="overview-mobile-filter-meta"><span>{activeFilterCount ? `${activeFilterCount} bộ lọc` : "Bộ lọc"}</span><button type="button" onClick={reset} disabled={!activeFilterCount}>Đặt lại</button></div>
+      <div className="overview-filter-heading"><div className="overview-filter-title"><span><Funnel size={16}/></span><div><strong>Bộ lọc báo cáo</strong><small>{activeFilterCount ? `${activeFilterCount} điều kiện đang áp dụng` : "Đang hiển thị toàn bộ dữ liệu trong tháng"}</small></div></div><Button variant="unstyled" size="auto" type="button" onClick={reset} className="overview-reset" disabled={!activeFilterCount}><RefreshCw size={15}/>Đặt lại</Button></div>
+      <div className="overview-mobile-filter-meta"><span>{activeFilterCount ? `${activeFilterCount} bộ lọc` : "Bộ lọc"}</span><Button variant="unstyled" size="auto" type="button" onClick={reset} disabled={!activeFilterCount}>Đặt lại</Button></div>
       <div className="overview-filter-grid">
         <FilterField label="Ví"><FinanceSelect value={walletId} onValueChange={setWalletId} label="Lọc theo ví" contentClassName="overview-minimal-select-content" options={[{ value: "all", label: "Tất cả ví" }, ...wallets.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
         <FilterField label="Hạng mục"><FinanceSelect value={categoryId} onValueChange={setCategoryId} label="Lọc theo hạng mục" contentClassName="overview-minimal-select-content" options={[{ value: "all", label: "Tất cả hạng mục" }, ...categories.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
@@ -361,11 +362,11 @@ function MobileFinanceDonut({ balance, income, expense, currency }: {
         <div className="overview-mobile-donut-center"><span>{active.name}</span><strong>{active.display}</strong></div>
       </div>
       <div className="overview-mobile-donut-list" role="list" aria-label="Chọn chỉ số hiển thị">
-        {data.map((item, index) => <button type="button" role="listitem" className={index === activeIndex ? "active" : ""} key={item.key} onClick={() => setActiveIndex(index)}>
+        {data.map((item, index) => <Button variant="unstyled" size="auto" type="button" role="listitem" className={index === activeIndex ? "active" : ""} key={item.key} onClick={() => setActiveIndex(index)}>
           <i style={{ background: item.color }}/>
           <span>{item.name}</span>
           <strong>{item.display}</strong>
-        </button>)}
+        </Button>)}
       </div>
     </div>
   </section>;
@@ -421,11 +422,11 @@ function MobileCategoryPie({ items, total, currency }: {
       <div className="overview-mobile-category-center"><strong>{active.percentage}%</strong><span>{active.name}</span></div>
     </div>
     <div className="overview-mobile-category-labels" role="list" aria-label="Chi phí theo hạng mục">
-      {data.map((item, index) => <button type="button" role="listitem" className={index === safeActiveIndex ? "active" : ""} key={`${item.name}-label-${index}`} onClick={() => setActiveIndex(index)}>
+      {data.map((item, index) => <Button variant="unstyled" size="auto" type="button" role="listitem" className={index === safeActiveIndex ? "active" : ""} key={`${item.name}-label-${index}`} onClick={() => setActiveIndex(index)}>
         <i style={{ background: item.color }}/>
         <span><strong>{item.name}</strong><small>{item.display}</small></span>
         <b>{item.percentage}%</b>
-      </button>)}
+      </Button>)}
     </div>
   </div>;
 }

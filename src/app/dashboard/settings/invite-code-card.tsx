@@ -3,7 +3,7 @@
 import { Check, Copy, KeyRound, RefreshCw, Sparkles } from "lucide-react";
 import { useState, useTransition } from "react";
 import { regenerateInviteCodeAction } from "@/app/dashboard/settings/actions";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { toast } from "sonner";
 
 export function InviteCodeCard({ code: initialCode }: { code: string }) {

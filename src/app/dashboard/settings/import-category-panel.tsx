@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { ArrowDownLeft, ArrowUpRight, Download, Tag, CheckCircle2 } from "lucide-react";
 import { importCategoriesAction } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP } from "@/app/dashboard/settings/global-category-management";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/base";
 import { toast } from "sonner";
 
 type TemplateCategory = {

@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -45,7 +46,7 @@ function MobileNavigationDrawer({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
-          <button
+          <Button variant="unstyled" size="auto"
             type="button"
             className="mobile-navigation-trigger"
             aria-label="Mở điều hướng"

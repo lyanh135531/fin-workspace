@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/base";
 import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 
@@ -27,7 +28,7 @@ export function ThemeToggle() {
   const label = `Chuyển sang chế độ ${nextMode === "dark" ? "tối" : "sáng"}`;
 
   return (
-    <button
+    <Button variant="unstyled" size="auto"
       type="button"
       className="theme-toggle icon-button header-action-btn"
       aria-label={label}
@@ -39,6 +40,6 @@ export function ThemeToggle() {
         <Icon size={17} strokeWidth={2} />
       </span>
       <span className="sr-only">{label}</span>
-    </button>
+    </Button>
   );
 }
