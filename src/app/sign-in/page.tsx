@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { signIn } from "next-auth/react";
 import { useState, useId } from "react";
 import {
@@ -94,7 +94,7 @@ export default function SignInPage() {
 
       {/* ── Right form panel ── */}
       <div className="auth-form-panel">
-        <div className="auth-form-card">
+        <Card className="auth-form-card gap-0 py-0">
           <div className="auth-form-inner">
             {/* Header */}
             <div className="auth-form-header">
@@ -194,7 +194,7 @@ export default function SignInPage() {
               </div>
             </form>
           </div>
-        </div>
+        </Card>
       </div>
     </main>
   );

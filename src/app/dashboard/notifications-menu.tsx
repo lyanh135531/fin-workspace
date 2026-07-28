@@ -143,8 +143,8 @@ export function NotificationsMenu({
                     </select>
                   </label>
                   <div>
-                    <Button size="sm" variant="outline" disabled={pending} onClick={() => reviewJoin(item.id, false)}>Từ chối</Button>
-                    <Button size="sm" variant="default" disabled={pending} onClick={() => reviewJoin(item.id, true)}>Duyệt thành viên</Button>
+                    <Button size="default" variant="outline" disabled={pending} onClick={() => reviewJoin(item.id, false)}>Từ chối</Button>
+                    <Button size="default" variant="default" disabled={pending} onClick={() => reviewJoin(item.id, true)}>Duyệt thành viên</Button>
                   </div>
                 </article>
               );
@@ -168,9 +168,9 @@ export function NotificationsMenu({
                   {canReview && item.status !== "executed" && (
                     <div>
                       {item.status === "pending" && (
-                        <Button size="sm" variant="outline" disabled={pending} onClick={() => reviewTransaction(item.id, false)}>Từ chối</Button>
+                        <Button size="default" variant="outline" disabled={pending} onClick={() => reviewTransaction(item.id, false)}>Từ chối</Button>
                       )}
-                      <Button size="sm" variant="default" disabled={pending} onClick={() => reviewTransaction(item.id, true)}>
+                      <Button size="default" variant="default" disabled={pending} onClick={() => reviewTransaction(item.id, true)}>
                         {item.status === "scheduled" ? "Duyệt sớm" : "Duyệt"}
                       </Button>
                     </div>
@@ -189,10 +189,10 @@ export function NotificationsMenu({
                 <p>{item.username} · {item.wallet} · {transactionTypeLabel[item.type]} · {money(item.amount, currency)}</p>
                 <p className="notification-request-reason">Lý do: {item.reason}</p>
                 <div>
-                  <Button size="sm" variant="outline" disabled={pending} onClick={() => reviewChange(item.id, false, item.action)}>
+                  <Button size="default" variant="outline" disabled={pending} onClick={() => reviewChange(item.id, false, item.action)}>
                     {item.action === "delete" ? "Từ chối xóa" : "Từ chối"}
                   </Button>
-                  <Button size="sm" variant={item.action === "delete" ? "destructive" : "default"} disabled={pending} onClick={() => reviewChange(item.id, true, item.action)}>
+                  <Button size="default" variant={item.action === "delete" ? "destructive" : "default"} disabled={pending} onClick={() => reviewChange(item.id, true, item.action)}>
                     {item.action === "delete" ? "Duyệt xóa" : "Duyệt sửa"}
                   </Button>
                 </div>

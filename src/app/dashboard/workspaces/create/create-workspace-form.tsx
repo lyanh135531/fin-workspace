@@ -3,7 +3,7 @@
 import { Building2, Plus, Sparkles, Wallet, ShieldCheck, KeyRound, ArrowRight } from "lucide-react";
 import { useState, useTransition } from "react";
 import { createWorkspaceAction } from "@/app/dashboard/settings/actions";
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -44,7 +44,7 @@ export function CreateWorkspaceForm() {
     <div className="mx-auto max-w-5xl space-y-6 py-2">
       <div className="grid gap-6 lg:grid-cols-12 items-start">
         {/* ── Left Column: Creation Form (7 cols) ── */}
-        <section className="sunrise-card p-6 sm:p-8 lg:col-span-7 space-y-6">
+        <Card as="section" className="sunrise-card gap-0 p-6 sm:p-8 lg:col-span-7 space-y-6">
           {/* Header */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
@@ -139,7 +139,7 @@ export function CreateWorkspaceForm() {
               <Button
                 type="submit"
                 disabled={pending || !name.trim()}
-                variant="default" className="px-6 py-2.5"
+                variant="default"
               >
                 {pending ? (
                   <>
@@ -156,10 +156,10 @@ export function CreateWorkspaceForm() {
               </Button>
             </div>
           </form>
-        </section>
+        </Card>
 
         {/* ── Right Column: Ecosystem Preview (5 cols) ── */}
-        <section className="sunrise-card p-6 sm:p-8 lg:col-span-5 space-y-5">
+        <Card as="section" className="sunrise-card gap-0 p-6 sm:p-8 lg:col-span-5 space-y-5">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-0.5 text-[11px] font-semibold text-blue-600">
               <Sparkles size={12} />
@@ -204,7 +204,7 @@ export function CreateWorkspaceForm() {
               </div>
             </div>
           </div>
-        </section>
+        </Card>
       </div>
     </div>
   );

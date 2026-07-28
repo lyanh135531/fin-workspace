@@ -22,7 +22,7 @@ import {
 import { DatePickerField } from "@/components/finance/date-picker-field";
 import { FinanceSelect } from "@/components/finance/finance-select";
 import { formatAmount } from "@/lib/format";
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
@@ -206,7 +206,7 @@ export function RecurringTransactionsManager({
   return (
     <div className="recurring-page">
 
-      <section className="sunrise-card recurring-ledger-card">
+      <Card as="section" className="sunrise-card recurring-ledger-card gap-0 py-0">
         <div className="recurring-toolbar">
           <label className="ledger-search">
             <Search size={16} />
@@ -252,7 +252,7 @@ export function RecurringTransactionsManager({
         )}
 
         {deleteTarget && (
-          <section className="ledger-confirm-panel recurring-delete-panel" aria-labelledby="delete-recurring-title">
+          <Card as="section" className="ledger-confirm-panel recurring-delete-panel gap-0 py-0" aria-labelledby="delete-recurring-title">
             <div>
               <p className="public-eyebrow">Không ảnh hưởng lịch sử</p>
               <h2 id="delete-recurring-title">Xóa “{deleteTarget.description || "giao dịch định kỳ"}”?</h2>
@@ -262,12 +262,12 @@ export function RecurringTransactionsManager({
               <Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>Hủy</Button>
               <Button variant="destructive" disabled={busy} onClick={remove}>{busy ? "Đang xóa" : "Xác nhận xóa"}</Button>
             </div>
-          </section>
+          </Card>
         )}
 
         <div className="recurring-mobile-list" aria-label="Danh sách giao dịch định kỳ">
           {visibleSchedules.map((schedule) => (
-            <article className="recurring-mobile-card" key={schedule.id}>
+            <Card as="article" className="recurring-mobile-card gap-0 py-0" key={schedule.id}>
               <div className="recurring-mobile-heading">
                 <div>
                   <strong>{schedule.description || "Không có nội dung"}</strong>
@@ -297,7 +297,7 @@ export function RecurringTransactionsManager({
                   <Button variant="outline" size="icon" className="ledger-delete-button" disabled={busy || Boolean(draft)} onClick={() => setDeleteTarget(schedule)} title="Xóa" aria-label="Xóa lịch"><Trash2 size={15} /></Button>
                 </div>
               </div>
-            </article>
+            </Card>
           ))}
           {visibleSchedules.length === 0 && !draft && <div className="recurring-mobile-empty">
             <Repeat2 size={23} />
@@ -369,7 +369,7 @@ export function RecurringTransactionsManager({
                     <div className="ledger-row-actions">
                       {!schedule.completedAt && (
                         <Button
-                          variant="outline" size="icon-sm"
+                          variant="outline" size="icon"
                           disabled={busy || Boolean(draft)}
                           onClick={() => toggleStatus(schedule)}
                           title={schedule.status === "active" ? "Tạm dừng" : "Kích hoạt lại"}
@@ -379,7 +379,7 @@ export function RecurringTransactionsManager({
                         </Button>
                       )}
                       <Button
-                        variant="outline" size="icon-sm"
+                        variant="outline" size="icon"
                         disabled={busy || Boolean(draft)}
                         onClick={() => beginEdit(schedule)}
                         title="Chỉnh sửa"
@@ -388,7 +388,7 @@ export function RecurringTransactionsManager({
                         <Pencil size={14} />
                       </Button>
                       <Button
-                        variant="outline" size="icon-sm" className="ledger-delete-button"
+                        variant="outline" size="icon" className="ledger-delete-button"
                         disabled={busy || Boolean(draft)}
                         onClick={() => setDeleteTarget(schedule)}
                         title="Xóa"
@@ -416,7 +416,7 @@ export function RecurringTransactionsManager({
           </table>
         </div>
         <p className="ledger-record-count">Hiển thị {visibleSchedules.length} đăng ký trong {workspace.name}.</p>
-      </section>
+      </Card>
     </div>
   );
 }

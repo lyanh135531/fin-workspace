@@ -238,7 +238,7 @@ export function AccountSettingsClient({
               disabled={pending || !newPassword || !confirmPassword}
               type="submit"
               variant="default"
-              size="sm"
+              size="default"
               className="w-full sm:w-auto"
             >
               <ShieldCheck size={16} />

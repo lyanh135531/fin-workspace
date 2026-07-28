@@ -66,7 +66,9 @@ function DialogContent({
               <Button
                 variant="ghost"
                 className="absolute top-2 right-2"
-                size="icon-sm"
+                size="icon"
+                aria-label="Đóng hộp thoại"
+                title="Đóng"
               />
             }
           >
@@ -109,7 +111,7 @@ function DialogFooter({
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close render={<Button variant="outline" />}>
+        <DialogPrimitive.Close render={<Button variant="outline" title="Đóng" />}>
           Close
         </DialogPrimitive.Close>
       )}

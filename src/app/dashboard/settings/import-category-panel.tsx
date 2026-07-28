@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { ArrowDownLeft, ArrowUpRight, Download, Tag, CheckCircle2 } from "lucide-react";
 import { importCategoriesAction } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP } from "@/app/dashboard/settings/global-category-management";
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { toast } from "sonner";
 
 type TemplateCategory = {
@@ -66,7 +66,7 @@ export function ImportCategoryPanel({
 
   if (templates.length === 0) {
     return (
-      <section className="sunrise-card mt-4 p-6">
+      <Card as="section" className="sunrise-card gap-0 mt-4 p-6">
         <div className="flex items-center gap-3 mb-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/15">
             <Download size={17} />
@@ -81,12 +81,12 @@ export function ImportCategoryPanel({
           <p className="text-sm text-slate-500">Bạn chưa có danh mục mẫu nào.</p>
           <p className="text-xs text-slate-400 mt-1">Vào <strong>Cài đặt chung</strong> để tạo bộ danh mục mẫu trước.</p>
         </div>
-      </section>
+      </Card>
     );
   }
 
   return (
-    <section className="sunrise-card mt-4 p-6">
+    <Card as="section" className="sunrise-card gap-0 mt-4 p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/15 shrink-0 mt-0.5">
@@ -104,7 +104,7 @@ export function ImportCategoryPanel({
           {importableTemplates.length > 0 && (
             <Button
               type="button"
-              variant="outline" size="sm"
+              variant="outline" size="default"
               onClick={toggleAll}
               disabled={pending}
             >
@@ -214,6 +214,6 @@ export function ImportCategoryPanel({
       {importableTemplates.length === 0 && alreadyImported.length > 0 && (
         <p className="mt-3 text-sm text-slate-500">Tất cả danh mục mẫu đã được import vào workspace này.</p>
       )}
-    </section>
+    </Card>
   );
 }

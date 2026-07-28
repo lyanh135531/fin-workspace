@@ -4,6 +4,7 @@ import { HelpCircle, History } from "lucide-react";
 import { authOptions } from "@/auth";
 import { JoinForm } from "@/app/dashboard/join/join-form";
 import { JoinRequestHistory } from "@/app/dashboard/join/join-request-history";
+import { Card } from "@/components/base";
 import { getUserJoinRequests } from "@/services/join-request-query";
 
 export default async function JoinPage() {
@@ -44,7 +45,7 @@ export default async function JoinPage() {
             <JoinForm />
 
             {/* Help section */}
-            <div className="join-help-card">
+            <Card className="join-help-card gap-0 py-0">
               <div className="join-help-icon">
                 <HelpCircle size={18} strokeWidth={1.8} />
               </div>
@@ -58,12 +59,12 @@ export default async function JoinPage() {
                   Mã có dạng UUID, ví dụ: <code>a1b2c3d4-e5f6-7890-abcd-ef1234567890</code>
                 </p>
               </div>
-            </div>
+            </Card>
           </div>
 
           {/* Right: History */}
           <div className="join-page-history-col">
-            <div className="join-history-card">
+            <Card className="join-history-card gap-0 py-0">
               <div className="join-history-header">
                 <div className="join-history-title-row">
                   <History size={16} strokeWidth={2} />
@@ -74,7 +75,7 @@ export default async function JoinPage() {
                 )}
               </div>
               <JoinRequestHistory requests={serialized} />
-            </div>
+            </Card>
           </div>
         </div>
       </div>

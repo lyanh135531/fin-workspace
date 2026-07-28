@@ -3,7 +3,7 @@
 import { ShieldCheck, UserRoundX, UsersRound } from "lucide-react";
 import { useState, useTransition } from "react";
 import { changeMemberRoleAction, removeMemberAction } from "@/app/dashboard/settings/actions";
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { toast } from "sonner";
 
 type Role = { code: string; name: string };
@@ -69,7 +69,7 @@ export function SettingsClient({
   }
 
   return (
-    <section className="sunrise-card overflow-hidden">
+    <Card as="section" className="sunrise-card gap-0 py-0 overflow-hidden">
       {/* Header */}
       <header className="flex items-center gap-3 p-6 pb-4">
         <div className="settings-section-icon">
@@ -146,7 +146,7 @@ export function SettingsClient({
                   isAdmin && (
                     <Button
                       disabled={pending}
-                      variant="outline" size="icon-sm" className="!min-h-[34px] !min-w-[34px] !p-1.5 hover:text-rose-500 hover:border-rose-500/30"
+                      variant="outline" size="icon" className="hover:text-rose-500 hover:border-rose-500/30"
                       title={`Gỡ ${member.username} khỏi workspace`}
                       aria-label={`Gỡ ${member.username} khỏi workspace`}
                       onClick={() => remove(member.id)}
@@ -160,6 +160,6 @@ export function SettingsClient({
           );
         })}
       </div>
-    </section>
+    </Card>
   );
 }

@@ -3,7 +3,7 @@
 import { UserPlus } from "lucide-react";
 import { useTransition } from "react";
 import { createMemberAccountAction } from "@/app/dashboard/users/actions";
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
@@ -30,7 +30,7 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
   }
 
   return (
-    <section className="sunrise-card p-6">
+    <Card as="section" className="sunrise-card gap-0 p-6">
       <div className="flex items-start gap-3">
         <span className="settings-section-icon"><UserPlus size={18}/></span>
         <div>
@@ -70,6 +70,6 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
           </Button>
         </div>
       </form>
-    </section>
+    </Card>
   );
 }

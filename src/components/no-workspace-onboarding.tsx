@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Building2, KeyRound, Plus, ArrowRight, Clock, Sparkles } from "lucide-react";
 import { JoinRequestRecord } from "@/services/join-request-query";
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 
 interface Props {
   username: string;
@@ -14,7 +14,7 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
   return (
     <div className="mx-auto max-w-5xl space-y-8 py-4 sm:py-6">
       {/* ── Welcome Hero Banner ── */}
-      <section className="sunrise-card relative overflow-hidden p-6 sm:p-10">
+      <Card as="section" className="sunrise-card gap-0 relative overflow-hidden p-6 sm:p-10">
         <div className="relative z-10 max-w-3xl space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-[var(--coral)]/20 bg-[var(--coral)]/10 px-3.5 py-1 text-xs font-semibold text-[var(--coral)]">
             <Sparkles size={14} />
@@ -29,11 +29,11 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
             Bạn hiện chưa thuộc về workspace nào. Bắt đầu ngay bằng cách tạo một không gian làm việc mới của riêng bạn hoặc tham gia vào workspace đã có của nhóm.
           </p>
         </div>
-      </section>
+      </Card>
 
       {/* ── Pending Requests Alert (If user has pending join requests) ── */}
       {pendingRequests.length > 0 && (
-        <section className="sunrise-card border-amber-500/30 bg-amber-500/5 p-5">
+        <Card as="section" className="sunrise-card gap-0 border-amber-500/30 bg-amber-500/5 p-5">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600">
               <Clock size={18} />
@@ -62,13 +62,13 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
               </ul>
             </div>
           </div>
-        </section>
+        </Card>
       )}
 
       {/* ── Primary Action Cards ── */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Card 1: Create Workspace */}
-        <section className="sunrise-card flex flex-col justify-between p-6 sm:p-8 transition-transform hover:-translate-y-1">
+        <Card as="section" className="sunrise-card gap-0 flex flex-col justify-between p-6 sm:p-8 transition-transform hover:-translate-y-1">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--coral)]/15 text-[var(--coral)]">
@@ -96,10 +96,10 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
               <ArrowRight size={16} />
             </Button>
           </div>
-        </section>
+        </Card>
 
         {/* Card 2: Join Workspace */}
-        <section className="sunrise-card flex flex-col justify-between p-6 sm:p-8 transition-transform hover:-translate-y-1">
+        <Card as="section" className="sunrise-card gap-0 flex flex-col justify-between p-6 sm:p-8 transition-transform hover:-translate-y-1">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-500">
@@ -127,11 +127,11 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
               <ArrowRight size={16} />
             </Button>
           </div>
-        </section>
+        </Card>
       </div>
 
       {/* ── Getting Started Checklist ── */}
-      <section className="sunrise-card p-6 sm:p-8">
+      <Card as="section" className="sunrise-card gap-0 p-6 sm:p-8">
         <h3 className="text-base font-bold tracking-tight text-[var(--foreground)] sm:text-lg">
           Quy trình 3 bước bắt đầu sử dụng Fin Workspace
         </h3>
@@ -163,7 +163,7 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
             <p className="mt-1 text-xs text-slate-500">Bắt đầu nhập các khoản thu, chi và theo dõi báo cáo tài chính.</p>
           </div>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

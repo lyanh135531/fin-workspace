@@ -5,6 +5,7 @@ import { useMemo, useState, type ComponentProps } from "react";
 import { Ledger } from "@/app/dashboard/dashboard-actions";
 import { DashboardSummaryPanel } from "@/app/dashboard/dashboard-summary-panel";
 import type { LedgerPeriodSummary } from "@/app/dashboard/dashboard-summary-data";
+import { Card } from "@/components/base";
 import { formatAmount } from "@/lib/format";
 
 type LedgerProps = Omit<ComponentProps<typeof Ledger>, "selectedMonth" | "onMonthChange">;
@@ -37,13 +38,13 @@ export function DashboardLedgerWorkspace({
 
   return <div className="dashboard-workspace-view">
     <div className="dashboard-ledger-column">
-      <section className="sunrise-card dashboard-ledger-card overflow-hidden">
+      <Card as="section" className="sunrise-card dashboard-ledger-card gap-0 py-0 overflow-hidden">
         <Ledger
           {...ledgerProps}
           selectedMonth={selectedMonth}
           onMonthChange={setSelectedMonth}
         />
-      </section>
+      </Card>
     </div>
     <DashboardSummaryPanel
       periodLabel={label}

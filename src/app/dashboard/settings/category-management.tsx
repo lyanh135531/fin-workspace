@@ -21,7 +21,7 @@ import {
   updateCategoryAction,
 } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP, slugifyCode } from "@/app/dashboard/settings/global-category-management";
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -181,7 +181,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   }
 
   return (
-    <section className="sunrise-card mt-4 p-6">
+    <Card as="section" className="sunrise-card gap-0 mt-4 p-6">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -301,7 +301,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           </div>
         )}
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -402,7 +402,7 @@ function CategoryNode({
 
         <div className="flex shrink-0 items-center gap-1.5">
           <Button
-            variant="outline" size="icon-sm" className="!min-h-[34px] !min-w-[34px] !p-1.5"
+            variant="outline" size="icon"
             title="Chỉnh sửa"
             aria-label={`Chỉnh sửa ${category.name}`}
             onClick={() => onEdit(category.id)}
@@ -412,9 +412,8 @@ function CategoryNode({
           </Button>
           <Button
             variant="outline"
-            size="icon-sm"
+            size="icon"
             className={cn(
-              "!min-h-[34px] !min-w-[34px] !p-1.5",
               category.status === "active" ? "hover:text-rose-500" : "hover:text-emerald-500"
             )}
             onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}

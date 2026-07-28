@@ -49,7 +49,7 @@ import {
   setTemplateCategoryStatusAction,
   updateTemplateCategoryAction,
 } from "@/app/dashboard/settings/general-actions";
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -276,7 +276,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
   }
 
   return (
-    <section className="sunrise-card p-6">
+    <Card as="section" className="sunrise-card gap-0 p-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[var(--border)]">
         <div className="flex items-center gap-2.5">
@@ -293,7 +293,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
 
         <Button
           variant="default"
-          size="sm"
+          size="default"
           onClick={() => {
             setCreating(true);
             setEditing(null);
@@ -448,7 +448,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </section>
+    </Card>
   );
 }
 
@@ -553,8 +553,8 @@ function Node({
         <div className="flex items-center gap-1.5">
           <Button
             variant="outline"
-            size="icon-sm"
-            className="!min-h-[34px] !min-w-[34px] !p-1.5 hover:bg-[var(--surface-secondary)] hover:text-current"
+            size="icon"
+            className="hover:bg-[var(--surface-secondary)] hover:text-current"
             onClick={() => onEdit(category.id)}
             disabled={pending}
             title="Chỉnh sửa danh mục mẫu"
@@ -564,9 +564,9 @@ function Node({
           </Button>
           <Button
             variant="outline"
-            size="icon-sm"
+            size="icon"
             className={cn(
-              "!min-h-[34px] !min-w-[34px] !p-1.5 hover:bg-[var(--surface-secondary)]",
+              "hover:bg-[var(--surface-secondary)]",
               category.status === "active" ? "hover:text-rose-500" : "hover:text-emerald-500"
             )}
             onClick={() =>
@@ -580,8 +580,8 @@ function Node({
           </Button>
           <Button
             variant="outline"
-            size="icon-sm"
-            className="!min-h-[34px] !min-w-[34px] !p-1.5 hover:bg-[var(--surface-secondary)] hover:text-rose-500 hover:border-rose-200"
+            size="icon"
+            className="hover:bg-[var(--surface-secondary)] hover:text-rose-500 hover:border-rose-200"
             onClick={() => onDelete(category.id)}
             disabled={pending}
             title="Xóa danh mục mẫu"
@@ -880,4 +880,3 @@ function TemplateForm({
 
   );
 }
-

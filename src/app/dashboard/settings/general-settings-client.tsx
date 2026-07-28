@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { Check, Laptop, Moon, Palette, Sun, Sparkles } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
@@ -95,7 +95,7 @@ export function GeneralSettingsClient() {
 
 
   return (
-    <section className="sunrise-card p-6 relative overflow-hidden">
+    <Card as="section" className="sunrise-card gap-0 p-6 relative overflow-hidden">
       {/* Accent background glow */}
       <div
         className="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-20"
@@ -156,12 +156,12 @@ export function GeneralSettingsClient() {
         {themes.map((item) => {
           const isSelected = theme === item.value;
           return (
-            <Button variant="unstyled" size="auto"
+            <Card as="button"
               key={item.value}
               type="button"
               role="radio"
               aria-checked={isSelected}
-              className={`theme-preview-card ${isSelected ? "theme-preview-card-selected" : ""}`}
+              className={`theme-preview-card gap-0 py-0 ${isSelected ? "theme-preview-card-selected" : ""}`}
               onClick={() => selectTheme(item.value)}
             >
               {/* Mini UI Simulation Canvas */}
@@ -174,21 +174,21 @@ export function GeneralSettingsClient() {
                   <div className="mini-bar" />
                 </div>
                 <div className="mini-canvas-body">
-                  <div className="mini-card flex-1">
+                  <Card className="mini-card flex-1 gap-0 py-0">
                     <div
                       className="mini-card-accent"
                       style={{ backgroundColor: item.swatches[0] }}
                     />
                     <div className="mini-line w-3/4" />
                     <div className="mini-line w-1/2 opacity-50" />
-                  </div>
-                  <div className="mini-card flex-1">
+                  </Card>
+                  <Card className="mini-card flex-1 gap-0 py-0">
                     <div
                       className="mini-card-accent"
                       style={{ backgroundColor: item.swatches[1] }}
                     />
                     <div className="mini-line w-2/3" />
-                  </div>
+                  </Card>
                 </div>
               </div>
 
@@ -218,11 +218,10 @@ export function GeneralSettingsClient() {
                   <Check size={14} strokeWidth={3} />
                 </div>
               </div>
-            </Button>
+            </Card>
           );
         })}
       </div>
-    </section>
+    </Card>
   );
 }
-

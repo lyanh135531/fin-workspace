@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { useTransition, useRef } from "react";
 import { KeyRound, Send, Loader2 } from "lucide-react";
 import { requestJoinAction } from "@/app/dashboard/join/actions";
@@ -24,7 +24,7 @@ export function JoinForm() {
   }
 
   return (
-    <form ref={formRef} action={submit} className="join-form-card">
+    <Card as="form" ref={formRef} action={submit} className="join-form-card gap-0 py-0">
       <div className="join-form-header">
         <div className="join-form-icon-wrap">
           <KeyRound size={20} strokeWidth={1.8} />
@@ -70,6 +70,6 @@ export function JoinForm() {
           )}
         </Button>
       </div>
-    </form>
+    </Card>
   );
 }

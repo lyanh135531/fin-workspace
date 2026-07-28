@@ -1,5 +1,6 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
+import { Children, isValidElement, type ReactNode } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -25,7 +26,6 @@ const buttonVariants = cva(
         sm: "h-8 rounded-md px-3 text-xs",
         lg: "h-10 rounded-md px-8",
         icon: "h-9 w-9",
-        "icon-sm": "h-8 w-8",
         auto: "",
       },
     },
@@ -38,22 +38,50 @@ const buttonVariants = cva(
 
 type ButtonProps = ButtonPrimitive.Props & VariantProps<typeof buttonVariants>
 
+function getButtonText(children: ReactNode): string {
+  return Children.toArray(children)
+    .map((child) => {
+      if (typeof child === "string" || typeof child === "number") {
+        return String(child)
+      }
+
+      if (isValidElement<{ children?: ReactNode }>(child)) {
+        return getButtonText(child.props.children)
+      }
+
+      return ""
+    })
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
 function Button({
   className,
   variant = "default",
   size = "default",
+  children,
+  title,
+  "aria-label": ariaLabel,
   ...props
 }: ButtonProps) {
+  const resolvedTitle =
+    title || (typeof ariaLabel === "string" ? ariaLabel : "") || getButtonText(children) || undefined
+
   return (
     <ButtonPrimitive
       data-slot="button"
+      aria-label={ariaLabel}
+      title={resolvedTitle}
       className={
         variant === "unstyled"
           ? className
           : cn(buttonVariants({ variant, size, className }))
       }
       {...props}
-    />
+    >
+      {children}
+    </ButtonPrimitive>
   )
 }
 

@@ -4,7 +4,7 @@ import { UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { toast } from "sonner";
 
 type Role = { code: string; name: string };
@@ -27,7 +27,7 @@ export function JoinRequestsClient({ requests, roles }: { requests: Request[]; r
   }
 
   return (
-    <section className="sunrise-card overflow-hidden">
+    <Card as="section" className="sunrise-card gap-0 py-0 overflow-hidden">
       <header className="flex items-center gap-3 p-6 pb-4">
         <div className="settings-section-icon">
           <UserPlus size={18} />
@@ -53,14 +53,14 @@ export function JoinRequestsClient({ requests, roles }: { requests: Request[]; r
                 </option>
               ))}
             </select>
-            <Button disabled={pending} onClick={() => review(r.id, false)} variant="outline" size="sm">
+            <Button disabled={pending} onClick={() => review(r.id, false)} variant="outline" size="default">
               Từ chối
             </Button>
             <Button
               disabled={pending}
               onClick={() => review(r.id, true, (document.getElementById(`role-${r.id}`) as HTMLSelectElement)?.value)}
               variant="default"
-              size="sm"
+              size="default"
             >
               Duyệt
             </Button>
@@ -71,6 +71,6 @@ export function JoinRequestsClient({ requests, roles }: { requests: Request[]; r
         <div className="border-t border-[var(--border)] p-8 text-center text-sm text-slate-500">Không có yêu cầu chờ duyệt.</div>
       )}
       </div>
-    </section>
+    </Card>
   );
 }

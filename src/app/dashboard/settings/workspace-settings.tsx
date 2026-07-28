@@ -3,7 +3,7 @@
 import { Settings2, Trash2, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useState, useTransition } from "react";
 import { deleteWorkspaceAction, updateWorkspaceSettingsAction } from "@/app/dashboard/settings/actions";
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -63,7 +63,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
 
   if (!isAdmin) {
     return (
-      <section className="sunrise-card p-6 space-y-2">
+      <Card as="section" className="sunrise-card gap-0 p-6 space-y-2">
         <div className="flex items-center gap-2 text-slate-500">
           <ShieldCheck size={18} />
           <h2 className="text-base font-bold text-[var(--foreground)]">Quyền truy cập thành viên</h2>
@@ -72,14 +72,14 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
           Chỉ Owner mới có thể chỉnh sửa cấu hình vận hành. Quản trị viên vẫn có thể quản lý thành viên,
           duyệt yêu cầu tham gia và chia sẻ mã mời ở các khu vực tương ứng.
         </p>
-      </section>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-6">
       {/* ── Main Configuration Card ── */}
-      <section className="sunrise-card p-6 sm:p-8 space-y-6 relative overflow-hidden">
+      <Card as="section" className="sunrise-card gap-0 p-6 sm:p-8 space-y-6 relative overflow-hidden">
         {/* Accent glow */}
         <div
           className="absolute -top-20 -right-20 w-52 h-52 rounded-full blur-3xl pointer-events-none opacity-15"
@@ -139,7 +139,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
           </div>
 
           {/* Approval Workflow — Switch */}
-          <div className="ws-toggle-card" onClick={() => setApprovalOn(!approvalOn)}>
+          <Card className="ws-toggle-card gap-0 py-0" onClick={() => setApprovalOn(!approvalOn)}>
             <Switch
               id="approval-switch"
               checked={approvalOn}
@@ -154,13 +154,13 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
                 Giao dịch do thành viên tạo sẽ chờ duyệt trước khi ảnh hưởng đến số dư thực tế.
               </p>
             </div>
-          </div>
+          </Card>
 
           <div className="flex items-center justify-end pt-2 border-t border-[var(--border)]">
             <Button
               type="submit"
               disabled={pending}
-              variant="default" className="px-6 py-2.5"
+              variant="default"
             >
               {pending ? (
                 <>
@@ -173,10 +173,10 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
             </Button>
           </div>
         </form>
-      </section>
+      </Card>
 
       {/* ── Danger Zone Card ── */}
-      <section className="ws-danger-zone">
+      <Card as="section" className="ws-danger-zone gap-0 py-0">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="ws-danger-icon">
@@ -197,18 +197,18 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
               setConfirmPassword("");
               setDeleteDialog(true);
             }}
-            variant="destructive" size="sm" className="px-4 py-2 shrink-0"
+            variant="destructive" className="shrink-0"
           >
             <Trash2 size={15} />
             Xóa Workspace
           </Button>
         </div>
-      </section>
+      </Card>
 
       {/* ── Confirmation Modal ── */}
       {deleteDialog && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-workspace-title">
-          <section className="sunrise-card w-full max-w-md p-6 space-y-4 relative overflow-hidden">
+          <Card as="section" className="sunrise-card gap-0 w-full max-w-md p-6 space-y-4 relative overflow-hidden">
             {/* Red accent glow */}
             <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-red-500" />
 
@@ -256,7 +256,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
                   setDeleteDialog(false);
                   setConfirmPassword("");
                 }}
-                variant="outline" size="sm" className="px-4 py-2"
+                variant="outline" size="default"
               >
                 Hủy
               </Button>
@@ -264,7 +264,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
                 type="button"
                 disabled={pending || !confirmPassword.trim()}
                 onClick={remove}
-                variant="destructive" size="sm" className="px-4 py-2"
+                variant="destructive" size="default"
               >
                 {pending ? (
                   <>
@@ -276,7 +276,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
                 )}
               </Button>
             </div>
-          </section>
+          </Card>
         </div>
       )}
     </div>

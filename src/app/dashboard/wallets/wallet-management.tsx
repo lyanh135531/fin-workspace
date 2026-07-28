@@ -26,7 +26,7 @@ import {
 } from "@/app/dashboard/wallets/actions";
 import { FinanceSelect } from "@/components/finance/finance-select";
 import { formatAmount } from "@/lib/format";
-import { Button } from "@/components/base";
+import { Button, Card } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -240,7 +240,7 @@ export function WalletManagement({
         {isAdmin && (
           <Button
             type="button"
-            variant="default" className="px-4 py-2 shrink-0"
+            variant="default" className="shrink-0"
             onClick={() => setCreatingModal(true)}
           >
             <Plus size={16} />
@@ -252,7 +252,7 @@ export function WalletManagement({
       {/* ── KPI Summary Cards ── */}
       <section className="wallet-kpi-grid" aria-label="Tổng quan ví">
         {/* KPI 1: Tổng số dư */}
-        <article className="wallet-kpi-card flex items-center justify-between">
+        <Card as="article" className="wallet-kpi-card gap-0 py-0 flex items-center justify-between">
           <div className="space-y-1 min-w-0">
             <span className="text-xs font-semibold text-slate-500 block">Tổng số dư đang hoạt động</span>
             <strong className="text-xl font-bold tracking-tight text-[var(--foreground)] block truncate tabular-nums">
@@ -265,10 +265,10 @@ export function WalletManagement({
           <div className="wallet-kpi-icon bg-blue-500/10 text-blue-600 border border-blue-500/15 shrink-0 ml-3">
             <WalletCards size={20} />
           </div>
-        </article>
+        </Card>
 
         {/* KPI 2: Số lượng ví */}
-        <article className="wallet-kpi-card flex items-center justify-between">
+        <Card as="article" className="wallet-kpi-card gap-0 py-0 flex items-center justify-between">
           <div className="space-y-1 min-w-0">
             <span className="text-xs font-semibold text-slate-500 block">Ví đang hoạt động</span>
             <strong className="text-xl font-bold tracking-tight text-[var(--foreground)] block tabular-nums">
@@ -282,10 +282,10 @@ export function WalletManagement({
           <div className="wallet-kpi-icon bg-emerald-500/10 text-emerald-600 border border-emerald-500/15 shrink-0 ml-3">
             <CheckCircle2 size={20} />
           </div>
-        </article>
+        </Card>
 
         {/* KPI 3: Lượt giao dịch */}
-        <article className="wallet-kpi-card flex items-center justify-between">
+        <Card as="article" className="wallet-kpi-card gap-0 py-0 flex items-center justify-between">
           <div className="space-y-1 min-w-0">
             <span className="text-xs font-semibold text-slate-500 block">Lượt giao dịch liên quan</span>
             <strong className="text-xl font-bold tracking-tight text-[var(--foreground)] block tabular-nums">
@@ -298,7 +298,7 @@ export function WalletManagement({
           <div className="wallet-kpi-icon bg-amber-500/10 text-amber-600 border border-amber-500/15 shrink-0 ml-3">
             <ArrowLeftRight size={20} />
           </div>
-        </article>
+        </Card>
       </section>
 
       {/* ── Toolbar: Search & Filter ── */}
@@ -364,7 +364,7 @@ export function WalletManagement({
           const color = walletColor(wallet.name);
           const isActive = wallet.status === "active";
           return (
-            <article className="wallet-card-redesigned sunrise-card p-5 space-y-4" key={wallet.id}>
+            <Card as="article" className="wallet-card-redesigned sunrise-card gap-0 p-5 space-y-4" key={wallet.id}>
               {/* Header */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
@@ -400,7 +400,7 @@ export function WalletManagement({
                 {isAdmin && (
                   <Button
                     type="button"
-                    variant="outline" size="icon-sm" className="!min-h-[34px] !min-w-[34px] !p-1.5 shrink-0"
+                    variant="outline" size="icon" className="shrink-0"
                     title={`Chỉnh sửa ${wallet.name}`}
                     aria-label={`Chỉnh sửa ${wallet.name}`}
                     onClick={() => setEditingWallet(wallet)}
@@ -443,7 +443,7 @@ export function WalletManagement({
                   {new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" }).format(new Date(wallet.updatedAt))}
                 </span>
               </div>
-            </article>
+            </Card>
           );
         })}
 
@@ -464,7 +464,7 @@ export function WalletManagement({
             {isAdmin && !searchQuery && (
               <Button
                 type="button"
-                variant="default" size="sm" className="px-4 py-2 mt-4"
+                variant="default" size="default" className="mt-4"
                 onClick={() => setCreatingModal(true)}
               >
                 <Plus size={15} />
@@ -483,9 +483,10 @@ export function WalletManagement({
           aria-modal="true"
           aria-labelledby="create-wallet-title"
         >
-          <form
+          <Card
+            as="form"
             onSubmit={handleCreate}
-            className="wallet-modal-panel sunrise-card max-h-[calc(100dvh-2rem)] w-full max-w-md space-y-4 overflow-y-auto p-6 relative"
+            className="wallet-modal-panel sunrise-card gap-0 max-h-[calc(100dvh-2rem)] w-full max-w-md space-y-4 overflow-y-auto p-6 relative"
           >
             {/* Accent glow */}
             <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-blue-500" />
@@ -615,7 +616,7 @@ export function WalletManagement({
             <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)] relative">
               <Button
                 type="button"
-                variant="outline" size="sm" className="px-4 py-2"
+                variant="outline" size="default"
                 onClick={() => {
                   setCreatingModal(false);
                   setCreateFundingType("income");
@@ -625,7 +626,7 @@ export function WalletManagement({
               >
                 Hủy
               </Button>
-              <Button type="submit" variant="default" size="sm" className="px-5 py-2" disabled={pending || !createFundingAmountIsValid || (createFundingType === "transfer" && !createFundingWalletId)}>
+              <Button type="submit" variant="default" size="default" disabled={pending || !createFundingAmountIsValid || (createFundingType === "transfer" && !createFundingWalletId)}>
                 {pending ? (
                   <>
                     <span className="btn-spinner" aria-hidden />
@@ -636,7 +637,7 @@ export function WalletManagement({
                 )}
               </Button>
             </div>
-          </form>
+          </Card>
         </div>
       )}
 
@@ -648,9 +649,10 @@ export function WalletManagement({
           aria-modal="true"
           aria-labelledby="edit-wallet-title"
         >
-          <form
+          <Card
+            as="form"
             onSubmit={handleUpdate}
-            className="wallet-modal-panel sunrise-card w-full max-w-md p-6 space-y-4 relative overflow-hidden"
+            className="wallet-modal-panel sunrise-card gap-0 w-full max-w-md p-6 space-y-4 relative overflow-hidden"
           >
             {/* Accent glow */}
             <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-amber-500" />
@@ -723,7 +725,7 @@ export function WalletManagement({
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
+                      size="default"
                       disabled={pending}
                       onClick={() => requestDestructiveOperation(editingWallet, "deactivate")}
                     >
@@ -735,7 +737,7 @@ export function WalletManagement({
                       <Button
                         type="button"
                         variant="outline"
-                        size="sm"
+                        size="default"
                         disabled={pending}
                         onClick={() => activateWallet(editingWallet)}
                       >
@@ -745,7 +747,7 @@ export function WalletManagement({
                       <Button
                         type="button"
                         variant="destructive"
-                        size="sm"
+                        size="default"
                         disabled={pending}
                         onClick={() => requestDestructiveOperation(editingWallet, "delete")}
                       >
@@ -761,12 +763,12 @@ export function WalletManagement({
             <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)] relative">
               <Button
                 type="button"
-                variant="outline" size="sm" className="px-4 py-2"
+                variant="outline" size="default"
                 onClick={() => setEditingWallet(null)}
               >
                 Hủy
               </Button>
-              <Button type="submit" variant="default" size="sm" className="px-5 py-2" disabled={pending}>
+              <Button type="submit" variant="default" size="default" disabled={pending}>
                 {pending ? (
                   <>
                     <span className="btn-spinner" aria-hidden />
@@ -777,7 +779,7 @@ export function WalletManagement({
                 )}
               </Button>
             </div>
-          </form>
+          </Card>
         </div>
       )}
 
@@ -788,7 +790,7 @@ export function WalletManagement({
           aria-modal="true"
           aria-labelledby="wallet-operation-blocked-title"
         >
-          <section className="wallet-modal-panel sunrise-card w-full max-w-md p-6 space-y-4">
+          <Card as="section" className="wallet-modal-panel sunrise-card gap-0 w-full max-w-md p-6 space-y-4">
             <div className="flex items-start gap-3">
               <div className="ws-danger-icon shrink-0"><AlertTriangle size={20} /></div>
               <div>
@@ -822,7 +824,7 @@ export function WalletManagement({
                 Mở Giao dịch định kỳ
               </Button>
             </div>
-          </section>
+          </Card>
         </div>
       )}
 
@@ -833,7 +835,7 @@ export function WalletManagement({
           aria-modal="true"
           aria-labelledby="confirm-wallet-operation-title"
         >
-          <section className="wallet-modal-panel sunrise-card w-full max-w-md p-6 space-y-4">
+          <Card as="section" className="wallet-modal-panel sunrise-card gap-0 w-full max-w-md p-6 space-y-4">
             <div className="flex items-start gap-3">
               <div className="ws-danger-icon shrink-0">
                 {confirmOperation.kind === "delete" ? <Trash2 size={20} /> : <PauseCircle size={20} />}
@@ -917,7 +919,7 @@ export function WalletManagement({
                     : "Xác nhận tạm ngưng"}
               </Button>
             </div>
-          </section>
+          </Card>
         </div>
       )}
     </div>
