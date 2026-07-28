@@ -11,7 +11,6 @@ import {
   PlayCircle,
   Plus,
   Repeat2,
-  Search,
   Trash2,
   WalletCards,
   X,
@@ -85,7 +84,6 @@ export function WalletManagement({
   const [createFundingAmount, setCreateFundingAmount] = useState("0");
   const [createFundingWalletId, setCreateFundingWalletId] = useState("");
   const [editingWallet, setEditingWallet] = useState<WalletItem | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "deactive">("all");
   const [confirmOperation, setConfirmOperation] = useState<DestructiveWalletOperation | null>(null);
   const [settlementWalletId, setSettlementWalletId] = useState("");
@@ -111,16 +109,10 @@ export function WalletManagement({
     }
   })();
 
-  // Filtered wallets list based on search and status filter
-  const filteredWallets = useMemo(() => {
-    return wallets.filter((wallet) => {
-      const matchesSearch =
-        wallet.name.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-        (wallet.description && wallet.description.toLowerCase().includes(searchQuery.toLowerCase().trim()));
-      const matchesStatus = filterStatus === "all" || wallet.status === filterStatus;
-      return matchesSearch && matchesStatus;
-    });
-  }, [wallets, searchQuery, filterStatus]);
+  const filteredWallets = useMemo(
+    () => wallets.filter((wallet) => filterStatus === "all" || wallet.status === filterStatus),
+    [wallets, filterStatus],
+  );
 
   function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -300,7 +292,7 @@ export function WalletManagement({
         </Card>
       </section>
 
-      {/* ── Toolbar: Search & Filter ── */}
+      {/* ── Status Filter ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2 pb-1 border-b border-[var(--border)]">
         {/* Status Filter Tabs */}
         <Tabs
@@ -324,18 +316,6 @@ export function WalletManagement({
           </TabsList>
         </Tabs>
 
-        {/* Search Bar */}
-        <div className="ws-category-search">
-          <span className="ws-category-search-icon">
-            <Search size={15} />
-          </span>
-          <input
-            type="text"
-            placeholder="Tìm kiếm ví..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
       </div>
 
       {/* ── Wallet Cards Grid ── */}
@@ -432,16 +412,16 @@ export function WalletManagement({
           <div className="col-span-full p-10 text-center border border-dashed border-[var(--border)] rounded-2xl bg-[var(--surface)]">
             <WalletCards size={32} className="mx-auto text-slate-400 opacity-60 mb-3" />
             <h3 className="text-base font-bold text-[var(--foreground)]">
-              {searchQuery ? `Không tìm thấy ví "${searchQuery}"` : "Workspace chưa có ví"}
+              {filterStatus === "all" ? "Workspace chưa có ví" : "Không có ví ở trạng thái này"}
             </h3>
             <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-              {searchQuery
-                ? "Thử từ khóa khác hoặc xóa bộ lọc tìm kiếm"
+              {filterStatus !== "all"
+                ? "Chọn trạng thái khác để xem các ví còn lại."
                 : isAdmin
                 ? "Tạo ví đầu tiên để bắt đầu ghi nhận giao dịch tài chính cho workspace này."
                 : "Admin chưa khởi tạo ví cho workspace này."}
             </p>
-            {isAdmin && !searchQuery && (
+            {isAdmin && filterStatus === "all" && (
               <Button
                 type="button"
                 variant="default" size="default" className="mt-4"

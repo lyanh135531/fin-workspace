@@ -10,6 +10,8 @@ export {
   CardTitle,
 } from "./card"
 export type { CardProps } from "./card"
+export { Search } from "./search"
+export type { SearchProps } from "./search"
 export {
   Select,
   SelectContent,

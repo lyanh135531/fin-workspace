@@ -9,7 +9,6 @@ import {
   EyeOff,
   Pencil,
   Plus,
-  Search,
   Tag,
   X,
 } from "lucide-react";
@@ -21,7 +20,7 @@ import {
   updateCategoryAction,
 } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP, slugifyCode } from "@/app/dashboard/settings/global-category-management";
-import { Button, Card, Select, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
+import { Button, Card, Search, Select, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -229,17 +228,12 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
 
 
         {/* Search Bar */}
-        <div className="ws-category-search">
-          <span className="ws-category-search-icon">
-            <Search size={15} />
-          </span>
-          <input
-            type="text"
-            placeholder="Tìm kiếm danh mục..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+        <Search
+          placeholder="Tìm kiếm danh mục..."
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          aria-label="Tìm kiếm danh mục"
+        />
       </div>
 
       {/* Creation form */}

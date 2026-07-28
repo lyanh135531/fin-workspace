@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, FilterX, Menu, Pencil, Plus, Search, Trash2, WalletCards, X } from "lucide-react";
+import { Check, FilterX, Menu, Pencil, Plus, Trash2, WalletCards, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
@@ -15,7 +15,7 @@ import {
 import { formatAmount } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Button, Card, Select } from "@/components/base";
+import { Button, Card, Search, Select } from "@/components/base";
 import { toast } from "sonner";
 
 
@@ -334,7 +334,7 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
 
   return <div className="ledger-shell">
     <div className="ledger-toolbar">
-      <label className="ledger-search"><Search size={16}/><input value={query} onChange={(event) => changeFilter(() => setQuery(event.target.value))} disabled={editMode} placeholder="Tìm giao dịch" aria-label="Tìm giao dịch hoặc ghi chú"/></label>
+      <Search containerClassName="max-[760px]:col-span-2 max-[760px]:row-start-1" value={query} onChange={(event) => changeFilter(() => setQuery(event.target.value))} disabled={editMode} placeholder="Tìm giao dịch" aria-label="Tìm giao dịch hoặc ghi chú"/>
       <Select value={month} onValueChange={(value) => changeFilter(() => {
         setInternalMonth(value);
         onMonthChange?.(value);

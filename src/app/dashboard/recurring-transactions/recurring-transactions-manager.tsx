@@ -8,7 +8,6 @@ import {
   Play,
   Plus,
   Repeat2,
-  Search,
   Trash2,
   X,
 } from "lucide-react";
@@ -21,7 +20,7 @@ import {
 } from "@/app/dashboard/recurring-transactions/actions";
 import { DatePickerField } from "@/components/finance/date-picker-field";
 import { formatAmount } from "@/lib/format";
-import { Button, Card, Select } from "@/components/base";
+import { Button, Card, Search, Select } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
@@ -207,15 +206,13 @@ export function RecurringTransactionsManager({
 
       <Card as="section" className="sunrise-card recurring-ledger-card gap-0 py-0">
         <div className="recurring-toolbar">
-          <label className="ledger-search">
-            <Search size={16} />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Tìm lịch giao dịch"
-              aria-label="Tìm lịch giao dịch"
-            />
-          </label>
+          <Search
+            containerClassName="max-[760px]:col-span-full"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Tìm lịch giao dịch"
+            aria-label="Tìm lịch giao dịch"
+          />
           <Select
             value={status}
             onValueChange={setStatus}
