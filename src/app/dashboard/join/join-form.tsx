@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card } from "@/components/base";
+import { Button, Card, Input } from "@/components/base";
 import { useTransition, useRef } from "react";
 import { KeyRound, Send, Loader2 } from "lucide-react";
 import { requestJoinAction } from "@/app/dashboard/join/actions";
@@ -43,7 +43,7 @@ export function JoinForm() {
           Mã mời Workspace
         </Label>
         <div className="join-form-input-row">
-          <input
+          <Input
             id="join-invite-code"
             required
             name="inviteCode"

@@ -14,6 +14,7 @@ import { useMemo, useState, useTransition } from "react";
 import { addQuickTransactionAction } from "@/app/dashboard/actions";
 import {
   Button,
+  Input,
   Select,
   Sheet,
   SheetContent,
@@ -21,7 +22,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/base";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 

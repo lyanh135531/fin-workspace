@@ -22,6 +22,7 @@ import { ICON_MAP, slugifyCode } from "@/app/dashboard/settings/global-category-
 import {
   Button,
   Card,
+  Input,
   Search,
   Select,
   Sheet,
@@ -34,7 +35,6 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/base";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { toast } from "sonner";

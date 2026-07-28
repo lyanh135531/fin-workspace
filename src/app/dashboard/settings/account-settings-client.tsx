@@ -13,8 +13,7 @@ import {
 } from "lucide-react";
 
 import { changePasswordAction } from "@/app/dashboard/settings/general-actions";
-import { Button } from "@/components/base";
-import { Input } from "@/components/ui/input";
+import { Button, Input } from "@/components/base";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 

@@ -1,13 +1,12 @@
 "use client";
 
-import { Button, Card } from "@/components/base";
+import { Button, Card, Input } from "@/components/base";
 import { useState, useId, useCallback } from "react";
 import { registerAccountAction } from "@/app/setup/actions";
 import {
   Eye, EyeOff, ShieldCheck, AlertCircle, CheckCircle2, Lock, User, Check,
 } from "lucide-react";
 import { FinLogo } from "@/components/fin-logo";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 /* ── Password strength ─────────────────────────────────────────── */
@@ -182,7 +181,7 @@ export default function SetupPage() {
                         autoComplete="username"
                         autoFocus
                         placeholder="Tối thiểu 3 ký tự"
-                        className="auth--input"
+                        className="auth-field-input"
                       />
                     </div>
                     {fieldErrors.username && (
@@ -209,7 +208,7 @@ export default function SetupPage() {
                         maxLength={128}
                         autoComplete="new-password"
                         placeholder="Tối thiểu 6 ký tự"
-                        className="auth--input has-icon"
+                        className="auth-field-input has-icon"
                         value={password}
                         onChange={handlePasswordChange}
                       />

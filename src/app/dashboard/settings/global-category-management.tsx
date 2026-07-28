@@ -46,6 +46,7 @@ import {
 import {
   Button,
   Card,
+  Input,
   Select,
   Sheet,
   SheetContent,
@@ -57,7 +58,6 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/base";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,

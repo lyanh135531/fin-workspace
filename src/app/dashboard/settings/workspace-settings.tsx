@@ -3,8 +3,7 @@
 import { Settings2, Trash2, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useState, useTransition } from "react";
 import { deleteWorkspaceAction, updateWorkspaceSettingsAction } from "@/app/dashboard/settings/actions";
-import { Button, Card, Select } from "@/components/base";
-import { Input } from "@/components/ui/input";
+import { Button, Card, Input, Select } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -236,7 +235,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
               <Label htmlFor="confirm-password-input" className="block text-xs font-bold text-[var(--foreground)]">
                 Mật khẩu tài khoản <span className="text-rose-500">*</span>
               </Label>
-              <input
+              <Input
                 id="confirm-password-input"
                 type="password"
                 required

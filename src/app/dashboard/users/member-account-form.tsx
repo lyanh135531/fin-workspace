@@ -3,8 +3,7 @@
 import { UserPlus } from "lucide-react";
 import { useTransition } from "react";
 import { createMemberAccountAction } from "@/app/dashboard/users/actions";
-import { Button, Card } from "@/components/base";
-import { Input } from "@/components/ui/input";
+import { Button, Card, Input } from "@/components/base";
 import { toast } from "sonner";
 
 type Workspace = { id: string; name: string };

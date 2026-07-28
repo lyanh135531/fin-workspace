@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card } from "@/components/base";
+import { Button, Card, Input } from "@/components/base";
 import { signIn } from "next-auth/react";
 import { useState, useId } from "react";
 import {
@@ -116,7 +116,7 @@ export default function SignInPage() {
                     <span className="auth-field-left-icon" aria-hidden>
                       <User size={16} strokeWidth={2} />
                     </span>
-                    <input
+                    <Input
                       id={`${id}-username`}
                       name="username"
                       type="text"
@@ -138,7 +138,7 @@ export default function SignInPage() {
                     <span className="auth-field-left-icon" aria-hidden>
                       <Lock size={16} strokeWidth={2} />
                     </span>
-                    <input
+                    <Input
                       id={`${id}-password`}
                       name="password"
                       type={showPassword ? "text" : "password"}

@@ -26,6 +26,7 @@ import { formatAmount } from "@/lib/format";
 import {
   Button,
   Card,
+  Input,
   Select,
   Sheet,
   SheetContent,
@@ -37,7 +38,6 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/base";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";

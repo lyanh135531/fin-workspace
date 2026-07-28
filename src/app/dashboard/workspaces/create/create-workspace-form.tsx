@@ -3,7 +3,7 @@
 import { Building2, Plus, Sparkles, Wallet, ShieldCheck, KeyRound, ArrowRight } from "lucide-react";
 import { useState, useTransition } from "react";
 import { createWorkspaceAction } from "@/app/dashboard/settings/actions";
-import { Button, Card } from "@/components/base";
+import { Button, Card, Input } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -66,7 +66,7 @@ export function CreateWorkspaceForm() {
               <Label htmlFor="workspace-name-input" className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
                 Tên workspace <span className="text-rose-500">*</span>
               </Label>
-              <input
+              <Input
                 id="workspace-name-input"
                 required
                 name="name"

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/base";
+import { Button, Input } from "@/components/base";
 import { Check, ChevronsUpDown, Clock, KeyRound, Loader2, PlusCircle, Send } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -55,7 +55,7 @@ function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
     <form onSubmit={submit} className="ws-inline-join">
       <div className="ws-inline-join-row">
         <KeyRound size={14} className="ws-inline-join-icon" aria-hidden />
-        <input
+        <Input
           ref={inputRef}
           className="ws-inline-join-input"
           placeholder="Dán mã mời workspace…"

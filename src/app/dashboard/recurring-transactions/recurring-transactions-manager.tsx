@@ -23,6 +23,7 @@ import { formatAmount } from "@/lib/format";
 import {
   Button,
   Card,
+  Input,
   Search,
   Select,
   Sheet,
@@ -31,7 +32,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/base";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 type Option = { id: string; name: string; color?: string };
