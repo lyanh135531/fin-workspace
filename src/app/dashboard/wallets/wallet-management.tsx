@@ -26,7 +26,7 @@ import {
 } from "@/app/dashboard/wallets/actions";
 import { FinanceSelect } from "@/components/finance/finance-select";
 import { formatAmount } from "@/lib/format";
-import { Button, Card } from "@/components/base";
+import { Button, Card, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -304,45 +304,26 @@ export function WalletManagement({
       {/* ── Toolbar: Search & Filter ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2 pb-1 border-b border-[var(--border)]">
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1 p-1 bg-[var(--surface-muted)] rounded-xl border border-[var(--border)]">
-          <Button variant="unstyled" size="auto"
-            type="button"
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              filterStatus === "all"
-                ? "bg-[var(--surface)] text-[var(--primary)] shadow-sm border border-[var(--border)]"
-                : "text-[var(--text-secondary)] hover:text-[var(--foreground)]"
-            }`}
-            onClick={() => setFilterStatus("all")}
-          >
-            Tất cả ({wallets.length})
-          </Button>
-          <Button variant="unstyled" size="auto"
-            type="button"
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-              filterStatus === "active"
-                ? "bg-[var(--surface)] text-emerald-600 shadow-sm border border-emerald-500/20"
-                : "text-[var(--text-secondary)] hover:text-emerald-600"
-            }`}
-            onClick={() => setFilterStatus("active")}
-          >
+        <Tabs
+          value={filterStatus}
+          onValueChange={(value) => setFilterStatus(value as "all" | "active" | "deactive")}
+        >
+          <TabsList>
+          <TabsTrigger value="all">
+            <span>Tất cả</span><TabsCount>{wallets.length}</TabsCount>
+          </TabsTrigger>
+          <TabsTrigger value="active">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-            Đang hoạt động ({activeCount})
-          </Button>
+            <span>Đang hoạt động</span><TabsCount>{activeCount}</TabsCount>
+          </TabsTrigger>
           {wallets.length - activeCount > 0 && (
-            <Button variant="unstyled" size="auto"
-              type="button"
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                filterStatus === "deactive"
-                  ? "bg-[var(--surface)] text-amber-600 shadow-sm border border-amber-500/20"
-                  : "text-[var(--text-secondary)] hover:text-amber-600"
-              }`}
-              onClick={() => setFilterStatus("deactive")}
-            >
+            <TabsTrigger value="deactive">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
-              Tạm ngưng ({wallets.length - activeCount})
-            </Button>
+              <span>Tạm ngưng</span><TabsCount>{wallets.length - activeCount}</TabsCount>
+            </TabsTrigger>
           )}
-        </div>
+          </TabsList>
+        </Tabs>
 
         {/* Search Bar */}
         <div className="ws-category-search">

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/base";
+import { Tabs, TabsContent, TabsCount, TabsList, TabsTrigger } from "@/components/base";
 import { useState } from "react";
 import { Sliders, Folders, UsersRound } from "lucide-react";
 import { WorkspaceSettings } from "./workspace-settings";
@@ -73,33 +73,31 @@ export function WorkspaceSettingsTabsClient({
   ];
 
   return (
-    <div className="space-y-6">
+    <Tabs
+      value={activeTab}
+      onValueChange={(value) => setActiveTab(value as TabKey)}
+    >
       {/* ── Pill Tab Navigation ── */}
-      <div className="ws-pill-tabs" role="tablist" aria-label="Workspace settings tabs">
+      <TabsList aria-label="Workspace settings tabs">
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const isActive = activeTab === tab.key;
           return (
-            <Button variant="unstyled" size="auto"
+            <TabsTrigger
               key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => setActiveTab(tab.key)}
-              className={`ws-pill-tab ${isActive ? "ws-pill-tab-active" : ""}`}
+              value={tab.key}
             >
-              <Icon size={16} />
+              <Icon />
               <span>{tab.label}</span>
               {tab.count !== undefined && (
-                <span className="ws-pill-tab-count">{tab.count}</span>
+                <TabsCount>{tab.count}</TabsCount>
               )}
-            </Button>
+            </TabsTrigger>
           );
         })}
-      </div>
+      </TabsList>
 
       {/* ── Tab 1: Cấu hình & Vận hành ── */}
-      {activeTab === "general" && (
+      <TabsContent value="general">
         <div className="grid gap-6 lg:grid-cols-12 items-start">
           <div className="lg:col-span-7">
             <WorkspaceSettings workspace={workspace} isAdmin={isOwner} />
@@ -108,23 +106,23 @@ export function WorkspaceSettingsTabsClient({
             <InviteCodeCard code={workspace.inviteCode} />
           </div>
         </div>
-      )}
+      </TabsContent>
 
       {/* ── Tab 2: Danh mục thu/chi ── */}
-      {activeTab === "categories" && (
+      {isOwner && <TabsContent value="categories">
         <div className="space-y-6">
           <ImportCategoryPanel templates={templates} existingCodes={existingCodes} />
           <CategoryManagement categories={categories} />
         </div>
-      )}
+      </TabsContent>}
 
       {/* ── Tab 3: Thành viên ── */}
-      {activeTab === "members" && (
+      <TabsContent value="members">
         <div className="space-y-6">
           <SettingsClient roles={roles} members={members} isAdmin={isAdmin} />
           <JoinRequestsClient roles={roles} requests={joinRequests} />
         </div>
-      )}
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }

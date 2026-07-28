@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card } from "@/components/base";
+import { Card, Tabs, TabsList, TabsTrigger } from "@/components/base";
 import { Check, Laptop, Moon, Palette, Sun, Sparkles } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
@@ -122,24 +122,21 @@ export function GeneralSettingsClient() {
         </div>
 
         {/* Mode Segmented Switcher */}
-        <div className="settings-segmented-control">
-          <Button variant="unstyled" size="auto"
-            type="button"
-            className={`segmented-btn ${mode === "light" ? "segmented-btn-active" : ""}`}
-            onClick={() => selectMode("light")}
-          >
-            <Sun size={14} />
+        <Tabs
+          value={mode}
+          onValueChange={(value) => selectMode(value as Mode)}
+        >
+          <TabsList>
+            <TabsTrigger value="light">
+            <Sun />
             <span>Sáng</span>
-          </Button>
-          <Button variant="unstyled" size="auto"
-            type="button"
-            className={`segmented-btn ${mode === "dark" ? "segmented-btn-active" : ""}`}
-            onClick={() => selectMode("dark")}
-          >
-            <Moon size={14} />
+            </TabsTrigger>
+            <TabsTrigger value="dark">
+            <Moon />
             <span>Tối</span>
-          </Button>
-        </div>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </header>
 
       <p className="text-xs text-[var(--text-muted)] mt-3 leading-relaxed">

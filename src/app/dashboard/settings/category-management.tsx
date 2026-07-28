@@ -21,7 +21,7 @@ import {
   updateCategoryAction,
 } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP, slugifyCode } from "@/app/dashboard/settings/global-category-management";
-import { Button, Card } from "@/components/base";
+import { Button, Card, Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/base";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -206,38 +206,26 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
 
       {/* Tabs: Chi tiêu & Thu nhập + Search */}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
-        <div className="settings-segmented-control">
-          <Button variant="unstyled" size="auto"
-            type="button"
-            className={`segmented-btn ${
-              filterType === "expense" ? "segmented-btn-active !text-rose-600" : ""
-            }`}
-            onClick={() => {
-              setFilterType("expense");
-              setCreating(false);
-              setEditing(null);
-              setSearchQuery("");
-            }}
-          >
-            <ArrowUpRight size={13} />
-            <span>Chi tiêu ({categories.filter((c) => c.type === "expense").length})</span>
-          </Button>
-          <Button variant="unstyled" size="auto"
-            type="button"
-            className={`segmented-btn ${
-              filterType === "income" ? "segmented-btn-active !text-emerald-600" : ""
-            }`}
-            onClick={() => {
-              setFilterType("income");
-              setCreating(false);
-              setEditing(null);
-              setSearchQuery("");
-            }}
-          >
-            <ArrowDownLeft size={13} />
-            <span>Thu nhập ({categories.filter((c) => c.type === "income").length})</span>
-          </Button>
-        </div>
+        <Tabs
+          value={filterType}
+          onValueChange={(value) => {
+            setFilterType(value as "expense" | "income");
+            setCreating(false);
+            setEditing(null);
+            setSearchQuery("");
+          }}
+        >
+          <TabsList>
+            <TabsTrigger value="expense">
+            <ArrowUpRight />
+            <span>Chi tiêu</span><TabsCount>{categories.filter((c) => c.type === "expense").length}</TabsCount>
+            </TabsTrigger>
+            <TabsTrigger value="income">
+            <ArrowDownLeft />
+            <span>Thu nhập</span><TabsCount>{categories.filter((c) => c.type === "income").length}</TabsCount>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
 
         {/* Search Bar */}

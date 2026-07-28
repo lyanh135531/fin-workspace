@@ -10,3 +10,4 @@ export {
   CardTitle,
 } from "./card"
 export type { CardProps } from "./card"
+export { Tabs, TabsContent, TabsCount, TabsList, TabsTrigger } from "./tabs"

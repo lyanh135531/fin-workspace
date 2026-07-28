@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card } from "@/components/base";
+import { Button, Card, Tabs, TabsList, TabsTrigger } from "@/components/base";
 import Decimal from "decimal.js";
 import { CircleAlert, Funnel, RefreshCw, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import { useState } from "react";
@@ -15,7 +15,6 @@ import {
 } from "@/app/dashboard/overview/overview-chart-data";
 import { FinanceSelect } from "@/components/finance/finance-select";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatAmount, formatCompactAmount } from "@/lib/format";
 import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transaction-sheet";
 
