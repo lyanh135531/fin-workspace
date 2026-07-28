@@ -1,13 +1,11 @@
-import Decimal from "decimal.js";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/auth";
-import { Ledger } from "@/app/dashboard/dashboard-actions";
-import { DashboardSummaryPanel } from "@/app/dashboard/dashboard-summary-panel";
+import { DashboardLedgerWorkspace } from "@/app/dashboard/dashboard-ledger-workspace";
+import { buildLedgerPeriodSummaries } from "@/app/dashboard/dashboard-summary-data";
 import { NoWorkspaceOnboarding } from "@/components/no-workspace-onboarding";
 import { isAdminRole } from "@/domain/role-policy";
 import { availableCategoryWhere } from "@/services/category-visibility";
-import { formatAmount } from "@/lib/format";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
@@ -44,11 +42,8 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
   await activateDueScheduledTransactions(workspaceId);
   const businessDate = getBusinessDateInTimeZone(membership.workspace.timeZone);
   const currentPeriod = businessDate.slice(0, 7);
-  const [currentYear, currentMonth] = currentPeriod.split("-").map(Number);
-  const periodStart = new Date(Date.UTC(currentYear, currentMonth - 1, 1));
-  const nextPeriodStart = new Date(Date.UTC(currentYear, currentMonth, 1));
 
-  const [walletLinks, categories, transactions, currentMonthTransactions, pendingCount] = await Promise.all([
+  const [walletLinks, categories, transactions] = await Promise.all([
     prisma.workspaceWallet.findMany({
       where: { workspaceId, wallet: { status: "active", deletedAt: null } },
       include: { wallet: true },
@@ -70,30 +65,9 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
       },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     }),
-    prisma.transaction.findMany({
-      where: {
-        deletedAt: null,
-        member: { workspaceId },
-        workflowStatus: "approved",
-        date: { gte: periodStart, lt: nextPeriodStart },
-      },
-      select: { amount: true, type: true },
-    }),
-    prisma.transaction.count({
-      where: { deletedAt: null, member: { workspaceId }, workflowStatus: "pending" },
-    }),
   ]);
   const totalTransactions = transactions.length;
-  const income = currentMonthTransactions
-    .filter((item) => item.type === "income")
-    .reduce((sum, item) => sum.plus(item.amount.toString()), new Decimal(0));
-  const expense = currentMonthTransactions
-    .filter((item) => item.type === "expense")
-    .reduce((sum, item) => sum.plus(item.amount.toString()), new Decimal(0));
-  const balance = walletLinks.reduce(
-    (sum, item) => sum.plus(item.wallet.currentBalance.toString()),
-    new Decimal(0),
-  );
+  const summaries = buildLedgerPeriodSummaries(transactions, currentPeriod);
   const isAdmin = isAdminRole(membership.role.code);
   const ledger = transactions.map((item) => ({
     id: item.id,
@@ -113,38 +87,26 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
     hasPendingChange: item.changeRequests.length > 0,
     isRecurring: Boolean(item.recurringTransactionId),
   }));
-  return (
-    <div className="dashboard-workspace-view">
-      <div className="dashboard-ledger-column">
-        <DashboardSummaryPanel
-          metrics={[
-            { label: "Tổng số dư", value: `${formatAmount(balance)} ₫`, note: `${walletLinks.length} ví đang hoạt động`, tone: "balance" },
-            { label: "Thu nhập", value: `${formatAmount(income)} ₫`, note: "Tháng hiện tại", tone: "income" },
-            { label: "Chi tiêu", value: `${formatAmount(expense)} ₫`, note: "Tháng hiện tại", tone: "expense" },
-            { label: "Chờ xác nhận", value: `${pendingCount} giao dịch`, note: "Chưa thay đổi số dư", tone: "pending" },
-          ]}
-          wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: `${formatAmount(wallet.currentBalance.toString())} ₫` }))}
-        />
-        <section className="sunrise-card dashboard-ledger-card overflow-hidden">
-          <Ledger
-            workspaceId={workspaceId}
-            businessDate={businessDate}
-            initialMonth={currentPeriod}
-            transactions={ledger}
-            totalTransactions={totalTransactions}
-            pageSize={LEDGER_PAGE_SIZE}
-            isAdmin={isAdmin}
-            canEditTransactions
-            canApprove={isAdmin}
-            scopeLabel="workspace này"
-            wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name }))}
-            categories={categories}
-            canManageWallets={isAdmin}
-          />
-        </section>
-      </div>
-    </div>
-  );
+  return <DashboardLedgerWorkspace
+    initialMonth={currentPeriod}
+    summaries={summaries}
+    wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString() }))}
+    ledgerProps={{
+      workspaceId,
+      businessDate,
+      initialMonth: currentPeriod,
+      transactions: ledger,
+      totalTransactions,
+      pageSize: LEDGER_PAGE_SIZE,
+      isAdmin,
+      canEditTransactions: true,
+      canApprove: isAdmin,
+      scopeLabel: "workspace này",
+      wallets: walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name })),
+      categories,
+      canManageWallets: isAdmin,
+    }}
+  />;
 }
 
 export default WorkspaceDashboard;

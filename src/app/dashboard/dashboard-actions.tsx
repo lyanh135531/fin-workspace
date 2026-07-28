@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Download, FilterX, Menu, Pencil, Plus, Search, Trash2, WalletCards, X } from "lucide-react";
+import { AlertCircle, Check, Download, FileText, FilterX, Menu, Pencil, Plus, Search, Trash2, Upload, WalletCards, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
@@ -9,11 +9,13 @@ import {
   approveTransactionAction,
   deleteTransactionAction,
   deleteTransactionsAction,
+  importTransactionsAction,
   rejectTransactionAction,
   updateTransactionsAction,
 } from "@/app/dashboard/actions";
 import { FinanceSelect } from "@/components/finance/finance-select";
 import { formatAmount } from "@/lib/format";
+import { buildTransactionCsv, parseTransactionCsv, type TransactionCsvInput } from "@/lib/transaction-csv";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -48,6 +50,13 @@ type TransactionDraft = {
   toWalletId: string;
   date: string;
   amount: string;
+};
+type ImportPreview = {
+  fileName: string;
+  transactions: TransactionCsvInput[];
+  missingCategories: Array<{ name: string; type: "income" | "expense" }>;
+  errors: string[];
+  totalRows: number;
 };
 
 const typeOptions = [
@@ -160,9 +169,48 @@ function Field({ name, label, required = true, inputMode }: { name: string; labe
   return <label>{label}<Input required={required} name={name} inputMode={inputMode} /></label>;
 }
 
-export function Ledger({ workspaceId, businessDate, initialMonth, transactions, totalTransactions, pageSize, canApprove, canEditTransactions, isAdmin, scopeLabel, wallets, categories, canManageWallets, readonly = false }: { workspaceId: string; businessDate: string; initialMonth: string; transactions: LedgerItem[]; totalTransactions: number; pageSize: number; canApprove: boolean; canEditTransactions: boolean; isAdmin: boolean; scopeLabel: string; wallets: Option[]; categories: Option[]; canManageWallets: boolean; readonly?: boolean }) {
+function ImportCsvReview({ preview, busy, onCancel, onChooseAnother, onConfirm }: {
+  preview: ImportPreview;
+  busy: boolean;
+  onCancel: () => void;
+  onChooseAnother: () => void;
+  onConfirm: () => void;
+}) {
+  const valid = preview.errors.length === 0 && preview.transactions.length > 0;
+  return <section className={`ledger-import-panel ${valid ? "is-valid" : "has-errors"}`} aria-labelledby="ledger-import-title">
+    <div className="ledger-import-summary">
+      <span className="ledger-import-icon">{valid ? <FileText size={19}/> : <AlertCircle size={19}/>}</span>
+      <div>
+        <p className="public-eyebrow">Import CSV · {preview.fileName}</p>
+        <h2 id="ledger-import-title">{valid ? `Sẵn sàng import ${preview.transactions.length.toLocaleString("vi-VN")} giao dịch` : "File CSV cần được kiểm tra lại"}</h2>
+        <p>{valid
+          ? preview.missingCategories.length
+            ? `${preview.missingCategories.length} danh mục chưa có sẽ được tự động tạo trong workspace. Trạng thái giao dịch vẫn tuân theo quyền của bạn.`
+            : "Ví và danh mục đã được đối chiếu. Trạng thái mới sẽ tuân theo ngày giao dịch và quyền của bạn."
+          : `${preview.errors.length} lỗi được phát hiện trong ${preview.totalRows || 0} dòng dữ liệu.`}</p>
+      </div>
+    </div>
+    {valid && preview.missingCategories.length > 0 && <div className="ledger-import-categories" aria-label="Danh mục sẽ được tạo">
+      <span>Danh mục mới</span>
+      <div>{preview.missingCategories.slice(0, 8).map((category) => <b key={category.name}>{category.name}</b>)}</div>
+      {preview.missingCategories.length > 8 && <small>+{preview.missingCategories.length - 8} danh mục khác</small>}
+    </div>}
+    {preview.errors.length > 0 && <ul className="ledger-import-errors" aria-label="Lỗi import CSV">
+      {preview.errors.slice(0, 5).map((error) => <li key={error}>{error}</li>)}
+      {preview.errors.length > 5 && <li>Còn {preview.errors.length - 5} lỗi khác. Hãy sửa file rồi thử lại.</li>}
+    </ul>}
+    <div className="ledger-import-actions">
+      <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>Hủy</Button>
+      <Button type="button" variant="outline" disabled={busy} onClick={onChooseAnother}>Chọn file khác</Button>
+      {valid && <Button type="button" variant="default" disabled={busy} onClick={onConfirm}><Upload size={16}/>{busy ? "Đang import" : `Import ${preview.transactions.length.toLocaleString("vi-VN")} giao dịch`}</Button>}
+    </div>
+  </section>;
+}
+
+export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth, onMonthChange, transactions, totalTransactions, pageSize, canApprove, canEditTransactions, isAdmin, scopeLabel, wallets, categories, canManageWallets, readonly = false }: { workspaceId: string; businessDate: string; initialMonth: string; selectedMonth?: string; onMonthChange?: (month: string) => void; transactions: LedgerItem[]; totalTransactions: number; pageSize: number; canApprove: boolean; canEditTransactions: boolean; isAdmin: boolean; scopeLabel: string; wallets: Option[]; categories: Option[]; canManageWallets: boolean; readonly?: boolean }) {
   const [query, setQuery] = useState("");
-  const [month, setMonth] = useState(initialMonth);
+  const [internalMonth, setInternalMonth] = useState(initialMonth);
+  const month = selectedMonth ?? internalMonth;
   const [status, setStatus] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -175,8 +223,10 @@ export function Ledger({ workspaceId, businessDate, initialMonth, transactions, 
   const [editDrafts, setEditDrafts] = useState<Record<string, TransactionDraft>>({});
   const [editReason, setEditReason] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [busy, start] = useTransition();
   const hasActiveFilters = query.trim().length > 0 || month !== "all" || status !== "all";
   const monthOptions = useMemo(() => [
@@ -223,13 +273,60 @@ export function Ledger({ workspaceId, businessDate, initialMonth, transactions, 
   }, [mobileMenuOpen]);
 
   function exportCsv() {
-    const csv = ["Ngày,Loại,Danh mục,Ví,Số tiền,Trạng thái,Ghi chú", ...filteredRows.map((item) => [formatLedgerDate(item.date), item.type, item.category?.name ?? "", item.toWallet ? `${item.wallet} → ${item.toWallet}` : item.wallet, item.amount, item.status, item.description ?? ""].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))].join("\n");
+    const csv = buildTransactionCsv(filteredRows.map((item) => ({
+      date: item.date,
+      type: item.type,
+      category: item.category?.name ?? "",
+      wallet: item.wallet,
+      toWallet: item.toWallet,
+      amount: item.amount,
+      status: item.status,
+      description: item.description ?? "",
+    })));
     const anchor = document.createElement("a"); anchor.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); anchor.download = "so-thu-chi.csv"; anchor.click(); URL.revokeObjectURL(anchor.href);
+  }
+
+  async function prepareImport(file?: File) {
+    if (!file) return;
+    if (file.size > 25_000_000) {
+      toast.error("File CSV không được vượt quá 25 MB.");
+      return;
+    }
+    try {
+      const parsed = parseTransactionCsv(await file.text(), wallets, categories);
+      setImportPreview({ fileName: file.name, ...parsed });
+    } catch {
+      toast.error("Không thể đọc file CSV này.");
+    }
+  }
+
+  function openImportPicker() {
+    importInputRef.current?.click();
+  }
+
+  function importCsv() {
+    if (!importPreview || importPreview.errors.length || !importPreview.transactions.length) return;
+    start(async () => {
+      const result = await importTransactionsAction(workspaceId, importPreview.transactions);
+      if (result.ok) {
+        const details = [
+          result.approved ? `${result.approved} đã ghi nhận` : "",
+          result.pending ? `${result.pending} chờ xác nhận` : "",
+          result.scheduled ? `${result.scheduled} đã lên lịch` : "",
+        ].filter(Boolean).join(", ");
+        toast.success(`Đã import ${result.importedCount.toLocaleString("vi-VN")} giao dịch${result.createdCategoryCount ? `, tạo ${result.createdCategoryCount} danh mục mới` : ""}${details ? ` · ${details}` : ""}.`);
+        setImportPreview(null);
+        setCurrentPage(1);
+      } else {
+        toast.error(result.message ?? "Không thể import giao dịch.");
+      }
+    });
   }
 
   function clearFilters() {
     setQuery("");
-    setMonth("all");
+    setInternalMonth("all");
+    onMonthChange?.("all");
     setStatus("all");
     setCurrentPage(1);
     setSelected(new Set());
@@ -338,12 +435,28 @@ export function Ledger({ workspaceId, businessDate, initialMonth, transactions, 
   }
 
   return <div className="ledger-shell">
+    {!readonly && <input
+      ref={importInputRef}
+      className="sr-only"
+      type="file"
+      accept=".csv,text/csv"
+      aria-label="Chọn file CSV để import"
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        void prepareImport(file);
+      }}
+    />}
     <div className="ledger-toolbar">
       <label className="ledger-search"><Search size={16}/><input value={query} onChange={(event) => changeFilter(() => setQuery(event.target.value))} disabled={editMode} placeholder="Tìm giao dịch" aria-label="Tìm giao dịch hoặc ghi chú"/></label>
-      <FinanceSelect value={month} onValueChange={(value) => changeFilter(() => setMonth(value))} disabled={editMode} className="ledger-month" label="Lọc theo tháng" options={monthOptions}/>
+      <FinanceSelect value={month} onValueChange={(value) => changeFilter(() => {
+        setInternalMonth(value);
+        onMonthChange?.(value);
+      })} disabled={editMode} className="ledger-month" label="Lọc theo tháng" options={monthOptions}/>
       <FinanceSelect value={status} onValueChange={(value) => changeFilter(() => setStatus(value))} disabled={editMode} className="ledger-status" label="Lọc trạng thái" options={[{ value: "all", label: "Tất cả" }, { value: "approved", label: "Đã ghi nhận" }, { value: "pending", label: "Chờ xác nhận" }, { value: "scheduled", label: "Đã lên lịch" }, { value: "rejected", label: "Đã từ chối" }]}/>
       <div className="ledger-desktop-tools">
         <Button variant="ghost" size="sm" className="ledger-clear-filter" disabled={editMode || !hasActiveFilters} onClick={clearFilters} title="Xóa tìm kiếm và bộ lọc" aria-label="Xóa bộ lọc"><FilterX size={15}/>Xóa lọc</Button>
+        {!readonly && <Button variant="outline" size="icon" disabled={busy || editMode || Boolean(createDraft) || !wallets.length} onClick={openImportPicker} title="Import CSV" aria-label="Import CSV"><Upload size={16}/></Button>}
         <Button variant="outline" size="icon" disabled={editMode} onClick={exportCsv} title="Xuất CSV" aria-label="Xuất CSV"><Download size={16}/></Button>
         {canApprove && <Button variant="outline" size="icon" className="ledger-delete-button" disabled={editMode || !selected.size || busy} onClick={() => setConfirmBulkDelete(true)} title={selected.size ? `Xóa ${selected.size} giao dịch đã chọn` : "Chọn giao dịch để xóa"} aria-label="Xóa giao dịch đã chọn"><Trash2 size={16}/></Button>}
         {canEditTransactions && (editMode ? <div className="ledger-edit-actions"><Button variant="outline" disabled={busy} onClick={cancelEdit}><X size={15}/>Hủy</Button><Button variant="default" disabled={busy} onClick={saveEdits}><Check size={15}/>{busy ? "Đang lưu" : "Lưu"}</Button></div> : <Button variant="outline" size="icon" disabled={busy || !transactions.length || Boolean(createDraft)} onClick={() => beginEdit()} title="Chỉnh sửa tất cả giao dịch" aria-label="Chỉnh sửa tất cả giao dịch"><Pencil size={16}/></Button>)}
@@ -371,6 +484,7 @@ export function Ledger({ workspaceId, businessDate, initialMonth, transactions, 
             {mobileMenuOpen && <div className="ledger-mobile-action-menu" role="menu" aria-label="Thao tác sổ giao dịch">
               <span className="ledger-mobile-action-menu-label">Thao tác</span>
               <button type="button" role="menuitem" disabled={!hasActiveFilters} onClick={() => { setMobileMenuOpen(false); clearFilters(); }}><FilterX/>Xóa bộ lọc</button>
+              {!readonly && <button type="button" role="menuitem" disabled={busy || Boolean(createDraft) || !wallets.length} onClick={() => { setMobileMenuOpen(false); openImportPicker(); }}><Upload/>Import CSV</button>}
               <button type="button" role="menuitem" onClick={() => { setMobileMenuOpen(false); exportCsv(); }}><Download/>Xuất CSV</button>
               {canEditTransactions && <button type="button" role="menuitem" disabled={busy || !transactions.length || Boolean(createDraft)} onClick={() => { setMobileMenuOpen(false); beginEdit(); }}><Pencil/>Chỉnh sửa nhiều giao dịch</button>}
               {canApprove && <button type="button" role="menuitem" className="destructive" disabled={!selected.size || busy} onClick={() => { setMobileMenuOpen(false); setConfirmBulkDelete(true); }}><Trash2/>Xóa {selected.size ? `${selected.size} mục đã chọn` : "mục đã chọn"}</button>}
@@ -383,6 +497,13 @@ export function Ledger({ workspaceId, businessDate, initialMonth, transactions, 
         </>}
       </div>
     </div>
+    {importPreview && <ImportCsvReview
+      preview={importPreview}
+      busy={busy}
+      onCancel={() => setImportPreview(null)}
+      onChooseAnother={openImportPicker}
+      onConfirm={importCsv}
+    />}
     {confirmBulkDelete && <ConfirmDelete count={selected.size} busy={busy} onCancel={() => setConfirmBulkDelete(false)} onConfirm={removeBulk}/>}
     {deleteTarget && <section className="ledger-confirm-panel" aria-labelledby="delete-transaction-title"><div><p className="public-eyebrow">{isAdmin ? "Thao tác có hiệu lực ngay" : "Yêu cầu Admin phê duyệt"}</p><h2 id="delete-transaction-title">Xóa “{deleteTarget.description || "giao dịch này"}”?</h2><p>{isAdmin ? "Nếu đã ghi nhận, số dư ví sẽ được hoàn tác." : "Giao dịch chỉ bị xóa sau khi Admin duyệt."}</p>{!isAdmin && <Textarea className="ledger-reason" value={deleteReason} onChange={(event) => setDeleteReason(event.target.value)} placeholder="Lý do (mặc định: Đã thông báo)" maxLength={2000}/>}</div><div className="dialog-actions"><Button type="button" variant="outline" disabled={busy} onClick={() => { setDeleteTarget(null); setDeleteReason(""); }}>Hủy</Button><Button type="button" variant="destructive" disabled={busy} onClick={removeOne}>{busy ? "Đang xử lý" : isAdmin ? "Xác nhận xóa" : "Gửi yêu cầu"}</Button></div></section>}
     {editMode && !isAdmin && <div className="ledger-edit-reason-bar"><label>Lý do chỉnh sửa<Input  value={editReason} onChange={(event) => setEditReason(event.target.value)} placeholder="Mặc định: Đã thông báo" maxLength={2000}/></label><span>Áp dụng cho các hàng đã thay đổi.</span></div>}

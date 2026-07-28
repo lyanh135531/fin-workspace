@@ -6,11 +6,13 @@ import { transactionTimingForDate, workflowStatusForAppliedDate, workflowStatusF
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
+import { TRANSACTION_CSV_MAX_ROWS } from "@/lib/transaction-csv";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
 type TransactionClient = Prisma.TransactionClient;
 type ResolvedTransactionInput = CreateTransactionInput & { timing: TransactionTiming };
+type ImportTransactionInput = CreateTransactionInput & { categoryName?: string };
 
 function asDatabaseDate(date: string) {
   return new Date(`${date}T00:00:00.000Z`);
@@ -194,6 +196,205 @@ export async function createTransaction(userId: string, workspaceId: string, inp
     });
     return record;
   });
+}
+
+export async function importTransactions(
+  userId: string,
+  workspaceId: string,
+  inputs: ImportTransactionInput[],
+  now = new Date(),
+) {
+  if (inputs.length < 1 || inputs.length > TRANSACTION_CSV_MAX_ROWS) {
+    throw new AppError("VALIDATION_ERROR", `Mỗi lần chỉ được import từ 1 đến ${TRANSACTION_CSV_MAX_ROWS.toLocaleString("vi-VN")} giao dịch.`);
+  }
+
+  const member = await requireWorkspaceMember(userId, workspaceId);
+  const rows = inputs.map(({ categoryName, ...input }) => ({
+    input: resolveTransactionInput(input, member.workspace.timeZone, now),
+    categoryName,
+    workflowStatus: workflowStatusForCreation(
+      member.role.code,
+      transactionTimingForDate(input.date, getBusinessDateInTimeZone(member.workspace.timeZone, now)),
+    ),
+  }));
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "WORKSPACES" WHERE "id" = CAST(${workspaceId} AS uuid) FOR UPDATE`);
+
+    const walletIds = [...new Set(rows.flatMap(({ input }) => [input.walletId, input.toWalletId].filter((id): id is string => Boolean(id))))];
+    const walletLinks = await tx.workspaceWallet.findMany({
+      where: { workspaceId, walletId: { in: walletIds }, wallet: { status: "active", deletedAt: null } },
+      select: { walletId: true },
+    });
+    if (walletLinks.length !== walletIds.length) {
+      throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Một hoặc nhiều ví không thuộc workspace này hoặc không còn hoạt động.");
+    }
+
+    const existingCategories = await tx.category.findMany({
+      where: { workspaceId, deletedAt: null },
+      select: { id: true, name: true, code: true, type: true, status: true, sortOrder: true },
+    });
+    const activeCategoryIds = new Set(existingCategories.filter((category) => category.status === "active").map((category) => category.id));
+    const categoryIds = [...new Set(rows.flatMap(({ input }) => input.categoryId ? [input.categoryId] : []))];
+    if (categoryIds.some((categoryId) => !activeCategoryIds.has(categoryId))) {
+      throw new AppError("FORBIDDEN", "Một hoặc nhiều danh mục không khả dụng trong workspace này.");
+    }
+
+    const normalizeCategoryName = (name: string) => name.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi-VN");
+    const categoryIdByName = new Map<string, string | null>();
+    for (const category of existingCategories.filter((item) => item.status === "active")) {
+      const key = normalizeCategoryName(category.name);
+      categoryIdByName.set(key, categoryIdByName.has(key) ? null : category.id);
+    }
+
+    const missingCategorySpecs = new Map<string, { name: string; type: "income" | "expense" }>();
+    for (const row of rows) {
+      if (row.input.categoryId || !row.categoryName) continue;
+      const key = normalizeCategoryName(row.categoryName);
+      if (categoryIdByName.get(key) === null) {
+        throw new AppError("CONFLICT", `Workspace đang có nhiều danh mục trùng tên “${row.categoryName}”.`);
+      }
+      if (categoryIdByName.has(key)) continue;
+      const type = row.input.type === "income" ? "income" : "expense";
+      const existing = missingCategorySpecs.get(key);
+      if (!existing) missingCategorySpecs.set(key, { name: row.categoryName.trim(), type });
+      else if (existing.type !== type) existing.type = "expense";
+    }
+
+    const usedCodes = new Set(existingCategories.map((category) => category.code.toLocaleUpperCase("vi-VN")));
+    const createCategoryCode = (name: string) => {
+      const normalized = name
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        .replaceAll("đ", "d")
+        .replaceAll("Đ", "D")
+        .toLocaleUpperCase("vi-VN")
+        .replace(/[^A-Z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 68) || "CSV_CATEGORY";
+      let code = normalized;
+      let suffix = 2;
+      while (usedCodes.has(code)) {
+        code = `${normalized.slice(0, 68 - String(suffix).length)}_${suffix}`;
+        suffix += 1;
+      }
+      usedCodes.add(code);
+      return code;
+    };
+
+    const startingSortOrder = Math.max(-1, ...existingCategories.map((category) => category.sortOrder)) + 1;
+    const createdCategories = [...missingCategorySpecs.entries()].map(([key, category], index) => ({
+      id: crypto.randomUUID(),
+      workspaceId,
+      name: category.name,
+      code: createCategoryCode(category.name),
+      color: category.type === "income" ? "#2F9E76" : "#E36D5B",
+      type: category.type,
+      icon: "tag",
+      sortOrder: Math.min(10_000, startingSortOrder + index),
+      key,
+    }));
+    for (let index = 0; index < createdCategories.length; index += 1_000) {
+      const chunk = createdCategories.slice(index, index + 1_000);
+      await tx.category.createMany({
+        data: chunk.map((category) => ({
+          id: category.id,
+          workspaceId: category.workspaceId,
+          name: category.name,
+          code: category.code,
+          color: category.color,
+          type: category.type,
+          icon: category.icon,
+          sortOrder: category.sortOrder,
+        })),
+      });
+    }
+    for (const category of createdCategories) categoryIdByName.set(category.key, category.id);
+
+    const preparedRows = rows.map((row) => {
+      const categoryId = row.input.categoryId
+        ?? (row.categoryName ? categoryIdByName.get(normalizeCategoryName(row.categoryName)) : undefined)
+        ?? undefined;
+      if (row.categoryName && !categoryId) {
+        throw new AppError("VALIDATION_ERROR", `Không thể tạo hoặc ánh xạ danh mục “${row.categoryName}”.`);
+      }
+      return { ...row, categoryId };
+    });
+
+    let importedCount = 0;
+    for (let index = 0; index < preparedRows.length; index += 1_000) {
+      const chunk = preparedRows.slice(index, index + 1_000);
+      const created = await tx.transaction.createMany({
+        data: chunk.map(({ input, workflowStatus, categoryId }) => ({
+          memberId: member.id,
+          walletId: input.walletId,
+          toWalletId: input.toWalletId ?? null,
+          categoryId: categoryId ?? null,
+          type: input.type,
+          amount: input.amount,
+          description: input.description ?? null,
+          date: asDatabaseDate(input.date),
+          workflowStatus,
+        })),
+      });
+      importedCount += created.count;
+    }
+
+    const balanceChanges = new Map<string, Decimal>();
+    const addBalanceChange = (walletId: string, amount: Decimal) => {
+      balanceChanges.set(walletId, (balanceChanges.get(walletId) ?? new Decimal(0)).plus(amount));
+    };
+
+    for (const { input, workflowStatus } of preparedRows) {
+      if (workflowStatus !== "approved") continue;
+      if (input.type === "income") addBalanceChange(input.walletId, input.amount);
+      if (input.type === "expense") addBalanceChange(input.walletId, input.amount.negated());
+      if (input.type === "transfer" && input.toWalletId) {
+        addBalanceChange(input.walletId, input.amount.negated());
+        addBalanceChange(input.toWalletId, input.amount);
+      }
+    }
+
+    for (const [walletId, change] of balanceChanges) {
+      if (change.isZero()) continue;
+      await tx.wallet.update({
+        where: { id: walletId },
+        data: { currentBalance: change.isPositive() ? { increment: change } : { decrement: change.abs() } },
+      });
+    }
+
+    const statusCounts = preparedRows.reduce((counts, row) => {
+      counts[row.workflowStatus] += 1;
+      return counts;
+    }, { approved: 0, pending: 0, scheduled: 0, rejected: 0 });
+
+    if (createdCategories.length) {
+      await tx.auditLog.create({
+        data: {
+          workspaceId,
+          actorUserId: userId,
+          action: "category.csv_imported",
+          entityType: "CATEGORY",
+          metadata: {
+            createdCategoryCount: createdCategories.length,
+            categoryNames: createdCategories.slice(0, 100).map((category) => category.name),
+          },
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        workspaceId,
+        actorUserId: userId,
+        action: "transaction.csv_imported",
+        entityType: "transaction",
+        metadata: { importedCount, createdCategoryCount: createdCategories.length, ...statusCounts },
+      },
+    });
+
+    return { importedCount, createdCategoryCount: createdCategories.length, ...statusCounts };
+  }, { maxWait: 10_000, timeout: 120_000 });
 }
 
 export async function approveTransaction(userId: string, workspaceId: string, transactionId: string) {
