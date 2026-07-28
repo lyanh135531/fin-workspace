@@ -14,7 +14,7 @@ import {
 } from "@/app/dashboard/actions";
 import { formatAmount } from "@/lib/format";
 import { Textarea } from "@/components/ui/textarea";
-import { Button, Card, Input, Search, Select } from "@/components/base";
+import { Button, Card, Empty, Input, Search, Select } from "@/components/base";
 import { toast } from "sonner";
 
 
@@ -451,7 +451,13 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
           </div>
         </div>
       </Card>)}
-      {!rows.length && <div className="ledger-mobile-empty">Chưa có giao dịch phù hợp.</div>}
+      {!rows.length && (
+        <Empty
+          variant="compact"
+          title="Chưa có giao dịch phù hợp"
+          description="Thử thay đổi tìm kiếm hoặc bộ lọc hiện tại."
+        />
+      )}
     </div>}
 
     <div className="ledger-scroll-area ledger-desktop-table"><table className="ledger-table w-full min-w-[1080px] text-left text-sm"><thead><tr className="border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--text-muted)]">{canApprove && <th className="w-10"><input type="checkbox" checked={allSelected} disabled={editMode} onChange={toggleAll} aria-label="Chọn tất cả giao dịch đang hiển thị"/></th>}<th>Giao dịch</th><th>Loại</th><th>Danh mục</th><th>Ví</th><th>Ngày</th><th className="text-right">Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
@@ -473,7 +479,17 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
             {!readonly && item.canRequestDelete && <Button variant="outline" size="icon" disabled={busy || item.hasPendingChange} onClick={() => setDeleteTarget(item)} className="ledger-delete-button" title="Xóa giao dịch" aria-label={`Xóa ${item.description || "giao dịch"}`}><Trash2 size={14}/></Button>}
           </div></td>
         </tr>)}
-      {!createDraft && rows.length === 0 && <tr><td colSpan={columnCount} className="p-10 text-center text-[var(--text-muted)]">Chưa có giao dịch phù hợp.</td></tr>}
+      {!createDraft && rows.length === 0 && (
+        <tr>
+          <td colSpan={columnCount} className="p-4">
+            <Empty
+              variant="compact"
+              title="Chưa có giao dịch phù hợp"
+              description="Thử thay đổi tìm kiếm hoặc bộ lọc hiện tại."
+            />
+          </td>
+        </tr>
+      )}
     </tbody></table></div>
     <footer className="ledger-pagination">
       <p className="ledger-record-count">Hiển thị {pageStart}–{pageEnd}/{filteredRows.length} giao dịch phù hợp · {totalTransactions} giao dịch trong {scopeLabel}.</p>

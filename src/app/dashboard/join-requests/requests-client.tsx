@@ -4,7 +4,7 @@ import { UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
-import { Button, Card, Select } from "@/components/base";
+import { Button, Card, Empty, Select } from "@/components/base";
 import { toast } from "sonner";
 
 type Role = { code: string; name: string };
@@ -72,7 +72,13 @@ export function JoinRequestsClient({ requests, roles }: { requests: Request[]; r
         </article>
       ))}
       {requests.length === 0 && (
-        <div className="border-t border-[var(--border)] p-8 text-center text-sm text-slate-500">Không có yêu cầu chờ duyệt.</div>
+        <Empty
+          variant="compact"
+          icon={UserPlus}
+          title="Không có yêu cầu chờ duyệt"
+          description="Các yêu cầu tham gia workspace mới sẽ xuất hiện tại đây."
+          className="rounded-none border-x-0 border-b-0"
+        />
       )}
       </div>
     </Card>

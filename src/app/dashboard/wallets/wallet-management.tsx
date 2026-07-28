@@ -26,6 +26,7 @@ import { formatAmount } from "@/lib/format";
 import {
   Button,
   Card,
+  Empty,
   Input,
   Select,
   Sheet,
@@ -428,29 +429,29 @@ export function WalletManagement({
 
         {/* Empty state */}
         {!filteredWallets.length && (
-          <div className="col-span-full p-10 text-center border border-dashed border-[var(--border)] rounded-2xl bg-[var(--surface)]">
-            <WalletCards size={32} className="mx-auto text-slate-400 opacity-60 mb-3" />
-            <h3 className="text-base font-bold text-[var(--foreground)]">
-              {filterStatus === "all" ? "Workspace chưa có ví" : "Không có ví ở trạng thái này"}
-            </h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-              {filterStatus !== "all"
+          <Empty
+            className="col-span-full"
+            icon={WalletCards}
+            title={filterStatus === "all" ? "Workspace chưa có ví" : "Không có ví ở trạng thái này"}
+            description={
+              filterStatus !== "all"
                 ? "Chọn trạng thái khác để xem các ví còn lại."
                 : isAdmin
-                ? "Tạo ví đầu tiên để bắt đầu ghi nhận giao dịch tài chính cho workspace này."
-                : "Admin chưa khởi tạo ví cho workspace này."}
-            </p>
-            {isAdmin && filterStatus === "all" && (
+                  ? "Tạo ví đầu tiên để bắt đầu ghi nhận giao dịch tài chính cho workspace này."
+                  : "Admin chưa khởi tạo ví cho workspace này."
+            }
+            action={isAdmin && filterStatus === "all" ? (
               <Button
                 type="button"
-                variant="default" size="default" className="mt-4"
+                variant="default"
+                size="default"
                 onClick={() => setCreatingModal(true)}
               >
                 <Plus size={15} />
                 Tạo ví đầu tiên
               </Button>
-            )}
-          </div>
+            ) : undefined}
+          />
         )}
       </section>
 

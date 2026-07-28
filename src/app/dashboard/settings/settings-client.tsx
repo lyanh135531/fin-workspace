@@ -3,7 +3,7 @@
 import { ShieldCheck, UserRoundX, UsersRound } from "lucide-react";
 import { useTransition } from "react";
 import { changeMemberRoleAction, removeMemberAction } from "@/app/dashboard/settings/actions";
-import { Button, Card, Select } from "@/components/base";
+import { Button, Card, Empty, Select } from "@/components/base";
 import { toast } from "sonner";
 
 type Role = { code: string; name: string };
@@ -154,6 +154,15 @@ export function SettingsClient({
             </article>
           );
         })}
+        {members.length === 0 && (
+          <Empty
+            variant="compact"
+            icon={UsersRound}
+            title="Workspace chưa có thành viên"
+            description="Thành viên được cấp quyền sẽ xuất hiện tại đây."
+            className="rounded-none border-x-0 border-b-0"
+          />
+        )}
       </div>
     </Card>
   );

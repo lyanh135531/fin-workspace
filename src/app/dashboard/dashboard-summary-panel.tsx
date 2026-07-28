@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/base";
+import { Button, Empty } from "@/components/base";
 import { CircleDollarSign, Clock3, Landmark, PanelRightOpen, TrendingDown, TrendingUp, WalletCards, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -48,7 +48,14 @@ function SummaryContent({
           <div><strong>{wallet.name}</strong><small>Số dư hiện tại</small></div>
           <b>{wallet.balance}</b>
         </article>)}
-        {wallets.length === 0 && <p className="finance-drawer-empty">Chưa có ví đang hoạt động.</p>}
+        {wallets.length === 0 && (
+          <Empty
+            variant="compact"
+            icon={WalletCards}
+            title="Chưa có ví đang hoạt động"
+            description="Ví được tạo hoặc kích hoạt sẽ xuất hiện tại đây."
+          />
+        )}
       </div>
     </section>
   </>;

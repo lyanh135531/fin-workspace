@@ -1,6 +1,7 @@
 "use client";
 
 import { Clock, CheckCircle2, XCircle, Inbox } from "lucide-react";
+import { Empty } from "@/components/base";
 
 export type JoinRequestItem = {
   id: string;
@@ -49,11 +50,12 @@ function formatRelativeTime(dateStr: string): string {
 export function JoinRequestHistory({ requests }: { requests: JoinRequestItem[] }) {
   if (requests.length === 0) {
     return (
-      <div className="join-history-empty">
-        <Inbox size={36} strokeWidth={1.2} />
-        <p>Chưa có yêu cầu nào</p>
-        <small>Khi bạn gửi mã mời, yêu cầu sẽ hiển thị ở đây.</small>
-      </div>
+      <Empty
+        variant="compact"
+        icon={Inbox}
+        title="Chưa có yêu cầu nào"
+        description="Khi bạn gửi mã mời, yêu cầu sẽ hiển thị ở đây."
+      />
     );
   }
 

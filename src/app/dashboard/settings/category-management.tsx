@@ -22,6 +22,7 @@ import { ICON_MAP, slugifyCode } from "@/app/dashboard/settings/global-category-
 import {
   Button,
   Card,
+  Empty,
   Input,
   Search,
   Select,
@@ -314,19 +315,19 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           />
         ))}
         {rootCategories.length === 0 && (
-          <div className="p-8 text-center border border-dashed border-[var(--border)] rounded-xl">
-            <Tag size={28} className="mx-auto text-slate-400 opacity-60 mb-2" />
-            <p className="text-sm font-medium text-slate-500">
-              {searchQuery
-                ? `Không tìm thấy danh mục "${searchQuery}"`
-                : `Chưa có danh mục ${filterType === "expense" ? "Chi tiêu" : "Thu nhập"} nào trong workspace`}
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {searchQuery
-                ? "Thử từ khóa khác hoặc xóa bộ lọc tìm kiếm"
-                : "Import từ bộ mẫu cá nhân hoặc bấm Thêm danh mục"}
-            </p>
-          </div>
+          <Empty
+            icon={Tag}
+            title={
+              searchQuery
+                ? `Không tìm thấy danh mục “${searchQuery}”`
+                : `Chưa có danh mục ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`
+            }
+            description={
+              searchQuery
+                ? "Thử từ khóa khác hoặc xóa bộ lọc tìm kiếm."
+                : "Import từ bộ mẫu cá nhân hoặc tạo danh mục mới cho workspace."
+            }
+          />
         )}
       </div>
     </Card>

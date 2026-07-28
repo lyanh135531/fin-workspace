@@ -10,6 +10,8 @@ export {
   CardTitle,
 } from "./card"
 export type { CardProps } from "./card"
+export { Empty } from "./empty"
+export type { EmptyProps } from "./empty"
 export { Input } from "./input"
 export type { InputProps } from "./input"
 export { Search } from "./search"

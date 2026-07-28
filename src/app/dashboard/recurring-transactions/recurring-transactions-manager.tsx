@@ -23,6 +23,7 @@ import { formatAmount } from "@/lib/format";
 import {
   Button,
   Card,
+  Empty,
   Input,
   Search,
   Select,
@@ -323,12 +324,18 @@ export function RecurringTransactionsManager({
               </div>
             </Card>
           ))}
-          {visibleSchedules.length === 0 && !draft && <div className="recurring-mobile-empty">
-            <Repeat2 size={23} />
-            <strong>{schedules.length ? "Không có lịch phù hợp" : "Chưa có giao dịch định kỳ"}</strong>
-            <p>{schedules.length ? "Thử thay đổi bộ lọc hoặc từ khóa." : "Đăng ký khoản lặp lại để hệ thống tự ghi nhận mỗi tháng."}</p>
-            {!schedules.length && wallets.length > 0 && <Button variant="outline" onClick={beginCreate}>Tạo đăng ký đầu tiên</Button>}
-          </div>}
+          {visibleSchedules.length === 0 && !draft && (
+            <Empty
+              variant="compact"
+              icon={Repeat2}
+              title={schedules.length ? "Không có lịch phù hợp" : "Chưa có giao dịch định kỳ"}
+              description={
+                schedules.length
+                  ? "Thử thay đổi bộ lọc hoặc từ khóa."
+                  : "Đăng ký khoản lặp lại để hệ thống tự ghi nhận mỗi tháng."
+              }
+            />
+          )}
         </div>
 
         <div className="recurring-table-wrap">
@@ -427,12 +434,16 @@ export function RecurringTransactionsManager({
               {visibleSchedules.length === 0 && !draft && (
                 <tr>
                   <td colSpan={10}>
-                    <div className="recurring-empty">
-                      <span><Repeat2 size={22} /></span>
-                      <strong>{schedules.length ? "Không có lịch phù hợp" : "Chưa có giao dịch định kỳ"}</strong>
-                      <p>{schedules.length ? "Thử thay đổi bộ lọc hoặc từ khóa." : "Đăng ký khoản lương, tiền nhà hoặc đầu tư để hệ thống tự ghi nhận mỗi tháng."}</p>
-                      {!schedules.length && wallets.length > 0 && <Button variant="outline" onClick={beginCreate}>Tạo đăng ký đầu tiên</Button>}
-                    </div>
+                    <Empty
+                      variant="compact"
+                      icon={Repeat2}
+                      title={schedules.length ? "Không có lịch phù hợp" : "Chưa có giao dịch định kỳ"}
+                      description={
+                        schedules.length
+                          ? "Thử thay đổi bộ lọc hoặc từ khóa."
+                          : "Đăng ký khoản lương, tiền nhà hoặc đầu tư để hệ thống tự ghi nhận mỗi tháng."
+                      }
+                    />
                   </td>
                 </tr>
               )}

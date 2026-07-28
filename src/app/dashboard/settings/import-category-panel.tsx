@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { ArrowDownLeft, ArrowUpRight, Download, Tag, CheckCircle2 } from "lucide-react";
 import { importCategoriesAction } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP } from "@/app/dashboard/settings/global-category-management";
-import { Button, Card } from "@/components/base";
+import { Button, Card, Empty } from "@/components/base";
 import { toast } from "sonner";
 
 type TemplateCategory = {
@@ -76,11 +76,12 @@ export function ImportCategoryPanel({
             <h2 className="mt-0.5 text-lg font-bold text-[var(--foreground)]">Import từ danh mục mẫu</h2>
           </div>
         </div>
-        <div className="p-6 text-center border border-dashed border-[var(--border)] rounded-xl">
-          <Tag size={28} className="mx-auto text-slate-400 opacity-60 mb-2" />
-          <p className="text-sm text-slate-500">Bạn chưa có danh mục mẫu nào.</p>
-          <p className="text-xs text-slate-400 mt-1">Vào <strong>Cài đặt chung</strong> để tạo bộ danh mục mẫu trước.</p>
-        </div>
+        <Empty
+          variant="compact"
+          icon={Tag}
+          title="Bạn chưa có danh mục mẫu"
+          description={<>Vào <strong>Cài đặt chung</strong> để tạo bộ danh mục mẫu trước.</>}
+        />
       </Card>
     );
   }
@@ -212,7 +213,13 @@ export function ImportCategoryPanel({
       )}
 
       {importableTemplates.length === 0 && alreadyImported.length > 0 && (
-        <p className="mt-3 text-sm text-slate-500">Tất cả danh mục mẫu đã được import vào workspace này.</p>
+        <Empty
+          variant="inline"
+          icon={CheckCircle2}
+          title="Đã import toàn bộ danh mục mẫu"
+          description="Không còn danh mục mới để thêm vào workspace này."
+          className="mt-3"
+        />
       )}
     </Card>
   );

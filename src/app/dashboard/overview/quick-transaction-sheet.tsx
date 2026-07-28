@@ -14,6 +14,7 @@ import { useMemo, useState, useTransition } from "react";
 import { addQuickTransactionAction } from "@/app/dashboard/actions";
 import {
   Button,
+  Empty,
   Input,
   Select,
   Sheet,
@@ -327,9 +328,13 @@ export function QuickTransactionSheet({
                   )}
                 </div>
               ) : (
-                <div className="quick-transaction-empty-wallet" role="status">
-                  Workspace này chưa có ví hoạt động. Hãy tạo ví trước khi nhập giao dịch.
-                </div>
+                <Empty
+                  variant="compact"
+                  icon={WalletCards}
+                  title="Workspace chưa có ví hoạt động"
+                  description="Tạo hoặc kích hoạt ví trước khi nhập giao dịch."
+                  role="status"
+                />
               )}
 
               <Button variant="unstyled" size="auto"

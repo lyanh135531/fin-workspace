@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { approveTransactionAction, rejectTransactionAction, reviewTransactionChangeAction } from "@/app/dashboard/actions";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
-import { Button, Select } from "@/components/base";
+import { Button, Empty, Select } from "@/components/base";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatAmount } from "@/lib/format";
 
@@ -197,7 +197,14 @@ export function NotificationsMenu({
               </article>
             );
           })}
-          {items.length === 0 && <p className="notification-empty">Không có thông báo mới.</p>}
+          {items.length === 0 && (
+            <Empty
+              variant="inline"
+              icon={Bell}
+              title="Không có thông báo mới"
+              description="Các yêu cầu và cập nhật mới sẽ xuất hiện tại đây."
+            />
+          )}
         </div>
       </PopoverContent>
     </Popover>

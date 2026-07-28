@@ -46,6 +46,7 @@ import {
 import {
   Button,
   Card,
+  Empty,
   Input,
   Select,
   Sheet,
@@ -361,11 +362,11 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
       {/* Category Tree List */}
       <div className="mt-5 space-y-2">
         {rootCategories.length === 0 ? (
-          <div className="p-8 text-center border border-dashed border-[var(--border)] rounded-xl">
-            <Tag size={28} className="mx-auto text-slate-400 opacity-60 mb-2" />
-            <p className="text-sm font-medium text-slate-500">Chưa có danh mục mẫu {filterType === "expense" ? "Chi tiêu" : "Thu nhập"}</p>
-            <p className="text-xs text-slate-400 mt-1">Tạo danh mục mới để sử dụng và import vào workspace</p>
-          </div>
+          <Empty
+            icon={Tag}
+            title={`Chưa có danh mục mẫu ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`}
+            description="Tạo danh mục mẫu mới để sử dụng và import vào workspace."
+          />
         ) : (
           rootCategories.map((category, index) => (
             <Node

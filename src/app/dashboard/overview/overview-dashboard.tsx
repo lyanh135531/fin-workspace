@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, Select, Tabs, TabsList, TabsTrigger } from "@/components/base";
+import { Button, Card, Empty, Select, Tabs, TabsList, TabsTrigger } from "@/components/base";
 import Decimal from "decimal.js";
 import { CircleAlert, Funnel, RefreshCw, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import { useState } from "react";
@@ -93,20 +93,20 @@ export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCur
           {expenseByCategory.length ? <div className="category-list">{expenseByCategory.map((item) => {
             const percentage = item.amount.div(totals.expense).times(100);
             return <div className="category-row" key={item.name}><span className="category-dot" style={{ background: item.color }}/><div><span className="category-row-heading"><strong>{item.name}</strong><b>{percentage.toFixed(0)}%</b></span><div className="category-track"><span style={{ width: `${percentage}%`, background: item.color }}/></div><small>{formatCompactAmount(item.amount)} {workspace.currency}</small></div></div>;
-          })}</div> : <Empty text="Chưa có chi phí đã ghi nhận để phân bổ." />}
+          })}</div> : <Empty variant="compact" title="Chưa có chi phí đã ghi nhận" description="Dữ liệu phân bổ theo hạng mục sẽ xuất hiện tại đây." />}
         </Card>
         <Card as="section" className="overview-card overview-recent gap-0 py-0">
           <header><div><h2>Giao dịch gần đây</h2><p>Được sắp xếp theo ngày mới nhất</p></div><a href={`/workspace/${workspace.id}`}>Xem tất cả</a></header>
-          <div className="recent-table">{filtered.slice(0, 6).map((item) => <article key={item.id}><div><strong title={item.description ?? "Không có nội dung"}>{item.description ?? "Không có nội dung"}</strong><small>{item.category?.name ?? "Chưa phân loại"} · {item.wallet} · {item.member}</small></div><time>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(new Date(item.date))}</time><b className={item.type}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{money(item.amount, workspace.currency)}</b><span className={`overview-status ${item.status}`}>{statusLabel[item.status]}</span></article>)}{!filtered.length && <Empty text="Không có giao dịch phù hợp với bộ lọc." />}</div>
+          <div className="recent-table">{filtered.slice(0, 6).map((item) => <article key={item.id}><div><strong title={item.description ?? "Không có nội dung"}>{item.description ?? "Không có nội dung"}</strong><small>{item.category?.name ?? "Chưa phân loại"} · {item.wallet} · {item.member}</small></div><time>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(new Date(item.date))}</time><b className={item.type}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{money(item.amount, workspace.currency)}</b><span className={`overview-status ${item.status}`}>{statusLabel[item.status]}</span></article>)}{!filtered.length && <Empty variant="compact" title="Không có giao dịch phù hợp" description="Thử thay đổi bộ lọc báo cáo." />}</div>
         </Card>
         <Card as="section" className="overview-card overview-operations gap-0 py-0">
           <section className="overview-operation-section overview-wallets">
             <header><div><h2>Ví trong workspace</h2><p>Số dư hiện tại</p></div><span className="overview-card-count">{wallets.length}</span></header>
-            {wallets.length ? <div className="wallet-list">{wallets.map((wallet) => <article key={wallet.id}><span><WalletCards size={16}/></span><div><strong>{wallet.name}</strong><small>Cập nhật {new Intl.DateTimeFormat("vi-VN", { dateStyle: "short" }).format(new Date(wallet.updatedAt))}</small></div><b>{formatCompactAmount(wallet.balance)} {workspace.currency}</b></article>)}</div> : <Empty text="Workspace này chưa có ví đang hoạt động." />}
+            {wallets.length ? <div className="wallet-list">{wallets.map((wallet) => <article key={wallet.id}><span><WalletCards size={16}/></span><div><strong>{wallet.name}</strong><small>Cập nhật {new Intl.DateTimeFormat("vi-VN", { dateStyle: "short" }).format(new Date(wallet.updatedAt))}</small></div><b>{formatCompactAmount(wallet.balance)} {workspace.currency}</b></article>)}</div> : <Empty variant="compact" icon={WalletCards} title="Chưa có ví đang hoạt động" description="Tạo hoặc kích hoạt ví để theo dõi số dư." />}
           </section>
           <section className="overview-operation-section overview-pending">
             <header><div><h2>Giao dịch cần phê duyệt</h2><p>{pending.length} giao dịch đang chờ</p></div><span className="overview-card-count warning">{pending.length}</span></header>
-            <div className="pending-list open">{pending.length ? pending.map((item) => <article key={item.id}><CircleAlert size={16}/><div><strong>{item.description ?? "Không có nội dung"}</strong><small>{item.member} · {formatCompactAmount(item.amount)} {workspace.currency}</small></div></article>) : <Empty text="Không có giao dịch nào cần phê duyệt." />}</div>
+            <div className="pending-list open">{pending.length ? pending.map((item) => <article key={item.id}><CircleAlert size={16}/><div><strong>{item.description ?? "Không có nội dung"}</strong><small>{item.member} · {formatCompactAmount(item.amount)} {workspace.currency}</small></div></article>) : <Empty variant="compact" title="Không có giao dịch cần phê duyệt" description="Các giao dịch chờ duyệt mới sẽ xuất hiện tại đây." />}</div>
           </section>
         </Card>
       </div>
@@ -206,7 +206,7 @@ function BalanceHistoryChart({ wallets, transactions, currency, month, range, wa
             {walletSeries.map((wallet) => <Line key={wallet.id} dataKey={wallet.key} type="linear" stroke={`var(--color-${wallet.key})`} strokeWidth={2.1} dot={false} activeDot={{ r: 4, strokeWidth: 0 }}/>)}
           </LineChart>
         </ChartContainer>
-      : <Empty text="Workspace này chưa có ví đang hoạt động để theo dõi số dư." />}
+      : <Empty variant="compact" icon={WalletCards} title="Chưa có ví đang hoạt động" description="Tạo hoặc kích hoạt ví để theo dõi lịch sử số dư." />}
   </Card>;
 }
 function MonthlyFinancialChart({ transactions, currency, month, range, walletId, categoryId, memberId, transactionType, categoryType }: {
@@ -255,7 +255,7 @@ function MonthlyFinancialChart({ transactions, currency, month, range, walletId,
         {visibleTypes.includes("income") && <Line dataKey="income" type="linear" stroke="var(--color-income)" strokeWidth={2.25} dot={false} activeDot={{ r: 4, strokeWidth: 0 }}/>}
         {visibleTypes.includes("expense") && <Line dataKey="expense" type="linear" stroke="var(--color-expense)" strokeWidth={2.25} dot={false} activeDot={{ r: 4, strokeWidth: 0 }}/>}
       </LineChart>
-    </ChartContainer> : <Empty text={emptyText} />}
+    </ChartContainer> : <Empty variant="compact" title={emptyText} />}
   </section>;
 }
 function MemberExpenseChart({ members, transactions, currency, period, range, walletId, categoryId, transactionType, categoryType }: {
@@ -316,7 +316,7 @@ function MemberExpenseChart({ members, transactions, currency, period, range, wa
           {memberSeries.map((member) => <Bar key={member.id} dataKey={member.key} fill={`var(--color-${member.key})`} radius={[0, 5, 5, 0]} maxBarSize={14}/>)}
         </BarChart>
       </ChartContainer>
-    </div> : <Empty text={isTransfer ? "Biểu đồ theo thành viên không áp dụng cho giao dịch chuyển khoản." : `Chưa có ${metricLabel.toLocaleLowerCase("vi")} đã ghi nhận phù hợp trong ${range} tháng này.`} />}
+    </div> : <Empty variant="compact" title={isTransfer ? "Không áp dụng cho giao dịch chuyển khoản" : `Chưa có ${metricLabel.toLocaleLowerCase("vi")} phù hợp`} description={isTransfer ? "Biểu đồ theo thành viên chỉ hiển thị giao dịch thu và chi." : `Chưa có dữ liệu đã ghi nhận trong ${range} tháng này.`} />}
   </section>;
 }
 
@@ -431,4 +431,3 @@ function MobileCategoryPie({ items, total, currency }: {
 
 function FilterField({ label, children }: { label: string; children: React.ReactNode }) { return <div className="overview-filter-field" role="group" aria-label={label}><span>{label}</span>{children}</div>; }
 function Metric({ title, value, note, icon, tone }: { title: string; value: string; note: string; icon: React.ReactNode; tone: string }) { return <Card as="section" className={`overview-metric ${tone} gap-0 py-0`}><span>{icon}</span><p>{title}</p><strong>{value}</strong><small>{note}</small></Card>; }
-function Empty({ text }: { text: string }) { return <div className="overview-empty">{text}</div>; }
