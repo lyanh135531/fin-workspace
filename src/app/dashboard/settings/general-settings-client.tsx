@@ -127,13 +127,19 @@ export function GeneralSettingsClient() {
           onValueChange={(value) => selectMode(value as Mode)}
         >
           <TabsList>
-            <TabsTrigger value="light">
-            <Sun />
-            <span>Sáng</span>
+            <TabsTrigger
+              value="light"
+              className="data-active:bg-amber-50/70 dark:data-active:bg-amber-950/30 data-active:text-amber-600 dark:data-active:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 hover:text-amber-600 dark:hover:text-amber-400"
+            >
+              <Sun className="transition-colors" />
+              <span>Sáng</span>
             </TabsTrigger>
-            <TabsTrigger value="dark">
-            <Moon />
-            <span>Tối</span>
+            <TabsTrigger
+              value="dark"
+              className="data-active:bg-indigo-50/80 dark:data-active:bg-indigo-950/30 data-active:text-indigo-600 dark:data-active:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 hover:text-indigo-600 dark:hover:text-indigo-400"
+            >
+              <Moon className="transition-colors" />
+              <span>Tối</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
