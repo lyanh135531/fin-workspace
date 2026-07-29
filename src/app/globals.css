@@ -38,7 +38,7 @@ html[data-theme="midnight"][data-mode="dark"] { --primary:#6f9eff;--primary-hove
   --foreground:var(--text-primary); --card:var(--surface); --card-foreground:var(--text-primary);
   --popover:var(--surface); --popover-foreground:var(--text-primary); --primary-foreground:var(--text-on-primary);
   --secondary-foreground:var(--text-primary); --muted:var(--surface-secondary); --muted-foreground:var(--text-muted);
-  --accent-foreground:var(--text-primary); --destructive:var(--danger); --input:var(--border); --ring:var(--focus-ring);
+  --accent-foreground:var(--text-primary); --destructive:var(--danger); --destructive-foreground:var(--text-on-primary); --input:var(--border); --ring:var(--focus-ring);
   --radius:.4rem; --sidebar-foreground:var(--text-primary); --sidebar-primary:var(--primary);
   --sidebar-primary-foreground:var(--text-on-primary); --sidebar-accent:var(--primary-soft);
   --sidebar-accent-foreground:var(--primary); --sidebar-border:var(--border); --sidebar-ring:var(--focus-ring);

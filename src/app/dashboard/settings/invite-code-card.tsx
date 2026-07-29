@@ -41,7 +41,7 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
       : code;
 
   return (
-    <Card as="section" className="rounded-2xl border border-slate-200/60 bg-white p-6 md:p-8 shadow-[0_1px_3px_rgba(0,0,0,0.02)] relative overflow-hidden flex flex-col h-full gap-6">
+    <Card as="section" className="rounded-2xl p-6 md:p-8 shadow-xs relative overflow-hidden flex flex-col h-full gap-6">
       {/* Accent glow (subtle) */}
       <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full blur-[80px] pointer-events-none opacity-20 bg-indigo-500" />
 
@@ -57,7 +57,7 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-slate-900">Mã mời Workspace</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">Mã mời Workspace</h2>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
             Gửi mã này cho thành viên mới để họ có thể gửi yêu cầu tham gia vào workspace của bạn.
           </p>
@@ -66,8 +66,8 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
 
       <div className="mt-auto space-y-4 relative z-10">
         {/* Inner Code Well */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50/50 p-3 pl-6">
-          <code className="font-mono text-xl font-bold tracking-[0.25em] text-slate-800 truncate select-all">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 pl-6">
+          <code className="font-mono text-xl font-bold tracking-[0.25em] text-[var(--foreground)] truncate select-all">
             {formattedDisplay}
           </code>
           
@@ -78,7 +78,7 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
               title={copied ? "Đã sao chép" : "Sao chép mã mời"}
               aria-label={copied ? "Đã sao chép mã mời" : "Sao chép mã mời"}
               className={`group relative flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 active:scale-[0.9] ${
-                copied ? "bg-emerald-50 text-emerald-600" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+                copied ? "bg-emerald-50 text-emerald-600" : "hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--foreground)]"
               }`}
             >
               {copied ? <Check size={16} strokeWidth={2.5} /> : <Copy size={16} />}
@@ -90,14 +90,14 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
               onClick={handleRegenerate}
               title="Đổi mã mới"
               aria-label="Đổi mã mới"
-              className="group relative flex h-8 w-8 items-center justify-center rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-all duration-200 active:scale-[0.9]"
+              className="group relative flex h-8 w-8 items-center justify-center rounded-md hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--foreground)] transition-all duration-200 active:scale-[0.9]"
             >
               <RefreshCw size={16} className={pending ? "animate-spin text-indigo-500" : ""} />
             </button>
           </div>
         </div>
 
-        <p className="text-[10px] text-slate-400 text-center font-medium">
+        <p className="text-[10px] text-[var(--text-muted)] text-center font-medium">
           Mã 6 chữ số ngắn gọn, dễ gõ và dễ truyền đạt
         </p>
       </div>
