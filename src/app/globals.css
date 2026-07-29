@@ -3910,7 +3910,7 @@ html[data-sidebar-collapsed="true"] .mobile-navigation-sheet .sidebar-user-secti
 /* ═══════════════════════════════════════════════════
    Quick transaction bottom sheet
    ═══════════════════════════════════════════════════ */
-.overview-mobile-quick-entry {
+.dashboard-quick-entry-floating {
   display: none;
 }
 
@@ -4164,7 +4164,7 @@ html[data-sidebar-collapsed="true"] .mobile-navigation-sheet .sidebar-user-secti
     display: none !important;
   }
 
-  .overview-mobile-quick-entry {
+  .dashboard-quick-entry-floating {
     position: fixed;
     z-index: 35;
     right: 1rem;
@@ -4184,7 +4184,7 @@ html[data-sidebar-collapsed="true"] .mobile-navigation-sheet .sidebar-user-secti
     box-shadow: 0 12px 28px color-mix(in srgb, var(--primary) 32%, transparent);
   }
 
-  .overview-mobile-quick-entry:active {
+  .dashboard-quick-entry-floating:active {
     transform: scale(.97);
   }
 

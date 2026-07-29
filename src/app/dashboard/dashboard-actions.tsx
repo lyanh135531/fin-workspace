@@ -157,7 +157,7 @@ function Field({ name, label, required = true, inputMode }: { name: string; labe
   return <label>{label}<Input required={required} name={name} inputMode={inputMode} /></label>;
 }
 
-export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth, onMonthChange, transactions, totalTransactions, pageSize, canApprove, canEditTransactions, isAdmin, scopeLabel, wallets, categories, canManageWallets, readonly = false }: { workspaceId: string; businessDate: string; initialMonth: string; selectedMonth?: string; onMonthChange?: (month: string) => void; transactions: LedgerItem[]; totalTransactions: number; pageSize: number; canApprove: boolean; canEditTransactions: boolean; isAdmin: boolean; scopeLabel: string; wallets: Option[]; categories: Option[]; canManageWallets: boolean; readonly?: boolean }) {
+export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth, onMonthChange, transactions, totalTransactions, pageSize, canApprove, canEditTransactions, isAdmin, scopeLabel, wallets, categories, canManageWallets, readonly = false, startWithNewTransaction = false }: { workspaceId: string; businessDate: string; initialMonth: string; selectedMonth?: string; onMonthChange?: (month: string) => void; transactions: LedgerItem[]; totalTransactions: number; pageSize: number; canApprove: boolean; canEditTransactions: boolean; isAdmin: boolean; scopeLabel: string; wallets: Option[]; categories: Option[]; canManageWallets: boolean; readonly?: boolean; startWithNewTransaction?: boolean }) {
   const [query, setQuery] = useState("");
   const [internalMonth, setInternalMonth] = useState(initialMonth);
   const month = selectedMonth ?? internalMonth;
@@ -167,7 +167,11 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LedgerItem | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
-  const [createDraft, setCreateDraft] = useState<TransactionDraft | null>(null);
+  const [createDraft, setCreateDraft] = useState<TransactionDraft | null>(() =>
+    startWithNewTransaction && wallets.length
+      ? newTransactionDraft(wallets, categories, businessDate)
+      : null,
+  );
   const [editMode, setEditMode] = useState(false);
   const [editTargetId, setEditTargetId] = useState<string | null>(null);
   const [editDrafts, setEditDrafts] = useState<Record<string, TransactionDraft>>({});
@@ -350,7 +354,6 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
           <Button variant="outline" size="icon" disabled={busy} onClick={cancelEdit} aria-label="Hủy chỉnh sửa"><X size={17}/></Button>
           <Button variant="default" size="icon" disabled={busy} onClick={saveEdits} aria-label={busy ? "Đang lưu" : "Lưu chỉnh sửa"}><Check size={17}/></Button>
         </> : <>
-          {!readonly && <Button variant="default" size="icon" aria-label="Thêm giao dịch" title="Thêm giao dịch" disabled={busy || Boolean(createDraft) || !wallets.length} onClick={beginCreate}><Plus size={18}/></Button>}
           <div className="ledger-mobile-menu" ref={mobileMenuRef}>
             <Button variant="unstyled" size="auto"
               ref={mobileMenuTriggerRef}

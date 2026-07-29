@@ -41,18 +41,12 @@ export type QuickWorkspace = {
   }[];
 };
 
-function isSettingsRelatedRoute(pathname: string) {
-  return pathname === "/setting"
-    || pathname.startsWith("/setting/")
-    || pathname === "/account"
-    || pathname.startsWith("/account/")
-    || pathname.startsWith("/settings")
-    || pathname.startsWith("/dashboard/settings")
-    || pathname.startsWith("/dashboard/users")
-    || pathname.startsWith("/dashboard/members")
-    || pathname.startsWith("/dashboard/join-requests")
-    || pathname.startsWith("/dashboard/workspaces")
-    || pathname.startsWith("/workspaces/create");
+function supportsQuickTransaction(pathname: string) {
+  return pathname === "/overview"
+    || pathname === "/dashboard"
+    || pathname.startsWith("/workspace/")
+    || pathname === "/wallets"
+    || pathname === "/recurring-transactions";
 }
 
 const transactionTypes: {
@@ -76,11 +70,9 @@ function isAdminRole(role: string) {
 export function QuickTransactionSheet({
   initialWorkspaceId,
   workspaces,
-  triggerMode,
 }: {
   initialWorkspaceId: string;
   workspaces: QuickWorkspace[];
-  triggerMode: "overview" | "mobile-global";
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -177,7 +169,7 @@ export function QuickTransactionSheet({
     });
   }
 
-  if (!workspace || (triggerMode === "mobile-global" && isSettingsRelatedRoute(pathname))) return null;
+  if (!workspace || !supportsQuickTransaction(pathname)) return null;
 
   const statusHint = date > workspace.businessDate
     ? "Giao dịch sẽ được lên lịch."
@@ -189,23 +181,17 @@ export function QuickTransactionSheet({
 
   return (
     <>
-      {triggerMode === "overview" && <Button
+      <Button
+        variant="unstyled"
+        size="auto"
         type="button"
-        onClick={() => setOpen(true)}
-        className="overview-quick-entry-trigger"
-      >
-        <Plus size={17} />
-        Nhập giao dịch
-      </Button>}
-      {triggerMode === "mobile-global" && <Button variant="unstyled" size="auto"
-        type="button"
-        className="overview-mobile-quick-entry dashboard-global-quick-entry"
+        className="dashboard-quick-entry-floating dashboard-global-quick-entry"
         onClick={() => setOpen(true)}
         aria-label="Nhập nhanh giao dịch"
       >
         <Plus size={20} />
         <span>Giao dịch</span>
-      </Button>}
+      </Button>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent

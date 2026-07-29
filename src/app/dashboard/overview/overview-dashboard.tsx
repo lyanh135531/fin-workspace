@@ -1,8 +1,9 @@
 "use client";
 
-import { Button, Card, Empty, Select, Tabs, TabsList, TabsTrigger } from "@/components/base";
+import { Button, Card, Empty, Select, Tabs, TabsList, TabsTrigger, buttonVariants } from "@/components/base";
 import Decimal from "decimal.js";
-import { CircleAlert, Funnel, RefreshCw, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
+import { CircleAlert, Funnel, Plus, RefreshCw, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ReferenceLine, XAxis, YAxis } from "recharts";
 import {
@@ -15,19 +16,9 @@ import {
 } from "@/app/dashboard/overview/overview-chart-data";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { formatAmount, formatCompactAmount } from "@/lib/format";
-import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transaction-sheet";
 
 type Transaction = { id: string; amount: string; type: "income" | "expense" | "transfer"; status: "pending" | "scheduled" | "approved" | "rejected"; description: string | null; date: string; walletId: string; toWalletId: string | null; wallet: string; categoryId: string | null; category: { name: string; color: string } | null; memberId: string; member: string };
-type QuickWorkspace = {
-  id: string;
-  name: string;
-  currency: string;
-  businessDate: string;
-  role: string;
-  wallets: { id: string; name: string }[];
-  categories: { id: string; name: string; type: "income" | "expense" }[];
-};
-type Props = { workspace: { id: string; name: string; currency: string }; reportPeriod: string; wallets: { id: string; name: string; balance: string; updatedAt: string }[]; totalByCurrency: Record<string, string>; categories: { id: string; name: string; color: string; type: "income" | "expense" }[]; members: { id: string; name: string }[]; transactions: Transaction[]; quickWorkspaces: QuickWorkspace[] };
+type Props = { workspace: { id: string; name: string; currency: string }; reportPeriod: string; wallets: { id: string; name: string; balance: string; updatedAt: string }[]; totalByCurrency: Record<string, string>; categories: { id: string; name: string; color: string; type: "income" | "expense" }[]; members: { id: string; name: string }[]; transactions: Transaction[] };
 const money = (value: Decimal.Value, currency: string) => `${formatAmount(value)} ${currency}`;
 const statusLabel = { approved: "Đã ghi nhận", pending: "Chờ duyệt", scheduled: "Đã lên lịch", rejected: "Đã từ chối" };
 const monthlyChartConfig = {
@@ -51,7 +42,7 @@ const balanceChartConfig = {
   total: { label: "Tổng số dư", color: "var(--primary)" },
 } satisfies ChartConfig;
 
-export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCurrency, categories, members, transactions, quickWorkspaces }: Props) {
+export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCurrency, categories, members, transactions }: Props) {
   const [walletId, setWalletId] = useState("all"); const [categoryId, setCategoryId] = useState("all"); const [memberId, setMemberId] = useState("all"); const [type, setType] = useState("all"); const [range, setRange] = useState<CashflowRange>(6);
   const filtered = transactions.filter((item) => item.date.slice(0, 7) === reportPeriod && (walletId === "all" || item.walletId === walletId || item.toWalletId === walletId) && (categoryId === "all" || item.categoryId === categoryId) && (memberId === "all" || item.memberId === memberId) && (type === "all" || item.type === type));
   const posted = filtered.filter((item) => item.status === "approved");
@@ -66,7 +57,7 @@ export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCur
   const reset = () => { setWalletId("all"); setCategoryId("all"); setMemberId("all"); setType("all"); };
 
   return <div className="overview-shell">
-    <div className="overview-title"><div><p>Workspace · {workspace.name}</p><h1>Tổng quan tài chính</h1></div><QuickTransactionSheet initialWorkspaceId={workspace.id} workspaces={quickWorkspaces} triggerMode="overview" /></div>
+    <div className="overview-title"><div><p>Workspace · {workspace.name}</p><h1>Tổng quan tài chính</h1></div><Link href="/dashboard?action=new-transaction" className={buttonVariants({ className: "overview-quick-entry-trigger" })}><Plus size={17}/>Nhập giao dịch</Link></div>
     <section className="overview-filter-panel" aria-label="Bộ lọc báo cáo">
       <div className="overview-filter-heading"><div className="overview-filter-title"><span><Funnel size={16}/></span><div><strong>Bộ lọc báo cáo</strong><small>{activeFilterCount ? `${activeFilterCount} điều kiện đang áp dụng` : "Đang hiển thị toàn bộ dữ liệu trong tháng"}</small></div></div><Button variant="unstyled" size="auto" type="button" onClick={reset} className="overview-reset" disabled={!activeFilterCount}><RefreshCw size={15}/>Đặt lại</Button></div>
       <div className="overview-mobile-filter-meta"><span>{activeFilterCount ? `${activeFilterCount} bộ lọc` : "Bộ lọc"}</span><Button variant="unstyled" size="auto" type="button" onClick={reset} disabled={!activeFilterCount}>Đặt lại</Button></div>

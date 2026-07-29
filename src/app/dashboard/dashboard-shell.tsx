@@ -194,7 +194,6 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
                 type: category.type as "income" | "expense",
               })),
           }))}
-          triggerMode="mobile-global"
         />
 
       </div>

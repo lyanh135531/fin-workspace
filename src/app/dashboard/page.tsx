@@ -14,7 +14,13 @@ import { activateDueScheduledTransactions } from "@/services/transaction-service
 
 const LEDGER_PAGE_SIZE = 20;
 
-export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspaceId?: string } = {}) {
+export async function WorkspaceDashboard({
+  targetWorkspaceId,
+  startWithNewTransaction = false,
+}: {
+  targetWorkspaceId?: string;
+  startWithNewTransaction?: boolean;
+} = {}) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/sign-in");
 
@@ -105,8 +111,16 @@ export async function WorkspaceDashboard({ targetWorkspaceId }: { targetWorkspac
       wallets: walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name })),
       categories,
       canManageWallets: isAdmin,
+      startWithNewTransaction,
     }}
   />;
 }
 
-export default WorkspaceDashboard;
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ action?: string | string[] }>;
+}) {
+  const { action } = await searchParams;
+  return <WorkspaceDashboard startWithNewTransaction={action === "new-transaction"} />;
+}
