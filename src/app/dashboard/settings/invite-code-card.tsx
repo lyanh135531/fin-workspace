@@ -98,7 +98,7 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
         </div>
 
         <p className="text-[10px] text-[var(--text-muted)] text-center font-medium">
-          Mã 6 chữ số ngắn gọn, dễ gõ và dễ truyền đạt
+          Mã mời gồm 6 chữ số.
         </p>
       </div>
     </Card>
