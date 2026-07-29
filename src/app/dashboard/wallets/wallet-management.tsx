@@ -28,6 +28,7 @@ import {
   Card,
   Empty,
   Input,
+  PageHeader,
   Select,
   Sheet,
   SheetContent,
@@ -246,19 +247,22 @@ export function WalletManagement({
   return (
     <div className="workspace-settings-container space-y-6">
       {/* ── Page Header ── */}
-      <div className="page-header">
-        <h1 className="page-title">Ví</h1>
+      <PageHeader
+        title="Quản lý ví tài chính"
+        description="Theo dõi tài khoản ví, số dư và quản lý các phương thức thanh toán của bạn."
+      >
         {isAdmin && (
           <Button
             type="button"
-            variant="default" className="shrink-0"
+            variant="default"
+            className="shrink-0"
             onClick={() => setCreatingModal(true)}
           >
             <Plus size={16} />
             <span>Thêm ví</span>
           </Button>
         )}
-      </div>
+      </PageHeader>
 
       {/* ── KPI Summary Cards ── */}
       <section className="wallet-kpi-grid" aria-label="Tổng quan ví">

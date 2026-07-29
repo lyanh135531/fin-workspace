@@ -41,66 +41,64 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
       : code;
 
   return (
-    <Card as="section" className="sunrise-card gap-0 p-6 flex flex-col justify-between space-y-5 relative overflow-hidden">
-      {/* Accent glow */}
-      <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full blur-3xl pointer-events-none opacity-15 bg-blue-500" />
+    <Card as="section" className="rounded-2xl border border-slate-200/60 bg-white p-6 md:p-8 shadow-[0_1px_3px_rgba(0,0,0,0.02)] relative overflow-hidden flex flex-col h-full gap-6">
+      {/* Accent glow (subtle) */}
+      <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full blur-[80px] pointer-events-none opacity-20 bg-indigo-500" />
 
-      <div className="space-y-3 relative">
+      <div className="space-y-3 relative z-10">
         <div className="flex items-center justify-between">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/15">
-            <KeyRound size={18} />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-900/10">
+            <KeyRound size={18} strokeWidth={2} />
           </div>
-          <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-blue-600">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/20 bg-indigo-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-indigo-600">
             <Sparkles size={11} />
             Mã chia sẻ 6 số
           </span>
         </div>
 
         <div>
-          <h2 className="text-base font-bold text-[var(--foreground)]">Mã mời Workspace</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-slate-900">Mã mời Workspace</h2>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
-            Chia sẻ mã 6 chữ số này với thành viên mới. Họ dùng mã này để gửi yêu cầu tham gia và bạn duyệt trong phần thông báo.
+            Gửi mã này cho thành viên mới để họ có thể gửi yêu cầu tham gia vào workspace của bạn.
           </p>
         </div>
       </div>
 
-      <div className="space-y-3 relative">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-muted)] p-4">
-          <code className="font-mono text-2xl font-bold tracking-[0.2em] text-[var(--foreground)] truncate select-all text-center sm:text-left">
+      <div className="mt-auto space-y-4 relative z-10">
+        {/* Inner Code Well */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50/50 p-3 pl-6">
+          <code className="font-mono text-xl font-bold tracking-[0.25em] text-slate-800 truncate select-all">
             {formattedDisplay}
           </code>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
+          
+          <div className="flex items-center gap-2 shrink-0 bg-white rounded-lg p-1.5 ring-1 ring-slate-900/5 shadow-sm">
+            <button
               type="button"
               onClick={copy}
-              variant="outline"
-              size="icon"
               title={copied ? "Đã sao chép" : "Sao chép mã mời"}
               aria-label={copied ? "Đã sao chép mã mời" : "Sao chép mã mời"}
-              className={`${
-                copied ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" : ""
+              className={`group relative flex h-8 w-8 items-center justify-center rounded-md transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.95] ${
+                copied ? "bg-emerald-50 text-emerald-600" : "hover:bg-slate-50 text-slate-500 hover:text-slate-900"
               }`}
             >
-              {copied ? <Check size={16} /> : <Copy size={16} />}
-            </Button>
+              {copied ? <Check size={16} strokeWidth={2.5} /> : <Copy size={16} />}
+            </button>
 
-            <Button
+            <button
               type="button"
               disabled={pending}
               onClick={handleRegenerate}
-              variant="outline"
-              size="icon"
-              className="hover:text-[var(--primary)]"
-              title="Đổi mã mời 6 số mới"
-              aria-label="Đổi mã mời 6 số mới"
+              title="Đổi mã mới"
+              aria-label="Đổi mã mới"
+              className="group relative flex h-8 w-8 items-center justify-center rounded-md hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.95]"
             >
-              <RefreshCw size={16} className={pending ? "animate-spin" : ""} />
-            </Button>
+              <RefreshCw size={16} className={pending ? "animate-spin text-indigo-500" : ""} />
+            </button>
           </div>
         </div>
 
-        <p className="text-[11px] text-slate-400 text-center">
-          Mã 6 chữ số ngắn gọn, dễ gõ và dễ truyền đạt cho thành viên mới
+        <p className="text-[10px] text-slate-400 text-center font-medium">
+          Mã 6 chữ số ngắn gọn, dễ gõ và dễ truyền đạt
         </p>
       </div>
     </Card>

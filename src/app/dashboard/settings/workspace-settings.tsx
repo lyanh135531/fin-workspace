@@ -74,25 +74,26 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
 
   return (
     <div className="space-y-6">
-      {/* ── Main Configuration Card ── */}
-      <Card as="section" className="sunrise-card gap-0 p-6 sm:p-8 space-y-6 relative overflow-hidden">
-        {/* Accent glow */}
-        <div
-          className="absolute -top-20 -right-20 w-52 h-52 rounded-full blur-3xl pointer-events-none opacity-15"
-          style={{ backgroundColor: "var(--primary)" }}
-        />
-
-        <div className="flex items-center gap-3 relative">
-          <div className="settings-section-icon">
-            <Settings2 size={20} />
+      {/* ── Main Configuration Card (Single-Bezel) ── */}
+      <Card as="section" className="rounded-2xl border border-slate-200/60 bg-white p-6 sm:p-8 shadow-[0_1px_3px_rgba(0,0,0,0.02)] relative overflow-hidden flex flex-col gap-6">
+        
+        <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-8 justify-between relative z-10">
+          <div className="space-y-2 max-w-md">
+            <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              Thiết lập cơ bản
+            </span>
+            <h2 className="text-xl font-semibold tracking-tight text-slate-900">Thông tin chung</h2>
+            <p className="text-xs leading-relaxed text-slate-500">
+              Quản lý tên, mô tả và trạng thái hoạt động của workspace. Những thông tin này giúp các thành viên nhận diện nhóm dễ dàng hơn.
+            </p>
           </div>
-          <div>
-            <h2 className="text-lg font-bold text-[var(--foreground)]">Thiết lập cơ bản</h2>
-            <p className="text-xs text-slate-500">Thông tin nhận diện và cơ chế vận hành giao dịch của workspace.</p>
+          <div className="hidden md:flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-400 ring-1 ring-slate-900/5 shrink-0">
+            <Settings2 size={20} strokeWidth={1.5} />
           </div>
         </div>
 
-        <form onSubmit={save} className="space-y-5 pt-2 relative">
+        <form onSubmit={save} className="relative z-10 space-y-6">
+          <div className="grid gap-6">
           {/* Name — full width, prominent */}
           <div className="space-y-2">
             <Label htmlFor="ws-name" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
@@ -141,15 +142,18 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
           </div>
 
 
-          <div className="flex items-center justify-end pt-2 border-t border-[var(--border)]">
+          </div>
+
+          <div className="flex items-center justify-end border-t border-slate-100 pt-5">
             <Button
               type="submit"
               disabled={pending}
               variant="default"
+              className="rounded-full px-6 py-2.5 font-medium transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]"
             >
               {pending ? (
                 <>
-                  <span className="btn-spinner" aria-hidden />
+                  <span className="btn-spinner mr-2" aria-hidden />
                   Đang lưu...
                 </>
               ) : (
@@ -160,17 +164,17 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
         </form>
       </Card>
 
-      {/* ── Danger Zone Card ── */}
-      <Card as="section" className="ws-danger-zone gap-0 py-0">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="ws-danger-icon">
-              <AlertTriangle size={18} />
+      {/* ── Danger Zone Card (Single-Bezel) ── */}
+      <Card as="section" className="rounded-2xl border border-rose-200/40 bg-white p-5 md:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.01)] relative overflow-hidden">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-900/5 mt-1 md:mt-0">
+              <AlertTriangle size={18} strokeWidth={2} />
             </div>
             <div className="space-y-1">
-              <h3 className="font-bold text-sm text-[var(--foreground)]">Khu vực nguy hiểm</h3>
-              <p className="text-xs text-slate-500 leading-relaxed max-w-md">
-                Vô hiệu hóa workspace <strong>{workspace.name}</strong>. Workspace bị xóa sẽ bị vô hiệu hóa và gỡ khỏi danh sách hoạt động của tất cả thành viên.
+              <h3 className="font-semibold text-sm text-slate-900">Khu vực nguy hiểm</h3>
+              <p className="text-xs text-slate-500 leading-relaxed max-w-lg">
+                Vô hiệu hóa workspace <strong className="font-semibold text-slate-700">{workspace.name}</strong>. Mọi dữ liệu sẽ bị ẩn và workspace bị gỡ khỏi danh sách của tất cả thành viên.
               </p>
             </div>
           </div>
@@ -182,9 +186,10 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
               setConfirmPassword("");
               setDeleteDialog(true);
             }}
-            variant="destructive" className="shrink-0"
+            variant="destructive"
+            className="shrink-0 rounded-full px-5 py-2.5 font-medium transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]"
           >
-            <Trash2 size={15} />
+            <Trash2 size={16} className="mr-2" />
             Xóa Workspace
           </Button>
         </div>

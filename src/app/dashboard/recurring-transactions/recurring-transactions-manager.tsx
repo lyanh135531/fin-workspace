@@ -25,6 +25,7 @@ import {
   Card,
   Empty,
   Input,
+  PageHeader,
   Search,
   Select,
   Sheet,
@@ -214,6 +215,10 @@ export function RecurringTransactionsManager({
 
   return (
     <div className="recurring-page">
+      <PageHeader
+        title="Giao dịch định kỳ"
+        description="Đăng ký và quản lý các giao dịch tự động lặp lại hằng tháng."
+      />
 
       <Card as="section" className="sunrise-card recurring-ledger-card gap-0 py-0">
         <div className="recurring-toolbar">

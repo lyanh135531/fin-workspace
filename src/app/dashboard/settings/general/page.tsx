@@ -5,6 +5,7 @@ import { authOptions } from "@/auth";
 import { GeneralSettingsClient } from "@/app/dashboard/settings/general-settings-client";
 import { UserCategoryTemplateManagement } from "@/app/dashboard/settings/global-category-management";
 import { prisma } from "@/lib/prisma";
+import { PageHeader } from "@/components/base";
 
 export default async function GeneralSettingsPage() {
   const session = await getServerSession(authOptions);
@@ -20,30 +21,12 @@ export default async function GeneralSettingsPage() {
   return (
     <div className="workspace-settings-page">
       <div className="workspace-settings-container">
-        {/* Hero Banner Header */}
-        <header className="settings-hero">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="settings-badge">
-                <Palette size={13} className="text-[var(--primary)]" />
-                Cài đặt cá nhân
-              </span>
-            </div>
-            <h1>Giao diện &amp; Danh mục mẫu</h1>
-            <p className="settings-hero-copy">
-              Tùy chỉnh phong cách giao diện và quản lý bộ danh mục mẫu cá nhân để import vào workspace.
-            </p>
-          </div>
-          <div className="settings-summary" aria-label="Tổng quan">
-            <span>
-              <Palette size={14} className="inline mr-1 text-[var(--primary)]" />
-              <strong>5</strong> Chủ đề màu
-            </span>
-            <span>
-              <strong>{activeCategoryCount}</strong> / {categories.length} Danh mục mẫu
-            </span>
-          </div>
-        </header>
+        {/* Page Header */}
+        <PageHeader
+          eyebrow="Cài đặt cá nhân"
+          title="Giao diện & Danh mục mẫu"
+          description="Tùy chỉnh phong cách giao diện và quản lý bộ danh mục mẫu cá nhân để import vào workspace."
+        />
 
         {/* Content sections */}
         <div className="settings-sections-grid mt-6 space-y-6">

@@ -5,7 +5,7 @@ import { useMemo, useState, type ComponentProps } from "react";
 import { Ledger } from "@/app/dashboard/dashboard-actions";
 import { DashboardSummaryPanel } from "@/app/dashboard/dashboard-summary-panel";
 import type { LedgerPeriodSummary } from "@/app/dashboard/dashboard-summary-data";
-import { Card } from "@/components/base";
+import { Card, PageHeader } from "@/components/base";
 import { formatAmount } from "@/lib/format";
 
 type LedgerProps = Omit<ComponentProps<typeof Ledger>, "selectedMonth" | "onMonthChange">;
@@ -36,25 +36,33 @@ export function DashboardLedgerWorkspace({
   const label = periodLabel(selectedMonth);
   const cashflow = new Decimal(summary.income).minus(summary.expense);
 
-  return <div className="dashboard-workspace-view">
-    <div className="dashboard-ledger-column">
-      <Card as="section" className="sunrise-card dashboard-ledger-card gap-0 py-0 overflow-hidden">
-        <Ledger
-          {...ledgerProps}
-          selectedMonth={selectedMonth}
-          onMonthChange={setSelectedMonth}
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Sổ giao dịch"
+        description="Ghi chép thu chi, chuyển khoản và quản lý lịch sử giao dịch của workspace."
+      />
+      <div className="dashboard-workspace-view">
+        <div className="dashboard-ledger-column">
+          <Card as="section" className="sunrise-card dashboard-ledger-card gap-0 py-0 overflow-hidden">
+            <Ledger
+              {...ledgerProps}
+              selectedMonth={selectedMonth}
+              onMonthChange={setSelectedMonth}
+            />
+          </Card>
+        </div>
+        <DashboardSummaryPanel
+          periodLabel={label}
+          metrics={[
+            { label: "Dòng tiền ròng", value: `${formatAmount(cashflow)} ₫`, note: label, tone: "balance" },
+            { label: "Thu nhập", value: `${formatAmount(summary.income)} ₫`, note: label, tone: "income" },
+            { label: "Chi tiêu", value: `${formatAmount(summary.expense)} ₫`, note: label, tone: "expense" },
+            { label: "Chờ xác nhận", value: `${summary.pending} giao dịch`, note: label, tone: "pending" },
+          ]}
+          wallets={wallets.map((wallet) => ({ ...wallet, balance: `${formatAmount(wallet.balance)} ₫` }))}
         />
-      </Card>
+      </div>
     </div>
-    <DashboardSummaryPanel
-      periodLabel={label}
-      metrics={[
-        { label: "Dòng tiền ròng", value: `${formatAmount(cashflow)} ₫`, note: label, tone: "balance" },
-        { label: "Thu nhập", value: `${formatAmount(summary.income)} ₫`, note: label, tone: "income" },
-        { label: "Chi tiêu", value: `${formatAmount(summary.expense)} ₫`, note: label, tone: "expense" },
-        { label: "Chờ xác nhận", value: `${summary.pending} giao dịch`, note: label, tone: "pending" },
-      ]}
-      wallets={wallets.map((wallet) => ({ ...wallet, balance: `${formatAmount(wallet.balance)} ₫` }))}
-    />
-  </div>;
+  );
 }

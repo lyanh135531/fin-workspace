@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
 import { authOptions } from "@/auth";
-import { PageContainer } from "@/components/base";
+import { PageContainer, PageHeader } from "@/components/base";
 import { WorkspaceSettingsTabsClient } from "@/app/dashboard/settings/workspace-settings-tabs-client";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
@@ -60,9 +60,10 @@ export default async function SettingsPage({
     <PageContainer className="workspace-settings-page">
       <div className="workspace-settings-container space-y-6">
         {/* ── Page Header ── */}
-        <div className="page-header">
-          <h1 className="page-title">Cài đặt</h1>
-        </div>
+        <PageHeader
+          title="Cài đặt Workspace"
+          description="Cấu hình thông tin chung, quản lý danh mục thu chi và thành viên trong nhóm của bạn."
+        />
 
         <WorkspaceSettingsTabsClient
           workspace={{

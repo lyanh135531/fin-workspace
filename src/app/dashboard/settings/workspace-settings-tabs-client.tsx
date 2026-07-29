@@ -95,11 +95,11 @@ export function WorkspaceSettingsTabsClient({
 
       {/* ── Tab 1: Cấu hình & Vận hành ── */}
       <TabsContent value="general">
-        <div className="grid gap-6 lg:grid-cols-12 items-start">
-          <div className="lg:col-span-7">
+        <div className="grid gap-8 xl:gap-12 lg:grid-cols-12 items-start pt-4">
+          <div className="lg:col-span-7 xl:col-span-8">
             <WorkspaceSettings workspace={workspace} isAdmin={isAdmin} />
           </div>
-          <div className="lg:col-span-5">
+          <div className="lg:col-span-5 xl:col-span-4">
             <InviteCodeCard code={workspace.inviteCode} />
           </div>
         </div>

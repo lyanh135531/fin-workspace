@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, Empty, Select, Tabs, TabsList, TabsTrigger, buttonVariants, PageContainer } from "@/components/base";
+import { Button, Card, Empty, Select, Tabs, TabsList, TabsTrigger, buttonVariants, PageContainer, PageHeader } from "@/components/base";
 import Decimal from "decimal.js";
 import { CircleAlert, Funnel, Plus, RefreshCw, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import Link from "next/link";
@@ -57,7 +57,16 @@ export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCur
   const reset = () => { setWalletId("all"); setCategoryId("all"); setMemberId("all"); setType("all"); };
 
   return <PageContainer className="overview-shell">
-    <div className="overview-title"><div><p>Workspace · {workspace.name}</p><h1>Tổng quan tài chính</h1></div><Link href="/dashboard?action=new-transaction" className={buttonVariants({ className: "overview-quick-entry-trigger" })}><Plus size={17}/>Nhập giao dịch</Link></div>
+    <PageHeader
+      eyebrow={`Workspace · ${workspace.name}`}
+      title="Tổng quan tài chính"
+      description="Theo dõi thu nhập, chi tiêu và số dư tài khoản của toàn bộ workspace."
+    >
+      <Link href="/dashboard?action=new-transaction" className={buttonVariants({ className: "overview-quick-entry-trigger" })}>
+        <Plus size={17}/>
+        Nhập giao dịch
+      </Link>
+    </PageHeader>
     <section className="overview-filter-panel" aria-label="Bộ lọc báo cáo">
       <div className="overview-filter-heading"><div className="overview-filter-title"><span><Funnel size={16}/></span><div><strong>Bộ lọc báo cáo</strong><small>{activeFilterCount ? `${activeFilterCount} điều kiện đang áp dụng` : "Đang hiển thị toàn bộ dữ liệu trong tháng"}</small></div></div><Button variant="unstyled" size="auto" type="button" onClick={reset} className="overview-reset" disabled={!activeFilterCount}><RefreshCw size={15}/>Đặt lại</Button></div>
       <div className="overview-mobile-filter-meta"><span>{activeFilterCount ? `${activeFilterCount} bộ lọc` : "Bộ lọc"}</span><Button variant="unstyled" size="auto" type="button" onClick={reset} disabled={!activeFilterCount}>Đặt lại</Button></div>
