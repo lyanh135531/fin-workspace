@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { authOptions } from "@/auth";
 import { createCategorySchema, idSchema, updateCategorySchema } from "@/domain";
-import { createWorkspaceCategory, reorderWorkspaceCategories, setWorkspaceCategoryStatus, updateWorkspaceCategory } from "@/services/category-service";
+import { createWorkspaceCategory, deleteWorkspaceCategory, reorderWorkspaceCategories, setWorkspaceCategoryStatus, updateWorkspaceCategory } from "@/services/category-service";
 import { importCategoriesToWorkspace } from "@/services/import-category-service";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 
@@ -27,6 +27,9 @@ export async function updateCategoryAction(input: unknown) {
 }
 export async function setCategoryStatusAction(categoryId: string, status: "active" | "deactive") {
   try { const a = await actor(); await setWorkspaceCategoryStatus(a.userId, a.workspaceId, idSchema.parse(categoryId), status); return done(); } catch (error) { return fail(error); }
+}
+export async function deleteCategoryAction(categoryId: string) {
+  try { const a = await actor(); await deleteWorkspaceCategory(a.userId, a.workspaceId, idSchema.parse(categoryId)); return done(); } catch (error) { return fail(error); }
 }
 
 export async function reorderCategoriesAction(orderedIds: string[]) {

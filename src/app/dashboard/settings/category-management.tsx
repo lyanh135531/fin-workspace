@@ -10,10 +10,12 @@ import {
   Pencil,
   Plus,
   Tag,
+  Trash2,
 } from "lucide-react";
 import { useState, useTransition, useMemo } from "react";
 import {
   createCategoryAction,
+  deleteCategoryAction,
   reorderCategoriesAction,
   setCategoryStatusAction,
   updateCategoryAction,
@@ -37,6 +39,16 @@ import {
   TabsTrigger,
 } from "@/components/base";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import { toast } from "sonner";
 
@@ -91,6 +103,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [filterType, setFilterType] = useState<"expense" | "income">("expense");
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   function submit(form: FormData, id?: string) {
@@ -127,6 +140,10 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         toast.error(result.message ?? "Không thể đổi trạng thái.");
       }
     });
+  }
+
+  function deleteCategory(id: string) {
+    setDeletingCategoryId(id);
   }
 
   function handleReorder(items: Category[]) {
@@ -306,6 +323,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             pending={pending}
             onEdit={setEditing}
             onStatus={setStatus}
+            onDelete={deleteCategory}
             onMoveRoot={moveRootItem}
             onMoveChild={moveChildItem}
           />
@@ -318,6 +336,48 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           />
         )}
       </div>
+
+      <AlertDialog
+        open={deletingCategoryId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingCategoryId(null);
+        }}
+      >
+        <AlertDialogContent className="bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận xóa danh mục?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-500">
+              Hành động này không thể hoàn tác. Các danh mục con liên quan cũng cần phải được xử lý trước.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending} className="hover:bg-[var(--surface-secondary)] hover:text-current cursor-pointer">Hủy bỏ</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={pending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deletingCategoryId) {
+                  start(async () => {
+                    const result = await deleteCategoryAction(deletingCategoryId);
+                    if (result.ok) {
+                      toast.success("Đã xóa danh mục thành công.");
+                      setDeletingCategoryId(null);
+                      if (editing === deletingCategoryId) {
+                        setEditing(null);
+                      }
+                    } else {
+                      toast.error(result.message ?? "Không thể xóa danh mục.");
+                    }
+                  });
+                }
+              }}
+              className="bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
+            >
+              {pending ? "Đang xóa..." : "Xác nhận xóa"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
@@ -330,6 +390,7 @@ function CategoryNode({
   pending,
   onEdit,
   onStatus,
+  onDelete,
   onMoveRoot,
   onMoveChild,
 }: {
@@ -340,6 +401,7 @@ function CategoryNode({
   pending: boolean;
   onEdit: (id: string) => void;
   onStatus: (id: string, status: "active" | "deactive") => void;
+  onDelete: (id: string) => void;
   onMoveRoot: (index: number, dir: "up" | "down") => void;
   onMoveChild: (parentId: string, index: number, dir: "up" | "down") => void;
 }) {
@@ -433,7 +495,17 @@ function CategoryNode({
           >
             {category.status === "active" ? <EyeOff size={15} /> : <Eye size={15} />}
           </Button>
-
+          <Button
+            variant="outline"
+            size="icon"
+            className="hover:text-rose-600 hover:border-rose-200"
+            onClick={() => onDelete(category.id)}
+            disabled={pending}
+            title="Xóa danh mục"
+            aria-label={`Xóa danh mục ${category.name}`}
+          >
+            <Trash2 size={15} />
+          </Button>
         </div>
       </article>
 
@@ -447,6 +519,7 @@ function CategoryNode({
           pending={pending}
           onEdit={onEdit}
           onStatus={onStatus}
+          onDelete={onDelete}
           onMoveRoot={onMoveRoot}
           onMoveChild={onMoveChild}
         />

@@ -1,6 +1,4 @@
-"use client";
-
-import { UserPlus } from "lucide-react";
+import { UserPlus, Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
@@ -9,6 +7,26 @@ import { toast } from "sonner";
 
 type Role = { code: string; name: string };
 type Request = { id: string; username: string };
+
+/* Deterministic gradient from username for avatar */
+const AVATAR_GRADIENTS = [
+  "linear-gradient(135deg, #FF5B3D, #FF8A65)",
+  "linear-gradient(135deg, #1677B8, #4FC3F7)",
+  "linear-gradient(135deg, #7959C8, #B39DDB)",
+  "linear-gradient(135deg, #2F7D5B, #66BB6A)",
+  "linear-gradient(135deg, #334E8C, #5C6BC0)",
+  "linear-gradient(135deg, #E58EB3, #F48FB1)",
+  "linear-gradient(135deg, #008E9B, #4DD0E1)",
+  "linear-gradient(135deg, #D6A53A, #FFD54F)",
+];
+
+function avatarGradient(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
+}
 
 export function JoinRequestsClient({ requests, roles }: { requests: Request[]; roles: Role[] }) {
   const router = useRouter();
@@ -42,12 +60,24 @@ export function JoinRequestsClient({ requests, roles }: { requests: Request[]; r
       </header>
       <div className="settings-member-list">
       {requests.map((r) => (
-        <article className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] p-5 last:border-b-0" key={r.id}>
-          <div>
-            <strong>{r.username}</strong>
-            <p className="mt-1 text-xs text-slate-500">Đang chờ được thêm vào workspace</p>
+        <article className="settings-member-row" key={r.id}>
+          {/* Avatar */}
+          <div
+            className="member-avatar"
+            style={{ background: avatarGradient(r.username) }}
+            aria-hidden="true"
+          >
+            {r.username.slice(0, 1)}
           </div>
-          <div className="flex flex-wrap gap-2">
+
+          {/* Identity */}
+          <div className="member-identity">
+            <strong>{r.username}</strong>
+            <span>Đang chờ được phê duyệt</span>
+          </div>
+
+          {/* Role selection dropdown */}
+          <div className="member-role">
             <Select
               value={selectedRoles[r.id] ?? defaultRoleCode}
               onValueChange={(roleCode) =>
@@ -57,16 +87,31 @@ export function JoinRequestsClient({ requests, roles }: { requests: Request[]; r
               options={roles.map((role) => ({ value: role.code, label: role.name }))}
               className="w-auto min-w-34"
             />
-            <Button disabled={pending} onClick={() => review(r.id, false)} variant="outline" size="default">
-              Từ chối
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 justify-end">
+            <Button
+              disabled={pending}
+              onClick={() => review(r.id, false)}
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 text-slate-500 hover:text-rose-600 hover:bg-rose-50/50 hover:border-rose-200 transition-colors"
+              title="Từ chối yêu cầu"
+              aria-label="Từ chối yêu cầu"
+            >
+              <X size={16} />
             </Button>
             <Button
               disabled={pending}
               onClick={() => review(r.id, true, selectedRoles[r.id] ?? defaultRoleCode)}
               variant="default"
-              size="default"
+              size="icon"
+              className="h-9 w-9"
+              title="Duyệt tham gia"
+              aria-label="Duyệt tham gia"
             >
-              Duyệt
+              <Check size={16} />
             </Button>
           </div>
         </article>

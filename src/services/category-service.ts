@@ -73,3 +73,25 @@ export async function getAvailableCategories(userId: string, workspaceId: string
   await requireWorkspaceMember(userId, workspaceId);
   return prisma.category.findMany({ where: availableCategoryWhere(workspaceId), orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
 }
+
+export async function deleteWorkspaceCategory(userId: string, workspaceId: string, categoryId: string) {
+  await requireWorkspaceMember(userId, workspaceId, true);
+  const category = await prisma.category.findFirst({ where: { id: categoryId, workspaceId, deletedAt: null } });
+  if (!category) throw new AppError("NOT_FOUND", "Category riêng của workspace không tồn tại.");
+
+  const childrenCount = await prisma.category.count({ where: { workspaceId, parentId: category.id, deletedAt: null } });
+  if (childrenCount > 0) {
+    throw new AppError("VALIDATION_ERROR", "Hãy xóa các danh mục con trước khi xóa danh mục cha.");
+  }
+
+  const txCount = await prisma.transaction.count({ where: { categoryId: category.id, deletedAt: null } });
+  if (txCount > 0) {
+    throw new AppError("VALIDATION_ERROR", "Danh mục này đã có giao dịch phát sinh. Bạn chỉ có thể vô hiệu hóa danh mục để ẩn đi thay vì xóa.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.category.update({ where: { id: category.id }, data: { deletedAt: new Date() } });
+    await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "CATEGORY_DELETED", entityType: "CATEGORY", entityId: category.id, metadata: { name: category.name, code: category.code } } });
+    return updated;
+  });
+}
