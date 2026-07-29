@@ -150,11 +150,14 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
           </div>
 
           <div className="sidebar-user-info">
-            <div className="sidebar-user-name-row">
-              <span className="sidebar-user-name" title={username}>{username}</span>
-              <span className={`sidebar-user-role ${roleClass}`}>{roleLabel}</span>
+            <span className="sidebar-user-name" title={username}>{username}</span>
+            <div className="flex items-center gap-2 mt-[2px]">
+              {role !== "none" ? (
+                <span className={`sidebar-user-role ${roleClass}`}>{roleLabel}</span>
+              ) : (
+                <span className="sidebar-user-subtext">Chưa tham gia WS</span>
+              )}
             </div>
-            <span className="sidebar-user-subtext">Đang hoạt động</span>
           </div>
 
           <div className="sidebar-user-chevron-wrap">

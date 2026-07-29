@@ -30,12 +30,10 @@ function Empty({
       data-slot="empty"
       data-variant={variant}
       className={cn(
-        "flex w-full flex-col items-center justify-center text-center",
-        variant === "default" &&
-          "min-h-44 rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10",
-        variant === "compact" &&
-          "min-h-32 rounded-xl border border-dashed border-border bg-muted/20 px-5 py-6",
-        variant === "inline" && "min-h-20 px-4 py-5",
+        "flex h-full w-full flex-1 flex-col items-center justify-center text-center",
+        variant === "default" && "min-h-44 p-8",
+        variant === "compact" && "min-h-32 p-6",
+        variant === "inline" && "min-h-20 p-4",
         className,
       )}
       {...props}

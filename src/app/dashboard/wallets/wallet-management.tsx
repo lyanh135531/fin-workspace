@@ -440,17 +440,6 @@ export function WalletManagement({
                   ? "Tạo ví đầu tiên để bắt đầu ghi nhận giao dịch tài chính cho workspace này."
                   : "Admin chưa khởi tạo ví cho workspace này."
             }
-            action={isAdmin && filterStatus === "all" ? (
-              <Button
-                type="button"
-                variant="default"
-                size="default"
-                onClick={() => setCreatingModal(true)}
-              >
-                <Plus size={15} />
-                Tạo ví đầu tiên
-              </Button>
-            ) : undefined}
           />
         )}
       </section>
