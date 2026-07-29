@@ -12,6 +12,8 @@ export {
 export type { CardProps } from "./card"
 export { Empty } from "./empty"
 export type { EmptyProps } from "./empty"
+export { CategoryTreeSelect } from "./category-tree-select"
+export type { CategoryTreeOption, CategoryTreeSelectProps } from "./category-tree-select"
 export { Input } from "./input"
 export type { InputProps } from "./input"
 export { MoneyInput } from "./money-input"

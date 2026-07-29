@@ -24,6 +24,7 @@ import { DatePickerField } from "@/components/finance/date-picker-field";
 import { formatAmount } from "@/lib/format";
 import {
   Button,
+  CategoryTreeSelect,
   Card,
   Empty,
   Input,
@@ -39,7 +40,7 @@ import {
 } from "@/components/base";
 import { toast } from "sonner";
 
-type Option = { id: string; name: string; color?: string };
+type Option = { id: string; name: string; color?: string; parentId?: string | null };
 type TransactionType = "income" | "expense" | "transfer";
 type Schedule = {
   id: string;
@@ -306,9 +307,6 @@ export function RecurringTransactionsManager({
         <div className="recurring-schedule-list" aria-label="Danh sách giao dịch định kỳ">
           {visibleSchedules.map((schedule) => (
             <article className="recurring-schedule-row" key={schedule.id}>
-              <div className={`recurring-type-mark type-${schedule.type}`} aria-hidden>
-                <Repeat2 size={17} />
-              </div>
               <div className="recurring-schedule-main">
                 <div className="recurring-schedule-badges">
                   <span>{typeOptions.find((option) => option.value === schedule.type)?.label}</span>
@@ -457,11 +455,12 @@ function RecurringEditor({
           ) : (
             <div className="recurring-field">
               <span><Tags size={13} /> Danh mục</span>
-              <Select
+              <CategoryTreeSelect
                 value={draft.categoryId}
                 onValueChange={(categoryId) => onChange({ categoryId })}
                 label="Danh mục"
-                options={[{ value: "none", label: "Không chọn" }, ...categories.map((category) => ({ value: category.id, label: category.name }))]}
+                categories={categories}
+                emptyOption={{ value: "none", label: "Không chọn" }}
               />
             </div>
           )}
