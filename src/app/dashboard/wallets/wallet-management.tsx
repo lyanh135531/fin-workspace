@@ -6,12 +6,16 @@ import {
   ArrowLeftRight,
   CheckCircle2,
   Clock,
+  CircleDollarSign,
+  FileText,
+  Landmark,
   PauseCircle,
   Pencil,
   PlayCircle,
   Plus,
   Repeat2,
   Trash2,
+  TrendingUp,
   WalletCards,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -26,8 +30,16 @@ import { formatAmount } from "@/lib/format";
 import {
   Button,
   Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
   Empty,
   Input,
+  Label,
+  MoneyInput,
   PageHeader,
   Select,
   Sheet,
@@ -39,9 +51,8 @@ import {
   TabsCount,
   TabsList,
   TabsTrigger,
+  Textarea,
 } from "@/components/base";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 type WalletItem = {
@@ -61,26 +72,6 @@ type DestructiveWalletOperation = {
   kind: "deactivate" | "delete";
 };
 
-/* Deterministic gradient color generator based on wallet name */
-const WALLET_COLORS = [
-  "#FF5B3D",
-  "#1677B8",
-  "#7959C8",
-  "#2F7D5B",
-  "#334E8C",
-  "#E58EB3",
-  "#008E9B",
-  "#D6A53A",
-];
-
-function walletColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return WALLET_COLORS[Math.abs(hash) % WALLET_COLORS.length];
-}
-
 export function WalletManagement({
   workspace,
   wallets,
@@ -95,7 +86,7 @@ export function WalletManagement({
   const router = useRouter();
   const [creatingModal, setCreatingModal] = useState(false);
   const [createFundingType, setCreateFundingType] = useState<"transfer" | "income">("income");
-  const [createFundingAmount, setCreateFundingAmount] = useState("0");
+  const [createFundingAmount, setCreateFundingAmount] = useState("");
   const [createFundingWalletId, setCreateFundingWalletId] = useState("");
   const [editingWallet, setEditingWallet] = useState<WalletItem | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "deactive">("all");
@@ -115,9 +106,16 @@ export function WalletManagement({
   const createFundingAmountIsValid = (() => {
     try {
       const amount = new Decimal(createFundingAmount);
-      return amount.isFinite()
+      return createFundingAmount.trim() === "" || (amount.isFinite()
         && amount.decimalPlaces() <= 4
-        && (createFundingType === "transfer" ? amount.gt(0) : amount.gte(0));
+        && (createFundingType === "transfer" ? amount.gt(0) : amount.gte(0)));
+    } catch {
+      return false;
+    }
+  })();
+  const hasInitialFunding = (() => {
+    try {
+      return createFundingAmount.trim() !== "" && new Decimal(createFundingAmount).gt(0);
     } catch {
       return false;
     }
@@ -131,7 +129,7 @@ export function WalletManagement({
   function closeCreateSheet() {
     setCreatingModal(false);
     setCreateFundingType("income");
-    setCreateFundingAmount("0");
+    setCreateFundingAmount("");
     setCreateFundingWalletId("");
   }
 
@@ -143,7 +141,9 @@ export function WalletManagement({
       const result = await createManagedWalletAction({
         name: data.get("name"),
         description: data.get("description") || undefined,
-        funding: createFundingType === "income"
+        funding: !hasInitialFunding
+          ? undefined
+          : createFundingType === "income"
           ? { type: "income", amount: createFundingAmount }
           : {
               type: "transfer",
@@ -155,7 +155,7 @@ export function WalletManagement({
         toast.success("Đã tạo ví mới.");
         form.reset();
         setCreateFundingType("income");
-        setCreateFundingAmount("0");
+        setCreateFundingAmount("");
         setCreateFundingWalletId("");
         setCreatingModal(false);
         router.refresh();
@@ -176,7 +176,7 @@ export function WalletManagement({
         description: data.get("description"),
       });
       if (result.ok) {
-        toast.success("Đã cập nhật thông tin ví thành công!");
+        toast.success("Đã cập nhật thông tin ví.");
         setEditingWallet(null);
         router.refresh();
       } else {
@@ -245,11 +245,10 @@ export function WalletManagement({
   }
 
   return (
-    <div className="workspace-settings-container space-y-6">
-      {/* ── Page Header ── */}
+    <div className="space-y-6">
       <PageHeader
         title="Quản lý ví tài chính"
-        description="Theo dõi tài khoản ví, số dư và quản lý các phương thức thanh toán của bạn."
+        description={`Theo dõi số dư và trạng thái các ví trong ${workspace.name}.`}
       >
         {isAdmin && (
           <Button
@@ -264,172 +263,170 @@ export function WalletManagement({
         )}
       </PageHeader>
 
-      {/* ── KPI Summary Cards ── */}
-      <section className="wallet-kpi-grid" aria-label="Tổng quan ví">
-        {/* KPI 1: Tổng số dư */}
-        <Card as="article" className="wallet-kpi-card gap-0 py-0 flex items-center justify-between">
-          <div className="space-y-1 min-w-0">
-            <span className="text-xs font-semibold text-slate-500 block">Tổng số dư đang hoạt động</span>
-            <strong className="text-xl font-bold tracking-tight text-[var(--foreground)] block truncate tabular-nums">
-              {formatAmount(totalBalance)} {workspace.currency}
-            </strong>
-            <span className="text-[11px] text-slate-400 block">
-              Đã tính từ {activeCount} ví đang hoạt động
+      <Card as="section" className="gap-0 py-0" aria-label="Tổng quan tài sản">
+        <CardHeader className="border-b py-4">
+          <CardTitle>Tổng quan tài sản</CardTitle>
+          <CardDescription>Số liệu từ các ví đang hoạt động trong workspace</CardDescription>
+          <CardAction>
+            <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary" aria-hidden>
+              <WalletCards size={18} />
             </span>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="grid gap-6 py-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)] lg:items-end">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-[var(--text-secondary)]">Tổng số dư khả dụng</p>
+            <p className="mt-2 truncate text-3xl font-semibold tracking-tight text-[var(--foreground)] tabular-nums sm:text-4xl">
+              {formatAmount(totalBalance)} <span className="text-base font-medium text-[var(--text-secondary)]">{workspace.currency}</span>
+            </p>
+            <p className="mt-3 flex items-center gap-2 text-xs text-[var(--text-muted)]">
+              <span className="size-1.5 rounded-full bg-[var(--success)]" aria-hidden />
+              Cập nhật từ {activeCount} ví đang hoạt động
+            </p>
           </div>
-          <div className="wallet-kpi-icon bg-blue-500/10 text-blue-600 border border-blue-500/15 shrink-0 ml-3">
-            <WalletCards size={20} />
-          </div>
-        </Card>
 
-        {/* KPI 2: Số lượng ví */}
-        <Card as="article" className="wallet-kpi-card gap-0 py-0 flex items-center justify-between">
-          <div className="space-y-1 min-w-0">
-            <span className="text-xs font-semibold text-slate-500 block">Ví đang hoạt động</span>
-            <strong className="text-xl font-bold tracking-tight text-[var(--foreground)] block tabular-nums">
-              {activeCount} <span className="text-sm font-normal text-slate-400">/ {wallets.length} ví</span>
-            </strong>
-            <span className="text-[11px] text-slate-400 block flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-              {wallets.length - activeCount === 0 ? "Tất cả ví đều sẵn sàng" : `${wallets.length - activeCount} ví tạm ngưng`}
-            </span>
-          </div>
-          <div className="wallet-kpi-icon bg-emerald-500/10 text-emerald-600 border border-emerald-500/15 shrink-0 ml-3">
-            <CheckCircle2 size={20} />
-          </div>
-        </Card>
-
-        {/* KPI 3: Lượt giao dịch */}
-        <Card as="article" className="wallet-kpi-card gap-0 py-0 flex items-center justify-between">
-          <div className="space-y-1 min-w-0">
-            <span className="text-xs font-semibold text-slate-500 block">Lượt giao dịch liên quan</span>
-            <strong className="text-xl font-bold tracking-tight text-[var(--foreground)] block tabular-nums">
-              {transactionCount} <span className="text-sm font-normal text-slate-400">giao dịch</span>
-            </strong>
-            <span className="text-[11px] text-slate-400 block">
-              Tổng lượt ghi nhận qua các ví
-            </span>
-          </div>
-          <div className="wallet-kpi-icon bg-amber-500/10 text-amber-600 border border-amber-500/15 shrink-0 ml-3">
-            <ArrowLeftRight size={20} />
-          </div>
-        </Card>
-      </section>
-
-      {/* ── Status Filter ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 pb-1 border-b border-[var(--border)]">
-        {/* Status Filter Tabs */}
-        <Tabs
-          value={filterStatus}
-          onValueChange={(value) => setFilterStatus(value as "all" | "active" | "deactive")}
-        >
-          <TabsList>
-          <TabsTrigger value="all">
-            <span>Tất cả</span><TabsCount>{wallets.length}</TabsCount>
-          </TabsTrigger>
-          <TabsTrigger value="active">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-            <span>Đang hoạt động</span><TabsCount>{activeCount}</TabsCount>
-          </TabsTrigger>
-          {wallets.length - activeCount > 0 && (
-            <TabsTrigger value="deactive">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
-              <span>Tạm ngưng</span><TabsCount>{wallets.length - activeCount}</TabsCount>
-            </TabsTrigger>
-          )}
-          </TabsList>
-        </Tabs>
-
-      </div>
-
-      {/* ── Wallet Cards Grid ── */}
-      <section className="wallet-card-grid pt-1" aria-label="Danh sách ví">
-        {filteredWallets.map((wallet) => {
-          const color = walletColor(wallet.name);
-          const isActive = wallet.status === "active";
-          return (
-            <Card as="article" className="wallet-card-redesigned sunrise-card gap-0 p-5 space-y-4" key={wallet.id}>
-              {/* Header */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  {/* Gradient Icon Badge */}
-                  <span
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl font-bold shadow-inner"
-                    style={{
-                      background: `linear-gradient(135deg, ${color}22, ${color}11)`,
-                      color: color,
-                      border: `1px solid ${color}33`,
-                    }}
-                  >
-                    <WalletCards size={20} />
-                  </span>
-
-                  <div className="min-w-0">
-                    <h3 className="text-base font-bold text-[var(--foreground)] truncate">
-                      {wallet.name}
-                    </h3>
-                    <span
-                      className={
-                        isActive
-                          ? "wallet-card-badge wallet-card-badge-active mt-0.5"
-                          : "wallet-card-badge wallet-card-badge-deactive mt-0.5"
-                      }
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-500" : "bg-amber-500"}`} />
-                      {isActive ? "Đang hoạt động" : "Tạm ngưng"}
-                    </span>
-                  </div>
-                </div>
-
-                {isAdmin && (
-                  <Button
-                    type="button"
-                    variant="outline" size="icon" className="shrink-0"
-                    title={`Chỉnh sửa ${wallet.name}`}
-                    aria-label={`Chỉnh sửa ${wallet.name}`}
-                    onClick={() => setEditingWallet(wallet)}
-                  >
-                    <Pencil size={15} />
-                  </Button>
-                )}
-              </div>
-
-              {/* Balance Box */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3.5 space-y-1">
-                <span className="text-[11px] font-semibold text-slate-500 block uppercase tracking-wider">
-                  Số dư hiện tại
-                </span>
-                <strong className="text-xl font-bold tracking-tight text-[var(--foreground)] block tabular-nums">
-                  {formatAmount(wallet.currentBalance)} {workspace.currency}
-                </strong>
-                <span className="text-[11px] text-slate-400 block tabular-nums">
-                  Số dư đầu kỳ: {formatAmount(wallet.openingBalance)} {workspace.currency}
-                </span>
-              </div>
-
-              {/* Description */}
-              <p className="text-xs leading-relaxed text-slate-500 min-h-[2.5rem] line-clamp-2">
-                {wallet.description || "Chưa có mô tả cho ví này."}
+          <dl className="grid grid-cols-2 divide-x divide-[var(--border)] rounded-lg bg-[var(--surface-secondary)] py-4">
+            <div className="px-4">
+              <dt className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
+                <CheckCircle2 size={14} className="text-[var(--success)]" />
+                Trạng thái ví
+              </dt>
+              <dd className="mt-2 text-lg font-semibold text-[var(--foreground)] tabular-nums">
+                {activeCount}<span className="text-sm font-normal text-[var(--text-muted)]">/{wallets.length}</span>
+              </dd>
+              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                {wallets.length - activeCount === 0 ? "Tất cả đang hoạt động" : `${wallets.length - activeCount} ví tạm ngưng`}
               </p>
+            </div>
+            <div className="px-4">
+              <dt className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
+                <ArrowLeftRight size={14} className="text-primary" />
+                Giao dịch
+              </dt>
+              <dd className="mt-2 text-lg font-semibold text-[var(--foreground)] tabular-nums">{transactionCount}</dd>
+              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Lượt ghi nhận qua ví</p>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
 
-              {wallet.recurringTransactionCount > 0 && (
-                <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-600">
-                  <Repeat2 size={13} />
-                  {wallet.recurringTransactionCount} giao dịch định kỳ đang sử dụng
-                </p>
+      <section className="space-y-4" aria-labelledby="wallet-list-title">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 id="wallet-list-title" className="text-base font-semibold text-[var(--foreground)]">Danh sách ví</h2>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">Kiểm tra số dư, hoạt động và lịch sử của từng ví.</p>
+          </div>
+          <Tabs
+            value={filterStatus}
+            onValueChange={(value) => setFilterStatus(value as "all" | "active" | "deactive")}
+          >
+            <TabsList>
+              <TabsTrigger value="all">
+                <span>Tất cả</span>
+                <TabsCount>{wallets.length}</TabsCount>
+              </TabsTrigger>
+              <TabsTrigger value="active">
+                <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
+                <span>Đang hoạt động</span>
+                <TabsCount>{activeCount}</TabsCount>
+              </TabsTrigger>
+              {wallets.length - activeCount > 0 && (
+                <TabsTrigger value="deactive">
+                  <span className="inline-block size-1.5 rounded-full bg-amber-500" />
+                  <span>Tạm ngưng</span>
+                  <TabsCount>{wallets.length - activeCount}</TabsCount>
+                </TabsTrigger>
               )}
+            </TabsList>
+          </Tabs>
+        </div>
 
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-3 border-t border-[var(--border)] text-xs text-slate-400 font-medium">
-                <span>{wallet.transactionCount} giao dịch</span>
-                <span className="flex items-center gap-1 text-[11px]">
-                  <Clock size={12} />
-                  {new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" }).format(new Date(wallet.updatedAt))}
-                </span>
-              </div>
-            </Card>
-          );
-        })}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredWallets.map((wallet) => {
+            const isActive = wallet.status === "active";
+            return (
+              <Card
+                as="article"
+                className="gap-0 py-0 transition-transform duration-200 hover:-translate-y-0.5"
+                key={wallet.id}
+              >
+                <CardHeader className="border-b py-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary" aria-hidden>
+                      <WalletCards size={20} />
+                    </span>
+                    <div className="min-w-0">
+                      <CardTitle className="truncate">
+                        <h3>{wallet.name}</h3>
+                      </CardTitle>
+                      <CardDescription
+                        className={
+                          isActive
+                            ? "flex items-center gap-1.5 text-[var(--success)]"
+                            : "flex items-center gap-1.5 text-[var(--warning)]"
+                        }
+                      >
+                        <span
+                          className={
+                            isActive
+                              ? "size-1.5 rounded-full bg-[var(--success)]"
+                              : "size-1.5 rounded-full bg-[var(--warning)]"
+                          }
+                          aria-hidden
+                        />
+                        {isActive ? "Đang hoạt động" : "Tạm ngưng"}
+                      </CardDescription>
+                    </div>
+                  </div>
+                  {isAdmin && (
+                    <CardAction>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        title={`Chỉnh sửa ${wallet.name}`}
+                        aria-label={`Chỉnh sửa ${wallet.name}`}
+                        onClick={() => setEditingWallet(wallet)}
+                      >
+                        <Pencil size={15} />
+                      </Button>
+                    </CardAction>
+                  )}
+                </CardHeader>
+
+                <CardContent className="flex flex-1 flex-col gap-5 py-5">
+                  <div>
+                    <p className="text-xs font-medium text-[var(--text-secondary)]">Số dư hiện tại</p>
+                    <p className="mt-1 truncate text-2xl font-semibold tracking-tight text-[var(--foreground)] tabular-nums">
+                      {formatAmount(wallet.currentBalance)} {workspace.currency}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)] tabular-nums">
+                      Số dư đầu kỳ: {formatAmount(wallet.openingBalance)} {workspace.currency}
+                    </p>
+                  </div>
+
+                  <p className="min-h-10 text-sm leading-relaxed text-[var(--text-secondary)] line-clamp-2">
+                    {wallet.description || "Chưa có mô tả. Thêm ghi chú để thành viên dễ nhận diện ví này."}
+                  </p>
+
+                  {wallet.recurringTransactionCount > 0 && (
+                    <p className="flex items-center gap-2 rounded-lg bg-[var(--surface-secondary)] px-3 py-2 text-xs font-medium text-[var(--warning)]">
+                      <Repeat2 size={14} />
+                      {wallet.recurringTransactionCount} giao dịch định kỳ đang sử dụng
+                    </p>
+                  )}
+                </CardContent>
+
+                <CardFooter className="justify-between gap-3 text-xs text-[var(--text-muted)]">
+                  <span className="font-medium tabular-nums">{wallet.transactionCount} giao dịch</span>
+                  <span className="flex items-center gap-1 text-[11px]">
+                    <Clock size={12} />
+                    {new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" }).format(new Date(wallet.updatedAt))}
+                  </span>
+                </CardFooter>
+              </Card>
+            );
+          })}
 
         {/* Empty state */}
         {!filteredWallets.length && (
@@ -444,8 +441,15 @@ export function WalletManagement({
                   ? "Tạo ví đầu tiên để bắt đầu ghi nhận giao dịch tài chính cho workspace này."
                   : "Admin chưa khởi tạo ví cho workspace này."
             }
+            action={filterStatus === "all" && isAdmin ? (
+              <Button type="button" onClick={() => setCreatingModal(true)}>
+                <Plus size={16} />
+                Thêm ví đầu tiên
+              </Button>
+            ) : undefined}
           />
         )}
+        </div>
       </section>
 
       <Sheet
@@ -456,29 +460,28 @@ export function WalletManagement({
       >
         <SheetContent
           side="right"
-          className="w-full gap-0 overflow-y-auto p-6 sm:max-w-md"
+          className="w-full gap-0 border-l border-[var(--border)] bg-[var(--surface)] p-0 sm:max-w-lg"
         >
-          <form onSubmit={handleCreate} className="contents">
-            {/* Accent glow */}
-            <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-blue-500" />
-
-            <SheetHeader className="relative border-b border-border p-0 pb-3 pr-10">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/15">
-                  <WalletCards size={18} />
-                </div>
-                <div>
-                  <SheetTitle>Thêm ví mới</SheetTitle>
-                  <SheetDescription>Khởi tạo tài khoản ví cho workspace</SheetDescription>
+          <form onSubmit={handleCreate} className="flex h-full min-h-0 flex-col">
+            <SheetHeader className="border-b border-[var(--border)] bg-[var(--surface)] px-6 py-3.5 pr-14">
+              <div className="relative flex items-start gap-3.5">
+                <div className="min-w-0">
+                  <SheetTitle className="text-lg font-semibold tracking-tight">Tạo ví mới</SheetTitle>
+                  <SheetDescription className="mt-1 max-w-[34ch] text-xs leading-5">Đặt tên ví và thêm số dư ban đầu nếu cần.</SheetDescription>
                 </div>
               </div>
             </SheetHeader>
 
-            <div className="space-y-4 relative">
-              <div>
-                <Label className="text-xs font-bold text-[var(--foreground)] mb-1 block">
-                  Tên ví <span className="text-rose-500">*</span>
-                </Label>
+            <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-6">
+              <section aria-labelledby="wallet-details-heading" className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="grid size-6 place-items-center rounded-md bg-primary/10 text-primary"><FileText size={14} /></span>
+                  <h3 id="wallet-details-heading" className="text-sm font-semibold text-[var(--foreground)]">Thông tin ví</h3>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-[var(--foreground)]">
+                    Tên ví <span className="text-destructive">*</span>
+                  </Label>
                 <Input
                   id="create-name"
                   name="name"
@@ -486,44 +489,66 @@ export function WalletManagement({
                   maxLength={120}
                   autoFocus
                   placeholder="Tiền mặt, Ngân hàng VCB..."
-                  className="w-full text-sm font-medium"
+                  className="h-10 w-full bg-[var(--surface)] text-sm font-medium"
                 />
               </div>
-
-              <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3.5">
-                <div>
-                  <Label className="text-xs font-bold text-[var(--foreground)]">
-                    Cập nhật số dư sau khi tạo
-                  </Label>
-                  <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                    Số dư khởi tạo luôn là 0. Khoản tiền đầu tiên sẽ được ghi thành giao dịch trong Sổ giao dịch.
-                  </p>
-                </div>
-                <Select
-                  value={createFundingType}
-                  onValueChange={(value) => {
-                    const nextType = value as "transfer" | "income";
-                    setCreateFundingType(nextType);
-                    if (nextType === "transfer" && !createFundingWalletId) {
-                      setCreateFundingWalletId(activeWallets[0]?.id ?? "");
-                    }
-                  }}
-                  label="Cách cập nhật số dư"
-                  className="w-full"
-                  options={[
-                    { value: "income", label: "Tạo giao dịch thu nhập" },
-                    { value: "transfer", label: "Chuyển từ ví khác", disabled: activeWallets.length === 0 },
-                  ]}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[var(--foreground)]">Ghi chú <span className="font-normal text-[var(--text-muted)]">(tuỳ chọn)</span></Label>
+                <Textarea
+                  id="create-desc"
+                  name="description"
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="Ví này được dùng cho việc gì?"
+                  className="w-full resize-none bg-[var(--surface)] text-sm"
                 />
-                <div className="space-y-3 border-t border-[var(--border)] pt-3">
-                  {createFundingType === "transfer" && (
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-[var(--foreground)]">Ví chuyển tiền</Label>
+              </div>
+              </section>
+
+              <section aria-labelledby="initial-balance-heading" className="overflow-hidden rounded-2xl border border-primary/15 bg-primary/[0.035]">
+                <div className="flex gap-3 border-b border-primary/10 px-4 py-4">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><CircleDollarSign size={18} /></span>
+                  <div>
+                    <h3 id="initial-balance-heading" className="text-sm font-semibold text-[var(--foreground)]">Số dư ban đầu</h3>
+                    <p className="mt-0.5 text-xs leading-5 text-[var(--text-secondary)]">Không bắt buộc. Để trống nếu bạn chỉ muốn tạo ví trống.</p>
+                  </div>
+                </div>
+                <div className="space-y-4 p-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-[var(--foreground)]">Số tiền</Label>
+                    <div className="relative">
+                      <MoneyInput
+                        id="create-funding-amount"
+                        name="fundingAmount"
+                        value={createFundingAmount}
+                        onValueChange={setCreateFundingAmount}
+                        placeholder="Để trống nếu chưa có số dư"
+                        className="h-11 bg-[var(--surface)] text-base font-semibold"
+                      />
+                    </div>
+                  </div>
+                  {hasInitialFunding && (
+                    <>
+                      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Nguồn số dư ban đầu">
+                        <button type="button" role="radio" aria-checked={createFundingType === "income"} onClick={() => setCreateFundingType("income")} className={createFundingType === "income" ? "rounded-xl border border-primary bg-primary/10 px-3 py-3 text-left text-primary transition-colors" : "rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-left text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-secondary)]"}>
+                          <TrendingUp size={16} />
+                          <span className="mt-2 block text-xs font-semibold">Tiền có sẵn</span>
+                          <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Tạo giao dịch thu</span>
+                        </button>
+                        <button type="button" role="radio" aria-checked={createFundingType === "transfer"} disabled={activeWallets.length === 0} onClick={() => { setCreateFundingType("transfer"); if (!createFundingWalletId) setCreateFundingWalletId(activeWallets[0]?.id ?? ""); }} className={createFundingType === "transfer" ? "rounded-xl border border-primary bg-primary/10 px-3 py-3 text-left text-primary transition-colors disabled:cursor-not-allowed disabled:opacity-50" : "rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-left text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-secondary)] disabled:cursor-not-allowed disabled:opacity-50"}>
+                          <Landmark size={16} />
+                          <span className="mt-2 block text-xs font-semibold">Chuyển từ ví</span>
+                          <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Dịch chuyển số dư</span>
+                        </button>
+                      </div>
+                      {createFundingType === "transfer" && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-[var(--foreground)]">Ví nguồn</Label>
                       <Select
                         value={createFundingWalletId}
                         onValueChange={setCreateFundingWalletId}
                         label="Chọn ví chuyển tiền"
-                        className="w-full"
+                        className="h-10 w-full bg-[var(--surface)]"
                         options={activeWallets.map((wallet) => ({
                           value: wallet.id,
                           label: `${wallet.name} · ${formatAmount(wallet.currentBalance)} ${workspace.currency}`,
@@ -531,46 +556,14 @@ export function WalletManagement({
                       />
                     </div>
                   )}
-                  <div>
-                    <Label className="mb-1 block text-xs font-bold text-[var(--foreground)]">
-                      Số tiền <span className="text-rose-500">*</span>
-                    </Label>
-                    <Input
-                      id="create-funding-amount"
-                      name="fundingAmount"
-                      required
-                      inputMode="decimal"
-                      value={createFundingAmount}
-                      onChange={(event) => setCreateFundingAmount(event.target.value)}
-                      placeholder="0"
-                      className="w-full text-sm font-semibold tabular-nums"
-                    />
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-slate-500">
-                    {createFundingType === "income"
-                      ? "Nhập 0 để chỉ tạo ví. Giá trị lớn hơn 0 sẽ tạo giao dịch thu nhập đã ghi nhận."
-                      : "Chuyển khoản yêu cầu số tiền lớn hơn 0 và sẽ được ghi nhận ngay trong Sổ giao dịch."}
-                  </p>
+                      <p className="flex gap-2 rounded-lg bg-[var(--surface)] px-3 py-2.5 text-[11px] leading-4 text-[var(--text-secondary)]"><ArrowLeftRight size={14} className="mt-0.5 shrink-0 text-primary" />{createFundingType === "income" ? "Một giao dịch thu nhập sẽ được tạo và ghi nhận ngay sau khi tạo ví." : "Một giao dịch chuyển tiền giữa hai ví sẽ được tạo và ghi nhận ngay."}</p>
+                    </>
+                  )}
                 </div>
-              </div>
-
-              <div>
-                <Label className="text-xs font-bold text-[var(--foreground)] mb-1 block">
-                  Mô tả ví <span className="text-slate-400 font-normal lowercase">(tùy chọn)</span>
-                </Label>
-                <Textarea
-                  id="create-desc"
-                  name="description"
-                  rows={3}
-                  maxLength={2000}
-                  placeholder="Mục đích sử dụng của ví..."
-                  className="settings-textarea w-full text-sm resize-none"
-                />
-              </div>
-
+              </section>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)] relative">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-6 py-4">
               <Button
                 type="button"
                 variant="outline" size="default"
@@ -601,85 +594,114 @@ export function WalletManagement({
       >
         <SheetContent
           side="right"
-          className="w-full gap-0 overflow-y-auto p-6 sm:max-w-md"
+          className="w-full gap-0 border-l border-[var(--border)] bg-[var(--surface)] p-0 sm:max-w-lg"
         >
-          {/* Accent glow */}
-          <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-amber-500" />
-
-          <SheetHeader className="relative border-b border-border p-0 pb-3 pr-10">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/15">
-                <Pencil size={18} />
-              </div>
-              <div>
-                <SheetTitle>Chỉnh sửa ví</SheetTitle>
-                <SheetDescription>{editingWallet?.name ?? "Thông tin ví"}</SheetDescription>
+          <SheetHeader className="border-b border-[var(--border)] bg-[var(--surface)] px-6 py-3.5 pr-14">
+            <div className="relative flex items-start gap-3.5">
+              <div className="min-w-0">
+                <SheetTitle className="text-lg font-semibold tracking-tight">Chỉnh sửa ví</SheetTitle>
+                <SheetDescription className="mt-1 truncate text-xs leading-5">{editingWallet?.name ?? "Cập nhật thông tin ví"}</SheetDescription>
               </div>
             </div>
           </SheetHeader>
 
           {editingWallet && (
-          <form onSubmit={handleUpdate} className="contents">
-            <div className="space-y-4 relative">
-              <div>
-                <Label className="text-xs font-bold text-[var(--foreground)] mb-1 block">
-                  Tên ví <span className="text-rose-500">*</span>
-                </Label>
-                <Input
-                  id="edit-name"
-                  name="name"
-                  required
-                  maxLength={120}
-                  defaultValue={editingWallet.name}
-                  className="w-full text-sm font-medium"
-                />
-              </div>
+          <form onSubmit={handleUpdate} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
+              <section aria-label="Tóm tắt ví" className="flex items-center justify-between gap-4 rounded-2xl bg-[var(--surface-secondary)] px-4 py-3.5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface)] text-primary shadow-sm"><WalletCards size={18} /></span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[var(--foreground)]">{editingWallet.name}</p>
+                    <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Ví đang được chỉnh sửa</p>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">Số dư</p>
+                  <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--foreground)]">{formatAmount(editingWallet.currentBalance)} <span className="text-[11px] font-medium text-[var(--text-muted)]">{workspace.currency}</span></p>
+                </div>
+              </section>
 
-              <div>
-                <Label className="text-xs font-bold text-[var(--foreground)] mb-1 block">
-                  Mô tả ví <span className="text-slate-400 font-normal lowercase">(tùy chọn)</span>
-                </Label>
-                <Textarea
-                  id="edit-desc"
-                  name="description"
-                  rows={3}
-                  maxLength={2000}
-                  defaultValue={editingWallet.description ?? ""}
-                  placeholder="Mục đích sử dụng của ví..."
-                  className="settings-textarea w-full text-sm resize-none"
-                />
-              </div>
+              <section className="space-y-4" aria-labelledby="edit-wallet-details-heading">
+                <div>
+                  <h3 id="edit-wallet-details-heading" className="text-sm font-semibold text-[var(--foreground)]">Thông tin cơ bản</h3>
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">Thay đổi tên hoặc ghi chú để thành viên dễ nhận diện ví.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-[var(--foreground)]">
+                    Tên ví <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="edit-name"
+                    name="name"
+                    required
+                    maxLength={120}
+                    defaultValue={editingWallet.name}
+                    className="h-10 w-full bg-[var(--surface)] text-sm font-medium"
+                  />
+                </div>
 
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3.5">
-                <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-[var(--foreground)]">
+                    Ghi chú <span className="font-normal text-[var(--text-muted)]">(tuỳ chọn)</span>
+                  </Label>
+                  <Textarea
+                    id="edit-desc"
+                    name="description"
+                    rows={3}
+                    maxLength={2000}
+                    defaultValue={editingWallet.description ?? ""}
+                    placeholder="Ví này được dùng cho việc gì?"
+                    className="w-full resize-none bg-[var(--surface)] text-sm"
+                  />
+                </div>
+              </section>
+
+              <section aria-labelledby="wallet-status-heading" className="overflow-hidden rounded-2xl border border-[var(--border)]">
+                <div className="flex items-start justify-between gap-4 px-4 py-4">
                   <div>
-                    <p className="text-xs font-bold text-[var(--foreground)]">Trạng thái và xóa ví</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                      Ví tạm ngưng không thể dùng cho giao dịch mới. Chỉ ví đã tạm ngưng mới có thể xóa.
+                    <h3 id="wallet-status-heading" className="text-sm font-semibold text-[var(--foreground)]">Trạng thái hoạt động</h3>
+                    <p className="mt-1 max-w-[30ch] text-xs leading-5 text-[var(--text-secondary)]">
+                      {editingWallet.status === "active"
+                        ? "Ví đang dùng được cho giao dịch mới. Bạn có thể tạm ngưng khi không còn sử dụng."
+                        : "Ví này không thể dùng cho giao dịch mới. Bạn có thể kích hoạt lại bất cứ lúc nào."}
                     </p>
                   </div>
-                  <span className={editingWallet.status === "active" ? "wallet-card-badge wallet-card-badge-active" : "wallet-card-badge wallet-card-badge-deactive"}>
+                  <span
+                    className={
+                      editingWallet.status === "active"
+                        ? "flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--success)]/10 px-2.5 py-1 text-xs font-medium text-[var(--success)]"
+                        : "flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--warning)]/10 px-2.5 py-1 text-xs font-medium text-[var(--warning)]"
+                    }
+                  >
+                    <span
+                      className={
+                        editingWallet.status === "active"
+                          ? "size-1.5 rounded-full bg-[var(--success)]"
+                          : "size-1.5 rounded-full bg-[var(--warning)]"
+                      }
+                      aria-hidden
+                    />
                     {editingWallet.status === "active" ? "Hoạt động" : "Tạm ngưng"}
                   </span>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="border-t border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-3">
                   {editingWallet.status === "active" ? (
                     <Button
                       type="button"
-                      variant="outline"
-                      size="default"
+                      variant="destructive"
+                      className="w-full justify-center"
                       disabled={pending}
                       onClick={() => requestDestructiveOperation(editingWallet, "deactivate")}
                     >
                       <PauseCircle size={15} />
-                      Tạm ngưng
+                      Tạm ngưng ví này
                     </Button>
                   ) : (
-                    <>
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         type="button"
-                        variant="outline"
-                        size="default"
+                        variant="default"
                         disabled={pending}
                         onClick={() => activateWallet(editingWallet)}
                       >
@@ -696,13 +718,13 @@ export function WalletManagement({
                         <Trash2 size={15} />
                         Xóa ví
                       </Button>
-                    </>
+                    </div>
                   )}
                 </div>
-              </div>
+              </section>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)] relative">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-6 py-4">
               <Button
                 type="button"
                 variant="outline" size="default"
@@ -851,7 +873,7 @@ export function WalletManagement({
               </Button>
               <Button
                 type="button"
-                variant={confirmOperation.kind === "delete" ? "destructive" : "default"}
+                variant="destructive"
                 disabled={pending || (requiresSettlement && !settlementWalletId)}
                 onClick={confirmDestructiveOperation}
               >

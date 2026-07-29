@@ -14,7 +14,7 @@ import {
 } from "@/app/dashboard/actions";
 import { formatAmount } from "@/lib/format";
 import { Textarea } from "@/components/ui/textarea";
-import { Button, Card, Empty, Input, Search, Select } from "@/components/base";
+import { Button, Card, Empty, Input, MoneyInput, Search, Select } from "@/components/base";
 import { toast } from "sonner";
 
 
@@ -516,7 +516,7 @@ function DraftRow({ mode, draft, wallets, categories, canApprove, busy, disabled
     <td><Select disabled={disabled || busy || !categoryOptions.length} value={draft.categoryId} onValueChange={(categoryId) => onChange({ categoryId })} label="Danh mục" options={categoryOptions}/></td>
     <td><div className="ledger-wallet-fields"><Select disabled={disabled || busy || !wallets.length} value={draft.walletId} onValueChange={(walletId) => onChange({ walletId, toWalletId: draft.toWalletId === walletId ? defaultDestination(wallets, walletId) : draft.toWalletId })} label="Ví thực hiện" options={wallets.map((item) => ({ value: item.id, label: item.name }))}/>{draft.type === "transfer" && <Select disabled={disabled || busy || !wallets.length} value={draft.toWalletId} onValueChange={(toWalletId) => onChange({ toWalletId })} label="Ví nhận" options={wallets.map((item) => ({ value: item.id, label: item.name, disabled: item.id === draft.walletId }))}/>}</div></td>
     <td><Input disabled={disabled || busy} className="ledger-cell-input ledger-date-input" type="date" value={draft.date} onChange={(event) => onChange({ date: event.target.value })} aria-label="Ngày giao dịch"/></td>
-    <td><Input disabled={disabled || busy} className="ledger-cell-input ledger-amount-input" inputMode="decimal" value={draft.amount} onChange={(event) => onChange({ amount: event.target.value })} placeholder="0" aria-label="Số tiền"/></td>
+    <td><MoneyInput disabled={disabled || busy} className="ledger-cell-input ledger-amount-input" value={draft.amount} onValueChange={(amount) => onChange({ amount })} placeholder="0" aria-label="Số tiền"/></td>
     <td>{mode === "create" ? <span className="status status-scheduled">Mới</span> : status}</td>
     <td>{mode === "create" ? <div className="ledger-row-actions"><Button variant="outline" size="icon" disabled={busy} onClick={onCancel} title="Hủy" aria-label="Hủy tạo giao dịch"><X size={14}/></Button><Button variant="default" size="icon" disabled={busy} onClick={onSave} title="Lưu" aria-label="Lưu giao dịch"><Check size={14}/></Button></div> : disabled ? <small className="ledger-change-pending">Không thể sửa</small> : "—"}</td>
   </tr>;
@@ -545,7 +545,7 @@ function MobileTransactionDraft({ mode, title, status, draft, wallets, categorie
     <div className="ledger-mobile-draft-heading"><div><strong>{mode === "create" ? "Giao dịch mới" : title}</strong><small>{disabled ? "Giao dịch đang có yêu cầu thay đổi chờ duyệt" : mode === "create" ? "Điền các thông tin cần thiết" : "Cập nhật thông tin giao dịch"}</small></div>{mode === "create" ? <span className="status status-scheduled">Mới</span> : status}</div>
     <div className="ledger-mobile-draft-grid">
       <div className="quick-field">Loại giao dịch<Select disabled={locked} value={draft.type} onValueChange={(value) => { const type = value as TransactionType; onChange({ type, toWalletId: type === "transfer" ? draft.toWalletId || defaultDestination(wallets, draft.walletId) : draft.toWalletId }); }} label="Loại giao dịch" options={typeOptions.map((option) => ({ ...option, disabled: option.value === "transfer" && wallets.length < 2 }))}/></div>
-      <label className="quick-field">Số tiền<Input autoFocus={mode === "create"} disabled={locked} inputMode="decimal" value={draft.amount} onChange={(event) => onChange({ amount: event.target.value })} placeholder="0"/></label>
+      <label className="quick-field">Số tiền<MoneyInput autoFocus={mode === "create"} disabled={locked} value={draft.amount} onValueChange={(amount) => onChange({ amount })} placeholder="0"/></label>
       <div className="quick-field">Ví thực hiện<Select disabled={locked} value={draft.walletId} onValueChange={(walletId) => onChange({ walletId, toWalletId: draft.toWalletId === walletId ? defaultDestination(wallets, walletId) : draft.toWalletId })} label="Ví thực hiện" options={wallets.map((item) => ({ value: item.id, label: item.name }))}/></div>
       {draft.type === "transfer" && <div className="quick-field">Ví nhận<Select disabled={locked} value={draft.toWalletId} onValueChange={(toWalletId) => onChange({ toWalletId })} label="Ví nhận" options={wallets.map((item) => ({ value: item.id, label: item.name, disabled: item.id === draft.walletId }))}/></div>}
       {draft.type !== "transfer" && <div className="quick-field">Danh mục<Select disabled={locked} value={draft.categoryId} onValueChange={(categoryId) => onChange({ categoryId })} label="Danh mục" options={[{ value: "none", label: "Không chọn" }, ...categories.map((item) => ({ value: item.id, label: item.name }))]}/></div>}

@@ -25,6 +25,7 @@ import {
   Card,
   Empty,
   Input,
+  MoneyInput,
   PageHeader,
   Search,
   Select,
@@ -576,11 +577,9 @@ function RecurringEditor({
         </div>
         <div className="recurring-field">
           <span>Số tiền</span>
-          <Input
-            
-            inputMode="decimal"
+          <MoneyInput
             value={draft.amount}
-            onChange={(event) => onChange({ amount: event.target.value })}
+            onValueChange={(amount) => onChange({ amount })}
             placeholder="0"
           />
         </div>

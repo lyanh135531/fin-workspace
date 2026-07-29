@@ -16,6 +16,7 @@ import {
   Button,
   Empty,
   Input,
+  MoneyInput,
   Select,
   Sheet,
   SheetContent,
@@ -176,7 +177,6 @@ export function QuickTransactionSheet({
     : date < workspace.businessDate && !isAdminRole(workspace.role)
       ? "Giao dịch quá khứ sẽ chờ Admin duyệt."
       : "Giao dịch sẽ được ghi nhận ngay.";
-  const currencyLabel = workspace.currency === "VND" ? "₫" : workspace.currency;
   const transferDisabled = workspace.wallets.length < 2;
 
   return (
@@ -249,15 +249,13 @@ export function QuickTransactionSheet({
               <label className="quick-amount-field">
                 <span>Số tiền</span>
                 <div>
-                  <Input
+                  <MoneyInput
                     autoFocus
-                    inputMode="decimal"
                     value={amount}
-                    onChange={(event) => setAmount(event.target.value)}
+                    onValueChange={setAmount}
                     placeholder="0"
                     aria-label="Số tiền giao dịch"
                   />
-                  <strong>{currencyLabel}</strong>
                 </div>
               </label>
 

@@ -1,79 +1,98 @@
-### HƯỚNG DẪN PHÁT TRIỂN DÀNH CHO AI AGENT (AGENTS.MD)
+# Fin Workspace — Quy ước bắt buộc cho Agent
 
-##### 1\. Giới thiệu và Mục tiêu
+> **Bắt buộc đọc tài liệu này trước khi phân tích, tạo hoặc chỉnh sửa bất kỳ file nào trong repository.**
+> Nếu yêu cầu của người dùng mâu thuẫn với tài liệu này, ưu tiên yêu cầu của người dùng và nêu rõ tác động trước khi thực hiện.
 
-Tài liệu này là bộ quy chuẩn kỹ thuật  **bắt buộc**  dành cho mọi AI Agent và kỹ sư phần mềm khi tham gia phát triển dự án Fin Workspace. Mục tiêu tối thượng là đảm bảo tính toàn vẹn tuyệt đối của dữ liệu tài chính thông qua việc kiểm soát chặt chẽ logic tính toán, phân quyền và cấu trúc mã nguồn. Mọi đề xuất mã nguồn (code suggestions) không tuân thủ các nguyên tắc này sẽ bị coi là lỗi nghiêm trọng.
+## 1. Nguyên tắc làm việc
 
-##### 2\. Nguyên tắc Cốt lõi về Tài chính (Financial Integrity)
+- Chỉ thay đổi những phần cần thiết cho yêu cầu. Không refactor hoặc đổi style diện rộng khi chưa được yêu cầu.
+- Bảo toàn thay đổi hiện có của người khác trong working tree.
+- Kiểm tra các component, token và convention hiện có trước khi tạo mới.
+- Sau thay đổi, chạy kiểm tra phù hợp với phạm vi thay đổi (typecheck, lint hoặc test) khi môi trường hỗ trợ.
 
-Để duy trì độ chính xác cấp độ ngân hàng, các quy tắc sau phải được thực thi không ngoại lệ:
+## 2. Quy chuẩn UI bắt buộc
 
-* **Độ chính xác số thực:**  
-* Toàn bộ các trường tiền tệ bao gồm amount, opening\_balance, và current\_balance  **phải**  sử dụng kiểu dữ liệu numeric(20,4) trong database.  
-* Trong mã nguồn (Next.js),  **nghiêm cấm**  sử dụng kiểu number hoặc float để tính toán.  
-* **Bắt buộc**  sử dụng thư viện Decimal.js. Yêu cầu AI Agent sử dụng Zod .transform() để chuyển đổi dữ liệu đầu vào thành đối tượng Decimal ngay tại tầng validation.  
-* **Tính cô lập (Workspace Isolation):**  
-* Dữ liệu giữa các Workspace là tuyệt đối biệt lập.  
-* Lưu ý: Bảng WALLETS không chứa trực tiếp workspace\_id. Khi truy vấn ví,  **phải**  thực hiện join thông qua bảng trung gian WORKSPACE\_WALLET để xác thực quyền sở hữu của Workspace hiện hành.  
-* **Giao dịch nguyên tử (Atomic Transactions):**  
-* Mọi hoạt động thay đổi số dư (current\_balance) và ghi log giao dịch (TRANSACTION)  **phải**  được bọc trong Prisma $transaction.
+Giao diện của dự án dựa trên **shadcn/ui + Tailwind CSS**. Mọi thay đổi UI phải tuân theo các quy tắc sau.
 
-##### 3\. Kiến trúc Hệ thống Phân lớp (Layered Architecture)
+### 2.1 Ưu tiên component base
 
-Dự án tuân thủ mô hình phân lớp nghiêm ngặt trong Next.js để tách biệt trách nhiệm:
+- Luôn dùng component trong `src/components/base/` cho các primitive có sẵn: `Button`, `Card`, `Input`, `Select`, `Tabs`, `Sheet`, `PageHeader`, v.v.
+- Không tự tạo lại button, card, input, select, dialog hoặc primitive tương đương khi component base đã đáp ứng được nhu cầu.
+- Dùng đúng API có sẵn của component, ví dụ `Button variant="destructive"`, thay vì mô phỏng bằng class Tailwind tự viết.
 
-1. **Domain Layer:**  Định nghĩa Zod Schemas và Prisma Types. Đây là "nguồn sự thật" duy nhất về cấu trúc dữ liệu.  
-2. **Services Layer:**   **Nơi duy nhất**  được phép chứa logic tính toán tài chính và cập nhật số dư. Nghiêm cấm đặt logic cập nhật số dư tại Server Actions hoặc UI Components.  
-3. **Server Actions Layer:**  Tiếp nhận Request, xác thực Role-based Access Control (RBAC) và gọi các hàm từ Services Layer.  
-4. **Lib/Utils Layer:**  Chứa các hàm định dạng (formatters) và helper dùng chung.
+### 2.2 Không tự custom base component khi không cần thiết
 
-##### 4\. Quy tắc Cơ sở Dữ liệu và Luồng Nghiệp vụ
+- Không thêm `border-*`, `bg-*`, `text-*`, `ring-*`, `shadow-*`, `rounded-*` vào `Button`, `Card` hoặc primitive base chỉ để thay đổi diện mạo mặc định.
+- Không override style của component base bằng CSS global, selector đặc biệt hoặc `!important`.
+- Chỉ custom khi có yêu cầu sản phẩm hoặc ngữ nghĩa rõ ràng mà variant hiện có không thể đáp ứng (ví dụ: banner trạng thái `warning`, khu vực cảnh báo có nội dung riêng).
+- Khi custom là cần thiết, giữ phạm vi ở component đang dùng; không sửa style nền tảng của toàn bộ ứng dụng nếu người dùng không yêu cầu.
+- Với `Card`, không thêm outer `border` hoặc màu nền riêng nếu không có lý do ngữ nghĩa. `Card` đã sở hữu quy tắc viền, nền và dark mode thống nhất.
 
-AI Agent cần đặc biệt lưu ý các logic nhánh dựa trên trạng thái và loại giao dịch.  
-**Bảng trạng thái WORKFLOW\_STATUS:**  
-| Trạng thái | Ý nghĩa | Hệ quả tài chính |  
-| \------ | \------ | \------ |  
-| pending | Đang chờ phê duyệt | Không thay đổi số dư ví. |  
-| approved | Đã phê duyệt | Bắt buộc cập nhật current\_balance. |  
-| rejected | Bị từ chối | Không thay đổi số dư, giữ nguyên lịch sử. |  
-**Logic xử lý theo TRANSACTION\_TYPE:**
+### 2.3 Bắt buộc dùng semantic design tokens
 
-* **income**  **(Thu nhập):**  Tăng current\_balance của wallet\_id.  
-* **expense**  **(Chi phí):**  Giảm current\_balance của wallet\_id.  
-* **transfer**  **(Chuyển khoản):**  
-* Yêu cầu bắt buộc có to\_wallet\_id.  
-* Sử dụng $transaction để đồng thời giảm current\_balance của wallet\_id (ví gửi) và tăng current\_balance của to\_wallet\_id (ví nhận).**Mối quan hệ nhân sự:**  
-* TRANSACTION.member\_id  **phải**  tham chiếu đến id của bảng WORKSPACE\_MEMBERS, không được nhầm lẫn với USERS.id.
+- Không tự thay đổi giá trị hoặc ý nghĩa của các CSS variable đã được thiết lập trong `src/app/globals.css` nếu không có yêu cầu rõ ràng từ người dùng.
+- Không dùng màu khóa cứng như `text-slate-900`, `text-slate-800`, `bg-white`, `border-slate-*` cho nội dung và bề mặt có thể xuất hiện ở dark mode.
+- Dùng semantic token hiện có, ưu tiên:
+  - Nội dung chính: `text-[var(--foreground)]`
+  - Nội dung phụ: `text-[var(--text-secondary)]`
+  - Nội dung mờ: `text-[var(--text-muted)]`
+  - Nền: `bg-[var(--surface)]`, `bg-[var(--surface-secondary)]`
+  - Viền / phân cách: `border-[var(--border)]`
+  - Trạng thái: `primary`, `destructive`, `success`, `warning` và các token tương ứng.
+- Trước khi thêm token mới hoặc đổi token gốc, xác nhận không có token semantic hiện hữu nào đáp ứng được yêu cầu.
 
-##### 5\. Phân quyền và Quy trình Phê duyệt (Authorization)
+### 2.4 Theo chuẩn shadcn/ui
 
-Mọi hành động nhạy cảm phải được kiểm tra qua vai trò (Role):
+- Variant, focus state, disabled state, hover state và dark mode phải bám theo quy ước shadcn/ui đang có trong project.
+- Với thao tác phá hủy dữ liệu, dùng `Button variant="destructive"`; không dùng nút đỏ tự custom.
+- Không biến destructive thành nền đỏ đặc nếu design system hiện tại quy định kiểu tinted (nền đỏ nhạt, chữ/icon đỏ).
+- Duy trì accessibility: label rõ ràng, `aria-label` cho icon-only button, focus-visible, độ tương phản đạt WCAG AA và trạng thái disabled dễ nhận biết.
 
-* **Member:**  Chỉ được tạo giao dịch ở trạng thái pending. Không được phép chỉnh sửa dữ liệu đã ở trạng thái approved.  
-* **Admin:**  Có quyền chuyển đổi trạng thái giao dịch (approved/rejected).  
-* **Kiểm tra Danh mục (Category):**  Khi gán category\_id vào giao dịch, Agent phải kiểm tra: Category đó thuộc về workspace\_id hiện tại HOẶC là Category hệ thống (có workspace\_id là null).
+### 2.5 Checklist UI trước khi hoàn tất
 
-##### 6\. Tech Stack và Tiêu chuẩn Code
+- [ ] Đã kiểm tra `src/components/base/` trước khi tạo UI mới.
+- [ ] Đã dùng component base và variant hiện có khi phù hợp.
+- [ ] Không có màu, border, background hoặc shadow khóa cứng làm hỏng dark mode.
+- [ ] Không override token CSS hoặc style mặc định nếu không thật sự cần.
+- [ ] Các thao tác destructive dùng đúng variant shadcn.
+- [ ] Đã kiểm tra light mode và dark mode đối với phần UI chỉnh sửa.
 
-Thành phần,Công nghệ,Tiêu chuẩn áp dụng  
-Framework,Next.js,"App Router, Server Actions."  
-ORM,Prisma,Luôn sử dụng transactions cho đa bảng.  
-Số thực,Decimal.js,"numeric(20,4)."  
-Validation,Zod,Schema-first validation.  
-UI/Styling,"Shadcn/UI, Tailwind",Đảm bảo tính nhất quán giao diện.
+## 3. Kiến trúc hệ thống
 
-##### 7\. Chỉ dẫn Đặc biệt cho Agent (Cheat Sheet)
+1. **Domain layer:** định nghĩa Zod schema và Prisma type; là nguồn sự thật cho cấu trúc dữ liệu.
+2. **Services layer:** nơi duy nhất chứa nghiệp vụ tài chính và cập nhật số dư.
+3. **Server Actions layer:** nhận request, xác thực RBAC, gọi service và revalidate khi cần.
+4. **Lib/Utils layer:** formatter và helper dùng chung.
 
-**Khi thực hiện lập trình, hãy tuân thủ Checklist sau:**
+Không đưa logic nghiệp vụ hoặc cập nhật số dư vào UI component hay Server Action.
 
-* **Checklist Giao dịch:**  
-*  Xác thực member\_id thuộc về WORKSPACE\_MEMBERS.  
-*  Nếu type là transfer, đảm bảo to\_wallet\_id không trống và khác wallet\_id.  
-*  Kiểm tra category\_id có hợp lệ cho workspace (null hoặc trùng workspace\_id).  
-* **Checklist Truy vấn:**  
-*  Luôn lọc theo workspace\_id thông qua WORKSPACE\_WALLET khi truy xuất WALLETS.  
-*  Không bao giờ trả về password\_hash của người dùng.  
-* **Checklist Cập nhật:**  
-*  Chỉ cập nhật current\_balance tại  **Service Layer** .  
-*  Sử dụng $transaction cho mọi hành động thay đổi số dư.  
-*  Luôn sử dụng Decimal.js cho mọi phép tính cộng, trừ, nhân, chia.
+## 4. Tính toàn vẹn dữ liệu tài chính
+
+- Các giá trị tiền tệ (`amount`, `opening_balance`, `current_balance`) dùng `numeric(20,4)` trong database và `Decimal.js` trong TypeScript. Không tính toán bằng `number` hoặc `float`.
+- Chuyển input tiền tệ sang `Decimal` tại validation layer bằng Zod transform.
+- Mọi thay đổi số dư và ghi giao dịch liên quan phải nằm trong `Prisma.$transaction`.
+- Dữ liệu workspace phải cô lập tuyệt đối. Khi truy vấn ví, kiểm tra quyền sở hữu qua `WORKSPACE_WALLET`; không suy diễn workspace từ `WALLETS`.
+- Không trả về `password_hash` hoặc dữ liệu nhạy cảm không cần thiết.
+
+## 5. Quy tắc giao dịch và phân quyền
+
+| Trạng thái | Hệ quả số dư |
+| --- | --- |
+| `pending` | Không thay đổi số dư. |
+| `approved` | Cập nhật `current_balance` theo loại giao dịch. |
+| `rejected` | Không thay đổi số dư; giữ lịch sử. |
+
+- `income`: tăng số dư ví.
+- `expense`: giảm số dư ví.
+- `transfer`: bắt buộc có `to_wallet_id`, khác `wallet_id`, và cập nhật hai ví trong một transaction.
+- `TRANSACTION.member_id` phải tham chiếu `WORKSPACE_MEMBERS.id`, không phải `USERS.id`.
+- Member chỉ tạo giao dịch `pending`; Admin mới được duyệt/từ chối hoặc xử lý thay đổi nhạy cảm.
+- Category của giao dịch phải thuộc workspace hiện tại hoặc là category hệ thống (`workspace_id = null`).
+
+## 6. Checklist backend trước khi hoàn tất
+
+- [ ] Đã validate input bằng schema thích hợp.
+- [ ] Đã kiểm tra session, role và quyền truy cập workspace.
+- [ ] Đã lọc dữ liệu theo workspace tại query/service layer.
+- [ ] Đã dùng `Decimal.js` cho mọi tính toán tiền tệ.
+- [ ] Đã dùng transaction cho mọi cập nhật số dư hoặc thay đổi đa bảng.
