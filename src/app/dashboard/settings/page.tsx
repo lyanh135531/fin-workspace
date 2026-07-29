@@ -23,6 +23,17 @@ export default async function SettingsPage({
   const membership = await prisma.workspaceMember.findFirst({ where: { userId: session.user.id, workspaceId, status: "active", deletedAt: null }, include: { workspace: true, role: true } });
   if (!membership) redirect("/overview");
 
+  let inviteCode = membership.workspace.inviteCode;
+  if (!/^\d{3}-\d{3}$/.test(inviteCode)) {
+    const num = Math.floor(100000 + Math.random() * 900000);
+    inviteCode = `${num.toString().slice(0, 3)}-${num.toString().slice(3)}`;
+    await prisma.workspace.update({
+      where: { id: workspaceId },
+      data: { inviteCode },
+    });
+    membership.workspace.inviteCode = inviteCode;
+  }
+
   const isAdmin = isAdminRole(membership.role.code);
 
   if (!isAdmin) redirect("/dashboard");

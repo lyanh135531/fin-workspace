@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings2, Trash2, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Trash2, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useState, useTransition } from "react";
 import { deleteWorkspaceAction, updateWorkspaceSettingsAction } from "@/app/dashboard/settings/actions";
 import { Button, Card, Input, Select } from "@/components/base";
@@ -79,16 +79,10 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
         
         <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-8 justify-between relative z-10">
           <div className="space-y-2 max-w-md">
-            <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-              Thiết lập cơ bản
-            </span>
             <h2 className="text-xl font-semibold tracking-tight text-slate-900">Thông tin chung</h2>
             <p className="text-xs leading-relaxed text-slate-500">
               Quản lý tên, mô tả và trạng thái hoạt động của workspace. Những thông tin này giúp các thành viên nhận diện nhóm dễ dàng hơn.
             </p>
-          </div>
-          <div className="hidden md:flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-400 ring-1 ring-slate-900/5 shrink-0">
-            <Settings2 size={20} strokeWidth={1.5} />
           </div>
         </div>
 

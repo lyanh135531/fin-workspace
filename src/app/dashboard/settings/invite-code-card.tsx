@@ -71,14 +71,14 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
             {formattedDisplay}
           </code>
           
-          <div className="flex items-center gap-2 shrink-0 bg-white rounded-lg p-1.5 ring-1 ring-slate-900/5 shadow-sm">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
               onClick={copy}
               title={copied ? "Đã sao chép" : "Sao chép mã mời"}
               aria-label={copied ? "Đã sao chép mã mời" : "Sao chép mã mời"}
-              className={`group relative flex h-8 w-8 items-center justify-center rounded-md transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.95] ${
-                copied ? "bg-emerald-50 text-emerald-600" : "hover:bg-slate-50 text-slate-500 hover:text-slate-900"
+              className={`group relative flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 active:scale-[0.9] ${
+                copied ? "bg-emerald-50 text-emerald-600" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
               }`}
             >
               {copied ? <Check size={16} strokeWidth={2.5} /> : <Copy size={16} />}
@@ -90,7 +90,7 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
               onClick={handleRegenerate}
               title="Đổi mã mới"
               aria-label="Đổi mã mới"
-              className="group relative flex h-8 w-8 items-center justify-center rounded-md hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.95]"
+              className="group relative flex h-8 w-8 items-center justify-center rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-all duration-200 active:scale-[0.9]"
             >
               <RefreshCw size={16} className={pending ? "animate-spin text-indigo-500" : ""} />
             </button>
