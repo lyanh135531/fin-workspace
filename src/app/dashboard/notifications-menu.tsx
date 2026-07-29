@@ -130,7 +130,7 @@ export function NotificationsMenu({
                 <article role="listitem" key={`join-${item.id}`} className="notification-join-request">
                   <p className="font-medium flex items-center gap-2"><UserPlus size={15}/> Yêu cầu tham gia workspace</p>
                   <p><strong>{item.username}</strong> đang chờ được cấp quyền thành viên.</p>
-                  <label className="notification-role-field">
+                  <div className="notification-role-field">
                     <span>Vai trò</span>
                     <Select
                       value={joinRoles[item.id] ?? defaultRoleCode}
@@ -139,7 +139,7 @@ export function NotificationsMenu({
                       label={`Vai trò cấp cho ${item.username}`}
                       options={roles.map((role) => ({ value: role.code, label: role.name }))}
                     />
-                  </label>
+                  </div>
                   <div>
                     <Button size="default" variant="outline" disabled={pending} onClick={() => reviewJoin(item.id, false)}>Từ chối</Button>
                     <Button size="default" variant="default" disabled={pending} onClick={() => reviewJoin(item.id, true)}>Duyệt thành viên</Button>

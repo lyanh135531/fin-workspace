@@ -96,7 +96,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
           <div className="grid gap-6">
           {/* Name — full width, prominent */}
           <div className="space-y-2">
-            <Label htmlFor="ws-name" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+            <Label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
               Tên workspace <span className="text-rose-500">*</span>
             </Label>
             <Input
@@ -110,7 +110,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
 
           {/* Status */}
           <div className="space-y-2">
-            <Label htmlFor="ws-status" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+            <Label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
               Trạng thái
             </Label>
             <Select
@@ -119,15 +119,31 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
               defaultValue={workspace.status}
               label="Trạng thái"
               options={[
-                { value: "active", label: "🟢 Đang hoạt động" },
-                { value: "deactive", label: "🟡 Tạm ngưng" },
+                {
+                  value: "active",
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span>Đang hoạt động</span>
+                    </span>
+                  ),
+                },
+                {
+                  value: "deactive",
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                      <span>Tạm ngưng</span>
+                    </span>
+                  ),
+                },
               ]}
             />
           </div>
 
           {/* Description with character hint */}
           <div className="space-y-2">
-            <Label htmlFor="ws-desc" className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+            <Label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
               Mô tả
             </Label>
             <Textarea
@@ -217,7 +233,7 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
             </p>
 
             <div className="space-y-1.5 relative">
-              <Label htmlFor="confirm-password-input" className="block text-xs font-bold text-[var(--foreground)]">
+              <Label className="block text-xs font-bold text-[var(--foreground)]">
                 Mật khẩu tài khoản <span className="text-rose-500">*</span>
               </Label>
               <Input

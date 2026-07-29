@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 
 export type SelectOption = {
   value: string
-  label: string
+  label: React.ReactNode
   disabled?: boolean
 }
 

@@ -486,8 +486,8 @@ function RecurringEditor({
       aria-label={mode === "create" ? "Tạo giao dịch định kỳ" : "Chỉnh sửa giao dịch định kỳ"}
     >
       <div className="recurring-editor-grid">
-        <label className="recurring-field recurring-field-wide">
-          Nội dung
+        <div className="recurring-field recurring-field-wide">
+          <span>Nội dung</span>
           <Input
             autoFocus
             
@@ -496,8 +496,8 @@ function RecurringEditor({
             placeholder="Lương tháng, tiền thuê nhà"
             maxLength={2_000}
           />
-        </label>
-        <label className="recurring-field">
+        </div>
+        <div className="recurring-field">
           Loại giao dịch
           <Select
             value={draft.type}
@@ -508,8 +508,8 @@ function RecurringEditor({
               disabled: option.value === "transfer" && wallets.length < 2,
             }))}
           />
-        </label>
-        <label className="recurring-field">
+        </div>
+        <div className="recurring-field">
           Danh mục
           <Select
             value={draft.categoryId}
@@ -520,8 +520,8 @@ function RecurringEditor({
               ...categories.map((category) => ({ value: category.id, label: category.name })),
             ]}
           />
-        </label>
-        <label className="recurring-field">
+        </div>
+        <div className="recurring-field">
           Ví thực hiện
           <Select
             value={draft.walletId}
@@ -534,9 +534,9 @@ function RecurringEditor({
             label="Ví thực hiện"
             options={wallets.map((wallet) => ({ value: wallet.id, label: wallet.name }))}
           />
-        </label>
+        </div>
         {draft.type === "transfer" && (
-          <label className="recurring-field">
+          <div className="recurring-field">
             Ví nhận
             <Select
               value={draft.toWalletId}
@@ -548,7 +548,7 @@ function RecurringEditor({
                 disabled: wallet.id === draft.walletId,
               }))}
             />
-          </label>
+          </div>
         )}
         <div className="recurring-field">
           <span>Ngày bắt đầu</span>
@@ -574,8 +574,8 @@ function RecurringEditor({
           />
           <small>Để trống nếu muốn lịch chạy không giới hạn.</small>
         </div>
-        <label className="recurring-field">
-          Số tiền
+        <div className="recurring-field">
+          <span>Số tiền</span>
           <Input
             
             inputMode="decimal"
@@ -583,7 +583,7 @@ function RecurringEditor({
             onChange={(event) => onChange({ amount: event.target.value })}
             placeholder="0"
           />
-        </label>
+        </div>
       </div>
       <div className="recurring-editor-footer">
         <p>Giao dịch đến hạn được ghi nhận ngay, không qua bước phê duyệt.</p>

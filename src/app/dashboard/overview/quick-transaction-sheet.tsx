@@ -263,7 +263,7 @@ export function QuickTransactionSheet({
 
               {workspace.wallets.length ? (
                 <div className="quick-transaction-grid">
-                  <label className="quick-field">
+                  <div className="quick-field">
                     <span>{type === "transfer" ? "Ví gửi" : "Ví"}</span>
                     <Select
                       value={walletId}
@@ -279,10 +279,10 @@ export function QuickTransactionSheet({
                         label: wallet.name,
                       }))}
                     />
-                  </label>
+                  </div>
 
                   {type === "transfer" ? (
-                    <label className="quick-field">
+                    <div className="quick-field">
                       <span>Ví nhận</span>
                       <Select
                         value={toWalletId}
@@ -294,9 +294,9 @@ export function QuickTransactionSheet({
                           disabled: wallet.id === walletId,
                         }))}
                       />
-                    </label>
+                    </div>
                   ) : (
-                    <label className="quick-field">
+                    <div className="quick-field">
                       <span>Danh mục</span>
                       <Select
                         value={categoryId}
@@ -310,7 +310,7 @@ export function QuickTransactionSheet({
                           })),
                         ]}
                       />
-                    </label>
+                    </div>
                   )}
                 </div>
               ) : (

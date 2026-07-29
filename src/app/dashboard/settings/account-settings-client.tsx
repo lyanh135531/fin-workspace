@@ -129,7 +129,7 @@ export function AccountSettingsClient({
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-3.5">
           {/* Current Password */}
           <div className="space-y-1.5">
-            <Label className="block text-xs font-semibold text-[var(--text-secondary)]" htmlFor="currentPassword">
+            <Label className="block text-xs font-semibold text-[var(--text-secondary)]">
               Mật khẩu hiện tại <span className="text-rose-500">*</span>
             </Label>
             <div className="relative">
@@ -156,7 +156,7 @@ export function AccountSettingsClient({
 
           {/* New Password */}
           <div className="space-y-1.5">
-            <Label className="block text-xs font-semibold text-[var(--text-secondary)]" htmlFor="newPassword">
+            <Label className="block text-xs font-semibold text-[var(--text-secondary)]">
               Mật khẩu mới <span className="text-rose-500">*</span>
             </Label>
             <div className="relative">
@@ -203,7 +203,7 @@ export function AccountSettingsClient({
 
           {/* Confirm New Password */}
           <div className="space-y-1.5">
-            <Label className="block text-xs font-semibold text-[var(--text-secondary)]" htmlFor="confirmPassword">
+            <Label className="block text-xs font-semibold text-[var(--text-secondary)]">
               Xác nhận mật khẩu mới <span className="text-rose-500">*</span>
             </Label>
             <div className="relative">

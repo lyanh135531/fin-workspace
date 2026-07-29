@@ -476,7 +476,7 @@ export function WalletManagement({
 
             <div className="space-y-4 relative">
               <div>
-                <Label htmlFor="create-name" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
+                <Label className="text-xs font-bold text-[var(--foreground)] mb-1 block">
                   Tên ví <span className="text-rose-500">*</span>
                 </Label>
                 <Input
@@ -532,7 +532,7 @@ export function WalletManagement({
                     </div>
                   )}
                   <div>
-                    <Label htmlFor="create-funding-amount" className="mb-1 block text-xs font-bold text-[var(--foreground)]">
+                    <Label className="mb-1 block text-xs font-bold text-[var(--foreground)]">
                       Số tiền <span className="text-rose-500">*</span>
                     </Label>
                     <Input
@@ -555,7 +555,7 @@ export function WalletManagement({
               </div>
 
               <div>
-                <Label htmlFor="create-desc" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
+                <Label className="text-xs font-bold text-[var(--foreground)] mb-1 block">
                   Mô tả ví <span className="text-slate-400 font-normal lowercase">(tùy chọn)</span>
                 </Label>
                 <Textarea
@@ -622,7 +622,7 @@ export function WalletManagement({
           <form onSubmit={handleUpdate} className="contents">
             <div className="space-y-4 relative">
               <div>
-                <Label htmlFor="edit-name" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
+                <Label className="text-xs font-bold text-[var(--foreground)] mb-1 block">
                   Tên ví <span className="text-rose-500">*</span>
                 </Label>
                 <Input
@@ -636,7 +636,7 @@ export function WalletManagement({
               </div>
 
               <div>
-                <Label htmlFor="edit-desc" className="text-xs font-bold text-[var(--foreground)] mb-1 block">
+                <Label className="text-xs font-bold text-[var(--foreground)] mb-1 block">
                   Mô tả ví <span className="text-slate-400 font-normal lowercase">(tùy chọn)</span>
                 </Label>
                 <Textarea
