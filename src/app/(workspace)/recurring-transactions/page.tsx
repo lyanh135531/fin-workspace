@@ -7,6 +7,7 @@ import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
+import { PageContainer } from "@/components/base";
 
 export default async function RecurringTransactionsPage() {
   const session = await getServerSession(authOptions);
@@ -51,37 +52,39 @@ export default async function RecurringTransactionsPage() {
   ]);
 
   return (
-    <RecurringTransactionsManager
-      workspace={{
-        id: workspaceId,
-        name: membership.workspace.name,
-        currency: membership.workspace.baseCurrency,
-        timeZone: membership.workspace.timeZone,
-        businessDate: getBusinessDateInTimeZone(membership.workspace.timeZone),
-      }}
-      wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name }))}
-      categories={categories}
-      schedules={recurringTransactions.map((item) => ({
-        id: item.id,
-        walletId: item.walletId,
-        toWalletId: item.toWalletId,
-        categoryId: item.categoryId,
-        type: item.type,
-        amount: item.amount.toString(),
-        description: item.description,
-        dayOfMonth: item.dayOfMonth,
-        startDate: item.startDate.toISOString().slice(0, 10),
-        endDate: item.endDate?.toISOString().slice(0, 10) ?? null,
-        nextExecutionDate: item.nextExecutionDate.toISOString().slice(0, 10),
-        status: item.status,
-        completedAt: item.completedAt?.toISOString() ?? null,
-        lastError: item.lastError,
-        wallet: item.wallet.name,
-        toWallet: item.toWallet?.name ?? null,
-        category: item.category,
-        createdBy: item.createdBy.user.username,
-        occurrenceCount: item._count.transactions,
-      }))}
-    />
+    <PageContainer className="recurring-transactions-page">
+      <RecurringTransactionsManager
+        workspace={{
+          id: workspaceId,
+          name: membership.workspace.name,
+          currency: membership.workspace.baseCurrency,
+          timeZone: membership.workspace.timeZone,
+          businessDate: getBusinessDateInTimeZone(membership.workspace.timeZone),
+        }}
+        wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name }))}
+        categories={categories}
+        schedules={recurringTransactions.map((item) => ({
+          id: item.id,
+          walletId: item.walletId,
+          toWalletId: item.toWalletId,
+          categoryId: item.categoryId,
+          type: item.type,
+          amount: item.amount.toString(),
+          description: item.description,
+          dayOfMonth: item.dayOfMonth,
+          startDate: item.startDate.toISOString().slice(0, 10),
+          endDate: item.endDate?.toISOString().slice(0, 10) ?? null,
+          nextExecutionDate: item.nextExecutionDate.toISOString().slice(0, 10),
+          status: item.status,
+          completedAt: item.completedAt?.toISOString() ?? null,
+          lastError: item.lastError,
+          wallet: item.wallet.name,
+          toWallet: item.toWallet?.name ?? null,
+          category: item.category,
+          createdBy: item.createdBy.user.username,
+          occurrenceCount: item._count.transactions,
+        }))}
+      />
+    </PageContainer>
   );
 }

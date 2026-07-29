@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, Empty, Select, Tabs, TabsList, TabsTrigger, buttonVariants } from "@/components/base";
+import { Button, Card, Empty, Select, Tabs, TabsList, TabsTrigger, buttonVariants, PageContainer } from "@/components/base";
 import Decimal from "decimal.js";
 import { CircleAlert, Funnel, Plus, RefreshCw, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import Link from "next/link";
@@ -56,7 +56,7 @@ export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCur
   const activeFilterCount = [walletId, categoryId, memberId, type].filter((value) => value !== "all").length;
   const reset = () => { setWalletId("all"); setCategoryId("all"); setMemberId("all"); setType("all"); };
 
-  return <div className="overview-shell">
+  return <PageContainer className="overview-shell">
     <div className="overview-title"><div><p>Workspace · {workspace.name}</p><h1>Tổng quan tài chính</h1></div><Link href="/dashboard?action=new-transaction" className={buttonVariants({ className: "overview-quick-entry-trigger" })}><Plus size={17}/>Nhập giao dịch</Link></div>
     <section className="overview-filter-panel" aria-label="Bộ lọc báo cáo">
       <div className="overview-filter-heading"><div className="overview-filter-title"><span><Funnel size={16}/></span><div><strong>Bộ lọc báo cáo</strong><small>{activeFilterCount ? `${activeFilterCount} điều kiện đang áp dụng` : "Đang hiển thị toàn bộ dữ liệu trong tháng"}</small></div></div><Button variant="unstyled" size="auto" type="button" onClick={reset} className="overview-reset" disabled={!activeFilterCount}><RefreshCw size={15}/>Đặt lại</Button></div>
@@ -102,7 +102,7 @@ export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCur
         </Card>
       </div>
     </div>
-  </div>;
+  </PageContainer>;
 }
 function CashflowOverviewCharts({ members, transactions, currency, month, range, onRangeChange, walletId, categoryId, memberId, transactionType, categoryType }: {
   members: { id: string; name: string }[];

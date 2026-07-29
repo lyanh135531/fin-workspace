@@ -6,6 +6,7 @@ import { WalletManagement } from "@/app/dashboard/wallets/wallet-management";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { isAdminRole } from "@/domain/role-policy";
+import { PageContainer } from "@/components/base";
 
 export default async function WalletsPage() {
   const session = await getServerSession(authOptions);
@@ -36,7 +37,7 @@ export default async function WalletsPage() {
     orderBy: { wallet: { name: "asc" } },
   });
   const totalBalance = links.filter(({ wallet }) => wallet.status === "active").reduce((total, { wallet }) => total.plus(wallet.currentBalance.toString()), new Decimal(0));
-  return <WalletManagement
+  return <PageContainer className="wallets-page-container"><WalletManagement
     workspace={{ name: membership.workspace.name, currency: membership.workspace.baseCurrency }}
     totalBalance={totalBalance.toString()}
     isAdmin={isAdminRole(membership.role.code)}
@@ -51,5 +52,5 @@ export default async function WalletsPage() {
       recurringTransactionCount: wallet._count.sourceRecurringTransactions + wallet._count.destinationRecurringTransactions,
       updatedAt: wallet.updatedAt.toISOString(),
     }))}
-  />;
+  /></PageContainer>;
 }

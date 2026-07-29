@@ -43,3 +43,5 @@ export {
 } from "./select"
 export type { SelectOption, SelectProps } from "./select"
 export { Tabs, TabsContent, TabsCount, TabsList, TabsTrigger } from "./tabs"
+export { PageContainer } from "./page-container"
+export type { PageContainerProps } from "./page-container"

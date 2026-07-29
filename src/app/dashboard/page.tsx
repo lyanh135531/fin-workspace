@@ -116,11 +116,13 @@ export async function WorkspaceDashboard({
   />;
 }
 
+import { PageContainer } from "@/components/base";
+
 export default async function DashboardPage({
   searchParams,
 }: {
   searchParams: Promise<{ action?: string | string[] }>;
 }) {
   const { action } = await searchParams;
-  return <WorkspaceDashboard startWithNewTransaction={action === "new-transaction"} />;
+  return <PageContainer className="dashboard-page-container"><WorkspaceDashboard startWithNewTransaction={action === "new-transaction"} /></PageContainer>;
 }

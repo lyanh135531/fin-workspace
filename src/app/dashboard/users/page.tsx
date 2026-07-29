@@ -5,6 +5,8 @@ import { MemberAccountForm } from "@/app/dashboard/users/member-account-form";
 import { ADMIN_ROLE_CODES } from "@/domain/role-policy";
 import { prisma } from "@/lib/prisma";
 
+import { PageContainer } from "@/components/base";
+
 export default async function MemberAccountsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/sign-in");
@@ -14,5 +16,5 @@ export default async function MemberAccountsPage() {
     orderBy: { workspace: { name: "asc" } },
   });
   if (workspaces.length === 0) redirect("/overview");
-  return <div className="workspace-settings-page"><div className="workspace-settings-container"><MemberAccountForm workspaces={workspaces.map((item) => item.workspace)}/></div></div>;
+  return <PageContainer className="workspace-settings-page"><div className="workspace-settings-container"><MemberAccountForm workspaces={workspaces.map((item) => item.workspace)}/></div></PageContainer>;
 }

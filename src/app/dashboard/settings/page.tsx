@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
 import { authOptions } from "@/auth";
+import { PageContainer } from "@/components/base";
 import { WorkspaceSettingsTabsClient } from "@/app/dashboard/settings/workspace-settings-tabs-client";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
@@ -56,7 +57,7 @@ export default async function SettingsPage({
   const existingCodes = categories.map((c) => c.code);
 
   return (
-    <div className="workspace-settings-page">
+    <PageContainer className="workspace-settings-page">
       <div className="workspace-settings-container space-y-6">
         {/* ── Page Header ── */}
         <div className="page-header">
@@ -104,6 +105,6 @@ export default async function SettingsPage({
               : "general"}
         />
       </div>
-    </div>
+    </PageContainer>
   );
 }
