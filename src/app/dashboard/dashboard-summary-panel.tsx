@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Empty } from "@/components/base";
-import { CircleDollarSign, Clock3, Landmark, PanelRightOpen, TrendingDown, TrendingUp, WalletCards, X } from "lucide-react";
+import { CircleDollarSign, Clock3, Landmark, PanelRightClose, PanelRightOpen, TrendingDown, TrendingUp, WalletCards, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type Metric = { label: string; value: string; note: string; tone: "balance" | "income" | "expense" | "pending" };
@@ -15,12 +15,14 @@ function SummaryContent({
   periodLabel,
   titleId,
   onClose,
+  onCollapse,
 }: {
   metrics: Metric[];
   wallets: Wallet[];
   periodLabel: string;
   titleId: string;
   onClose?: () => void;
+  onCollapse?: () => void;
 }) {
   return <>
     <header className="finance-drawer-header">
@@ -30,6 +32,7 @@ function SummaryContent({
         <small>Chỉ tính giao dịch đã ghi nhận trong kỳ đang lọc</small>
       </div>
       {onClose && <Button variant="unstyled" size="auto" type="button" autoFocus className="finance-drawer-close" aria-label="Đóng tình hình tài chính" onClick={onClose}><X size={18}/></Button>}
+      {onCollapse && <Button variant="unstyled" size="auto" type="button" className="finance-summary-desktop-toggle" aria-label="Thu gọn tình hình tài chính" aria-expanded={true} aria-controls="finance-summary-desktop-content" onClick={onCollapse}><PanelRightClose size={18}/></Button>}
     </header>
 
     <div className="finance-drawer-metrics">{metrics.map((metric) => {
@@ -63,6 +66,7 @@ function SummaryContent({
 
 export function DashboardSummaryPanel({ metrics, wallets, periodLabel }: { metrics: Metric[]; wallets: Wallet[]; periodLabel: string }) {
   const [open, setOpen] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const balanceMetric = metrics.find((metric) => metric.tone === "balance") ?? metrics[0];
 
@@ -99,14 +103,37 @@ export function DashboardSummaryPanel({ metrics, wallets, periodLabel }: { metri
     launcherRef.current?.focus();
   }
 
-  return <div className="finance-drawer">
-    <aside className="finance-summary-desktop" aria-labelledby="finance-summary-desktop-title">
-      <SummaryContent
-        metrics={metrics}
-        wallets={wallets}
-        periodLabel={periodLabel}
-        titleId="finance-summary-desktop-title"
-      />
+  return <div className={`finance-drawer ${desktopCollapsed ? "finance-drawer-collapsed" : ""}`}>
+    <aside className="finance-summary-desktop" aria-label="Tình hình tài chính">
+      <div
+        id="finance-summary-desktop-content"
+        className="finance-summary-desktop-content"
+        hidden={desktopCollapsed}
+      >
+        <SummaryContent
+          metrics={metrics}
+          wallets={wallets}
+          periodLabel={periodLabel}
+          titleId="finance-summary-desktop-title"
+          onCollapse={() => setDesktopCollapsed(true)}
+        />
+      </div>
+      {desktopCollapsed && (
+        <Button
+          variant="unstyled"
+          size="auto"
+          type="button"
+          className="finance-summary-desktop-rail"
+          aria-label="Mở rộng tình hình tài chính"
+          aria-expanded={false}
+          aria-controls="finance-summary-desktop-content"
+          onClick={() => setDesktopCollapsed(false)}
+        >
+          <PanelRightOpen size={18}/>
+          <span>Tình hình tài chính</span>
+          <Landmark size={16}/>
+        </Button>
+      )}
     </aside>
 
     <Button variant="unstyled" size="auto"
