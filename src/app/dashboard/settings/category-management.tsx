@@ -91,7 +91,6 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [filterType, setFilterType] = useState<"expense" | "income">("expense");
-  const [searchQuery, setSearchQuery] = useState("");
   const [pending, start] = useTransition();
 
   function submit(form: FormData, id?: string) {
@@ -144,16 +143,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
 
   const currentCategories = categories.filter((c) => c.type === filterType);
 
-  // Filter by search query
-  const filteredCategories = useMemo(() => {
-    if (!searchQuery.trim()) return currentCategories;
-    const q = searchQuery.toLowerCase().trim();
-    return currentCategories.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
-    );
-  }, [currentCategories, searchQuery]);
-
-  const rootCategories = filteredCategories.filter((c) => !c.parentId);
+  const rootCategories = currentCategories.filter((c) => !c.parentId);
   const editingCategory = editing
     ? categories.find((category) => category.id === editing)
     : undefined;
@@ -220,15 +210,14 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         </Button>
       </div>
 
-      {/* Tabs: Chi tiêu & Thu nhập + Search */}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
+      {/* Tabs: Chi tiêu & Thu nhập */}
+      <div className="mt-5 flex items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
         <Tabs
           value={filterType}
           onValueChange={(value) => {
             setFilterType(value as "expense" | "income");
             setCreating(false);
             setEditing(null);
-            setSearchQuery("");
           }}
         >
           <TabsList>
@@ -243,14 +232,9 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           </TabsList>
         </Tabs>
 
-
-        {/* Search Bar */}
-        <Search
-          placeholder="Tìm kiếm danh mục..."
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          aria-label="Tìm kiếm danh mục"
-        />
+        <p className="text-xs text-slate-400 font-medium hidden sm:block">
+          Dùng mũi tên <ChevronUp size={12} className="inline" /> <ChevronDown size={12} className="inline" /> để thay đổi thứ tự danh mục
+        </p>
       </div>
 
       <Sheet
@@ -262,8 +246,8 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           }
         }}
       >
-        <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-md">
-          <SheetHeader className="shrink-0 border-b border-border px-6 py-5 pr-14">
+        <SheetContent side="right" className="sm:max-w-md w-full flex flex-col h-full p-0 bg-[var(--surface)] text-[var(--foreground)] border-l border-[var(--border)]">
+          <SheetHeader className="px-6 pt-6 pb-4 border-b border-[var(--border)]">
             <SheetTitle>
               {editingCategory
                 ? "Chỉnh sửa danh mục workspace"
@@ -275,7 +259,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
                 : "Tạo danh mục mới chỉ dùng trong workspace hiện tại."}
             </SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-6">
+          <div className="flex-1 overflow-y-auto px-6">
             {(creating || editingCategory) && (
               <CategoryForm
                 key={editingCategory?.id ?? `create-${filterType}`}
@@ -304,7 +288,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           <CategoryNode
             key={category.id}
             category={category}
-            categories={filteredCategories}
+            categories={currentCategories}
             index={index}
             totalRoots={rootCategories.length}
             pending={pending}
@@ -317,16 +301,8 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         {rootCategories.length === 0 && (
           <Empty
             icon={Tag}
-            title={
-              searchQuery
-                ? `Không tìm thấy danh mục “${searchQuery}”`
-                : `Chưa có danh mục ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`
-            }
-            description={
-              searchQuery
-                ? "Thử từ khóa khác hoặc xóa bộ lọc tìm kiếm."
-                : "Import từ bộ mẫu cá nhân hoặc tạo danh mục mới cho workspace."
-            }
+            title={`Chưa có danh mục ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`}
+            description="Import từ bộ mẫu cá nhân hoặc tạo danh mục mới cho workspace."
           />
         )}
       </div>
@@ -497,8 +473,11 @@ function CategoryForm({
 
   return (
     <form
-      action={onSubmit}
-      className="flex min-h-full flex-col gap-5 py-5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(new FormData(e.currentTarget));
+      }}
+      className="space-y-5 py-4 flex flex-col h-full bg-transparent border-0 shadow-none mt-0"
     >
       <input type="hidden" name="type" value={category?.type ?? defaultType} />
 
@@ -507,12 +486,11 @@ function CategoryForm({
         <div>
           <label className="text-xs font-semibold text-slate-500 mb-1 block">Tên danh mục *</label>
           <Input
-            
             name="name"
             required
             value={name}
             onChange={(e) => handleNameChange(e.target.value)}
-            placeholder="Ví dụ: Ăn uống, Lương..."
+            placeholder="Ăn uống, Lương..."
           />
         </div>
 
@@ -561,24 +539,25 @@ function CategoryForm({
 
         {/* Color Picker */}
         <div>
-          <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Màu đại diện</label>
-          <div className="flex flex-wrap items-center gap-2.5 mb-2">
+          <label className="text-xs font-semibold text-slate-500 mb-1.5 block">
+            Màu đại diện
+          </label>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
             {COLOR_PRESETS.map((color) => (
               <Button variant="unstyled" size="auto"
                 key={color}
                 type="button"
-                className={`w-8 h-8 rounded-full border-2 transition-all ${
-                  selectedColor === color ? "scale-110 border-white shadow-lg ring-2 ring-[var(--primary)]" : "border-transparent hover:scale-105"
+                className={`w-7 h-7 rounded-full border-2 transition-transform ${
+                  selectedColor === color ? "scale-110 border-white shadow-md ring-2 ring-[var(--primary)]" : "border-transparent"
                 }`}
                 style={{ backgroundColor: color }}
-                onClick={() => setSelectedColor(color)}
+                onClick={() => setSelectedColor(color.toUpperCase())}
               />
             ))}
             <input
               type="color"
-              name="color"
               value={selectedColor}
-              onChange={(e) => setSelectedColor(e.target.value)}
+              onChange={(e) => setSelectedColor(e.target.value.toUpperCase())}
               className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent"
             />
           </div>
@@ -587,8 +566,10 @@ function CategoryForm({
 
         {/* Visual Icon Picker Grid */}
         <div>
-          <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Chọn Biểu tượng (Icon)</label>
-          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 max-h-40 overflow-y-auto p-2 border border-[var(--border)] rounded-xl bg-[var(--surface)]">
+          <label className="text-xs font-semibold text-slate-500 mb-1.5 block">
+            Chọn Biểu tượng (Icon)
+          </label>
+          <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border border-[var(--border)] rounded-xl bg-[var(--surface)]">
             {ICON_LIST.map((item) => {
               const IconComp = ICON_MAP[item.id] ?? Tag;
               const isSelected = selectedIcon === item.id;
@@ -614,12 +595,12 @@ function CategoryForm({
         </div>
       </div>
 
-      <div className="mt-auto flex justify-end gap-2 border-t border-border pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex justify-end gap-2 pt-4 border-t border-[var(--border)] mt-auto">
+        <Button type="button" variant="outline" className="hover:bg-[var(--surface-secondary)] hover:text-current" onClick={onCancel}>
           Hủy bỏ
         </Button>
-        <Button variant="default" disabled={pending}>
-          {pending ? "Đang lưu..." : "Lưu danh mục"}
+        <Button type="submit" variant="default" disabled={pending}>
+          {pending ? "Đang xử lý..." : "Lưu danh mục"}
         </Button>
       </div>
     </form>

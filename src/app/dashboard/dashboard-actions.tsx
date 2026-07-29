@@ -550,7 +550,7 @@ function MobileTransactionDraft({ mode, title, status, draft, wallets, categorie
       {draft.type === "transfer" && <label className="quick-field">Ví nhận<Select disabled={locked} value={draft.toWalletId} onValueChange={(toWalletId) => onChange({ toWalletId })} label="Ví nhận" options={wallets.map((item) => ({ value: item.id, label: item.name, disabled: item.id === draft.walletId }))}/></label>}
       {draft.type !== "transfer" && <label className="quick-field">Danh mục<Select disabled={locked} value={draft.categoryId} onValueChange={(categoryId) => onChange({ categoryId })} label="Danh mục" options={[{ value: "none", label: "Không chọn" }, ...categories.map((item) => ({ value: item.id, label: item.name }))]}/></label>}
       <label className="quick-field">Ngày giao dịch<Input disabled={locked} type="date" value={draft.date} onChange={(event) => onChange({ date: event.target.value })}/></label>
-      <label className="quick-field ledger-mobile-draft-wide">Nội dung<Input disabled={locked} value={draft.description} onChange={(event) => onChange({ description: event.target.value })} placeholder="Ví dụ: Ăn trưa, nhận lương"/></label>
+      <label className="quick-field ledger-mobile-draft-wide">Nội dung<Input disabled={locked} value={draft.description} onChange={(event) => onChange({ description: event.target.value })} placeholder="Ăn trưa, nhận lương"/></label>
     </div>
     <div className="ledger-mobile-draft-actions"><Button variant="outline" disabled={busy} onClick={onCancel}>Hủy</Button><Button variant="default" disabled={locked} onClick={onSave}>{busy ? "Đang lưu" : mode === "create" ? "Lưu giao dịch" : "Lưu thay đổi"}</Button></div>
   </section>;

@@ -639,7 +639,7 @@ function TemplateForm({
             required
             value={name}
             onChange={(e) => handleNameChange(e.target.value)}
-            placeholder="Ví dụ: Ăn uống, Lương..."
+            placeholder="Ăn uống, Lương..."
           />
         </div>
 

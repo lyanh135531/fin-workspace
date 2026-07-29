@@ -348,7 +348,7 @@ export function QuickTransactionSheet({
                     <Textarea
                       value={description}
                       onChange={(event) => setDescription(event.target.value)}
-                      placeholder="Ví dụ: Ăn trưa, nhận lương"
+                      placeholder="Ăn trưa, nhận lương"
                       maxLength={2_000}
                     />
                   </label>

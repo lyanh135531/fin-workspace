@@ -74,7 +74,7 @@ export function CreateWorkspaceForm() {
                 onChange={(e) => setName(e.target.value)}
                 minLength={3}
                 maxLength={120}
-                placeholder="Ví dụ: Chi tiêu gia đình..."
+                placeholder="Chi tiêu gia đình..."
                 className="field w-full text-sm font-medium"
                 autoFocus
               />

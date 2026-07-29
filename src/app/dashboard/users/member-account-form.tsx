@@ -43,7 +43,7 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
       <form id="member-account-form" action={submit} className="mt-6 grid gap-4 md:grid-cols-2">
         <label className="text-sm font-medium">
           Username
-          <Input className="mt-2" required name="username" minLength={3} maxLength={80} autoComplete="username" placeholder="Ví dụ: minh"/>
+          <Input className="mt-2" required name="username" minLength={3} maxLength={80} autoComplete="username" placeholder="minh"/>
         </label>
         <label className="text-sm font-medium">
           Mật khẩu ban đầu

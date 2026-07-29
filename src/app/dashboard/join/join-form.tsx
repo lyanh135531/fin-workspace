@@ -48,7 +48,7 @@ export function JoinForm() {
             required
             name="inviteCode"
             className="join-form-input"
-            placeholder="Ví dụ: 892-415 hoặc 892415"
+            placeholder="892-415 hoặc 892415"
             minLength={6}
             maxLength={36}
             autoComplete="off"

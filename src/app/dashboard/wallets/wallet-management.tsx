@@ -485,7 +485,7 @@ export function WalletManagement({
                   required
                   maxLength={120}
                   autoFocus
-                  placeholder="Ví dụ: Tiền mặt, Ngân hàng VCB..."
+                  placeholder="Tiền mặt, Ngân hàng VCB..."
                   className="w-full text-sm font-medium"
                 />
               </div>

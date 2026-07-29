@@ -493,7 +493,7 @@ function RecurringEditor({
             
             value={draft.description}
             onChange={(event) => onChange({ description: event.target.value })}
-            placeholder="Ví dụ: Lương tháng, tiền thuê nhà"
+            placeholder="Lương tháng, tiền thuê nhà"
             maxLength={2_000}
           />
         </label>
