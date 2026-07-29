@@ -92,7 +92,7 @@ model Workspace {
   deletedAt   DateTime?         @map("deleted_at") @db.Timestamptz(6)
   baseCurrency String            @default("VND") @map("base_currency") @db.VarChar(3)
   timeZone     String            @default("Asia/Ho_Chi_Minh") @map("time_zone")
-  approvalRequired Boolean       @default(true) @map("approval_required")
+
   inviteCode   String            @unique @default(uuid()) @map("invite_code") @db.VarChar(36)
   members     WorkspaceMember[]
   wallets     WorkspaceWallet[]

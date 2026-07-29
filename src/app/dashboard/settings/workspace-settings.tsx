@@ -14,7 +14,6 @@ type Workspace = {
   description: string | null;
   baseCurrency: string;
   timeZone: string;
-  approvalRequired: boolean;
   status: "active" | "deactive";
 };
 
@@ -22,7 +21,6 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pending, start] = useTransition();
-  const [approvalOn, setApprovalOn] = useState(workspace.approvalRequired);
 
   function save(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -33,7 +31,6 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
         description: form.get("description") || undefined,
         baseCurrency: "VND",
         timeZone: "Asia/Ho_Chi_Minh",
-        approvalRequired: approvalOn,
         status: form.get("status"),
       });
       if (result.ok) {
@@ -143,23 +140,6 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
             />
           </div>
 
-          {/* Approval Workflow — Switch */}
-          <Card className="ws-toggle-card gap-0 py-0" onClick={() => setApprovalOn(!approvalOn)}>
-            <Switch
-              id="approval-switch"
-              checked={approvalOn}
-              onCheckedChange={setApprovalOn}
-              aria-label="Yêu cầu duyệt giao dịch"
-            />
-            <div className="space-y-0.5">
-              <Label htmlFor="approval-switch" className="font-bold text-[var(--foreground)] block text-sm cursor-pointer">
-                Yêu cầu duyệt giao dịch
-              </Label>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Giao dịch do thành viên tạo sẽ chờ duyệt trước khi ảnh hưởng đến số dư thực tế.
-              </p>
-            </div>
-          </Card>
 
           <div className="flex items-center justify-end pt-2 border-t border-[var(--border)]">
             <Button

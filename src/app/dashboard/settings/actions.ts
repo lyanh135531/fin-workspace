@@ -13,7 +13,7 @@ import { activeWorkspaceCookie, resolveActiveWorkspaceId } from "@/services/acti
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
 const roleSchema = z.object({ memberId: idSchema, roleCode: workspaceRoleCodeSchema });
-const workspaceSchema = z.object({ name: z.string().trim().min(3).max(120), description: z.string().trim().max(500).optional(), baseCurrency: z.literal("VND"), timeZone: z.literal("Asia/Ho_Chi_Minh"), approvalRequired: z.boolean(), status: z.enum(["active", "deactive"]) });
+const workspaceSchema = z.object({ name: z.string().trim().min(3).max(120), description: z.string().trim().max(500).optional(), baseCurrency: z.literal("VND"), timeZone: z.literal("Asia/Ho_Chi_Minh"), status: z.enum(["active", "deactive"]) });
 
 async function adminActor() { const session = await getServerSession(authOptions); if (!session?.user?.id) throw new AppError("AUTHENTICATION_REQUIRED", "Please sign in."); const workspaceId = await resolveActiveWorkspaceId(session.user.id); if (!workspaceId) throw new AppError("FORBIDDEN", "Only workspace administrators can manage users."); const member = await requireWorkspaceMember(session.user.id, workspaceId, true); return { userId: session.user.id, workspaceId: member.workspaceId }; }
 function fail(error: unknown) { return { ok: false, message: error instanceof Error ? error.message : "Unable to save changes." }; }

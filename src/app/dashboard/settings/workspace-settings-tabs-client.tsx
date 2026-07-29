@@ -15,7 +15,6 @@ type Workspace = {
   description: string | null;
   baseCurrency: string;
   timeZone: string;
-  approvalRequired: boolean;
   status: "active" | "deactive";
   inviteCode: string;
 };

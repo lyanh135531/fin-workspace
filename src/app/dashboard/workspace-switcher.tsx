@@ -208,7 +208,7 @@ export function WorkspaceSwitcher({
         <ChevronsUpDown size={15} className="sidebar-ws-chevron" />
       </PopoverTrigger>
 
-      <PopoverContent side="bottom" align="start" sideOffset={6} className="sidebar-ws-popover">
+      <PopoverContent side="right" align="start" sideOffset={6} className="sidebar-ws-popover">
         <div className="sidebar-ws-popover-header">
           <span>DANH SÁCH WORKSPACE ({workspaces.length})</span>
         </div>

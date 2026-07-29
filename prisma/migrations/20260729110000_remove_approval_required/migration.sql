@@ -1,0 +1,1 @@
+ALTER TABLE "WORKSPACES" DROP COLUMN "approval_required";

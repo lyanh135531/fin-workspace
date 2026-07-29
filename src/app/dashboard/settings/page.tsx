@@ -69,8 +69,7 @@ export default async function SettingsPage({
             description: membership.workspace.description,
             baseCurrency: membership.workspace.baseCurrency,
             timeZone: membership.workspace.timeZone,
-            approvalRequired: membership.workspace.approvalRequired,
-            status: membership.workspace.status,
+            status: membership.workspace.status as "active" | "deactive",
             inviteCode: membership.workspace.inviteCode,
           }}
           isAdmin={isAdmin}

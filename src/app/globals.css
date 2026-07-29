@@ -2307,6 +2307,7 @@ html[data-sidebar-collapsed="true"] .sidebar-nav-divider {
   font-weight: 550;
   text-decoration: none;
   transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  border-left: none !important;
 }
 .dashboard-nav-link:hover {
   background: var(--surface-hover);

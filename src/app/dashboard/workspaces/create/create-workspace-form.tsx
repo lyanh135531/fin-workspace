@@ -114,25 +114,6 @@ export function CreateWorkspaceForm() {
               />
             </div>
 
-            {/* Clean Approval Toggle */}
-            <div className="rounded-xl border border-[var(--border)] p-4 transition-colors hover:bg-[var(--surface-muted)]/50">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  name="approvalRequired"
-                  type="checkbox"
-                  defaultChecked
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[var(--coral)] focus:ring-[var(--coral)]"
-                />
-                <div className="space-y-0.5 text-xs">
-                  <span className="font-bold text-[var(--foreground)] block text-sm">
-                    Yêu cầu duyệt giao dịch (Approval Workflow)
-                  </span>
-                  <p className="text-slate-500 leading-normal">
-                    Giao dịch mới tạo bởi Member sẽ ở trạng thái Chờ duyệt (Pending) cho đến khi Admin kiểm tra và phê duyệt.
-                  </p>
-                </div>
-              </label>
-            </div>
 
             {/* Submit Button */}
             <div className="pt-2 flex justify-end">

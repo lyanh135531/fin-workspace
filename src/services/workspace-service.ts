@@ -15,7 +15,7 @@ export async function generateUniqueInviteCode(tx: Prisma.TransactionClient): Pr
   return `${num.toString().slice(0, 3)}-${num.toString().slice(3)}`;
 }
 
-export async function createWorkspaceForUser(userId: string, input: { name: string; description?: string; baseCurrency: string; timeZone: string; approvalRequired: boolean }) {
+export async function createWorkspaceForUser(userId: string, input: { name: string; description?: string; baseCurrency: string; timeZone: string; }) {
   const user = await prisma.user.findFirst({ where: { id: userId, status: "active", deletedAt: null } });
   if (!user) throw new AppError("AUTHENTICATION_REQUIRED", "Active user is required.");
   return prisma.$transaction(async (tx) => {
@@ -57,11 +57,11 @@ export async function regenerateWorkspaceInviteCode(userId: string, workspaceId:
   });
 }
 
-export async function updateWorkspaceSettings(userId: string, workspaceId: string, input: { name: string; description?: string; baseCurrency: string; timeZone: string; approvalRequired: boolean; status: "active" | "deactive" }) {
+export async function updateWorkspaceSettings(userId: string, workspaceId: string, input: { name: string; description?: string; baseCurrency: string; timeZone: string; status: "active" | "deactive" }) {
   await requireWorkspaceMember(userId, workspaceId, true);
   return prisma.$transaction(async (tx) => {
     const workspace = await tx.workspace.update({ where: { id: workspaceId }, data: input });
-    await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "workspace.settings_updated", entityType: "workspace", entityId: workspaceId, metadata: { status: input.status, baseCurrency: input.baseCurrency, timeZone: input.timeZone, approvalRequired: input.approvalRequired } } });
+    await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "workspace.settings_updated", entityType: "workspace", entityId: workspaceId, metadata: { status: input.status, baseCurrency: input.baseCurrency, timeZone: input.timeZone } } });
     return workspace;
   });
 }
