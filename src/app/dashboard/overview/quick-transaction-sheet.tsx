@@ -64,7 +64,7 @@ function destinationWallet(workspace: QuickWorkspace, walletId: string) {
 }
 
 function isAdminRole(role: string) {
-  return role === "ADMIN" || role === "OWNER";
+  return role === "ADMIN";
 }
 
 export function QuickTransactionSheet({

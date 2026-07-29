@@ -12,7 +12,6 @@ describe("transaction time policy", () => {
 
   it("maps role and derived time to the expected initial workflow", () => {
     expect(workflowStatusForCreation("ADMIN", "past")).toBe("approved");
-    expect(workflowStatusForCreation("OWNER", "past")).toBe("approved");
     expect(workflowStatusForCreation("MEMBER", "past")).toBe("pending");
     expect(workflowStatusForCreation("MEMBER", "now")).toBe("approved");
     expect(workflowStatusForCreation("ADMIN", "future")).toBe("scheduled");

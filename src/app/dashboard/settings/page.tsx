@@ -6,7 +6,7 @@ import { WorkspaceSettingsTabsClient } from "@/app/dashboard/settings/workspace-
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { manageableCategoryWhere } from "@/services/category-visibility";
-import { isAdminRole, isOwnerRole } from "@/domain/role-policy";
+import { isAdminRole, WORKSPACE_ROLE_CODES } from "@/domain/role-policy";
 import { getUserTemplatesForImport } from "@/services/import-category-service";
 
 export default async function SettingsPage({
@@ -22,7 +22,6 @@ export default async function SettingsPage({
   const membership = await prisma.workspaceMember.findFirst({ where: { userId: session.user.id, workspaceId, status: "active", deletedAt: null }, include: { workspace: true, role: true } });
   if (!membership) redirect("/overview");
 
-  const isOwner = isOwnerRole(membership.role.code);
   const isAdmin = isAdminRole(membership.role.code);
 
   if (!isAdmin) redirect("/dashboard");
@@ -40,7 +39,7 @@ export default async function SettingsPage({
     prisma.category.findMany({ where: manageableCategoryWhere(workspaceId), include: { _count: { select: { transactions: { where: { deletedAt: null } } } } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     getUserTemplatesForImport(session.user.id),
     prisma.role.findMany({
-      where: isOwner ? undefined : { code: { not: "OWNER" } },
+      where: { code: { in: [...WORKSPACE_ROLE_CODES] } },
       select: { code: true, name: true },
       orderBy: { name: "asc" },
     }),
@@ -75,7 +74,6 @@ export default async function SettingsPage({
             inviteCode: membership.workspace.inviteCode,
           }}
           isAdmin={isAdmin}
-          isOwner={isOwner}
           templates={templates}
           existingCodes={existingCodes}
           categories={categories.map((category) => ({
@@ -102,7 +100,7 @@ export default async function SettingsPage({
           }))}
           initialTab={params.tab === "members" || params.tab === "joinRequests"
             ? "members"
-            : params.tab === "categories" && isOwner
+            : params.tab === "categories"
               ? "categories"
               : "general"}
         />

@@ -84,7 +84,7 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
                 Tạo Workspace mới
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                Tạo một không gian dữ liệu mới độc lập để quản lý ví tiền, danh mục thu chi, thành viên và duyệt giao dịch. Bạn sẽ trở thành <strong>Admin (Owner)</strong> của workspace này.
+                Tạo một không gian dữ liệu mới độc lập để quản lý ví tiền, danh mục thu chi, thành viên và duyệt giao dịch. Bạn sẽ trở thành <strong>Admin</strong> của workspace này.
               </p>
             </div>
           </div>

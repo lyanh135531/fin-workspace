@@ -3466,12 +3466,6 @@ html[data-mode="dark"] .mini-card {
   border: 1px solid transparent;
 }
 
-.ws-role-badge-owner {
-  background: rgb(255 91 61 / 10%);
-  border-color: rgb(255 91 61 / 25%);
-  color: var(--coral);
-}
-
 .ws-role-badge-admin {
   background: rgb(59 130 246 / 10%);
   border-color: rgb(59 130 246 / 25%);

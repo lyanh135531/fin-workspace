@@ -56,7 +56,7 @@ export function CreateWorkspaceForm() {
               </h1>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed pl-11">
-              Khởi tạo không gian dữ liệu độc lập cho thành viên, ví tiền và giao dịch. Bạn sẽ có quyền <strong>Admin (Owner)</strong> quản trị tối cao.
+              Khởi tạo không gian dữ liệu độc lập cho thành viên, ví tiền và giao dịch. Bạn sẽ có quyền <strong>Admin</strong> quản trị workspace.
             </p>
           </div>
 
@@ -189,7 +189,7 @@ export function CreateWorkspaceForm() {
                 <ShieldCheck size={16} />
               </div>
               <div className="space-y-0.5 text-xs">
-                <p className="font-bold text-[var(--foreground)]">Quyền Admin (Owner)</p>
+                <p className="font-bold text-[var(--foreground)]">Quyền Admin</p>
                 <p className="text-slate-500">Toàn quyền quản lý ví, phân quyền và phê duyệt.</p>
               </div>
             </div>

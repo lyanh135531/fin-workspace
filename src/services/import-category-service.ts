@@ -1,15 +1,13 @@
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { requireWorkspaceMember } from "@/services/workspace-access";
-import { isOwnerRole } from "@/domain/role-policy";
 
 /**
  * Import (copy) user's personal category templates into a workspace.
  * Creates independent copies — editing templates later won't affect imported workspace categories.
  */
 export async function importCategoriesToWorkspace(userId: string, workspaceId: string, categoryIds: string[]) {
-  const member = await requireWorkspaceMember(userId, workspaceId);
-  if (!isOwnerRole(member.role.code)) throw new AppError("FORBIDDEN", "Chỉ Owner workspace mới được import danh mục.");
+  await requireWorkspaceMember(userId, workspaceId, true);
 
   // Fetch selected template categories belonging to this user
   const templates = await prisma.category.findMany({

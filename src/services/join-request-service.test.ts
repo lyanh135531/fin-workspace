@@ -145,7 +145,7 @@ describe("join-request-service", () => {
     expect(tx.role.findUnique).toHaveBeenCalledWith({ where: { code: "MEMBER" } });
   });
 
-  it("prevents an admin from granting the OWNER role", async () => {
+  it("rejects roles outside ADMIN and MEMBER", async () => {
     (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
       role: { code: "ADMIN" },
     });
@@ -172,7 +172,7 @@ describe("join-request-service", () => {
         true,
         "OWNER",
       ),
-    ).rejects.toThrow("Chỉ Owner workspace mới có thể cấp vai trò Owner.");
+    ).rejects.toThrow("Vai trò chỉ có thể là ADMIN hoặc MEMBER.");
     expect(tx.role.findUnique).not.toHaveBeenCalled();
   });
 });

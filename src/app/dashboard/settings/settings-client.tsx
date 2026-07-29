@@ -30,8 +30,7 @@ function avatarGradient(name: string): string {
 }
 
 function roleBadgeClass(code: string): string {
-  if (code === "owner") return "ws-role-badge ws-role-badge-owner";
-  if (code === "admin") return "ws-role-badge ws-role-badge-admin";
+  if (code === "ADMIN") return "ws-role-badge ws-role-badge-admin";
   return "ws-role-badge ws-role-badge-member";
 }
 

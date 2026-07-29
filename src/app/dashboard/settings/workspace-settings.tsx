@@ -68,8 +68,8 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
           <h2 className="text-base font-bold text-[var(--foreground)]">Quyền truy cập thành viên</h2>
         </div>
         <p className="text-xs text-slate-500 leading-relaxed">
-          Chỉ Owner mới có thể chỉnh sửa cấu hình vận hành. Quản trị viên vẫn có thể quản lý thành viên,
-          duyệt yêu cầu tham gia và chia sẻ mã mời ở các khu vực tương ứng.
+          Chỉ Admin mới có thể chỉnh sửa cấu hình vận hành, quản lý thành viên,
+          duyệt yêu cầu tham gia và chia sẻ mã mời.
         </p>
       </Card>
     );

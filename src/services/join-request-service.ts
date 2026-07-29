@@ -1,4 +1,5 @@
 import { AppError } from "@/lib/errors";
+import { isWorkspaceRoleCode } from "@/domain/role-policy";
 import { prisma } from "@/lib/prisma";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
@@ -35,7 +36,7 @@ export async function reviewWorkspaceJoinRequest(
   approve: boolean,
   roleCode?: string,
 ) {
-  const reviewer = await requireWorkspaceMember(adminId, workspaceId, true);
+  await requireWorkspaceMember(adminId, workspaceId, true);
 
   return prisma.$transaction(async (tx) => {
     const request = await tx.workspaceJoinRequest.findFirst({
@@ -43,13 +44,11 @@ export async function reviewWorkspaceJoinRequest(
     });
     if (!request) throw new AppError("NOT_FOUND", "Yêu cầu đang chờ không tồn tại.");
 
-    const selectedRoleCode = approve ? roleCode ?? "MEMBER" : undefined;
+    const selectedRoleCode = roleCode ?? "MEMBER";
     let roleId: string | undefined;
 
     if (approve) {
-      if (selectedRoleCode === "OWNER" && reviewer.role.code !== "OWNER") {
-        throw new AppError("FORBIDDEN", "Chỉ Owner workspace mới có thể cấp vai trò Owner.");
-      }
+      if (!isWorkspaceRoleCode(selectedRoleCode)) throw new AppError("VALIDATION_ERROR", "Vai trò chỉ có thể là ADMIN hoặc MEMBER.");
       const role = await tx.role.findUnique({ where: { code: selectedRoleCode } });
       if (!role) throw new AppError("NOT_FOUND", "Vai trò được chọn không tồn tại.");
       roleId = role.id;
@@ -88,7 +87,7 @@ export async function reviewWorkspaceJoinRequest(
         action: approve ? "workspace.join_approved" : "workspace.join_rejected",
         entityType: "workspace_join_request",
         entityId: request.id,
-        metadata: { roleCode: selectedRoleCode ?? null },
+        metadata: { roleCode: approve ? selectedRoleCode : null },
       },
     });
     return updated;

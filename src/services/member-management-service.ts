@@ -1,10 +1,12 @@
 import argon2 from "argon2";
+import { isWorkspaceRoleCode } from "@/domain/role-policy";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
 export async function createWorkspaceUser(actorUserId: string, workspaceId: string, input: { username: string; password: string; roleCode: string }) {
   await requireWorkspaceMember(actorUserId, workspaceId, true);
+  if (!isWorkspaceRoleCode(input.roleCode)) throw new AppError("VALIDATION_ERROR", "Vai trò chỉ có thể là ADMIN hoặc MEMBER.");
   const passwordHash = await argon2.hash(input.password);
   return prisma.$transaction(async (tx) => {
     const role = await tx.role.findUnique({ where: { code: input.roleCode } });
@@ -33,6 +35,7 @@ export async function createMemberAccount(actorUserId: string, workspaceIds: str
 
 export async function changeWorkspaceMemberRole(actorUserId: string, workspaceId: string, memberId: string, roleCode: string) {
   await requireWorkspaceMember(actorUserId, workspaceId, true);
+  if (!isWorkspaceRoleCode(roleCode)) throw new AppError("VALIDATION_ERROR", "Vai trò chỉ có thể là ADMIN hoặc MEMBER.");
   const member = await prisma.workspaceMember.findFirst({ where: { id: memberId, workspaceId, status: "active", deletedAt: null } });
   if (!member) throw new AppError("NOT_FOUND", "Member was not found in this workspace.");
   if (member.userId === actorUserId) throw new AppError("FORBIDDEN", "You cannot change your own role.");

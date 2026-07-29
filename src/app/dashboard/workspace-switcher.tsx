@@ -166,7 +166,7 @@ export function WorkspaceSwitcher({
                   <div className="sidebar-ws-avatar">{ws.name.charAt(0).toUpperCase()}</div>
                   <div className="sidebar-ws-info">
                     <span className="sidebar-ws-name">{ws.name}</span>
-                    <span className="sidebar-ws-role">{ws.role === "ADMIN" || ws.role === "OWNER" ? "Admin" : "Thành viên"}</span>
+                    <span className="sidebar-ws-role">{ws.role === "ADMIN" ? "Admin" : "Thành viên"}</span>
                   </div>
                   {isSelected && <Check size={14} className="text-[var(--primary)]" />}
                 </Button>
@@ -202,7 +202,7 @@ export function WorkspaceSwitcher({
           </div>
           <span className="sidebar-ws-sub">
             <span className="sidebar-ws-dot" aria-hidden />
-            {currentWorkspace?.role === "ADMIN" || currentWorkspace?.role === "OWNER" ? "Quản trị viên" : "Thành viên"}
+            {currentWorkspace?.role === "ADMIN" ? "Quản trị viên" : "Thành viên"}
           </span>
         </div>
         <ChevronsUpDown size={15} className="sidebar-ws-chevron" />
@@ -226,7 +226,7 @@ export function WorkspaceSwitcher({
                 <div className="sidebar-ws-avatar">{ws.name.charAt(0).toUpperCase()}</div>
                 <div className="sidebar-ws-info">
                   <span className="sidebar-ws-name">{ws.name}</span>
-                  <span className="sidebar-ws-role">{ws.role === "ADMIN" || ws.role === "OWNER" ? "Quản trị viên" : "Thành viên"}</span>
+                  <span className="sidebar-ws-role">{ws.role === "ADMIN" ? "Quản trị viên" : "Thành viên"}</span>
                 </div>
                 {isSelected && <Check size={14} className="text-[var(--primary)]" />}
               </Button>

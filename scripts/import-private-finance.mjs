@@ -82,8 +82,8 @@ async function importPreparedData(preparedPath) {
   try {
     await client.query("BEGIN");
 
-    const ownerRole = await client.query('SELECT "id" FROM "ROLE" WHERE "code" = $1', ["OWNER"]);
-    if (ownerRole.rowCount !== 1) throw new Error("OWNER role was not created by migrations.");
+    const adminRole = await client.query('SELECT "id" FROM "ROLE" WHERE "code" = $1', ["ADMIN"]);
+    if (adminRole.rowCount !== 1) throw new Error("ADMIN role was not created by migrations.");
 
     // Replace migration seed categories so the new database exposes exactly the requested common list.
     await client.query('DELETE FROM "CATEGORY" WHERE "workspace_id" IS NULL');
@@ -103,7 +103,7 @@ async function importPreparedData(preparedPath) {
     );
     await client.query(
       'INSERT INTO "WORKSPACE_MEMBERS" ("id", "workspace_id", "user_id", "role_id", "status", "created_at", "updated_at") VALUES ($1, $2, $3, $4, \'active\', $5, $5)',
-      [memberId, workspaceId, userId, ownerRole.rows[0].id, now],
+      [memberId, workspaceId, userId, adminRole.rows[0].id, now],
     );
     await client.query(
       'INSERT INTO "WORKSPACE_WALLET" ("workspace_id", "wallet_id") VALUES ($1, $2)',
@@ -152,7 +152,7 @@ async function importPreparedData(preparedPath) {
   }, null, 2));
 }
 
-async function grantOwner() {
+async function grantAdmin() {
   const client = new Client({ connectionString: targetConnectionString() });
   await client.connect();
   try {
@@ -162,9 +162,9 @@ async function grantOwner() {
       FROM "USERS" users, "ROLE" role
       WHERE wm."user_id" = users."id"
         AND users."username" = $1
-        AND role."code" = 'OWNER'
+        AND role."code" = 'ADMIN'
     `, [USERNAME]);
-    console.log(JSON.stringify({ database: TARGET_DATABASE, username: USERNAME, ownerMemberships: result.rowCount }, null, 2));
+    console.log(JSON.stringify({ database: TARGET_DATABASE, username: USERNAME, adminMemberships: result.rowCount }, null, 2));
   } finally {
     await client.end();
   }
@@ -186,7 +186,7 @@ async function verifyImport() {
         (SELECT COALESCE(SUM("amount"), 0)::text FROM "TRANSACTION" WHERE "type" = 'expense' AND "workflow_status" = 'approved' AND "deleted_at" IS NULL) AS expense,
         (SELECT "opening_balance"::text FROM "WALLETS" LIMIT 1) AS opening_balance,
         (SELECT "current_balance"::text FROM "WALLETS" LIMIT 1) AS current_balance,
-        (SELECT COUNT(*)::int FROM "WORKSPACE_MEMBERS" wm JOIN "USERS" u ON u."id" = wm."user_id" JOIN "ROLE" r ON r."id" = wm."role_id" WHERE u."username" = $1 AND r."code" = 'OWNER') AS owner_memberships,
+        (SELECT COUNT(*)::int FROM "WORKSPACE_MEMBERS" wm JOIN "USERS" u ON u."id" = wm."user_id" JOIN "ROLE" r ON r."id" = wm."role_id" WHERE u."username" = $1 AND r."code" = 'ADMIN') AS admin_memberships,
         (SELECT "password_hash" FROM "USERS" WHERE "username" = $1) AS password_hash
     `, [USERNAME]);
     const workspaceResult = await client.query(`
@@ -211,6 +211,6 @@ const [command, argument] = process.argv.slice(2);
 if (command === "rebuild") await rebuildDatabase();
 else if (command === "migrate") await migrateDatabase();
 else if (command === "import") await importPreparedData(argument);
-else if (command === "grant-owner") await grantOwner();
+else if (command === "grant-admin") await grantAdmin();
 else if (command === "verify") await verifyImport();
-else throw new Error("Usage: node scripts/import-private-finance.mjs <rebuild|migrate|import|grant-owner|verify> [prepared-json]");
+else throw new Error("Usage: node scripts/import-private-finance.mjs <rebuild|migrate|import|grant-admin|verify> [prepared-json]");

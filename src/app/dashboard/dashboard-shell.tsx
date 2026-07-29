@@ -10,7 +10,7 @@ import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { activateDueScheduledTransactions } from "@/services/transaction-service";
-import { isAdminRole, isOwnerRole } from "@/domain/role-policy";
+import { isAdminRole } from "@/domain/role-policy";
 import { getPendingJoinRequestCount } from "@/services/join-request-query";
 import { MobileNavigation } from "@/app/dashboard/mobile-navigation";
 import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transaction-sheet";
@@ -86,7 +86,6 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
 
   const pendingJoinCount = userId ? await getPendingJoinRequestCount(userId) : 0;
 
-  const isOwner = membership ? isOwnerRole(membership.role.code) : false;
   const isAdmin = membership ? isAdminRole(membership.role.code) : false;
   const userRole: "admin" | "member" | "none" = membership
     ? isAdmin
@@ -166,7 +165,6 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
                 currency={membership.workspace.baseCurrency}
                 timeZone={membership.workspace.timeZone}
                 isAdmin={isAdmin}
-                canAssignOwner={isOwner}
               />
             )}
             <ThemeToggle />

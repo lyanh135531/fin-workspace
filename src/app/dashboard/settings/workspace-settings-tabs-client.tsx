@@ -46,7 +46,6 @@ interface Props {
   members: Member[];
   roles: Role[];
   joinRequests: JoinRequest[];
-  isOwner: boolean;
   initialTab?: TabKey;
 }
 
@@ -61,14 +60,13 @@ export function WorkspaceSettingsTabsClient({
   members,
   roles,
   joinRequests,
-  isOwner,
   initialTab = "general",
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
 
   const tabs: { key: TabKey; label: string; icon: typeof Sliders; count?: number }[] = [
     { key: "general", label: "Cấu hình & Vận hành", icon: Sliders },
-    ...(isOwner ? [{ key: "categories" as const, label: "Danh mục thu/chi", icon: Folders, count: categories.length }] : []),
+    { key: "categories", label: "Danh mục thu/chi", icon: Folders, count: categories.length },
     { key: "members", label: "Thành viên", icon: UsersRound, count: members.length },
   ];
 
@@ -100,7 +98,7 @@ export function WorkspaceSettingsTabsClient({
       <TabsContent value="general">
         <div className="grid gap-6 lg:grid-cols-12 items-start">
           <div className="lg:col-span-7">
-            <WorkspaceSettings workspace={workspace} isAdmin={isOwner} />
+            <WorkspaceSettings workspace={workspace} isAdmin={isAdmin} />
           </div>
           <div className="lg:col-span-5">
             <InviteCodeCard code={workspace.inviteCode} />
@@ -109,12 +107,12 @@ export function WorkspaceSettingsTabsClient({
       </TabsContent>
 
       {/* ── Tab 2: Danh mục thu/chi ── */}
-      {isOwner && <TabsContent value="categories">
+      <TabsContent value="categories">
         <div className="space-y-6">
           <ImportCategoryPanel templates={templates} existingCodes={existingCodes} />
           <CategoryManagement categories={categories} />
         </div>
-      </TabsContent>}
+      </TabsContent>
 
       {/* ── Tab 3: Thành viên ── */}
       <TabsContent value="members">

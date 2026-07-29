@@ -1,4 +1,5 @@
 import { NotificationsMenu, type NotificationItem } from "@/app/dashboard/notifications-menu";
+import { WORKSPACE_ROLE_CODES } from "@/domain/role-policy";
 import { getBusinessNotificationRange } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 
@@ -18,13 +19,11 @@ export async function WorkspaceNotifications({
   currency,
   timeZone,
   isAdmin,
-  canAssignOwner,
 }: {
   workspaceId: string;
   currency: string;
   timeZone: string;
   isAdmin: boolean;
-  canAssignOwner: boolean;
 }) {
   const range = getBusinessNotificationRange(timeZone);
   const transactionWhere = isAdmin
@@ -96,7 +95,7 @@ export async function WorkspaceNotifications({
     : Promise.resolve([]);
   const rolesPromise = isAdmin
     ? prisma.role.findMany({
-      where: canAssignOwner ? undefined : { code: { not: "OWNER" } },
+      where: { code: { in: [...WORKSPACE_ROLE_CODES] } },
       select: { code: true, name: true },
       orderBy: { name: "asc" },
     })
