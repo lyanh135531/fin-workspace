@@ -5,6 +5,7 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Label } from "./label"
 
 export type SelectOption = {
   value: string
@@ -18,7 +19,7 @@ export type SelectProps = {
   defaultValue?: string
   onValueChange?: (value: string) => void
   name?: string
-  label: string
+  label?: string
   placeholder?: string
   options: SelectOption[]
   required?: boolean
@@ -225,9 +226,11 @@ function Select({
   contentClassName,
   size,
 }: SelectProps) {
-  return (
+  const generatedId = React.useId()
+  const selectId = id ?? (label ? generatedId : undefined)
+  const select = (
     <SelectRoot
-      id={id}
+      id={selectId}
       value={value}
       defaultValue={defaultValue}
       onValueChange={(nextValue) => {
@@ -238,7 +241,7 @@ function Select({
       required={required}
       disabled={disabled}
     >
-      <SelectTrigger className={className} size={size} aria-label={label}>
+      <SelectTrigger id={selectId} className={className} size={size} aria-label={label}>
         <SelectValue placeholder={placeholder ?? label} />
       </SelectTrigger>
       <SelectContent align="start" className={contentClassName}>
@@ -253,6 +256,15 @@ function Select({
         ))}
       </SelectContent>
     </SelectRoot>
+  )
+
+  if (!label) return select
+
+  return (
+    <div className="grid gap-1">
+      <Label required={required}>{label}</Label>
+      {select}
+    </div>
   )
 }
 

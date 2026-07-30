@@ -5,7 +5,6 @@ import { useState, useTransition } from "react";
 import { createWorkspaceAction } from "@/app/dashboard/settings/actions";
 import { Button, Card, Input } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 const NAME_SUGGESTIONS = [
@@ -63,10 +62,8 @@ export function CreateWorkspaceForm() {
           <form onSubmit={submit} className="space-y-5 pt-2">
             {/* Workspace Name & Suggestions */}
             <div className="space-y-2">
-              <Label htmlFor="workspace-name-input" className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
-                Tên workspace <span className="text-rose-500">*</span>
-              </Label>
               <Input
+                label="Tên workspace"
                 id="workspace-name-input"
                 required
                 name="name"
@@ -101,10 +98,8 @@ export function CreateWorkspaceForm() {
 
             {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="workspace-desc-input" className="block text-xs font-bold uppercase tracking-wider text-[var(--foreground)]">
-                Mô tả ngắn <span className="text-slate-400 font-normal lowercase">(tùy chọn)</span>
-              </Label>
               <Textarea
+                label={<>Mô tả ngắn <span className="text-slate-400 font-normal lowercase">(tùy chọn)</span></>}
                 id="workspace-desc-input"
                 name="description"
                 maxLength={500}

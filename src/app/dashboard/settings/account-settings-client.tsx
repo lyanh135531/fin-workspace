@@ -14,7 +14,6 @@ import {
 
 import { changePasswordAction } from "@/app/dashboard/settings/general-actions";
 import { Button, Input } from "@/components/base";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 function getInitials(username: string): string {
@@ -129,11 +128,8 @@ export function AccountSettingsClient({
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-3.5">
           {/* Current Password */}
           <div className="space-y-1.5">
-            <Label className="block text-xs font-semibold text-[var(--text-secondary)]">
-              Mật khẩu hiện tại <span className="text-rose-500">*</span>
-            </Label>
-            <div className="relative">
-              <Input
+            <Input
+                label="Mật khẩu hiện tại"
                 id="currentPassword"
                 required
                 name="currentPassword"
@@ -141,8 +137,8 @@ export function AccountSettingsClient({
                 autoComplete="current-password"
                 placeholder="Nhập mật khẩu hiện tại"
                 className="pr-10 text-sm"
-              />
-              <Button variant="unstyled" size="auto"
+                controlClassName="relative"
+                endAdornment={<Button variant="unstyled" size="auto"
                 type="button"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
                 onClick={() => setShowCurrent(!showCurrent)}
@@ -150,17 +146,14 @@ export function AccountSettingsClient({
                 aria-label={showCurrent ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
                 {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
-              </Button>
-            </div>
+              </Button>}
+            />
           </div>
 
           {/* New Password */}
           <div className="space-y-1.5">
-            <Label className="block text-xs font-semibold text-[var(--text-secondary)]">
-              Mật khẩu mới <span className="text-rose-500">*</span>
-            </Label>
-            <div className="relative">
-              <Input
+            <Input
+                label="Mật khẩu mới"
                 id="newPassword"
                 required
                 name="newPassword"
@@ -172,8 +165,8 @@ export function AccountSettingsClient({
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="pr-10 text-sm"
-              />
-              <Button variant="unstyled" size="auto"
+                controlClassName="relative"
+                endAdornment={<Button variant="unstyled" size="auto"
                 type="button"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
                 onClick={() => setShowNew(!showNew)}
@@ -181,8 +174,8 @@ export function AccountSettingsClient({
                 aria-label={showNew ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
                 {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
-              </Button>
-            </div>
+              </Button>}
+            />
 
             {/* Password strength meter */}
             {newPassword && (
@@ -203,11 +196,8 @@ export function AccountSettingsClient({
 
           {/* Confirm New Password */}
           <div className="space-y-1.5">
-            <Label className="block text-xs font-semibold text-[var(--text-secondary)]">
-              Xác nhận mật khẩu mới <span className="text-rose-500">*</span>
-            </Label>
-            <div className="relative">
-              <Input
+            <Input
+                label="Xác nhận mật khẩu mới"
                 id="confirmPassword"
                 required
                 name="confirmPassword"
@@ -219,8 +209,8 @@ export function AccountSettingsClient({
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="pr-10 text-sm"
-              />
-              <Button variant="unstyled" size="auto"
+                controlClassName="relative"
+                endAdornment={<Button variant="unstyled" size="auto"
                 type="button"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
                 onClick={() => setShowConfirm(!showConfirm)}
@@ -228,8 +218,8 @@ export function AccountSettingsClient({
                 aria-label={showConfirm ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
                 {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
-              </Button>
-            </div>
+              </Button>}
+            />
           </div>
 
           <div className="pt-2 flex justify-end">

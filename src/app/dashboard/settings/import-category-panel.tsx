@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { ArrowDownLeft, ArrowUpRight, Download, Tag, CheckCircle2 } from "lucide-react";
 import { importCategoriesAction } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP } from "@/app/dashboard/settings/global-category-management";
-import { Button, Card, Empty } from "@/components/base";
+import { Button, Card, Empty, Label } from "@/components/base";
 import { toast } from "sonner";
 
 type TemplateCategory = {
@@ -131,7 +131,7 @@ export function ImportCategoryPanel({
             const isChecked = selected.has(t.id);
             const IconComp = ICON_MAP[t.icon ?? "tag"] ?? Tag;
             return (
-              <label
+              <Label
                 key={t.id}
                 className={`flex min-h-12 items-center gap-3 rounded-xl border px-3.5 py-2.5 cursor-pointer transition-all ${
                   isChecked
@@ -167,7 +167,7 @@ export function ImportCategoryPanel({
                     </span>
                   </p>
                 </div>
-              </label>
+              </Label>
             );
           })}
         </div>

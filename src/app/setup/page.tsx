@@ -7,7 +7,6 @@ import {
   Eye, EyeOff, ShieldCheck, AlertCircle, CheckCircle2, Lock, User, Check,
 } from "lucide-react";
 import { FinLogo } from "@/components/fin-logo";
-import { Label } from "@/components/ui/label";
 
 /* ── Password strength ─────────────────────────────────────────── */
 type Strength = { score: 0 | 1 | 2 | 3 | 4; label: string; cls: string };
@@ -164,26 +163,23 @@ export default function SetupPage() {
                 <div className="auth-fields">
                   {/* Username */}
                   <div className="auth-floating-field">
-                    <Label htmlFor={`${id}-username`}>
-                      Tên đăng nhập <span aria-hidden>*</span>
-                    </Label>
-                    <div className="auth-field-wrap has-left-icon">
-                      <span className="auth-field-left-icon" aria-hidden>
+                    <Input
+                      label="Tên đăng nhập"
+                      id={`${id}-username`}
+                      name="username"
+                      type="text"
+                      required
+                      minLength={3}
+                      maxLength={80}
+                      autoComplete="username"
+                      autoFocus
+                      placeholder="Tối thiểu 3 ký tự"
+                      className="auth-field-input"
+                      controlClassName="auth-field-wrap has-left-icon"
+                      startAdornment={<span className="auth-field-left-icon" aria-hidden>
                         <User size={16} strokeWidth={2} />
-                      </span>
-                      <Input
-                        id={`${id}-username`}
-                        name="username"
-                        type="text"
-                        required
-                        minLength={3}
-                        maxLength={80}
-                        autoComplete="username"
-                        autoFocus
-                        placeholder="Tối thiểu 3 ký tự"
-                        className="auth-field-input"
-                      />
-                    </div>
+                      </span>}
+                    />
                     {fieldErrors.username && (
                       <p className="text-xs text-rose-500 mt-1" role="alert">{fieldErrors.username}</p>
                     )}
@@ -192,27 +188,24 @@ export default function SetupPage() {
 
                   {/* Password */}
                   <div className="auth-floating-field">
-                    <Label htmlFor={`${id}-password`}>
-                      Mật khẩu <span aria-hidden>*</span>
-                    </Label>
-                    <div className="auth-field-wrap has-left-icon">
-                      <span className="auth-field-left-icon" aria-hidden>
+                    <Input
+                      label="Mật khẩu"
+                      id={`${id}-password`}
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      minLength={6}
+                      maxLength={128}
+                      autoComplete="new-password"
+                      placeholder="Tối thiểu 6 ký tự"
+                      className="auth-field-input has-icon"
+                      value={password}
+                      onChange={handlePasswordChange}
+                      controlClassName="auth-field-wrap has-left-icon"
+                      startAdornment={<span className="auth-field-left-icon" aria-hidden>
                         <Lock size={16} strokeWidth={2} />
-                      </span>
-                      <Input
-                        id={`${id}-password`}
-                        name="password"
-                        type={showPassword ? "text" : "password"}
-                        required
-                        minLength={6}
-                        maxLength={128}
-                        autoComplete="new-password"
-                        placeholder="Tối thiểu 6 ký tự"
-                        className="auth-field-input has-icon"
-                        value={password}
-                        onChange={handlePasswordChange}
-                      />
-                      <Button variant="unstyled" size="auto"
+                      </span>}
+                      endAdornment={<Button variant="unstyled" size="auto"
                         type="button"
                         className="auth-password-toggle"
                         aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
@@ -221,8 +214,8 @@ export default function SetupPage() {
                         {showPassword
                           ? <EyeOff size={16} strokeWidth={2} />
                           : <Eye size={16} strokeWidth={2} />}
-                      </Button>
-                    </div>
+                      </Button>}
+                    />
                     {fieldErrors.password && (
                       <p className="text-xs text-rose-500 mt-1" role="alert">{fieldErrors.password}</p>
                     )}

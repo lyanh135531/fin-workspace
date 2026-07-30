@@ -17,6 +17,7 @@ import {
   CategoryTreeSelect,
   DatePicker,
   Empty,
+  Label,
   MoneyInput,
   Select,
   Sheet,
@@ -217,18 +218,16 @@ export function QuickTransactionSheet({
 
           <form className="quick-transaction-form" onSubmit={submit}>
             <div className="quick-transaction-scroll">
-              <label className="quick-field">
-                <span>Workspace</span>
-                <Select
-                  value={workspace.id}
-                  onValueChange={chooseWorkspace}
-                  label="Chọn workspace"
-                  options={workspaces.map((item) => ({
-                    value: item.id,
-                    label: item.name,
-                  }))}
-                />
-              </label>
+              <Select
+                label="Workspace"
+                value={workspace.id}
+                onValueChange={chooseWorkspace}
+                placeholder="Chọn workspace"
+                options={workspaces.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                }))}
+              />
 
               <div className="quick-type-switch" aria-label="Loại giao dịch">
                 {transactionTypes.map((item) => {
@@ -250,64 +249,55 @@ export function QuickTransactionSheet({
                 })}
               </div>
 
-              <label className="quick-amount-field">
-                <span>Số tiền</span>
-                <div>
-                  <MoneyInput
-                    autoFocus
-                    value={amount}
-                    onValueChange={setAmount}
-                    placeholder="0"
-                    aria-label="Số tiền giao dịch"
-                  />
-                </div>
-              </label>
+              <MoneyInput
+                label="Số tiền"
+                wrapperClassName="quick-amount-field"
+                autoFocus
+                value={amount}
+                onValueChange={setAmount}
+                placeholder="0"
+                aria-label="Số tiền giao dịch"
+              />
 
               {workspace.wallets.length ? (
                 <div className="quick-transaction-grid">
-                  <div className="quick-field">
-                    <span>{type === "transfer" ? "Ví gửi" : "Ví"}</span>
+                  <Select
+                    label={type === "transfer" ? "Ví gửi" : "Ví"}
+                    value={walletId}
+                    onValueChange={(nextWalletId) => {
+                      setWalletId(nextWalletId);
+                      if (nextWalletId === toWalletId) {
+                        setToWalletId(destinationWallet(workspace, nextWalletId));
+                      }
+                    }}
+                    placeholder="Chọn ví"
+                    options={workspace.wallets.map((wallet) => ({
+                      value: wallet.id,
+                      label: wallet.name,
+                    }))}
+                  />
+
+                  {type === "transfer" ? (
                     <Select
-                      value={walletId}
-                      onValueChange={(nextWalletId) => {
-                        setWalletId(nextWalletId);
-                        if (nextWalletId === toWalletId) {
-                          setToWalletId(destinationWallet(workspace, nextWalletId));
-                        }
-                      }}
-                      label="Chọn ví"
+                      label="Ví nhận"
+                      value={toWalletId}
+                      onValueChange={setToWalletId}
+                      placeholder="Chọn ví nhận"
                       options={workspace.wallets.map((wallet) => ({
                         value: wallet.id,
                         label: wallet.name,
+                        disabled: wallet.id === walletId,
                       }))}
                     />
-                  </div>
-
-                  {type === "transfer" ? (
-                    <div className="quick-field">
-                      <span>Ví nhận</span>
-                      <Select
-                        value={toWalletId}
-                        onValueChange={setToWalletId}
-                        label="Chọn ví nhận"
-                        options={workspace.wallets.map((wallet) => ({
-                          value: wallet.id,
-                          label: wallet.name,
-                          disabled: wallet.id === walletId,
-                        }))}
-                      />
-                    </div>
                   ) : (
-                    <div className="quick-field">
-                      <span>Danh mục</span>
-                      <CategoryTreeSelect
-                        value={categoryId}
-                        onValueChange={setCategoryId}
-                        label="Chọn danh mục"
-                        categories={categories}
-                        emptyOption={{ value: "none", label: "Không chọn" }}
-                      />
-                    </div>
+                    <CategoryTreeSelect
+                      label="Danh mục"
+                      value={categoryId}
+                      onValueChange={setCategoryId}
+                      placeholder="Chọn danh mục"
+                      categories={categories}
+                      emptyOption={{ value: "none", label: "Không chọn" }}
+                    />
                   )}
                 </div>
               ) : (
@@ -332,23 +322,18 @@ export function QuickTransactionSheet({
 
               {showDetails && (
                 <div className="quick-details">
-                  <label className="quick-field">
-                    <span>Ngày giao dịch</span>
-                    <DatePicker
-                      label="Ngày giao dịch"
-                      value={date}
-                      onValueChange={setDate}
-                    />
-                  </label>
-                  <label className="quick-field">
-                    <span>Nội dung</span>
-                    <Textarea
-                      value={description}
-                      onChange={(event) => setDescription(event.target.value)}
-                      placeholder="Ăn trưa, nhận lương"
-                      maxLength={2_000}
-                    />
-                  </label>
+                  <DatePicker
+                    label="Ngày giao dịch"
+                    value={date}
+                    onValueChange={setDate}
+                  />
+                  <Textarea
+                    label="Nội dung"
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    placeholder="Ăn trưa, nhận lương"
+                    maxLength={2_000}
+                  />
                 </div>
               )}
 
@@ -356,14 +341,14 @@ export function QuickTransactionSheet({
             </div>
 
             <div className="quick-transaction-footer">
-              <label className="quick-keep-open">
+              <Label className="quick-keep-open">
                 <input
                   type="checkbox"
                   checked={keepOpen}
                   onChange={(event) => setKeepOpen(event.target.checked)}
                 />
                 Nhập tiếp sau khi lưu
-              </label>
+              </Label>
               <Button
                 type="submit"
                 disabled={pending || !workspace.wallets.length}

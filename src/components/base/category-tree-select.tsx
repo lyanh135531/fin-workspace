@@ -4,12 +4,13 @@ import * as React from "react"
 import { BriefcaseBusiness, Car, Coffee, Fuel, Heart, House, ShoppingBag, Tag, Utensils, WalletCards } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SelectContent, SelectGroup, SelectItem, SelectRoot, SelectSeparator, SelectTrigger, SelectValue } from "./select"
+import { Label } from "./label"
 
 export type CategoryTreeOption = { id: string; name: string; color?: string; icon?: string | null; parentId?: string | null; disabled?: boolean }
 
 export type CategoryTreeSelectProps = {
   id?: string; value?: string; defaultValue?: string; onValueChange?: (value: string) => void; name?: string
-  label: string; placeholder?: string; categories: CategoryTreeOption[]; emptyOption?: { value: string; label: string }
+  label?: string; placeholder?: string; categories: CategoryTreeOption[]; emptyOption?: { value: string; label: string }
   required?: boolean; disabled?: boolean; className?: string
 }
 
@@ -88,9 +89,11 @@ function TreeItems({ nodes, depth = 0 }: { nodes: TreeNode[]; depth?: number }) 
 function CategoryTreeSelect({ id, value, defaultValue, onValueChange, name, label, placeholder, categories, emptyOption, required, disabled, className }: CategoryTreeSelectProps) {
   const tree = React.useMemo(() => makeTree(categories), [categories])
   const items = React.useMemo(() => [...(emptyOption ? [emptyOption] : []), ...categoryPaths(categories)], [categories, emptyOption])
-  return (
-    <SelectRoot id={id} value={value} defaultValue={defaultValue} onValueChange={(nextValue) => { if (nextValue !== null) onValueChange?.(String(nextValue)) }} items={items} name={name} required={required} disabled={disabled}>
-      <SelectTrigger className={cn("category-tree-trigger", className)} aria-label={label}>
+  const generatedId = React.useId()
+  const selectId = id ?? (label ? generatedId : undefined)
+  const select = (
+    <SelectRoot id={selectId} value={value} defaultValue={defaultValue} onValueChange={(nextValue) => { if (nextValue !== null) onValueChange?.(String(nextValue)) }} items={items} name={name} required={required} disabled={disabled}>
+      <SelectTrigger id={selectId} className={cn("category-tree-trigger", className)} aria-label={label}>
         <SelectValue placeholder={placeholder ?? label} className="category-tree-trigger-value">
           {(selectedValue: string | null) => {
             const selectedCategory = categories.find((category) => category.id === selectedValue)
@@ -115,6 +118,13 @@ function CategoryTreeSelect({ id, value, defaultValue, onValueChange, name, labe
         </SelectGroup>
       </SelectContent>
     </SelectRoot>
+  )
+  if (!label) return select
+  return (
+    <div className="grid gap-1">
+      <Label required={required}>{label}</Label>
+      {select}
+    </div>
   )
 }
 

@@ -433,8 +433,8 @@ function RecurringEditor({
         </Tabs>
         <div className="recurring-editor-grid recurring-transaction-grid">
           <div className="recurring-field recurring-field-wide">
-            <span>Nội dung giao dịch</span>
             <Input
+              label="Nội dung giao dịch"
               autoFocus
               value={draft.description}
               onChange={(event) => onChange({ description: event.target.value })}
@@ -443,8 +443,7 @@ function RecurringEditor({
             />
           </div>
           <div className="recurring-field">
-            <span>Số tiền</span>
-            <MoneyInput value={draft.amount} onValueChange={(amount) => onChange({ amount })} placeholder="0" />
+            <MoneyInput label="Số tiền" value={draft.amount} onValueChange={(amount) => onChange({ amount })} placeholder="0" />
           </div>
         </div>
       </div>
@@ -453,7 +452,6 @@ function RecurringEditor({
         <div className="recurring-editor-section-title"><Landmark size={16} /><span>Nguồn tiền</span></div>
         <div className="recurring-editor-grid recurring-source-grid">
           <div className="recurring-field">
-            <span>Ví thực hiện</span>
             <Select
               value={draft.walletId}
               onValueChange={(walletId) => onChange({ walletId, toWalletId: draft.toWalletId === walletId ? defaultDestination(wallets, walletId) : draft.toWalletId })}
@@ -463,7 +461,6 @@ function RecurringEditor({
           </div>
           {draft.type === "transfer" ? (
             <div className="recurring-field">
-              <span>Ví nhận</span>
               <Select
                 value={draft.toWalletId}
                 onValueChange={(toWalletId) => onChange({ toWalletId })}
@@ -473,7 +470,6 @@ function RecurringEditor({
             </div>
           ) : (
             <div className="recurring-field">
-              <span>Danh mục</span>
               <CategoryTreeSelect
                 value={draft.categoryId}
                 onValueChange={(categoryId) => onChange({ categoryId })}
@@ -490,9 +486,8 @@ function RecurringEditor({
         <div className="recurring-editor-section-title"><CalendarClock size={16} /><span>Lịch chạy</span></div>
         <div className="recurring-editor-grid recurring-date-grid">
           <div className="recurring-field">
-            <span>Ngày bắt đầu</span>
             <DatePicker
-              label="Chọn ngày bắt đầu"
+              label="Ngày bắt đầu"
               value={draft.startDate}
               onValueChange={(startDate) => onChange({ startDate, endDate: draft.endDate && draft.endDate < startDate ? "" : draft.endDate })}
               required
@@ -500,8 +495,7 @@ function RecurringEditor({
             <small>Đây cũng là ngày lặp lại hằng tháng.</small>
           </div>
           <div className="recurring-field">
-            <span>Kết thúc</span>
-            <DatePicker label="Chọn ngày kết thúc" value={draft.endDate} onValueChange={(endDate) => onChange({ endDate })} minDate={draft.startDate} allowClear />
+            <DatePicker label="Kết thúc" value={draft.endDate} onValueChange={(endDate) => onChange({ endDate })} minDate={draft.startDate} allowClear />
             <small>Để trống để lịch chạy liên tục.</small>
           </div>
         </div>

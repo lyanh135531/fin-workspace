@@ -3,10 +3,11 @@
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CalendarDays, ChevronDown, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import type { Matcher } from "react-day-picker";
 
 import { Button } from "@/components/base/button";
+import { Label } from "@/components/base/label";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -18,7 +19,7 @@ import { cn } from "@/lib/utils";
 export type DatePickerProps = {
   id?: string;
   name?: string;
-  label: string;
+  label?: string;
   placeholder?: string;
   value?: string;
   defaultValue?: string;
@@ -75,6 +76,8 @@ export function DatePicker({
   maxDate,
   className,
 }: DatePickerProps) {
+  const generatedId = useId();
+  const datePickerId = id ?? (label ? generatedId : undefined);
   const [open, setOpen] = useState(false);
   const [internalValue, setInternalValue] = useState(defaultValue ?? "");
   const isControlled = value !== undefined;
@@ -123,12 +126,12 @@ export function DatePicker({
     }
   }
 
-  return (
+  const picker = (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
           <Button
-            id={id}
+            id={datePickerId}
             type="button"
             variant="outline"
             aria-label={label}
@@ -212,5 +215,14 @@ export function DatePicker({
         />
       )}
     </Popover>
+  );
+
+  if (!label) return picker;
+
+  return (
+    <div className="grid gap-1">
+      <Label required={required}>{label}</Label>
+      {picker}
+    </div>
   );
 }

@@ -3,7 +3,7 @@
 import { UserPlus } from "lucide-react";
 import { useTransition } from "react";
 import { createMemberAccountAction } from "@/app/dashboard/users/actions";
-import { Button, Card, Input } from "@/components/base";
+import { Button, Card, Input, Label } from "@/components/base";
 import { toast } from "sonner";
 
 type Workspace = { id: string; name: string };
@@ -41,24 +41,22 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
         </div>
       </div>
       <form id="member-account-form" action={submit} className="mt-6 grid gap-4 md:grid-cols-2">
-        <label className="text-sm font-medium">
-          Username
-          <Input className="mt-2" required name="username" minLength={3} maxLength={80} autoComplete="username" placeholder="minh"/>
-        </label>
-        <label className="text-sm font-medium">
-          Mật khẩu ban đầu
-          <Input className="mt-2" required name="password" type="password" minLength={6} maxLength={128} autoComplete="new-password" placeholder="Tối thiểu 6 ký tự"/>
-        </label>
+        <div className="grid gap-2">
+          <Input id="member-username" label="Username" required name="username" minLength={3} maxLength={80} autoComplete="username" placeholder="minh"/>
+        </div>
+        <div className="grid gap-2">
+          <Input id="member-password" label="Mật khẩu ban đầu" required name="password" type="password" minLength={6} maxLength={128} autoComplete="new-password" placeholder="Tối thiểu 6 ký tự"/>
+        </div>
         <fieldset className="rounded-xl border border-[var(--border)] p-4 md:col-span-2">
           <legend className="px-1 text-sm font-medium">Workspace được quyền tham gia</legend>
           <p className="mt-1 text-sm text-slate-500">Chọn một hoặc nhiều workspace.</p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {workspaces.map((workspace) => (
-              <label key={workspace.id} className="flex min-h-12 items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 text-sm">
+              <Label key={workspace.id} className="min-h-12 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3">
                 <input name="workspaceIds" type="checkbox" value={workspace.id} className="accent-[var(--coral)]"/>
                 <span>{workspace.name}</span>
                 <small className="ml-auto text-slate-500">Member</small>
-              </label>
+              </Label>
             ))}
           </div>
         </fieldset>

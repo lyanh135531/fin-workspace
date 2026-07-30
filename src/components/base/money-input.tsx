@@ -2,10 +2,13 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import { Input } from "./input"
+import { Label } from "./label"
 
-export type MoneyInputProps = Omit<React.ComponentProps<typeof Input>, "inputMode" | "type" | "value" | "onChange"> & {
+export type MoneyInputProps = Omit<React.ComponentProps<typeof Input>, "inputMode" | "type" | "value" | "onChange" | "label"> & {
   value: string
   onValueChange: (value: string) => void
+  label?: React.ReactNode
+  wrapperClassName?: string
 }
 
 function formatVndAmount(value: string) {
@@ -13,10 +16,13 @@ function formatVndAmount(value: string) {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
 }
 
-function MoneyInput({ className, value, onValueChange, ...props }: MoneyInputProps) {
-  return (
+function MoneyInput({ className, id, label, wrapperClassName, value, onValueChange, ...props }: MoneyInputProps) {
+  const generatedId = React.useId()
+  const inputId = id ?? (label ? generatedId : undefined)
+  const input = (
     <div className="relative">
       <Input
+        id={inputId}
         inputMode="numeric"
         value={formatVndAmount(value)}
         onChange={(event) => onValueChange(event.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, ""))}
@@ -29,6 +35,15 @@ function MoneyInput({ className, value, onValueChange, ...props }: MoneyInputPro
       >
         VND
       </span>
+    </div>
+  )
+
+  if (!label) return input
+
+  return (
+    <div className={cn("grid gap-1", wrapperClassName)}>
+      <Label required={props.required}>{label}</Label>
+      {input}
     </div>
   )
 }

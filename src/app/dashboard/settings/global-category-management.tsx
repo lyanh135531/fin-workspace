@@ -49,6 +49,7 @@ import {
   CategoryTreeSelect,
   Empty,
   Input,
+  Label,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -645,8 +646,8 @@ function TemplateForm({
       <div className="flex flex-col gap-4">
         {/* Name Input */}
         <div>
-          <label className="text-xs font-semibold text-slate-500 mb-1 block">Tên danh mục *</label>
           <Input
+            label="Tên danh mục"
             name="name"
             required
             value={name}
@@ -657,11 +658,8 @@ function TemplateForm({
 
         {/* Code Input (Auto-generated) */}
         <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-xs font-semibold text-slate-500">Mã danh mục (Code) *</label>
-            <span className="text-[10px] text-slate-400">Tự động tạo từ tên</span>
-          </div>
           <Input
+            label={"Mã danh mục"}
             className="font-mono text-sm uppercase"
             name="code"
             required
@@ -676,7 +674,6 @@ function TemplateForm({
 
         {/* Parent Category */}
         <div>
-          <label className="text-xs font-semibold text-slate-500 mb-1 block">Danh mục cha</label>
           <CategoryTreeSelect
             name="parentId"
             defaultValue={category?.parentId ?? "none"}
@@ -695,10 +692,10 @@ function TemplateForm({
 
 
         {/* Color Picker */}
-        <div>
-          <label className="text-xs font-semibold text-slate-500 mb-1.5 block">
+        <div className="grid gap-1">
+          <Label>
             Màu đại diện
-          </label>
+          </Label>
           <div className="flex flex-wrap items-center gap-2 mb-2">
             {COLOR_PRESETS.map((color) => (
               <Button variant="unstyled" size="auto"
@@ -723,10 +720,10 @@ function TemplateForm({
         </div>
 
         {/* Visual Icon Picker Grid */}
-        <div>
-          <label className="text-xs font-semibold text-slate-500 mb-1.5 block">
-            Chọn Biểu tượng (Icon)
-          </label>
+        <div className="grid gap-1">
+          <Label>
+            Chọn Biểu tượng
+          </Label>
           <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border border-[var(--border)] rounded-xl bg-[var(--surface)]">
             {ICON_LIST.map((item) => {
               const IconComp = ICON_MAP[item.id] ?? Tag;

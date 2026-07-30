@@ -5,7 +5,6 @@ import { useState, useTransition } from "react";
 import { deleteWorkspaceAction, updateWorkspaceSettingsAction } from "@/app/dashboard/settings/actions";
 import { Button, Card, Input, Select } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
@@ -90,10 +89,8 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
           <div className="grid gap-6">
           {/* Name — full width, prominent */}
           <div className="space-y-2">
-            <Label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-              Tên workspace <span className="text-rose-500">*</span>
-            </Label>
             <Input
+              label="Tên workspace"
               id="ws-name"
               required
               name="name"
@@ -104,14 +101,11 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
 
           {/* Status */}
           <div className="space-y-2">
-            <Label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-              Trạng thái
-            </Label>
             <Select
+              label="Trạng thái"
               id="ws-status"
               name="status"
               defaultValue={workspace.status}
-              label="Trạng thái"
               options={[
                 {
                   value: "active",
@@ -137,10 +131,8 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
 
           {/* Description with character hint */}
           <div className="space-y-2">
-            <Label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-              Mô tả
-            </Label>
             <Textarea
+              label="Mô tả"
               id="ws-desc"
               name="description"
               rows={3}
@@ -227,10 +219,8 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
             </p>
 
             <div className="space-y-1.5 relative">
-              <Label className="block text-xs font-bold text-[var(--foreground)]">
-                Mật khẩu tài khoản <span className="text-rose-500">*</span>
-              </Label>
               <Input
+                label="Mật khẩu tài khoản"
                 id="confirm-password-input"
                 type="password"
                 required

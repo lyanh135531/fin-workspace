@@ -131,12 +131,12 @@ export function NotificationsMenu({
                   <p className="font-medium flex items-center gap-2"><UserPlus size={15}/> Yêu cầu tham gia workspace</p>
                   <p><strong>{item.username}</strong> đang chờ được cấp quyền thành viên.</p>
                   <div className="notification-role-field">
-                    <span>Vai trò</span>
                     <Select
+                      label="Vai trò"
                       value={joinRoles[item.id] ?? defaultRoleCode}
                       disabled={pending}
                       onValueChange={(roleCode) => setJoinRoles((current) => ({ ...current, [item.id]: roleCode }))}
-                      label={`Vai trò cấp cho ${item.username}`}
+                      placeholder={`Vai trò cấp cho ${item.username}`}
                       options={roles.map((role) => ({ value: role.code, label: role.name }))}
                     />
                   </div>

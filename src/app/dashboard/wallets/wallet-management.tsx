@@ -38,7 +38,6 @@ import {
   CardTitle,
   Empty,
   Input,
-  Label,
   MoneyInput,
   PageHeader,
   Select,
@@ -479,10 +478,8 @@ export function WalletManagement({
                   <h3 id="wallet-details-heading" className="text-sm font-semibold text-[var(--foreground)]">Thông tin ví</h3>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[var(--foreground)]">
-                    Tên ví <span className="text-destructive">*</span>
-                  </Label>
                 <Input
+                  label="Tên ví"
                   id="create-name"
                   name="name"
                   required
@@ -493,8 +490,8 @@ export function WalletManagement({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-[var(--foreground)]">Ghi chú <span className="font-normal text-[var(--text-muted)]">(tuỳ chọn)</span></Label>
                 <Textarea
+                  label={<>Ghi chú <span className="font-normal text-[var(--text-muted)]">(tuỳ chọn)</span></>}
                   id="create-desc"
                   name="description"
                   rows={3}
@@ -515,9 +512,8 @@ export function WalletManagement({
                 </div>
                 <div className="space-y-4 p-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-[var(--foreground)]">Số tiền</Label>
-                    <div className="relative">
                       <MoneyInput
+                        label="Số tiền"
                         id="create-funding-amount"
                         name="fundingAmount"
                         value={createFundingAmount}
@@ -525,7 +521,6 @@ export function WalletManagement({
                         placeholder="Để trống nếu chưa có số dư"
                         className="bg-[var(--surface)] text-base font-semibold"
                       />
-                    </div>
                   </div>
                   {hasInitialFunding && (
                     <>
@@ -543,11 +538,11 @@ export function WalletManagement({
                       </div>
                       {createFundingType === "transfer" && (
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-semibold text-[var(--foreground)]">Ví nguồn</Label>
                       <Select
                         value={createFundingWalletId}
                         onValueChange={setCreateFundingWalletId}
-                        label="Chọn ví chuyển tiền"
+                        label="Ví nguồn"
+                        placeholder="Chọn ví chuyển tiền"
                         className="w-full bg-[var(--surface)]"
                         options={activeWallets.map((wallet) => ({
                           value: wallet.id,
@@ -628,10 +623,8 @@ export function WalletManagement({
                   <p className="mt-1 text-xs text-[var(--text-secondary)]">Thay đổi tên hoặc ghi chú để thành viên dễ nhận diện ví.</p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[var(--foreground)]">
-                    Tên ví <span className="text-destructive">*</span>
-                  </Label>
                   <Input
+                    label="Tên ví"
                     id="edit-name"
                     name="name"
                     required
@@ -642,10 +635,8 @@ export function WalletManagement({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[var(--foreground)]">
-                    Ghi chú <span className="font-normal text-[var(--text-muted)]">(tuỳ chọn)</span>
-                  </Label>
                   <Textarea
+                    label={<>Ghi chú <span className="font-normal text-[var(--text-muted)]">(tuỳ chọn)</span></>}
                     id="edit-desc"
                     name="description"
                     rows={3}
@@ -837,13 +828,11 @@ export function WalletManagement({
                     </div>
                     {settlementWallets.length ? (
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-bold text-[var(--foreground)]">
-                          {confirmedBalance.isPositive() ? "Ví nhận tiền" : "Ví chuyển tiền"}
-                        </Label>
                         <Select
                           value={settlementWalletId}
                           onValueChange={setSettlementWalletId}
-                          label={confirmedBalance.isPositive() ? "Chọn ví nhận tiền" : "Chọn ví chuyển tiền"}
+                          label={confirmedBalance.isPositive() ? "Ví nhận tiền" : "Ví chuyển tiền"}
+                          placeholder={confirmedBalance.isPositive() ? "Chọn ví nhận tiền" : "Chọn ví chuyển tiền"}
                           className="w-full"
                           options={settlementWallets.map((wallet) => ({
                             value: wallet.id,

@@ -429,5 +429,5 @@ function MobileCategoryPie({ items, total, currency }: {
   </div>;
 }
 
-function FilterField({ label, children }: { label: string; children: React.ReactNode }) { return <div className="overview-filter-field" role="group" aria-label={label}><span>{label}</span>{children}</div>; }
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) { return <div className="overview-filter-field" role="group" aria-label={label}>{children}</div>; }
 function Metric({ title, value, note, icon, tone }: { title: string; value: string; note: string; icon: React.ReactNode; tone: string }) { return <Card as="section" className={`overview-metric ${tone} gap-0 py-0`}><span>{icon}</span><p>{title}</p><strong>{value}</strong><small>{note}</small></Card>; }

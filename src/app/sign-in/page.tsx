@@ -7,7 +7,6 @@ import {
   Eye, EyeOff, ShieldCheck, TrendingUp, Wallet, BarChart3, AlertCircle, User, Lock,
 } from "lucide-react";
 import { FinLogo } from "@/components/fin-logo";
-import { Label } from "@/components/ui/label";
 
 export default function SignInPage() {
   const id = useId();
@@ -109,45 +108,39 @@ export default function SignInPage() {
               <div className="auth-fields">
                 {/* Username */}
                 <div className="auth-floating-field">
-                  <Label htmlFor={`${id}-username`}>
-                    Tên đăng nhập <span aria-hidden>*</span>
-                  </Label>
-                  <div className="auth-field-wrap has-left-icon">
-                    <span className="auth-field-left-icon" aria-hidden>
+                  <Input
+                    label="Tên đăng nhập"
+                    id={`${id}-username`}
+                    name="username"
+                    type="text"
+                    required
+                    autoComplete="username"
+                    autoFocus
+                    placeholder="Nhập tên đăng nhập"
+                    className={`auth-field-input${error ? " field-error" : ""}`}
+                    controlClassName="auth-field-wrap has-left-icon"
+                    startAdornment={<span className="auth-field-left-icon" aria-hidden>
                       <User size={16} strokeWidth={2} />
-                    </span>
-                    <Input
-                      id={`${id}-username`}
-                      name="username"
-                      type="text"
-                      required
-                      autoComplete="username"
-                      autoFocus
-                      placeholder="Nhập tên đăng nhập"
-                      className={`auth-field-input${error ? " field-error" : ""}`}
-                    />
-                  </div>
+                    </span>}
+                  />
                 </div>
 
                 {/* Password */}
                 <div className="auth-floating-field">
-                  <Label htmlFor={`${id}-password`}>
-                    Mật khẩu <span aria-hidden>*</span>
-                  </Label>
-                  <div className="auth-field-wrap has-left-icon">
-                    <span className="auth-field-left-icon" aria-hidden>
+                  <Input
+                    label="Mật khẩu"
+                    id={`${id}-password`}
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    autoComplete="current-password"
+                    placeholder="Nhập mật khẩu"
+                    className={`auth-field-input has-icon${error ? " field-error" : ""}`}
+                    controlClassName="auth-field-wrap has-left-icon"
+                    startAdornment={<span className="auth-field-left-icon" aria-hidden>
                       <Lock size={16} strokeWidth={2} />
-                    </span>
-                    <Input
-                      id={`${id}-password`}
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      required
-                      autoComplete="current-password"
-                      placeholder="Nhập mật khẩu"
-                      className={`auth-field-input has-icon${error ? " field-error" : ""}`}
-                    />
-                    <Button variant="unstyled" size="auto"
+                    </span>}
+                    endAdornment={<Button variant="unstyled" size="auto"
                       type="button"
                       className="auth-password-toggle"
                       aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
@@ -157,8 +150,8 @@ export default function SignInPage() {
                       {showPassword
                         ? <EyeOff size={16} strokeWidth={2} />
                         : <Eye size={16} strokeWidth={2} />}
-                    </Button>
-                  </div>
+                    </Button>}
+                  />
                 </div>
               </div>
 

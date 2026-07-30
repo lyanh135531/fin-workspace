@@ -4,7 +4,6 @@ import { Button, Card, Input } from "@/components/base";
 import { useTransition, useRef } from "react";
 import { KeyRound, Send, Loader2 } from "lucide-react";
 import { requestJoinAction } from "@/app/dashboard/join/actions";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 export function JoinForm() {
@@ -39,11 +38,9 @@ export function JoinForm() {
       </div>
 
       <div className="join-form-body">
-        <Label className="join-form-label" htmlFor="join-invite-code">
-          Mã mời Workspace
-        </Label>
-        <div className="join-form-input-row">
+        <div className="join-form-input-row mt-2">
           <Input
+            label="Mã mời Workspace"
             id="join-invite-code"
             required
             name="inviteCode"
