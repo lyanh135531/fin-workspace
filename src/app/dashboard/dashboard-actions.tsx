@@ -346,7 +346,7 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
       <div className="ledger-desktop-tools">
         <Button variant="ghost" size="default" className="ledger-clear-filter" disabled={editMode || !hasActiveFilters} onClick={clearFilters} title="Xóa tìm kiếm và bộ lọc" aria-label="Xóa bộ lọc"><FilterX size={15}/>Xóa lọc</Button>
         {canApprove && <Button variant="outline" size="icon" className="ledger-delete-button" disabled={editMode || !selected.size || busy} onClick={() => setConfirmBulkDelete(true)} title={selected.size ? `Xóa ${selected.size} giao dịch đã chọn` : "Chọn giao dịch để xóa"} aria-label="Xóa giao dịch đã chọn"><Trash2 size={16}/></Button>}
-        {canEditTransactions && (editMode ? <div className="ledger-edit-actions"><Button variant="outline" disabled={busy} onClick={cancelEdit}><X size={15}/>Hủy</Button><Button variant="default" disabled={busy} onClick={saveEdits}><Check size={15}/>{busy ? "Đang lưu" : "Lưu"}</Button></div> : <Button variant="outline" size="icon" disabled={busy || !transactions.length || Boolean(createDraft)} onClick={() => beginEdit()} title="Chỉnh sửa tất cả giao dịch" aria-label="Chỉnh sửa tất cả giao dịch"><Pencil size={16}/></Button>)}
+        {canEditTransactions && editMode && <div className="ledger-edit-actions"><Button variant="outline" disabled={busy} onClick={cancelEdit}><X size={15}/>Hủy</Button><Button variant="default" disabled={busy} onClick={saveEdits}><Check size={15}/>{busy ? "Đang lưu" : "Lưu"}</Button></div>}
         {!readonly && <div className="ledger-create-actions"><WalletAction workspaceId={workspaceId} canManageWallets={canManageWallets}/><Button variant="default" size="default" className="ledger-primary-create" disabled={busy || editMode || Boolean(createDraft) || !wallets.length} onClick={beginCreate}><Plus size={17}/>Giao dịch mới</Button></div>}
       </div>
       <div className="ledger-mobile-tools">
@@ -449,8 +449,8 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
           <div className="ledger-row-actions">
             {canApprove && (item.status === "pending" || item.status === "scheduled") && <Button variant="outline" size="default" disabled={busy} onClick={() => approveOne(item)}>{item.status === "scheduled" ? "Ghi nhận" : "Duyệt"}</Button>}
             {canApprove && item.status === "pending" && <Button variant="ghost" size="default" disabled={busy} onClick={() => rejectOne(item)}>Từ chối</Button>}
-            {canEditTransactions && !item.hasPendingChange && <Button variant="outline" size="icon" disabled={busy} onClick={() => beginEdit(item.id)} title="Chỉnh sửa giao dịch" aria-label={`Chỉnh sửa ${item.description || "giao dịch"}`}><Pencil size={15}/></Button>}
-            {!readonly && item.canRequestDelete && <Button variant="outline" size="icon" disabled={busy || item.hasPendingChange} onClick={() => setDeleteTarget(item)} className="ledger-delete-button" title="Xóa giao dịch" aria-label={`Xóa ${item.description || "giao dịch"}`}><Trash2 size={15}/></Button>}
+            {canEditTransactions && !item.hasPendingChange && <Button variant="ghost" size="icon" disabled={busy} onClick={() => beginEdit(item.id)} title="Chỉnh sửa giao dịch" aria-label={`Chỉnh sửa ${item.description || "giao dịch"}`}><Pencil size={16}/></Button>}
+            {!readonly && item.canRequestDelete && <Button variant="ghost" size="icon" disabled={busy || item.hasPendingChange} onClick={() => setDeleteTarget(item)} title="Xóa giao dịch" aria-label={`Xóa ${item.description || "giao dịch"}`}><Trash2 size={16}/></Button>}
           </div>
         </div>
       </Card>)}
@@ -465,7 +465,7 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
 
     <div className="ledger-scroll-area ledger-desktop-table"><table className="ledger-table w-full min-w-[1080px] text-left text-sm"><thead><tr className="border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--text-muted)]">{canApprove && <th className="w-10"><input type="checkbox" checked={allSelected} disabled={editMode} onChange={toggleAll} aria-label="Chọn tất cả giao dịch đang hiển thị"/></th>}<th>Giao dịch</th><th>Loại</th><th>Danh mục</th><th>Ví</th><th>Ngày</th><th className="text-right">Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
       {createDraft && <CreateDraftRow draft={createDraft} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} onChange={(patch) => setCreateDraft((current) => current ? { ...current, ...patch } : current)} onSave={saveCreate} onCancel={() => setCreateDraft(null)}/>}
-      {rows.map((item, index) => editMode
+      {rows.map((item, index) => editMode && (!editTargetId || item.id === editTargetId)
         ? <EditDraftRow key={item.id} draft={editDrafts[item.id] ?? draftFromTransaction(item, wallets)} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} disabled={!isAdmin && item.hasPendingChange} autoFocus={index === 0} status={<><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</>} onChange={(patch) => updateDraft(item.id, patch)}/>
         : <tr key={item.id} className="border-b border-[var(--border)]">
           {canApprove && <td><input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/></td>}
@@ -477,9 +477,10 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
           <td className={`ledger-amount amount-${item.type}`}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} ₫</td>
           <td><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</td>
           <td><div className="ledger-row-actions">
-            {canApprove && item.status === "pending" && <Button variant="ghost" size="default" disabled={busy} onClick={() => rejectOne(item)}>Từ chối</Button>}
-            {canApprove && (item.status === "pending" || item.status === "scheduled") && <Button variant="outline" size="default" disabled={busy} onClick={() => approveOne(item)}>{item.status === "scheduled" ? "Ghi nhận sớm" : "Duyệt"}</Button>}
-            {!readonly && item.canRequestDelete && <Button variant="outline" size="icon" disabled={busy || item.hasPendingChange} onClick={() => setDeleteTarget(item)} className="ledger-delete-button" title="Xóa giao dịch" aria-label={`Xóa ${item.description || "giao dịch"}`}><Trash2 size={14}/></Button>}
+            {canApprove && item.status === "pending" && <Button variant="ghost" size="default" disabled={busy || editMode} onClick={() => rejectOne(item)}>Từ chối</Button>}
+            {canApprove && (item.status === "pending" || item.status === "scheduled") && <Button variant="outline" size="default" disabled={busy || editMode} onClick={() => approveOne(item)}>{item.status === "scheduled" ? "Ghi nhận sớm" : "Duyệt"}</Button>}
+            {canEditTransactions && !item.hasPendingChange && <Button variant="ghost" size="icon" disabled={busy || editMode} onClick={() => beginEdit(item.id)} title="Chỉnh sửa giao dịch" aria-label={`Chỉnh sửa ${item.description || "giao dịch"}`}><Pencil size={16}/></Button>}
+            {!readonly && item.canRequestDelete && <Button variant="ghost" size="icon" disabled={busy || editMode || item.hasPendingChange} onClick={() => setDeleteTarget(item)} title="Xóa giao dịch" aria-label={`Xóa ${item.description || "giao dịch"}`}><Trash2 size={16}/></Button>}
           </div></td>
         </tr>)}
       {!createDraft && rows.length === 0 && (

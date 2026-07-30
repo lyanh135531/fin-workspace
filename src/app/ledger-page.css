@@ -21,7 +21,7 @@
     radial-gradient(circle at 88% 15%, color-mix(in srgb, var(--primary) 13%, transparent), transparent 32%),
     linear-gradient(135deg, color-mix(in srgb, var(--surface) 96%, var(--primary)), var(--surface));
   padding: clamp(1rem, 1.4vw, 1.25rem) clamp(1.1rem, 2vw, 1.75rem);
-  box-shadow: 0 12px 36px color-mix(in srgb, var(--shadow) 64%, transparent);
+  box-shadow: none;
 }
 
 .ledger-page-hero::after {
@@ -139,7 +139,7 @@
   border: 1px solid var(--border);
   border-radius: 0.9rem;
   background: var(--surface);
-  box-shadow: 0 8px 28px color-mix(in srgb, var(--shadow) 58%, transparent);
+  box-shadow: none;
 }
 
 .ledger-kpi {
@@ -255,8 +255,7 @@
   height: 100%;
   min-height: 0;
   border-color: color-mix(in srgb, var(--border) 82%, transparent);
-  border-radius: 0.9rem;
-  box-shadow: 0 12px 36px color-mix(in srgb, var(--shadow) 62%, transparent);
+  box-shadow: none;
 }
 
 .ledger-book .ledger-toolbar {
@@ -321,9 +320,7 @@
   gap: 0.75rem;
   overflow: hidden;
   border-bottom: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
-  background:
-    radial-gradient(circle at 96% 0%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 26%),
-    color-mix(in srgb, var(--primary) 3%, var(--surface));
+  background: transparent;
   padding: 0.8rem 0.9rem 0.9rem 1.1rem;
 }
 
