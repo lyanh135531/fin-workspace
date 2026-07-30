@@ -20,6 +20,7 @@ export type SelectProps = {
   onValueChange?: (value: string) => void
   name?: string
   label?: string
+  ariaLabel?: string
   placeholder?: string
   options: SelectOption[]
   required?: boolean
@@ -218,6 +219,7 @@ function Select({
   onValueChange,
   name,
   label,
+  ariaLabel,
   placeholder,
   options,
   required,
@@ -241,7 +243,7 @@ function Select({
       required={required}
       disabled={disabled}
     >
-      <SelectTrigger id={selectId} className={className} size={size} aria-label={label}>
+      <SelectTrigger id={selectId} className={className} size={size} aria-label={ariaLabel ?? label}>
         <SelectValue placeholder={placeholder ?? label} />
       </SelectTrigger>
       <SelectContent align="start" className={contentClassName}>

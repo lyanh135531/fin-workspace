@@ -55,7 +55,7 @@ function Calendar({
           "relative flex flex-col gap-3 md:flex-row",
           defaultClassNames.months,
         ),
-        month: cn("flex w-full flex-col", defaultClassNames.month),
+        month: cn("flex w-full flex-col gap-2", defaultClassNames.month),
         nav: cn(
           "pointer-events-none absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1",
           defaultClassNames.nav,
@@ -94,7 +94,7 @@ function Calendar({
           defaultClassNames.caption_label,
         ),
         month_grid: cn("w-auto border-collapse", defaultClassNames.month_grid),
-        weekdays: cn("flex h-6", defaultClassNames.weekdays),
+        weekdays: cn("flex h-6 gap-1", defaultClassNames.weekdays),
         weekday: cn(
           "w-(--cell-size) flex-none rounded-(--cell-radius) text-[0.6875rem] font-medium whitespace-nowrap text-muted-foreground select-none",
           defaultClassNames.weekday,
@@ -196,7 +196,6 @@ function CalendarDropdown({
   value,
   onChange,
   disabled,
-  "aria-label": ariaLabel,
 }: DropdownProps) {
   return (
     <Select
@@ -207,7 +206,6 @@ function CalendarDropdown({
         } as React.ChangeEvent<HTMLSelectElement>)
       }
       disabled={disabled}
-      label={ariaLabel ?? "Chọn giá trị"}
       options={options.map((option) => ({
         value: String(option.value),
         label: option.label,

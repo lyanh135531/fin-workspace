@@ -1,0 +1,580 @@
+/* Transaction journal feature styles live in a dedicated bundle for reliable HMR. */
+.ledger-page-shell {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.ledger-page-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.5rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 1.15rem;
+  background:
+    radial-gradient(circle at 88% 15%, color-mix(in srgb, var(--primary) 13%, transparent), transparent 32%),
+    linear-gradient(135deg, color-mix(in srgb, var(--surface) 96%, var(--primary)), var(--surface));
+  padding: clamp(1rem, 1.4vw, 1.25rem) clamp(1.1rem, 2vw, 1.75rem);
+  box-shadow: 0 12px 36px color-mix(in srgb, var(--shadow) 64%, transparent);
+}
+
+.ledger-page-hero::after {
+  position: absolute;
+  right: -2.5rem;
+  bottom: -5rem;
+  width: 14rem;
+  height: 14rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 10%, transparent);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.ledger-page-intro,
+.ledger-hero-balance {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.ledger-page-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.ledger-page-kicker > span,
+.ledger-kpi-icon {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  color: var(--primary);
+}
+
+.ledger-page-kicker > span {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 0.45rem;
+}
+
+.ledger-page-intro h1 {
+  margin: 0.4rem 0 0.2rem;
+  color: var(--text-primary);
+  font-size: clamp(1.65rem, 2.3vw, 2.25rem);
+  font-weight: 760;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.ledger-page-intro p {
+  max-width: 38rem;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.ledger-hero-balance {
+  min-width: clamp(15rem, 23vw, 20rem);
+  border-left: 1px solid var(--border);
+  padding: 0.3rem 0 0.3rem 1.4rem;
+  text-align: right;
+}
+
+.ledger-hero-balance > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+
+.ledger-hero-balance span,
+.ledger-hero-balance small {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.ledger-hero-balance small {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.ledger-hero-balance strong {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--text-primary);
+  font-size: clamp(1.3rem, 1.8vw, 1.75rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.ledger-hero-balance-positive strong {
+  color: var(--income);
+}
+
+.ledger-hero-balance-negative strong {
+  color: var(--expense);
+}
+
+.ledger-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--surface);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--shadow) 58%, transparent);
+}
+
+.ledger-kpi {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 0.85rem;
+}
+
+.ledger-kpi + .ledger-kpi {
+  border-left: 1px solid var(--border);
+}
+
+.ledger-kpi::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: transparent;
+  content: "";
+  transition: background-color 180ms ease;
+}
+
+.ledger-kpi:hover::after {
+  background: var(--primary);
+}
+
+.ledger-kpi-income:hover::after {
+  background: var(--income);
+}
+
+.ledger-kpi-expense:hover::after {
+  background: var(--expense);
+}
+
+.ledger-kpi-pending:hover::after {
+  background: var(--pending);
+}
+
+.ledger-kpi-icon {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.55rem;
+}
+
+.ledger-kpi-income .ledger-kpi-icon {
+  background: color-mix(in srgb, var(--income) 10%, var(--surface));
+  color: var(--income);
+}
+
+.ledger-kpi-expense .ledger-kpi-icon {
+  background: color-mix(in srgb, var(--expense) 10%, var(--surface));
+  color: var(--expense);
+}
+
+.ledger-kpi-pending .ledger-kpi-icon {
+  background: color-mix(in srgb, var(--pending) 10%, var(--surface));
+  color: var(--pending);
+}
+
+.ledger-kpi small,
+.ledger-kpi strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-kpi small {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.ledger-kpi strong {
+  margin-top: 0.16rem;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-kpi-income strong {
+  color: var(--income);
+}
+
+.ledger-kpi-expense strong {
+  color: var(--expense);
+}
+
+.ledger-kpi-period {
+  display: none;
+}
+
+.dashboard-content:has(.ledger-page-shell) {
+  overflow: hidden;
+}
+
+.dashboard-page-container:has(> .ledger-page-shell) {
+  height: 100%;
+  min-height: 0;
+}
+
+.ledger-table-viewport {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ledger-book {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-color: color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 0.9rem;
+  box-shadow: 0 12px 36px color-mix(in srgb, var(--shadow) 62%, transparent);
+}
+
+.ledger-book .ledger-toolbar {
+  gap: 0.55rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0.55rem 0.75rem;
+}
+
+.ledger-book .ledger-toolbar [data-slot="search"] {
+  width: min(19rem, 28vw);
+}
+
+.ledger-book .ledger-toolbar [data-slot="search-input"],
+.ledger-book .ledger-toolbar .finance-select-trigger {
+  min-height: 2.35rem;
+  border-color: color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 0.55rem;
+  background: var(--surface);
+}
+
+.ledger-primary-create {
+  min-height: 2.55rem;
+  gap: 0.4rem;
+  border-radius: 0.55rem;
+  padding-inline: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 23%, transparent);
+}
+
+.ledger-book .ledger-table thead th {
+  height: 2.9rem;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.ledger-book .ledger-table tbody tr {
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.ledger-book .ledger-table tbody tr:not(.ledger-draft-row):hover {
+  background: color-mix(in srgb, var(--primary) 3.5%, var(--surface));
+  box-shadow: inset 3px 0 var(--primary);
+}
+
+.ledger-book .ledger-table tbody tr.ledger-create-row:hover {
+  background: transparent;
+  box-shadow: none;
+}
+
+.ledger-create-row > td {
+  height: auto !important;
+  padding: 0;
+}
+
+.ledger-create-composer {
+  position: relative;
+  display: grid;
+  gap: 0.75rem;
+  overflow: hidden;
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+  background:
+    radial-gradient(circle at 96% 0%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 26%),
+    color-mix(in srgb, var(--primary) 3%, var(--surface));
+  padding: 0.8rem 0.9rem 0.9rem 1.1rem;
+}
+
+.ledger-create-composer::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--primary);
+  content: "";
+}
+
+.ledger-create-heading,
+.ledger-create-title,
+.ledger-create-actions {
+  display: flex;
+  align-items: center;
+}
+
+.ledger-create-heading {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ledger-create-title {
+  gap: 0.55rem;
+}
+
+.ledger-create-title > span {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  color: var(--primary);
+}
+
+.ledger-create-title strong,
+.ledger-create-title small {
+  display: block;
+}
+
+.ledger-create-title strong {
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 720;
+}
+
+.ledger-create-title small {
+  margin-top: 0.08rem;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.ledger-create-grid {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.45fr) minmax(8rem, 0.75fr) minmax(9rem, 1fr) minmax(9rem, 1fr) minmax(9rem, 0.9fr) minmax(9rem, 0.9fr);
+  align-items: end;
+  gap: 0.65rem;
+}
+
+.ledger-create-grid [data-slot="input"],
+.ledger-create-grid .finance-select-trigger {
+  min-height: 2.45rem;
+  border-color: color-mix(in srgb, var(--border) 86%, transparent);
+  background: var(--surface);
+}
+
+.ledger-create-grid [data-slot="input"]:focus-visible,
+.ledger-create-grid .finance-select-trigger:focus-visible {
+  border-color: var(--primary);
+}
+
+.ledger-create-amount [data-slot="input"] {
+  text-align: right;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-create-actions {
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.ledger-create-actions [data-slot="button"] {
+  min-height: 2.25rem;
+  gap: 0.35rem;
+  border-radius: 0.5rem;
+  padding-inline: 0.75rem;
+}
+
+.ledger-book .ledger-table td {
+  height: 4.25rem;
+  border-color: color-mix(in srgb, var(--border) 74%, transparent);
+}
+
+.ledger-book .ledger-pagination {
+  min-height: 3.6rem;
+  background: color-mix(in srgb, var(--surface-secondary) 58%, var(--surface));
+  border-top: 0;
+  padding-inline: 1rem;
+}
+
+.ledger-book .ledger-record-count {
+  border-top: 0;
+  padding: 0.4rem 0.75rem;
+}
+
+@media (max-width: 980px) {
+  .ledger-create-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ledger-create-description {
+    grid-column: span 2;
+  }
+
+  .ledger-kpi-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ledger-kpi:nth-child(3),
+  .ledger-kpi:nth-child(4) {
+    border-top: 1px solid var(--border);
+  }
+
+  .ledger-kpi:nth-child(3) {
+    border-left: 0;
+  }
+
+}
+
+@media (max-width: 760px) {
+  .dashboard-app-shell:has(.ledger-page-shell),
+  .dashboard-frame:has(.ledger-page-shell) {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .dashboard-content:has(.ledger-page-shell) {
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 0.85rem;
+  }
+
+  .ledger-page-shell {
+    gap: 0.55rem;
+  }
+
+  .ledger-page-hero {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: 0.8rem;
+    padding: 0.75rem 0.85rem;
+  }
+
+  .ledger-page-kicker,
+  .ledger-page-intro p {
+    display: none;
+  }
+
+  .ledger-page-intro h1 {
+    margin: 0;
+    font-size: 1.3rem;
+    letter-spacing: -0.04em;
+  }
+
+  .ledger-hero-balance {
+    min-width: 10.5rem;
+    border-left: 1px solid var(--border);
+    padding: 0.1rem 0 0.1rem 0.75rem;
+    text-align: right;
+  }
+
+  .ledger-hero-balance > div {
+    justify-content: flex-end;
+  }
+
+  .ledger-hero-balance > div > span {
+    display: none;
+  }
+
+  .ledger-hero-balance small {
+    font-size: 0.61rem;
+  }
+
+  .ledger-hero-balance strong {
+    margin-top: 0.2rem;
+    font-size: 1.05rem;
+  }
+
+  .ledger-kpi-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ledger-kpi {
+    gap: 0.4rem;
+    padding: 0.5rem;
+  }
+
+  .ledger-kpi-icon {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+
+  .ledger-kpi:nth-child(3) {
+    border-top: 0;
+    border-left: 1px solid var(--border);
+  }
+
+  .ledger-kpi-wallets {
+    display: none;
+  }
+
+  .ledger-kpi small {
+    font-size: 0.58rem;
+  }
+
+  .ledger-kpi strong {
+    font-size: 0.7rem;
+  }
+
+  .ledger-book .ledger-toolbar [data-slot="search"] {
+    width: 100%;
+  }
+
+  .ledger-book .ledger-mobile-list,
+  .ledger-book .ledger-mobile-edit-list {
+    min-height: 0;
+    flex: 1 1 auto;
+    grid-auto-rows: max-content;
+    align-content: start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+@media (max-width: 480px) {
+  .ledger-kpi-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ledger-kpi + .ledger-kpi {
+    border-top: 0;
+    border-left: 1px solid var(--border);
+  }
+
+  .ledger-kpi-icon {
+    display: none;
+  }
+}

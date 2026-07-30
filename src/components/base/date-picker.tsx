@@ -184,7 +184,7 @@ export function DatePicker({
               day.getDay() === 0 ? "CN" : `T${day.getDay() + 1}`,
           }}
           autoFocus
-          className="w-[252px] px-2.5 pt-2.5 pb-8 [--cell-radius:0.45rem] [--cell-size:2rem]"
+          className="px-2.5 pt-2.5 pb-4 [--cell-radius:0.45rem] [--cell-size:2rem]"
         />
 
         {allowClear && selectedDate && (
