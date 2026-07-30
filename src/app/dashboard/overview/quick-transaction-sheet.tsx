@@ -15,8 +15,8 @@ import { addQuickTransactionAction } from "@/app/dashboard/actions";
 import {
   Button,
   CategoryTreeSelect,
+  DatePicker,
   Empty,
-  Input,
   MoneyInput,
   Select,
   Sheet,
@@ -334,10 +334,10 @@ export function QuickTransactionSheet({
                 <div className="quick-details">
                   <label className="quick-field">
                     <span>Ngày giao dịch</span>
-                    <Input
-                      type="date"
+                    <DatePicker
+                      label="Ngày giao dịch"
                       value={date}
-                      onChange={(event) => setDate(event.target.value)}
+                      onValueChange={setDate}
                     />
                   </label>
                   <label className="quick-field">

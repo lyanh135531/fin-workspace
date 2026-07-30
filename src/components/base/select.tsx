@@ -24,6 +24,7 @@ export type SelectProps = {
   required?: boolean
   disabled?: boolean
   className?: string
+  contentClassName?: string
   size?: "sm" | "default"
 }
 
@@ -221,6 +222,7 @@ function Select({
   required,
   disabled,
   className,
+  contentClassName,
   size,
 }: SelectProps) {
   return (
@@ -239,7 +241,7 @@ function Select({
       <SelectTrigger className={className} size={size} aria-label={label}>
         <SelectValue placeholder={placeholder ?? label} />
       </SelectTrigger>
-      <SelectContent align="start">
+      <SelectContent align="start" className={contentClassName}>
         {options.map((option) => (
           <SelectItem
             key={option.value}

@@ -22,12 +22,12 @@ import {
   setRecurringTransactionStatusAction,
   updateRecurringTransactionAction,
 } from "@/app/dashboard/recurring-transactions/actions";
-import { DatePickerField } from "@/components/finance/date-picker-field";
 import { formatAmount } from "@/lib/format";
 import {
   Button,
   CategoryTreeSelect,
   Card,
+  DatePicker,
   Empty,
   Input,
   MoneyInput,
@@ -491,7 +491,7 @@ function RecurringEditor({
         <div className="recurring-editor-grid recurring-date-grid">
           <div className="recurring-field">
             <span>Ngày bắt đầu</span>
-            <DatePickerField
+            <DatePicker
               label="Chọn ngày bắt đầu"
               value={draft.startDate}
               onValueChange={(startDate) => onChange({ startDate, endDate: draft.endDate && draft.endDate < startDate ? "" : draft.endDate })}
@@ -501,7 +501,7 @@ function RecurringEditor({
           </div>
           <div className="recurring-field">
             <span>Kết thúc</span>
-            <DatePickerField label="Chọn ngày kết thúc" value={draft.endDate} onValueChange={(endDate) => onChange({ endDate })} minDate={draft.startDate} allowClear />
+            <DatePicker label="Chọn ngày kết thúc" value={draft.endDate} onValueChange={(endDate) => onChange({ endDate })} minDate={draft.startDate} allowClear />
             <small>Để trống để lịch chạy liên tục.</small>
           </div>
         </div>
