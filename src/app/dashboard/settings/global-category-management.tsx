@@ -46,9 +46,9 @@ import {
 import {
   Button,
   Card,
+  CategoryTreeSelect,
   Empty,
   Input,
-  Select,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -677,24 +677,18 @@ function TemplateForm({
         {/* Parent Category */}
         <div>
           <label className="text-xs font-semibold text-slate-500 mb-1 block">Danh mục cha</label>
-          <Select
+          <CategoryTreeSelect
             name="parentId"
             defaultValue={category?.parentId ?? "none"}
             label="Danh mục cha"
-            options={[
-              { value: "none", label: "Không có (Danh mục gốc)" },
-              ...categories
+            emptyOption={{ value: "none", label: "Không có" }}
+            categories={categories
                 .filter(
                   (item) =>
                     item.status === "active" &&
                     item.type === (category?.type ?? defaultType) &&
                     (!category || item.id !== category.id)
-                )
-                .map((item) => ({
-                  value: item.id,
-                  label: `${item.name} (${item.code})`,
-                })),
-            ]}
+                )}
           />
         </div>
 

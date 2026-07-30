@@ -489,7 +489,7 @@ export function WalletManagement({
                   maxLength={120}
                   autoFocus
                   placeholder="Tiền mặt, Ngân hàng VCB..."
-                  className="h-10 w-full bg-[var(--surface)] text-sm font-medium"
+                  className="w-full bg-[var(--surface)] text-sm font-medium"
                 />
               </div>
               <div className="space-y-1.5">
@@ -523,7 +523,7 @@ export function WalletManagement({
                         value={createFundingAmount}
                         onValueChange={setCreateFundingAmount}
                         placeholder="Để trống nếu chưa có số dư"
-                        className="h-11 bg-[var(--surface)] text-base font-semibold"
+                        className="bg-[var(--surface)] text-base font-semibold"
                       />
                     </div>
                   </div>
@@ -548,7 +548,7 @@ export function WalletManagement({
                         value={createFundingWalletId}
                         onValueChange={setCreateFundingWalletId}
                         label="Chọn ví chuyển tiền"
-                        className="h-10 w-full bg-[var(--surface)]"
+                        className="w-full bg-[var(--surface)]"
                         options={activeWallets.map((wallet) => ({
                           value: wallet.id,
                           label: `${wallet.name} · ${formatAmount(wallet.currentBalance)} ${workspace.currency}`,
@@ -637,7 +637,7 @@ export function WalletManagement({
                     required
                     maxLength={120}
                     defaultValue={editingWallet.name}
-                    className="h-10 w-full bg-[var(--surface)] text-sm font-medium"
+                    className="w-full bg-[var(--surface)] text-sm font-medium"
                   />
                 </div>
 

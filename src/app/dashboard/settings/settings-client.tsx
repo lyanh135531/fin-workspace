@@ -104,14 +104,14 @@ export function SettingsClient({
 
               {/* Identity */}
               <div className="member-identity">
-                <strong className="flex items-center gap-2">
-                  {member.username}
+                <div className="flex items-center gap-2">
+                  <strong>{member.username}</strong>
                   {member.isSelf && (
                     <span className="text-[10px] font-semibold text-[var(--primary)] bg-[var(--primary-soft)] px-1.5 py-0.5 rounded-md">
                       Bạn
                     </span>
                   )}
-                </strong>
+                </div>
                 <span>{member.isSelf ? "Tài khoản của bạn" : "Đang có quyền truy cập"}</span>
               </div>
 

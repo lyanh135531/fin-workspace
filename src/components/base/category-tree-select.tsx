@@ -16,6 +16,23 @@ export type CategoryTreeSelectProps = {
 type TreeNode = CategoryTreeOption & { children: TreeNode[] }
 const CATEGORY_ICON_MAP = { tag: Tag, utensils: Utensils, coffee: Coffee, house: House, car: Car, fuel: Fuel, shopping: ShoppingBag, heart: Heart, work: BriefcaseBusiness, money: WalletCards, card: WalletCards } as const
 
+function CategoryIcon({ category, size, className }: { category: CategoryTreeOption; size: number; className?: string }) {
+  const Icon = CATEGORY_ICON_MAP[category.icon as keyof typeof CATEGORY_ICON_MAP] ?? Tag
+  return (
+    <span
+      className={cn("category-tree-icon", className)}
+      style={{ "--category-color": category.color ?? "var(--primary)" } as React.CSSProperties}
+      aria-hidden
+    >
+      <Icon
+        size={size}
+        strokeWidth={2}
+        style={{ color: "var(--category-color)" }}
+      />
+    </span>
+  )
+}
+
 function makeTree(categories: CategoryTreeOption[]) {
   const categoryIds = new Set(categories.map((category) => category.id))
   const childrenByParent = new Map<string, CategoryTreeOption[]>()
@@ -60,9 +77,7 @@ function TreeItems({ nodes, depth = 0 }: { nodes: TreeNode[]; depth?: number }) 
     <React.Fragment key={category.id}>
       <SelectItem value={category.id} disabled={category.disabled} className={cn("category-tree-item", depth === 0 ? "category-tree-item-root" : "category-tree-item-child")} style={{ paddingLeft: `${0.75 + depth * 1.35}rem` }}>
         {depth > 0 && <span className="category-tree-branch" aria-hidden />}
-        <span className="category-tree-icon" style={{ "--category-color": category.color ?? "var(--primary)" } as React.CSSProperties} aria-hidden>
-          {React.createElement(CATEGORY_ICON_MAP[category.icon as keyof typeof CATEGORY_ICON_MAP] ?? Tag, { size: depth === 0 ? 15 : 14, strokeWidth: 2.1 })}
-        </span>
+        <CategoryIcon category={category} size={depth === 0 ? 14 : 13} />
         <span className="category-tree-name">{category.name}</span>
       </SelectItem>
       {category.children.length > 0 && <TreeItems nodes={category.children} depth={depth + 1} />}
@@ -73,18 +88,26 @@ function TreeItems({ nodes, depth = 0 }: { nodes: TreeNode[]; depth?: number }) 
 function CategoryTreeSelect({ id, value, defaultValue, onValueChange, name, label, placeholder, categories, emptyOption, required, disabled, className }: CategoryTreeSelectProps) {
   const tree = React.useMemo(() => makeTree(categories), [categories])
   const items = React.useMemo(() => [...(emptyOption ? [emptyOption] : []), ...categoryPaths(categories)], [categories, emptyOption])
-  const selectedCategory = React.useMemo(() => categories.find((category) => category.id === value), [categories, value])
   return (
     <SelectRoot id={id} value={value} defaultValue={defaultValue} onValueChange={(nextValue) => { if (nextValue !== null) onValueChange?.(String(nextValue)) }} items={items} name={name} required={required} disabled={disabled}>
       <SelectTrigger className={cn("category-tree-trigger", className)} aria-label={label}>
-        <span className={cn("category-tree-trigger-mark", !selectedCategory && "is-empty")} style={{ "--category-color": selectedCategory?.color ?? "var(--text-muted)" } as React.CSSProperties} aria-hidden />
-        <SelectValue placeholder={placeholder ?? label} className="category-tree-trigger-value" />
+        <SelectValue placeholder={placeholder ?? label} className="category-tree-trigger-value">
+          {(selectedValue: string | null) => {
+            const selectedCategory = categories.find((category) => category.id === selectedValue)
+            if (selectedCategory) {
+              return (
+                <>
+                  <CategoryIcon category={selectedCategory} size={13} className="category-tree-trigger-icon" />
+                  <span className="category-tree-name">{selectedCategory.name}</span>
+                </>
+              )
+            }
+            if (emptyOption?.value === selectedValue) return emptyOption.label
+            return placeholder ?? label
+          }}
+        </SelectValue>
       </SelectTrigger>
-      <SelectContent align="start" className="category-tree-content w-[21rem] min-w-0 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl p-2">
-        <div className="category-tree-content-heading">
-          <span>Danh mục</span>
-          <small>{categories.length ? `${categories.length} lựa chọn` : "Chưa có dữ liệu"}</small>
-        </div>
+      <SelectContent align="start" className="category-tree-content min-w-0 max-w-[calc(100vw-2rem)] overflow-hidden">
         <SelectGroup className="category-tree-group">
           {emptyOption && <SelectItem value={emptyOption.value} className="category-tree-empty">{emptyOption.label}</SelectItem>}
           {emptyOption && tree.length > 0 && <SelectSeparator className="category-tree-separator" />}

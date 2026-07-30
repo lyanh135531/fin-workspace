@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, Empty, Select, Tabs, TabsList, TabsTrigger, buttonVariants, PageContainer, PageHeader } from "@/components/base";
+import { Button, Card, CategoryTreeSelect, Empty, Select, Tabs, TabsList, TabsTrigger, buttonVariants, PageContainer, PageHeader } from "@/components/base";
 import Decimal from "decimal.js";
 import { CircleAlert, Funnel, Plus, RefreshCw, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import Link from "next/link";
@@ -18,7 +18,7 @@ import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartToo
 import { formatAmount, formatCompactAmount } from "@/lib/format";
 
 type Transaction = { id: string; amount: string; type: "income" | "expense" | "transfer"; status: "pending" | "scheduled" | "approved" | "rejected"; description: string | null; date: string; walletId: string; toWalletId: string | null; wallet: string; categoryId: string | null; category: { name: string; color: string } | null; memberId: string; member: string };
-type Props = { workspace: { id: string; name: string; currency: string }; reportPeriod: string; wallets: { id: string; name: string; balance: string; updatedAt: string }[]; totalByCurrency: Record<string, string>; categories: { id: string; name: string; color: string; type: "income" | "expense" }[]; members: { id: string; name: string }[]; transactions: Transaction[] };
+type Props = { workspace: { id: string; name: string; currency: string }; reportPeriod: string; wallets: { id: string; name: string; balance: string; updatedAt: string }[]; totalByCurrency: Record<string, string>; categories: { id: string; name: string; color: string; icon: string | null; parentId: string | null; type: "income" | "expense" }[]; members: { id: string; name: string }[]; transactions: Transaction[] };
 const money = (value: Decimal.Value, currency: string) => `${formatAmount(value)} ${currency}`;
 const statusLabel = { approved: "Đã ghi nhận", pending: "Chờ duyệt", scheduled: "Đã lên lịch", rejected: "Đã từ chối" };
 const monthlyChartConfig = {
@@ -72,7 +72,7 @@ export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCur
       <div className="overview-mobile-filter-meta"><span>{activeFilterCount ? `${activeFilterCount} bộ lọc` : "Bộ lọc"}</span><Button variant="unstyled" size="auto" type="button" onClick={reset} disabled={!activeFilterCount}>Đặt lại</Button></div>
       <div className="overview-filter-grid">
         <FilterField label="Ví"><Select value={walletId} onValueChange={setWalletId} label="Lọc theo ví" options={[{ value: "all", label: "Tất cả ví" }, ...wallets.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
-        <FilterField label="Hạng mục"><Select value={categoryId} onValueChange={setCategoryId} label="Lọc theo hạng mục" options={[{ value: "all", label: "Tất cả hạng mục" }, ...categories.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
+        <FilterField label="Hạng mục"><CategoryTreeSelect value={categoryId} onValueChange={setCategoryId} label="Lọc theo hạng mục" categories={categories} emptyOption={{ value: "all", label: "Tất cả hạng mục" }} /></FilterField>
         <FilterField label="Loại giao dịch"><Select value={type} onValueChange={setType} label="Lọc theo loại giao dịch" options={[{ value: "all", label: "Tất cả loại" }, { value: "income", label: "Thu nhập" }, { value: "expense", label: "Chi phí" }, { value: "transfer", label: "Chuyển khoản" }]} /></FilterField>
         <FilterField label="Thành viên"><Select value={memberId} onValueChange={setMemberId} label="Lọc theo thành viên" options={[{ value: "all", label: "Tất cả thành viên" }, ...members.map((item) => ({ value: item.id, label: item.name }))]} /></FilterField>
       </div>

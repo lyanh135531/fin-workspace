@@ -57,7 +57,7 @@ export async function WorkspaceDashboard({
     }),
     prisma.category.findMany({
       where: availableCategoryWhere(workspaceId),
-      select: { id: true, name: true, color: true },
+      select: { id: true, name: true, color: true, icon: true, parentId: true },
       orderBy: { sortOrder: "asc" },
     }),
     prisma.transaction.findMany({

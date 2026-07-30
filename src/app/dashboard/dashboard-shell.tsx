@@ -77,6 +77,9 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
           id: true,
           workspaceId: true,
           name: true,
+          color: true,
+          icon: true,
+          parentId: true,
           type: true,
         },
         orderBy: { sortOrder: "asc" },
@@ -189,6 +192,9 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
               .map((category) => ({
                 id: category.id,
                 name: category.name,
+                color: category.color,
+                icon: category.icon,
+                parentId: category.parentId,
                 type: category.type as "income" | "expense",
               })),
           }))}

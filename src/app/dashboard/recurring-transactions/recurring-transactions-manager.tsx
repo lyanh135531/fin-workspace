@@ -2,6 +2,9 @@
 
 import {
   AlertTriangle,
+  ArrowDownLeft,
+  ArrowLeftRight,
+  ArrowUpRight,
   CalendarClock,
   CircleDollarSign,
   Landmark,
@@ -10,7 +13,6 @@ import {
   Play,
   Plus,
   Repeat2,
-  Tags,
   Trash2,
 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
@@ -37,10 +39,13 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from "@/components/base";
 import { toast } from "sonner";
 
-type Option = { id: string; name: string; color?: string; parentId?: string | null };
+type Option = { id: string; name: string; color?: string; icon?: string | null; parentId?: string | null };
 type TransactionType = "income" | "expense" | "transfer";
 type Schedule = {
   id: string;
@@ -75,9 +80,9 @@ type Draft = {
 };
 
 const typeOptions = [
-  { value: "expense", label: "Chi tiêu" },
-  { value: "income", label: "Thu nhập" },
-  { value: "transfer", label: "Chuyển khoản" },
+  { value: "expense", label: "Chi tiêu", icon: ArrowUpRight },
+  { value: "income", label: "Thu nhập", icon: ArrowDownLeft },
+  { value: "transfer", label: "Chuyển khoản", icon: ArrowLeftRight },
 ];
 
 function defaultDestination(wallets: Option[], sourceId: string) {
@@ -399,19 +404,33 @@ function RecurringEditor({
 
       <div className="recurring-editor-section">
         <div className="recurring-editor-section-title"><CircleDollarSign size={16} /><span>Giao dịch</span></div>
-        <div className="recurring-type-switch" role="group" aria-label="Loại giao dịch">
-          {typeOptions.map((option) => (
-            <button
-              className={`recurring-type-option type-${option.value} ${draft.type === option.value ? "is-active" : ""}`}
-              type="button"
-              key={option.value}
-              disabled={option.value === "transfer" && wallets.length < 2}
-              onClick={() => onChange({ type: option.value as TransactionType })}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          value={draft.type}
+          onValueChange={(value) => onChange({ type: value as TransactionType })}
+          className="gap-0"
+        >
+          <TabsList className="w-full" aria-label="Loại giao dịch">
+            {typeOptions.map((option) => {
+              const Icon = option.icon;
+              const stateClass = option.value === "expense"
+                ? "data-active:bg-rose-50/70 dark:data-active:bg-rose-950/30 data-active:text-rose-600 dark:data-active:text-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-950/20 hover:text-rose-600 dark:hover:text-rose-400"
+                : option.value === "income"
+                  ? "data-active:bg-emerald-50/70 dark:data-active:bg-emerald-950/30 data-active:text-emerald-600 dark:data-active:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 hover:text-emerald-600 dark:hover:text-emerald-400"
+                  : "data-active:bg-[var(--primary-soft)] data-active:text-[var(--primary)] hover:bg-[var(--primary-soft)] hover:text-[var(--primary)]";
+              return (
+                <TabsTrigger
+                  value={option.value}
+                  className={`flex-1 ${stateClass}`}
+                  key={option.value}
+                  disabled={option.value === "transfer" && wallets.length < 2}
+                >
+                  <Icon className="transition-colors" />
+                  <span>{option.label}</span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
         <div className="recurring-editor-grid recurring-transaction-grid">
           <div className="recurring-field recurring-field-wide">
             <span>Nội dung giao dịch</span>
@@ -454,7 +473,7 @@ function RecurringEditor({
             </div>
           ) : (
             <div className="recurring-field">
-              <span><Tags size={13} /> Danh mục</span>
+              <span>Danh mục</span>
               <CategoryTreeSelect
                 value={draft.categoryId}
                 onValueChange={(categoryId) => onChange({ categoryId })}

@@ -34,7 +34,7 @@ export default async function OverviewPage() {
 
   const [walletLinks, categories, members, transactions] = await Promise.all([
     prisma.workspaceWallet.findMany({ where: { workspaceId, wallet: { status: "active", deletedAt: null } }, include: { wallet: true }, orderBy: { wallet: { name: "asc" } } }),
-    prisma.category.findMany({ where: availableCategoryWhere(workspaceId), select: { id: true, name: true, color: true, type: true }, orderBy: { sortOrder: "asc" } }),
+    prisma.category.findMany({ where: availableCategoryWhere(workspaceId), select: { id: true, name: true, color: true, icon: true, parentId: true, type: true }, orderBy: { sortOrder: "asc" } }),
     prisma.workspaceMember.findMany({ where: { workspaceId, status: "active", deletedAt: null }, select: { id: true, user: { select: { username: true } } }, orderBy: { user: { username: "asc" } } }),
     prisma.transaction.findMany({
       where: { deletedAt: null, member: { workspaceId } },

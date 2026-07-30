@@ -14,6 +14,7 @@ import { useMemo, useState, useTransition } from "react";
 import { addQuickTransactionAction } from "@/app/dashboard/actions";
 import {
   Button,
+  CategoryTreeSelect,
   Empty,
   Input,
   MoneyInput,
@@ -38,6 +39,9 @@ export type QuickWorkspace = {
   categories: {
     id: string;
     name: string;
+    color: string;
+    icon: string | null;
+    parentId: string | null;
     type: "income" | "expense";
   }[];
 };
@@ -296,17 +300,12 @@ export function QuickTransactionSheet({
                   ) : (
                     <div className="quick-field">
                       <span>Danh mục</span>
-                      <Select
+                      <CategoryTreeSelect
                         value={categoryId}
                         onValueChange={setCategoryId}
                         label="Chọn danh mục"
-                        options={[
-                          { value: "none", label: "Không chọn" },
-                          ...categories.map((category) => ({
-                            value: category.id,
-                            label: category.name,
-                          })),
-                        ]}
+                        categories={categories}
+                        emptyOption={{ value: "none", label: "Không chọn" }}
                       />
                     </div>
                   )}
