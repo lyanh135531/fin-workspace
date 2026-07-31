@@ -1,11 +1,13 @@
 "use client";
 
-import { Button, Card, Input } from "@/components/base";
+import { AlertCircle, ArrowRight, Eye, EyeOff, Lock, User } from "lucide-react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { useState, useId } from "react";
-import {
-  Eye, EyeOff, ShieldCheck, TrendingUp, Wallet, BarChart3, AlertCircle, User, Lock,
-} from "lucide-react";
+import { useId, useState } from "react";
+
+import { ThemeToggle } from "@/app/theme-toggle";
+import { AuthShowcase } from "@/components/auth-showcase";
+import { Button, Card, Input } from "@/components/base";
 import { FinLogo } from "@/components/fin-logo";
 
 export default function SignInPage() {
@@ -15,98 +17,60 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorKey, setErrorKey] = useState(0); // remount for re-animation
 
-  async function submit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setLoading(true);
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
-    const result = await signIn("credentials", {
-      username: String(formData.get("username")),
-      password: String(formData.get("password")),
-      redirect: false,
-    });
+    const formData = new FormData(event.currentTarget);
 
-    setLoading(false);
+    try {
+      const result = await signIn("credentials", {
+        username: String(formData.get("username")),
+        password: String(formData.get("password")),
+        redirect: false,
+      });
 
-    if (result?.error) {
-      setErrorKey((k) => k + 1);
-      setError("Tên đăng nhập hoặc mật khẩu không đúng.");
-      return;
+      if (result?.error) {
+        setErrorKey((key) => key + 1);
+        setError("Tên đăng nhập hoặc mật khẩu không đúng.");
+        return;
+      }
+
+      window.location.assign("/overview");
+    } catch {
+      setErrorKey((key) => key + 1);
+      setError("Không thể kết nối tới máy chủ. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
     }
-
-    window.location.assign("/overview");
   }
 
   return (
     <main className="auth-split-shell">
-      {/* ── Left visual panel ── */}
-      <div className="auth-visual-panel">
-        <div className="auth-visual-orb auth-visual-orb-1" aria-hidden />
-        <div className="auth-visual-orb auth-visual-orb-2" aria-hidden />
-        <div className="auth-visual-orb auth-visual-orb-3" aria-hidden />
+      <AuthShowcase mode="sign-in" />
 
-        {/* Brand */}
-        <div className="auth-visual-brand">
-          <FinLogo size={34} />
-          <span className="auth-visual-brand-name">Fin Workspace</span>
+      <section className="auth-form-panel" aria-labelledby="sign-in-title">
+        <div className="auth-form-toolbar">
+          <Link href="/" className="auth-mobile-brand" aria-label="Fin Workspace — Trang chủ">
+            <FinLogo size={28} />
+            <span>Fin Workspace</span>
+          </Link>
+          <ThemeToggle />
         </div>
 
-        {/* Main copy */}
-        <div className="auth-visual-body">
-          <p className="auth-visual-tagline">Quản lý tài chính thông minh</p>
-          <h1 className="auth-visual-headline">
-            Kiểm soát<br />
-            <em className="auth-headline-accent">mọi dòng tiền</em><br />
-            của bạn.
-          </h1>
-          <p className="auth-visual-desc">
-            Nền tảng tập trung cho sổ kế toán, ngân sách, và báo cáo tài chính—
-            đủ mạnh cho đội nhóm, đủ đơn giản cho cá nhân.
-          </p>
-
-          <div className="auth-visual-features">
-            <span className="auth-visual-pill">
-              <ShieldCheck size={14} strokeWidth={2} />
-              Bảo mật cao cấp
-            </span>
-            <span className="auth-visual-pill">
-              <TrendingUp size={14} strokeWidth={2} />
-              Báo cáo thời gian thực
-            </span>
-            <span className="auth-visual-pill">
-              <Wallet size={14} strokeWidth={2} />
-              Đa ví, đa tài khoản
-            </span>
-            <span className="auth-visual-pill">
-              <BarChart3 size={14} strokeWidth={2} />
-              Phân tích chi tiêu
-            </span>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <p className="auth-visual-footer">
-          © {new Date().getFullYear()} Fin Workspace · Mọi quyền được bảo lưu
-        </p>
-      </div>
-
-      {/* ── Right form panel ── */}
-      <div className="auth-form-panel">
         <Card className="auth-form-card gap-0 py-0">
           <div className="auth-form-inner">
-            {/* Header */}
             <div className="auth-form-header">
-              <h2 className="auth-form-title">Chào mừng trở lại</h2>
+              <span className="auth-form-eyebrow">Đăng nhập</span>
+              <h2 id="sign-in-title" className="auth-form-title">Chào mừng bạn trở lại.</h2>
               <p className="auth-form-subtitle">
-                Nhập thông tin tài khoản để tiếp tục vào không gian tài chính của bạn.
+                Tiếp tục đến không gian tài chính của bạn.
               </p>
             </div>
 
-            {/* Form */}
             <form onSubmit={submit}>
               <div className="auth-fields">
-                {/* Username */}
                 <div className="auth-floating-field">
                   <Input
                     label="Tên đăng nhập"
@@ -117,7 +81,9 @@ export default function SignInPage() {
                     autoComplete="username"
                     autoFocus
                     placeholder="Nhập tên đăng nhập"
-                    className={`auth-field-input${error ? " field-error" : ""}`}
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? `${id}-auth-error` : undefined}
+                    className="auth-field-input"
                     controlClassName="auth-field-wrap has-left-icon"
                     startAdornment={<span className="auth-field-left-icon" aria-hidden>
                       <User size={16} strokeWidth={2} />
@@ -125,7 +91,6 @@ export default function SignInPage() {
                   />
                 </div>
 
-                {/* Password */}
                 <div className="auth-floating-field">
                   <Input
                     label="Mật khẩu"
@@ -134,18 +99,21 @@ export default function SignInPage() {
                     type={showPassword ? "text" : "password"}
                     required
                     autoComplete="current-password"
-                    placeholder="Nhập mật khẩu"
-                    className={`auth-field-input has-icon${error ? " field-error" : ""}`}
+                    placeholder="Nhập mật khẩu của bạn"
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? `${id}-auth-error` : undefined}
+                    className="auth-field-input has-icon"
                     controlClassName="auth-field-wrap has-left-icon"
                     startAdornment={<span className="auth-field-left-icon" aria-hidden>
                       <Lock size={16} strokeWidth={2} />
                     </span>}
-                    endAdornment={<Button variant="unstyled" size="auto"
+                    endAdornment={<Button
+                      variant="unstyled"
+                      size="auto"
                       type="button"
                       className="auth-password-toggle"
                       aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                       onClick={() => setShowPassword((v) => !v)}
-                      tabIndex={0}
                     >
                       {showPassword
                         ? <EyeOff size={16} strokeWidth={2} />
@@ -155,10 +123,10 @@ export default function SignInPage() {
                 </div>
               </div>
 
-              {/* Global error */}
               {error && (
                 <div
                   key={errorKey}
+                  id={`${id}-auth-error`}
                   className="auth-global-error"
                   role="alert"
                 >
@@ -167,28 +135,31 @@ export default function SignInPage() {
                 </div>
               )}
 
-              {/* Actions */}
               <div className="auth-form-actions">
-                <Button variant="unstyled" size="auto"
+                <Button
                   type="submit"
                   id="sign-in-submit"
+                  size="lg"
                   className="auth-submit-btn"
                   disabled={loading}
                 >
                   {loading && <span className="btn-spinner" aria-hidden />}
                   {loading ? "Đang xác thực..." : "Đăng nhập"}
+                  {!loading && <ArrowRight size={17} aria-hidden />}
                 </Button>
 
                 <p className="auth-form-link-row">
-                  <a href="/setup" className="auth-form-link">
-                    Chưa có tài khoản? Đăng ký ngay
-                  </a>
+                  Chưa có tài khoản?{" "}
+                  <Link href="/setup" className="auth-form-link">Tạo tài khoản</Link>
                 </p>
               </div>
             </form>
           </div>
         </Card>
-      </div>
+        <p className="auth-legal">
+          Khi tiếp tục, bạn đồng ý với các quy định bảo mật của Fin Workspace.
+        </p>
+      </section>
     </main>
   );
 }

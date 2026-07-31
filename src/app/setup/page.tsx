@@ -1,48 +1,49 @@
 "use client";
 
-import { Button, Card, Input } from "@/components/base";
-import { useState, useId, useCallback } from "react";
-import { registerAccountAction } from "@/app/setup/actions";
 import {
-  Eye, EyeOff, ShieldCheck, AlertCircle, CheckCircle2, Lock, User, Check,
+  AlertCircle,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Lock,
+  User,
 } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useId, useState } from "react";
+
+import { registerAccountAction } from "@/app/setup/actions";
+import { ThemeToggle } from "@/app/theme-toggle";
+import { AuthShowcase } from "@/components/auth-showcase";
+import { Button, Card, Input } from "@/components/base";
 import { FinLogo } from "@/components/fin-logo";
 
-/* ── Password strength ─────────────────────────────────────────── */
-type Strength = { score: 0 | 1 | 2 | 3 | 4; label: string; cls: string };
+type Strength = {
+  score: 0 | 1 | 2 | 3 | 4;
+  label: string;
+};
 
 function getStrength(pw: string): Strength {
-  if (!pw) return { score: 0, label: "", cls: "" };
+  if (!pw) return { score: 0, label: "" };
+
   let score = 0;
-  if (pw.length >= 6) score++;
+  if (pw.length >= 8) score++;
   if (pw.length >= 10) score++;
   if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
   if (/\d/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
   const capped = Math.min(4, score) as 0 | 1 | 2 | 3 | 4;
-  const map: Record<0 | 1 | 2 | 3 | 4, { label: string; cls: string }> = {
-    0: { label: "", cls: "" },
-    1: { label: "Cơ bản", cls: "strength-weak" },
-    2: { label: "Khá", cls: "strength-fair" },
-    3: { label: "Tốt", cls: "strength-good" },
-    4: { label: "Rất mạnh", cls: "strength-strong" },
+  const labels: Record<0 | 1 | 2 | 3 | 4, string> = {
+    0: "",
+    1: "Cơ bản",
+    2: "Khá",
+    3: "Tốt",
+    4: "Rất mạnh",
   };
-  return { score: capped, ...map[capped] };
-}
 
-function barClass(barIndex: number, score: number): string {
-  if (barIndex >= score) return "";
-  if (score <= 1) return "filled";
-  if (score === 2) return "filled filled-warn";
-  return "filled filled-ok";
+  return { score: capped, label: labels[capped] };
 }
-
-/* ── Checklist shown on visual panel ──────────────────────────── */
-const CHECKLIST = [
-  "Tạo tài khoản cá nhân",
-  "Thiết lập mật khẩu bảo mật (≥ 6 ký tự)",
-  "Đăng nhập và bắt đầu sử dụng",
-];
 
 export default function SetupPage() {
   const id = useId();
@@ -90,78 +91,45 @@ export default function SetupPage() {
     }
   }
 
-  const isMinLength = password.length >= 6;
+  const isMinLength = password.length >= 8;
   const hasLettersAndNumbers = /[A-Za-z]/.test(password) && /\d/.test(password);
 
   return (
     <main className="auth-split-shell">
-      {/* ── Left visual panel ── */}
-      <div className="auth-visual-panel">
-        <div className="auth-visual-orb auth-visual-orb-1" aria-hidden />
-        <div className="auth-visual-orb auth-visual-orb-2" aria-hidden />
-        <div className="auth-visual-orb auth-visual-orb-3" aria-hidden />
+      <AuthShowcase mode="register" />
 
-        {/* Brand */}
-        <div className="auth-visual-brand">
-          <FinLogo size={34} />
-          <span className="auth-visual-brand-name">Fin Workspace</span>
+      <section className="auth-form-panel" aria-labelledby="register-title">
+        <div className="auth-form-toolbar">
+          <Link href="/" className="auth-mobile-brand" aria-label="Fin Workspace — Trang chủ">
+            <FinLogo size={28} />
+            <span>Fin Workspace</span>
+          </Link>
+          <ThemeToggle />
         </div>
 
-        {/* Main copy */}
-        <div className="auth-visual-body">
-          <p className="auth-visual-tagline">Đăng ký tài khoản</p>
-          <h1 className="auth-visual-headline">
-            Chỉ mất<br />
-            <em className="auth-headline-accent">vài bước</em><br />
-            để bắt đầu.
-          </h1>
-          <p className="auth-visual-desc">
-            Tạo tài khoản cá nhân của bạn để bắt đầu sử dụng hệ thống.
-          </p>
-
-          {/* Checklist */}
-          <div className="auth-visual-features" style={{ flexDirection: "column", gap: ".65rem", marginTop: "2rem" }}>
-            {CHECKLIST.map((item, i) => (
-              <span key={i} className="auth-visual-pill" style={{ borderRadius: ".6rem", backdropFilter: "blur(8px)" }}>
-                <CheckCircle2 size={14} strokeWidth={2} />
-                {item}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <p className="auth-visual-footer">
-          © {new Date().getFullYear()} Fin Workspace · Mọi quyền được bảo lưu
-        </p>
-      </div>
-
-      {/* ── Right form panel ── */}
-      <div className="auth-form-panel">
         <Card className="auth-form-card gap-0 py-0">
           <div className="auth-form-inner">
-            {/* Header */}
             <div className="auth-form-header">
-              <span className="auth-form-eyebrow">ĐĂNG KÝ TÀI KHOẢN</span>
-              <h2 className="auth-form-title">Tạo tài khoản mới</h2>
+              <span className="auth-form-eyebrow">Tạo tài khoản</span>
+              <h2 id="register-title" className="auth-form-title">Bắt đầu từ đây.</h2>
               <p className="auth-form-subtitle">
-                Đăng ký tài khoản cá nhân của bạn.
+                Hai thông tin để mở không gian tài chính của bạn.
               </p>
             </div>
 
-            {/* Success */}
             {done && (
               <div className="auth-success-banner" role="status">
-                <CheckCircle2 size={16} strokeWidth={2} />
-                Đăng ký thành công! Đang chuyển hướng đến trang đăng nhập…
+                <span><CheckCircle2 size={18} aria-hidden /></span>
+                <p>
+                  <strong>Tài khoản đã sẵn sàng.</strong>
+                  <small>Đang chuyển bạn đến trang đăng nhập…</small>
+                </p>
               </div>
             )}
 
-            {/* Form */}
             {!done && (
               <form onSubmit={submit}>
                 <div className="auth-fields">
-                  {/* Username */}
                   <div className="auth-floating-field">
                     <Input
                       label="Tên đăng nhập"
@@ -173,7 +141,9 @@ export default function SetupPage() {
                       maxLength={80}
                       autoComplete="username"
                       autoFocus
-                      placeholder="Tối thiểu 3 ký tự"
+                      placeholder="Nhập tên đăng nhập"
+                      aria-invalid={fieldErrors.username ? true : undefined}
+                      aria-describedby={fieldErrors.username ? `${id}-username-error` : undefined}
                       className="auth-field-input"
                       controlClassName="auth-field-wrap has-left-icon"
                       startAdornment={<span className="auth-field-left-icon" aria-hidden>
@@ -181,12 +151,12 @@ export default function SetupPage() {
                       </span>}
                     />
                     {fieldErrors.username && (
-                      <p className="text-xs text-rose-500 mt-1" role="alert">{fieldErrors.username}</p>
+                      <p id={`${id}-username-error`} className="auth-field-error" role="alert">
+                        {fieldErrors.username}
+                      </p>
                     )}
                   </div>
 
-
-                  {/* Password */}
                   <div className="auth-floating-field">
                     <Input
                       label="Mật khẩu"
@@ -194,10 +164,12 @@ export default function SetupPage() {
                       name="password"
                       type={showPassword ? "text" : "password"}
                       required
-                      minLength={6}
+                      minLength={8}
                       maxLength={128}
                       autoComplete="new-password"
-                      placeholder="Tối thiểu 6 ký tự"
+                      placeholder="Tối thiểu 8 ký tự"
+                      aria-invalid={fieldErrors.password ? true : undefined}
+                      aria-describedby={fieldErrors.password ? `${id}-password-error` : undefined}
                       className="auth-field-input has-icon"
                       value={password}
                       onChange={handlePasswordChange}
@@ -217,17 +189,20 @@ export default function SetupPage() {
                       </Button>}
                     />
                     {fieldErrors.password && (
-                      <p className="text-xs text-rose-500 mt-1" role="alert">{fieldErrors.password}</p>
+                      <p id={`${id}-password-error`} className="auth-field-error" role="alert">
+                        {fieldErrors.password}
+                      </p>
                     )}
 
-                    {/* Ultra-Minimalist Password Strength Indicator */}
                     {password.length > 0 && (
                       <div className="auth-minimal-strength">
                         <div className="auth-minimal-bars" role="progressbar" aria-valuenow={strength.score} aria-valuemax={4} aria-label={`Độ mạnh mật khẩu: ${strength.label}`}>
                           {[1, 2, 3, 4].map((barLevel) => (
                             <div
                               key={barLevel}
-                              className={`auth-minimal-bar ${barLevel <= strength.score ? `active-${strength.score}` : ""}`}
+                              className="auth-minimal-bar"
+                              data-active={barLevel <= strength.score}
+                              data-score={strength.score}
                             />
                           ))}
                         </div>
@@ -235,10 +210,10 @@ export default function SetupPage() {
                         <div className="auth-minimal-row">
                           <div className="auth-minimal-rules">
                             <span className={`auth-minimal-rule ${isMinLength ? "is-valid" : ""}`}>
-                              {isMinLength ? <Check size={11} strokeWidth={2.5} /> : "•"} 6+ ký tự
+                              {isMinLength ? <Check size={11} aria-hidden /> : <i aria-hidden />} 8+ ký tự
                             </span>
                             <span className={`auth-minimal-rule ${hasLettersAndNumbers ? "is-valid" : ""}`}>
-                              {hasLettersAndNumbers ? <Check size={11} strokeWidth={2.5} /> : "•"} Chữ & Số
+                              {hasLettersAndNumbers ? <Check size={11} aria-hidden /> : <i aria-hidden />} Chữ & số
                             </span>
                           </div>
 
@@ -253,24 +228,22 @@ export default function SetupPage() {
                   </div>
                 </div>
 
-                {/* Global error */}
                 {message && (
                   <div
                     key={errorKey}
                     className="auth-global-error"
                     role="alert"
-                    style={{ marginTop: "1rem" }}
                   >
-                    <AlertCircle size={15} strokeWidth={2} />
+                    <AlertCircle size={15} aria-hidden />
                     {message}
                   </div>
                 )}
 
-                {/* Actions */}
                 <div className="auth-form-actions">
-                  <Button variant="unstyled" size="auto"
+                  <Button
                     type="submit"
                     id="setup-submit"
+                    size="lg"
                     className="auth-submit-btn"
                     disabled={loading}
                   >
@@ -281,24 +254,27 @@ export default function SetupPage() {
                       </>
                     ) : (
                       <>
-                        <ShieldCheck size={17} strokeWidth={2} />
-                        Đăng ký
+                        Tạo tài khoản
+                        <ArrowRight size={17} aria-hidden />
                       </>
                     )}
                   </Button>
 
                   <p className="auth-form-link-row">
                     Đã có tài khoản?{" "}
-                    <a href="/sign-in" className="auth-form-link">
+                    <Link href="/sign-in" className="auth-form-link">
                       Đăng nhập
-                    </a>
+                    </Link>
                   </p>
                 </div>
               </form>
             )}
           </div>
         </Card>
-      </div>
+        <p className="auth-legal">
+          Khi tạo tài khoản, bạn đồng ý với các quy định bảo mật của Fin Workspace.
+        </p>
+      </section>
     </main>
   );
 }
