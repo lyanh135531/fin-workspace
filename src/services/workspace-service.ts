@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { requireWorkspaceMember } from "@/services/workspace-access";
+import { ensureInvestmentRootInTransaction } from "@/services/investment-category-service";
 
 export async function generateUniqueInviteCode(tx: Prisma.TransactionClient): Promise<string> {
   for (let i = 0; i < 10; i++) {
@@ -24,6 +25,7 @@ export async function createWorkspaceForUser(userId: string, input: { name: stri
     const inviteCode = await generateUniqueInviteCode(tx);
     const workspace = await tx.workspace.create({ data: { ...input, inviteCode } });
     await tx.workspaceMember.create({ data: { workspaceId: workspace.id, userId, roleId: role.id } });
+    await ensureInvestmentRootInTransaction(tx, workspace.id);
 
     // Create a default wallet with 0 balance for the new workspace
     const zero = new Decimal(0);

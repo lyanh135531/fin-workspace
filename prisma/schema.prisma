@@ -18,6 +18,8 @@ enum TransactionType {
   income
   expense
   transfer
+  investment_buy
+  investment_sell
 
   @@map("TRANSACTION_TYPE")
 }
@@ -34,8 +36,35 @@ enum WorkflowStatus {
 enum CategoryType {
   income
   expense
+  investment
 
   @@map("CATEGORY_TYPE")
+}
+
+enum InvestmentAssetType {
+  gold
+  currency
+  stock
+  crypto
+  fund
+  other
+
+  @@map("INVESTMENT_ASSET_TYPE")
+}
+
+enum InvestmentTradeSide {
+  buy
+  sell
+
+  @@map("INVESTMENT_TRADE_SIDE")
+}
+
+enum InvestmentLotStatus {
+  open
+  partial
+  closed
+
+  @@map("INVESTMENT_LOT_STATUS")
 }
 
 enum ChangeRequestStatus {
@@ -55,51 +84,56 @@ enum WorkspaceJoinRequestStatus {
 }
 
 model Role {
-  id      String            @id @default(uuid()) @db.Uuid
-  name    String
-  code    String            @unique
-  members WorkspaceMember[]
+  id           String                 @id @default(uuid()) @db.Uuid
+  name         String
+  code         String                 @unique
+  members      WorkspaceMember[]
   joinRequests WorkspaceJoinRequest[]
 
   @@map("ROLE")
 }
 
 model User {
-  id           String            @id @default(uuid()) @db.Uuid
-  username     String            @unique
-  passwordHash String            @map("password_hash")
-  status       Status            @default(active)
-  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime?         @map("deleted_at") @db.Timestamptz(6)
-  memberships  WorkspaceMember[]
-  auditLogs    AuditLog[]
-  joinRequests WorkspaceJoinRequest[] @relation("JoinRequester")
+  id                   String                 @id @default(uuid()) @db.Uuid
+  username             String                 @unique
+  passwordHash         String                 @map("password_hash")
+  status               Status                 @default(active)
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?              @map("deleted_at") @db.Timestamptz(6)
+  memberships          WorkspaceMember[]
+  auditLogs            AuditLog[]
+  joinRequests         WorkspaceJoinRequest[] @relation("JoinRequester")
   reviewedJoinRequests WorkspaceJoinRequest[]
-  categoryTemplates Category[]
+  categoryTemplates    Category[]
 
   @@index([status, deletedAt])
   @@map("USERS")
 }
 
 model Workspace {
-  id          String            @id @default(uuid()) @db.Uuid
-  name        String
-  description String?
-  status      Status            @default(active)
-  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt   DateTime?         @map("deleted_at") @db.Timestamptz(6)
-  baseCurrency String            @default("VND") @map("base_currency") @db.VarChar(3)
-  timeZone     String            @default("Asia/Ho_Chi_Minh") @map("time_zone")
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  description  String?
+  status       Status    @default(active)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+  baseCurrency String    @default("VND") @map("base_currency") @db.VarChar(3)
+  timeZone     String    @default("Asia/Ho_Chi_Minh") @map("time_zone")
 
-  inviteCode   String            @unique @default(uuid()) @map("invite_code") @db.VarChar(36)
-  members     WorkspaceMember[]
-  wallets     WorkspaceWallet[]
-  categories  Category[]
-  auditLogs   AuditLog[]
-  joinRequests WorkspaceJoinRequest[]
+  inviteCode            String                        @unique @default(uuid()) @map("invite_code") @db.VarChar(36)
+  members               WorkspaceMember[]
+  wallets               WorkspaceWallet[]
+  categories            Category[]
+  auditLogs             AuditLog[]
+  joinRequests          WorkspaceJoinRequest[]
   recurringTransactions RecurringTransaction[]
+  investmentAssets      InvestmentAsset[]
+  investmentTrades      InvestmentTrade[]
+  investmentLots        InvestmentLot[]
+  portfolioSnapshots    InvestmentPortfolioSnapshot[]
+
   @@index([status, deletedAt])
   @@map("WORKSPACES")
 }
@@ -116,21 +150,22 @@ model WorkspaceWallet {
 }
 
 model WorkspaceMember {
-  id           String        @id @default(uuid()) @db.Uuid
-  workspaceId  String        @map("workspace_id") @db.Uuid
-  userId       String        @map("user_id") @db.Uuid
-  roleId       String        @map("role_id") @db.Uuid
-  status       Status        @default(active)
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
-  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  role         Role          @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  transactions Transaction[]
-  requestedChanges TransactionChangeRequest[] @relation("ChangeRequester")
-  reviewedChanges  TransactionChangeRequest[] @relation("ChangeReviewer")
+  id                           String                     @id @default(uuid()) @db.Uuid
+  workspaceId                  String                     @map("workspace_id") @db.Uuid
+  userId                       String                     @map("user_id") @db.Uuid
+  roleId                       String                     @map("role_id") @db.Uuid
+  status                       Status                     @default(active)
+  createdAt                    DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                    DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                    DateTime?                  @map("deleted_at") @db.Timestamptz(6)
+  workspace                    Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  user                         User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role                         Role                       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  transactions                 Transaction[]
+  requestedChanges             TransactionChangeRequest[] @relation("ChangeRequester")
+  reviewedChanges              TransactionChangeRequest[] @relation("ChangeReviewer")
   createdRecurringTransactions RecurringTransaction[]
+  investmentTrades             InvestmentTrade[]
 
   @@unique([workspaceId, userId])
   @@index([workspaceId, status, deletedAt])
@@ -139,48 +174,53 @@ model WorkspaceMember {
 }
 
 model Wallet {
-  id                      String            @id @default(uuid()) @db.Uuid
-  name                    String
-  openingBalance          Decimal           @default(0) @map("opening_balance") @db.Decimal(20, 4)
-  currentBalance          Decimal           @default(0) @map("current_balance") @db.Decimal(20, 4)
-  status                  Status            @default(active)
-  description             String?
-  createdAt               DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt               DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt               DateTime?         @map("deleted_at") @db.Timestamptz(6)
-  workspaceLinks          WorkspaceWallet[]
-  sourceTransactions      Transaction[]     @relation("TransactionSourceWallet")
-  destinationTransactions Transaction[]     @relation("TransactionDestinationWallet")
-  sourceRecurringTransactions RecurringTransaction[] @relation("RecurringTransactionSourceWallet")
+  id                               String                 @id @default(uuid()) @db.Uuid
+  name                             String
+  openingBalance                   Decimal                @default(0) @map("opening_balance") @db.Decimal(20, 4)
+  currentBalance                   Decimal                @default(0) @map("current_balance") @db.Decimal(20, 4)
+  status                           Status                 @default(active)
+  description                      String?
+  createdAt                        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                        DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                        DateTime?              @map("deleted_at") @db.Timestamptz(6)
+  workspaceLinks                   WorkspaceWallet[]
+  sourceTransactions               Transaction[]          @relation("TransactionSourceWallet")
+  destinationTransactions          Transaction[]          @relation("TransactionDestinationWallet")
+  sourceRecurringTransactions      RecurringTransaction[] @relation("RecurringTransactionSourceWallet")
   destinationRecurringTransactions RecurringTransaction[] @relation("RecurringTransactionDestinationWallet")
+  investmentTrades                 InvestmentTrade[]
 
   @@index([status, deletedAt])
   @@map("WALLETS")
 }
 
 model Category {
-  id           String        @id @default(uuid()) @db.Uuid
-  workspaceId  String?       @map("workspace_id") @db.Uuid
-  userId       String?       @map("user_id") @db.Uuid
-  name         String
-  code         String
-  color        String        @db.VarChar(7)
-  type         CategoryType  @default(expense)
-  icon         String?
-  parentId     String?       @map("parent_id") @db.Uuid
-  sortOrder    Int           @default(0) @map("order")
-  status       Status        @default(active)
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
-  workspace    Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  user         User?         @relation(fields: [userId], references: [id], onDelete: Restrict)
-  parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  children     Category[]    @relation("CategoryHierarchy")
-  transactions Transaction[]
+  id                    String                 @id @default(uuid()) @db.Uuid
+  workspaceId           String?                @map("workspace_id") @db.Uuid
+  userId                String?                @map("user_id") @db.Uuid
+  name                  String
+  code                  String
+  color                 String                 @db.VarChar(7)
+  type                  CategoryType           @default(expense)
+  icon                  String?
+  parentId              String?                @map("parent_id") @db.Uuid
+  systemKey             String?                @map("system_key") @db.VarChar(40)
+  isProtected           Boolean                @default(false) @map("is_protected")
+  sortOrder             Int                    @default(0) @map("order")
+  status                Status                 @default(active)
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime?              @map("deleted_at") @db.Timestamptz(6)
+  workspace             Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  user                  User?                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  parent                Category?              @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children              Category[]             @relation("CategoryHierarchy")
+  transactions          Transaction[]
   recurringTransactions RecurringTransaction[]
+  investmentAsset       InvestmentAsset?
 
   @@unique([workspaceId, userId, code])
+  @@unique([workspaceId, systemKey])
   @@index([workspaceId, status, deletedAt, sortOrder])
   @@index([userId, status, deletedAt])
   @@map("CATEGORY")
@@ -207,68 +247,70 @@ model TransactionChangeRequest {
 }
 
 model AuditLog {
-  id          String           @id @default(uuid()) @db.Uuid
-  workspaceId String           @map("workspace_id") @db.Uuid
-  actorUserId String?          @map("actor_user_id") @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  actorUserId String?   @map("actor_user_id") @db.Uuid
   action      String
-  entityType  String           @map("entity_type")
-  entityId    String?          @map("entity_id") @db.Uuid
+  entityType  String    @map("entity_type")
+  entityId    String?   @map("entity_id") @db.Uuid
   metadata    Json?
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  actor       User?            @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  actor       User?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, createdAt])
   @@map("AUDIT_LOG")
 }
 
 model WorkspaceJoinRequest {
-  id String @id @default(uuid()) @db.Uuid
-  workspaceId String @map("workspace_id") @db.Uuid
-  requesterId String @map("requester_id") @db.Uuid
-  reviewerId String? @map("reviewer_id") @db.Uuid
-  roleId String? @map("role_id") @db.Uuid
-  status WorkspaceJoinRequestStatus @default(pending)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  respondedAt DateTime? @map("responded_at") @db.Timestamptz(6)
-  workspace Workspace @relation(fields:[workspaceId],references:[id],onDelete:Restrict)
-  requester User @relation("JoinRequester",fields:[requesterId],references:[id],onDelete:Restrict)
-  reviewer User? @relation(fields:[reviewerId],references:[id],onDelete:SetNull)
-  role Role? @relation(fields:[roleId],references:[id],onDelete:Restrict)
-  @@index([workspaceId,status])
-  @@index([requesterId,status])
+  id          String                     @id @default(uuid()) @db.Uuid
+  workspaceId String                     @map("workspace_id") @db.Uuid
+  requesterId String                     @map("requester_id") @db.Uuid
+  reviewerId  String?                    @map("reviewer_id") @db.Uuid
+  roleId      String?                    @map("role_id") @db.Uuid
+  status      WorkspaceJoinRequestStatus @default(pending)
+  createdAt   DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  respondedAt DateTime?                  @map("responded_at") @db.Timestamptz(6)
+  workspace   Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  requester   User                       @relation("JoinRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  reviewer    User?                      @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
+  role        Role?                      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, status])
+  @@index([requesterId, status])
   @@map("WORKSPACE_JOIN_REQUEST")
 }
 
 model Transaction {
-  id             String          @id @default(uuid()) @db.Uuid
-  memberId       String          @map("member_id") @db.Uuid
-  walletId       String          @map("wallet_id") @db.Uuid
-  toWalletId     String?         @map("to_wallet_id") @db.Uuid
-  categoryId     String?         @map("category_id") @db.Uuid
-  type           TransactionType
-  workflowStatus WorkflowStatus  @default(pending) @map("workflow_status")
-  amount         Decimal         @db.Decimal(20, 4)
-  description    String?
-  date           DateTime        @db.Date
-  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz(6)
-  recurringTransactionId String? @map("recurring_transaction_id") @db.Uuid
-  recurringPeriod String?        @map("recurring_period") @db.VarChar(7)
-  member         WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Restrict)
-  wallet         Wallet          @relation("TransactionSourceWallet", fields: [walletId], references: [id], onDelete: Restrict)
-  toWallet       Wallet?         @relation("TransactionDestinationWallet", fields: [toWalletId], references: [id], onDelete: Restrict)
-  category       Category?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  changeRequests TransactionChangeRequest[]
-  recurringTransaction RecurringTransaction? @relation(fields: [recurringTransactionId], references: [id], onDelete: Restrict)
+  id                     String                     @id @default(uuid()) @db.Uuid
+  memberId               String                     @map("member_id") @db.Uuid
+  walletId               String                     @map("wallet_id") @db.Uuid
+  toWalletId             String?                    @map("to_wallet_id") @db.Uuid
+  categoryId             String?                    @map("category_id") @db.Uuid
+  type                   TransactionType
+  workflowStatus         WorkflowStatus             @default(pending) @map("workflow_status")
+  amount                 Decimal                    @db.Decimal(20, 4)
+  description            String?
+  date                   DateTime                   @db.Date
+  createdAt              DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime?                  @map("deleted_at") @db.Timestamptz(6)
+  recurringTransactionId String?                    @map("recurring_transaction_id") @db.Uuid
+  recurringPeriod        String?                    @map("recurring_period") @db.VarChar(7)
+  member                 WorkspaceMember            @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  wallet                 Wallet                     @relation("TransactionSourceWallet", fields: [walletId], references: [id], onDelete: Restrict)
+  toWallet               Wallet?                    @relation("TransactionDestinationWallet", fields: [toWalletId], references: [id], onDelete: Restrict)
+  category               Category?                  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  changeRequests         TransactionChangeRequest[]
+  recurringTransaction   RecurringTransaction?      @relation(fields: [recurringTransactionId], references: [id], onDelete: Restrict)
+  investmentTrade        InvestmentTrade?
 
+  @@unique([recurringTransactionId, recurringPeriod])
   @@index([memberId, date])
   @@index([walletId, workflowStatus, date])
   @@index([toWalletId, workflowStatus, date])
   @@index([categoryId, date])
-  @@unique([recurringTransactionId, recurringPeriod])
   @@map("TRANSACTION")
 }
 
@@ -304,4 +346,167 @@ model RecurringTransaction {
   @@index([toWalletId])
   @@index([categoryId])
   @@map("RECURRING_TRANSACTION")
+}
+
+model InvestmentAsset {
+  id                String                            @id @default(uuid()) @db.Uuid
+  workspaceId       String                            @map("workspace_id") @db.Uuid
+  categoryId        String                            @unique @map("category_id") @db.Uuid
+  code              String                            @db.VarChar(40)
+  name              String
+  type              InvestmentAssetType               @default(other)
+  unit              String                            @db.VarChar(40)
+  quoteCurrency     String                            @default("VND") @map("quote_currency") @db.VarChar(3)
+  priceSymbol       String?                           @map("price_symbol") @db.VarChar(120)
+  goldPriceCode     String?                           @map("gold_price_code") @db.VarChar(40)
+  goldSpreadPercent Decimal                           @default(0) @map("gold_spread_percent") @db.Decimal(9, 4)
+  autoPriceEnabled  Boolean                           @default(false) @map("auto_price_enabled")
+  status            Status                            @default(active)
+  createdAt         DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?                         @map("deleted_at") @db.Timestamptz(6)
+  workspace         Workspace                         @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  category          Category                          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  trades            InvestmentTrade[]
+  lots              InvestmentLot[]
+  prices            AssetPriceSnapshot[]
+  portfolioItems    InvestmentPortfolioSnapshotItem[]
+
+  @@unique([workspaceId, code])
+  @@index([workspaceId, type, status, deletedAt])
+  @@index([workspaceId, autoPriceEnabled, status])
+  @@map("INVESTMENT_ASSET")
+}
+
+model InvestmentTrade {
+  id                    String                       @id @default(uuid()) @db.Uuid
+  workspaceId           String                       @map("workspace_id") @db.Uuid
+  memberId              String                       @map("member_id") @db.Uuid
+  walletId              String                       @map("wallet_id") @db.Uuid
+  transactionId         String?                      @unique @map("transaction_id") @db.Uuid
+  assetId               String                       @map("asset_id") @db.Uuid
+  targetLotId           String?                      @map("target_lot_id") @db.Uuid
+  marketPriceSnapshotId String?                      @map("market_price_snapshot_id") @db.Uuid
+  side                  InvestmentTradeSide
+  workflowStatus        WorkflowStatus               @default(approved) @map("workflow_status")
+  quantity              Decimal                      @db.Decimal(28, 10)
+  executedUnitPrice     Decimal                      @map("executed_unit_price") @db.Decimal(20, 4)
+  cashAmount            Decimal                      @map("cash_amount") @db.Decimal(20, 4)
+  description           String?
+  date                  DateTime                     @db.Date
+  createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime?                    @map("deleted_at") @db.Timestamptz(6)
+  workspace             Workspace                    @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  member                WorkspaceMember              @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  wallet                Wallet                       @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  transaction           Transaction?                 @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  asset                 InvestmentAsset              @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  targetLot             InvestmentLot?               @relation("InvestmentSaleTarget", fields: [targetLotId], references: [id], onDelete: Restrict)
+  marketPriceSnapshot   AssetPriceSnapshot?          @relation(fields: [marketPriceSnapshotId], references: [id], onDelete: Restrict)
+  purchasedLot          InvestmentLot?               @relation("InvestmentPurchaseTrade")
+  allocation            InvestmentLotAllocation?
+  portfolioSnapshot     InvestmentPortfolioSnapshot?
+
+  @@index([workspaceId, workflowStatus, date])
+  @@index([assetId, side, date])
+  @@index([walletId, date])
+  @@index([targetLotId])
+  @@index([marketPriceSnapshotId])
+  @@map("INVESTMENT_TRADE")
+}
+
+model InvestmentLot {
+  id                        String                   @id @default(uuid()) @db.Uuid
+  workspaceId               String                   @map("workspace_id") @db.Uuid
+  assetId                   String                   @map("asset_id") @db.Uuid
+  purchaseTradeId           String                   @unique @map("purchase_trade_id") @db.Uuid
+  originalQuantity          Decimal                  @map("original_quantity") @db.Decimal(28, 10)
+  remainingQuantity         Decimal                  @map("remaining_quantity") @db.Decimal(28, 10)
+  originalCost              Decimal                  @map("original_cost") @db.Decimal(20, 4)
+  remainingCost             Decimal                  @map("remaining_cost") @db.Decimal(20, 4)
+  purchaseMarketAskPrice    Decimal                  @map("purchase_market_ask_price") @db.Decimal(20, 4)
+  purchaseAdjustmentRatio   Decimal                  @map("purchase_adjustment_ratio") @db.Decimal(18, 10)
+  purchaseAdjustmentPercent Decimal                  @map("purchase_adjustment_percent") @db.Decimal(18, 10)
+  status                    InvestmentLotStatus      @default(open)
+  openedAt                  DateTime                 @map("opened_at") @db.Date
+  closedAt                  DateTime?                @map("closed_at") @db.Date
+  createdAt                 DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace                 Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  asset                     InvestmentAsset          @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  purchaseTrade             InvestmentTrade          @relation("InvestmentPurchaseTrade", fields: [purchaseTradeId], references: [id], onDelete: Restrict)
+  saleTrades                InvestmentTrade[]        @relation("InvestmentSaleTarget")
+  allocation                InvestmentLotAllocation?
+
+  @@index([workspaceId, status, openedAt])
+  @@index([assetId, status, openedAt])
+  @@map("INVESTMENT_LOT")
+}
+
+model InvestmentLotAllocation {
+  id             String          @id @default(uuid()) @db.Uuid
+  sellTradeId    String          @unique @map("sell_trade_id") @db.Uuid
+  lotId          String          @unique @map("lot_id") @db.Uuid
+  quantity       Decimal         @db.Decimal(28, 10)
+  allocatedCost  Decimal         @map("allocated_cost") @db.Decimal(20, 4)
+  grossProceeds  Decimal         @map("gross_proceeds") @db.Decimal(20, 4)
+  netProceeds    Decimal         @map("net_proceeds") @db.Decimal(20, 4)
+  realizedProfit Decimal         @map("realized_profit") @db.Decimal(20, 4)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  sellTrade      InvestmentTrade @relation(fields: [sellTradeId], references: [id], onDelete: Restrict)
+  lot            InvestmentLot   @relation(fields: [lotId], references: [id], onDelete: Restrict)
+
+  @@index([lotId])
+  @@map("INVESTMENT_LOT_ALLOCATION")
+}
+
+model AssetPriceSnapshot {
+  id            String            @id @default(uuid()) @db.Uuid
+  assetId       String            @map("asset_id") @db.Uuid
+  bidPrice      Decimal           @map("bid_price") @db.Decimal(20, 4)
+  askPrice      Decimal?          @map("ask_price") @db.Decimal(20, 4)
+  quoteCurrency String            @map("quote_currency") @db.VarChar(3)
+  provider      String            @default("manual") @db.VarChar(80)
+  priceAt       DateTime          @map("price_at") @db.Timestamptz(6)
+  fetchedAt     DateTime          @default(now()) @map("fetched_at") @db.Timestamptz(6)
+  metadata      Json?
+  asset         InvestmentAsset   @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  trades        InvestmentTrade[]
+
+  @@index([assetId, priceAt(sort: Desc)])
+  @@map("ASSET_PRICE_SNAPSHOT")
+}
+
+model InvestmentPortfolioSnapshot {
+  id             String                            @id @default(uuid()) @db.Uuid
+  workspaceId    String                            @map("workspace_id") @db.Uuid
+  eventTradeId   String                            @unique @map("event_trade_id") @db.Uuid
+  date           DateTime                          @db.Date
+  capturedAt     DateTime                          @default(now()) @map("captured_at") @db.Timestamptz(6)
+  totalCost      Decimal                           @map("total_cost") @db.Decimal(20, 4)
+  marketValue    Decimal                           @map("market_value") @db.Decimal(20, 4)
+  realizedProfit Decimal                           @map("realized_profit") @db.Decimal(20, 4)
+  workspace      Workspace                         @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  eventTrade     InvestmentTrade                   @relation(fields: [eventTradeId], references: [id], onDelete: Restrict)
+  items          InvestmentPortfolioSnapshotItem[]
+
+  @@index([workspaceId, date, capturedAt])
+  @@map("INVESTMENT_PORTFOLIO_SNAPSHOT")
+}
+
+model InvestmentPortfolioSnapshotItem {
+  id              String                      @id @default(uuid()) @db.Uuid
+  snapshotId      String                      @map("snapshot_id") @db.Uuid
+  assetId         String                      @map("asset_id") @db.Uuid
+  quantity        Decimal                     @db.Decimal(28, 10)
+  cost            Decimal                     @db.Decimal(20, 4)
+  marketUnitPrice Decimal                     @map("market_unit_price") @db.Decimal(20, 4)
+  marketValue     Decimal                     @map("market_value") @db.Decimal(20, 4)
+  snapshot        InvestmentPortfolioSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+  asset           InvestmentAsset             @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([snapshotId, assetId])
+  @@index([assetId, snapshotId])
+  @@map("INVESTMENT_PORTFOLIO_SNAPSHOT_ITEM")
 }

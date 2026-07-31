@@ -5,7 +5,7 @@ export type CashflowRange = 3 | 6 | 12;
 
 type ChartTransaction = {
   amount: string;
-  type: CashflowType | "transfer";
+  type: CashflowType | "transfer" | "investment_buy" | "investment_sell";
   status: "pending" | "scheduled" | "approved" | "rejected";
   date: string;
   walletId: string;
@@ -95,7 +95,7 @@ export function buildMonthlyCashflow(
     const period = transaction.date.slice(0, 7);
     if (
       transaction.status !== "approved"
-      || transaction.type === "transfer"
+      || !["income", "expense"].includes(transaction.type)
       || !periodSet.has(period)
       || (filters.walletId !== "all"
         && transaction.walletId !== filters.walletId
@@ -109,7 +109,8 @@ export function buildMonthlyCashflow(
 
     const periodTotals = totals.get(period);
     if (!periodTotals) continue;
-    periodTotals[transaction.type] = periodTotals[transaction.type].plus(transaction.amount);
+    const cashflowType = transaction.type as CashflowType;
+    periodTotals[cashflowType] = periodTotals[cashflowType].plus(transaction.amount);
   }
 
   return periods.map((period) => {
@@ -230,7 +231,7 @@ export function buildMonthlyBalances(
       const amount = new Decimal(transaction.amount);
       const sourceBalance = balances.get(transaction.walletId);
       if (sourceBalance) {
-        if (transaction.type === "income") {
+        if (transaction.type === "income" || transaction.type === "investment_sell") {
           balances.set(transaction.walletId, sourceBalance.minus(amount));
         } else {
           balances.set(transaction.walletId, sourceBalance.plus(amount));

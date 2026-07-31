@@ -68,7 +68,7 @@ export default async function RecurringTransactionsPage() {
           walletId: item.walletId,
           toWalletId: item.toWalletId,
           categoryId: item.categoryId,
-          type: item.type,
+          type: item.type as "income" | "expense" | "transfer",
           amount: item.amount.toString(),
           description: item.description,
           dayOfMonth: item.dayOfMonth,

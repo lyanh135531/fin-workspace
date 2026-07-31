@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, LayoutDashboard, Repeat2, Settings, SlidersHorizontal, WalletCards } from "lucide-react";
+import { BookOpen, ChartNoAxesCombined, LayoutDashboard, Repeat2, Settings, SlidersHorizontal, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WorkspaceSwitcher } from "@/app/dashboard/workspace-switcher";
@@ -29,6 +29,7 @@ export function DashboardNavigation({
     pathname === "/dashboard" || pathname.startsWith("/workspace/");
   const walletsActive = pathname === "/wallets";
   const recurringActive = pathname === "/recurring-transactions";
+  const investmentsActive = pathname === "/investments";
   const workspaceSettingsActive =
     pathname === "/settings/workspace" ||
     pathname === "/dashboard/settings" ||
@@ -106,6 +107,16 @@ export function DashboardNavigation({
             >
               <WalletCards size={18} strokeWidth={1.8} />
               <span>Quản lý ví</span>
+            </Link>
+
+            <Link
+              className={`nav-item dashboard-nav-link ${investmentsActive ? "nav-item-active" : ""}`}
+              href="/investments"
+              aria-current={investmentsActive ? "page" : undefined}
+              aria-label="Quản lý danh mục và các lô đầu tư"
+            >
+              <ChartNoAxesCombined size={18} strokeWidth={1.8} />
+              <span>Quản lý đầu tư</span>
             </Link>
 
             {isAdmin && (

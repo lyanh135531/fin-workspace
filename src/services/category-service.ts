@@ -34,6 +34,9 @@ export async function updateWorkspaceCategory(userId: string, workspaceId: strin
   await requireWorkspaceMember(userId, workspaceId, true);
   const category = await prisma.category.findFirst({ where: { id: input.categoryId, workspaceId, deletedAt: null } });
   if (!category) throw new AppError("NOT_FOUND", "Category riêng của workspace không tồn tại.");
+  if (category.isProtected || category.type === "investment") {
+    throw new AppError("FORBIDDEN", "Danh mục hệ thống được quản lý tại trang Đầu tư.");
+  }
   await validateParent(workspaceId, input.parentId, input.type, category.id);
   return prisma.$transaction(async (tx) => {
     const updated = await tx.category.update({ where: { id: category.id }, data: { name: input.name, code: input.code, color: input.color, type: input.type, icon: input.icon, parentId: input.parentId ?? null, sortOrder: input.sortOrder } });
@@ -46,6 +49,9 @@ export async function setWorkspaceCategoryStatus(userId: string, workspaceId: st
   await requireWorkspaceMember(userId, workspaceId, true);
   const category = await prisma.category.findFirst({ where: { id: categoryId, workspaceId, deletedAt: null } });
   if (!category) throw new AppError("NOT_FOUND", "Category riêng của workspace không tồn tại.");
+  if (category.isProtected || category.type === "investment") {
+    throw new AppError("FORBIDDEN", "Danh mục hệ thống được quản lý tại trang Đầu tư.");
+  }
   if (status === "deactive") {
     const activeChildren = await prisma.category.count({ where: { workspaceId, parentId: category.id, status: "active", deletedAt: null } });
     if (activeChildren) throw new AppError("VALIDATION_ERROR", "Hãy xử lý các danh mục con đang hoạt động trước khi vô hiệu hóa danh mục cha.");
@@ -78,6 +84,9 @@ export async function deleteWorkspaceCategory(userId: string, workspaceId: strin
   await requireWorkspaceMember(userId, workspaceId, true);
   const category = await prisma.category.findFirst({ where: { id: categoryId, workspaceId, deletedAt: null } });
   if (!category) throw new AppError("NOT_FOUND", "Category riêng của workspace không tồn tại.");
+  if (category.isProtected || category.type === "investment") {
+    throw new AppError("FORBIDDEN", "Danh mục hệ thống được quản lý tại trang Đầu tư.");
+  }
 
   const childrenCount = await prisma.category.count({ where: { workspaceId, parentId: category.id, deletedAt: null } });
   if (childrenCount > 0) {

@@ -10,7 +10,7 @@ export type LedgerPeriodSummary = {
 type SummaryTransaction = {
   amount: { toString(): string } | string;
   date: Date | string;
-  type: "income" | "expense" | "transfer";
+  type: "income" | "expense" | "transfer" | "investment_buy" | "investment_sell";
   workflowStatus: "pending" | "scheduled" | "approved" | "rejected";
 };
 

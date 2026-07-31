@@ -109,6 +109,29 @@ describe("transaction deletion approval", () => {
     expect(tx.transactionChangeRequest.create).not.toHaveBeenCalled();
   });
 
+  it("prevents investment ledger entries from being deleted outside investment management", async () => {
+    const tx = requestClient();
+    tx.transaction.findFirst.mockResolvedValueOnce({
+      ...transaction,
+      type: "investment_buy",
+    } as never);
+    (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "member-1",
+      role: { code: "MEMBER" },
+    });
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
+
+    await expect(deleteOrRequestTransaction(
+      "user-1",
+      "workspace-1",
+      "transaction-1",
+      "Đã thông báo",
+    )).rejects.toThrow("Giao dịch đầu tư chỉ được quản lý tại trang Quản lý đầu tư.");
+    expect(tx.transactionChangeRequest.create).not.toHaveBeenCalled();
+  });
+
   it("lets an admin approve deletion and reverses an approved expense", async () => {
     const tx = {
       $queryRaw: vi.fn().mockResolvedValue([]),

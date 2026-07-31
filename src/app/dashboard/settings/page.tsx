@@ -86,14 +86,17 @@ export default async function SettingsPage({
             inviteCode: membership.workspace.inviteCode,
           }}
           isAdmin={isAdmin}
-          templates={templates}
+          templates={templates.map((template) => ({
+            ...template,
+            type: template.type as "income" | "expense",
+          }))}
           existingCodes={existingCodes}
           categories={categories.map((category) => ({
             id: category.id,
             name: category.name,
             code: category.code,
             color: category.color,
-            type: category.type,
+            type: category.type as "income" | "expense",
             icon: category.icon,
             parentId: category.parentId,
             status: category.status,

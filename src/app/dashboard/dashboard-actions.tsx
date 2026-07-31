@@ -20,10 +20,11 @@ import { toast } from "sonner";
 
 type Option = { id: string; name: string; color?: string; icon?: string | null; parentId?: string | null };
 type TransactionType = "income" | "expense" | "transfer";
+type LedgerTransactionType = TransactionType | "investment_buy" | "investment_sell";
 type LedgerItem = {
   id: string;
   amount: string;
-  type: TransactionType;
+  type: LedgerTransactionType;
   status: "pending" | "scheduled" | "approved" | "rejected";
   description: string | null;
   date: string;
@@ -52,6 +53,29 @@ const typeOptions = [
   { value: "income", label: "Thu nhập" },
   { value: "transfer", label: "Chuyển khoản" },
 ];
+const transactionTypeLabels: Record<LedgerTransactionType, string> = {
+  expense: "Chi tiêu",
+  income: "Thu nhập",
+  transfer: "Chuyển khoản",
+  investment_buy: "Mua đầu tư",
+  investment_sell: "Bán đầu tư",
+};
+
+function isInvestmentType(type: LedgerTransactionType) {
+  return type === "investment_buy" || type === "investment_sell";
+}
+
+function amountSign(type: LedgerTransactionType) {
+  if (type === "income" || type === "investment_sell") return "+";
+  if (type === "expense" || type === "investment_buy") return "−";
+  return "↔";
+}
+
+function amountClass(type: LedgerTransactionType) {
+  if (type === "investment_buy") return "expense";
+  if (type === "investment_sell") return "income";
+  return type;
+}
 
 function defaultDestination(wallets: Option[], sourceId: string) {
   return wallets.find((wallet) => wallet.id !== sourceId)?.id ?? sourceId;
@@ -71,9 +95,12 @@ function newTransactionDraft(wallets: Option[], categories: Option[], businessDa
 }
 
 function draftFromTransaction(item: LedgerItem, wallets: Option[]): TransactionDraft {
+  if (isInvestmentType(item.type)) {
+    throw new Error("Giao dịch đầu tư được quản lý tại trang Đầu tư.");
+  }
   return {
     description: item.description ?? "",
-    type: item.type,
+    type: item.type as TransactionType,
     categoryId: item.categoryId ?? "none",
     walletId: item.walletId,
     toWalletId: item.toWalletId ?? defaultDestination(wallets, item.walletId),
@@ -198,7 +225,8 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const page = Math.min(currentPage, pageCount);
   const rows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
-  const allSelected = rows.length > 0 && rows.every((row) => selected.has(row.id));
+  const selectableRows = rows.filter((row) => !isInvestmentType(row.type));
+  const allSelected = selectableRows.length > 0 && selectableRows.every((row) => selected.has(row.id));
   const columnCount = canApprove ? 9 : 8;
   const pageStart = filteredRows.length ? (page - 1) * pageSize + 1 : 0;
   const pageEnd = Math.min(page * pageSize, filteredRows.length);
@@ -242,7 +270,7 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
   }
 
   function toggle(id: string) { setSelected((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
-  function toggleAll() { setSelected((current) => { const next = new Set(current); if (allSelected) rows.forEach((row) => next.delete(row.id)); else rows.forEach((row) => next.add(row.id)); return next; }); }
+  function toggleAll() { setSelected((current) => { const next = new Set(current); if (allSelected) selectableRows.forEach((row) => next.delete(row.id)); else selectableRows.forEach((row) => next.add(row.id)); return next; }); }
   function removeBulk() {
     const ids = [...selected]; if (!ids.length) return;
     start(async () => {
@@ -303,7 +331,9 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
   function beginEdit(transactionId?: string) {
     setCreateDraft(null);
     setDeleteTarget(null);
-    const editableTransactions = transactionId ? transactions.filter((item) => item.id === transactionId) : rows;
+    const editableTransactions = (transactionId
+      ? transactions.filter((item) => item.id === transactionId)
+      : rows).filter((item) => !isInvestmentType(item.type));
     setEditDrafts(Object.fromEntries(editableTransactions.map((item) => [item.id, draftFromTransaction(item, wallets)])));
     setEditTargetId(transactionId ?? null);
     setEditReason("");
@@ -397,7 +427,7 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
     />}
 
     {editMode && <div className="ledger-mobile-edit-list" aria-label="Chỉnh sửa giao dịch">
-      {rows.filter((item) => !editTargetId || item.id === editTargetId).map((item) => {
+      {rows.filter((item) => (!editTargetId || item.id === editTargetId) && !isInvestmentType(item.type)).map((item) => {
         const draft = editDrafts[item.id] ?? draftFromTransaction(item, wallets);
         return <MobileTransactionDraft
           key={item.id}
@@ -423,23 +453,23 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
       </div>}
       {rows.map((item, index) => <Card as="article" className="ledger-mobile-card gap-0 py-0" key={item.id}>
         <div className="ledger-mobile-card-heading">
-          {canApprove && <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/>}
+              {canApprove && <input type="checkbox" disabled={isInvestmentType(item.type)} checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/>}
           <div className="ledger-mobile-card-copy">
             <strong title={item.description || "Không có nội dung"}>{item.description || "Không có nội dung"}</strong>
             <div className="ledger-mobile-card-subline">
               <small>#{String(Math.max(1, totalTransactions - ((page - 1) * pageSize + index))).padStart(5, "0")} · {item.member}{item.isRecurring ? " · Tự động" : ""}</small>
               <b
-                className={`ledger-amount amount-${item.type}`}
-                title={`${item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}${formatAmount(item.amount)} ₫`}
+                className={`ledger-amount amount-${amountClass(item.type)}`}
+                title={`${amountSign(item.type)}${formatAmount(item.amount)} ₫`}
                 aria-label={`Số tiền ${formatAmount(item.amount)} đồng`}
               >
-                {item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} ₫
+                {amountSign(item.type)}{formatAmount(item.amount)} ₫
               </b>
             </div>
           </div>
         </div>
         <div className="ledger-mobile-card-meta">
-          <span><small>Loại</small>{typeOptions.find((option) => option.value === item.type)?.label}</span>
+          <span><small>Loại</small>{transactionTypeLabels[item.type]}</span>
           <span><small>Ví</small>{item.wallet}{item.toWallet ? ` → ${item.toWallet}` : ""}</span>
           <span><small>Ngày</small>{formatLedgerDate(item.date)}</span>
           <span><small>Danh mục</small>{item.category?.name ?? "Chưa phân loại"}</span>
@@ -466,15 +496,17 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
     <div className="ledger-scroll-area ledger-desktop-table"><table className="ledger-table w-full min-w-[1080px] text-left text-sm"><thead><tr className="border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--text-muted)]">{canApprove && <th className="w-10"><input type="checkbox" checked={allSelected} disabled={editMode} onChange={toggleAll} aria-label="Chọn tất cả giao dịch đang hiển thị"/></th>}<th>Giao dịch</th><th>Loại</th><th>Danh mục</th><th>Ví</th><th>Ngày</th><th className="text-right">Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
       {createDraft && <DraftRow mode="create" draft={createDraft} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} onChange={(patch) => setCreateDraft((current) => current ? { ...current, ...patch } : current)} onSave={saveCreate} onCancel={() => setCreateDraft(null)}/>}
       {rows.map((item, index) => editMode
-        ? <DraftRow key={item.id} mode="edit" draft={editDrafts[item.id] ?? draftFromTransaction(item, wallets)} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} disabled={!isAdmin && item.hasPendingChange} autoFocus={index === 0} status={<><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</>} onChange={(patch) => updateDraft(item.id, patch)}/>
+        ? isInvestmentType(item.type)
+          ? null
+          : <DraftRow key={item.id} mode="edit" draft={editDrafts[item.id] ?? draftFromTransaction(item, wallets)} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} disabled={!isAdmin && item.hasPendingChange} autoFocus={index === 0} status={<><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</>} onChange={(patch) => updateDraft(item.id, patch)}/>
         : <tr key={item.id} className="border-b border-[var(--border)]">
-          {canApprove && <td><input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/></td>}
+          {canApprove && <td><input type="checkbox" disabled={isInvestmentType(item.type)} checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/></td>}
           <td><p className="font-medium">{item.description || "Không có nội dung"}</p><p className="mt-1 text-xs text-[var(--text-muted)]">#{String(Math.max(1, totalTransactions - ((page - 1) * pageSize + index))).padStart(5, "0")} · {item.member}{item.isRecurring ? " · Tự động" : ""}</p></td>
-          <td>{typeOptions.find((option) => option.value === item.type)?.label}</td>
+          <td>{transactionTypeLabels[item.type]}</td>
           <td>{item.category ? <span className="category-tag" style={{ backgroundColor: `${item.category.color}22`, color: item.category.color }}>{item.category.name}</span> : "—"}</td>
           <td>{item.wallet}{item.toWallet ? <small className="ledger-wallet-destination">→ {item.toWallet}</small> : null}</td>
           <td>{formatLedgerDate(item.date)}</td>
-          <td className={`ledger-amount amount-${item.type}`}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} ₫</td>
+          <td className={`ledger-amount amount-${amountClass(item.type)}`}>{amountSign(item.type)}{formatAmount(item.amount)} ₫</td>
           <td><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</td>
           <td><div className="ledger-row-actions">
             {canApprove && item.status === "pending" && <Button variant="ghost" size="default" disabled={busy} onClick={() => rejectOne(item)}>Từ chối</Button>}

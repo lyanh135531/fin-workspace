@@ -65,15 +65,21 @@ function transactionInput(record: {
   walletId: string;
   toWalletId: string | null;
   categoryId: string | null;
-  type: "income" | "expense" | "transfer";
+  type: string;
   amount: { toString(): string };
   description: string | null;
 }, date: string) {
+  if (!["income", "expense", "transfer"].includes(record.type)) {
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "Loại giao dịch định kỳ không hợp lệ.",
+    );
+  }
   return {
     walletId: record.walletId,
     toWalletId: record.toWalletId ?? undefined,
     categoryId: record.categoryId ?? undefined,
-    type: record.type,
+    type: record.type as "income" | "expense" | "transfer",
     amount: new Decimal(record.amount.toString()),
     description: record.description ?? undefined,
     date,

@@ -37,7 +37,7 @@ export default async function GeneralSettingsPage() {
               name: category.name,
               code: category.code,
               color: category.color,
-              type: category.type,
+              type: category.type as "income" | "expense",
               icon: category.icon,
               parentId: category.parentId,
               sortOrder: category.sortOrder,

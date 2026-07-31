@@ -5,7 +5,8 @@ export type AppErrorCode =
   | "VALIDATION_ERROR"
   | "CONFLICT"
   | "INACTIVE_RESOURCE"
-  | "WORKSPACE_ISOLATION_VIOLATION";
+  | "WORKSPACE_ISOLATION_VIOLATION"
+  | "EXTERNAL_SERVICE_ERROR";
 
 export class AppError extends Error {
   constructor(

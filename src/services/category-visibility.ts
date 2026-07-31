@@ -4,10 +4,15 @@ export function availableCategoryWhere(workspaceId: string) {
     status: "active" as const,
     deletedAt: null,
     workspaceId,
+    type: { not: "investment" as const },
   };
 }
 
 /** Dùng ở màn quản trị workspace để xem cả category đã vô hiệu hóa. */
 export function manageableCategoryWhere(workspaceId: string) {
-  return { deletedAt: null, workspaceId };
+  return {
+    deletedAt: null,
+    workspaceId,
+    type: { not: "investment" as const },
+  };
 }

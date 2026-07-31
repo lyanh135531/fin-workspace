@@ -18,7 +18,7 @@ export type NotificationItem =
     description: string | null;
     category: string | null;
     wallet: string;
-    type: "income" | "expense" | "transfer";
+    type: "income" | "expense" | "transfer" | "investment_buy" | "investment_sell";
     amount: string;
     date: string;
     status: "pending" | "scheduled" | "executed";
@@ -29,7 +29,7 @@ export type NotificationItem =
     username: string;
     description: string | null;
     wallet: string;
-    type: "income" | "expense" | "transfer";
+    type: "income" | "expense" | "transfer" | "investment_buy" | "investment_sell";
     amount: string;
     action: "update" | "delete";
     reason: string;
@@ -38,7 +38,13 @@ export type NotificationItem =
 
 type Role = { code: string; name: string };
 
-const transactionTypeLabel = { income: "Thu", expense: "Chi", transfer: "Chuyển khoản" };
+const transactionTypeLabel = {
+  income: "Thu",
+  expense: "Chi",
+  transfer: "Chuyển khoản",
+  investment_buy: "Mua đầu tư",
+  investment_sell: "Bán đầu tư",
+};
 const money = (value: string, currency: string) => `${formatAmount(value)} ${currency === "VND" ? "₫" : currency}`;
 
 function formatScheduledDate(date: string) {

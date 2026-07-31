@@ -103,6 +103,15 @@ function transactionSnapshot(record: Transaction) {
   };
 }
 
+function ensureCashflowTransactionMutable(record: Pick<Transaction, "type">) {
+  if (record.type === "investment_buy" || record.type === "investment_sell") {
+    throw new AppError(
+      "FORBIDDEN",
+      "Giao dịch đầu tư chỉ được quản lý tại trang Quản lý đầu tư.",
+    );
+  }
+}
+
 function proposedTransaction(input: ResolvedTransactionInput) {
   return {
     walletId: input.walletId,
@@ -126,6 +135,7 @@ async function applyUpdate(
   await lockTransaction(tx, record.id);
   const current = await tx.transaction.findFirst({ where: { id: record.id, deletedAt: null } });
   if (!current) throw new AppError("NOT_FOUND", "Giao dịch không còn tồn tại.");
+  ensureCashflowTransactionMutable(current);
   await requireTransactionResources(tx, workspaceId, input);
   if (current.workflowStatus === "approved") await applyBalance(tx, current, true);
   const workflowStatus = workflowStatusForAppliedDate(input.date, getBusinessDateInTimeZone(timeZone, now));
@@ -150,6 +160,7 @@ async function softDelete(tx: TransactionClient, record: Transaction) {
   await lockTransaction(tx, record.id);
   const current = await tx.transaction.findFirst({ where: { id: record.id, deletedAt: null } });
   if (!current) throw new AppError("NOT_FOUND", "Giao dịch không còn tồn tại.");
+  ensureCashflowTransactionMutable(current);
   const claimed = await tx.transaction.updateMany({ where: { id: current.id, deletedAt: null }, data: { deletedAt: new Date() } });
   if (claimed.count !== 1) throw new AppError("CONFLICT", "Giao dịch đã được xóa trước đó.");
   if (current.workflowStatus === "approved") await applyBalance(tx, current, true);
@@ -264,6 +275,7 @@ export async function updateTransaction(
   const member = await requireWorkspaceMember(userId, workspaceId);
   return prisma.$transaction(async (tx) => {
     const record = await findWorkspaceTransaction(tx, workspaceId, transactionId);
+    ensureCashflowTransactionMutable(record);
     const resolved = resolveTransactionInput(input, member.workspace.timeZone, now);
     await requireTransactionResources(tx, workspaceId, resolved);
     if (isAdminRole(member.role.code)) {
@@ -284,6 +296,7 @@ export async function deleteOrRequestTransaction(userId: string, workspaceId: st
   const member = await requireWorkspaceMember(userId, workspaceId);
   return prisma.$transaction(async (tx) => {
     const record = await findWorkspaceTransaction(tx, workspaceId, transactionId);
+    ensureCashflowTransactionMutable(record);
     if (isAdminRole(member.role.code)) {
       await softDelete(tx, record);
       await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.deleted", entityType: "transaction", entityId: record.id, metadata: { workflowStatus: record.workflowStatus, balanceReversed: record.workflowStatus === "approved" } } });

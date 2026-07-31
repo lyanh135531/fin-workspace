@@ -89,7 +89,9 @@ export async function WorkspaceDashboard({
     toWallet: item.toWallet?.name ?? null,
     category: item.category ? { name: item.category.name, color: item.category.color } : null,
     member: item.member.user.username,
-    canRequestDelete: isAdmin || item.memberId === membership.id,
+    canRequestDelete:
+      !["investment_buy", "investment_sell"].includes(item.type)
+      && (isAdmin || item.memberId === membership.id),
     hasPendingChange: item.changeRequests.length > 0,
     isRecurring: Boolean(item.recurringTransactionId),
   }));
