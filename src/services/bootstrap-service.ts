@@ -1,4 +1,5 @@
 import argon2 from "argon2";
+import { DEFAULT_CATEGORY_TEMPLATES } from "@/domain";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 
@@ -10,7 +11,11 @@ export async function registerAccount(username: string, password: string) {
 
   const passwordHash = await argon2.hash(password);
   const user = await prisma.user.create({
-    data: { username, passwordHash },
+    data: {
+      username,
+      passwordHash,
+      categoryTemplates: { create: [...DEFAULT_CATEGORY_TEMPLATES] },
+    },
   });
 
   return { userId: user.id };
