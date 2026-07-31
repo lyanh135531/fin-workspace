@@ -43,6 +43,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/base";
+import { ConfirmDelete } from "@/components/base/confirm-delete";
 import { toast } from "sonner";
 
 type Option = { id: string; name: string; color?: string; icon?: string | null; parentId?: string | null };
@@ -152,7 +153,6 @@ export function RecurringTransactionsManager({
   const [status, setStatus] = useState("all");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Schedule | null>(null);
   const [busy, startTransition] = useTransition();
 
   const visibleSchedules = useMemo(
@@ -168,13 +168,11 @@ export function RecurringTransactionsManager({
   const errorCount = schedules.filter((item) => Boolean(item.lastError)).length;
   function beginCreate() {
     setEditingId(null);
-    setDeleteTarget(null);
     setDraft(emptyDraft(wallets, workspace.businessDate));
   }
 
   function beginEdit(schedule: Schedule) {
     setEditingId(schedule.id);
-    setDeleteTarget(null);
     setDraft(scheduleDraft(schedule, wallets));
   }
 
@@ -210,13 +208,11 @@ export function RecurringTransactionsManager({
     });
   }
 
-  function remove() {
-    if (!deleteTarget) return;
+  function remove(id: string) {
     startTransition(async () => {
-      const result = await deleteRecurringTransactionAction(deleteTarget.id);
+      const result = await deleteRecurringTransactionAction(id);
       if (result.ok) {
         toast.success("Đã xóa đăng ký. Các giao dịch đã phát sinh được giữ nguyên.");
-        setDeleteTarget(null);
       } else {
         toast.error(result.message);
       }
@@ -265,7 +261,6 @@ export function RecurringTransactionsManager({
             <Select
               value={status}
               onValueChange={setStatus}
-              label="Lọc trạng thái"
               options={[
                 { value: "all", label: "Tất cả trạng thái" },
                 { value: "active", label: "Đang hoạt động" },
@@ -333,10 +328,17 @@ export function RecurringTransactionsManager({
                   {schedule.type === "income" ? "+" : schedule.type === "expense" ? "−" : "↔"}{formatAmount(schedule.amount)} <small>{workspace.currency}</small>
                 </strong>
                 <p>{schedule.occurrenceCount} kỳ đã ghi nhận</p>
-                <div className="ledger-row-actions">
-                  {!schedule.completedAt && <Button variant="outline" size="icon" disabled={busy || Boolean(draft)} onClick={() => toggleStatus(schedule)} title={schedule.status === "active" ? "Tạm dừng" : "Kích hoạt lại"} aria-label={schedule.status === "active" ? "Tạm dừng lịch" : "Kích hoạt lại lịch"}>{schedule.status === "active" ? <Pause size={15} /> : <Play size={15} />}</Button>}
-                  <Button variant="outline" size="icon" disabled={busy || Boolean(draft)} onClick={() => beginEdit(schedule)} title="Chỉnh sửa" aria-label="Chỉnh sửa lịch"><Pencil size={15} /></Button>
-                  <Button variant="outline" size="icon" className="ledger-delete-button" disabled={busy || Boolean(draft)} onClick={() => setDeleteTarget(schedule)} title="Xóa" aria-label="Xóa lịch"><Trash2 size={15} /></Button>
+                <div className="ledger-row-actions flex items-center gap-3">
+                  {!schedule.completedAt && <Button variant="unstyled" size="auto" type="button" className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors" disabled={busy || Boolean(draft)} onClick={() => toggleStatus(schedule)} title={schedule.status === "active" ? "Tạm dừng" : "Kích hoạt lại"} aria-label={schedule.status === "active" ? "Tạm dừng lịch" : "Kích hoạt lại lịch"}>{schedule.status === "active" ? <Pause size={16} /> : <Play size={16} />}</Button>}
+                  <Button variant="unstyled" size="auto" type="button" className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors" disabled={busy || Boolean(draft)} onClick={() => beginEdit(schedule)} title="Chỉnh sửa" aria-label="Chỉnh sửa lịch"><Pencil size={16} /></Button>
+                  <ConfirmDelete
+                    ariaLabel="Xóa lịch"
+                    title="Xóa lịch giao dịch?"
+                    description={`“${schedule.description || "Giao dịch định kỳ"}” sẽ ngừng chạy. Các giao dịch đã ghi nhận vẫn được giữ nguyên.`}
+                    onConfirm={() => remove(schedule.id)}
+                    disabled={busy || Boolean(draft)}
+                    className="!p-0 !w-auto !h-auto !bg-transparent hover:!bg-transparent text-slate-400 hover:!text-rose-500 transition-colors [&_svg]:size-[16px]"
+                  />
                 </div>
               </div>
             </article>
@@ -354,21 +356,6 @@ export function RecurringTransactionsManager({
           )}
         </div>
       </section>
-
-      {deleteTarget && (
-        <div className="wallet-modal-overlay fixed inset-0 z-[60] grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm" role="alertdialog" aria-modal="true" aria-labelledby="delete-recurring-title">
-          <Card as="section" className="wallet-modal-panel gap-0 w-full max-w-md space-y-4 p-6">
-            <div className="flex items-start gap-3">
-              <span className="ws-danger-icon shrink-0"><Trash2 size={19} /></span>
-              <div><h2 id="delete-recurring-title" className="text-lg font-semibold">Xóa lịch giao dịch?</h2><p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">“{deleteTarget.description || "Giao dịch định kỳ"}” sẽ ngừng chạy. Các giao dịch đã ghi nhận vẫn được giữ nguyên.</p></div>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
-              <Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>Hủy</Button>
-              <Button variant="destructive" disabled={busy} onClick={remove}>{busy ? "Đang xóa" : "Xác nhận xóa"}</Button>
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

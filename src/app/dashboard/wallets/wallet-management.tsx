@@ -266,11 +266,6 @@ export function WalletManagement({
         <CardHeader className="border-b py-4">
           <CardTitle>Tổng quan tài sản</CardTitle>
           <CardDescription>Số liệu từ các ví đang hoạt động trong workspace</CardDescription>
-          <CardAction>
-            <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary" aria-hidden>
-              <WalletCards size={18} />
-            </span>
-          </CardAction>
         </CardHeader>
         <CardContent className="grid gap-6 py-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)] lg:items-end">
           <div className="min-w-0">
@@ -380,14 +375,15 @@ export function WalletManagement({
                   {isAdmin && (
                     <CardAction>
                       <Button
+                        variant="unstyled"
+                        size="auto"
                         type="button"
-                        variant="ghost"
-                        size="icon"
+                        className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1"
                         title={`Chỉnh sửa ${wallet.name}`}
                         aria-label={`Chỉnh sửa ${wallet.name}`}
                         onClick={() => setEditingWallet(wallet)}
                       >
-                        <Pencil size={15} />
+                        <Pencil size={16} />
                       </Button>
                     </CardAction>
                   )}

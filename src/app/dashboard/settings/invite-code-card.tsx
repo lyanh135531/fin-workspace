@@ -72,28 +72,32 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
           </code>
           
           <div className="flex items-center gap-1 shrink-0">
-            <button
+            <Button
+              variant="unstyled"
+              size="auto"
               type="button"
               onClick={copy}
               title={copied ? "Đã sao chép" : "Sao chép mã mời"}
               aria-label={copied ? "Đã sao chép mã mời" : "Sao chép mã mời"}
-              className={`group relative flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 active:scale-[0.9] ${
-                copied ? "bg-emerald-50 text-emerald-600" : "hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--foreground)]"
+              className={`transition-colors p-1 active:scale-[0.9] ${
+                copied ? "text-emerald-600" : "text-[var(--text-secondary)] hover:text-[var(--foreground)]"
               }`}
             >
               {copied ? <Check size={16} strokeWidth={2.5} /> : <Copy size={16} />}
-            </button>
+            </Button>
 
-            <button
+            <Button
+              variant="unstyled"
+              size="auto"
               type="button"
               disabled={pending}
               onClick={handleRegenerate}
               title="Đổi mã mới"
               aria-label="Đổi mã mới"
-              className="group relative flex h-8 w-8 items-center justify-center rounded-md hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--foreground)] transition-all duration-200 active:scale-[0.9]"
+              className="text-[var(--text-secondary)] hover:text-[var(--foreground)] transition-colors p-1 active:scale-[0.9]"
             >
               <RefreshCw size={16} className={pending ? "animate-spin text-indigo-500" : ""} />
-            </button>
+            </Button>
           </div>
         </div>
 

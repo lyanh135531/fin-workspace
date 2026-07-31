@@ -5846,8 +5846,6 @@ html[data-mode="dark"] .auth-visual-panel::before {
 .auth-global-error {
   align-items: flex-start;
   margin-top: 0.8rem;
-  border-left: 2px solid var(--danger);
-  padding-left: 0.65rem;
 }
 
 .auth-form-actions {
@@ -6677,35 +6675,23 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
 
 .header-action-btn {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  min-width: 2.35rem;
-  min-height: 2.35rem;
-  border-radius: 0.38rem !important;
-  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent) !important;
-  background: color-mix(in srgb, var(--surface) 90%, transparent) !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none !important;
+  background: transparent !important;
   color: var(--text-secondary);
   cursor: pointer;
   transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
     color 160ms ease,
-    transform 160ms ease,
-    box-shadow 160ms ease;
+    transform 160ms ease;
+  padding: 0.25rem;
 }
 
 .header-action-btn:hover {
-  border-color: color-mix(
-    in srgb,
-    var(--primary) 30%,
-    var(--border)
-  ) !important;
-  background: var(--surface-hover) !important;
+  background: transparent !important;
   color: var(--primary) !important;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--shadow) 70%, transparent);
 }
 
 .header-action-btn:active {

@@ -121,7 +121,6 @@ export function SettingsClient({
                   <Select
                     value={member.roleCode}
                     disabled={pending}
-                    label={`Vai trò của ${member.username}`}
                     onValueChange={(roleCode) => changeRole(member.id, roleCode)}
                     options={roles.map((role) => ({ value: role.code, label: role.name }))}
                     className="min-w-34"

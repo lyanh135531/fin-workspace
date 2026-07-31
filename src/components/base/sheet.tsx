@@ -67,15 +67,15 @@ function SheetContent({
             data-slot="sheet-close"
             render={
               <Button
-                variant="ghost"
-                className="absolute top-3 right-3"
-                size="icon"
+                variant="unstyled"
+                size="auto"
+                className="absolute top-4 right-4 text-[var(--foreground)] hover:text-rose-600 transition-colors p-1"
                 aria-label="Đóng bảng"
                 title="Đóng"
               />
             }
           >
-            <XIcon />
+            <XIcon size={20} />
             <span className="sr-only">Đóng</span>
           </SheetPrimitive.Close>
         )}
