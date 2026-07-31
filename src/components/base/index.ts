@@ -2,6 +2,8 @@ export { Button, buttonVariants } from "./button"
 export type { ButtonProps } from "./button"
 export { Checkbox } from "./checkbox"
 export type { CheckboxProps } from "./checkbox"
+export { ConfirmDelete } from "./confirm-delete"
+export type { ConfirmDeleteProps } from "./confirm-delete"
 export {
   Card,
   CardAction,
