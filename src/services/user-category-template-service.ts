@@ -58,9 +58,17 @@ export async function reorderUserCategoryTemplates(userId: string, orderedIds: s
 export async function deleteUserCategoryTemplate(userId: string, categoryId: string) {
   const item = await prisma.category.findFirst({ where: { id: categoryId, workspaceId: null, userId, deletedAt: null } });
   if (!item) throw new AppError("NOT_FOUND", "Danh mục mẫu không tồn tại.");
-  if (await prisma.category.count({ where: { workspaceId: null, userId, parentId: item.id, deletedAt: null } })) {
-    throw new AppError("VALIDATION_ERROR", "Hãy xử lý/xóa các danh mục con trước.");
-  }
-  return prisma.category.update({ where: { id: item.id }, data: { deletedAt: new Date() } });
+  
+  const children = await prisma.category.findMany({ where: { workspaceId: null, userId, parentId: item.id, deletedAt: null } });
+  
+  return prisma.$transaction(async (tx) => {
+    if (children.length > 0) {
+      await tx.category.updateMany({
+        where: { id: { in: children.map((c) => c.id) } },
+        data: { deletedAt: new Date() }
+      });
+    }
+    return tx.category.update({ where: { id: item.id }, data: { deletedAt: new Date() } });
+  });
 }
 

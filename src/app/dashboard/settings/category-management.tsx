@@ -39,16 +39,7 @@ import {
   TabsTrigger,
 } from "@/components/base";
 import { cn } from "@/lib/utils";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDelete } from "@/components/base/confirm-delete";
 
 import { toast } from "sonner";
 
@@ -103,7 +94,6 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [filterType, setFilterType] = useState<"expense" | "income">("expense");
-  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   function submit(form: FormData, id?: string) {
@@ -143,7 +133,14 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   }
 
   function deleteCategory(id: string) {
-    setDeletingCategoryId(id);
+    start(async () => {
+      const result = await deleteCategoryAction(id);
+      if (result.ok) {
+        toast.success("Đã xóa danh mục thành công.");
+      } else {
+        toast.error(result.message ?? "Không thể xóa danh mục.");
+      }
+    });
   }
 
   function handleReorder(items: Category[]) {
@@ -336,48 +333,6 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           />
         )}
       </div>
-
-      <AlertDialog
-        open={deletingCategoryId !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeletingCategoryId(null);
-        }}
-      >
-        <AlertDialogContent className="bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)]">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa danh mục?</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-500">
-              Hành động này không thể hoàn tác. Các danh mục con liên quan cũng cần phải được xử lý trước.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending} className="hover:bg-[var(--surface-secondary)] hover:text-current cursor-pointer">Hủy bỏ</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={pending}
-              onClick={(e) => {
-                e.preventDefault();
-                if (deletingCategoryId) {
-                  start(async () => {
-                    const result = await deleteCategoryAction(deletingCategoryId);
-                    if (result.ok) {
-                      toast.success("Đã xóa danh mục thành công.");
-                      setDeletingCategoryId(null);
-                      if (editing === deletingCategoryId) {
-                        setEditing(null);
-                      }
-                    } else {
-                      toast.error(result.message ?? "Không thể xóa danh mục.");
-                    }
-                  });
-                }
-              }}
-              className="bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
-            >
-              {pending ? "Đang xóa..." : "Xác nhận xóa"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Card>
   );
 }
@@ -503,13 +458,14 @@ function CategoryNode({
             >
               {category.status === "active" ? <EyeOff size={13} /> : <Eye size={13} />}
             </Button>
-            <Button variant="ghost" size="icon"
-              className="h-7 w-7 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-              onClick={() => onDelete(category.id)} disabled={pending}
-              title="Xóa" aria-label={`Xóa danh mục ${category.name}`}
-            >
-              <Trash2 size={13} />
-            </Button>
+            <ConfirmDelete
+              ariaLabel={`Xóa danh mục ${category.name}`}
+              title="Xóa danh mục?"
+              description="Hành động này không thể hoàn tác. Các danh mục con cũng sẽ bị xóa theo."
+              onConfirm={() => onDelete(category.id)}
+              disabled={pending}
+              className="h-7 w-7 [&_svg]:size-[13px] text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+            />
           </div>
         </div>
 
@@ -612,13 +568,14 @@ function CategoryNode({
         >
           {category.status === "active" ? <EyeOff size={11} /> : <Eye size={11} />}
         </Button>
-        <Button variant="ghost" size="icon"
-          className="h-6 w-6 text-slate-400 hover:text-rose-500"
-          onClick={() => onDelete(category.id)} disabled={pending}
-          title="Xóa" aria-label={`Xóa danh mục ${category.name}`}
-        >
-          <Trash2 size={11} />
-        </Button>
+        <ConfirmDelete
+          ariaLabel={`Xóa danh mục ${category.name}`}
+          title="Xóa danh mục?"
+          description="Hành động này không thể hoàn tác."
+          onConfirm={() => onDelete(category.id)}
+          disabled={pending}
+          className="h-6 w-6 [&_svg]:size-[11px] text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+        />
       </div>
     </article>
   );

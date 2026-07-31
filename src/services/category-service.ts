@@ -80,17 +80,25 @@ export async function deleteWorkspaceCategory(userId: string, workspaceId: strin
   const category = await prisma.category.findFirst({ where: { id: categoryId, workspaceId, deletedAt: null } });
   if (!category) throw new AppError("NOT_FOUND", "Category riêng của workspace không tồn tại.");
 
-  const childrenCount = await prisma.category.count({ where: { workspaceId, parentId: category.id, deletedAt: null } });
-  if (childrenCount > 0) {
-    throw new AppError("VALIDATION_ERROR", "Hãy xóa các danh mục con trước khi xóa danh mục cha.");
-  }
+  const children = await prisma.category.findMany({ where: { workspaceId, parentId: category.id, deletedAt: null } });
+  const idsToCheck = [category.id, ...children.map((c) => c.id)];
 
-  const txCount = await prisma.transaction.count({ where: { categoryId: category.id, deletedAt: null } });
+  const txCount = await prisma.transaction.count({ where: { categoryId: { in: idsToCheck }, deletedAt: null } });
   if (txCount > 0) {
-    throw new AppError("VALIDATION_ERROR", "Danh mục này đã có giao dịch phát sinh. Bạn chỉ có thể vô hiệu hóa danh mục để ẩn đi thay vì xóa.");
+    throw new AppError("VALIDATION_ERROR", "Danh mục này (hoặc danh mục con) đã có giao dịch phát sinh. Bạn chỉ có thể vô hiệu hóa danh mục để ẩn đi thay vì xóa.");
   }
 
   return prisma.$transaction(async (tx) => {
+    if (children.length > 0) {
+      await tx.category.updateMany({
+        where: { id: { in: children.map((c) => c.id) } },
+        data: { deletedAt: new Date() },
+      });
+      for (const child of children) {
+        await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "CATEGORY_DELETED", entityType: "CATEGORY", entityId: child.id, metadata: { name: child.name, code: child.code } } });
+      }
+    }
+
     const updated = await tx.category.update({ where: { id: category.id }, data: { deletedAt: new Date() } });
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "CATEGORY_DELETED", entityType: "CATEGORY", entityId: category.id, metadata: { name: category.name, code: category.code } } });
     return updated;
