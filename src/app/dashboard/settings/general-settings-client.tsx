@@ -3,6 +3,7 @@
 import { Card, Tabs, TabsList, TabsTrigger } from "@/components/base";
 import { Check, Laptop, Moon, Palette, Sun, Sparkles } from "lucide-react";
 import { useSyncExternalStore } from "react";
+import { cn } from "@/lib/utils";
 
 const themes = [
   {
@@ -84,7 +85,6 @@ export function GeneralSettingsClient() {
   const mode = useSyncExternalStore<Mode>(subscribeMode, getMode, () => "dark");
   const theme = useSyncExternalStore<ThemeName>(subscribeTheme, getTheme, () => "sunrise");
 
-
   function selectTheme(nextTheme: ThemeName) {
     applyAppearance(nextTheme, mode);
   }
@@ -93,19 +93,18 @@ export function GeneralSettingsClient() {
     applyAppearance(theme, nextMode);
   }
 
-
   return (
     <Card as="section" className="sunrise-card gap-0 p-6 relative overflow-hidden">
       {/* Accent background glow */}
       <div
-        className="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-20"
+        className="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-20 transition-all duration-500"
         style={{
           backgroundColor:
             themes.find((t) => t.value === theme)?.primaryColor || "#FF5B3D",
         }}
       />
 
-      <header className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[var(--border)]">
+      <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
         <div className="flex items-center gap-2.5">
           <div className="w-8.5 h-8.5 rounded-lg grid place-items-center bg-[var(--surface-muted)] text-[var(--primary)] border border-[var(--border)]">
             <Palette size={18} />
@@ -126,102 +125,148 @@ export function GeneralSettingsClient() {
           value={mode}
           onValueChange={(value) => selectMode(value as Mode)}
         >
-          <TabsList>
+          <TabsList className="bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-xl">
             <TabsTrigger
               value="light"
-              className="data-active:bg-amber-50/70 dark:data-active:bg-amber-950/30 data-active:text-amber-600 dark:data-active:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 hover:text-amber-600 dark:hover:text-amber-400"
+              className="data-active:bg-white dark:data-active:bg-slate-700 data-active:shadow-sm hover:text-[var(--primary)] rounded-lg transition-all"
             >
-              <Sun className="transition-colors" />
-              <span>Sáng</span>
+              <Sun className="h-4 w-4 mr-1.5" />
+              <span className="text-xs font-medium">Sáng</span>
             </TabsTrigger>
             <TabsTrigger
               value="dark"
-              className="data-active:bg-indigo-50/80 dark:data-active:bg-indigo-950/30 data-active:text-indigo-600 dark:data-active:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 hover:text-indigo-600 dark:hover:text-indigo-400"
+              className="data-active:bg-white dark:data-active:bg-slate-700 data-active:shadow-sm hover:text-[var(--primary)] rounded-lg transition-all"
             >
-              <Moon className="transition-colors" />
-              <span>Tối</span>
+              <Moon className="h-4 w-4 mr-1.5" />
+              <span className="text-xs font-medium">Tối</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
       </header>
 
-      <p className="text-xs text-[var(--text-muted)] mt-3 leading-relaxed">
+      <p className="text-xs text-[var(--text-muted)] mt-3.5 leading-relaxed">
         Chọn chủ đề màu phù hợp với sở thích của bạn. Cài đặt này được đồng bộ tức thì trên trình duyệt thiết bị này.
       </p>
 
-      {/* Theme Cards Grid */}
+      {/* Modern High-End Theme Cards Grid */}
       <div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 mt-4"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 mt-5"
         role="radiogroup"
         aria-label="Chọn chủ đề màu"
-
       >
         {themes.map((item) => {
           const isSelected = theme === item.value;
           return (
-            <Card as="button"
+            <button
               key={item.value}
               type="button"
               role="radio"
               aria-checked={isSelected}
-              className={`theme-preview-card gap-0 py-0 ${isSelected ? "theme-preview-card-selected" : ""}`}
+              className={cn(
+                "group relative flex flex-col text-left rounded-2xl overflow-hidden bg-[var(--surface)] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] outline-none border",
+                isSelected
+                  ? "border-transparent shadow-lg shadow-black/5 dark:shadow-black/30"
+                  : "border-black/[0.08] dark:border-white/[0.08] hover:border-black/20 dark:hover:border-white/20 hover:-translate-y-1 hover:shadow-md"
+              )}
               onClick={() => selectTheme(item.value)}
+              style={
+                isSelected
+                  ? {
+                      boxShadow: `0 0 0 2px ${item.primaryColor}, 0 12px 24px -6px ${item.primaryColor}25`,
+                    }
+                  : undefined
+              }
             >
-              {/* Mini UI Simulation Canvas */}
+              {/* Mini App UI Preview Canvas */}
               <div
-                className="theme-mini-canvas"
+                className="h-28 w-full p-3 flex flex-col justify-between relative overflow-hidden transition-all duration-300 group-hover:scale-[1.02]"
                 style={{ background: item.previewBg }}
               >
-                <div className="mini-canvas-header">
-                  <div className="mini-dot" style={{ backgroundColor: item.swatches[0] }} />
-                  <div className="mini-bar" />
+                {/* Simulated macOS / App Window Titlebar */}
+                <div className="flex items-center justify-between pb-1">
+                  <div className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400/80" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
+                  </div>
+                  <div className="h-1.5 w-10 rounded-full bg-black/10 dark:bg-white/15" />
                 </div>
-                <div className="mini-canvas-body">
-                  <Card className="mini-card flex-1 gap-0 py-0">
-                    <div
-                      className="mini-card-accent"
-                      style={{ backgroundColor: item.swatches[0] }}
-                    />
-                    <div className="mini-line w-3/4" />
-                    <div className="mini-line w-1/2 opacity-50" />
-                  </Card>
-                  <Card className="mini-card flex-1 gap-0 py-0">
-                    <div
-                      className="mini-card-accent"
-                      style={{ backgroundColor: item.swatches[1] }}
-                    />
-                    <div className="mini-line w-2/3" />
-                  </Card>
+
+                {/* Simulated Micro App Dashboard Widgets */}
+                <div className="grid grid-cols-5 gap-1.5 flex-1 pt-1.5 items-end">
+                  {/* Main Widget Box */}
+                  <div className="col-span-3 h-full rounded-lg bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-2 flex flex-col justify-between border border-white/40 dark:border-white/10 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <div className="h-1.5 w-7 rounded-full bg-slate-400/50" />
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: item.swatches[0] }}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div
+                        className="h-2 w-11/12 rounded-full"
+                        style={{ backgroundColor: item.swatches[0] }}
+                      />
+                      <div className="h-1.5 w-3/4 rounded-full bg-slate-300/50 dark:bg-slate-700/50" />
+                    </div>
+                  </div>
+
+                  {/* Side Widget Stack */}
+                  <div className="col-span-2 h-full flex flex-col gap-1.5 justify-between">
+                    <div className="flex-1 rounded-lg bg-white/50 dark:bg-slate-900/50 backdrop-blur-xs p-1.5 flex flex-col justify-center border border-white/30 dark:border-white/5">
+                      <div
+                        className="h-1.5 w-full rounded-full"
+                        style={{ backgroundColor: item.swatches[1] }}
+                      />
+                    </div>
+                    <div className="flex-1 rounded-lg bg-white/50 dark:bg-slate-900/50 backdrop-blur-xs p-1.5 flex flex-col justify-center border border-white/30 dark:border-white/5">
+                      <div
+                        className="h-1.5 w-2/3 rounded-full"
+                        style={{ backgroundColor: item.swatches[2] }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Theme Footer Info */}
-              <div className="p-3 flex items-center justify-between gap-2">
-                <div className="text-left min-w-0">
-                  <span className="font-semibold text-sm block truncate text-[var(--foreground)]">
+              <div className="p-3.5 flex flex-col gap-2.5 bg-[var(--surface)] border-t border-black/[0.05] dark:border-white/[0.05]">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="font-bold text-xs text-[var(--foreground)] tracking-tight">
                     {item.label}
                   </span>
-                  <div className="flex gap-1 mt-1.5">
+                  <div
+                    className={cn(
+                      "w-5 h-5 rounded-full grid place-items-center text-xs shrink-0 transition-all duration-300",
+                      isSelected
+                        ? "text-white shadow-sm scale-100"
+                        : "border border-slate-300 dark:border-slate-700 bg-transparent text-transparent scale-90 opacity-40 group-hover:opacity-100"
+                    )}
+                    style={{
+                      backgroundColor: isSelected ? item.primaryColor : undefined,
+                    }}
+                  >
+                    <Check size={11} strokeWidth={3.5} />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
                     {item.swatches.map((color) => (
                       <span
                         key={color}
-                        className="w-3 h-3 rounded-full border border-black/10 dark:border-white/20 inline-block"
+                        className="w-3 h-3 rounded-full border border-black/10 dark:border-white/10 shadow-2xs inline-block"
                         style={{ backgroundColor: color }}
                       />
                     ))}
                   </div>
-                </div>
-                <div
-                  className={`w-6 h-6 rounded-full grid place-items-center text-xs transition-all ${
-                    isSelected
-                      ? "bg-[var(--primary)] text-white shadow-sm scale-100"
-                      : "bg-transparent text-transparent scale-75"
-                  }`}
-                >
-                  <Check size={14} strokeWidth={3} />
+                  <span className="text-[10px] font-medium text-[var(--text-muted)] truncate">
+                    {item.value.toUpperCase()}
+                  </span>
                 </div>
               </div>
-            </Card>
+            </button>
           );
         })}
       </div>
