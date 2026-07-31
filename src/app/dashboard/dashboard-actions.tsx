@@ -13,7 +13,7 @@ import {
 } from "@/app/dashboard/actions";
 import { formatAmount } from "@/lib/format";
 import { Textarea } from "@/components/ui/textarea";
-import { Button, Card, CategoryTreeSelect, DatePicker, Empty, Input, MoneyInput, Search, Select } from "@/components/base";
+import { Button, Card, CategoryTreeSelect, Checkbox, DatePicker, Empty, Input, MoneyInput, Search, Select } from "@/components/base";
 import { toast } from "sonner";
 
 
@@ -368,7 +368,7 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
       </div>}
       {rows.map((item, index) => <Card as="article" className="ledger-mobile-card gap-0 py-0" key={item.id}>
         <div className="ledger-mobile-card-heading">
-          {canApprove && <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/>}
+          {canApprove && <Checkbox checked={selected.has(item.id)} onCheckedChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/>}
           <div className="ledger-mobile-card-copy">
             <strong title={item.description || "Không có nội dung"}>{item.description || "Không có nội dung"}</strong>
             <div className="ledger-mobile-card-subline">
@@ -408,12 +408,12 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
       )}
     </div>}
 
-    <div className="ledger-scroll-area ledger-desktop-table"><table className="ledger-table w-full min-w-[1080px] text-left text-sm"><thead><tr className="border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--text-muted)]">{canApprove && <th className="w-10"><input type="checkbox" checked={allSelected} disabled={editMode} onChange={toggleAll} aria-label="Chọn tất cả giao dịch đang hiển thị"/></th>}<th>Giao dịch</th><th>Loại</th><th>Danh mục</th><th>Ví</th><th>Ngày</th><th className="text-right">Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
+    <div className="ledger-scroll-area ledger-desktop-table"><table className="ledger-table w-full min-w-[1080px] text-left text-sm"><thead><tr className="border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--text-muted)]">{canApprove && <th className="w-10"><Checkbox checked={allSelected} disabled={editMode} onCheckedChange={toggleAll} aria-label="Chọn tất cả giao dịch đang hiển thị"/></th>}<th>Giao dịch</th><th>Loại</th><th>Danh mục</th><th>Ví</th><th>Ngày</th><th className="text-right">Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
       {createDraft && <CreateDraftRow draft={createDraft} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} onChange={(patch) => setCreateDraft((current) => current ? { ...current, ...patch } : current)} onSave={saveCreate} onCancel={() => setCreateDraft(null)}/>}
       {rows.map((item, index) => editMode && (!editTargetId || item.id === editTargetId)
         ? <EditDraftRow key={item.id} draft={editDrafts[item.id] ?? draftFromTransaction(item, wallets)} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} disabled={!isAdmin && item.hasPendingChange} autoFocus={index === 0} status={<><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</>} onChange={(patch) => updateDraft(item.id, patch)} onSave={saveEdits} onCancel={cancelEdit}/>
         : <tr key={item.id} className="border-b border-[var(--border)]">
-          {canApprove && <td><input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/></td>}
+          {canApprove && <td><Checkbox checked={selected.has(item.id)} onCheckedChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/></td>}
           <td><p className="font-medium">{item.description || "Không có nội dung"}</p><p className="mt-1 text-xs text-[var(--text-muted)]">#{String(Math.max(1, totalTransactions - ((page - 1) * pageSize + index))).padStart(5, "0")} · {item.member}{item.isRecurring ? " · Tự động" : ""}</p></td>
           <td>{typeOptions.find((option) => option.value === item.type)?.label}</td>
           <td>{item.category ? <span className="category-tag" style={{ backgroundColor: `${item.category.color}22`, color: item.category.color }}>{item.category.name}</span> : "—"}</td>

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { ArrowDownLeft, ArrowUpRight, Download, Tag, CheckCircle2 } from "lucide-react";
 import { importCategoriesAction } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP } from "@/app/dashboard/settings/global-category-management";
-import { Button, Card, Empty, Label } from "@/components/base";
+import { Button, Card, Checkbox, Empty, Label } from "@/components/base";
 import { toast } from "sonner";
 
 type TemplateCategory = {
@@ -139,12 +139,11 @@ export function ImportCategoryPanel({
                     : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)]/50"
                 }`}
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={isChecked}
-                  onChange={() => toggleOne(t.id)}
+                  onCheckedChange={() => toggleOne(t.id)}
                   disabled={pending}
-                  className="accent-[var(--coral)] w-4 h-4 rounded"
+                  aria-label={`Chọn danh mục ${t.name}`}
                 />
                 <span
                   className="grid h-8 w-8 shrink-0 place-items-center rounded-lg"

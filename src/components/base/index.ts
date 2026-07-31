@@ -1,5 +1,7 @@
 export { Button, buttonVariants } from "./button"
 export type { ButtonProps } from "./button"
+export { Checkbox } from "./checkbox"
+export type { CheckboxProps } from "./checkbox"
 export {
   Card,
   CardAction,

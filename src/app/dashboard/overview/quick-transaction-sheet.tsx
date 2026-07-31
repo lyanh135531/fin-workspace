@@ -15,6 +15,7 @@ import { addQuickTransactionAction } from "@/app/dashboard/actions";
 import {
   Button,
   CategoryTreeSelect,
+  Checkbox,
   DatePicker,
   Empty,
   Label,
@@ -342,10 +343,10 @@ export function QuickTransactionSheet({
 
             <div className="quick-transaction-footer">
               <Label className="quick-keep-open">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={keepOpen}
-                  onChange={(event) => setKeepOpen(event.target.checked)}
+                  onCheckedChange={setKeepOpen}
+                  aria-label="Nhập tiếp sau khi lưu"
                 />
                 Nhập tiếp sau khi lưu
               </Label>
