@@ -8,9 +8,13 @@ import Decimal from "decimal.js";
 import pg from "pg";
 
 const { Client } = pg;
-const TARGET_DATABASE = "finance_managerment_private";
-const USERNAME = "oggy";
-const PASSWORD = "123";
+const TARGET_DATABASE = process.env.IMPORT_TARGET_DB ?? "finance_managerment_private";
+const USERNAME = process.env.IMPORT_USERNAME ?? "oggy";
+const PASSWORD = process.env.IMPORT_PASSWORD;
+
+if (!PASSWORD) {
+  throw new Error("Set IMPORT_PASSWORD env variable (e.g. IMPORT_PASSWORD=strongpass node scripts/import-private-finance.mjs ...)");
+}
 
 function targetConnectionString() {
   const source = process.env.DATABASE_URL;

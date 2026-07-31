@@ -29,7 +29,12 @@ export async function createWorkspaceAction(input: unknown) {
     const workspace = await createWorkspaceForUser(session.user.id, { ...data, description: data.description || undefined });
     
     const store = await cookies();
-    store.set(activeWorkspaceCookie, workspace.id, { path: "/" });
+    store.set(activeWorkspaceCookie, workspace.id, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
 
     revalidatePath("/dashboard");
     revalidatePath("/overview");
