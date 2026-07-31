@@ -312,7 +312,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       </Sheet>
 
       {/* Tree list */}
-      <div className="mt-5 space-y-2">
+      <div className="mt-4">
         {rootCategories.map((category, index) => (
           <CategoryNode
             key={category.id}
@@ -414,14 +414,13 @@ function CategoryNode({
   if (!isChild) {
     return (
       <div
-        className="rounded-xl border border-[var(--border)] bg-[var(--surface)] transition-all duration-300 hover:shadow-[0_4px_20px_-4px] hover:shadow-black/[0.06] dark:hover:shadow-black/20"
-        style={{ borderLeftWidth: "3px", borderLeftColor: `${category.color}50` }}
+        className="rounded-xl bg-[var(--surface)] transition-all duration-200 hover:bg-[var(--surface-muted)]/40"
       >
-        <div className="group flex items-center justify-between gap-3 px-4 py-3.5">
+        <div className="group flex items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
             {/* Icon — large, prominent */}
             <span
-              className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl transition-all duration-200 group-hover:scale-[1.06]"
+              className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl transition-transform duration-200 group-hover:scale-105"
               style={{
                 backgroundColor: `${category.color}18`,
                 color: category.color,
