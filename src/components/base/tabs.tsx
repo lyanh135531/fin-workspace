@@ -27,7 +27,7 @@ function TabsList({
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        "inline-flex h-9 w-fit max-w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "inline-flex h-9 gap-1 w-fit max-w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         className,
       )}
       {...props}
@@ -57,7 +57,7 @@ function TabsCount({ className, ...props }: React.ComponentProps<"span">) {
     <span
       data-slot="tabs-count"
       className={cn(
-        "inline-flex min-w-5 items-center justify-center rounded-full bg-foreground/8 px-1.5 py-0.5 text-[11px] font-semibold leading-none tabular-nums text-muted-foreground",
+        "inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-foreground/8 px-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground",
         "[button[data-active]_&]:bg-primary/12 [button[data-active]_&]:text-foreground",
         className,
       )}

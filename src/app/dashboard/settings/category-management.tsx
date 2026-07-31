@@ -228,7 +228,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       </div>
 
       {/* Tabs: Chi tiêu & Thu nhập */}
-      <div className="mt-3 flex items-center justify-between gap-3 pb-3 border-b border-[var(--border)]">
+      <div className="mt-4 flex items-center justify-between gap-3 pb-3 border-b border-[var(--border)]">
         <Tabs
           value={filterType}
           onValueChange={(value) => {
@@ -240,21 +240,21 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           <TabsList>
             <TabsTrigger
               value="expense"
-              className="data-active:bg-rose-50/70 dark:data-active:bg-rose-950/30 data-active:text-rose-600 dark:data-active:text-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-950/20 hover:text-rose-600 dark:hover:text-rose-400"
+              className="data-active:text-red-600 dark:data-active:text-red-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
             >
-              <ArrowUpRight className="transition-colors" />
+              <ArrowUpRight size={14} strokeWidth={2.5} />
               <span>Chi tiêu</span>
-              <TabsCount className="[button[data-active]_&]:bg-rose-100 dark:[button[data-active]_&]:bg-rose-900/50 [button[data-active]_&]:text-rose-700 dark:[button[data-active]_&]:text-rose-300">
+              <TabsCount className="[button[data-active]_&]:bg-red-100 dark:[button[data-active]_&]:bg-red-950/80 [button[data-active]_&]:text-red-700 dark:[button[data-active]_&]:text-red-400 [button:hover_&]:bg-red-100 dark:[button:hover_&]:bg-red-950/80 [button:hover_&]:text-red-700 dark:[button:hover_&]:text-red-400 transition-colors">
                 {categories.filter((c) => c.type === "expense").length}
               </TabsCount>
             </TabsTrigger>
             <TabsTrigger
               value="income"
-              className="data-active:bg-emerald-50/70 dark:data-active:bg-emerald-950/30 data-active:text-emerald-600 dark:data-active:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 hover:text-emerald-600 dark:hover:text-emerald-400"
+              className="data-active:text-emerald-600 dark:data-active:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
             >
-              <ArrowDownLeft className="transition-colors" />
+              <ArrowDownLeft size={14} strokeWidth={2.5} />
               <span>Thu nhập</span>
-              <TabsCount className="[button[data-active]_&]:bg-emerald-100 dark:[button[data-active]_&]:bg-emerald-900/50 [button[data-active]_&]:text-emerald-700 dark:[button[data-active]_&]:text-emerald-300">
+              <TabsCount className="[button[data-active]_&]:bg-emerald-100 dark:[button[data-active]_&]:bg-emerald-950/80 [button[data-active]_&]:text-emerald-700 dark:[button[data-active]_&]:text-emerald-400 [button:hover_&]:bg-emerald-100 dark:[button:hover_&]:bg-emerald-950/80 [button:hover_&]:text-emerald-700 dark:[button:hover_&]:text-emerald-400 transition-colors">
                 {categories.filter((c) => c.type === "income").length}
               </TabsCount>
             </TabsTrigger>
