@@ -206,10 +206,10 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   return (
     <Card as="section" className="sunrise-card gap-0 mt-4 p-6">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
         <div>
-          <p className="text-sm text-slate-500">Danh mục workspace</p>
-          <h2 className="mt-1 text-xl font-semibold">Quản lý danh mục workspace</h2>
+          <p className="settings-eyebrow">Danh mục workspace</p>
+          <h2 className="mt-0.5 text-base font-bold tracking-tight">Quản lý danh mục workspace</h2>
           <p className="mt-1 text-sm text-slate-500">
             Danh mục thuộc workspace này. Bạn có thể tạo mới hoặc import từ danh mục mẫu cá nhân.
           </p>
@@ -222,13 +222,13 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           }}
           disabled={pending}
         >
-          <Plus size={17} />
+          <Plus size={15} />
           Thêm danh mục
         </Button>
       </div>
 
       {/* Tabs: Chi tiêu & Thu nhập */}
-      <div className="mt-5 flex items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
+      <div className="mt-3 flex items-center justify-between gap-3 pb-3 border-b border-[var(--border)]">
         <Tabs
           value={filterType}
           onValueChange={(value) => {
@@ -262,7 +262,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         </Tabs>
 
         <p className="text-xs text-slate-400 font-medium hidden sm:block">
-          Dùng mũi tên <ChevronUp size={12} className="inline" /> <ChevronDown size={12} className="inline" /> để thay đổi thứ tự danh mục
+          Dùng mũi tên <ChevronUp size={12} className="inline" /> <ChevronDown size={12} className="inline" /> để thay đổi thứ tự
         </p>
       </div>
 
@@ -407,124 +407,221 @@ function CategoryNode({
 }) {
   const IconComponent = ICON_MAP[category.icon ?? "tag"] ?? Tag;
   const children = categories.filter((item) => item.parentId === category.id);
+  const isChild = category.parentId !== null;
+  const hasChildren = children.length > 0;
 
-  return (
-    <div className={category.parentId ? "ml-6 border-l-2 border-[var(--border)] pl-4 mt-2" : ""}>
-      <article className="group flex min-h-14 items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm transition-all hover:border-[var(--primary)] hover:shadow-md">
-        <div className="flex min-w-0 items-center gap-3">
-          {/* Reorder Buttons */}
-          <div className="flex flex-col gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-            <Button variant="unstyled" size="auto"
-              type="button"
-              className="p-0.5 hover:text-[var(--primary)] disabled:opacity-20"
-              disabled={pending || index === 0}
-              onClick={() =>
-                category.parentId
-                  ? onMoveChild(category.parentId, index, "up")
-                  : onMoveRoot(index, "up")
-              }
-              title="Di chuyển lên"
+  // Root category = mini-card
+  if (!isChild) {
+    return (
+      <div
+        className="rounded-xl border border-[var(--border)] bg-[var(--surface)] transition-all duration-300 hover:shadow-[0_4px_20px_-4px] hover:shadow-black/[0.06] dark:hover:shadow-black/20"
+        style={{ borderLeftWidth: "3px", borderLeftColor: `${category.color}50` }}
+      >
+        <div className="group flex items-center justify-between gap-3 px-4 py-3.5">
+          <div className="flex min-w-0 items-center gap-3">
+            {/* Icon — large, prominent */}
+            <span
+              className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl transition-all duration-200 group-hover:scale-[1.06]"
+              style={{
+                backgroundColor: `${category.color}18`,
+                color: category.color,
+                boxShadow: `inset 0 0 0 1px ${category.color}25, 0 2px 8px -2px ${category.color}15`,
+              }}
             >
-              <ChevronUp size={14} />
-            </Button>
-            <Button variant="unstyled" size="auto"
-              type="button"
-              className="p-0.5 hover:text-[var(--primary)] disabled:opacity-20"
-              disabled={pending || index === totalRoots - 1}
-              onClick={() =>
-                category.parentId
-                  ? onMoveChild(category.parentId, index, "down")
-                  : onMoveRoot(index, "down")
-              }
-              title="Di chuyển xuống"
-            >
-              <ChevronDown size={14} />
-            </Button>
-          </div>
+              <IconComponent size={20} />
+            </span>
 
-          {/* Gradient Icon Badge */}
-          <span
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl font-bold shadow-inner"
-            style={{
-              background: `linear-gradient(135deg, ${category.color}22, ${category.color}11)`,
-              color: category.color,
-              border: `1px solid ${category.color}33`,
-            }}
-          >
-            <IconComponent size={18} />
-          </span>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <strong className="text-sm font-semibold truncate">{category.name}</strong>
-              <span className="px-2 py-0.5 rounded-md bg-[var(--surface-muted)] text-[10px] font-mono text-slate-500 font-bold border border-[var(--border)]">
-                {category.code}
-              </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5">
+                <strong className="text-sm font-semibold text-[var(--foreground)] truncate">
+                  {category.name}
+                </strong>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium leading-none",
+                    category.status === "active"
+                      ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
+                      : "bg-slate-100 text-slate-400 dark:bg-slate-800/60 dark:text-slate-500"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "w-1 h-1 rounded-full",
+                      category.status === "active" ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"
+                    )}
+                  />
+                  {category.status === "active" ? "Hoạt động" : "Đã tắt"}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                {category.transactionCount} giao dịch
+                {hasChildren && (
+                  <span className="ml-1 text-slate-300 dark:text-slate-600">
+                    · {children.length} danh mục con
+                  </span>
+                )}
+              </p>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
-              <span
-                className={`w-1.5 h-1.5 rounded-full inline-block ${
-                  category.status === "active" ? "bg-emerald-500" : "bg-slate-400"
-                }`}
-              />
-              <span>{category.status === "active" ? "Đang hoạt động" : "Đã vô hiệu hóa"}</span>
-              <span>•</span>
-              <span>{category.transactionCount} giao dịch</span>
-            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="flex items-center">
+              <Button variant="ghost" size="icon"
+                className="h-7 w-7 text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20"
+                disabled={pending || index === 0}
+                onClick={() => onMoveRoot(index, "up")}
+                title="Di chuyển lên" aria-label="Di chuyển lên"
+              >
+                <ChevronUp size={14} />
+              </Button>
+              <Button variant="ghost" size="icon"
+                className="h-7 w-7 text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20"
+                disabled={pending || index === totalRoots - 1}
+                onClick={() => onMoveRoot(index, "down")}
+                title="Di chuyển xuống" aria-label="Di chuyển xuống"
+              >
+                <ChevronDown size={14} />
+              </Button>
+            </div>
+            <div className="w-px h-4 bg-[var(--border)] mx-1" />
+            <Button variant="ghost" size="icon"
+              className="h-7 w-7 text-slate-400 hover:text-[var(--foreground)] hover:bg-[var(--surface-muted)]"
+              onClick={() => onEdit(category.id)} disabled={pending}
+              title="Chỉnh sửa" aria-label={`Chỉnh sửa ${category.name}`}
+            >
+              <Pencil size={13} />
+            </Button>
+            <Button variant="ghost" size="icon"
+              className={cn("h-7 w-7 text-slate-400",
+                category.status === "active"
+                  ? "hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                  : "hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+              )}
+              onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}
+              disabled={pending}
+              title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
+            >
+              {category.status === "active" ? <EyeOff size={13} /> : <Eye size={13} />}
+            </Button>
+            <Button variant="ghost" size="icon"
+              className="h-7 w-7 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+              onClick={() => onDelete(category.id)} disabled={pending}
+              title="Xóa" aria-label={`Xóa danh mục ${category.name}`}
+            >
+              <Trash2 size={13} />
+            </Button>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            variant="outline" size="icon"
-            title="Chỉnh sửa"
-            aria-label={`Chỉnh sửa ${category.name}`}
-            onClick={() => onEdit(category.id)}
-            disabled={pending}
-          >
-            <Pencil size={15} />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className={cn(
-              category.status === "active" ? "hover:text-rose-500" : "hover:text-emerald-500"
-            )}
-            onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}
-            disabled={pending}
-            title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
-          >
-            {category.status === "active" ? <EyeOff size={15} /> : <Eye size={15} />}
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="hover:text-rose-600 hover:border-rose-200"
-            onClick={() => onDelete(category.id)}
-            disabled={pending}
-            title="Xóa danh mục"
-            aria-label={`Xóa danh mục ${category.name}`}
-          >
-            <Trash2 size={15} />
-          </Button>
-        </div>
-      </article>
+        {/* Children — tree branch from parent */}
+        {hasChildren && (
+          <div className="ml-7 pb-1 relative">
+            {children.map((child, childIdx) => (
+              <CategoryNode
+                key={child.id}
+                category={child}
+                categories={categories}
+                index={childIdx}
+                totalRoots={children.length}
+                pending={pending}
+                onEdit={onEdit}
+                onStatus={onStatus}
+                onDelete={onDelete}
+                onMoveRoot={onMoveRoot}
+                onMoveChild={onMoveChild}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
-      {children.map((child, childIdx) => (
-        <CategoryNode
-          key={child.id}
-          category={child}
-          categories={categories}
-          index={childIdx}
-          totalRoots={children.length}
-          pending={pending}
-          onEdit={onEdit}
-          onStatus={onStatus}
-          onDelete={onDelete}
-          onMoveRoot={onMoveRoot}
-          onMoveChild={onMoveChild}
-        />
-      ))}
-    </div>
+  // Child category — compact row with tree connector
+  return (
+    <article className="group relative flex items-center justify-between gap-3 pl-8 pr-3.5 py-2 transition-colors duration-150 hover:bg-[var(--surface-muted)]/30 rounded-lg">
+      {/* Vertical line: top half (always) */}
+      <div className="absolute left-2.5 top-0 h-1/2 w-px bg-[var(--border)]" />
+      {/* Vertical line: bottom half (not on last child) */}
+      {index < totalRoots - 1 && (
+        <div className="absolute left-2.5 top-1/2 bottom-0 w-px bg-[var(--border)]" />
+      )}
+      {/* Horizontal branch line */}
+      <div className="absolute left-2.5 top-1/2 w-5 h-px bg-[var(--border)]" />
+
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span
+          className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-md transition-transform duration-200 group-hover:scale-105"
+          style={{
+            backgroundColor: `${category.color}12`,
+            color: category.color,
+          }}
+        >
+          <IconComponent size={13} />
+        </span>
+
+        <div className="min-w-0 flex items-center gap-2">
+          <span className="text-[12.5px] font-medium text-[var(--foreground)]/90 truncate">
+            {category.name}
+          </span>
+          <span
+            className={cn(
+              "w-1.5 h-1.5 rounded-full flex-shrink-0",
+              category.status === "active" ? "bg-emerald-400" : "bg-slate-300 dark:bg-slate-600"
+            )}
+            title={category.status === "active" ? "Hoạt động" : "Đã tắt"}
+          />
+          <span className="text-[10px] text-slate-300 dark:text-slate-600 font-medium flex-shrink-0">
+            {category.transactionCount} giao dịch
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        <Button variant="ghost" size="icon"
+          className="h-6 w-6 text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20"
+          disabled={pending || index === 0}
+          onClick={() => onMoveChild(category.parentId!, index, "up")}
+          title="Di chuyển lên" aria-label="Di chuyển lên"
+        >
+          <ChevronUp size={12} />
+        </Button>
+        <Button variant="ghost" size="icon"
+          className="h-6 w-6 text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20"
+          disabled={pending || index === totalRoots - 1}
+          onClick={() => onMoveChild(category.parentId!, index, "down")}
+          title="Di chuyển xuống" aria-label="Di chuyển xuống"
+        >
+          <ChevronDown size={12} />
+        </Button>
+        <div className="w-px h-3 bg-[var(--border)] mx-0.5" />
+        <Button variant="ghost" size="icon"
+          className="h-6 w-6 text-slate-400 hover:text-[var(--foreground)]"
+          onClick={() => onEdit(category.id)} disabled={pending}
+          title="Chỉnh sửa" aria-label={`Chỉnh sửa ${category.name}`}
+        >
+          <Pencil size={11} />
+        </Button>
+        <Button variant="ghost" size="icon"
+          className={cn("h-6 w-6 text-slate-400",
+            category.status === "active" ? "hover:text-amber-500" : "hover:text-emerald-500"
+          )}
+          onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}
+          disabled={pending}
+          title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
+        >
+          {category.status === "active" ? <EyeOff size={11} /> : <Eye size={11} />}
+        </Button>
+        <Button variant="ghost" size="icon"
+          className="h-6 w-6 text-slate-400 hover:text-rose-500"
+          onClick={() => onDelete(category.id)} disabled={pending}
+          title="Xóa" aria-label={`Xóa danh mục ${category.name}`}
+        >
+          <Trash2 size={11} />
+        </Button>
+      </div>
+    </article>
   );
 }
 
@@ -607,7 +704,8 @@ function CategoryForm({
                 (item) =>
                   item.status === "active" &&
                   item.type === (category?.type ?? defaultType) &&
-                  (!category || item.id !== category.id)
+                  (!category || item.id !== category.id) &&
+                  !item.parentId
               )
             }
           />

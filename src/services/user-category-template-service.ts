@@ -9,6 +9,7 @@ async function validateParent(userId: string, parentId: string | undefined, type
   const item = await prisma.category.findFirst({ where: { id: parentId, workspaceId: null, userId, status: "active", deletedAt: null } });
   if (!item) throw new AppError("FORBIDDEN", "Danh mục cha không hợp lệ.");
   if (item.type !== type) throw new AppError("VALIDATION_ERROR", "Danh mục con phải cùng loại Thu hoặc Chi.");
+  if (item.parentId) throw new AppError("VALIDATION_ERROR", "Chỉ được tạo tối đa 1 cấp con. Không thể chọn danh mục đã là con của danh mục khác làm cha.");
   let ancestorId = item.parentId;
   while (ancestorId) {
     if (ancestorId === categoryId) throw new AppError("VALIDATION_ERROR", "Không thể tạo vòng lặp danh mục.");
