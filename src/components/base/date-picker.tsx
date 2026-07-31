@@ -20,6 +20,7 @@ export type DatePickerProps = {
   id?: string;
   name?: string;
   label?: string;
+  ariaLabel?: string;
   placeholder?: string;
   value?: string;
   defaultValue?: string;
@@ -65,6 +66,7 @@ export function DatePicker({
   id,
   name,
   label,
+  ariaLabel,
   placeholder = "Chọn ngày",
   value,
   defaultValue,
@@ -134,7 +136,7 @@ export function DatePicker({
             id={datePickerId}
             type="button"
             variant="outline"
-            aria-label={label}
+            aria-label={ariaLabel ?? label}
             disabled={disabled}
             className={cn(
               "w-full justify-between px-3 font-normal tabular-nums",

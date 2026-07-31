@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   addTransactionAction,
-  addWalletAction,
   approveTransactionAction,
   deleteTransactionAction,
   deleteTransactionsAction,
@@ -102,59 +101,6 @@ function isChanged(item: LedgerItem, draft: TransactionDraft) {
     || item.toWalletId !== (draft.type === "transfer" ? draft.toWalletId : null)
     || item.date.slice(0, 10) !== draft.date
     || item.amount !== draft.amount;
-}
-
-function WalletAction({ workspaceId, canManageWallets }: { workspaceId: string; canManageWallets: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [pending, start] = useTransition();
-  const actionsRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open || !editorRef.current) return;
-    const priorFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const editor = editorRef.current;
-    editor.querySelector<HTMLElement>("input")?.focus();
-    function handleKeyDown(event: KeyboardEvent) { if (event.key === "Escape") setOpen(false); }
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Node) || editor.contains(target) || actionsRef.current?.contains(target)) return;
-      setOpen(false);
-    }
-    editor.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    return () => { editor.removeEventListener("keydown", handleKeyDown); document.removeEventListener("pointerdown", handlePointerDown, true); priorFocus?.focus(); };
-  }, [open]);
-
-  function createWallet(data: FormData) {
-    start(async () => {
-      const result = await addWalletAction(workspaceId, { name: data.get("name"), description: data.get("description") || undefined });
-      setMessage(result.ok ? "Đã tạo ví." : result.message ?? "Không thể tạo ví.");
-      if (result.ok) setOpen(false);
-    });
-  }
-
-  return <>
-    <div ref={actionsRef} className="ledger-wallet-action">
-      <Button variant="outline" size="icon" disabled={!canManageWallets} aria-label="Thêm ví" title={canManageWallets ? "Thêm ví" : "Chỉ Admin được quản lý ví"} onClick={() => setOpen(true)} className="icon-button"><WalletCards size={18}/></Button>
-    </div>
-    {message && <p className="ledger-action-message" role="status">{message}</p>}
-    {open && <div ref={editorRef} className="ledger-inline-editor ledger-inline-editor-wallet" role="region" aria-labelledby="wallet-action-title">
-      <Card as="form" action={createWallet} className="sunrise-card dialog-card gap-0 py-0">
-        <div><p className="public-eyebrow">Quản lý ví</p><h2 id="wallet-action-title">Thêm ví</h2></div>
-        <Field name="name" label="Tên ví"/>
-        <p className="text-xs leading-relaxed text-muted-foreground">Ví mới có số dư 0. Hãy tạo giao dịch thu nhập đầu tiên trong Sổ giao dịch để cập nhật số dư.</p>
-        <Field name="description" label="Ghi chú" required={false}/>
-        <div className="dialog-actions"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Hủy</Button><Button disabled={pending} variant="default">{pending ? "Đang lưu" : "Lưu"}</Button></div>
-      </Card>
-    </div>}
-  </>;
-
-}
-
-function Field({ name, label, required = true, inputMode }: { name: string; label: string; required?: boolean; inputMode?: "decimal" }) {
-  return <Input label={label} required={required} name={name} inputMode={inputMode} />;
 }
 
 export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth, onMonthChange, transactions, totalTransactions, pageSize, canApprove, canEditTransactions, isAdmin, scopeLabel, wallets, categories, canManageWallets, readonly = false, startWithNewTransaction = false }: { workspaceId: string; businessDate: string; initialMonth: string; selectedMonth?: string; onMonthChange?: (month: string) => void; transactions: LedgerItem[]; totalTransactions: number; pageSize: number; canApprove: boolean; canEditTransactions: boolean; isAdmin: boolean; scopeLabel: string; wallets: Option[]; categories: Option[]; canManageWallets: boolean; readonly?: boolean; startWithNewTransaction?: boolean }) {
@@ -343,11 +289,10 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
         onMonthChange?.(value);
       })} disabled={editMode} className="w-auto max-w-44" options={monthOptions}/>
       <Select value={status} ariaLabel="Lọc trạng thái" onValueChange={(value) => changeFilter(() => setStatus(value))} disabled={editMode} className="w-auto max-w-38" options={[{ value: "all", label: "Tất cả" }, { value: "approved", label: "Đã ghi nhận" }, { value: "pending", label: "Chờ xác nhận" }, { value: "scheduled", label: "Đã lên lịch" }, { value: "rejected", label: "Đã từ chối" }]}/>
+      <Button variant="ghost" size="default" className="ledger-clear-filter max-[760px]:hidden" disabled={editMode || !hasActiveFilters} onClick={clearFilters} title="Xóa tìm kiếm và bộ lọc" aria-label="Xóa bộ lọc"><FilterX size={15}/>Xóa lọc</Button>
       <div className="ledger-desktop-tools">
-        <Button variant="ghost" size="default" className="ledger-clear-filter" disabled={editMode || !hasActiveFilters} onClick={clearFilters} title="Xóa tìm kiếm và bộ lọc" aria-label="Xóa bộ lọc"><FilterX size={15}/>Xóa lọc</Button>
-        {canApprove && <Button variant="outline" size="icon" className="ledger-delete-button" disabled={editMode || !selected.size || busy} onClick={() => setConfirmBulkDelete(true)} title={selected.size ? `Xóa ${selected.size} giao dịch đã chọn` : "Chọn giao dịch để xóa"} aria-label="Xóa giao dịch đã chọn"><Trash2 size={16}/></Button>}
-        {canEditTransactions && editMode && <div className="ledger-edit-actions"><Button variant="outline" disabled={busy} onClick={cancelEdit}><X size={15}/>Hủy</Button><Button variant="default" disabled={busy} onClick={saveEdits}><Check size={15}/>{busy ? "Đang lưu" : "Lưu"}</Button></div>}
-        {!readonly && <div className="ledger-create-actions"><WalletAction workspaceId={workspaceId} canManageWallets={canManageWallets}/><Button variant="default" size="default" className="ledger-primary-create" disabled={busy || editMode || Boolean(createDraft) || !wallets.length} onClick={beginCreate}><Plus size={17}/>Giao dịch mới</Button></div>}
+        {canApprove && selected.size > 0 && <Button variant="outline" size="icon" className="ledger-delete-button" disabled={editMode || busy} onClick={() => setConfirmBulkDelete(true)} title={`Xóa ${selected.size} giao dịch đã chọn`} aria-label={`Xóa ${selected.size} giao dịch đã chọn`}><Trash2 size={16}/></Button>}
+        {!readonly && <div className="ledger-create-actions"><Button variant="default" size="default" className="ledger-primary-create" disabled={busy || editMode || Boolean(createDraft) || !wallets.length} onClick={beginCreate}><Plus size={17}/>Giao dịch mới</Button></div>}
       </div>
       <div className="ledger-mobile-tools">
         {editMode ? <>
@@ -466,7 +411,7 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
     <div className="ledger-scroll-area ledger-desktop-table"><table className="ledger-table w-full min-w-[1080px] text-left text-sm"><thead><tr className="border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--text-muted)]">{canApprove && <th className="w-10"><input type="checkbox" checked={allSelected} disabled={editMode} onChange={toggleAll} aria-label="Chọn tất cả giao dịch đang hiển thị"/></th>}<th>Giao dịch</th><th>Loại</th><th>Danh mục</th><th>Ví</th><th>Ngày</th><th className="text-right">Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
       {createDraft && <CreateDraftRow draft={createDraft} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} onChange={(patch) => setCreateDraft((current) => current ? { ...current, ...patch } : current)} onSave={saveCreate} onCancel={() => setCreateDraft(null)}/>}
       {rows.map((item, index) => editMode && (!editTargetId || item.id === editTargetId)
-        ? <EditDraftRow key={item.id} draft={editDrafts[item.id] ?? draftFromTransaction(item, wallets)} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} disabled={!isAdmin && item.hasPendingChange} autoFocus={index === 0} status={<><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</>} onChange={(patch) => updateDraft(item.id, patch)}/>
+        ? <EditDraftRow key={item.id} draft={editDrafts[item.id] ?? draftFromTransaction(item, wallets)} wallets={wallets} categories={categories} canApprove={canApprove} busy={busy} disabled={!isAdmin && item.hasPendingChange} autoFocus={index === 0} status={<><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</>} onChange={(patch) => updateDraft(item.id, patch)} onSave={saveEdits} onCancel={cancelEdit}/>
         : <tr key={item.id} className="border-b border-[var(--border)]">
           {canApprove && <td><input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} aria-label={`Chọn giao dịch ${item.description || item.id}`}/></td>}
           <td><p className="font-medium">{item.description || "Không có nội dung"}</p><p className="mt-1 text-xs text-[var(--text-muted)]">#{String(Math.max(1, totalTransactions - ((page - 1) * pageSize + index))).padStart(5, "0")} · {item.member}{item.isRecurring ? " · Tự động" : ""}</p></td>
@@ -522,46 +467,39 @@ function CreateDraftRow({ draft, wallets, categories, canApprove, busy, onChange
     });
   };
 
-  return <tr className="ledger-create-row">
-    <td colSpan={canApprove ? 9 : 8}>
-      <section className="ledger-create-composer" aria-label="Tạo giao dịch mới">
-        <header className="ledger-create-heading">
-          <div className="ledger-create-title">
-            <span aria-hidden="true"><Plus size={15}/></span>
-            <div><strong>Giao dịch mới</strong><small>Nhập thông tin để thêm vào sổ giao dịch</small></div>
-          </div>
-          <div className="ledger-create-actions">
-            <Button variant="ghost" disabled={busy} onClick={onCancel}><X size={15}/>Hủy</Button>
-            <Button variant="default" disabled={busy} onClick={onSave}><Check size={15}/>{busy ? "Đang lưu" : "Lưu giao dịch"}</Button>
-          </div>
-        </header>
-        <div className="ledger-create-grid">
-          <Input autoFocus disabled={busy} value={draft.description} onChange={(event) => onChange({ description: event.target.value })} placeholder="Ví dụ: Ăn trưa, nhận lương" label="Nội dung" wrapperClassName="ledger-create-description"/>
-          <Select disabled={busy} value={draft.type} onValueChange={handleTypeChange} label="Loại giao dịch" options={typeOptions.map((option) => ({ ...option, disabled: option.value === "transfer" && wallets.length < 2 }))}/>
-          <CategoryTreeSelect disabled={busy || !categories.length} value={draft.categoryId} onValueChange={(categoryId) => onChange({ categoryId })} label="Danh mục" categories={categories}/>
-          <div className="ledger-wallet-fields">
-            <Select disabled={busy || !wallets.length} value={draft.walletId} onValueChange={handleWalletChange} label="Ví thực hiện" options={wallets.map((item) => ({ value: item.id, label: item.name }))}/>
-            {draft.type === "transfer" && <Select disabled={busy || !wallets.length} value={draft.toWalletId} onValueChange={(toWalletId) => onChange({ toWalletId })} label="Ví nhận" options={wallets.map((item) => ({ value: item.id, label: item.name, disabled: item.id === draft.walletId }))}/>}
-          </div>
-          <DatePicker disabled={busy} className="ledger-date-input" label="Ngày giao dịch" value={draft.date} onValueChange={(date) => onChange({ date })}/>
-          <MoneyInput disabled={busy} value={draft.amount} onValueChange={(amount) => onChange({ amount })} placeholder="0" label="Số tiền" wrapperClassName="ledger-create-amount"/>
-        </div>
-      </section>
-    </td>
+  return <tr className="ledger-create-row ledger-draft-row border-b border-[var(--border)]" aria-label="Tạo giao dịch mới">
+    {canApprove && <td aria-hidden="true"/>}
+    <td><Input autoFocus disabled={busy} className="ledger-cell-input" value={draft.description} onChange={(event) => onChange({ description: event.target.value })} placeholder="Nội dung" aria-label="Nội dung giao dịch"/></td>
+    <td><Select disabled={busy} value={draft.type} onValueChange={handleTypeChange} ariaLabel="Loại giao dịch" options={typeOptions.map((option) => ({ ...option, disabled: option.value === "transfer" && wallets.length < 2 }))}/></td>
+    <td><CategoryTreeSelect disabled={busy || !categories.length} value={draft.categoryId} onValueChange={(categoryId) => onChange({ categoryId })} ariaLabel="Danh mục" categories={categories}/></td>
+    <td><div className="ledger-wallet-fields">
+      <Select disabled={busy || !wallets.length} value={draft.walletId} onValueChange={handleWalletChange} ariaLabel="Ví thực hiện" options={wallets.map((item) => ({ value: item.id, label: item.name }))}/>
+      {draft.type === "transfer" && <Select disabled={busy || !wallets.length} value={draft.toWalletId} onValueChange={(toWalletId) => onChange({ toWalletId })} ariaLabel="Ví nhận" options={wallets.map((item) => ({ value: item.id, label: item.name, disabled: item.id === draft.walletId }))}/>}
+    </div></td>
+    <td><DatePicker disabled={busy} className="ledger-date-input" ariaLabel="Ngày giao dịch" value={draft.date} onValueChange={(date) => onChange({ date })}/></td>
+    <td><MoneyInput disabled={busy} className="ledger-amount-input" value={draft.amount} onValueChange={(amount) => onChange({ amount })} aria-label="Số tiền"/></td>
+    <td><span className="status status-scheduled">Mới</span></td>
+    <td><div className="ledger-row-actions">
+      <Button variant="ghost" size="icon" disabled={busy} onClick={onCancel} title="Hủy tạo giao dịch" aria-label="Hủy tạo giao dịch"><X size={16}/></Button>
+      <Button variant="default" size="icon" disabled={busy} onClick={onSave} title={busy ? "Đang lưu" : "Lưu giao dịch"} aria-label={busy ? "Đang lưu" : "Lưu giao dịch"}><Check size={16}/></Button>
+    </div></td>
   </tr>;
 }
 
-function EditDraftRow({ draft, wallets, categories, canApprove, busy, disabled = false, autoFocus = false, status, onChange }: { draft: TransactionDraft; wallets: Option[]; categories: Option[]; canApprove: boolean; busy: boolean; disabled?: boolean; autoFocus?: boolean; status?: React.ReactNode; onChange: (patch: Partial<TransactionDraft>) => void }) {
+function EditDraftRow({ draft, wallets, categories, canApprove, busy, disabled = false, autoFocus = false, status, onChange, onSave, onCancel }: { draft: TransactionDraft; wallets: Option[]; categories: Option[]; canApprove: boolean; busy: boolean; disabled?: boolean; autoFocus?: boolean; status?: React.ReactNode; onChange: (patch: Partial<TransactionDraft>) => void; onSave: () => void; onCancel: () => void }) {
   return <tr className={`ledger-draft-row border-b border-[var(--border)] ${disabled ? "disabled" : ""}`}>
     {canApprove && <td aria-hidden="true"/>}
     <td><Input autoFocus={autoFocus} disabled={disabled || busy} className="ledger-cell-input" value={draft.description} onChange={(event) => onChange({ description: event.target.value })} placeholder="Nội dung" aria-label="Nội dung giao dịch"/></td>
-    <td><Select disabled={disabled || busy} value={draft.type} onValueChange={(value) => { const type = value as TransactionType; onChange({ type, toWalletId: type === "transfer" ? draft.toWalletId || defaultDestination(wallets, draft.walletId) : draft.toWalletId }); }} label="Loại giao dịch" options={typeOptions.map((option) => ({ ...option, disabled: option.value === "transfer" && wallets.length < 2 }))}/></td>
-    <td><CategoryTreeSelect disabled={disabled || busy || !categories.length} value={draft.categoryId} onValueChange={(categoryId) => onChange({ categoryId })} label="Danh mục" categories={categories} emptyOption={{ value: "none", label: "Không chọn" }}/></td>
-    <td><div className="ledger-wallet-fields"><Select disabled={disabled || busy || !wallets.length} value={draft.walletId} onValueChange={(walletId) => onChange({ walletId, toWalletId: draft.toWalletId === walletId ? defaultDestination(wallets, walletId) : draft.toWalletId })} label="Ví thực hiện" options={wallets.map((item) => ({ value: item.id, label: item.name }))}/>{draft.type === "transfer" && <Select disabled={disabled || busy || !wallets.length} value={draft.toWalletId} onValueChange={(toWalletId) => onChange({ toWalletId })} label="Ví nhận" options={wallets.map((item) => ({ value: item.id, label: item.name, disabled: item.id === draft.walletId }))}/>}</div></td>
-    <td><DatePicker disabled={disabled || busy} className="ledger-date-input" label="Ngày giao dịch" value={draft.date} onValueChange={(date) => onChange({ date })}/></td>
-    <td><MoneyInput disabled={disabled || busy} className="ledger-cell-input ledger-amount-input" value={draft.amount} onValueChange={(amount) => onChange({ amount })} placeholder="0" aria-label="Số tiền"/></td>
+    <td><Select disabled={disabled || busy} value={draft.type} onValueChange={(value) => { const type = value as TransactionType; onChange({ type, toWalletId: type === "transfer" ? draft.toWalletId || defaultDestination(wallets, draft.walletId) : draft.toWalletId }); }} ariaLabel="Loại giao dịch" options={typeOptions.map((option) => ({ ...option, disabled: option.value === "transfer" && wallets.length < 2 }))}/></td>
+    <td><CategoryTreeSelect disabled={disabled || busy || !categories.length} value={draft.categoryId} onValueChange={(categoryId) => onChange({ categoryId })} ariaLabel="Danh mục" categories={categories} emptyOption={{ value: "none", label: "Không chọn" }}/></td>
+    <td><div className="ledger-wallet-fields"><Select disabled={disabled || busy || !wallets.length} value={draft.walletId} onValueChange={(walletId) => onChange({ walletId, toWalletId: draft.toWalletId === walletId ? defaultDestination(wallets, walletId) : draft.toWalletId })} ariaLabel="Ví thực hiện" options={wallets.map((item) => ({ value: item.id, label: item.name }))}/>{draft.type === "transfer" && <Select disabled={disabled || busy || !wallets.length} value={draft.toWalletId} onValueChange={(toWalletId) => onChange({ toWalletId })} ariaLabel="Ví nhận" options={wallets.map((item) => ({ value: item.id, label: item.name, disabled: item.id === draft.walletId }))}/>}</div></td>
+    <td><DatePicker disabled={disabled || busy} className="ledger-date-input" ariaLabel="Ngày giao dịch" value={draft.date} onValueChange={(date) => onChange({ date })}/></td>
+    <td><MoneyInput disabled={disabled || busy} className="ledger-amount-input" value={draft.amount} onValueChange={(amount) => onChange({ amount })} placeholder="0" aria-label="Số tiền"/></td>
     <td>{status}</td>
-    <td>{disabled ? <small className="ledger-change-pending">Không thể sửa</small> : "—"}</td>
+    <td><div className="ledger-row-actions">
+      <Button variant="ghost" size="icon" disabled={busy} onClick={onCancel} title="Hủy chỉnh sửa" aria-label="Hủy chỉnh sửa"><X size={16}/></Button>
+      <Button variant="default" size="icon" disabled={disabled || busy} onClick={onSave} title={busy ? "Đang lưu" : "Lưu thay đổi"} aria-label={busy ? "Đang lưu" : "Lưu thay đổi"}><Check size={16}/></Button>
+    </div></td>
   </tr>;
 }
 

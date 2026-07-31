@@ -304,101 +304,8 @@
   box-shadow: inset 3px 0 var(--primary);
 }
 
-.ledger-book .ledger-table tbody tr.ledger-create-row:hover {
-  background: transparent;
-  box-shadow: none;
-}
-
 .ledger-create-row > td {
-  height: auto !important;
-  padding: 0;
-}
-
-.ledger-create-composer {
-  position: relative;
-  display: grid;
-  gap: 0.75rem;
-  overflow: hidden;
-  border-bottom: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
-  background: transparent;
-  padding: 0.8rem 0.9rem 0.9rem 1.1rem;
-}
-
-.ledger-create-composer::before {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--primary);
-  content: "";
-}
-
-.ledger-create-heading,
-.ledger-create-title,
-.ledger-create-actions {
-  display: flex;
-  align-items: center;
-}
-
-.ledger-create-heading {
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.ledger-create-title {
-  gap: 0.55rem;
-}
-
-.ledger-create-title > span {
-  display: grid;
-  width: 1.8rem;
-  height: 1.8rem;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
-  color: var(--primary);
-}
-
-.ledger-create-title strong,
-.ledger-create-title small {
-  display: block;
-}
-
-.ledger-create-title strong {
-  color: var(--text-primary);
-  font-size: 0.78rem;
-  font-weight: 720;
-}
-
-.ledger-create-title small {
-  margin-top: 0.08rem;
-  color: var(--text-muted);
-  font-size: 0.65rem;
-}
-
-.ledger-create-grid {
-  display: grid;
-  grid-template-columns: minmax(12rem, 1.45fr) minmax(8rem, 0.75fr) minmax(9rem, 1fr) minmax(9rem, 1fr) minmax(9rem, 0.9fr) minmax(9rem, 0.9fr);
-  align-items: end;
-  gap: 0.65rem;
-}
-
-.ledger-create-grid [data-slot="input"],
-.ledger-create-grid .finance-select-trigger {
-  min-height: 2.45rem;
-  border-color: color-mix(in srgb, var(--border) 86%, transparent);
-  background: var(--surface);
-}
-
-.ledger-create-grid [data-slot="input"]:focus-visible,
-.ledger-create-grid .finance-select-trigger:focus-visible {
-  border-color: var(--primary);
-}
-
-.ledger-create-amount [data-slot="input"] {
-  text-align: right;
-  font-size: 0.9rem;
-  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 -1px color-mix(in srgb, var(--primary) 34%, var(--border));
 }
 
 .ledger-create-actions {
@@ -431,14 +338,6 @@
 }
 
 @media (max-width: 980px) {
-  .ledger-create-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .ledger-create-description {
-    grid-column: span 2;
-  }
-
   .ledger-kpi-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

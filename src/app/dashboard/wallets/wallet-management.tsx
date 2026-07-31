@@ -518,7 +518,6 @@ export function WalletManagement({
                         name="fundingAmount"
                         value={createFundingAmount}
                         onValueChange={setCreateFundingAmount}
-                        placeholder="Để trống nếu chưa có số dư"
                         className="bg-[var(--surface)] text-base font-semibold"
                       />
                   </div>

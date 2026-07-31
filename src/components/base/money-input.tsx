@@ -16,7 +16,7 @@ function formatVndAmount(value: string) {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
 }
 
-function MoneyInput({ className, id, label, wrapperClassName, value, onValueChange, ...props }: MoneyInputProps) {
+function MoneyInput({ className, id, label, placeholder = "0", wrapperClassName, value, onValueChange, ...props }: MoneyInputProps) {
   const generatedId = React.useId()
   const inputId = id ?? (label ? generatedId : undefined)
   const input = (
@@ -24,9 +24,10 @@ function MoneyInput({ className, id, label, wrapperClassName, value, onValueChan
       <Input
         id={inputId}
         inputMode="numeric"
+        placeholder={placeholder}
         value={formatVndAmount(value)}
         onChange={(event) => onValueChange(event.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, ""))}
-        className={cn("pr-14 font-medium tabular-nums", className)}
+        className={cn("pr-14 text-right font-medium tabular-nums", className)}
         {...props}
       />
       <span
