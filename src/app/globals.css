@@ -11121,3 +11121,492 @@ html[data-sidebar-collapsed="true"]
     animation-name: finance-sheet-enter;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   Overview — warm editorial finance dashboard
+   ═══════════════════════════════════════════════════ */
+.overview-shell {
+  display: grid;
+  max-width: 1440px;
+  gap: 1rem;
+  margin-inline: auto;
+  padding: 1rem 0 2.5rem;
+}
+
+.overview-shell > .page-header {
+  position: relative;
+  isolation: isolate;
+  min-height: 9.5rem;
+  overflow: hidden;
+  align-items: end;
+  margin: 0;
+  padding: 1.55rem 1.65rem 1.6rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+  border-radius: 1.15rem;
+  background: var(--surface);
+  box-shadow: 0 18px 42px var(--shadow);
+}
+
+.overview-shell > .page-header::before,
+.overview-shell > .page-header::after {
+  position: absolute;
+  z-index: -1;
+  border: 1px solid color-mix(in srgb, var(--primary) 19%, transparent);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.overview-shell > .page-header::before {
+  top: -9rem;
+  right: 9rem;
+  width: 20rem;
+  height: 20rem;
+}
+
+.overview-shell > .page-header::after {
+  right: -4rem;
+  bottom: -10rem;
+  width: 21rem;
+  height: 21rem;
+  border-color: color-mix(in srgb, var(--secondary) 22%, transparent);
+}
+
+.overview-shell > .page-header > div:first-child,
+.overview-shell > .page-header > div:last-child {
+  position: relative;
+  z-index: 1;
+}
+
+.overview-shell > .page-header > div:first-child {
+  max-width: 46rem;
+}
+
+.overview-shell > .page-header > div:first-child > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.65rem;
+  margin-bottom: 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--primary-soft) 56%, var(--surface));
+  padding: 0.25rem 0.55rem;
+  color: var(--primary);
+  font-size: 0.64rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.overview-shell > .page-header h1 {
+  margin: 0 !important;
+  color: var(--text-primary);
+  font-size: clamp(2rem, 3vw, 3rem) !important;
+  font-weight: 760 !important;
+  letter-spacing: -0.065em !important;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.overview-shell > .page-header p {
+  max-width: 42rem;
+  margin: 0.65rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.overview-shell > .page-header > div:last-child {
+  align-self: end;
+}
+
+.overview-shell .overview-quick-entry-trigger {
+  min-height: 2.7rem;
+  border: 1px solid color-mix(in srgb, var(--primary-active) 48%, var(--primary));
+  border-radius: 0.65rem;
+  padding-inline: 1rem;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 18%, transparent);
+  font-weight: 720;
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.overview-shell .overview-quick-entry-trigger:hover {
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--primary) 24%, transparent);
+  transform: translateY(-1px);
+}
+
+.overview-shell .overview-quick-entry-trigger:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+.overview-shell > .overview-filter-panel {
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--surface);
+  padding: 0;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--shadow) 72%, transparent);
+}
+
+.overview-shell .overview-filter-heading {
+  display: flex;
+  min-height: 3.25rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.overview-shell .overview-filter-title > span {
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 0.65rem;
+}
+
+.overview-shell .overview-filter-title strong {
+  color: var(--text-primary);
+  font-size: 0.78rem;
+}
+
+.overview-shell .overview-filter-title small {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.overview-shell .overview-filter-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.85rem 1rem 1rem;
+}
+
+.overview-shell .overview-filter-field > span {
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  font-weight: 750;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.overview-shell .overview-filter-field .finance-select-trigger {
+  min-height: 2.55rem;
+  border-color: color-mix(in srgb, var(--border-strong) 68%, var(--border));
+  border-radius: 0.58rem;
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.overview-shell .overview-filter-field .finance-select-trigger:hover {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+}
+
+.overview-shell .overview-filter-field .finance-select-trigger:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 22%, transparent);
+}
+
+.overview-shell .overview-kpis {
+  grid-template-columns: 1.28fr repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.overview-shell .overview-metric {
+  min-height: 9.35rem;
+  padding: 1.15rem 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--shadow) 72%, transparent);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.overview-shell .overview-metric:hover {
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+  box-shadow: 0 16px 32px color-mix(in srgb, var(--shadow) 88%, transparent);
+  transform: translateY(-2px);
+}
+
+.overview-shell .overview-metric:first-child {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  background: color-mix(in srgb, var(--primary-soft) 38%, var(--surface));
+}
+
+.overview-shell .overview-metric > span {
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  border-radius: 0.75rem;
+}
+
+.overview-shell .overview-metric p {
+  margin: 1rem 0 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.overview-shell .overview-metric strong {
+  color: var(--text-primary);
+  font-size: clamp(1.12rem, 1.55vw, 1.45rem);
+  font-weight: 760;
+  letter-spacing: -0.05em;
+  line-height: 1.05;
+}
+
+.overview-shell .overview-metric small {
+  margin-top: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.67rem;
+}
+
+.overview-shell .overview-card {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+  padding: 0;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--shadow) 72%, transparent);
+}
+
+.overview-shell .overview-card > header {
+  margin: 0;
+  padding: 1.2rem 1.3rem 0.9rem;
+}
+
+.overview-shell .overview-card h2 {
+  color: var(--text-primary);
+  font-size: 0.98rem;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+}
+
+.overview-shell .overview-card header p {
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.overview-shell .overview-card [data-slot="tabs-list"] {
+  border-color: var(--border);
+  border-radius: 0.55rem;
+  background: var(--surface-secondary);
+  padding: 0.2rem;
+}
+
+.overview-shell .overview-card [data-slot="tabs-trigger"] {
+  min-height: 1.85rem;
+  border-radius: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.overview-shell .overview-card [data-slot="tabs-trigger"][data-active] {
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: 0 2px 7px color-mix(in srgb, var(--shadow) 70%, transparent);
+}
+
+.overview-shell .overview-flow-layout {
+  gap: 1.2rem;
+  padding: 0 1.3rem 1.3rem;
+}
+
+.overview-shell .overview-flow-primary {
+  padding-right: 1.2rem;
+  border-right-color: color-mix(in srgb, var(--border-strong) 58%, var(--border));
+}
+
+.overview-shell .overview-flow-member {
+  padding: 0.15rem 0 0;
+}
+
+.overview-shell .overview-flow-member h3 {
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.overview-shell .overview-balance-alert {
+  margin: 0 1.3rem 0.35rem;
+}
+
+.overview-shell .overview-balance-chart {
+  width: calc(100% - 2.6rem);
+  margin: 0 1.3rem 1.3rem;
+}
+
+.overview-shell .overview-expense-chart,
+.overview-shell .overview-member-expense-chart,
+.overview-shell .overview-balance-chart {
+  --chart-grid: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.overview-shell .overview-detail-grid {
+  gap: 0.75rem;
+}
+
+.overview-shell .overview-detail-grid > .overview-card {
+  padding: 0;
+}
+
+.overview-shell .overview-detail-grid .category-list,
+.overview-shell .overview-detail-grid .recent-table {
+  margin: 0 1.25rem 1.25rem;
+  padding-right: 0.35rem;
+}
+
+.overview-shell .overview-detail-grid .category-row,
+.overview-shell .overview-detail-grid .recent-table article,
+.overview-shell .overview-operations .wallet-list article,
+.overview-shell .overview-operations .pending-list article {
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.overview-shell .overview-detail-grid .category-row:hover,
+.overview-shell .overview-detail-grid .recent-table article:hover,
+.overview-shell .overview-operations .wallet-list article:hover,
+.overview-shell .overview-operations .pending-list article:hover {
+  border-radius: 0.55rem;
+  background: var(--surface-hover);
+}
+
+.overview-shell .overview-detail-grid .recent-table article {
+  grid-template-columns: minmax(10rem, 1fr) 3.5rem 8.5rem 5.75rem;
+  padding: 0.78rem 0.45rem;
+}
+
+.overview-shell .overview-detail-grid .category-row {
+  padding: 0.4rem 0.45rem;
+}
+
+.overview-shell .overview-detail-grid > .overview-operations {
+  border-color: color-mix(in srgb, var(--primary) 18%, var(--border));
+}
+
+.overview-shell .overview-operation-section {
+  padding: 1rem 1.1rem;
+}
+
+.overview-shell .overview-operation-section h2 {
+  font-size: 0.9rem;
+}
+
+.overview-shell .overview-card-count {
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: var(--surface-secondary);
+}
+
+@media (max-width: 1100px) {
+  .overview-shell .overview-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overview-shell .overview-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .overview-shell {
+    gap: 0.75rem;
+    padding: 0 0 1rem;
+  }
+
+  .overview-shell > .page-header {
+    min-height: 0;
+    align-items: center;
+    border-radius: 0.9rem;
+    padding: 1rem;
+  }
+
+  .overview-shell > .page-header::before {
+    top: -10rem;
+    right: -7rem;
+  }
+
+  .overview-shell > .page-header::after {
+    display: none;
+  }
+
+  .overview-shell > .page-header > div:first-child > span {
+    margin-bottom: 0.45rem;
+    font-size: 0.57rem;
+  }
+
+  .overview-shell > .page-header h1 {
+    font-size: 1.55rem !important;
+  }
+
+  .overview-shell > .page-header p {
+    display: none;
+  }
+
+  .overview-shell > .page-header > div:last-child {
+    align-self: center;
+  }
+
+  .overview-shell .overview-quick-entry-trigger {
+    min-height: 2.5rem;
+    padding-inline: 0.72rem;
+    font-size: 0.72rem;
+  }
+
+  .overview-shell > .overview-filter-panel {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .overview-shell .overview-filter-heading {
+    display: none;
+  }
+
+  .overview-shell .overview-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem 0.7rem;
+    padding: 0;
+  }
+
+  .overview-shell .overview-filter-field .finance-select-trigger {
+    min-height: 2.55rem;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+    padding-inline: 0.1rem;
+    font-size: 0.74rem;
+  }
+
+  .overview-shell .overview-kpis {
+    display: none;
+  }
+
+  .overview-shell .overview-card {
+    border-radius: 0.85rem;
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--shadow) 62%, transparent);
+  }
+
+  .overview-shell .overview-card > header {
+    padding: 1rem 1rem 0.8rem;
+  }
+
+  .overview-shell .overview-detail-grid .category-list,
+  .overview-shell .overview-detail-grid .recent-table {
+    margin: 0 1rem 1rem;
+  }
+
+  .overview-shell .overview-detail-grid .recent-table article {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.7rem 0.25rem;
+  }
+
+  .overview-shell .overview-operation-section {
+    padding: 0.95rem 1rem;
+  }
+}
