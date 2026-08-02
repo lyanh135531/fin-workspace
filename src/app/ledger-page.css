@@ -295,6 +295,21 @@
   letter-spacing: 0.08em;
 }
 
+.ledger-book .ledger-table .ledger-category-column {
+  width: 14rem;
+  min-width: 14rem;
+}
+
+.ledger-book .ledger-table .ledger-description-column {
+  width: 18rem;
+  min-width: 18rem;
+}
+
+.ledger-book .ledger-table .ledger-amount-column {
+  width: 11rem;
+  min-width: 11rem;
+}
+
 .ledger-book .ledger-table tbody tr {
   transition: background-color 160ms ease, box-shadow 160ms ease;
 }

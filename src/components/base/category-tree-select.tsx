@@ -110,7 +110,7 @@ function CategoryTreeSelect({ id, value, defaultValue, onValueChange, name, labe
           }}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent align="start" className="category-tree-content min-w-0 max-w-[calc(100vw-2rem)] overflow-hidden">
+      <SelectContent align="start" className="category-tree-content max-w-[calc(100vw-2rem)] max-h-[min(24rem,var(--available-height))] overflow-y-auto">
         <SelectGroup className="category-tree-group">
           {emptyOption && <SelectItem value={emptyOption.value} className="category-tree-empty">{emptyOption.label}</SelectItem>}
           {emptyOption && tree.length > 0 && <SelectSeparator className="category-tree-separator" />}

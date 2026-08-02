@@ -3188,7 +3188,7 @@ html[data-mode="dark"] .bg-\[\#17233c\]\/30 {
 }
 .ledger-table th:nth-last-child(2),
 .ledger-table td:nth-last-child(2) {
-  min-width: 7.25rem;
+  min-width: 6rem;
   white-space: nowrap;
 }
 .ledger-row-actions .icon-button {
@@ -3714,6 +3714,7 @@ html[data-mode="dark"] .ledger-date-input {
   color: var(--text-muted);
 }
 .category-tree-content {
+  min-width: min(20rem, calc(100vw - 2rem));
   border: 1px solid var(--border);
   background: var(--popover);
   box-shadow: 0 18px 40px var(--shadow);

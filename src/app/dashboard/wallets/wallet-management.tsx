@@ -103,11 +103,12 @@ export function WalletManagement({
     wallet.status === "active" && wallet.id !== confirmOperation?.wallet.id
   );
   const createFundingAmountIsValid = (() => {
+    if (createFundingAmount.trim() === "") return true;
     try {
       const amount = new Decimal(createFundingAmount);
-      return createFundingAmount.trim() === "" || (amount.isFinite()
+      return amount.isFinite()
         && amount.decimalPlaces() <= 4
-        && (createFundingType === "transfer" ? amount.gt(0) : amount.gte(0)));
+        && (createFundingType === "transfer" ? amount.gt(0) : amount.gte(0));
     } catch {
       return false;
     }
