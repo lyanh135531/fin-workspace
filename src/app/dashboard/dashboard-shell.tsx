@@ -8,18 +8,23 @@ import { DashboardHeaderSubtitle } from "@/app/dashboard/dashboard-header-subtit
 import { SidebarToggle } from "@/app/dashboard/sidebar-toggle";
 import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
 import { prisma } from "@/lib/prisma";
-import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { resolveActiveWorkspaceId, resolveSampleWorkspaceContextId } from "@/services/active-workspace";
 import { activateDueScheduledTransactions } from "@/services/transaction-service";
 import { isAdminRole } from "@/domain/role-policy";
 import { getPendingJoinRequestCount } from "@/services/join-request-query";
 import { MobileNavigation } from "@/app/dashboard/mobile-navigation";
 import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transaction-sheet";
 import { getBusinessDateInTimeZone } from "@/lib/date";
+import { SampleWorkspaceBanner } from "@/components/sample-workspace-banner";
 
 export async function DashboardShell({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
+  const sampleContextId = await resolveSampleWorkspaceContextId();
   const activeWorkspaceId = userId ? await resolveActiveWorkspaceId(userId) : null;
+  const navigationBasePath = sampleContextId && activeWorkspaceId === sampleContextId
+    ? `/sample/${sampleContextId}`
+    : "";
 
   if (activeWorkspaceId) await activateDueScheduledTransactions(activeWorkspaceId);
 
@@ -42,7 +47,9 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
           userId,
           status: "active",
           deletedAt: null,
-          workspace: { status: "active", deletedAt: null },
+          workspace: sampleContextId
+            ? { id: sampleContextId, status: "active", deletedAt: null }
+            : { status: "active", deletedAt: null, sampleDatasetKey: null },
         },
         include: {
           workspace: { select: { id: true, name: true, baseCurrency: true, timeZone: true } },
@@ -124,6 +131,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
           pendingJoinCount={pendingJoinCount}
           isAdmin={isAdmin}
           username={username}
+          navigationBasePath={navigationBasePath}
         />
 
         {/* User section with logout */}
@@ -148,6 +156,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
               isAdmin={isAdmin}
               username={username}
               role={userRole}
+              navigationBasePath={navigationBasePath}
             />
             <div className="dashboard-header-copy">
               <DashboardHeaderSubtitle
@@ -175,7 +184,12 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
         </header>
 
         {/* ── CONTENT ── */}
-        <main className="dashboard-content">{children}</main>
+        <main className="dashboard-content">
+          {navigationBasePath && membership ? (
+            <SampleWorkspaceBanner workspaceName={membership.workspace.name} />
+          ) : null}
+          {children}
+        </main>
         <QuickTransactionSheet
           initialWorkspaceId={membership?.workspaceId ?? workspaces[0]?.workspaceId ?? ""}
           workspaces={workspaces.map((item) => ({

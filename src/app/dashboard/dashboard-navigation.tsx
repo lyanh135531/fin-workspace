@@ -13,6 +13,7 @@ export function DashboardNavigation({
   pendingJoinCount = 0,
   isAdmin = false,
   forceExpandedWorkspaceSwitcher = false,
+  navigationBasePath = "",
 }: {
   currentId?: string;
   workspaces: Workspace[];
@@ -20,17 +21,23 @@ export function DashboardNavigation({
   isAdmin?: boolean;
   username?: string;
   forceExpandedWorkspaceSwitcher?: boolean;
+  navigationBasePath?: string;
 }) {
   const pathname = usePathname();
 
+  const overviewHref = navigationBasePath ? `${navigationBasePath}/overview` : "/overview";
+  const ledgerHref = navigationBasePath ? `${navigationBasePath}/ledger` : "/dashboard";
+  const recurringHref = navigationBasePath ? `${navigationBasePath}/recurring-transactions` : "/recurring-transactions";
+  const walletsHref = navigationBasePath ? `${navigationBasePath}/wallets` : "/wallets";
+  const workspaceSettingsHref = navigationBasePath ? `${navigationBasePath}/settings/workspace` : "/settings/workspace";
 
-  const overviewActive = pathname === "/overview";
+  const overviewActive = pathname === overviewHref;
   const ledgerActive =
-    pathname === "/dashboard" || pathname.startsWith("/workspace/");
-  const walletsActive = pathname === "/wallets";
-  const recurringActive = pathname === "/recurring-transactions";
+    pathname === ledgerHref || (!navigationBasePath && pathname.startsWith("/workspace/"));
+  const walletsActive = pathname === walletsHref;
+  const recurringActive = pathname === recurringHref;
   const workspaceSettingsActive =
-    pathname === "/settings/workspace" ||
+    pathname === workspaceSettingsHref ||
     pathname === "/dashboard/settings" ||
     pathname === "/dashboard/join-requests";
 
@@ -57,6 +64,7 @@ export function DashboardNavigation({
             workspaces={workspaces}
             pendingJoinCount={pendingJoinCount}
             forceExpanded={forceExpandedWorkspaceSwitcher}
+            navigationBasePath={navigationBasePath}
           />
         </div>
       )}
@@ -66,7 +74,7 @@ export function DashboardNavigation({
 
         <Link
           className={`nav-item dashboard-nav-link ${overviewActive ? "nav-item-active" : ""}`}
-          href="/overview"
+          href={overviewHref}
           aria-current={overviewActive ? "page" : undefined}
           aria-label="Tổng quan tài chính"
         >
@@ -78,7 +86,7 @@ export function DashboardNavigation({
           <>
             <Link
               className={`nav-item dashboard-nav-link ${ledgerActive ? "nav-item-active" : ""}`}
-              href="/dashboard"
+              href={ledgerHref}
               aria-current={ledgerActive ? "page" : undefined}
               aria-label="Sổ thu chi & lịch sử giao dịch"
             >
@@ -89,7 +97,7 @@ export function DashboardNavigation({
             {isAdmin && (
               <Link
                 className={`nav-item dashboard-nav-link ${recurringActive ? "nav-item-active" : ""}`}
-                href="/recurring-transactions"
+                href={recurringHref}
                 aria-current={recurringActive ? "page" : undefined}
                 aria-label="Đăng ký giao dịch tự động hằng tháng"
               >
@@ -100,7 +108,7 @@ export function DashboardNavigation({
 
             <Link
               className={`nav-item dashboard-nav-link ${walletsActive ? "nav-item-active" : ""}`}
-              href="/wallets"
+              href={walletsHref}
               aria-current={walletsActive ? "page" : undefined}
               aria-label="Quản lý các tài khoản ví"
             >
@@ -111,7 +119,7 @@ export function DashboardNavigation({
             {isAdmin && (
               <Link
                 className={`nav-item dashboard-nav-link ${workspaceSettingsActive ? "nav-item-active" : ""}`}
-                href="/settings/workspace"
+                href={workspaceSettingsHref}
                 aria-current={workspaceSettingsActive ? "page" : undefined}
                 aria-label="Cơ chế phê duyệt, mã mời và cấu hình"
               >

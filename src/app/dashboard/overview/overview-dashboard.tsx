@@ -16,9 +16,10 @@ import {
 } from "@/app/dashboard/overview/overview-chart-data";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { formatAmount, formatCompactAmount } from "@/lib/format";
+import { SampleDataButton } from "@/components/sample-data-button";
 
 type Transaction = { id: string; amount: string; type: "income" | "expense" | "transfer"; status: "pending" | "scheduled" | "approved" | "rejected"; description: string | null; date: string; walletId: string; toWalletId: string | null; wallet: string; categoryId: string | null; category: { name: string; color: string } | null; memberId: string; member: string };
-type Props = { workspace: { id: string; name: string; currency: string }; reportPeriod: string; wallets: { id: string; name: string; balance: string; updatedAt: string }[]; totalByCurrency: Record<string, string>; categories: { id: string; name: string; color: string; icon: string | null; parentId: string | null; type: "income" | "expense" }[]; members: { id: string; name: string }[]; transactions: Transaction[] };
+type Props = { workspace: { id: string; name: string; currency: string; isSample: boolean; navigationBasePath: string }; reportPeriod: string; wallets: { id: string; name: string; balance: string; updatedAt: string }[]; totalByCurrency: Record<string, string>; categories: { id: string; name: string; color: string; icon: string | null; parentId: string | null; type: "income" | "expense" }[]; members: { id: string; name: string }[]; transactions: Transaction[] };
 const money = (value: Decimal.Value, currency: string) => `${formatAmount(value)} ${currency}`;
 const statusLabel = { approved: "Đã ghi nhận", pending: "Chờ duyệt", scheduled: "Đã lên lịch", rejected: "Đã từ chối" };
 const monthlyChartConfig = {
@@ -58,11 +59,14 @@ export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCur
 
   return <PageContainer className="overview-shell">
     <PageHeader
-      eyebrow={`Workspace · ${workspace.name}`}
+      eyebrow={`${workspace.isSample ? "Dữ liệu mẫu" : "Workspace"} · ${workspace.name}`}
       title="Tổng quan tài chính"
-      description="Theo dõi thu nhập, chi tiêu và số dư tài khoản của toàn bộ workspace."
+      description={workspace.isSample
+        ? "Khám phá dữ liệu tài chính mô phỏng đầy đủ mà không ảnh hưởng đến workspace thật."
+        : "Theo dõi thu nhập, chi tiêu và số dư tài khoản của toàn bộ workspace."}
     >
-      <Link href="/dashboard?action=new-transaction" className={buttonVariants({ className: "overview-quick-entry-trigger" })}>
+      {!workspace.isSample && <SampleDataButton />}
+      <Link href={`${workspace.navigationBasePath || "/dashboard"}${workspace.navigationBasePath ? "/ledger" : ""}?action=new-transaction`} className={buttonVariants({ className: "overview-quick-entry-trigger" })}>
         <Plus size={17}/>
         Nhập giao dịch
       </Link>
@@ -96,7 +100,7 @@ export function OverviewDashboard({ workspace, reportPeriod, wallets, totalByCur
           })}</div> : <Empty variant="compact" title="Chưa có chi phí đã ghi nhận" description="Dữ liệu phân bổ theo hạng mục sẽ xuất hiện tại đây." />}
         </Card>
         <Card as="section" className="overview-card overview-recent gap-0 py-0">
-          <header><div><h2>Giao dịch gần đây</h2><p>Được sắp xếp theo ngày mới nhất</p></div><a href={`/workspace/${workspace.id}`}>Xem tất cả</a></header>
+          <header><div><h2>Giao dịch gần đây</h2><p>Được sắp xếp theo ngày mới nhất</p></div><a href={workspace.navigationBasePath ? `${workspace.navigationBasePath}/ledger` : `/workspace/${workspace.id}`}>Xem tất cả</a></header>
           <div className="recent-table">{filtered.slice(0, 6).map((item) => <article key={item.id}><div><strong title={item.description ?? "Không có nội dung"}>{item.description ?? "Không có nội dung"}</strong><small>{item.category?.name ?? "Chưa phân loại"} · {item.wallet} · {item.member}</small></div><time>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(new Date(item.date))}</time><b className={item.type}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{money(item.amount, workspace.currency)}</b><span className={`overview-status ${item.status}`}>{statusLabel[item.status]}</span></article>)}{!filtered.length && <Empty variant="compact" title="Không có giao dịch phù hợp" description="Thử thay đổi bộ lọc báo cáo." />}</div>
         </Card>
         <Card as="section" className="overview-card overview-operations gap-0 py-0">

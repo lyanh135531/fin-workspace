@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Building2, KeyRound, Plus, ArrowRight, Clock, Sparkles } from "lucide-react";
 import { JoinRequestRecord } from "@/services/join-request-query";
 import { Button, Card } from "@/components/base";
+import { SampleDataButton } from "@/components/sample-data-button";
 
 interface Props {
   username: string;
@@ -28,6 +29,9 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
           <p className="text-sm leading-relaxed text-slate-500 sm:text-base">
             Bạn hiện chưa thuộc về workspace nào. Bắt đầu ngay bằng cách tạo một không gian làm việc mới của riêng bạn hoặc tham gia vào workspace đã có của nhóm.
           </p>
+          <div className="pt-2">
+            <SampleDataButton variant="default" className="w-full sm:w-auto" />
+          </div>
         </div>
       </Card>
 

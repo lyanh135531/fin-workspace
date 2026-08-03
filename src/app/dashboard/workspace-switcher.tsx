@@ -92,11 +92,13 @@ export function WorkspaceSwitcher({
   currentId,
   pendingJoinCount = 0,
   forceExpanded = false,
+  navigationBasePath = "",
 }: {
   workspaces: Workspace[];
   currentId: string;
   pendingJoinCount?: number;
   forceExpanded?: boolean;
+  navigationBasePath?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -108,6 +110,11 @@ export function WorkspaceSwitcher({
   const currentWorkspace = workspaces.find((ws) => ws.id === currentId) ?? workspaces[0];
 
   function choose(id: string) {
+    if (navigationBasePath && id === currentId) {
+      setOpen(false);
+      router.push(`${navigationBasePath}/ledger`);
+      return;
+    }
     if (id === currentId && pathname === `/workspace/${id}`) {
       setOpen(false);
       return;

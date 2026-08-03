@@ -25,6 +25,7 @@ type MobileNavigationProps = {
   isAdmin: boolean;
   username: string;
   role: "admin" | "member" | "none";
+  navigationBasePath?: string;
 };
 
 export function MobileNavigation(props: MobileNavigationProps) {
@@ -39,6 +40,7 @@ function MobileNavigationDrawer({
   isAdmin,
   username,
   role,
+  navigationBasePath,
 }: MobileNavigationProps) {
   const [open, setOpen] = useState(false);
 
@@ -78,6 +80,7 @@ function MobileNavigationDrawer({
             isAdmin={isAdmin}
             username={username}
             forceExpandedWorkspaceSwitcher
+            navigationBasePath={navigationBasePath}
           />
         </div>
 
