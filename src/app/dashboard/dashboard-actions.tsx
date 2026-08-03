@@ -103,7 +103,7 @@ function isChanged(item: LedgerItem, draft: TransactionDraft) {
     || item.amount !== draft.amount;
 }
 
-export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth, onMonthChange, transactions, totalTransactions, pageSize, canApprove, canEditTransactions, isAdmin, scopeLabel, wallets, categories, canManageWallets, readonly = false, startWithNewTransaction = false }: { workspaceId: string; businessDate: string; initialMonth: string; selectedMonth?: string; onMonthChange?: (month: string) => void; transactions: LedgerItem[]; totalTransactions: number; pageSize: number; canApprove: boolean; canEditTransactions: boolean; isAdmin: boolean; scopeLabel: string; wallets: Option[]; categories: Option[]; canManageWallets: boolean; readonly?: boolean; startWithNewTransaction?: boolean }) {
+export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth, onMonthChange, transactions, totalTransactions, pageSize, canApprove, canEditTransactions, isAdmin, scopeLabel, wallets, categories, canManageWallets, currency, readonly = false, startWithNewTransaction = false }: { workspaceId: string; businessDate: string; initialMonth: string; selectedMonth?: string; onMonthChange?: (month: string) => void; transactions: LedgerItem[]; totalTransactions: number; pageSize: number; canApprove: boolean; canEditTransactions: boolean; isAdmin: boolean; scopeLabel: string; wallets: Option[]; categories: Option[]; canManageWallets: boolean; currency: string; readonly?: boolean; startWithNewTransaction?: boolean }) {
   const [query, setQuery] = useState("");
   const [internalMonth, setInternalMonth] = useState(initialMonth);
   const month = selectedMonth ?? internalMonth;
@@ -375,10 +375,10 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
               <small>#{String(Math.max(1, totalTransactions - ((page - 1) * pageSize + index))).padStart(5, "0")} · {item.member}{item.isRecurring ? " · Tự động" : ""}</small>
               <b
                 className={`ledger-amount amount-${item.type}`}
-                title={`${item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}${formatAmount(item.amount)} ₫`}
-                aria-label={`Số tiền ${formatAmount(item.amount)} đồng`}
+                title={`${item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}${formatAmount(item.amount)} ${currency}`}
+                aria-label={`Số tiền ${formatAmount(item.amount)} ${currency}`}
               >
-                {item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} ₫
+                {item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} {currency}
               </b>
             </div>
           </div>
@@ -419,7 +419,7 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
           <td className="ledger-category-column">{item.category ? <span className="category-tag" style={{ backgroundColor: `${item.category.color}22`, color: item.category.color }}>{item.category.name}</span> : "—"}</td>
           <td className="ledger-wallet-column">{item.wallet}{item.toWallet ? <small className="ledger-wallet-destination">→ {item.toWallet}</small> : null}</td>
           <td className="ledger-date-column">{formatLedgerDate(item.date)}</td>
-          <td className={`ledger-amount ledger-amount-column amount-${item.type}`}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} ₫</td>
+          <td className={`ledger-amount ledger-amount-column amount-${item.type}`}>{item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}{formatAmount(item.amount)} {currency}</td>
           <td className="ledger-status-column"><Status value={item.status}/>{item.hasPendingChange && <small className="ledger-change-pending">Đang chờ thay đổi</small>}</td>
           <td className="ledger-actions-column"><div className="ledger-row-actions">
             {canApprove && item.status === "pending" && <Button variant="ghost" size="default" disabled={busy || editMode} onClick={() => rejectOne(item)}>Từ chối</Button>}

@@ -107,7 +107,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
         <div className="dashboard-brand-row">
           <div className="dashboard-brand" style={{ display: "flex", alignItems: "center", gap: ".55rem", margin: "0 .35rem" }}>
             <FinLogo size={28} />
-            <span className="sidebar-brand-text">Fin Workspace</span>
+            <span className="sidebar-brand-text">Felice</span>
           </div>
           <SidebarToggle />
         </div>
@@ -154,7 +154,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
                 fallback={
                   membership
                     ? membership.workspace.name
-                    : "Fin Workspace"
+                    : "Felice"
                 }
               />
             </div>
@@ -204,4 +204,3 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
     </div>
   );
 }
-

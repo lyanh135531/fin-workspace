@@ -101,6 +101,7 @@ export async function WorkspaceDashboard({
       workspaceId,
       businessDate,
       initialMonth: currentPeriod,
+      currency: membership.workspace.baseCurrency,
       transactions: ledger,
       totalTransactions,
       pageSize: LEDGER_PAGE_SIZE,

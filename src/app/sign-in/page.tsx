@@ -52,9 +52,9 @@ export default function SignInPage() {
 
       <section className="auth-form-panel" aria-labelledby="sign-in-title">
         <div className="auth-form-toolbar">
-          <Link href="/" className="auth-mobile-brand" aria-label="Fin Workspace — Trang chủ">
+          <Link href="/" className="auth-mobile-brand" aria-label="Felice — Trang chủ">
             <FinLogo size={28} />
-            <span>Fin Workspace</span>
+            <span>Felice</span>
           </Link>
           <ThemeToggle />
         </div>
@@ -157,7 +157,7 @@ export default function SignInPage() {
           </div>
         </Card>
         <p className="auth-legal">
-          Khi tiếp tục, bạn đồng ý với các quy định bảo mật của Fin Workspace.
+          Khi tiếp tục, bạn đồng ý với các quy định bảo mật của Felice.
         </p>
       </section>
     </main>

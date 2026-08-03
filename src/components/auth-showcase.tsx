@@ -94,12 +94,12 @@ export function AuthShowcase({ mode }: AuthShowcaseProps) {
     <aside className="auth-visual-panel">
       <div className="auth-grid-pattern" aria-hidden />
 
-      <Link className="auth-visual-brand" href="/" aria-label="Fin Workspace — Trang chủ">
+      <Link className="auth-visual-brand" href="/" aria-label="Felice — Trang chủ">
         <span className="auth-brand-mark">
           <FinLogo size={30} />
         </span>
         <span>
-          <strong>Fin Workspace</strong>
+          <strong>Felice</strong>
           <small>Tài chính, cùng một nhịp.</small>
         </span>
       </Link>
@@ -140,7 +140,7 @@ export function AuthShowcase({ mode }: AuthShowcaseProps) {
         </span>
         <span>
           <Landmark size={14} aria-hidden />
-          Fin Workspace
+          Felice
         </span>
       </div>
     </aside>

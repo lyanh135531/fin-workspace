@@ -64,7 +64,7 @@ function MobileNavigationDrawer({
           <div className="mobile-navigation-brand">
             <FinLogo size={30} />
             <div>
-              <SheetTitle>Fin Workspace</SheetTitle>
+              <SheetTitle>Felice</SheetTitle>
               <SheetDescription>Điều hướng và chọn workspace</SheetDescription>
             </div>
           </div>
