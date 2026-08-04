@@ -295,14 +295,14 @@ export function WalletManagement({
         )}
       </PageHeader>
 
-      <Card as="section" className="gap-0 py-0" aria-label="Tổng quan tài sản">
-        <CardHeader className="border-b py-4">
+      <Card as="section" aria-label="Tổng quan tài sản">
+        <CardHeader className="border-b">
           <CardTitle>Tổng quan tài sản</CardTitle>
           <CardDescription>
             Số liệu từ các ví đang hoạt động trong workspace
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-6 py-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)] lg:items-end">
+        <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)] lg:items-end">
           <div className="min-w-0">
             <p className="text-sm font-medium text-[var(--text-secondary)]">
               Tổng số dư khả dụng
@@ -400,8 +400,8 @@ export function WalletManagement({
           {filteredWallets.map((wallet) => {
             const isActive = wallet.status === "active";
             return (
-              <Card as="article" className="gap-0 py-0" key={wallet.id}>
-                <CardHeader className="border-b py-4">
+              <Card as="article" className="" key={wallet.id}>
+                <CardHeader className="border-b">
                   <div className="flex min-w-0 items-center gap-3">
                     <span
                       className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"
@@ -447,7 +447,7 @@ export function WalletManagement({
                   )}
                 </CardHeader>
 
-                <CardContent className="flex flex-1 flex-col gap-5 py-5">
+                <CardContent className="flex flex-1 flex-col gap-5">
                   <div>
                     <p className="text-xs font-medium text-[var(--text-secondary)]">
                       Số dư hiện tại

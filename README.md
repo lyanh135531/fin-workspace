@@ -9,6 +9,7 @@
 ```bash
 cp .env.example .env
 # Sửa POSTGRES_PASSWORD và NEXTAUTH_SECRET trong .env
+# Nếu deploy sau một domain, đổi NEXTAUTH_URL thành URL public của ứng dụng.
 
 docker compose up --build -d
 ```

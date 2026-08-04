@@ -81,7 +81,7 @@ export function DashboardLedgerWorkspace({
       </section>
 
       <div className="ledger-table-viewport">
-        <Card as="section" className="dashboard-ledger-card ledger-book gap-0 py-0 overflow-hidden">
+        <Card as="section" className="dashboard-ledger-card ledger-book gap-0 p-0 overflow-hidden">
           <Ledger
             {...ledgerProps}
             selectedMonth={selectedMonth}

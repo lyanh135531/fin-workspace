@@ -436,8 +436,7 @@
 
 .ledger-book .ledger-pagination {
   min-height: 3.6rem;
-  background: color-mix(in srgb, var(--surface-secondary) 58%, var(--surface));
-  border-top: 0;
+  border-top: 1px solid var(--border);
   padding-inline: 1rem;
 }
 

@@ -39,13 +39,7 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
     code.length === 7 && code.includes("-") ? code.replace("-", " · ") : code;
 
   return (
-    <Card
-      as="section"
-      className="shadow-xs relative overflow-hidden flex flex-col h-full gap-6"
-    >
-      {/* Accent glow (subtle) */}
-      <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full blur-[80px] pointer-events-none opacity-20 bg-indigo-500" />
-
+    <Card as="section">
       <div className="space-y-3 relative z-10">
         <div className="flex items-center justify-between">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-900/10">

@@ -20,7 +20,10 @@ import {
   setCategoryStatusAction,
   updateCategoryAction,
 } from "@/app/dashboard/settings/category-actions";
-import { ICON_MAP, slugifyCode } from "@/app/dashboard/settings/global-category-management";
+import {
+  ICON_MAP,
+  slugifyCode,
+} from "@/app/dashboard/settings/global-category-management";
 import {
   Button,
   Card,
@@ -103,7 +106,10 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       color: String(form.get("color") ?? COLOR_PRESETS[0]),
       type: String(form.get("type") ?? "expense") as "income" | "expense",
       icon: String(form.get("icon") ?? "tag"),
-      parentId: form.get("parentId") === "none" ? undefined : (form.get("parentId") as string) || undefined,
+      parentId:
+        form.get("parentId") === "none"
+          ? undefined
+          : (form.get("parentId") as string) || undefined,
     };
     start(async () => {
       const result = id
@@ -124,7 +130,9 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       const result = await setCategoryStatusAction(id, status);
       if (result.ok) {
         toast.success(
-          status === "active" ? "Đã kích hoạt danh mục." : "Đã vô hiệu hóa danh mục."
+          status === "active"
+            ? "Đã kích hoạt danh mục."
+            : "Đã vô hiệu hóa danh mục.",
         );
       } else {
         toast.error(result.message ?? "Không thể đổi trạng thái.");
@@ -179,7 +187,11 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
     handleReorder([...allOrdered, ...otherTypeItems]);
   }
 
-  function moveChildItem(parentId: string, index: number, direction: "up" | "down") {
+  function moveChildItem(
+    parentId: string,
+    index: number,
+    direction: "up" | "down",
+  ) {
     const siblings = currentCategories.filter((c) => c.parentId === parentId);
     const targetIndex = direction === "up" ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= siblings.length) return;
@@ -201,14 +213,17 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   }
 
   return (
-    <Card as="section" className="sunrise-card gap-0 mt-4 p-6">
+    <Card as="section" className="gap-0">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[var(--border)]">
         <div>
           <p className="settings-eyebrow">Danh mục workspace</p>
-          <h2 className="mt-0.5 text-base font-bold tracking-tight">Quản lý danh mục workspace</h2>
+          <h2 className="mt-0.5 text-base font-bold tracking-tight">
+            Quản lý danh mục workspace
+          </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Danh mục thuộc workspace này. Bạn có thể tạo mới hoặc import từ danh mục mẫu cá nhân.
+            Danh mục thuộc workspace này. Bạn có thể tạo mới hoặc import từ danh
+            mục mẫu cá nhân.
           </p>
         </div>
         <Button
@@ -225,7 +240,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       </div>
 
       {/* Tabs: Chi tiêu & Thu nhập */}
-      <div className="mt-4 flex items-center justify-between gap-3 pb-3 border-b border-[var(--border)]">
+      <div className="flex items-center justify-between gap-3 py-4 mb-1 border-b border-[var(--border)]">
         <Tabs
           value={filterType}
           onValueChange={(value) => {
@@ -259,7 +274,8 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         </Tabs>
 
         <p className="text-xs text-slate-400 font-medium hidden sm:block">
-          Dùng mũi tên <ChevronUp size={12} className="inline" /> <ChevronDown size={12} className="inline" /> để thay đổi thứ tự
+          Dùng mũi tên <ChevronUp size={12} className="inline" />{" "}
+          <ChevronDown size={12} className="inline" /> để thay đổi thứ tự
         </p>
       </div>
 
@@ -272,7 +288,10 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           }
         }}
       >
-        <SheetContent side="right" className="sm:max-w-md w-full flex flex-col h-full p-0 bg-[var(--surface)] text-[var(--foreground)] border-l border-[var(--border)]">
+        <SheetContent
+          side="right"
+          className="sm:max-w-md w-full flex flex-col h-full p-0 bg-[var(--surface)] text-[var(--foreground)] border-l border-[var(--border)]"
+        >
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-[var(--border)]">
             <SheetTitle>
               {editingCategory
@@ -292,7 +311,9 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
                 defaultType={editingCategory?.type ?? filterType}
                 categories={
                   editingCategory
-                    ? categories.filter((item) => item.id !== editingCategory.id)
+                    ? categories.filter(
+                        (item) => item.id !== editingCategory.id,
+                      )
                     : categories
                 }
                 category={editingCategory}
@@ -309,7 +330,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       </Sheet>
 
       {/* Tree list */}
-      <div className="mt-4">
+      <div>
         {rootCategories.map((category, index) => (
           <CategoryNode
             key={category.id}
@@ -368,10 +389,8 @@ function CategoryNode({
   // Root category = mini-card
   if (!isChild) {
     return (
-      <div
-        className="rounded-xl bg-[var(--surface)] transition-all duration-200 hover:bg-[var(--surface-muted)]/40"
-      >
-        <div className="group flex items-center justify-between gap-3 px-4 py-3">
+      <div className="rounded-xl bg-[var(--surface)] transition-all duration-200">
+        <div className="group flex items-center justify-between gap-3 py-3">
           <div className="flex min-w-0 items-center gap-3">
             {/* Icon — large, prominent */}
             <span
@@ -395,13 +414,15 @@ function CategoryNode({
                     "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium leading-none",
                     category.status === "active"
                       ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
-                      : "bg-slate-100 text-slate-400 dark:bg-slate-800/60 dark:text-slate-500"
+                      : "bg-slate-100 text-slate-400 dark:bg-slate-800/60 dark:text-slate-500",
                   )}
                 >
                   <span
                     className={cn(
                       "w-1 h-1 rounded-full",
-                      category.status === "active" ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"
+                      category.status === "active"
+                        ? "bg-emerald-500"
+                        : "bg-slate-300 dark:bg-slate-600",
                     )}
                   />
                   {category.status === "active" ? "Hoạt động" : "Đã tắt"}
@@ -421,34 +442,55 @@ function CategoryNode({
           {/* Actions */}
           <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <div className="flex items-center">
-              <Button variant="icon" size="auto"
+              <Button
+                variant="icon"
+                size="auto"
                 disabled={pending || index === 0}
                 onClick={() => onMoveRoot(index, "up")}
-                title="Di chuyển lên" aria-label="Di chuyển lên"
+                title="Di chuyển lên"
+                aria-label="Di chuyển lên"
               >
                 <ChevronUp size={16} />
               </Button>
-              <Button variant="icon" size="auto"
+              <Button
+                variant="icon"
+                size="auto"
                 disabled={pending || index === totalRoots - 1}
                 onClick={() => onMoveRoot(index, "down")}
-                title="Di chuyển xuống" aria-label="Di chuyển xuống"
+                title="Di chuyển xuống"
+                aria-label="Di chuyển xuống"
               >
                 <ChevronDown size={16} />
               </Button>
             </div>
             <div className="w-px h-4 bg-[var(--border)] mx-1" />
-            <Button variant="icon" size="auto"
-              onClick={() => onEdit(category.id)} disabled={pending}
-              title="Chỉnh sửa" aria-label={`Chỉnh sửa ${category.name}`}
+            <Button
+              variant="icon"
+              size="auto"
+              onClick={() => onEdit(category.id)}
+              disabled={pending}
+              title="Chỉnh sửa"
+              aria-label={`Chỉnh sửa ${category.name}`}
             >
               <Pencil size={15} />
             </Button>
-            <Button variant="icon" size="auto"
-              onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}
+            <Button
+              variant="icon"
+              size="auto"
+              onClick={() =>
+                onStatus(
+                  category.id,
+                  category.status === "active" ? "deactive" : "active",
+                )
+              }
               disabled={pending}
               title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
             >
-              {category.status === "active" ? <EyeOff size={15} /> : <Eye size={15} />}
+              {category.status === "active" ? (
+                <EyeOff size={15} />
+              ) : (
+                <Eye size={15} />
+              )}
             </Button>
             <ConfirmDelete
               ariaLabel={`Xóa danh mục ${category.name}`}
@@ -514,7 +556,9 @@ function CategoryNode({
           <span
             className={cn(
               "w-1.5 h-1.5 rounded-full flex-shrink-0",
-              category.status === "active" ? "bg-emerald-400" : "bg-slate-300 dark:bg-slate-600"
+              category.status === "active"
+                ? "bg-emerald-400"
+                : "bg-slate-300 dark:bg-slate-600",
             )}
             title={category.status === "active" ? "Hoạt động" : "Đã tắt"}
           />
@@ -525,39 +569,63 @@ function CategoryNode({
       </div>
 
       <div className="flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-        <Button variant="unstyled" size="auto"
+        <Button
+          variant="unstyled"
+          size="auto"
           className="text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20 transition-colors p-1"
           disabled={pending || index === 0}
           onClick={() => onMoveChild(category.parentId!, index, "up")}
-          title="Di chuyển lên" aria-label="Di chuyển lên"
+          title="Di chuyển lên"
+          aria-label="Di chuyển lên"
         >
           <ChevronUp size={14} />
         </Button>
-        <Button variant="unstyled" size="auto"
+        <Button
+          variant="unstyled"
+          size="auto"
           className="text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20 transition-colors p-1"
           disabled={pending || index === totalRoots - 1}
           onClick={() => onMoveChild(category.parentId!, index, "down")}
-          title="Di chuyển xuống" aria-label="Di chuyển xuống"
+          title="Di chuyển xuống"
+          aria-label="Di chuyển xuống"
         >
           <ChevronDown size={14} />
         </Button>
         <div className="w-px h-3 bg-[var(--border)] mx-0.5" />
-        <Button variant="unstyled" size="auto"
+        <Button
+          variant="unstyled"
+          size="auto"
           className="text-slate-400 hover:text-[var(--foreground)] transition-colors p-1"
-          onClick={() => onEdit(category.id)} disabled={pending}
-          title="Chỉnh sửa" aria-label={`Chỉnh sửa ${category.name}`}
+          onClick={() => onEdit(category.id)}
+          disabled={pending}
+          title="Chỉnh sửa"
+          aria-label={`Chỉnh sửa ${category.name}`}
         >
           <Pencil size={13} />
         </Button>
-        <Button variant="unstyled" size="auto"
-          className={cn("text-slate-400 transition-colors p-1",
-            category.status === "active" ? "hover:text-amber-500" : "hover:text-emerald-500"
+        <Button
+          variant="unstyled"
+          size="auto"
+          className={cn(
+            "text-slate-400 transition-colors p-1",
+            category.status === "active"
+              ? "hover:text-amber-500"
+              : "hover:text-emerald-500",
           )}
-          onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}
+          onClick={() =>
+            onStatus(
+              category.id,
+              category.status === "active" ? "deactive" : "active",
+            )
+          }
           disabled={pending}
           title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
         >
-          {category.status === "active" ? <EyeOff size={13} /> : <Eye size={13} />}
+          {category.status === "active" ? (
+            <EyeOff size={13} />
+          ) : (
+            <Eye size={13} />
+          )}
         </Button>
         <ConfirmDelete
           ariaLabel={`Xóa danh mục ${category.name}`}
@@ -590,7 +658,9 @@ function CategoryForm({
   const [name, setName] = useState(category?.name ?? "");
   const [code, setCode] = useState(category?.code ?? "");
   const [autoCode, setAutoCode] = useState(!category);
-  const [selectedColor, setSelectedColor] = useState(category?.color ?? COLOR_PRESETS[0]);
+  const [selectedColor, setSelectedColor] = useState(
+    category?.color ?? COLOR_PRESETS[0],
+  );
   const [selectedIcon, setSelectedIcon] = useState(category?.icon ?? "tag");
 
   function handleNameChange(val: string) {
@@ -646,30 +716,30 @@ function CategoryForm({
             defaultValue={category?.parentId ?? "none"}
             label="Danh mục cha"
             emptyOption={{ value: "none", label: "Không có" }}
-            categories={categories
-              .filter(
-                (item) =>
-                  item.status === "active" &&
-                  item.type === (category?.type ?? defaultType) &&
-                  (!category || item.id !== category.id) &&
-                  !item.parentId
-              )
-            }
+            categories={categories.filter(
+              (item) =>
+                item.status === "active" &&
+                item.type === (category?.type ?? defaultType) &&
+                (!category || item.id !== category.id) &&
+                !item.parentId,
+            )}
           />
         </div>
 
         {/* Color Picker */}
         <div className="grid gap-1">
-          <Label>
-            Màu đại diện
-          </Label>
+          <Label>Màu đại diện</Label>
           <div className="flex flex-wrap items-center gap-2 mb-2">
             {COLOR_PRESETS.map((color) => (
-              <Button variant="unstyled" size="auto"
+              <Button
+                variant="unstyled"
+                size="auto"
                 key={color}
                 type="button"
                 className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                  selectedColor === color ? "scale-110 border-white shadow-md ring-2 ring-[var(--primary)]" : "border-transparent"
+                  selectedColor === color
+                    ? "scale-110 border-white shadow-md ring-2 ring-[var(--primary)]"
+                    : "border-transparent"
                 }`}
                 style={{ backgroundColor: color }}
                 onClick={() => setSelectedColor(color.toUpperCase())}
@@ -687,15 +757,15 @@ function CategoryForm({
 
         {/* Visual Icon Picker Grid */}
         <div className="grid gap-1">
-          <Label>
-            Chọn Biểu tượng
-          </Label>
+          <Label>Chọn Biểu tượng</Label>
           <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border border-[var(--border)] rounded-xl bg-[var(--surface)]">
             {ICON_LIST.map((item) => {
               const IconComp = ICON_MAP[item.id] ?? Tag;
               const isSelected = selectedIcon === item.id;
               return (
-                <Button variant="unstyled" size="auto"
+                <Button
+                  variant="unstyled"
+                  size="auto"
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedIcon(item.id)}
@@ -707,7 +777,9 @@ function CategoryForm({
                   title={item.label}
                 >
                   <IconComp size={18} />
-                  <span className="text-[10px] truncate max-w-full">{item.label}</span>
+                  <span className="text-[10px] truncate max-w-full">
+                    {item.label}
+                  </span>
                 </Button>
               );
             })}
@@ -717,7 +789,12 @@ function CategoryForm({
       </div>
 
       <div className="flex justify-end gap-2 pt-4 border-t border-[var(--border)] mt-auto">
-        <Button type="button" variant="outline" className="hover:bg-[var(--surface-secondary)] hover:text-current" onClick={onCancel}>
+        <Button
+          type="button"
+          variant="outline"
+          className="hover:bg-[var(--surface-secondary)] hover:text-current"
+          onClick={onCancel}
+        >
           Hủy bỏ
         </Button>
         <Button type="submit" variant="default" disabled={pending}>

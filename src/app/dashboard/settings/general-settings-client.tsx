@@ -1,7 +1,7 @@
 "use client";
 
-import { Card, Tabs, TabsList, TabsTrigger } from "@/components/base";
-import { Check, Laptop, Moon, Palette, Sun, Sparkles } from "lucide-react";
+import { Button, Card, Tabs, TabsList, TabsTrigger } from "@/components/base";
+import { Check, Moon, Palette, Sun, Sparkles } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 
@@ -170,13 +170,15 @@ export function GeneralSettingsClient() {
         {themes.map((item) => {
           const isSelected = theme === item.value;
           return (
-            <button
+            <Button
               key={item.value}
+              variant="unstyled"
+              size="auto"
               type="button"
               role="radio"
               aria-checked={isSelected}
               className={cn(
-                "group relative flex flex-col text-left overflow-hidden bg-[var(--surface)] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] outline-none border",
+                "group rounded-xl relative flex flex-col text-left overflow-hidden bg-[var(--surface)] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] outline-none border",
                 isSelected
                   ? "border-transparent shadow-lg shadow-black/5 dark:shadow-black/30"
                   : "border-black/[0.08] dark:border-white/[0.08] hover:border-black/20 dark:hover:border-white/20 hover:-translate-y-1 hover:shadow-md",
@@ -281,7 +283,7 @@ export function GeneralSettingsClient() {
                   </span>
                 </div>
               </div>
-            </button>
+            </Button>
           );
         })}
       </div>

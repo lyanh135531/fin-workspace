@@ -165,7 +165,6 @@ export function WorkspaceSettings({
               type="submit"
               disabled={pending}
               variant="default"
-              className="rounded-full px-6 py-2.5 font-medium transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]"
             >
               {pending ? (
                 <>
@@ -213,7 +212,6 @@ export function WorkspaceSettings({
               setDeleteDialog(true);
             }}
             variant="destructive"
-            className="shrink-0 rounded-full px-5 py-2.5 font-medium transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]"
           >
             <Trash2 size={16} className="mr-2" />
             Xóa Workspace

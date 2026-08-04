@@ -123,7 +123,7 @@ export function DashboardNavigation({
         </div>
       )}
 
-      <SidebarGroup className="pt-1">
+      <SidebarGroup>
         <SidebarGroupContent>
           <NavigationMenu items={workspaceItems} />
         </SidebarGroupContent>
@@ -131,7 +131,7 @@ export function DashboardNavigation({
 
       <div className="mx-4 my-1 h-px bg-[var(--border)] transition-[margin] duration-300 group-data-[collapsible=icon]:mx-3" aria-hidden />
 
-      <SidebarGroup className="pt-1">
+      <SidebarGroup>
         <SidebarGroupContent>
           <NavigationMenu items={generalItems} />
         </SidebarGroupContent>

@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ArrowDownLeft, ArrowUpRight, Download, Tag, CheckCircle2 } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Download,
+  Tag,
+  CheckCircle2,
+} from "lucide-react";
 import { importCategoriesAction } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP } from "@/app/dashboard/settings/global-category-management";
 import { Button, Card, Checkbox, Empty, Label } from "@/components/base";
@@ -40,7 +46,8 @@ export function ImportCategoryPanel({
 
   // Build unified tree from ALL templates
   const roots = annotated.filter((t) => !t.parentId);
-  const childrenOf = (parentId: string) => annotated.filter((t) => t.parentId === parentId);
+  const childrenOf = (parentId: string) =>
+    annotated.filter((t) => t.parentId === parentId);
 
   // Check if a root has any importable descendants (itself or children)
   const hasImportable = (parentId: string): boolean => {
@@ -92,8 +99,10 @@ export function ImportCategoryPanel({
       if (result.ok) {
         toast.success(
           `Đã import ${result.importedCount ?? 0} danh mục${
-            result.skippedCount ? `, bỏ qua ${result.skippedCount} trùng mã` : ""
-          }.`
+            result.skippedCount
+              ? `, bỏ qua ${result.skippedCount} trùng mã`
+              : ""
+          }.`,
         );
         setSelected(new Set());
       } else {
@@ -104,16 +113,22 @@ export function ImportCategoryPanel({
 
   if (templates.length === 0) {
     return (
-      <Card as="section" className="sunrise-card gap-0 mt-4 p-6">
-        <div className="pb-3 border-b border-[var(--border)]">
+      <Card as="section">
+        <div className="pb-4 border-b border-[var(--border)]">
           <p className="settings-eyebrow">Import danh mục</p>
-          <h2 className="mt-0.5 text-base font-bold tracking-tight">Import từ danh mục mẫu</h2>
+          <h2 className="mt-0.5 text-base font-bold tracking-tight">
+            Import từ danh mục mẫu
+          </h2>
         </div>
         <Empty
           variant="compact"
           icon={Tag}
           title="Bạn chưa có danh mục mẫu"
-          description={<>Vào <strong>Cài đặt chung</strong> để tạo bộ danh mục mẫu trước.</>}
+          description={
+            <>
+              Vào <strong>Cài đặt chung</strong> để tạo bộ danh mục mẫu trước.
+            </>
+          }
           className="mt-4"
         />
       </Card>
@@ -129,7 +144,9 @@ export function ImportCategoryPanel({
       <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
         <div>
           <p className="settings-eyebrow">Import danh mục</p>
-          <h2 className="mt-0.5 text-base font-bold tracking-tight">Import từ danh mục mẫu</h2>
+          <h2 className="mt-0.5 text-base font-bold tracking-tight">
+            Import từ danh mục mẫu
+          </h2>
           <p className="mt-1 text-sm text-slate-500">
             Chọn danh mục mẫu cá nhân để copy vào workspace này.
           </p>
@@ -138,12 +155,15 @@ export function ImportCategoryPanel({
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="outline" size="default"
+              variant="outline"
+              size="default"
               onClick={toggleAll}
               disabled={pending}
               className="text-xs"
             >
-              {selected.size === importableTemplates.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+              {selected.size === importableTemplates.length
+                ? "Bỏ chọn tất cả"
+                : "Chọn tất cả"}
             </Button>
             <Button
               variant="default"
@@ -173,13 +193,18 @@ export function ImportCategoryPanel({
                 <div className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 opacity-50">
                   <span
                     className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
-                    style={{ backgroundColor: `${root.color}0d`, color: root.color }}
+                    style={{
+                      backgroundColor: `${root.color}0d`,
+                      color: root.color,
+                    }}
                   >
                     <RootIcon size={16} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-sm">{root.name}</p>
-                    <p className="text-[11px] text-emerald-500 mt-0.5 font-medium">Đã import</p>
+                    <p className="text-[11px] text-emerald-500 mt-0.5 font-medium">
+                      Đã import
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -189,7 +214,7 @@ export function ImportCategoryPanel({
                     "flex items-center gap-3 rounded-xl border px-3.5 py-3 cursor-pointer transition-all duration-200",
                     isChecked
                       ? "border-[var(--primary)]/60 bg-[var(--primary)]/[0.04] shadow-sm"
-                      : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)]/30"
+                      : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)]/30",
                   )}
                 >
                   <Checkbox
@@ -211,11 +236,17 @@ export function ImportCategoryPanel({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-sm">{root.name}</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      <span className={cn(
-                        "inline-flex items-center gap-0.5",
-                        isIncome ? "text-emerald-500" : "text-rose-500"
-                      )}>
-                        {isIncome ? <ArrowDownLeft size={10} /> : <ArrowUpRight size={10} />}
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-0.5",
+                          isIncome ? "text-emerald-500" : "text-rose-500",
+                        )}
+                      >
+                        {isIncome ? (
+                          <ArrowDownLeft size={10} />
+                        ) : (
+                          <ArrowUpRight size={10} />
+                        )}
                         {isIncome ? "Thu nhập" : "Chi tiêu"}
                       </span>
                       {children.length > 0 && (
@@ -252,12 +283,19 @@ export function ImportCategoryPanel({
                           <div className="relative flex items-center gap-2.5 pl-8 pr-3 py-1.5 opacity-40">
                             <span
                               className="grid h-7 w-7 shrink-0 place-items-center rounded-md"
-                              style={{ backgroundColor: `${child.color}0d`, color: child.color }}
+                              style={{
+                                backgroundColor: `${child.color}0d`,
+                                color: child.color,
+                              }}
                             >
                               <ChildIcon size={13} />
                             </span>
-                            <span className="truncate text-[12.5px] font-medium">{child.name}</span>
-                            <span className="text-[10px] text-emerald-500 font-medium shrink-0">Đã import</span>
+                            <span className="truncate text-[12.5px] font-medium">
+                              {child.name}
+                            </span>
+                            <span className="text-[10px] text-emerald-500 font-medium shrink-0">
+                              Đã import
+                            </span>
                           </div>
                         ) : (
                           /* Importable child — selectable */
@@ -266,7 +304,7 @@ export function ImportCategoryPanel({
                               "relative flex items-center gap-2.5 rounded-lg pl-8 pr-3 py-2 cursor-pointer transition-all duration-150",
                               isChildChecked
                                 ? "bg-[var(--primary)]/[0.03]"
-                                : "hover:bg-[var(--surface-muted)]/30"
+                                : "hover:bg-[var(--surface-muted)]/30",
                             )}
                           >
                             <Checkbox

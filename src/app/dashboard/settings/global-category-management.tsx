@@ -266,9 +266,9 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
   }
 
   return (
-    <Card as="section">
+    <Card as="section" className="gap-0">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[var(--border)]">
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
         <div className="flex items-center gap-2.5">
           <div className="w-8.5 h-8.5 rounded-lg grid place-items-center bg-[var(--surface-muted)] text-[var(--primary)] border border-[var(--border)]">
             <FolderTree size={18} />
@@ -299,7 +299,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
       {/* Info banner */}
 
       {/* Tabs: Chi tiêu & Thu nhập ONLY (No All, No Search) */}
-      <div className="mt-4 flex items-center justify-between gap-3 pb-3 border-b border-[var(--border)]">
+      <div className="flex items-center justify-between gap-3 py-4 border-b border-[var(--border)]">
         <Tabs
           value={filterType}
           onValueChange={(value) => {
@@ -374,7 +374,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
 
 
       {/* Category Tree List */}
-      <div className="mt-4">
+      <div>
         {rootCategories.length === 0 ? (
           <Empty
             icon={Tag}
@@ -445,10 +445,10 @@ function Node({
   if (!isChild) {
     return (
       <div
-        className="rounded-xl bg-[var(--surface)] transition-all duration-200 hover:bg-[var(--surface-muted)]/40"
+        className="mt-1 rounded-xl bg-[var(--surface)] transition-all duration-200"
       >
         {/* Root row */}
-        <div className="group flex items-center justify-between gap-3 px-4 py-3">
+        <div className="group flex items-center justify-between gap-3 py-3">
           {/* Left: icon + info */}
           <div className="flex min-w-0 items-center gap-3">
 
