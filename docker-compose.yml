@@ -18,6 +18,8 @@ services:
       context: .
       target: migrate
     env_file: .env
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public"
     depends_on:
       db:
         condition: service_healthy
@@ -30,6 +32,7 @@ services:
     env_file: .env
     environment:
       - PORT=15730
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
     ports:
       - "${PORT:-15730}:15730"
     depends_on:

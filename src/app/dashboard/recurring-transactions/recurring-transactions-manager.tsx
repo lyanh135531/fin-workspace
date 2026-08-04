@@ -47,6 +47,7 @@ import { ConfirmDelete } from "@/components/base/confirm-delete";
 import { toast } from "sonner";
 
 type Option = { id: string; name: string; color?: string; icon?: string | null; parentId?: string | null };
+type CategoryOption = Option & { type: "income" | "expense" };
 type TransactionType = "income" | "expense" | "transfer";
 type Schedule = {
   id: string;
@@ -88,6 +89,10 @@ const typeOptions = [
 
 function defaultDestination(wallets: Option[], sourceId: string) {
   return wallets.find((wallet) => wallet.id !== sourceId)?.id ?? sourceId;
+}
+
+function categoriesForTransactionType(categories: CategoryOption[], type: TransactionType): CategoryOption[] {
+  return type === "transfer" ? [] : categories.filter((category) => category.type === type);
 }
 
 function emptyDraft(wallets: Option[], businessDate: string): Draft {
@@ -147,7 +152,7 @@ export function RecurringTransactionsManager({
 }: {
   workspace: { id: string; name: string; currency: string; timeZone: string; businessDate: string };
   wallets: Option[];
-  categories: Option[];
+  categories: CategoryOption[];
   schedules: Schedule[];
 }) {
   const [status, setStatus] = useState("all");
@@ -370,7 +375,7 @@ function RecurringEditor({
   mode: "create" | "edit";
   draft: Draft;
   wallets: Option[];
-  categories: Option[];
+  categories: CategoryOption[];
   onChange: (patch: Partial<Draft>) => void;
 }) {
   return (
@@ -393,7 +398,7 @@ function RecurringEditor({
         <div className="recurring-editor-section-title"><CircleDollarSign size={16} /><span>Giao dịch</span></div>
         <Tabs
           value={draft.type}
-          onValueChange={(value) => onChange({ type: value as TransactionType })}
+          onValueChange={(value) => onChange({ type: value as TransactionType, categoryId: "none" })}
           className="gap-0"
         >
           <TabsList className="w-full" aria-label="Loại giao dịch">
@@ -461,7 +466,7 @@ function RecurringEditor({
                 value={draft.categoryId}
                 onValueChange={(categoryId) => onChange({ categoryId })}
                 label="Danh mục"
-                categories={categories}
+                categories={categoriesForTransactionType(categories, draft.type)}
                 emptyOption={{ value: "none", label: "Không chọn" }}
               />
             </div>

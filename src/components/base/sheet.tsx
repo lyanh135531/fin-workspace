@@ -67,8 +67,8 @@ function SheetContent({
             data-slot="sheet-close"
             render={
               <Button
-                variant="unstyled"
-                size="auto"
+                variant="icon"
+                size="icon"
                 className="absolute top-4 right-4 text-[var(--foreground)] hover:text-rose-600 transition-colors p-1"
                 aria-label="Đóng bảng"
                 title="Đóng"

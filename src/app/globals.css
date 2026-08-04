@@ -3147,19 +3147,6 @@ html[data-mode="dark"] .bg-\[\#17233c\]\/30 {
   gap: 0.45rem;
   margin-left: auto;
 }
-.ledger-clear-filter {
-  display: inline-flex;
-  min-height: 2rem;
-  align-items: center;
-  gap: 0.3rem;
-  padding-inline: 0.55rem;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  white-space: nowrap;
-}
-.ledger-clear-filter:not(:disabled):hover {
-  color: var(--primary);
-}
 .ledger-action-message,
 .ledger-inline-message {
   margin: 0;
@@ -3190,11 +3177,6 @@ html[data-mode="dark"] .bg-\[\#17233c\]\/30 {
 .ledger-table td:nth-last-child(2) {
   min-width: 6rem;
   white-space: nowrap;
-}
-.ledger-row-actions .icon-button {
-  min-width: 2rem;
-  min-height: 2rem;
-  padding: 0.4rem;
 }
 .ledger-change-pending {
   display: block;
@@ -6672,32 +6654,6 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
   border-radius: 0.38rem !important;
 }
 
-.header-action-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none !important;
-  background: transparent !important;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition:
-    color 160ms ease,
-    transform 160ms ease;
-  padding: 0.25rem;
-}
-
-.header-action-btn:hover {
-  background: transparent !important;
-  color: var(--primary) !important;
-  transform: translateY(-1px);
-}
-
-.header-action-btn:active {
-  transform: scale(0.95);
-  transition-duration: 80ms;
-}
-
 .notification-badge {
   position: absolute;
   top: -0.15rem;
@@ -9145,9 +9101,9 @@ html[data-sidebar-collapsed="true"]
     max-width: min(50vw, 20rem);
   }
 
-  .header-action-btn {
-    min-width: 2.75rem !important;
-    min-height: 2.75rem !important;
+  .header-action-group [data-slot="button"] {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
   }
 }
 

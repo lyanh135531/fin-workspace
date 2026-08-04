@@ -421,16 +421,14 @@ function CategoryNode({
           {/* Actions */}
           <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <div className="flex items-center">
-              <Button variant="unstyled" size="auto"
-                className="text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20 transition-colors p-1"
+              <Button variant="icon" size="auto"
                 disabled={pending || index === 0}
                 onClick={() => onMoveRoot(index, "up")}
                 title="Di chuyển lên" aria-label="Di chuyển lên"
               >
                 <ChevronUp size={16} />
               </Button>
-              <Button variant="unstyled" size="auto"
-                className="text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20 transition-colors p-1"
+              <Button variant="icon" size="auto"
                 disabled={pending || index === totalRoots - 1}
                 onClick={() => onMoveRoot(index, "down")}
                 title="Di chuyển xuống" aria-label="Di chuyển xuống"
@@ -439,19 +437,13 @@ function CategoryNode({
               </Button>
             </div>
             <div className="w-px h-4 bg-[var(--border)] mx-1" />
-            <Button variant="unstyled" size="auto"
-              className="text-slate-400 hover:text-[var(--foreground)] transition-colors p-1"
+            <Button variant="icon" size="auto"
               onClick={() => onEdit(category.id)} disabled={pending}
               title="Chỉnh sửa" aria-label={`Chỉnh sửa ${category.name}`}
             >
               <Pencil size={15} />
             </Button>
-            <Button variant="unstyled" size="auto"
-              className={cn("text-slate-400 transition-colors p-1",
-                category.status === "active"
-                  ? "hover:text-amber-500"
-                  : "hover:text-emerald-500"
-              )}
+            <Button variant="icon" size="auto"
               onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}
               disabled={pending}
               title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
@@ -464,7 +456,6 @@ function CategoryNode({
               description="Hành động này không thể hoàn tác. Các danh mục con cũng sẽ bị xóa theo."
               onConfirm={() => onDelete(category.id)}
               disabled={pending}
-              className="!w-auto !h-auto !bg-transparent hover:!bg-transparent text-slate-400 hover:!text-rose-500 transition-colors p-1 [&_svg]:size-[15px]"
             />
           </div>
         </div>

@@ -117,7 +117,7 @@ export function NotificationsMenu({
 
   return (
     <Popover>
-      <PopoverTrigger render={<Button variant="unstyled" size="auto" type="button" className="icon-button header-action-btn relative" aria-label="Thông báo"/>}>
+      <PopoverTrigger render={<Button variant="icon" size="auto" type="button" aria-label="Thông báo"/>}>
         <Bell size={17} strokeWidth={2}/>
         {items.length > 0 && <span className="notification-badge">{items.length}</span>}
       </PopoverTrigger>

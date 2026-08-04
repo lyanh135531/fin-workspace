@@ -73,28 +73,28 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
           
           <div className="flex items-center gap-1 shrink-0">
             <Button
-              variant="unstyled"
+              variant="icon"
               size="auto"
               type="button"
               onClick={copy}
               title={copied ? "Đã sao chép" : "Sao chép mã mời"}
               aria-label={copied ? "Đã sao chép mã mời" : "Sao chép mã mời"}
               className={`transition-colors p-1 active:scale-[0.9] ${
-                copied ? "text-emerald-600" : "text-[var(--text-secondary)] hover:text-[var(--foreground)]"
+                copied && "text-emerald-600"
               }`}
+              disabled={copied}
             >
               {copied ? <Check size={16} strokeWidth={2.5} /> : <Copy size={16} />}
             </Button>
 
             <Button
-              variant="unstyled"
+              variant="icon"
               size="auto"
               type="button"
               disabled={pending}
               onClick={handleRegenerate}
               title="Đổi mã mới"
               aria-label="Đổi mã mới"
-              className="text-[var(--text-secondary)] hover:text-[var(--foreground)] transition-colors p-1 active:scale-[0.9]"
             >
               <RefreshCw size={16} className={pending ? "animate-spin text-indigo-500" : ""} />
             </Button>

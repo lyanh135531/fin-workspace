@@ -60,15 +60,10 @@ function ConfirmDelete({
       <PopoverTrigger
         render={
           <Button
-            type="button"
-            variant="ghost"
+            variant="icon"
             size="icon"
             aria-label={ariaLabel}
             disabled={disabled || isPending}
-            className={cn(
-              "text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
-              className
-            )}
           >
             <Trash2 aria-hidden="true" />
           </Button>

@@ -30,8 +30,7 @@ export function SidebarToggle() {
   }
 
   return (
-    <Button variant="unstyled" size="auto"
-      className="dashboard-sidebar-toggle"
+    <Button variant="icon" size="auto"
       type="button"
       onClick={toggle}
       aria-label={collapsed ? "Mở rộng điều hướng" : "Thu gọn điều hướng"}
