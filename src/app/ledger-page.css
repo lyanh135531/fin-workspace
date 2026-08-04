@@ -254,7 +254,7 @@
   width: 100%;
   height: 100%;
   min-height: 0;
-  border-color: color-mix(in srgb, var(--border) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   box-shadow: none;
 }
 
@@ -295,6 +295,20 @@
   letter-spacing: 0.08em;
 }
 
+.ledger-book .ledger-table {
+  table-layout: fixed;
+  min-width: 91rem;
+}
+
+.ledger-book .ledger-table .ledger-selection-column {
+  width: 2.75rem;
+}
+
+.ledger-book .ledger-table .ledger-type-column {
+  width: 8rem;
+  min-width: 8rem;
+}
+
 .ledger-book .ledger-table .ledger-category-column {
   width: 14rem;
   min-width: 14rem;
@@ -308,6 +322,98 @@
 .ledger-book .ledger-table .ledger-amount-column {
   width: 11rem;
   min-width: 11rem;
+}
+
+.ledger-book .ledger-table .ledger-wallet-column {
+  width: 12rem;
+  min-width: 12rem;
+}
+
+.ledger-book .ledger-table .ledger-date-column {
+  width: 9rem;
+  min-width: 9rem;
+}
+
+.ledger-book .ledger-table .ledger-status-column {
+  width: 8rem;
+  min-width: 8rem;
+}
+
+.ledger-book .ledger-table .ledger-actions-column {
+  width: 15rem;
+  min-width: 15rem;
+  text-align: center;
+}
+
+.ledger-book .ledger-table .ledger-description-column,
+.ledger-book .ledger-table .ledger-category-column,
+.ledger-book .ledger-table .ledger-wallet-column,
+.ledger-book .ledger-table .ledger-status-column {
+  overflow: hidden;
+}
+
+.ledger-book .ledger-table .ledger-actions-column .ledger-row-actions {
+  width: 100%;
+  justify-content: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+
+.ledger-book .ledger-table .ledger-actions-column .ledger-row-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.ledger-book .ledger-table .ledger-actions-column .ledger-row-actions [data-slot="button"] {
+  flex: 0 0 auto;
+}
+
+.ledger-book .ledger-table .ledger-actions-column .ledger-row-actions > [data-slot="button"]:has(svg) {
+  position: relative;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-secondary);
+  padding: 0.25rem;
+  transition: color 160ms ease, transform 160ms ease;
+}
+
+.ledger-book .ledger-table .ledger-actions-column .ledger-row-actions > [data-slot="button"]:has(svg):hover {
+  background: transparent !important;
+  color: var(--primary) !important;
+  transform: translateY(-1px);
+}
+
+.ledger-book .ledger-table .ledger-actions-column .ledger-row-actions > [data-slot="button"]:has(svg):active {
+  background: transparent !important;
+  transform: scale(0.95);
+  transition-duration: 80ms;
+}
+
+.ledger-book .ledger-table .ledger-description-column > p:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-book .ledger-draft-row > td {
+  vertical-align: middle;
+}
+
+.ledger-book .ledger-draft-row .ledger-cell-input,
+.ledger-book .ledger-draft-row .ledger-amount-input,
+.ledger-book .ledger-draft-row .finance-select-trigger,
+.ledger-book .ledger-draft-row .category-tree-trigger,
+.ledger-book .ledger-draft-row .ledger-date-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.35rem;
+}
+
+.ledger-book .ledger-draft-row .ledger-wallet-fields {
+  width: 100%;
+  min-width: 0;
 }
 
 .ledger-book .ledger-table tbody tr {

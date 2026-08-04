@@ -8,8 +8,14 @@ import "./ledger-page.css";
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Fin Workspace",
-  description: "Workspace financial management",
+  title: "Felice",
+  applicationName: "Felice",
+  description: "Felice — Quản lý tài chính workspace",
+  icons: {
+    icon: "/felice-logo.svg",
+    shortcut: "/felice-logo.svg",
+    apple: "/felice-logo.svg",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

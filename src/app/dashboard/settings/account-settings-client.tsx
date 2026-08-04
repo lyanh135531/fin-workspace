@@ -103,7 +103,7 @@ export function AccountSettingsClient({
               </span>
             </div>
             <p className="mt-0.5 text-xs text-[var(--text-muted)] truncate">
-              @{username} · Fin Workspace Account
+              @{username} · Felice Account
             </p>
           </div>
         </div>

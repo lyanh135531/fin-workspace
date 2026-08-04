@@ -100,9 +100,9 @@ export default function SetupPage() {
 
       <section className="auth-form-panel" aria-labelledby="register-title">
         <div className="auth-form-toolbar">
-          <Link href="/" className="auth-mobile-brand" aria-label="Fin Workspace — Trang chủ">
+          <Link href="/" className="auth-mobile-brand" aria-label="Felice — Trang chủ">
             <FinLogo size={28} />
-            <span>Fin Workspace</span>
+            <span>Felice</span>
           </Link>
           <ThemeToggle />
         </div>
@@ -272,7 +272,7 @@ export default function SetupPage() {
           </div>
         </Card>
         <p className="auth-legal">
-          Khi tạo tài khoản, bạn đồng ý với các quy định bảo mật của Fin Workspace.
+          Khi tạo tài khoản, bạn đồng ý với các quy định bảo mật của Felice.
         </p>
       </section>
     </main>

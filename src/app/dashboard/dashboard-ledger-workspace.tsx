@@ -53,19 +53,19 @@ export function DashboardLedgerWorkspace({
             <span>Dòng tiền ròng</span>
             <small><CalendarDays size={13} aria-hidden="true" />{label}</small>
           </div>
-          <strong>{cashflow.isPositive() ? "+" : ""}{formatAmount(cashflow)} ₫</strong>
+          <strong>{cashflow.isPositive() ? "+" : ""}{formatAmount(cashflow)} {ledgerProps.currency}</strong>
         </div>
       </header>
 
       <section className="ledger-kpi-strip" aria-label={`Tóm tắt tài chính ${label}`}>
         <article className="ledger-kpi ledger-kpi-income">
           <span className="ledger-kpi-icon"><ArrowDownLeft size={17} aria-hidden="true" /></span>
-          <div><small>Thu nhập</small><strong>+{formatAmount(summary.income)} ₫</strong></div>
+          <div><small>Thu nhập</small><strong>+{formatAmount(summary.income)} {ledgerProps.currency}</strong></div>
           <span className="ledger-kpi-period">{label}</span>
         </article>
         <article className="ledger-kpi ledger-kpi-expense">
           <span className="ledger-kpi-icon"><ArrowUpRight size={17} aria-hidden="true" /></span>
-          <div><small>Chi tiêu</small><strong>−{formatAmount(summary.expense)} ₫</strong></div>
+          <div><small>Chi tiêu</small><strong>−{formatAmount(summary.expense)} {ledgerProps.currency}</strong></div>
           <span className="ledger-kpi-period">{label}</span>
         </article>
         <article className="ledger-kpi ledger-kpi-pending">
