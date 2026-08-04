@@ -1,4 +1,5 @@
 import { FinLogo } from "@/components/fin-logo";
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { ThemeToggle } from "@/app/theme-toggle";
@@ -15,6 +16,14 @@ import { getPendingJoinRequestCount } from "@/services/join-request-query";
 import { MobileNavigation } from "@/app/dashboard/mobile-navigation";
 import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transaction-sheet";
 import { getBusinessDateInTimeZone } from "@/lib/date";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
 
 export async function DashboardShell({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -99,41 +108,41 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
   const username = session?.user?.username ?? "User";
 
   return (
-    <div className="dashboard-app-shell">
-      {/* ────────────────────────────── SIDEBAR ─────────────────────────────── */}
-      <aside className="dashboard-sidebar" aria-label="Điều hướng">
+    <SidebarProvider>
+      <Sidebar collapsible="icon">
+        <SidebarHeader>
+          <Link
+            href="/overview"
+            className="flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-md px-1 text-[var(--foreground)] outline-none transition-[width,height,padding,color,gap] duration-200 hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:self-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0!"
+            aria-label="Felice — về trang tổng quan"
+          >
+            <FinLogo size={36} />
+            <span className="max-w-24 truncate text-base font-semibold transition-[max-width,opacity] duration-200 group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
+              Felice
+            </span>
+          </Link>
+        </SidebarHeader>
 
-        {/* Brand row */}
-        <div className="dashboard-brand-row">
-          <div className="dashboard-brand" style={{ display: "flex", alignItems: "center", gap: ".55rem", margin: "0 .35rem" }}>
-            <FinLogo size={28} />
-            <span className="sidebar-brand-text">Felice</span>
-          </div>
-          <SidebarToggle />
-        </div>
+        <SidebarContent>
+          <DashboardNavigation
+            currentId={membership?.workspaceId}
+            workspaces={workspaces.map((item) => ({
+              id: item.workspace.id,
+              name: item.workspace.name,
+              role: item.role.code,
+            }))}
+            pendingJoinCount={pendingJoinCount}
+            isAdmin={isAdmin}
+            username={username}
+          />
+        </SidebarContent>
 
+        <SidebarFooter>
+          <SidebarUserMenu username={username} role={userRole} />
+        </SidebarFooter>
+      </Sidebar>
 
-        {/* Navigation */}
-        <DashboardNavigation
-          currentId={membership?.workspaceId}
-          workspaces={workspaces.map((item) => ({
-            id: item.workspace.id,
-            name: item.workspace.name,
-            role: item.role.code,
-          }))}
-          pendingJoinCount={pendingJoinCount}
-          isAdmin={isAdmin}
-          username={username}
-        />
-
-        {/* User section with logout */}
-        <SidebarUserMenu username={username} role={userRole} />
-      </aside>
-
-      {/* ────────────────────────── MAIN FRAME ──────────────────────────────── */}
-      <div className="dashboard-frame">
-
-        {/* ── HEADER ── */}
+      <SidebarInset>
         <header className="dashboard-header">
           {/* Left: page subtitle (context) */}
           <div className="dashboard-header-leading">
@@ -149,6 +158,9 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
               username={username}
               role={userRole}
             />
+            <div className="hidden min-[901px]:flex">
+              <SidebarToggle />
+            </div>
             <div className="dashboard-header-copy">
               <DashboardHeaderSubtitle
                 fallback={
@@ -175,7 +187,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
         </header>
 
         {/* ── CONTENT ── */}
-        <main className="dashboard-content">{children}</main>
+        <main className="dashboard-content px-10 py-5">{children}</main>
         <QuickTransactionSheet
           initialWorkspaceId={membership?.workspaceId ?? workspaces[0]?.workspaceId ?? ""}
           workspaces={workspaces.map((item) => ({
@@ -200,7 +212,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
           }))}
         />
 
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

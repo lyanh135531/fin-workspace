@@ -290,7 +290,7 @@ export function WalletManagement({
             onClick={() => setCreatingModal(true)}
           >
             <Plus size={16} />
-            <span>Thêm ví</span>
+            Thêm ví
           </Button>
         )}
       </PageHeader>
@@ -400,11 +400,7 @@ export function WalletManagement({
           {filteredWallets.map((wallet) => {
             const isActive = wallet.status === "active";
             return (
-              <Card
-                as="article"
-                className="gap-0 py-0"
-                key={wallet.id}
-              >
+              <Card as="article" className="gap-0 py-0" key={wallet.id}>
                 <CardHeader className="border-b py-4">
                   <div className="flex min-w-0 items-center gap-3">
                     <span
@@ -601,7 +597,7 @@ export function WalletManagement({
 
               <section
                 aria-labelledby="initial-balance-heading"
-                className="overflow-hidden rounded-2xl border border-primary/15 bg-primary/[0.035]"
+                className="overflow-hidden border border-primary/15 bg-primary/[0.035]"
               >
                 <div className="flex gap-3 border-b border-primary/10 px-4 py-4">
                   <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
@@ -777,7 +773,7 @@ export function WalletManagement({
               <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
                 <section
                   aria-label="Tóm tắt ví"
-                  className="flex items-center justify-between gap-4 rounded-2xl bg-[var(--surface-secondary)] px-4 py-3.5"
+                  className="flex items-center justify-between gap-4 bg-[var(--surface-secondary)] px-4 py-3.5"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface)] text-primary shadow-sm">
@@ -855,7 +851,7 @@ export function WalletManagement({
 
                 <section
                   aria-labelledby="wallet-status-heading"
-                  className="overflow-hidden rounded-2xl border border-[var(--border)]"
+                  className="overflow-hidden border border-[var(--border)]"
                 >
                   <div className="flex items-start justify-between gap-4 px-4 py-4">
                     <div>

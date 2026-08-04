@@ -1,14 +1,11 @@
-import {
-  type ComponentPropsWithRef,
-  type ElementType,
-} from "react"
+import { type ComponentPropsWithRef, type ElementType } from "react";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 type CardProps<T extends ElementType = "div"> = {
-  as?: T
-  size?: "default" | "sm"
-} & Omit<ComponentPropsWithRef<T>, "as" | "size">
+  as?: T;
+  size?: "default" | "sm";
+} & Omit<ComponentPropsWithRef<T>, "as" | "size">;
 
 function Card<T extends ElementType = "div">({
   as,
@@ -16,19 +13,19 @@ function Card<T extends ElementType = "div">({
   size = "default",
   ...props
 }: CardProps<T>) {
-  const Component = as ?? "div"
+  const Component = as ?? "div";
 
   return (
     <Component
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        "group/card flex p-6 flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function CardHeader({ className, ...props }: ComponentPropsWithRef<"div">) {
@@ -41,7 +38,7 @@ function CardHeader({ className, ...props }: ComponentPropsWithRef<"div">) {
       )}
       {...props}
     />
-  )
+  );
 }
 
 function CardTitle({ className, ...props }: ComponentPropsWithRef<"div">) {
@@ -54,17 +51,20 @@ function CardTitle({ className, ...props }: ComponentPropsWithRef<"div">) {
       )}
       {...props}
     />
-  )
+  );
 }
 
-function CardDescription({ className, ...props }: ComponentPropsWithRef<"div">) {
+function CardDescription({
+  className,
+  ...props
+}: ComponentPropsWithRef<"div">) {
   return (
     <div
       data-slot="card-description"
       className={cn("text-sm text-muted-foreground", className)}
       {...props}
     />
-  )
+  );
 }
 
 function CardAction({ className, ...props }: ComponentPropsWithRef<"div">) {
@@ -77,7 +77,7 @@ function CardAction({ className, ...props }: ComponentPropsWithRef<"div">) {
       )}
       {...props}
     />
-  )
+  );
 }
 
 function CardContent({ className, ...props }: ComponentPropsWithRef<"div">) {
@@ -87,7 +87,7 @@ function CardContent({ className, ...props }: ComponentPropsWithRef<"div">) {
       className={cn("px-(--card-spacing)", className)}
       {...props}
     />
-  )
+  );
 }
 
 function CardFooter({ className, ...props }: ComponentPropsWithRef<"div">) {
@@ -100,7 +100,7 @@ function CardFooter({ className, ...props }: ComponentPropsWithRef<"div">) {
       )}
       {...props}
     />
-  )
+  );
 }
 
 export {
@@ -111,5 +111,5 @@ export {
   CardFooter,
   CardHeader,
   CardTitle,
-}
-export type { CardProps }
+};
+export type { CardProps };

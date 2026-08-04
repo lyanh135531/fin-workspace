@@ -266,7 +266,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
   }
 
   return (
-    <Card as="section" className="sunrise-card gap-0 p-6">
+    <Card as="section">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[var(--border)]">
         <div className="flex items-center gap-2.5">

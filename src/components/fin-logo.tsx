@@ -23,7 +23,7 @@ export function FinLogo({ size = 28, className = "", showText = false }: FinLogo
         <path d="M25 26H30" stroke="#FFF8ED" strokeWidth="2" strokeLinecap="round" />
       </svg>
       {showText && (
-        <span className="font-extrabold text-base tracking-tight text-foreground">
+        <span className="font-extrabold text-lg tracking-tight text-foreground">
           Felice
         </span>
       )}

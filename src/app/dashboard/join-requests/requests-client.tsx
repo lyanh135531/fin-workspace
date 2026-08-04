@@ -47,8 +47,8 @@ export function JoinRequestsClient({ requests, roles }: { requests: Request[]; r
   }
 
   return (
-    <Card as="section" className="sunrise-card gap-0 py-0 overflow-hidden">
-      <header className="flex items-center gap-3 p-6 pb-4">
+    <Card as="section" className="gap-4 overflow-hidden">
+      <header className="flex items-center gap-3">
         <div className="settings-section-icon">
           <UserPlus size={18} />
         </div>

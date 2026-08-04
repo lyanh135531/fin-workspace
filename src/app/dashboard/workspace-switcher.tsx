@@ -4,24 +4,12 @@ import { Button, Input } from "@/components/base";
 import { Check, ChevronsUpDown, Clock, KeyRound, Loader2, PlusCircle, Send } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useTransition, useSyncExternalStore, useRef } from "react";
+import { useState, useTransition, useRef } from "react";
 import { selectWorkspaceAction } from "@/app/dashboard/workspace-actions";
 import { requestJoinAction } from "@/app/dashboard/join/actions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type Workspace = { id: string; name: string; role: string };
-
-function useSidebarCollapsed() {
-  return useSyncExternalStore(
-    (cb) => {
-      const obs = new MutationObserver(cb);
-      obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-sidebar-collapsed"] });
-      return () => obs.disconnect();
-    },
-    () => document.documentElement.dataset.sidebarCollapsed === "true",
-    () => false,
-  );
-}
 
 /* ── Inline Join Mini‑Form ───────────────────────────────────────── */
 function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
@@ -91,7 +79,6 @@ export function WorkspaceSwitcher({
   workspaces,
   currentId,
   pendingJoinCount = 0,
-  forceExpanded = false,
 }: {
   workspaces: Workspace[];
   currentId: string;
@@ -100,7 +87,6 @@ export function WorkspaceSwitcher({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const collapsed = useSidebarCollapsed() && !forceExpanded;
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -127,76 +113,22 @@ export function WorkspaceSwitcher({
 
   const activeInitial = currentWorkspace?.name.charAt(0).toUpperCase() ?? "W";
 
-  if (collapsed) {
-    const wsName = currentWorkspace?.name || "Workspace";
-    const initialLetter = wsName.charAt(0).toUpperCase();
-
-    return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          render={
-            <Button variant="unstyled" size="auto"
-              type="button"
-              className="sidebar-workspace-collapsed-btn"
-              aria-label={`Workspace hiện tại: ${wsName}. Click để đổi.`}
-            />
-          }
-        >
-          <div className="sidebar-ws-avatar">
-            <span className="sidebar-ws-initial-letter">{initialLetter}</span>
-            <span className="sidebar-ws-collapsed-dot" />
-          </div>
-        </PopoverTrigger>
-        <PopoverContent side="right" align="start" sideOffset={10} className="sidebar-ws-popover">
-          <div className="sidebar-ws-popover-header">
-            <span>CHỌN WORKSPACE</span>
-            <small>{workspaces.length}</small>
-          </div>
-          <div className="sidebar-ws-popover-list">
-            {workspaces.map((ws) => {
-              const isSelected = ws.id === currentId;
-              return (
-                <Button variant="unstyled" size="auto"
-                  type="button"
-                  key={ws.id}
-                  disabled={pending}
-                  onClick={() => choose(ws.id)}
-                  className={`sidebar-ws-item ${isSelected ? "sidebar-ws-item-active" : ""}`}
-                >
-                  <div className="sidebar-ws-avatar">{ws.name.charAt(0).toUpperCase()}</div>
-                  <div className="sidebar-ws-info">
-                    <span className="sidebar-ws-name">{ws.name}</span>
-                    <span className="sidebar-ws-role">{ws.role === "ADMIN" ? "Admin" : "Thành viên"}</span>
-                  </div>
-                  {isSelected && <Check size={14} className="text-[var(--primary)]" />}
-                </Button>
-              );
-            })}
-          </div>
-          <div className="sidebar-ws-popover-footer">
-            <InlineJoinForm onSuccess={() => router.refresh()} />
-          </div>
-        </PopoverContent>
-      </Popover>
-    );
-  }
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
           <Button variant="unstyled" size="auto"
             type="button"
-            className="sidebar-workspace-selector-card"
+            className="flex h-12 w-full min-w-0 items-center gap-2 rounded-md p-2 text-left outline-none transition-[width,height,padding,gap,background-color,transform] duration-300 ease-in-out hover:bg-[var(--surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:translate-x-2 group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center"
             aria-expanded={open}
             aria-label={`Workspace: ${currentWorkspace?.name}. Click để chuyển đổi.`}
           />
         }
       >
-        <div className="sidebar-ws-avatar">
-          <span className="sidebar-ws-initial">{activeInitial}</span>
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+          <span>{activeInitial}</span>
         </div>
-        <div className="sidebar-ws-meta">
+        <div className="min-w-0 flex-1 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="sidebar-ws-title truncate">{currentWorkspace?.name}</span>
           </div>
@@ -205,7 +137,7 @@ export function WorkspaceSwitcher({
             {currentWorkspace?.role === "ADMIN" ? "Quản trị viên" : "Thành viên"}
           </span>
         </div>
-        <ChevronsUpDown size={15} className="sidebar-ws-chevron" />
+        <ChevronsUpDown size={15} className="shrink-0 text-[var(--text-muted)] opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0" />
       </PopoverTrigger>
 
       <PopoverContent side="right" align="start" sideOffset={6} className="sidebar-ws-popover">

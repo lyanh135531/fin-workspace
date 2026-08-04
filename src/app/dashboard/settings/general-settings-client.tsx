@@ -12,7 +12,8 @@ const themes = [
     description: "Tông cam rực rỡ, năng động & ấm áp",
     primaryColor: "#FF5B3D",
     swatches: ["#FF5B3D", "#69B7F3", "#F6B94A"],
-    previewBg: "linear-gradient(135deg, rgba(255,91,61,0.15) 0%, rgba(105,183,243,0.1) 100%)",
+    previewBg:
+      "linear-gradient(135deg, rgba(255,91,61,0.15) 0%, rgba(105,183,243,0.1) 100%)",
   },
   {
     value: "ocean",
@@ -20,7 +21,8 @@ const themes = [
     description: "Xanh biển dịu mát, tập trung & tinh tế",
     primaryColor: "#1677B8",
     swatches: ["#1677B8", "#32B8A6", "#F2B84B"],
-    previewBg: "linear-gradient(135deg, rgba(22,119,184,0.15) 0%, rgba(50,184,166,0.1) 100%)",
+    previewBg:
+      "linear-gradient(135deg, rgba(22,119,184,0.15) 0%, rgba(50,184,166,0.1) 100%)",
   },
   {
     value: "forest",
@@ -28,7 +30,8 @@ const themes = [
     description: "Xanh lá thiên nhiên, cân bằng & thư thái",
     primaryColor: "#2F7D5B",
     swatches: ["#2F7D5B", "#88A96B", "#D59A45"],
-    previewBg: "linear-gradient(135deg, rgba(47,125,91,0.15) 0%, rgba(136,169,107,0.1) 100%)",
+    previewBg:
+      "linear-gradient(135deg, rgba(47,125,91,0.15) 0%, rgba(136,169,107,0.1) 100%)",
   },
   {
     value: "lavender",
@@ -36,7 +39,8 @@ const themes = [
     description: "Sắc tím mộng mơ, sáng tạo & mượt mà",
     primaryColor: "#7959C8",
     swatches: ["#7959C8", "#E58EB3", "#66B8C4"],
-    previewBg: "linear-gradient(135deg, rgba(121,89,200,0.15) 0%, rgba(229,142,179,0.1) 100%)",
+    previewBg:
+      "linear-gradient(135deg, rgba(121,89,200,0.15) 0%, rgba(229,142,179,0.1) 100%)",
   },
   {
     value: "midnight",
@@ -44,7 +48,8 @@ const themes = [
     description: "Xanh đêm huyền bí, sang trọng & hiện đại",
     primaryColor: "#334E8C",
     swatches: ["#334E8C", "#008E9B", "#D6A53A"],
-    previewBg: "linear-gradient(135deg, rgba(51,78,140,0.15) 0%, rgba(0,142,155,0.1) 100%)",
+    previewBg:
+      "linear-gradient(135deg, rgba(51,78,140,0.15) 0%, rgba(0,142,155,0.1) 100%)",
   },
 ] as const;
 
@@ -65,7 +70,10 @@ function getMode(): Mode {
 
 function subscribeMode(callback: () => void) {
   const observer = new MutationObserver(callback);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-mode"] });
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-mode"],
+  });
   return () => observer.disconnect();
 }
 
@@ -77,13 +85,20 @@ function getTheme(): ThemeName {
 
 function subscribeTheme(callback: () => void) {
   const observer = new MutationObserver(callback);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
   return () => observer.disconnect();
 }
 
 export function GeneralSettingsClient() {
   const mode = useSyncExternalStore<Mode>(subscribeMode, getMode, () => "dark");
-  const theme = useSyncExternalStore<ThemeName>(subscribeTheme, getTheme, () => "sunrise");
+  const theme = useSyncExternalStore<ThemeName>(
+    subscribeTheme,
+    getTheme,
+    () => "sunrise",
+  );
 
   function selectTheme(nextTheme: ThemeName) {
     applyAppearance(nextTheme, mode);
@@ -94,7 +109,7 @@ export function GeneralSettingsClient() {
   }
 
   return (
-    <Card as="section" className="sunrise-card gap-0 p-6 relative overflow-hidden">
+    <Card as="section" className="gap-0 relative overflow-hidden">
       {/* Accent background glow */}
       <div
         className="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-20 transition-all duration-500"
@@ -121,10 +136,7 @@ export function GeneralSettingsClient() {
         </div>
 
         {/* Mode Segmented Switcher */}
-        <Tabs
-          value={mode}
-          onValueChange={(value) => selectMode(value as Mode)}
-        >
+        <Tabs value={mode} onValueChange={(value) => selectMode(value as Mode)}>
           <TabsList className="bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-xl">
             <TabsTrigger
               value="light"
@@ -145,7 +157,8 @@ export function GeneralSettingsClient() {
       </header>
 
       <p className="text-xs text-[var(--text-muted)] mt-3.5 leading-relaxed">
-        Chọn chủ đề màu phù hợp với sở thích của bạn. Cài đặt này được đồng bộ tức thì trên trình duyệt thiết bị này.
+        Chọn chủ đề màu phù hợp với sở thích của bạn. Cài đặt này được đồng bộ
+        tức thì trên trình duyệt thiết bị này.
       </p>
 
       {/* Modern High-End Theme Cards Grid */}
@@ -163,10 +176,10 @@ export function GeneralSettingsClient() {
               role="radio"
               aria-checked={isSelected}
               className={cn(
-                "group relative flex flex-col text-left rounded-2xl overflow-hidden bg-[var(--surface)] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] outline-none border",
+                "group relative flex flex-col text-left overflow-hidden bg-[var(--surface)] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] outline-none border",
                 isSelected
                   ? "border-transparent shadow-lg shadow-black/5 dark:shadow-black/30"
-                  : "border-black/[0.08] dark:border-white/[0.08] hover:border-black/20 dark:hover:border-white/20 hover:-translate-y-1 hover:shadow-md"
+                  : "border-black/[0.08] dark:border-white/[0.08] hover:border-black/20 dark:hover:border-white/20 hover:-translate-y-1 hover:shadow-md",
               )}
               onClick={() => selectTheme(item.value)}
               style={
@@ -241,10 +254,12 @@ export function GeneralSettingsClient() {
                       "w-5 h-5 rounded-full grid place-items-center text-xs shrink-0 transition-all duration-300",
                       isSelected
                         ? "text-white shadow-sm scale-100"
-                        : "border border-slate-300 dark:border-slate-700 bg-transparent text-transparent scale-90 opacity-40 group-hover:opacity-100"
+                        : "border border-slate-300 dark:border-slate-700 bg-transparent text-transparent scale-90 opacity-40 group-hover:opacity-100",
                     )}
                     style={{
-                      backgroundColor: isSelected ? item.primaryColor : undefined,
+                      backgroundColor: isSelected
+                        ? item.primaryColor
+                        : undefined,
                     }}
                   >
                     <Check size={11} strokeWidth={3.5} />

@@ -30,7 +30,6 @@ export function ThemeToggle() {
   return (
     <Button variant="icon" size="auto"
       type="button"
-      className="theme-mode-toggle"
       aria-label={label}
       title={label}
       onClick={() => applyMode(nextMode)}

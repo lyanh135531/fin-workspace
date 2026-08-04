@@ -36,12 +36,13 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
 
   // Format code for display if it's 6 digits e.g. "892-415" -> "892 - 415"
   const formattedDisplay =
-    code.length === 7 && code.includes("-")
-      ? code.replace("-", " · ")
-      : code;
+    code.length === 7 && code.includes("-") ? code.replace("-", " · ") : code;
 
   return (
-    <Card as="section" className="rounded-2xl p-6 md:p-8 shadow-xs relative overflow-hidden flex flex-col h-full gap-6">
+    <Card
+      as="section"
+      className="shadow-xs relative overflow-hidden flex flex-col h-full gap-6"
+    >
       {/* Accent glow (subtle) */}
       <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full blur-[80px] pointer-events-none opacity-20 bg-indigo-500" />
 
@@ -57,9 +58,12 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">Mã mời Workspace</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
+            Mã mời Workspace
+          </h2>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
-            Gửi mã này cho thành viên mới để họ có thể gửi yêu cầu tham gia vào workspace của bạn.
+            Gửi mã này cho thành viên mới để họ có thể gửi yêu cầu tham gia vào
+            workspace của bạn.
           </p>
         </div>
       </div>
@@ -70,7 +74,7 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
           <code className="font-mono text-xl font-bold tracking-[0.25em] text-[var(--foreground)] truncate select-all">
             {formattedDisplay}
           </code>
-          
+
           <div className="flex items-center gap-1 shrink-0">
             <Button
               variant="icon"
@@ -84,7 +88,11 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
               }`}
               disabled={copied}
             >
-              {copied ? <Check size={16} strokeWidth={2.5} /> : <Copy size={16} />}
+              {copied ? (
+                <Check size={16} strokeWidth={2.5} />
+              ) : (
+                <Copy size={16} />
+              )}
             </Button>
 
             <Button
@@ -96,7 +104,10 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
               title="Đổi mã mới"
               aria-label="Đổi mã mới"
             >
-              <RefreshCw size={16} className={pending ? "animate-spin text-indigo-500" : ""} />
+              <RefreshCw
+                size={16}
+                className={pending ? "animate-spin text-indigo-500" : ""}
+              />
             </Button>
           </div>
         </div>
