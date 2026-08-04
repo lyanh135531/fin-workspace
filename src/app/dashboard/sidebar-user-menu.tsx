@@ -44,7 +44,8 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
 
   function handleSignOut() {
     start(async () => {
-      await signOut({ callbackUrl: "/sign-in" });
+      await signOut({ callbackUrl: "/sign-in", redirect: false });
+      window.location.assign("/sign-in");
     });
   }
 
