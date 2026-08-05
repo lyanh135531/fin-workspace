@@ -29,6 +29,7 @@ import {
   updateManagedWalletAction,
 } from "@/app/dashboard/wallets/actions";
 import { formatAmount } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import {
   Button,
   Card,
@@ -180,7 +181,10 @@ export function WalletManagement({
     [orderedWallets, filterStatus],
   );
 
-  function saveWalletOrder(nextWallets: WalletItem[], previousWallets: WalletItem[]) {
+  function saveWalletOrder(
+    nextWallets: WalletItem[],
+    previousWallets: WalletItem[],
+  ) {
     setOrderedWallets(nextWallets);
     startTransition(async () => {
       const result = await reorderManagedWalletsAction({
@@ -491,20 +495,24 @@ export function WalletManagement({
                   setDropTargetWalletId(wallet.id);
                 }}
                 onDragLeave={(event) => {
-                  if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                  if (
+                    !event.currentTarget.contains(event.relatedTarget as Node)
+                  ) {
                     setDropTargetWalletId((current) =>
                       current === wallet.id ? null : current,
                     );
                   }
                 }}
                 onDrop={(event) => handleWalletDrop(event, wallet.id)}
-                className={
-                  dropTargetWalletId === wallet.id
-                    ? "ring-2 ring-primary/60"
-                    : draggedWalletId === wallet.id
-                      ? "opacity-60"
-                      : undefined
-                }
+                className={cn(
+                  isAdmin &&
+                    filterStatus === "all" &&
+                    !pending &&
+                    "cursor-grab active:cursor-grabbing",
+                  dropTargetWalletId === wallet.id &&
+                    "ring-2 ring-primary/60",
+                  draggedWalletId === wallet.id && "opacity-60",
+                )}
               >
                 <CardHeader className="border-b">
                   <div className="flex min-w-0 items-center gap-3">
@@ -649,7 +657,9 @@ export function WalletManagement({
             className="flex h-full min-h-0 flex-col"
             aria-busy={pending}
           >
-            {pending && <FormPendingSkeleton label="Đang tạo ví" className="mx-6 mt-3" />}
+            {pending && (
+              <FormPendingSkeleton label="Đang tạo ví" className="mx-6 mt-3" />
+            )}
             <SheetHeader className="border-b border-[var(--border)] bg-[var(--surface)] px-6 py-3.5 pr-14">
               <div className="relative flex items-start gap-3.5">
                 <div className="min-w-0">
@@ -887,7 +897,12 @@ export function WalletManagement({
               className="flex min-h-0 flex-1 flex-col"
               aria-busy={pending}
             >
-              {pending && <FormPendingSkeleton label="Đang lưu thay đổi ví" className="mx-6 mt-3" />}
+              {pending && (
+                <FormPendingSkeleton
+                  label="Đang lưu thay đổi ví"
+                  className="mx-6 mt-3"
+                />
+              )}
               <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
                 <section
                   aria-label="Tóm tắt ví"

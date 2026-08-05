@@ -3,15 +3,14 @@
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  ChevronDown,
-  ChevronUp,
   Eye,
   EyeOff,
+  GripVertical,
   Pencil,
   Plus,
   Tag,
 } from "lucide-react";
-import { useState, useTransition } from "react";
+import { type DragEvent, useState, useTransition } from "react";
 import {
   createCategoryAction,
   deleteCategoryAction,
@@ -58,6 +57,31 @@ type Category = {
   transactionCount: number;
 };
 
+type DraggedCategory = Pick<Category, "id" | "parentId">;
+
+function moveItem<T extends { id: string }>(
+  items: T[],
+  sourceId: string,
+  targetId: string,
+): T[] {
+  const sourceIndex = items.findIndex(({ id }) => id === sourceId);
+  const targetIndex = items.findIndex(({ id }) => id === targetId);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return items;
+  }
+
+  const movedItem = items[sourceIndex];
+  const remainingItems = [
+    ...items.slice(0, sourceIndex),
+    ...items.slice(sourceIndex + 1),
+  ];
+  return [
+    ...remainingItems.slice(0, targetIndex),
+    movedItem,
+    ...remainingItems.slice(targetIndex),
+  ];
+}
+
 const COLOR_PRESETS = [
   "#FF5B3D",
   "#69B7F3",
@@ -97,6 +121,9 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [filterType, setFilterType] = useState<"expense" | "income">("expense");
+  const [draggedCategory, setDraggedCategory] =
+    useState<DraggedCategory | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   function submit(form: FormData, id?: string) {
@@ -170,14 +197,9 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
     ? categories.find((category) => category.id === editing)
     : undefined;
 
-  function moveRootItem(index: number, direction: "up" | "down") {
-    const allRoots = currentCategories.filter((c) => !c.parentId);
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= allRoots.length) return;
-    const newRoots = [...allRoots];
-    const [moved] = newRoots.splice(index, 1);
-    newRoots.splice(targetIndex, 0, moved);
-
+  function reorderRoots(sourceId: string, targetId: string) {
+    const newRoots = moveItem(rootCategories, sourceId, targetId);
+    if (newRoots === rootCategories) return;
     const allOrdered: Category[] = [];
     newRoots.forEach((root) => {
       allOrdered.push(root);
@@ -187,29 +209,47 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
     handleReorder([...allOrdered, ...otherTypeItems]);
   }
 
-  function moveChildItem(
+  function reorderChildren(
     parentId: string,
-    index: number,
-    direction: "up" | "down",
+    sourceId: string,
+    targetId: string,
   ) {
     const siblings = currentCategories.filter((c) => c.parentId === parentId);
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= siblings.length) return;
-    const [moved] = siblings.splice(index, 1);
-    siblings.splice(targetIndex, 0, moved);
+    const reorderedSiblings = moveItem(siblings, sourceId, targetId);
+    if (reorderedSiblings === siblings) return;
 
-    const allRoots = currentCategories.filter((c) => !c.parentId);
     const allOrdered: Category[] = [];
-    allRoots.forEach((root) => {
+    rootCategories.forEach((root) => {
       allOrdered.push(root);
       if (root.id === parentId) {
-        allOrdered.push(...siblings);
+        allOrdered.push(...reorderedSiblings);
       } else {
         allOrdered.push(...categories.filter((c) => c.parentId === root.id));
       }
     });
     const otherTypeItems = categories.filter((c) => c.type !== filterType);
     handleReorder([...allOrdered, ...otherTypeItems]);
+  }
+
+  function handleDrop(event: DragEvent<HTMLElement>, target: Category) {
+    event.preventDefault();
+    event.stopPropagation();
+    const source = draggedCategory;
+    setDraggedCategory(null);
+    setDropTargetId(null);
+    if (
+      !source ||
+      source.id === target.id ||
+      source.parentId !== target.parentId
+    ) {
+      return;
+    }
+
+    if (source.parentId === null) {
+      reorderRoots(source.id, target.id);
+      return;
+    }
+    reorderChildren(source.parentId, source.id, target.id);
   }
 
   return (
@@ -274,8 +314,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         </Tabs>
 
         <p className="text-xs text-slate-400 font-medium hidden sm:block">
-          Dùng mũi tên <ChevronUp size={12} className="inline" />{" "}
-          <ChevronDown size={12} className="inline" /> để thay đổi thứ tự
+          Kéo thả để thay đổi thứ tự trong cùng một cấp
         </p>
       </div>
 
@@ -304,7 +343,12 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
                 : "Tạo danh mục mới chỉ dùng trong workspace hiện tại."}
             </SheetDescription>
           </SheetHeader>
-          {pending && <FormPendingSkeleton label="Đang lưu danh mục workspace" className="mx-6 mt-3" />}
+          {pending && (
+            <FormPendingSkeleton
+              label="Đang lưu danh mục workspace"
+              className="mx-6 mt-3"
+            />
+          )}
           <div className="flex-1 overflow-y-auto px-6">
             {(creating || editingCategory) && (
               <CategoryForm
@@ -340,11 +384,18 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             index={index}
             totalRoots={rootCategories.length}
             pending={pending}
+            draggedCategory={draggedCategory}
+            dropTargetId={dropTargetId}
             onEdit={setEditing}
             onStatus={setStatus}
             onDelete={deleteCategory}
-            onMoveRoot={moveRootItem}
-            onMoveChild={moveChildItem}
+            onDragStart={setDraggedCategory}
+            onDragOver={setDropTargetId}
+            onDragEnd={() => {
+              setDraggedCategory(null);
+              setDropTargetId(null);
+            }}
+            onDrop={handleDrop}
           />
         ))}
         {rootCategories.length === 0 && (
@@ -365,22 +416,30 @@ function CategoryNode({
   index,
   totalRoots,
   pending,
+  draggedCategory,
+  dropTargetId,
   onEdit,
   onStatus,
   onDelete,
-  onMoveRoot,
-  onMoveChild,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
 }: {
   category: Category;
   categories: Category[];
   index: number;
   totalRoots: number;
   pending: boolean;
+  draggedCategory: DraggedCategory | null;
+  dropTargetId: string | null;
   onEdit: (id: string) => void;
   onStatus: (id: string, status: "active" | "deactive") => void;
   onDelete: (id: string) => void;
-  onMoveRoot: (index: number, dir: "up" | "down") => void;
-  onMoveChild: (parentId: string, index: number, dir: "up" | "down") => void;
+  onDragStart: (category: DraggedCategory) => void;
+  onDragOver: (categoryId: string | null) => void;
+  onDragEnd: () => void;
+  onDrop: (event: DragEvent<HTMLElement>, category: Category) => void;
 }) {
   const IconComponent = ICON_MAP[category.icon ?? "tag"] ?? Tag;
   const children = categories.filter((item) => item.parentId === category.id);
@@ -391,7 +450,42 @@ function CategoryNode({
   if (!isChild) {
     return (
       <div className="rounded-xl bg-[var(--surface)] transition-all duration-200">
-        <div className="group flex items-center justify-between gap-3 py-3">
+        <div
+          className={cn(
+            "group flex cursor-grab items-center justify-between gap-3 rounded-lg py-3 px-1 transition-[opacity,box-shadow] active:cursor-grabbing",
+            draggedCategory?.id === category.id && "opacity-50",
+            dropTargetId === category.id && "ring-2 ring-primary/60",
+          )}
+          draggable={!pending}
+          onDragStart={(event) => {
+            event.stopPropagation();
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", category.id);
+            onDragStart({ id: category.id, parentId: null });
+          }}
+          onDragEnd={(event) => {
+            event.stopPropagation();
+            onDragEnd();
+          }}
+          onDragOver={(event) => {
+            event.stopPropagation();
+            if (
+              draggedCategory?.parentId !== null ||
+              draggedCategory.id === category.id
+            )
+              return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            onDragOver(category.id);
+          }}
+          onDragLeave={(event) => {
+            event.stopPropagation();
+            if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+              onDragOver(null);
+            }
+          }}
+          onDrop={(event) => onDrop(event, category)}
+        >
           <div className="flex min-w-0 items-center gap-3">
             {/* Icon — large, prominent */}
             <span
@@ -441,29 +535,13 @@ function CategoryNode({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="icon"
-                size="auto"
-                disabled={pending || index === 0}
-                onClick={() => onMoveRoot(index, "up")}
-                title="Di chuyển lên"
-                aria-label="Di chuyển lên"
-              >
-                <ChevronUp size={16} />
-              </Button>
-              <Button
-                variant="icon"
-                size="auto"
-                disabled={pending || index === totalRoots - 1}
-                onClick={() => onMoveRoot(index, "down")}
-                title="Di chuyển xuống"
-                aria-label="Di chuyển xuống"
-              >
-                <ChevronDown size={16} />
-              </Button>
-            </div>
+          <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+            <span
+              className="grid min-h-10 place-items-center px-1 text-[var(--text-muted)]"
+              title={`Kéo để sắp xếp ${category.name} cùng các danh mục con`}
+            >
+              <GripVertical size={17} />
+            </span>
             <div className="w-px h-4 bg-[var(--border)] mx-1" />
             <Button
               variant="icon"
@@ -514,11 +592,15 @@ function CategoryNode({
                 index={childIdx}
                 totalRoots={children.length}
                 pending={pending}
+                draggedCategory={draggedCategory}
+                dropTargetId={dropTargetId}
                 onEdit={onEdit}
                 onStatus={onStatus}
                 onDelete={onDelete}
-                onMoveRoot={onMoveRoot}
-                onMoveChild={onMoveChild}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDragEnd={onDragEnd}
+                onDrop={onDrop}
               />
             ))}
           </div>
@@ -529,15 +611,50 @@ function CategoryNode({
 
   // Child category — compact row with tree connector
   return (
-    <article className="group relative flex items-center justify-between gap-3 pl-8 pr-3.5 py-2 transition-colors duration-150 rounded-lg">
+    <article
+      className={cn(
+        "group relative flex cursor-grab items-center justify-between gap-3 rounded-lg py-2 pl-9 pr-1 transition-[background-color,opacity,box-shadow] active:cursor-grabbing",
+        draggedCategory?.id === category.id && "opacity-50",
+        dropTargetId === category.id && "ring-2 ring-primary/60",
+      )}
+      draggable={!pending}
+      onDragStart={(event) => {
+        event.stopPropagation();
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", category.id);
+        onDragStart({ id: category.id, parentId: category.parentId });
+      }}
+      onDragEnd={(event) => {
+        event.stopPropagation();
+        onDragEnd();
+      }}
+      onDragOver={(event) => {
+        event.stopPropagation();
+        if (
+          draggedCategory?.parentId !== category.parentId ||
+          draggedCategory.id === category.id
+        )
+          return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        onDragOver(category.id);
+      }}
+      onDragLeave={(event) => {
+        event.stopPropagation();
+        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+          onDragOver(null);
+        }
+      }}
+      onDrop={(event) => onDrop(event, category)}
+    >
       {/* Vertical line: top half (always) */}
-      <div className="absolute left-2.5 top-0 h-1/2 w-px bg-[var(--border)]" />
+      <div className="absolute left-3.5 top-0 h-1/2 w-px bg-[var(--border)]" />
       {/* Vertical line: bottom half (not on last child) */}
       {index < totalRoots - 1 && (
-        <div className="absolute left-2.5 top-1/2 bottom-0 w-px bg-[var(--border)]" />
+        <div className="absolute left-3.5 top-1/2 bottom-0 w-px bg-[var(--border)]" />
       )}
       {/* Horizontal branch line */}
-      <div className="absolute left-2.5 top-1/2 w-5 h-px bg-[var(--border)]" />
+      <div className="absolute left-3.5 top-1/2 w-5 h-px bg-[var(--border)]" />
 
       <div className="flex min-w-0 items-center gap-2.5">
         <span
@@ -569,28 +686,14 @@ function CategoryNode({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-        <Button
-          variant="icon"
-          size="auto"
-          disabled={pending || index === 0}
-          onClick={() => onMoveChild(category.parentId!, index, "up")}
-          title="Di chuyển lên"
-          aria-label="Di chuyển lên"
+      <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+        <span
+          className="grid min-h-10 place-items-center px-1 text-[var(--text-muted)]"
+          title={`Kéo để sắp xếp ${category.name} trong cùng danh mục cha`}
         >
-          <ChevronUp size={14} />
-        </Button>
-        <Button
-          variant="icon"
-          size="auto"
-          disabled={pending || index === totalRoots - 1}
-          onClick={() => onMoveChild(category.parentId!, index, "down")}
-          title="Di chuyển xuống"
-          aria-label="Di chuyển xuống"
-        >
-          <ChevronDown size={14} />
-        </Button>
-        <div className="w-px h-3 bg-[var(--border)] mx-0.5" />
+          <GripVertical size={17} />
+        </span>
+        <div className="w-px h-4 bg-[var(--border)] mx-1" />
         <Button
           variant="icon"
           size="auto"

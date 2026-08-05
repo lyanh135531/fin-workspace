@@ -34,7 +34,10 @@ export async function deleteCategoryAction(categoryId: string) {
 
 export async function reorderCategoriesAction(orderedIds: string[]) {
   try {
-    const ids = z.array(idSchema).parse(orderedIds);
+    const ids = z.array(idSchema).min(1).refine(
+      (categoryIds) => new Set(categoryIds).size === categoryIds.length,
+      { message: "Thứ tự danh mục không được chứa mục trùng lặp." },
+    ).parse(orderedIds);
     const a = await actor();
     await reorderWorkspaceCategories(a.userId, a.workspaceId, ids);
     revalidatePath("/dashboard/settings");
