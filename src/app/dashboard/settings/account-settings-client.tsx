@@ -2,13 +2,7 @@
 
 import { useState, useTransition, useRef } from "react";
 
-import {
-  KeyRound,
-  ShieldCheck,
-  BadgeCheck,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import { KeyRound, ShieldCheck, BadgeCheck, Eye, EyeOff } from "lucide-react";
 
 import { changePasswordAction } from "@/app/dashboard/settings/general-actions";
 import { Button, FormPendingSkeleton, Input } from "@/components/base";
@@ -88,7 +82,7 @@ export function AccountSettingsClient({ username }: { username: string }) {
       <section>
         <div className="flex items-center gap-3.5">
           <div className="relative shrink-0">
-            <div className="flex h-12 w-12 items-center justify-center bg-[var(--primary-soft)] text-[var(--primary)] text-base font-extrabold border border-orange-500/20 shadow-xs">
+            <div className="flex h-12 w-12 items-center justify-center bg-[var(--primary-soft)] text-[var(--primary)] text-base font-extrabold border border-orange-500/20 shadow-xs rounded-xl">
               {initialsText}
             </div>
             <span
@@ -114,7 +108,7 @@ export function AccountSettingsClient({ username }: { username: string }) {
       </section>
 
       {/* ── Change Password Card ── */}
-      <section className="border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xs space-y-4">
+      <section className="border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xs space-y-4 rounded-xl">
         <div className="flex items-center gap-3 border-b border-[var(--border)] pb-3.5">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-[var(--coral)]">
             <KeyRound size={18} strokeWidth={2} />
@@ -129,7 +123,12 @@ export function AccountSettingsClient({ username }: { username: string }) {
           </div>
         </div>
 
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-3.5" aria-busy={pending}>
+        <form
+          ref={formRef}
+          onSubmit={handleSubmit}
+          className="space-y-3.5"
+          aria-busy={pending}
+        >
           {pending && <FormPendingSkeleton label="Đang cập nhật mật khẩu" />}
           {/* Current Password */}
           <div className="space-y-1.5">

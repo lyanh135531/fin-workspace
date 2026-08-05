@@ -7534,7 +7534,7 @@ html[data-sidebar-collapsed="true"] .sidebar-nav-section {
   width: 2.25rem;
   height: 2.25rem;
   place-items: center;
-  border-radius: 0.33rem;
+  border-radius: 0.35rem;
   background: linear-gradient(
     135deg,
     color-mix(in srgb, var(--primary) 20%, var(--surface)),

@@ -135,7 +135,10 @@ const balanceChartConfig = {
   total: { label: "Tổng số dư", color: "var(--primary)" },
 } satisfies ChartConfig;
 
-function getMonthDateRange(reportPeriod: string): DateRangeValue {
+function getTrailingMonthDateRange(
+  reportPeriod: string,
+  monthCount: CashflowRange = 6,
+): DateRangeValue {
   const match = /^(\d{4})-(\d{2})$/.exec(reportPeriod);
   if (!match)
     throw new RangeError(
@@ -144,40 +147,13 @@ function getMonthDateRange(reportPeriod: string): DateRangeValue {
 
   const year = Number(match[1]);
   const month = Number(match[2]);
+  const firstMonth = new Date(Date.UTC(year, month - monthCount, 1));
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const monthText = String(month).padStart(2, "0");
   return {
-    from: `${year}-${monthText}-01`,
+    from: `${firstMonth.getUTCFullYear()}-${String(firstMonth.getUTCMonth() + 1).padStart(2, "0")}-01`,
     to: `${year}-${monthText}-${String(lastDay).padStart(2, "0")}`,
   };
-}
-
-function getPresetDateRange(
-  endDate: string,
-  range: CashflowRange,
-): DateRangeValue {
-  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(endDate);
-  if (!match)
-    throw new RangeError(`Invalid date "${endDate}". Expected yyyy-MM-dd.`);
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const firstMonth = new Date(Date.UTC(year, month - range, 1));
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const firstYear = firstMonth.getUTCFullYear();
-  const firstMonthNumber = firstMonth.getUTCMonth() + 1;
-  return {
-    from: `${firstYear}-${String(firstMonthNumber).padStart(2, "0")}-01`,
-    to: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
-  };
-}
-
-function isPresetDateRange(
-  dateRange: DateRangeValue,
-  range: CashflowRange,
-): boolean {
-  const preset = getPresetDateRange(dateRange.to, range);
-  return dateRange.from === preset.from && dateRange.to === preset.to;
 }
 
 function isInDateRange(date: string, range: DateRangeValue): boolean {
@@ -203,12 +179,12 @@ export function OverviewDashboard({
   transactions,
   upcomingTransactions,
 }: Props) {
-  const defaultDateRange = getMonthDateRange(reportPeriod);
+  const defaultDateRange = getTrailingMonthDateRange(reportPeriod);
   const [walletId, setWalletId] = useState("all");
   const [categoryId, setCategoryId] = useState("all");
   const [memberId, setMemberId] = useState("all");
   const [type, setType] = useState("all");
-  const [range, setRange] = useState<CashflowRange>(6);
+  const range: CashflowRange = 6;
   const [dateRange, setDateRange] = useState<DateRangeValue>(defaultDateRange);
   const filtered = transactions.filter(
     (item) =>
@@ -264,12 +240,7 @@ export function OverviewDashboard({
     setCategoryId("all");
     setMemberId("all");
     setType("all");
-    setRange(6);
     setDateRange(defaultDateRange);
-  };
-  const handleRangeChange = (nextRange: CashflowRange) => {
-    setRange(nextRange);
-    setDateRange(getPresetDateRange(dateRange.to, nextRange));
   };
   const chartEndPeriod = dateRange.to.slice(0, 7);
 
@@ -355,7 +326,6 @@ export function OverviewDashboard({
             currency={workspace.currency}
             month={chartEndPeriod}
             range={range}
-            onRangeChange={handleRangeChange}
             walletId={walletId}
             categoryId={categoryId}
             memberId={memberId}
@@ -585,7 +555,6 @@ function CashflowOverviewCharts({
   currency,
   month,
   range,
-  onRangeChange,
   walletId,
   categoryId,
   memberId,
@@ -598,7 +567,6 @@ function CashflowOverviewCharts({
   currency: string;
   month: string;
   range: CashflowRange;
-  onRangeChange: (range: CashflowRange) => void;
   walletId: string;
   categoryId: string;
   memberId: string;
@@ -613,20 +581,6 @@ function CashflowOverviewCharts({
           <h2>Thu nhập và chi tiêu theo tháng</h2>
           <p>Giao dịch đã ghi nhận · {formatDateRangeLabel(dateRange)}</p>
         </div>
-        <Tabs
-          value={isPresetDateRange(dateRange, range) ? String(range) : null}
-          onValueChange={(value) =>
-            onRangeChange(Number(value) as CashflowRange)
-          }
-        >
-          <TabsList aria-label="Khoảng thời gian phân tích">
-            {([3, 6, 12] as const).map((value) => (
-              <TabsTrigger key={value} value={String(value)}>
-                {value} tháng
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
       </header>
       <div className="overview-flow-layout">
         <MonthlyFinancialChart

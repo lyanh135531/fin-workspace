@@ -6,13 +6,10 @@ import type { ReactNode } from "react";
 import {
   Button,
   CategoryTreeSelect,
-  DateRangePicker,
+  MonthRangePicker,
   type DateRangeValue,
   Popover,
   PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
   PopoverTrigger,
   Select,
 } from "@/components/base";
@@ -167,10 +164,10 @@ export function OverviewFilters({
           </footer>
         </PopoverContent>
       </Popover>
-      <DateRangePicker
+      <MonthRangePicker
         value={dateRange}
         onValueChange={onDateRangeChange}
-        ariaLabel="Chọn khoảng ngày báo cáo"
+        ariaLabel="Chọn khoảng tháng báo cáo"
         className={`overview-date-range-trigger ${hasCustomDateRange ? "is-custom" : ""}`}
       />
     </section>
