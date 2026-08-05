@@ -419,8 +419,7 @@ export function OverviewDashboard({
                             />
                           </div>
                           <small>
-                            {formatCompactAmount(item.amount)}{" "}
-                            {workspace.currency}
+                            {money(item.amount, workspace.currency)}
                           </small>
                         </div>
                       </div>
@@ -1370,7 +1369,7 @@ function MobileCategoryPie({
     name: item.name,
     color: item.color,
     amount: item.amount.toNumber(),
-    display: `${formatCompactAmount(item.amount)} ${currency}`,
+    display: money(item.amount, currency),
     percentage: total.isZero()
       ? "0"
       : item.amount.div(total).times(100).toFixed(0),
