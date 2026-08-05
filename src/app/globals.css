@@ -7816,7 +7816,6 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1.5px solid var(--surface);
   box-shadow: 0 2px 5px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 .header-action-group .icon-button:hover::after {

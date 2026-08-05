@@ -398,11 +398,6 @@
     box-shadow 160ms ease;
 }
 
-.ledger-book .ledger-table tbody tr:not(.ledger-draft-row):hover {
-  background: color-mix(in srgb, var(--primary) 3.5%, var(--surface));
-  box-shadow: inset 3px 0 var(--primary);
-}
-
 .ledger-create-row > td {
   box-shadow: inset 0 -1px color-mix(in srgb, var(--primary) 34%, var(--border));
 }
@@ -421,6 +416,12 @@
 .ledger-book .ledger-table td {
   height: 4.25rem;
   border-color: color-mix(in srgb, var(--border) 74%, transparent);
+}
+
+.ledger-book .ledger-table .divider-transaction {
+  height: 8px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .ledger-book .ledger-pagination {
