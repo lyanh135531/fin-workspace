@@ -39,6 +39,10 @@ function OverviewPageSkeleton() {
   return (
     <div className="space-y-5" aria-busy="true" aria-label="Đang tải tổng quan tài chính">
       <PageHeaderSkeleton />
+      <div className="flex justify-end gap-2">
+        <Skeleton className="h-10 w-24 rounded-md" />
+        <Skeleton className="h-10 w-52 rounded-md" />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Skeleton className="h-28 rounded-xl" />
         <Skeleton className="h-28 rounded-xl" />

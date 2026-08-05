@@ -22,6 +22,8 @@ export { CategoryTreeSelect } from "./category-tree-select"
 export type { CategoryTreeOption, CategoryTreeSelectProps } from "./category-tree-select"
 export { DatePicker } from "./date-picker"
 export type { DatePickerProps } from "./date-picker"
+export { DateRangePicker } from "./date-range-picker"
+export type { DateRangePickerProps, DateRangeValue } from "./date-range-picker"
 export { Input } from "./input"
 export type { InputProps } from "./input"
 export { MoneyInput } from "./money-input"
@@ -64,6 +66,14 @@ export { PageContainer } from "./page-container"
 export type { PageContainerProps } from "./page-container"
 export { PageHeader } from "./page-header"
 export type { PageHeaderProps } from "./page-header"
+export {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 export {
   AuthPageSkeleton,
   DashboardPageSkeleton,

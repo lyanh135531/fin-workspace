@@ -35,7 +35,7 @@ export type DatePickerProps = {
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-function parseIsoDate(value: string | undefined): Date | undefined {
+export function parseIsoDate(value: string | undefined): Date | undefined {
   if (!value) {
     return undefined;
   }
@@ -58,7 +58,7 @@ function parseIsoDate(value: string | undefined): Date | undefined {
   return date;
 }
 
-function toIsoDate(date: Date): string {
+export function toIsoDate(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }
 
