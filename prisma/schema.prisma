@@ -107,11 +107,13 @@ model Workspace {
 model WorkspaceWallet {
   workspaceId String    @map("workspace_id") @db.Uuid
   walletId    String    @map("wallet_id") @db.Uuid
+  sortOrder   Int       @default(0) @map("sort_order")
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   wallet      Wallet    @relation(fields: [walletId], references: [id], onDelete: Restrict)
 
   @@id([workspaceId, walletId])
   @@index([walletId])
+  @@index([workspaceId, sortOrder])
   @@map("WORKSPACE_WALLET")
 }
 

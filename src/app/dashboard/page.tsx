@@ -53,7 +53,7 @@ export async function WorkspaceDashboard({
     prisma.workspaceWallet.findMany({
       where: { workspaceId, wallet: { status: "active", deletedAt: null } },
       include: { wallet: true },
-      orderBy: { wallet: { name: "asc" } },
+      orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
     }),
     prisma.category.findMany({
       where: availableCategoryWhere(workspaceId),

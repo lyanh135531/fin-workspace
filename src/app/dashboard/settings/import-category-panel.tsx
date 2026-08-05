@@ -1,19 +1,25 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { importCategoriesAction } from "@/app/dashboard/settings/category-actions";
+import { ICON_MAP } from "@/app/dashboard/settings/global-category-management";
+import {
+  Button,
+  Card,
+  Checkbox,
+  Empty,
+  FormPendingSkeleton,
+  Label,
+} from "@/components/base";
+import { cn } from "@/lib/utils";
 import {
   ArrowDownLeft,
   ArrowUpRight,
   CheckCheck,
   Download,
   Tag,
-  CheckCircle2,
 } from "lucide-react";
-import { importCategoriesAction } from "@/app/dashboard/settings/category-actions";
-import { ICON_MAP } from "@/app/dashboard/settings/global-category-management";
-import { Button, Card, Checkbox, Empty, FormPendingSkeleton, Label } from "@/components/base";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 type TemplateCategory = {
   id: string;
@@ -177,7 +183,9 @@ export function ImportCategoryPanel({
           </div>
         )}
       </div>
-      {pending && <FormPendingSkeleton label="Đang import danh mục" className="mt-3" />}
+      {pending && (
+        <FormPendingSkeleton label="Đang import danh mục" className="mt-3" />
+      )}
 
       {/* Unified tree — all templates in hierarchy */}
       <div className="mt-4 space-y-1.5">
@@ -333,16 +341,6 @@ export function ImportCategoryPanel({
           );
         })}
       </div>
-
-      {allImported && (
-        <Empty
-          variant="inline"
-          icon={CheckCircle2}
-          title="Đã import toàn bộ danh mục mẫu"
-          description="Không còn danh mục mới để thêm vào workspace này."
-          className="mt-3"
-        />
-      )}
     </Card>
   );
 }

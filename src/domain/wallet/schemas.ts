@@ -39,5 +39,13 @@ export const updateWalletSchema = z
     message: "At least one wallet field must be provided.",
   });
 
+export const reorderWalletsSchema = z.object({
+  walletIds: z.array(idSchema).min(1).refine(
+    (walletIds) => new Set(walletIds).size === walletIds.length,
+    { message: "Wallet order must not contain duplicate wallets." },
+  ),
+});
+
 export type CreateWalletInput = z.output<typeof createWalletSchema>;
 export type UpdateWalletInput = z.output<typeof updateWalletSchema>;
+export type ReorderWalletsInput = z.output<typeof reorderWalletsSchema>;

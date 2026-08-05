@@ -8,6 +8,7 @@ import {
   Clock,
   CircleDollarSign,
   FileText,
+  GripVertical,
   Landmark,
   PauseCircle,
   Pencil,
@@ -19,9 +20,10 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { type DragEvent, useMemo, useState, useTransition } from "react";
 import {
   createManagedWalletAction,
+  reorderManagedWalletsAction,
   setManagedWalletStatusAction,
   softDeleteManagedWalletAction,
   updateManagedWalletAction,
@@ -72,6 +74,29 @@ type DestructiveWalletOperation = {
   kind: "deactivate" | "delete";
 };
 
+function moveWallet(
+  wallets: WalletItem[],
+  draggedWalletId: string,
+  targetWalletId: string,
+): WalletItem[] {
+  const sourceIndex = wallets.findIndex(({ id }) => id === draggedWalletId);
+  const targetIndex = wallets.findIndex(({ id }) => id === targetWalletId);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return wallets;
+  }
+
+  const wallet = wallets[sourceIndex];
+  const remainingWallets = [
+    ...wallets.slice(0, sourceIndex),
+    ...wallets.slice(sourceIndex + 1),
+  ];
+  return [
+    ...remainingWallets.slice(0, targetIndex),
+    wallet,
+    ...remainingWallets.slice(targetIndex),
+  ];
+}
+
 export function WalletManagement({
   workspace,
   wallets,
@@ -99,6 +124,11 @@ export function WalletManagement({
   const [settlementWalletId, setSettlementWalletId] = useState("");
   const [blockedOperation, setBlockedOperation] =
     useState<DestructiveWalletOperation | null>(null);
+  const [orderedWallets, setOrderedWallets] = useState(wallets);
+  const [draggedWalletId, setDraggedWalletId] = useState<string | null>(null);
+  const [dropTargetWalletId, setDropTargetWalletId] = useState<string | null>(
+    null,
+  );
   const [pending, startTransition] = useTransition();
 
   const activeCount = wallets.filter(
@@ -144,11 +174,49 @@ export function WalletManagement({
 
   const filteredWallets = useMemo(
     () =>
-      wallets.filter(
+      orderedWallets.filter(
         (wallet) => filterStatus === "all" || wallet.status === filterStatus,
       ),
-    [wallets, filterStatus],
+    [orderedWallets, filterStatus],
   );
+
+  function saveWalletOrder(nextWallets: WalletItem[], previousWallets: WalletItem[]) {
+    setOrderedWallets(nextWallets);
+    startTransition(async () => {
+      const result = await reorderManagedWalletsAction({
+        walletIds: nextWallets.map(({ id }) => id),
+      });
+      if (result.ok) {
+        toast.success("Đã cập nhật thứ tự ví.");
+        router.refresh();
+        return;
+      }
+
+      setOrderedWallets(previousWallets);
+      toast.error(result.message ?? "Không thể sắp xếp ví.");
+    });
+  }
+
+  function handleWalletDrop(
+    event: DragEvent<HTMLElement>,
+    targetWalletId: string,
+  ) {
+    event.preventDefault();
+    const sourceWalletId =
+      draggedWalletId || event.dataTransfer.getData("text/plain");
+    setDraggedWalletId(null);
+    setDropTargetWalletId(null);
+    if (!sourceWalletId || sourceWalletId === targetWalletId) return;
+
+    const nextWallets = moveWallet(
+      orderedWallets,
+      sourceWalletId,
+      targetWalletId,
+    );
+    if (nextWallets !== orderedWallets) {
+      saveWalletOrder(nextWallets, orderedWallets);
+    }
+  }
 
   function closeCreateSheet() {
     setCreatingModal(false);
@@ -367,7 +435,9 @@ export function WalletManagement({
               Danh sách ví
             </h2>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
-              Kiểm tra số dư, hoạt động và lịch sử của từng ví.
+              {isAdmin && filterStatus === "all"
+                ? "Kéo thả các thẻ để đổi thứ tự ví."
+                : "Kiểm tra số dư, hoạt động và lịch sử của từng ví."}
             </p>
           </div>
           <Tabs
@@ -401,7 +471,41 @@ export function WalletManagement({
           {filteredWallets.map((wallet) => {
             const isActive = wallet.status === "active";
             return (
-              <Card as="article" className="" key={wallet.id}>
+              <Card
+                as="article"
+                key={wallet.id}
+                draggable={isAdmin && filterStatus === "all" && !pending}
+                onDragStart={(event) => {
+                  setDraggedWalletId(wallet.id);
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", wallet.id);
+                }}
+                onDragEnd={() => {
+                  setDraggedWalletId(null);
+                  setDropTargetWalletId(null);
+                }}
+                onDragOver={(event) => {
+                  if (!draggedWalletId || draggedWalletId === wallet.id) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  setDropTargetWalletId(wallet.id);
+                }}
+                onDragLeave={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                    setDropTargetWalletId((current) =>
+                      current === wallet.id ? null : current,
+                    );
+                  }
+                }}
+                onDrop={(event) => handleWalletDrop(event, wallet.id)}
+                className={
+                  dropTargetWalletId === wallet.id
+                    ? "ring-2 ring-primary/60"
+                    : draggedWalletId === wallet.id
+                      ? "opacity-60"
+                      : undefined
+                }
+              >
                 <CardHeader className="border-b">
                   <div className="flex min-w-0 items-center gap-3">
                     <span
@@ -434,7 +538,16 @@ export function WalletManagement({
                     </div>
                   </div>
                   {isAdmin && (
-                    <CardAction>
+                    <CardAction className="flex items-center gap-1">
+                      {filterStatus === "all" && (
+                        <span
+                          className="grid min-h-10 cursor-grab place-items-center px-1 text-[var(--text-muted)] active:cursor-grabbing"
+                          title={`Kéo để sắp xếp ${wallet.name}`}
+                          aria-label={`Kéo để sắp xếp ${wallet.name}`}
+                        >
+                          <GripVertical size={17} />
+                        </span>
+                      )}
                       <Button
                         variant="icon"
                         size="auto"

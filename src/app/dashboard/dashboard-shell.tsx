@@ -116,7 +116,11 @@ async function loadDashboardShellData() {
           workspaceId: true,
           wallet: { select: { id: true, name: true } },
         },
-        orderBy: { wallet: { name: "asc" } },
+        orderBy: [
+          { workspaceId: "asc" },
+          { sortOrder: "asc" },
+          { wallet: { name: "asc" } },
+        ],
       }),
       prisma.category.findMany({
         where: {
