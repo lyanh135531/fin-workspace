@@ -211,10 +211,7 @@ export function ImportCategoryPanel({
                 /* Importable root — selectable */
                 <Label
                   className={cn(
-                    "flex items-center gap-3 rounded-xl border px-3.5 py-3 cursor-pointer transition-all duration-200",
-                    isChecked
-                      ? "border-[var(--primary)]/60 bg-[var(--primary)]/[0.04] shadow-sm"
-                      : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)]/30",
+                    "flex items-center gap-3 rounded-xl px-3.5 py-3 cursor-pointer transition-all duration-200",
                   )}
                 >
                   <Checkbox
@@ -261,7 +258,7 @@ export function ImportCategoryPanel({
 
               {/* Child templates — tree branch */}
               {children.length > 0 && (
-                <div className="ml-7 relative">
+                <div className="ml-12 relative">
                   {children.map((child, childIdx) => {
                     const ChildIcon = ICON_MAP[child.icon ?? "tag"] ?? Tag;
                     const isLast = childIdx === children.length - 1;
@@ -302,9 +299,6 @@ export function ImportCategoryPanel({
                           <Label
                             className={cn(
                               "relative flex items-center gap-2.5 rounded-lg pl-8 pr-3 py-2 cursor-pointer transition-all duration-150",
-                              isChildChecked
-                                ? "bg-[var(--primary)]/[0.03]"
-                                : "hover:bg-[var(--surface-muted)]/30",
                             )}
                           >
                             <Checkbox

@@ -16,7 +16,6 @@
   gap: 1.5rem;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: 1.15rem;
   background:
     radial-gradient(
       circle at 88% 15%,
@@ -28,7 +27,7 @@
       color-mix(in srgb, var(--surface) 96%, var(--primary)),
       var(--surface)
     );
-  padding: clamp(1rem, 1.4vw, 1.25rem) clamp(1.1rem, 2vw, 1.75rem);
+  padding: 24px;
   box-shadow: none;
 }
 
@@ -277,14 +276,6 @@
   width: min(19rem, 28vw);
 }
 
-.ledger-book .ledger-toolbar [data-slot="search-input"],
-.ledger-book .ledger-toolbar .finance-select-trigger {
-  min-height: 2.35rem;
-  border-color: color-mix(in srgb, var(--border) 82%, transparent);
-  border-radius: 0.55rem;
-  background: var(--surface);
-}
-
 .ledger-primary-create {
   min-height: 2.55rem;
   gap: 0.4rem;
@@ -394,7 +385,6 @@
 .ledger-book .ledger-draft-row .ledger-date-input {
   width: 100%;
   min-width: 0;
-  min-height: 2.35rem;
 }
 
 .ledger-book .ledger-draft-row .ledger-wallet-fields {
@@ -423,7 +413,6 @@
 }
 
 .ledger-create-actions [data-slot="button"] {
-  min-height: 2.25rem;
   gap: 0.35rem;
   border-radius: 0.5rem;
   padding-inline: 0.75rem;
@@ -435,14 +424,13 @@
 }
 
 .ledger-book .ledger-pagination {
-  min-height: 3.6rem;
   border-top: 1px solid var(--border);
-  padding-inline: 1rem;
 }
 
 .ledger-book .ledger-record-count {
   border-top: 0;
   padding: 0.4rem 0.75rem;
+  font-size: 10px;
 }
 
 @media (max-width: 980px) {

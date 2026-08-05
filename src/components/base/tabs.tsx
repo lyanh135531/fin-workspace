@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
+import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 function Tabs({
   className,
@@ -13,26 +13,26 @@ function Tabs({
     <TabsPrimitive.Root
       data-slot="tabs"
       data-orientation={orientation}
-      className={cn("group/tabs flex gap-6 data-horizontal:flex-col", className)}
-      {...props}
-    />
-  )
-}
-
-function TabsList({
-  className,
-  ...props
-}: TabsPrimitive.List.Props) {
-  return (
-    <TabsPrimitive.List
-      data-slot="tabs-list"
       className={cn(
-        "inline-flex h-9 gap-1 w-fit max-w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-[3px] text-muted-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "group/tabs flex gap-6 data-horizontal:flex-col",
         className,
       )}
       {...props}
     />
-  )
+  );
+}
+
+function TabsList({ className, ...props }: TabsPrimitive.List.Props) {
+  return (
+    <TabsPrimitive.List
+      data-slot="tabs-list"
+      className={cn(
+        "inline-flex h-8 gap-1 w-fit max-w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-[3px] text-muted-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
@@ -40,7 +40,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        "inline-flex h-7 flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-sm font-medium text-muted-foreground transition-colors",
+        "inline-flex h-6 flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-sm font-medium text-muted-foreground transition-colors",
         "hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         "data-active:bg-background data-active:text-foreground data-active:shadow-sm",
         "disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50",
@@ -49,7 +49,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
       )}
       {...props}
     />
-  )
+  );
 }
 
 function TabsCount({ className, ...props }: React.ComponentProps<"span">) {
@@ -63,7 +63,7 @@ function TabsCount({ className, ...props }: React.ComponentProps<"span">) {
       )}
       {...props}
     />
-  )
+  );
 }
 
 function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
@@ -73,7 +73,7 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
       className={cn("flex-1 text-sm outline-none", className)}
       {...props}
     />
-  )
+  );
 }
 
-export { Tabs, TabsContent, TabsCount, TabsList, TabsTrigger }
+export { Tabs, TabsContent, TabsCount, TabsList, TabsTrigger };

@@ -76,7 +76,7 @@ function categoryPaths(categories: CategoryTreeOption[]) {
 function TreeItems({ nodes, depth = 0 }: { nodes: TreeNode[]; depth?: number }) {
   return nodes.map((category) => (
     <React.Fragment key={category.id}>
-      <SelectItem value={category.id} disabled={category.disabled} className={cn("category-tree-item", depth === 0 ? "category-tree-item-root" : "category-tree-item-child")} style={{ paddingLeft: `${0.75 + depth * 1.35}rem` }}>
+      <SelectItem value={category.id} disabled={category.disabled} className={cn("category-tree-item", depth === 0 ? "category-tree-item-root" : "category-tree-item-child")} style={{ paddingLeft: `${0.75 + depth * 1}rem` }}>
         {depth > 0 && <span className="category-tree-branch" aria-hidden />}
         <CategoryIcon category={category} size={depth === 0 ? 14 : 13} />
         <span className="category-tree-name">{category.name}</span>
@@ -112,7 +112,7 @@ function CategoryTreeSelect({ id, value, defaultValue, onValueChange, name, labe
       </SelectTrigger>
       <SelectContent align="start" className="category-tree-content max-w-[calc(100vw-2rem)] max-h-[min(24rem,var(--available-height))] overflow-y-auto">
         <SelectGroup className="category-tree-group">
-          {emptyOption && <SelectItem value={emptyOption.value} className="category-tree-empty">{emptyOption.label}</SelectItem>}
+          {emptyOption && <SelectItem value={emptyOption.value} className="category-tree-empty h-8 p-3 text-sm">{emptyOption.label}</SelectItem>}
           {emptyOption && tree.length > 0 && <SelectSeparator className="category-tree-separator" />}
           {tree.length > 0 ? <TreeItems nodes={tree} /> : <p className="px-2.5 py-5 text-center text-xs leading-5 text-muted-foreground">Chưa có danh mục để chọn.</p>}
         </SelectGroup>

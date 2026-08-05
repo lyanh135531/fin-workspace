@@ -39,7 +39,7 @@ export function DashboardLedgerWorkspace({
 
   return (
     <div className="ledger-page-shell">
-      <header className="ledger-page-hero">
+      <header className="ledger-page-hero rounded-xl">
         <div className="ledger-page-intro">
           <div className="ledger-page-kicker">
             <span><BookOpenText size={15} aria-hidden="true" /></span>

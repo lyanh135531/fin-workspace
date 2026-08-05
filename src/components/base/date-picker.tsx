@@ -91,15 +91,11 @@ export function DatePicker({
   const minimumDate = useMemo(() => parseIsoDate(minDate), [minDate]);
   const maximumDate = useMemo(() => parseIsoDate(maxDate), [maxDate]);
   const navigationStartMonth = useMemo(
-    () =>
-      minimumDate ??
-      new Date(new Date().getFullYear() - 50, 0, 1),
+    () => minimumDate ?? new Date(new Date().getFullYear() - 50, 0, 1),
     [minimumDate],
   );
   const navigationEndMonth = useMemo(
-    () =>
-      maximumDate ??
-      new Date(new Date().getFullYear() + 50, 11, 31),
+    () => maximumDate ?? new Date(new Date().getFullYear() + 50, 11, 31),
     [maximumDate],
   );
   const disabledDates = useMemo<Matcher[]>(
@@ -139,7 +135,7 @@ export function DatePicker({
             aria-label={ariaLabel ?? label}
             disabled={disabled}
             className={cn(
-              "w-full justify-between px-3 font-normal tabular-nums",
+              "date-picker border border-input shadow-none hover:bg-transparent w-full justify-between px-3 font-normal tabular-nums bg-transparent dark:bg-input/30 dark:hover:bg-input/50",
               !selectedDate && "text-muted-foreground",
               className,
             )}

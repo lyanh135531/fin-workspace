@@ -297,7 +297,7 @@ export function Ledger({ workspaceId, businessDate, initialMonth, selectedMonth,
       <Button variant="icon" size="icon" className="ledger-clear-filter max-[760px]:hidden" disabled={editMode || !hasActiveFilters} onClick={clearFilters} title="Xóa tìm kiếm và bộ lọc" aria-label="Xóa bộ lọc"><FilterX size={16}/></Button>
       <div className="ledger-desktop-tools">
         {canApprove && selected.size > 0 && <Button variant="outline" size="icon" className="ledger-delete-button" disabled={editMode || busy} onClick={() => setConfirmBulkDelete(true)} title={`Xóa ${selected.size} giao dịch đã chọn`} aria-label={`Xóa ${selected.size} giao dịch đã chọn`}><Trash2 size={16}/></Button>}
-        {!readonly && <div className="ledger-create-actions"><Button variant="default" size="default" className="ledger-primary-create" disabled={busy || editMode || Boolean(createDraft) || !wallets.length} onClick={beginCreate}><Plus size={17}/>Giao dịch mới</Button></div>}
+        {!readonly && <div className="ledger-create-actions"><Button variant="default" size="default" disabled={busy || editMode || Boolean(createDraft) || !wallets.length} onClick={beginCreate}><Plus size={17}/>Giao dịch mới</Button></div>}
       </div>
       <div className="ledger-mobile-tools">
         {editMode ? <>

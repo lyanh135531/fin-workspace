@@ -496,8 +496,8 @@ function Node({
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <div className="flex items-center">
+          <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="flex items-center gap-2">
               <Button variant="icon" size="auto"
                 disabled={pending || index === 0}
                 onClick={() => onMoveRoot(index, "up")}
@@ -539,7 +539,7 @@ function Node({
 
         {/* Children — tree branch from parent */}
         {hasChildren && (
-          <div className="ml-7 pb-1 relative">
+          <div className="ml-2 relative">
             {children.map((child, childIdx) => (
               <Node
                 key={child.id}
@@ -566,7 +566,7 @@ function Node({
 
   // Child category — compact row with tree connector
   return (
-    <article className="group relative flex items-center justify-between gap-3 pl-8 pr-3.5 py-2 transition-colors duration-150 hover:bg-[var(--surface-muted)]/30 rounded-lg">
+    <article className="group relative flex items-center justify-between gap-3 pl-8 pr-3.5 py-2 transition-colors duration-150 rounded-xl">
       {/* Vertical line: top half (always) */}
       <div className="absolute left-2.5 top-0 h-1/2 w-px bg-[var(--border)]" />
       {/* Vertical line: bottom half (not on last child) */}
@@ -604,17 +604,15 @@ function Node({
       </div>
 
       {/* Child actions — minimal */}
-      <div className="flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-        <Button variant="unstyled" size="auto"
-          className="text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20 transition-colors p-1"
+      <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        <Button variant="icon" size="auto"
           disabled={pending || index === 0}
           onClick={() => onMoveChild(category.parentId!, index, "up")}
           title="Di chuyển lên" aria-label="Di chuyển lên"
         >
           <ChevronUp size={14} />
         </Button>
-        <Button variant="unstyled" size="auto"
-          className="text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20 transition-colors p-1"
+        <Button variant="icon" size="auto"
           disabled={pending || index === totalRoots - 1}
           onClick={() => onMoveChild(category.parentId!, index, "down")}
           title="Di chuyển xuống" aria-label="Di chuyển xuống"
@@ -622,17 +620,13 @@ function Node({
           <ChevronDown size={14} />
         </Button>
         <div className="w-px h-3 bg-[var(--border)] mx-0.5" />
-        <Button variant="unstyled" size="auto"
-          className="text-slate-400 hover:text-[var(--foreground)] transition-colors p-1"
+        <Button variant="icon" size="auto"
           onClick={() => onEdit(category.id)} disabled={pending}
           title="Chỉnh sửa" aria-label={`Chỉnh sửa ${category.name}`}
         >
           <Pencil size={13} />
         </Button>
-        <Button variant="unstyled" size="auto"
-          className={cn("text-slate-400 transition-colors p-1",
-            category.status === "active" ? "hover:text-amber-500" : "hover:text-emerald-500"
-          )}
+        <Button variant="icon" size="auto"
           onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}
           disabled={pending}
           title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}

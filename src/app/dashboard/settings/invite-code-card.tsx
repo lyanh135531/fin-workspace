@@ -69,7 +69,7 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
             {formattedDisplay}
           </code>
 
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="icon"
               size="auto"

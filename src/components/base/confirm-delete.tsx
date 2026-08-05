@@ -33,7 +33,6 @@ function ConfirmDelete({
   cancelLabel = "Hủy",
   confirmLabel = "Xóa",
   disabled,
-  className,
 }: ConfirmDeleteProps) {
   const [open, setOpen] = useState<boolean>(false)
   const [isPending, setIsPending] = useState<boolean>(false)

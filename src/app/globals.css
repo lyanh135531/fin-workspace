@@ -3,7 +3,6 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(html[data-mode="dark"] *));
-
 /* Family Finance semantic colour system. Theme: sunrise | ocean | forest | lavender | midnight. */
 :root,
 html[data-theme="sunrise"][data-mode="light"] {
@@ -63,7 +62,8 @@ html[data-theme="sunrise"][data-mode="light"] {
 
   .dashboard-app-shell {
     grid-template-columns: var(--sidebar-expanded-track) minmax(0, 1fr);
-    transition: grid-template-columns var(--sidebar-motion-duration) var(--sidebar-motion-easing);
+    transition: grid-template-columns var(--sidebar-motion-duration)
+      var(--sidebar-motion-easing);
   }
 
   html[data-sidebar-collapsed="true"] .dashboard-app-shell {
@@ -74,7 +74,8 @@ html[data-theme="sunrise"][data-mode="light"] {
     width: auto;
     min-width: 0;
     overflow-x: hidden;
-    transition: padding var(--sidebar-motion-duration) var(--sidebar-motion-easing);
+    transition: padding var(--sidebar-motion-duration)
+      var(--sidebar-motion-easing);
   }
 
   html[data-sidebar-collapsed="true"] .dashboard-sidebar {
@@ -87,7 +88,8 @@ html[data-theme="sunrise"][data-mode="light"] {
     grid-template-columns: minmax(0, 1fr) 2.5rem;
     align-items: center;
     transition:
-      grid-template-columns var(--sidebar-motion-duration) var(--sidebar-motion-easing),
+      grid-template-columns var(--sidebar-motion-duration)
+        var(--sidebar-motion-easing),
       margin-bottom var(--sidebar-motion-duration) var(--sidebar-motion-easing);
   }
 
@@ -105,7 +107,8 @@ html[data-theme="sunrise"][data-mode="light"] {
     opacity: 1;
     transform: translateX(0);
     transition:
-      max-inline-size var(--sidebar-motion-duration) var(--sidebar-motion-easing),
+      max-inline-size var(--sidebar-motion-duration)
+        var(--sidebar-motion-easing),
       opacity 120ms ease,
       transform 120ms ease;
   }
@@ -175,7 +178,8 @@ html[data-theme="sunrise"][data-mode="light"] {
 
   .sidebar-ws-switcher-wrapper {
     margin-bottom: 0.85rem;
-    transition: margin-bottom var(--sidebar-motion-duration) var(--sidebar-motion-easing);
+    transition: margin-bottom var(--sidebar-motion-duration)
+      var(--sidebar-motion-easing);
   }
 
   html[data-sidebar-collapsed="true"] .sidebar-ws-switcher-wrapper {
@@ -295,7 +299,8 @@ html[data-theme="sunrise"][data-mode="light"] {
   }
 
   .sidebar-user-section {
-    transition: padding var(--sidebar-motion-duration) var(--sidebar-motion-easing);
+    transition: padding var(--sidebar-motion-duration)
+      var(--sidebar-motion-easing);
   }
 
   html[data-sidebar-collapsed="true"] .sidebar-user-section {
@@ -444,7 +449,9 @@ html[data-theme="sunrise"][data-mode="light"] {
     width: 15.5rem;
     min-width: 0;
     overflow-x: hidden;
-    transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1), padding 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition:
+      width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      padding 220ms cubic-bezier(0.22, 1, 0.36, 1);
     will-change: width;
   }
 
@@ -476,7 +483,9 @@ html[data-theme="sunrise"][data-mode="light"] {
 
   .dashboard-sidebar-root .sidebar-toggle-icon {
     position: absolute;
-    transition: opacity 140ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition:
+      opacity 140ms ease,
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .dashboard-sidebar-root .sidebar-toggle-icon-expand {
@@ -493,7 +502,8 @@ html[data-theme="sunrise"][data-mode="light"] {
     transform: rotate(0) scale(1);
   }
 
-  .dashboard-sidebar-root[data-state="collapsed"] .sidebar-toggle-icon-collapse {
+  .dashboard-sidebar-root[data-state="collapsed"]
+    .sidebar-toggle-icon-collapse {
     opacity: 0;
     transform: rotate(20deg) scale(0.8);
   }
@@ -510,7 +520,10 @@ html[data-theme="sunrise"][data-mode="light"] {
     overflow: hidden;
     opacity: 1;
     transform: translateX(0);
-    transition: max-inline-size 160ms cubic-bezier(0.22, 1, 0.36, 1), opacity 120ms ease, transform 120ms ease;
+    transition:
+      max-inline-size 160ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 120ms ease,
+      transform 120ms ease;
   }
 
   .dashboard-sidebar-root[data-state="collapsed"] .dashboard-brand,
@@ -526,7 +539,8 @@ html[data-theme="sunrise"][data-mode="light"] {
     transform: translateX(-0.2rem);
   }
 
-  .dashboard-sidebar-root[data-state="collapsed"] .sidebar-workspace-selector-card,
+  .dashboard-sidebar-root[data-state="collapsed"]
+    .sidebar-workspace-selector-card,
   .dashboard-sidebar-root[data-state="collapsed"] .dashboard-nav-link,
   .dashboard-sidebar-root[data-state="collapsed"] .sidebar-user-card {
     width: 2.5rem;
@@ -1106,11 +1120,21 @@ select:focus-visible,
 .field:focus-visible,
 [data-slot="input"]:focus,
 [data-slot="input"]:focus-visible,
+.select-base[data-popup-open],
+.date-picker[data-popup-open],
 [data-slot="textarea"]:focus,
 [data-slot="textarea"]:focus-visible {
   outline: none !important;
   border-color: var(--primary) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent) !important;
+}
+
+input:hover,
+[data-slot="input"]:hover,
+textarea:hover,
+[data-slot="textarea"]:hover,
+[role="checkbox"]:hover .select-base:hover,
+.date-picker:hover {
+  border-color: var(--border-strong);
 }
 
 .sunrise-card {
@@ -2318,7 +2342,7 @@ html[data-theme="dark"] .bg-\[\#17233c\]\/30 {
   border-top: 1px solid var(--border);
   padding: 0.55rem 0.75rem;
   color: #7b8799;
-  font-size: 0.72rem;
+  font-size: 0.12px;
 }
 .ledger-toolbar > div.flex {
   margin-left: auto;
@@ -3475,7 +3499,7 @@ html[data-mode="dark"] .bg-\[\#17233c\]\/30 {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.35rem;
+  gap: 8px;
   white-space: nowrap;
 }
 .ledger-table th:nth-last-child(2),
@@ -3554,25 +3578,10 @@ html[data-mode="dark"] .bg-\[\#17233c\]\/30 {
 .ledger-cell-input {
   width: 100%;
   min-width: 7.5rem;
-  min-height: 2.3rem;
-  border: 1px solid var(--border);
-  border-radius: 0.28rem;
-  background: var(--surface);
   padding: 0.45rem 0.55rem;
-  color: var(--text-primary);
-  font-size: 0.78rem;
-  outline: 0;
-}
-.ledger-cell-input:hover {
-  border-color: var(--border-strong);
-}
-.ledger-cell-input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 28%, transparent);
 }
 .ledger-cell-input:disabled {
   cursor: not-allowed;
-  background: var(--surface-secondary);
   color: var(--text-muted);
 }
 .ledger-date-input {
@@ -4014,11 +4023,9 @@ html[data-mode="dark"] .ledger-date-input {
   background: var(--border);
 }
 .category-tree-item {
-  min-height: 2.25rem;
+  height: 32px;
   gap: 0.5rem;
-  padding-top: 0.35rem;
   padding-right: 2.25rem;
-  padding-bottom: 0.35rem;
   color: var(--text-secondary);
   font-weight: 400;
   transition:
@@ -4037,15 +4044,15 @@ html[data-mode="dark"] .ledger-date-input {
   color: var(--text-primary);
 }
 .category-tree-item-child {
-  font-size: 0.875rem;
+  font-size: 11px !important;
 }
 .category-tree-item-child[data-highlighted] {
   background: color-mix(in srgb, var(--primary-soft) 72%, var(--surface));
 }
 .category-tree-name {
   min-width: 0;
+  font-size: 12px;
   overflow: hidden;
-  font-weight: 400;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4075,6 +4082,7 @@ html[data-mode="dark"] .ledger-date-input {
   width: 1.4rem;
   height: 1.4rem;
   border-radius: 0.4rem;
+  font-size: 8px;
 }
 .category-tree-trigger-icon {
   width: 1.4rem;
@@ -4092,8 +4100,6 @@ html[data-mode="dark"] .ledger-date-input {
   border-bottom-left-radius: 0.25rem;
 }
 .category-tree-empty {
-  min-height: 2.25rem;
-  padding: 0.35rem 0.75rem;
   color: var(--text-muted);
   font-weight: 400;
 }
@@ -5593,7 +5599,11 @@ html[data-mode="dark"] .auth-submit-btn {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 1.25rem;
-  background: color-mix(in srgb, var(--primary-soft) 48%, var(--surface-secondary));
+  background: color-mix(
+    in srgb,
+    var(--primary-soft) 48%,
+    var(--surface-secondary)
+  );
   padding: clamp(2rem, 4vw, 4rem);
   color: var(--foreground);
   animation: auth-fade-in 420ms ease both;
@@ -5624,11 +5634,7 @@ html[data-mode="dark"] .auth-visual-panel {
 
 html[data-mode="dark"] .auth-visual-panel::before {
   content: "";
-  border-color: color-mix(
-    in srgb,
-    var(--primary) 7%,
-    var(--surface-secondary)
-  );
+  border-color: color-mix(in srgb, var(--primary) 7%, var(--surface-secondary));
   background: color-mix(in srgb, var(--surface) 6%, transparent);
 }
 
@@ -5637,8 +5643,16 @@ html[data-mode="dark"] .auth-visual-panel::before {
   inset: 0;
   opacity: 0.34;
   background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--border) 56%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--border) 56%, transparent) 1px, transparent 1px);
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--border) 56%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--border) 56%, transparent) 1px,
+      transparent 1px
+    );
   background-size: 3.5rem 3.5rem;
   mask-image: linear-gradient(to bottom right, black, transparent 72%);
   pointer-events: none;
@@ -6946,7 +6960,7 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
 .header-action-group {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 1rem;
   border: none;
   background: transparent;
   backdrop-filter: none;
@@ -7355,7 +7369,6 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
   gap: 0.65rem;
   padding: 0.55rem 0.7rem;
   border: 0;
-  border-radius: 0.33rem;
   background: transparent;
   color: var(--foreground);
   cursor: pointer;
@@ -7409,7 +7422,6 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
   align-items: center;
   gap: 0.5rem;
   padding: 0.45rem 0.6rem;
-  border-radius: 0.28rem;
   color: var(--text-secondary);
   font-size: 0.78rem;
   font-weight: 550;
@@ -7757,7 +7769,6 @@ html[data-sidebar-collapsed="true"] .sidebar-user-avatar {
   gap: 0.35rem;
   padding: 0.2rem;
   border: 1px solid var(--border);
-  border-radius: 0.3rem;
   background: var(--surface-secondary);
   transition: border-color 180ms ease;
 }
@@ -11476,24 +11487,6 @@ html[data-sidebar-collapsed="true"]
   align-self: end;
 }
 
-.overview-shell .overview-quick-entry-trigger {
-  min-height: 2.7rem;
-  border: 1px solid color-mix(in srgb, var(--primary-active) 48%, var(--primary));
-  border-radius: 0.65rem;
-  padding-inline: 1rem;
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 18%, transparent);
-  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
-}
-
-.overview-shell .overview-quick-entry-trigger:hover {
-  box-shadow: 0 12px 24px color-mix(in srgb, var(--primary) 24%, transparent);
-  transform: translateY(-1px);
-}
-
-.overview-shell .overview-quick-entry-trigger:active {
-  transform: translateY(1px) scale(0.985);
-}
-
 .overview-shell > .overview-filter-panel {
   overflow: hidden;
   margin: 0;
@@ -11547,7 +11540,10 @@ html[data-sidebar-collapsed="true"]
   border-radius: 0.58rem;
   background: var(--surface-secondary);
   color: var(--text-primary);
-  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .overview-shell .overview-filter-field .finance-select-trigger:hover {
@@ -11573,7 +11569,10 @@ html[data-sidebar-collapsed="true"]
   border-radius: 1rem;
   background: var(--surface);
   box-shadow: 0 12px 28px color-mix(in srgb, var(--shadow) 72%, transparent);
-  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
 }
 
 .overview-shell .overview-metric:hover {
@@ -11643,27 +11642,6 @@ html[data-sidebar-collapsed="true"]
   line-height: 1.45;
 }
 
-.overview-shell .overview-card [data-slot="tabs-list"] {
-  border-color: var(--border);
-  border-radius: 0.55rem;
-  background: var(--surface-secondary);
-  padding: 0.2rem;
-}
-
-.overview-shell .overview-card [data-slot="tabs-trigger"] {
-  min-height: 1.85rem;
-  border-radius: 0.4rem;
-  color: var(--text-muted);
-  font-size: 0.66rem;
-  font-weight: 700;
-}
-
-.overview-shell .overview-card [data-slot="tabs-trigger"][data-active] {
-  background: var(--surface);
-  color: var(--text-primary);
-  box-shadow: 0 2px 7px color-mix(in srgb, var(--shadow) 70%, transparent);
-}
-
 .overview-shell .overview-flow-layout {
   gap: 1.2rem;
   padding: 0 1.3rem 1.3rem;
@@ -11671,7 +11649,11 @@ html[data-sidebar-collapsed="true"]
 
 .overview-shell .overview-flow-primary {
   padding-right: 1.2rem;
-  border-right-color: color-mix(in srgb, var(--border-strong) 58%, var(--border));
+  border-right-color: color-mix(
+    in srgb,
+    var(--border-strong) 58%,
+    var(--border)
+  );
 }
 
 .overview-shell .overview-flow-member {
@@ -11717,7 +11699,9 @@ html[data-sidebar-collapsed="true"]
 .overview-shell .overview-detail-grid .recent-table article,
 .overview-shell .overview-operations .wallet-list article,
 .overview-shell .overview-operations .pending-list article {
-  transition: background-color 160ms ease, border-color 160ms ease;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
 }
 
 .overview-shell .overview-detail-grid .category-row:hover,
@@ -11870,7 +11854,8 @@ html[data-sidebar-collapsed="true"]
 @media (min-width: 901px) {
   .dashboard-app-shell {
     grid-template-columns: var(--sidebar-expanded-track) minmax(0, 1fr);
-    transition: grid-template-columns var(--sidebar-motion-duration) var(--sidebar-motion-easing);
+    transition: grid-template-columns var(--sidebar-motion-duration)
+      var(--sidebar-motion-easing);
   }
 
   html[data-sidebar-collapsed="true"] .dashboard-app-shell {
@@ -11881,7 +11866,8 @@ html[data-sidebar-collapsed="true"]
     width: auto;
     min-width: 0;
     overflow-x: hidden;
-    transition: padding var(--sidebar-motion-duration) var(--sidebar-motion-easing);
+    transition: padding var(--sidebar-motion-duration)
+      var(--sidebar-motion-easing);
   }
 
   html[data-sidebar-collapsed="true"] .dashboard-sidebar {
@@ -11894,7 +11880,8 @@ html[data-sidebar-collapsed="true"]
     grid-template-columns: minmax(0, 1fr) 2.5rem;
     align-items: center;
     transition:
-      grid-template-columns var(--sidebar-motion-duration) var(--sidebar-motion-easing),
+      grid-template-columns var(--sidebar-motion-duration)
+        var(--sidebar-motion-easing),
       margin-bottom var(--sidebar-motion-duration) var(--sidebar-motion-easing);
   }
 
