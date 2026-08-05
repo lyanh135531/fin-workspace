@@ -13,8 +13,10 @@ import {
 } from "@/components/base";
 import Decimal from "decimal.js";
 import {
+  CalendarClock,
   CircleAlert,
   Plus,
+  Repeat2,
   TrendingDown,
   TrendingUp,
   WalletCards,
@@ -71,6 +73,18 @@ type Transaction = {
   memberId: string;
   member: string;
 };
+type UpcomingTransaction = {
+  id: string;
+  source: "scheduled" | "recurring";
+  amount: string;
+  type: "income" | "expense" | "transfer";
+  description: string | null;
+  date: string;
+  walletId: string;
+  wallet: string;
+  categoryId: string | null;
+  memberId: string;
+};
 type Props = {
   workspace: { id: string; name: string; currency: string };
   reportPeriod: string;
@@ -86,6 +100,7 @@ type Props = {
   }[];
   members: { id: string; name: string }[];
   transactions: Transaction[];
+  upcomingTransactions: UpcomingTransaction[];
 };
 const money = (value: Decimal.Value, currency: string) =>
   `${formatAmount(value)} ${currency}`;
@@ -186,6 +201,7 @@ export function OverviewDashboard({
   categories,
   members,
   transactions,
+  upcomingTransactions,
 }: Props) {
   const defaultDateRange = getMonthDateRange(reportPeriod);
   const [walletId, setWalletId] = useState("all");
@@ -236,7 +252,13 @@ export function OverviewDashboard({
       });
     return [...rows.values()].sort((a, b) => b.amount.comparedTo(a.amount));
   })();
-  const pending = filtered.filter((item) => item.status === "pending");
+  const upcoming = upcomingTransactions.filter(
+    (item) =>
+      (walletId === "all" || item.walletId === walletId) &&
+      (categoryId === "all" || item.categoryId === categoryId) &&
+      (memberId === "all" || item.memberId === memberId) &&
+      (type === "all" || item.type === type),
+  );
   const reset = () => {
     setWalletId("all");
     setCategoryId("all");
@@ -427,7 +449,7 @@ export function OverviewDashboard({
               <div className="recent-table">
                 {filtered.slice(0, 6).map((item) => (
                   <article key={item.id}>
-                    <div>
+                    <div className="recent-copy">
                       <strong title={item.description ?? "Không có nội dung"}>
                         {item.description ?? "Không có nội dung"}
                       </strong>
@@ -436,13 +458,7 @@ export function OverviewDashboard({
                         {item.wallet} · {item.member}
                       </small>
                     </div>
-                    <time>
-                      {new Intl.DateTimeFormat("vi-VN", {
-                        day: "2-digit",
-                        month: "2-digit",
-                      }).format(new Date(item.date))}
-                    </time>
-                    <b className={item.type}>
+                    <b className={`recent-amount ${item.type}`}>
                       {item.type === "income"
                         ? "+"
                         : item.type === "expense"
@@ -450,9 +466,17 @@ export function OverviewDashboard({
                           : "↔"}
                       {money(item.amount, workspace.currency)}
                     </b>
-                    <span className={`overview-status ${item.status}`}>
-                      {statusLabel[item.status]}
-                    </span>
+                    <div className="recent-meta">
+                      <time>
+                        {new Intl.DateTimeFormat("vi-VN", {
+                          day: "2-digit",
+                          month: "2-digit",
+                        }).format(new Date(item.date))}
+                      </time>
+                      <span className={`overview-status ${item.status}`}>
+                        {statusLabel[item.status]}
+                      </span>
+                    </div>
                   </article>
                 ))}
                 {!filtered.length && (
@@ -468,77 +492,29 @@ export function OverviewDashboard({
               as="section"
               className="overview-card overview-operations gap-0 py-0"
             >
-              <section className="overview-operation-section overview-wallets">
+              <section className="overview-operation-section overview-upcoming">
                 <header>
                   <div>
-                    <h2>Ví trong workspace</h2>
-                    <p>Số dư hiện tại</p>
+                    <h2>Giao dịch sắp tới</h2>
+                    <p>{upcoming.length} giao dịch trong 30 ngày tới</p>
                   </div>
-                  <span className="overview-card-count">{wallets.length}</span>
+                  <span className="overview-card-count">{upcoming.length}</span>
                 </header>
-                {wallets.length ? (
-                  <div className="wallet-list">
-                    {wallets.map((wallet) => (
-                      <article key={wallet.id}>
-                        <span>
-                          <WalletCards size={16} />
-                        </span>
-                        <div>
-                          <strong>{wallet.name}</strong>
-                          <small>
-                            Cập nhật{" "}
-                            {new Intl.DateTimeFormat("vi-VN", {
-                              dateStyle: "short",
-                            }).format(new Date(wallet.updatedAt))}
-                          </small>
-                        </div>
-                        <b>
-                          {formatCompactAmount(wallet.balance)}{" "}
-                          {workspace.currency}
-                        </b>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <Empty
-                    variant="compact"
-                    icon={WalletCards}
-                    title="Chưa có ví đang hoạt động"
-                    description="Tạo hoặc kích hoạt ví để theo dõi số dư."
-                  />
-                )}
-              </section>
-              <section className="overview-operation-section overview-pending">
-                <header>
-                  <div>
-                    <h2>Giao dịch cần phê duyệt</h2>
-                    <p>{pending.length} giao dịch đang chờ</p>
-                  </div>
-                  <span className="overview-card-count warning">
-                    {pending.length}
-                  </span>
-                </header>
-                <div className="pending-list open">
-                  {pending.length ? (
-                    pending.map((item) => (
-                      <article key={item.id}>
-                        <CircleAlert size={16} />
-                        <div>
-                          <strong>
-                            {item.description ?? "Không có nội dung"}
-                          </strong>
-                          <small>
-                            {item.member} · {formatCompactAmount(item.amount)}{" "}
-                            {workspace.currency}
-                          </small>
-                        </div>
-                      </article>
+                <div className="upcoming-list">
+                  {upcoming.length ? (
+                    upcoming.map((item) => (
+                      <UpcomingTransactionRow
+                        key={`${item.source}-${item.id}`}
+                        item={item}
+                        currency={workspace.currency}
+                      />
                     ))
                   ) : (
                     <Empty
                       variant="compact"
-                      title="Không có giao dịch cần phê duyệt"
-                      description="Các giao dịch chờ duyệt mới sẽ xuất hiện tại đây."
+                      icon={CalendarClock}
+                      title="Không có giao dịch sắp tới"
+                      description="Các khoản đã lên lịch hoặc định kỳ trong 30 ngày tới sẽ xuất hiện tại đây."
                     />
                   )}
                 </div>
@@ -550,6 +526,60 @@ export function OverviewDashboard({
     </PageContainer>
   );
 }
+
+function UpcomingTransactionRow({
+  item,
+  currency,
+}: {
+  item: UpcomingTransaction;
+  currency: string;
+}) {
+  const transactionDate = new Date(item.date);
+  const sourceLabel = item.source === "recurring" ? "Định kỳ" : "Đã lên lịch";
+  const fallbackDescription =
+    item.source === "recurring" ? "Giao dịch định kỳ" : "Giao dịch đã lên lịch";
+  const amountPrefix =
+    item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔";
+
+  return (
+    <article className={item.type}>
+      <time className="upcoming-date" dateTime={item.date.slice(0, 10)}>
+        <strong>
+          {new Intl.DateTimeFormat("vi-VN", { day: "2-digit" }).format(
+            transactionDate,
+          )}
+        </strong>
+        <span>
+          thg{" "}
+          {new Intl.DateTimeFormat("vi-VN", { month: "2-digit" }).format(
+            transactionDate,
+          )}
+        </span>
+      </time>
+      <div className="upcoming-copy">
+        <strong title={item.description ?? undefined}>
+          {item.description ?? fallbackDescription}
+        </strong>
+        <small>
+          <WalletCards size={12} aria-hidden="true" />
+          <span>{item.wallet}</span>
+          <i aria-hidden="true" />
+          {item.source === "recurring" ? (
+            <Repeat2 size={12} aria-hidden="true" />
+          ) : (
+            <CalendarClock size={12} aria-hidden="true" />
+          )}
+          <span>{sourceLabel}</span>
+        </small>
+      </div>
+      <b className="upcoming-amount">
+        {amountPrefix}
+        {money(item.amount, currency)}
+      </b>
+    </article>
+  );
+}
+
 function CashflowOverviewCharts({
   members,
   transactions,
@@ -585,9 +615,7 @@ function CashflowOverviewCharts({
           <p>Giao dịch đã ghi nhận · {formatDateRangeLabel(dateRange)}</p>
         </div>
         <Tabs
-          value={
-            isPresetDateRange(dateRange, range) ? String(range) : null
-          }
+          value={isPresetDateRange(dateRange, range) ? String(range) : null}
           onValueChange={(value) =>
             onRangeChange(Number(value) as CashflowRange)
           }
