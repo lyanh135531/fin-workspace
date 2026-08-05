@@ -1,7 +1,17 @@
 "use client";
 
-import { Building2, Plus, Sparkles, Wallet, ShieldCheck, KeyRound, ArrowRight } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  Check,
+  KeyRound,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  Wallet,
+} from "lucide-react";
 import { useState, useTransition } from "react";
+
 import { createWorkspaceAction } from "@/app/dashboard/settings/actions";
 import { Button, Card, FormPendingSkeleton, Input } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +22,27 @@ const NAME_SUGGESTIONS = [
   "Tài chính cá nhân",
   "Quản lý dự án",
 ];
+
+const WORKSPACE_BENEFITS = [
+  {
+    icon: Wallet,
+    title: "Ví chính mặc định",
+    description: "Bắt đầu theo dõi số dư và giao dịch ngay từ hôm nay.",
+    tone: "mint",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Quyền Admin của bạn",
+    description: "Quản lý thành viên, ví và các quy tắc phê duyệt.",
+    tone: "coral",
+  },
+  {
+    icon: KeyRound,
+    title: "Mã mời gia nhập",
+    description: "Mời những người cần đồng hành trong không gian này.",
+    tone: "sky",
+  },
+] as const;
 
 export function CreateWorkspaceForm() {
   const [pending, start] = useTransition();
@@ -40,29 +71,98 @@ export function CreateWorkspaceForm() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 py-2">
-      <div className="grid gap-6 lg:grid-cols-12 items-start">
-        {/* ── Left Column: Creation Form (7 cols) ── */}
-        <Card as="section" className="sunrise-card gap-0 p-6 sm:p-8 lg:col-span-7 space-y-6">
-          {/* Header */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--coral)]/10 text-[var(--coral)]">
-                <Building2 size={18} />
-              </div>
-              <h1 className="text-xl font-bold tracking-tight text-[var(--foreground)] sm:text-2xl">
-                Tạo không gian làm việc
-              </h1>
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed pl-11">
-              Khởi tạo không gian dữ liệu độc lập cho thành viên, ví tiền và giao dịch. Bạn sẽ có quyền <strong>Admin</strong> quản trị workspace.
+    <div className="workspace-create-page">
+      <div className="workspace-create-layout">
+        <section
+          className="workspace-create-intro"
+          aria-labelledby="create-workspace-title"
+        >
+          <div className="workspace-create-eyebrow">
+            <span className="workspace-create-eyebrow-mark" aria-hidden="true">
+              <Building2 size={15} strokeWidth={2.2} />
+            </span>
+            <span>Workspace / Khởi tạo</span>
+          </div>
+
+          <div className="workspace-create-intro-copy">
+            <span id="create-workspace-title">
+              Một không gian rõ ràng cho mọi quyết định tài chính.
+            </span>
+            <p>
+              Tập hợp ví, giao dịch và những người quan trọng vào một nơi được
+              thiết kế để mọi thứ luôn dễ hiểu.
             </p>
           </div>
 
-          <form onSubmit={submit} className="space-y-5 pt-2" aria-busy={pending}>
+          <div className="workspace-create-visual" aria-hidden="true">
+            <div className="workspace-create-visual-orbit workspace-create-visual-orbit-one" />
+            <div className="workspace-create-visual-orbit workspace-create-visual-orbit-two" />
+            <div className="workspace-create-visual-topline">
+              <span>WORKSPACE OVERVIEW</span>
+              <span className="workspace-create-live-label">
+                <span className="workspace-create-live-dot" />
+                READY TO SET UP
+              </span>
+            </div>
+            <div className="workspace-create-visual-heading">
+              <span className="workspace-create-visual-icon">
+                <Building2 size={20} strokeWidth={1.8} />
+              </span>
+              <span>
+                <strong>Your new workspace</strong>
+                <small>VND · Asia/Ho_Chi_Minh</small>
+              </span>
+            </div>
+            <div className="workspace-create-visual-metrics">
+              <div>
+                <span>Ví & giao dịch</span>
+                <strong>Đồng bộ sẵn</strong>
+              </div>
+              <div>
+                <span>Thành viên</span>
+                <strong>Chỉ mình bạn</strong>
+              </div>
+            </div>
+            <div className="workspace-create-visual-footer">
+              <span className="workspace-create-visual-check">
+                <Check size={13} strokeWidth={2.4} />
+              </span>
+              <span>Khởi tạo trong vài giây</span>
+            </div>
+          </div>
+
+          <div className="workspace-create-intro-note">
+            <Sparkles size={15} strokeWidth={1.8} aria-hidden="true" />
+            <span>Bạn sẽ là Admin đầu tiên của không gian này.</span>
+          </div>
+        </section>
+
+        <Card as="section" className="workspace-create-form-card">
+          <div className="workspace-create-form-header">
+            <div>
+              <span className="workspace-create-form-kicker">
+                Bắt đầu từ một cái tên
+              </span>
+              <h2>Thiết lập workspace</h2>
+            </div>
+            <span className="workspace-create-time-label">
+              Mất khoảng 1 phút
+            </span>
+          </div>
+
+          <p className="workspace-create-form-description">
+            Chọn một cái tên thân thuộc. Bạn luôn có thể cập nhật thông tin này
+            trong phần cài đặt sau đó.
+          </p>
+
+          <form
+            onSubmit={submit}
+            className="workspace-create-form"
+            aria-busy={pending}
+          >
             {pending && <FormPendingSkeleton label="Đang khởi tạo workspace" />}
-            {/* Workspace Name & Suggestions */}
-            <div className="space-y-2">
+
+            <div className="workspace-create-field-group">
               <Input
                 label="Tên workspace"
                 id="workspace-name-input"
@@ -72,51 +172,58 @@ export function CreateWorkspaceForm() {
                 onChange={(e) => setName(e.target.value)}
                 minLength={3}
                 maxLength={120}
-                placeholder="Chi tiêu gia đình..."
-                className="field w-full text-sm font-medium"
+                placeholder="Ví dụ: Chi tiêu gia đình"
+                className="workspace-create-input"
                 autoFocus
               />
-
-              {/* Minimalist Name Suggestions */}
-              <div className="flex flex-nowrap items-center gap-1.5 pt-1 text-xs whitespace-nowrap overflow-x-auto">
-                <span className="text-slate-400 font-medium mr-1">Gợi ý:</span>
-                {NAME_SUGGESTIONS.map((sug) => (
-                  <Button variant="unstyled" size="auto"
-                    key={sug}
-                    type="button"
-                    onClick={() => setName(sug)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      name === sug
-                        ? "bg-[var(--coral)] text-white font-semibold shadow-sm"
-                        : "border border-[var(--border)] bg-transparent text-slate-600 hover:border-[var(--coral)]/40 hover:text-[var(--coral)] hover:bg-[var(--coral)]/5"
-                    }`}
-                  >
-                    + {sug}
-                  </Button>
-                ))}
+              <div className="workspace-create-suggestion-row">
+                <span>Gợi ý nhanh</span>
+                <div className="workspace-create-suggestion-list">
+                  {NAME_SUGGESTIONS.map((suggestion) => (
+                    <Button
+                      variant="unstyled"
+                      size="auto"
+                      key={suggestion}
+                      type="button"
+                      aria-pressed={name === suggestion}
+                      onClick={() => setName(suggestion)}
+                      className={`workspace-create-suggestion ${name === suggestion ? "is-selected" : ""}`}
+                    >
+                      <Plus size={12} strokeWidth={2.2} />
+                      {suggestion}
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Description */}
-            <div className="space-y-2">
+            <div className="workspace-create-field-group">
               <Textarea
-                label={<>Mô tả ngắn <span className="text-slate-400 font-normal lowercase">(tùy chọn)</span></>}
+                label={
+                  <>
+                    Mô tả ngắn{" "}
+                    <span className="workspace-create-optional">
+                      (tùy chọn)
+                    </span>
+                  </>
+                }
                 id="workspace-desc-input"
                 name="description"
                 maxLength={500}
-                rows={3}
+                rows={4}
                 placeholder="Mục đích hoặc phạm vi sử dụng của workspace..."
-                className="settings-textarea w-full text-sm resize-none"
+                className="workspace-create-textarea"
               />
             </div>
 
-
-            {/* Submit Button */}
-            <div className="pt-2 flex justify-end">
+            <div className="workspace-create-submit-area">
+              <p>
+                Tiền tệ mặc định: <strong>VND</strong>
+              </p>
               <Button
                 type="submit"
                 disabled={pending || !name.trim()}
-                variant="default"
+                className="workspace-create-submit"
               >
                 {pending ? (
                   <>
@@ -125,60 +232,38 @@ export function CreateWorkspaceForm() {
                   </>
                 ) : (
                   <>
-                    <Plus size={17} />
-                    Khởi tạo Workspace ngay
+                    Khởi tạo workspace
                     <ArrowRight size={15} />
                   </>
                 )}
               </Button>
             </div>
           </form>
-        </Card>
 
-        {/* ── Right Column: Ecosystem Preview (5 cols) ── */}
-        <Card as="section" className="sunrise-card gap-0 p-6 sm:p-8 lg:col-span-5 space-y-5">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-0.5 text-[11px] font-semibold text-blue-600">
-              <Sparkles size={12} />
-              <span>Hệ sinh thái tự động</span>
+          <div className="workspace-create-benefits">
+            <div className="workspace-create-benefits-heading">
+              <span className="workspace-create-benefits-kicker">
+                Sau khi tạo
+              </span>
+              <span className="workspace-create-benefits-line" />
+              <Sparkles size={14} strokeWidth={1.8} aria-hidden="true" />
             </div>
-            <h2 className="text-base font-bold text-[var(--foreground)] pt-1">
-              Thiết lập có sẵn khi tạo
-            </h2>
-            <p className="text-xs text-slate-500">
-              Hệ thống tự động chuẩn bị sẵn môi trường làm việc tài chính cho bạn:
-            </p>
-          </div>
-
-          <div className="space-y-3 pt-1">
-            <div className="flex items-start gap-3 p-2.5 rounded-xl transition-colors hover:bg-[var(--surface-muted)]">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-                <Wallet size={16} />
-              </div>
-              <div className="space-y-0.5 text-xs">
-                <p className="font-bold text-[var(--foreground)]">Ví chính mặc định</p>
-                <p className="text-slate-500">Tạo sẵn Ví chính với số dư ban đầu 0 VND.</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-2.5 rounded-xl transition-colors hover:bg-[var(--surface-muted)]">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--coral)]/10 text-[var(--coral)]">
-                <ShieldCheck size={16} />
-              </div>
-              <div className="space-y-0.5 text-xs">
-                <p className="font-bold text-[var(--foreground)]">Quyền Admin</p>
-                <p className="text-slate-500">Toàn quyền quản lý ví, phân quyền và phê duyệt.</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-2.5 rounded-xl transition-colors hover:bg-[var(--surface-muted)]">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
-                <KeyRound size={16} />
-              </div>
-              <div className="space-y-0.5 text-xs">
-                <p className="font-bold text-[var(--foreground)]">Mã mời gia nhập</p>
-                <p className="text-slate-500">Tạo sẵn mã mời để bạn gửi cho thành viên khác.</p>
-              </div>
+            <div className="workspace-create-benefit-list">
+              {WORKSPACE_BENEFITS.map(
+                ({ icon: Icon, title, description, tone }) => (
+                  <div className="workspace-create-benefit" key={title}>
+                    <span
+                      className={`workspace-create-benefit-icon is-${tone}`}
+                    >
+                      <Icon size={16} strokeWidth={1.8} />
+                    </span>
+                    <span className="workspace-create-benefit-copy">
+                      <strong>{title}</strong>
+                      <small>{description}</small>
+                    </span>
+                  </div>
+                ),
+              )}
             </div>
           </div>
         </Card>

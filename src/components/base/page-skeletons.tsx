@@ -127,9 +127,19 @@ function JoinPageSkeleton() {
 
 function WorkspaceFormPageSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6" aria-busy="true" aria-label="Đang tải biểu mẫu workspace">
-      <PageHeaderSkeleton />
-      <Skeleton className="h-[28rem] rounded-xl" />
+    <div className="workspace-create-page workspace-create-skeleton" aria-busy="true" aria-label="Đang tải biểu mẫu workspace">
+      <div className="workspace-create-layout">
+        <div className="workspace-create-intro">
+          <Skeleton className="h-7 w-44 rounded-lg" />
+          <div className="mt-10 space-y-3">
+            <Skeleton className="h-16 w-full max-w-md rounded-lg" />
+            <Skeleton className="h-16 w-4/5 max-w-sm rounded-lg" />
+            <Skeleton className="h-4 w-full max-w-sm rounded-lg" />
+          </div>
+          <Skeleton className="mt-10 h-64 w-full rounded-2xl" />
+        </div>
+        <Skeleton className="h-[38rem] w-full rounded-2xl" />
+      </div>
     </div>
   )
 }
