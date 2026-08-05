@@ -3,7 +3,7 @@
 import { Building2, Plus, Sparkles, Wallet, ShieldCheck, KeyRound, ArrowRight } from "lucide-react";
 import { useState, useTransition } from "react";
 import { createWorkspaceAction } from "@/app/dashboard/settings/actions";
-import { Button, Card, Input } from "@/components/base";
+import { Button, Card, FormPendingSkeleton, Input } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
@@ -59,7 +59,8 @@ export function CreateWorkspaceForm() {
             </p>
           </div>
 
-          <form onSubmit={submit} className="space-y-5 pt-2">
+          <form onSubmit={submit} className="space-y-5 pt-2" aria-busy={pending}>
+            {pending && <FormPendingSkeleton label="Đang khởi tạo workspace" />}
             {/* Workspace Name & Suggestions */}
             <div className="space-y-2">
               <Input

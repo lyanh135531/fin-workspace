@@ -10,7 +10,6 @@ import {
   Pencil,
   Plus,
   Tag,
-  Trash2,
 } from "lucide-react";
 import { useState, useTransition } from "react";
 import {
@@ -29,6 +28,7 @@ import {
   Card,
   CategoryTreeSelect,
   Empty,
+  FormPendingSkeleton,
   Input,
   Label,
   Sheet,
@@ -213,7 +213,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   }
 
   return (
-    <Card as="section" className="gap-0">
+    <Card as="section" className="gap-0" aria-busy={pending}>
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[var(--border)]">
         <div>
@@ -304,6 +304,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
                 : "Tạo danh mục mới chỉ dùng trong workspace hiện tại."}
             </SheetDescription>
           </SheetHeader>
+          {pending && <FormPendingSkeleton label="Đang lưu danh mục workspace" className="mx-6 mt-3" />}
           <div className="flex-1 overflow-y-auto px-6">
             {(creating || editingCategory) && (
               <CategoryForm

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, Input } from "@/components/base";
+import { Button, Card, FormPendingSkeleton, Input } from "@/components/base";
 import { useTransition, useRef } from "react";
 import { KeyRound, Send, Loader2 } from "lucide-react";
 import { requestJoinAction } from "@/app/dashboard/join/actions";
@@ -23,7 +23,8 @@ export function JoinForm() {
   }
 
   return (
-    <Card as="form" ref={formRef} action={submit} className="join-form-card gap-0 py-0">
+    <Card as="form" ref={formRef} action={submit} className="join-form-card gap-0 py-0" aria-busy={pending}>
+      {pending && <FormPendingSkeleton label="Đang gửi yêu cầu tham gia" className="mx-6 mt-3" />}
       <div className="join-form-header">
         <div className="join-form-icon-wrap">
           <KeyRound size={20} strokeWidth={1.8} />

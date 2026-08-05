@@ -30,7 +30,6 @@ import {
   Smartphone,
   Sparkles,
   Tag,
-  Trash2,
   Utensils,
 
   Wrench,
@@ -48,6 +47,7 @@ import {
   Card,
   CategoryTreeSelect,
   Empty,
+  FormPendingSkeleton,
   Input,
   Label,
   Sheet,
@@ -266,7 +266,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
   }
 
   return (
-    <Card as="section" className="gap-0">
+    <Card as="section" className="gap-0" aria-busy={pending}>
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
         <div className="flex items-center gap-2.5">
@@ -349,6 +349,7 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
                 : "Tạo một danh mục mẫu mới để nhập vào các workspace khi cần thiết."}
             </SheetDescription>
           </SheetHeader>
+          {pending && <FormPendingSkeleton label="Đang lưu danh mục mẫu" className="mx-6 mt-3" />}
           <div className="flex-1 overflow-y-auto px-6">
             <TemplateForm
               key={editing ?? "create"}

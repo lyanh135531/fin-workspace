@@ -66,7 +66,7 @@ export function DashboardNavigation({
       visible: true,
     },
     {
-      href: "/dashboard",
+      href: currentId ? `/workspace/${currentId}` : "/dashboard",
       label: "Sổ giao dịch",
       description: "Sổ thu chi và lịch sử giao dịch",
       icon: BookOpen,

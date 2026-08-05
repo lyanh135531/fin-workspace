@@ -373,6 +373,42 @@ html[data-theme="sunrise"][data-mode="light"] {
   }
 }
 
+/* Keep the account rail deterministic while the sidebar state changes. */
+@media (min-width: 901px) {
+  .sidebar-user-card[data-sidebar-profile-state="expanded"] {
+    width: 100% !important;
+    min-height: 3rem !important;
+    justify-content: flex-start !important;
+  }
+
+  .sidebar-user-card[data-sidebar-profile-state="expanded"] .sidebar-user-info {
+    display: flex !important;
+    max-width: 12rem !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .sidebar-user-card[data-sidebar-profile-state="expanded"] .sidebar-user-chevron-wrap {
+    display: grid !important;
+    max-width: 1.35rem !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .sidebar-user-card[data-sidebar-profile-state="collapsed"] {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    min-height: 2.5rem !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  .sidebar-user-card[data-sidebar-profile-state="collapsed"] .sidebar-user-info,
+  .sidebar-user-card[data-sidebar-profile-state="collapsed"] .sidebar-user-chevron-wrap {
+    display: none !important;
+  }
+}
+
 /* Desktop sidebar footer state: keep the profile card expanded with the rail. */
 @media (min-width: 901px) {
   [data-slot="sidebar"][data-state="expanded"] .sidebar-user-section {

@@ -6,9 +6,8 @@ import {
   deleteWorkspaceAction,
   updateWorkspaceSettingsAction,
 } from "@/app/dashboard/settings/actions";
-import { Button, Card, Input, Select } from "@/components/base";
+import { Button, Card, FormPendingSkeleton, Input, Select } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 type Workspace = {
@@ -101,7 +100,8 @@ export function WorkspaceSettings({
           </div>
         </div>
 
-        <form onSubmit={save} className="relative z-10 space-y-6">
+        <form onSubmit={save} className="relative z-10 space-y-6" aria-busy={pending}>
+          {pending && <FormPendingSkeleton label="Đang lưu cài đặt workspace" />}
           <div className="grid gap-6">
             {/* Name — full width, prominent */}
             <div className="space-y-2">

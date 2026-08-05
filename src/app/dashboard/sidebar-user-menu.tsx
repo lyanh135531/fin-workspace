@@ -75,6 +75,7 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
             <Button variant="unstyled" size="auto"
               type="button"
               className="sidebar-user-row sidebar-user-card transition-[width,height,padding,gap] duration-300 ease-in-out group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0!"
+              data-sidebar-profile-state={collapsed ? "collapsed" : "expanded"}
               aria-label={`Tài khoản: ${username}. Nhấn để xem tùy chọn.`}
               aria-expanded={popoverOpen}
             />

@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { importCategoriesAction } from "@/app/dashboard/settings/category-actions";
 import { ICON_MAP } from "@/app/dashboard/settings/global-category-management";
-import { Button, Card, Checkbox, Empty, Label } from "@/components/base";
+import { Button, Card, Checkbox, Empty, FormPendingSkeleton, Label } from "@/components/base";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -48,13 +48,6 @@ export function ImportCategoryPanel({
   const roots = annotated.filter((t) => !t.parentId);
   const childrenOf = (parentId: string) =>
     annotated.filter((t) => t.parentId === parentId);
-
-  // Check if a root has any importable descendants (itself or children)
-  const hasImportable = (parentId: string): boolean => {
-    const parent = annotated.find((t) => t.id === parentId);
-    if (parent && !parent.isImported) return true;
-    return childrenOf(parentId).some((c) => !c.isImported);
-  };
 
   function toggleOne(id: string) {
     setSelected((prev) => {
@@ -139,7 +132,7 @@ export function ImportCategoryPanel({
   const allImported = importableTemplates.length === 0;
 
   return (
-    <Card as="section" className="sunrise-card gap-0 mt-4 p-6">
+    <Card as="section" className="sunrise-card gap-0 mt-4 p-6" aria-busy={pending}>
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
         <div>
@@ -176,6 +169,7 @@ export function ImportCategoryPanel({
           </div>
         )}
       </div>
+      {pending && <FormPendingSkeleton label="Đang import danh mục" className="mt-3" />}
 
       {/* Unified tree — all templates in hierarchy */}
       <div className="mt-4 space-y-1.5">

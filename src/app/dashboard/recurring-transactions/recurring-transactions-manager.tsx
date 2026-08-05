@@ -13,7 +13,6 @@ import {
   Play,
   Plus,
   Repeat2,
-  Trash2,
 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import {
@@ -26,9 +25,9 @@ import { formatAmount } from "@/lib/format";
 import {
   Button,
   CategoryTreeSelect,
-  Card,
   DatePicker,
   Empty,
+  FormPendingSkeleton,
   Input,
   MoneyInput,
   PageHeader,
@@ -291,6 +290,7 @@ export function RecurringTransactionsManager({
                 Giao dịch sẽ tự động ghi nhận mỗi tháng theo lịch bạn chọn.
               </SheetDescription>
             </SheetHeader>
+            {busy && <FormPendingSkeleton label="Đang lưu giao dịch định kỳ" className="mx-6 mt-3" />}
             {draft && (
               <div className="min-h-0 flex-1 overflow-y-auto px-6">
                 <RecurringEditor

@@ -1,0 +1,164 @@
+import { Skeleton } from "./skeleton"
+
+function PageHeaderSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 border-b border-border pb-5 md:flex-row md:items-center md:justify-between">
+      <div className="space-y-2">
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-4 w-[min(32rem,80vw)]" />
+      </div>
+      <Skeleton className="h-9 w-28" />
+    </div>
+  )
+}
+
+function DashboardPageSkeleton() {
+  return (
+    <div className="space-y-5" aria-busy="true" aria-label="Đang tải sổ giao dịch">
+      <div className="flex flex-col gap-3 border-b border-border pb-5 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-56" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-32" />
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
+      </div>
+      <Skeleton className="h-[28rem] w-full rounded-xl" />
+    </div>
+  )
+}
+
+function OverviewPageSkeleton() {
+  return (
+    <div className="space-y-5" aria-busy="true" aria-label="Đang tải tổng quan tài chính">
+      <PageHeaderSkeleton />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Skeleton className="h-28 rounded-xl" />
+        <Skeleton className="h-28 rounded-xl" />
+        <Skeleton className="h-28 rounded-xl" />
+        <Skeleton className="h-28 rounded-xl" />
+      </div>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Skeleton className="h-72 rounded-xl" />
+        <Skeleton className="h-72 rounded-xl" />
+      </div>
+      <div className="grid gap-5 lg:grid-cols-3">
+        <Skeleton className="h-64 rounded-xl lg:col-span-2" />
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
+    </div>
+  )
+}
+
+function WalletsPageSkeleton() {
+  return (
+    <div className="space-y-5" aria-busy="true" aria-label="Đang tải ví">
+      <PageHeaderSkeleton />
+      <Skeleton className="h-32 rounded-xl" />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Skeleton className="h-48 rounded-xl" />
+        <Skeleton className="h-48 rounded-xl" />
+        <Skeleton className="h-48 rounded-xl" />
+      </div>
+    </div>
+  )
+}
+
+function RecurringTransactionsPageSkeleton() {
+  return (
+    <div className="space-y-5" aria-busy="true" aria-label="Đang tải giao dịch định kỳ">
+      <PageHeaderSkeleton />
+      <div className="flex gap-2">
+        <Skeleton className="h-9 w-32" />
+        <Skeleton className="h-9 w-24" />
+      </div>
+      <Skeleton className="h-[30rem] w-full rounded-xl" />
+    </div>
+  )
+}
+
+function WorkspaceSettingsPageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Đang tải cài đặt workspace">
+      <PageHeaderSkeleton />
+      <Skeleton className="h-11 w-full max-w-2xl rounded-xl" />
+      <div className="grid gap-8 lg:grid-cols-12">
+        <Skeleton className="h-[28rem] rounded-xl lg:col-span-7" />
+        <Skeleton className="h-56 rounded-xl lg:col-span-5" />
+      </div>
+    </div>
+  )
+}
+
+function PersonalSettingsPageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Đang tải cài đặt cá nhân">
+      <PageHeaderSkeleton />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Skeleton className="h-72 rounded-xl" />
+        <Skeleton className="h-72 rounded-xl" />
+      </div>
+    </div>
+  )
+}
+
+function JoinPageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Đang tải trang tham gia workspace">
+      <PageHeaderSkeleton />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
+      </div>
+    </div>
+  )
+}
+
+function WorkspaceFormPageSkeleton() {
+  return (
+    <div className="mx-auto w-full max-w-2xl space-y-6" aria-busy="true" aria-label="Đang tải biểu mẫu workspace">
+      <PageHeaderSkeleton />
+      <Skeleton className="h-[28rem] rounded-xl" />
+    </div>
+  )
+}
+
+function MemberAccountsPageSkeleton() {
+  return (
+    <div className="mx-auto w-full max-w-3xl space-y-6" aria-busy="true" aria-label="Đang tải biểu mẫu tài khoản thành viên">
+      <PageHeaderSkeleton />
+      <Skeleton className="h-[32rem] rounded-xl" />
+    </div>
+  )
+}
+
+function AuthPageSkeleton() {
+  return (
+    <main className="grid min-h-[100dvh] place-items-center p-6" aria-busy="true" aria-label="Đang tải">
+      <div className="w-full max-w-md space-y-5">
+        <Skeleton className="mx-auto size-12 rounded-xl" />
+        <Skeleton className="h-[28rem] w-full rounded-2xl" />
+      </div>
+    </main>
+  )
+}
+
+export {
+  AuthPageSkeleton,
+  DashboardPageSkeleton,
+  JoinPageSkeleton,
+  MemberAccountsPageSkeleton,
+  OverviewPageSkeleton,
+  PersonalSettingsPageSkeleton,
+  RecurringTransactionsPageSkeleton,
+  WalletsPageSkeleton,
+  WorkspaceFormPageSkeleton,
+  WorkspaceSettingsPageSkeleton,
+}

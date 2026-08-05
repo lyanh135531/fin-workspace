@@ -3,17 +3,15 @@
 import { useState, useTransition, useRef } from "react";
 
 import {
-  User,
   KeyRound,
   ShieldCheck,
-  Lock,
   BadgeCheck,
   Eye,
   EyeOff,
 } from "lucide-react";
 
 import { changePasswordAction } from "@/app/dashboard/settings/general-actions";
-import { Button, Input } from "@/components/base";
+import { Button, FormPendingSkeleton, Input } from "@/components/base";
 import { toast } from "sonner";
 
 function getInitials(username: string): string {
@@ -131,7 +129,8 @@ export function AccountSettingsClient({ username }: { username: string }) {
           </div>
         </div>
 
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-3.5">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-3.5" aria-busy={pending}>
+          {pending && <FormPendingSkeleton label="Đang cập nhật mật khẩu" />}
           {/* Current Password */}
           <div className="space-y-1.5">
             <Input
