@@ -586,7 +586,7 @@ function CashflowOverviewCharts({
         </div>
         <Tabs
           value={
-            isPresetDateRange(dateRange, range) ? String(range) : undefined
+            isPresetDateRange(dateRange, range) ? String(range) : null
           }
           onValueChange={(value) =>
             onRangeChange(Number(value) as CashflowRange)

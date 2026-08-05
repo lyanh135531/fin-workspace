@@ -1,10 +1,11 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { HelpCircle, History } from "lucide-react";
+import { CircleHelp, History, ShieldCheck, UserRoundCheck } from "lucide-react";
+
 import { authOptions } from "@/auth";
 import { JoinForm } from "@/app/dashboard/join/join-form";
 import { JoinRequestHistory } from "@/app/dashboard/join/join-request-history";
-import { Card } from "@/components/base";
+import { Card, PageContainer, PageHeader } from "@/components/base";
 import { getUserJoinRequests } from "@/services/join-request-query";
 
 export default async function JoinPage() {
@@ -24,61 +25,83 @@ export default async function JoinPage() {
   const pendingCount = requests.filter((r) => r.status === "pending").length;
 
   return (
-    <div className="join-page">
-      <div className="join-page-container">
+    <PageContainer className="mx-auto max-w-6xl pb-6">
+      <PageHeader
+        title="Tham gia workspace"
+        description="Nhập mã mời từ quản trị viên để gửi yêu cầu tham gia nhóm."
+      />
 
-        {/* Hero */}
-        <header className="join-page-hero">
-          <div>
-            <p className="settings-eyebrow">Tham gia Workspace</p>
-            <h1>Nhập mã mời để tham gia</h1>
-            <p className="join-hero-copy">
-              Dán mã mời do Admin workspace chia sẻ. Yêu cầu của bạn sẽ được Admin xét duyệt trước khi bạn có quyền hoạt động.
-            </p>
-          </div>
-        </header>
+      <div className="grid items-start gap-6 lg:grid-cols-12">
+        <section className="min-w-0 space-y-4 lg:col-span-7">
+          <JoinForm />
 
-        {/* Two-column layout */}
-        <div className="join-page-grid">
-          {/* Left: Form */}
-          <div className="join-page-form-col">
-            <JoinForm />
-
-            {/* Help section */}
-            <Card className="join-help-card gap-0 py-0">
-              <div className="join-help-icon">
-                <HelpCircle size={18} strokeWidth={1.8} />
-              </div>
-              <div>
-                <h3>Làm sao để lấy mã mời?</h3>
-                <p>
-                  Admin của workspace sẽ chia sẻ mã mời cho bạn. Mã mời có thể được tìm thấy
-                  trong mục <strong>Cài đặt workspace → Mã mời workspace</strong>.
-                </p>
-                <p>
-                  Mã có dạng UUID, ví dụ: <code>a1b2c3d4-e5f6-7890-abcd-ef1234567890</code>
-                </p>
-              </div>
-            </Card>
-          </div>
-
-          {/* Right: History */}
-          <div className="join-page-history-col">
-            <Card className="join-history-card gap-0 py-0">
-              <div className="join-history-header">
-                <div className="join-history-title-row">
-                  <History size={16} strokeWidth={2} />
-                  <h2>Lịch sử yêu cầu</h2>
+          <Card as="aside" size="sm">
+            <div className="flex items-start gap-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--info)]">
+                <CircleHelp size={17} aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-semibold text-[var(--foreground)]">
+                  Mã mời hoạt động thế nào?
+                </h2>
+                <div className="mt-3 grid gap-3 sm:grid-cols">
+                  <div className="flex items-start gap-2.5">
+                    <ShieldCheck
+                      className="mt-0.5 shrink-0 text-[var(--primary)]"
+                      size={16}
+                      aria-hidden="true"
+                    />
+                    <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
+                      Lấy mã 6 số từ quản trị viên, ví dụ{" "}
+                      <code className="font-mono font-semibold text-[var(--foreground)]">
+                        892-415
+                      </code>
+                      .
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <UserRoundCheck
+                      className="mt-0.5 shrink-0 text-[var(--primary)]"
+                      size={16}
+                      aria-hidden="true"
+                    />
+                    <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
+                      Sau khi gửi, quản trị viên cần duyệt trước khi bạn có
+                      quyền truy cập.
+                    </p>
+                  </div>
                 </div>
-                {pendingCount > 0 && (
-                  <span className="join-history-pending-badge">{pendingCount} đang chờ</span>
-                )}
               </div>
-              <JoinRequestHistory requests={serialized} />
-            </Card>
-          </div>
-        </div>
+            </div>
+          </Card>
+        </section>
+
+        <Card as="aside" className="gap-0 p-0 lg:sticky lg:top-6 lg:col-span-5">
+          <header className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
+            <div className="flex items-center gap-2.5">
+              <History
+                className="text-[var(--text-muted)]"
+                size={17}
+                aria-hidden="true"
+              />
+              <div>
+                <h2 className="font-semibold text-[var(--foreground)]">
+                  Lịch sử yêu cầu
+                </h2>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                  Theo dõi các lần bạn đã gửi
+                </p>
+              </div>
+            </div>
+            {pendingCount > 0 && (
+              <span className="shrink-0 rounded-md bg-[var(--surface-secondary)] px-2 py-1 text-xs font-semibold text-[var(--warning)]">
+                {pendingCount} đang chờ
+              </span>
+            )}
+          </header>
+          <JoinRequestHistory requests={serialized} />
+        </Card>
       </div>
-    </div>
+    </PageContainer>
   );
 }

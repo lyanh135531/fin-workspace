@@ -117,9 +117,12 @@ function JoinPageSkeleton() {
   return (
     <div className="space-y-6" aria-busy="true" aria-label="Đang tải trang tham gia workspace">
       <PageHeaderSkeleton />
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Skeleton className="h-80 rounded-xl" />
-        <Skeleton className="h-80 rounded-xl" />
+      <div className="grid gap-6 lg:grid-cols-12">
+        <div className="space-y-4 lg:col-span-7">
+          <Skeleton className="h-80 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+        </div>
+        <Skeleton className="h-96 rounded-xl lg:col-span-5" />
       </div>
     </div>
   )

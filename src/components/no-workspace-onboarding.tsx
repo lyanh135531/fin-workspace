@@ -21,10 +21,7 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
   return (
     <div className="mx-auto max-w-5xl space-y-8 py-4 sm:py-6">
       {/* ── Welcome Hero Banner ── */}
-      <Card
-        as="section"
-        className="sunrise-card gap-0 relative overflow-hidden p-6 sm:p-10"
-      >
+      <Card as="section" className="gap-0 relative overflow-hidden p-6 sm:p-10">
         <div className="relative z-10 max-w-3xl space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-[var(--coral)]/20 bg-[var(--coral)]/10 px-3.5 py-1 text-xs font-semibold text-[var(--coral)]">
             <Sparkles size={14} />
@@ -48,7 +45,7 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
       {pendingRequests.length > 0 && (
         <Card
           as="section"
-          className="sunrise-card gap-0 border-amber-500/30 bg-amber-500/5 p-5"
+          className="gap-0 border-amber-500/30 bg-amber-500/5 p-5"
         >
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600">
@@ -90,7 +87,7 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
         {/* Card 1: Create Workspace */}
         <Card
           as="section"
-          className="sunrise-card gap-0 flex flex-col justify-between p-6 sm:p-8 transition-transform hover:-translate-y-1"
+          className="gap-0 flex flex-col justify-between p-6 sm:p-8"
         >
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -129,7 +126,7 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
         {/* Card 2: Join Workspace */}
         <Card
           as="section"
-          className="sunrise-card gap-0 flex flex-col justify-between p-6 sm:p-8 transition-transform hover:-translate-y-1"
+          className="gap-0 flex flex-col justify-between p-6 sm:p-8"
         >
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -167,7 +164,7 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
       </div>
 
       {/* ── Getting Started Checklist ── */}
-      <Card as="section" className="sunrise-card gap-0 p-6 sm:p-8">
+      <Card as="section" className="gap-0 p-6 sm:p-8">
         <h3 className="text-base font-bold tracking-tight text-[var(--foreground)] sm:text-lg">
           Quy trình 3 bước bắt đầu sử dụng Felice
         </h3>

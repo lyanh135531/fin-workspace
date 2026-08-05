@@ -15,17 +15,17 @@ const STATUS_CONFIG = {
   pending: {
     icon: Clock,
     label: "Đang chờ duyệt",
-    className: "join-status-pending",
+    className: "text-[var(--warning)]",
   },
   approved: {
     icon: CheckCircle2,
     label: "Đã được duyệt",
-    className: "join-status-approved",
+    className: "text-[var(--success)]",
   },
   rejected: {
     icon: XCircle,
     label: "Bị từ chối",
-    className: "join-status-rejected",
+    className: "text-[var(--danger)]",
   },
 } as const;
 
@@ -55,27 +55,44 @@ export function JoinRequestHistory({ requests }: { requests: JoinRequestItem[] }
         icon={Inbox}
         title="Chưa có yêu cầu nào"
         description="Khi bạn gửi mã mời, yêu cầu sẽ hiển thị ở đây."
+        className="min-h-52"
       />
     );
   }
 
   return (
-    <div className="join-history-list">
+    <div className="max-h-[32rem] divide-y divide-[var(--border)] overflow-y-auto">
       {requests.map((req) => {
         const cfg = STATUS_CONFIG[req.status];
         const Icon = cfg.icon;
         return (
-          <div key={req.id} className={`join-history-item ${cfg.className}`}>
-            <div className="join-history-icon-wrap">
-              <Icon size={16} strokeWidth={2} />
+          <article
+            key={req.id}
+            className="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-[var(--surface-hover)]"
+          >
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)]">
+              <Icon
+                className={cfg.className}
+                size={16}
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-sm font-semibold text-[var(--foreground)]">
+                {req.workspaceName}
+              </h3>
+              <time
+                dateTime={req.createdAt}
+                className="mt-1 block text-xs text-[var(--text-muted)]"
+              >
+                Gửi {formatRelativeTime(req.createdAt)}
+              </time>
             </div>
-            <div className="join-history-detail">
-              <span className="join-history-ws-name">{req.workspaceName}</span>
-              <span className="join-history-meta">
-                {cfg.label} · {formatRelativeTime(req.createdAt)}
-              </span>
-            </div>
-          </div>
+            <span className={`shrink-0 text-xs font-semibold ${cfg.className}`}>
+              {cfg.label}
+            </span>
+          </article>
         );
       })}
     </div>

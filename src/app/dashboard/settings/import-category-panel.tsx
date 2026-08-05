@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  CheckCheck,
   Download,
   Tag,
   CheckCircle2,
@@ -132,7 +133,7 @@ export function ImportCategoryPanel({
   const allImported = importableTemplates.length === 0;
 
   return (
-    <Card as="section" className="sunrise-card gap-0 mt-4 p-6" aria-busy={pending}>
+    <Card as="section" className="sunrise-card gap-0 p-6" aria-busy={pending}>
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
         <div>
@@ -148,23 +149,30 @@ export function ImportCategoryPanel({
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="outline"
-              size="default"
+              variant="icon"
+              size="icon"
               onClick={toggleAll}
               disabled={pending}
-              className="text-xs"
+              aria-label={
+                selected.size === importableTemplates.length
+                  ? "Bỏ chọn tất cả danh mục"
+                  : "Chọn tất cả danh mục"
+              }
             >
-              {selected.size === importableTemplates.length
-                ? "Bỏ chọn tất cả"
-                : "Chọn tất cả"}
+              <CheckCheck />
             </Button>
             <Button
-              variant="default"
+              variant="icon"
+              size="icon"
               onClick={doImport}
               disabled={pending || selected.size === 0}
+              aria-label={
+                pending
+                  ? "Đang import danh mục"
+                  : `Import ${selected.size} danh mục`
+              }
             >
-              <Download size={15} />
-              {pending ? "Đang import..." : `Import (${selected.size})`}
+              <Download />
             </Button>
           </div>
         )}

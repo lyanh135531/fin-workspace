@@ -2274,7 +2274,6 @@ td {
   background: #ff5b3d;
   color: #fff;
   font-size: 10px;
-  font-weight: 700;
 }
 .notification-menu {
   position: absolute;
@@ -7804,21 +7803,21 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
 
 .notification-badge {
   position: absolute;
-  top: -0.15rem;
-  right: -0.15rem;
-  min-width: 1.1rem;
-  height: 1.1rem;
-  padding: 0 0.3rem;
+  top: 0.1rem;
+  right: 0.2rem;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0;
   border-radius: 999px;
   background: var(--primary);
   color: #ffffff;
-  font-size: 0.62rem;
+  font-size: 0.65rem;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--surface);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--primary) 40%, transparent);
+  border: 1.5px solid var(--surface);
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 .header-action-group .icon-button:hover::after {
   opacity: 1;
@@ -7845,18 +7844,9 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
   animation: header-icon-spin 400ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ▸ Notification badge — pulse + ring echo */
+/* ▸ Notification badge */
 .notification-badge {
-  animation: header-badge-pulse 2s ease-in-out infinite;
-}
-.notification-badge::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  border: 1.5px solid currentColor;
-  animation: header-badge-ring 2s ease-in-out infinite;
-  pointer-events: none;
+  animation: none;
 }
 
 /* ▸ Notification popover — slide-in */
