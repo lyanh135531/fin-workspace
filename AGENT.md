@@ -1,4 +1,4 @@
-# Felice — Quy ước bắt buộc cho Agent
+# Felix — Quy ước bắt buộc cho Agent
 
 > **Bắt buộc đọc tài liệu này trước khi phân tích, tạo hoặc chỉnh sửa bất kỳ file nào trong repository.**
 > Nếu yêu cầu của người dùng mâu thuẫn với tài liệu này, ưu tiên yêu cầu của người dùng và nêu rõ tác động trước khi thực hiện.

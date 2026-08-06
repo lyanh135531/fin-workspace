@@ -4,7 +4,7 @@
 # Or run via cron: */4 * * * * /path/to/nport-renew.sh check
 
 PORT="${NPORT_PORT:-15730}"
-SERVICE="${NPORT_SERVICE:-felice}"
+SERVICE="${NPORT_SERVICE:-felix}"
 PIDFILE="/tmp/nport-${PORT}.pid"
 TIMEFILE="/tmp/nport-${PORT}.time"
 LOGFILE="/tmp/nport-${PORT}.log"

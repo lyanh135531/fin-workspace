@@ -13,13 +13,13 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Felice",
-  applicationName: "Felice",
-  description: "Felice — Quản lý tài chính workspace",
+  title: "Felix",
+  applicationName: "Felix",
+  description: "Felix — Quản lý tài chính workspace",
   icons: {
-    icon: "/felice-logo.svg",
-    shortcut: "/felice-logo.svg",
-    apple: "/felice-logo.svg",
+    icon: "/felix-logo.svg",
+    shortcut: "/felix-logo.svg",
+    apple: "/felix-logo.svg",
   },
 };
 

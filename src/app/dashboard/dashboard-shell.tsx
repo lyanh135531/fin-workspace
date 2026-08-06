@@ -221,7 +221,7 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
           <SidebarToggle />
         </div>
         <div className="dashboard-header-copy">
-          <DashboardHeaderSubtitle fallback={membership?.workspace.name ?? "Felice"} />
+          <DashboardHeaderSubtitle fallback={membership?.workspace.name ?? "Felix"} />
         </div>
       </div>
 
@@ -313,7 +313,7 @@ function DashboardHeaderFallback() {
         <div className="hidden min-[1024px]:flex">
           <SidebarToggle />
         </div>
-        <div className="dashboard-header-copy">Felice</div>
+        <div className="dashboard-header-copy">Felix</div>
       </div>
       <div className="header-action-group">
         <ThemeToggle />
@@ -327,11 +327,11 @@ function BrandLink() {
     <Link
       href="/overview"
       className="flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-md px-1 text-[var(--foreground)] outline-none transition-[width,height,padding,color,gap] duration-200 hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:self-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0!"
-      aria-label="Felice - về trang tổng quan"
+      aria-label="Felix - về trang tổng quan"
     >
       <FinLogo size={36} />
       <span className="max-w-24 truncate text-base font-semibold transition-[max-width,opacity] duration-200 group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
-        Felice
+        Felix
       </span>
     </Link>
   );

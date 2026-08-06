@@ -54,9 +54,9 @@ export default function SignInPage() {
 
       <section className="auth-form-panel" aria-labelledby="sign-in-title">
         <div className="auth-form-toolbar">
-          <Link href="/" className="auth-mobile-brand" aria-label="Felice — Trang chủ">
+          <Link href="/" className="auth-mobile-brand" aria-label="Felix — Trang chủ">
             <FinLogo size={28} />
-            <span>Felice</span>
+            <span>Felix</span>
           </Link>
           <ThemeToggle />
         </div>
@@ -164,7 +164,7 @@ export default function SignInPage() {
           </div>
         </Card>
         <p className="auth-legal">
-          Khi tiếp tục, bạn đồng ý với các quy định bảo mật của Felice.
+          Khi tiếp tục, bạn đồng ý với các quy định bảo mật của Felix.
         </p>
       </section>
     </main>

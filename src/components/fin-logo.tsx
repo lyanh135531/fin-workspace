@@ -42,7 +42,7 @@ export function FinLogo({
       </svg>
       {showText && (
         <span className="font-extrabold text-lg tracking-tight text-foreground">
-          Felice
+          Felix
         </span>
       )}
     </div>

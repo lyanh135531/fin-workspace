@@ -1,4 +1,4 @@
-# Felice
+# Felix
 
 > Do not run raw balance updates. Financial mutations belong in `src/services` and must use Prisma transactions.
 

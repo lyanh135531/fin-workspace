@@ -29,7 +29,7 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
           </div>
 
           <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-3xl lg:text-4xl">
-            Chào mừng bạn đến với Felice,{" "}
+            Chào mừng bạn đến với Felix,{" "}
             <span className="text-[var(--coral)]">{username}</span>! 👋
           </h1>
 
@@ -166,7 +166,7 @@ export function NoWorkspaceOnboarding({ username, joinRequests = [] }: Props) {
       {/* ── Getting Started Checklist ── */}
       <Card as="section" className="gap-0 p-6 sm:p-8">
         <h3 className="text-base font-bold tracking-tight text-[var(--foreground)] sm:text-lg">
-          Quy trình 3 bước bắt đầu sử dụng Felice
+          Quy trình 3 bước bắt đầu sử dụng Felix
         </h3>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
