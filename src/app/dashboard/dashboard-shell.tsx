@@ -31,7 +31,7 @@ import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getPendingJoinRequestCount } from "@/services/join-request-query";
-import { activateDueScheduledTransactions } from "@/services/transaction-service";
+import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 
 type DashboardShellProps = {
   children: React.ReactNode;
@@ -72,7 +72,7 @@ async function loadDashboardShellData() {
   const userId = session?.user?.id;
   const activeWorkspaceId = userId ? await resolveActiveWorkspaceId(userId) : null;
 
-  if (activeWorkspaceId) await activateDueScheduledTransactions(activeWorkspaceId);
+  if (activeWorkspaceId) await activateDueScheduledTransactionsForRequest(activeWorkspaceId);
 
   const [membership, workspaces] = userId
     ? await Promise.all([

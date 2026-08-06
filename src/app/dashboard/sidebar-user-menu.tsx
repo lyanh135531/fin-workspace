@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/base";
+import { Button, Loading } from "@/components/base";
 import { signOut } from "next-auth/react";
 import { LogOut, ChevronUp, User } from "lucide-react";
 import { useState, useTransition } from "react";
@@ -34,8 +34,7 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
 
   function handleSignOut() {
     start(async () => {
-      await signOut({ callbackUrl: "/sign-in", redirect: false });
-      window.location.assign("/sign-in");
+      await signOut({ callbackUrl: "/sign-in" });
     });
   }
 
@@ -48,8 +47,14 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
       id="sidebar-logout-btn"
       aria-label="Đăng xuất khỏi hệ thống"
     >
-      <LogOut size={14} strokeWidth={2} />
-      {pending ? "Đang đăng xuất…" : "Đăng xuất"}
+      {pending ? (
+        <Loading label="Đang đăng xuất..." />
+      ) : (
+        <>
+          <LogOut size={14} strokeWidth={2} />
+          Đăng xuất
+        </>
+      )}
     </Button>
   );
 
@@ -88,13 +93,6 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
 
           <div className="sidebar-user-info max-w-48 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
             <span className="sidebar-user-name" title={username}>{username}</span>
-            <div className="flex items-center gap-2 mt-[2px]">
-              {role !== "none" ? (
-                <span className={`sidebar-user-role ${roleClass}`}>{roleLabel}</span>
-              ) : (
-                <span className="sidebar-user-subtext">Chưa tham gia WS</span>
-              )}
-            </div>
           </div>
 
           <div className="sidebar-user-chevron-wrap shrink-0 opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0">

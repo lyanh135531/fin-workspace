@@ -2,15 +2,17 @@
 
 import { AlertCircle, ArrowRight, Eye, EyeOff, Lock, User } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useId, useState } from "react";
 
 import { ThemeToggle } from "@/app/theme-toggle";
 import { AuthShowcase } from "@/components/auth-showcase";
-import { Button, Card, Input } from "@/components/base";
+import { Button, Card, Input, Loading } from "@/components/base";
 import { FinLogo } from "@/components/fin-logo";
 
 export default function SignInPage() {
+  const router = useRouter();
   const id = useId();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,14 +36,14 @@ export default function SignInPage() {
       if (result?.error) {
         setErrorKey((key) => key + 1);
         setError("Tên đăng nhập hoặc mật khẩu không đúng.");
+        setLoading(false);
         return;
       }
 
-      window.location.assign("/overview");
+      router.replace("/overview");
     } catch {
       setErrorKey((key) => key + 1);
       setError("Không thể kết nối tới máy chủ. Vui lòng thử lại.");
-    } finally {
       setLoading(false);
     }
   }
@@ -143,9 +145,14 @@ export default function SignInPage() {
                   className="auth-submit-btn"
                   disabled={loading}
                 >
-                  {loading && <span className="btn-spinner" aria-hidden />}
-                  {loading ? "Đang xác thực..." : "Đăng nhập"}
-                  {!loading && <ArrowRight size={17} aria-hidden />}
+                  {loading ? (
+                    <Loading label="Đang xác thực..." />
+                  ) : (
+                    <>
+                      Đăng nhập
+                      <ArrowRight size={17} aria-hidden />
+                    </>
+                  )}
                 </Button>
 
                 <p className="auth-form-link-row">

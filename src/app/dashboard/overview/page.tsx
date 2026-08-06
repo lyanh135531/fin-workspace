@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { getUserJoinRequests } from "@/services/join-request-query";
-import { activateDueScheduledTransactions } from "@/services/transaction-service";
+import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 
 export default async function OverviewPage() {
   const session = await getServerSession(authOptions);
@@ -30,7 +30,7 @@ export default async function OverviewPage() {
     return <NoWorkspaceOnboarding username={session.user.username ?? "User"} joinRequests={joinRequests} />;
   }
 
-  await activateDueScheduledTransactions(workspaceId);
+  await activateDueScheduledTransactionsForRequest(workspaceId);
   const businessDate = getBusinessDateInTimeZone(membership.workspace.timeZone);
   const reportPeriod = businessDate.slice(0, 7);
   const upcomingStartDate = new Date(`${businessDate}T00:00:00.000Z`);

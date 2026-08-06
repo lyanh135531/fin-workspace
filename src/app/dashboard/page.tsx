@@ -10,7 +10,7 @@ import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getUserJoinRequests } from "@/services/join-request-query";
-import { activateDueScheduledTransactions } from "@/services/transaction-service";
+import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 
 const LEDGER_PAGE_SIZE = 20;
 
@@ -45,7 +45,7 @@ export async function WorkspaceDashboard({
     return <NoWorkspaceOnboarding username={session.user.username ?? "User"} joinRequests={joinRequests} />;
   }
 
-  await activateDueScheduledTransactions(workspaceId);
+  await activateDueScheduledTransactionsForRequest(workspaceId);
   const businessDate = getBusinessDateInTimeZone(membership.workspace.timeZone);
   const currentPeriod = businessDate.slice(0, 7);
 

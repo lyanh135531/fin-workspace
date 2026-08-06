@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { cache } from "react";
 import { Prisma, type Transaction } from "@/generated/prisma/client";
 import { createTransactionSchema, type CreateTransactionInput } from "@/domain";
 import { isAdminRole } from "@/domain/role-policy";
@@ -252,6 +253,11 @@ export async function activateDueScheduledTransactions(workspaceId: string, now 
     return activated;
   });
 }
+
+export const activateDueScheduledTransactionsForRequest = cache(
+  async (workspaceId: string): Promise<number> =>
+    activateDueScheduledTransactions(workspaceId, new Date()),
+);
 
 export async function updateTransaction(
   userId: string,
