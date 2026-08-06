@@ -5,8 +5,8 @@ import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 
 import { cn } from "@/lib/utils";
+import { isSidebarOpen, SIDEBAR_STATE_COOKIE } from "@/lib/sidebar-state";
 
-const SIDEBAR_STORAGE_KEY = "fin-sidebar-collapsed";
 const SIDEBAR_STATE_EVENT = "fin-sidebar-state-change";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
@@ -19,17 +19,24 @@ type SidebarContextValue = {
 
 const SidebarContext = React.createContext<SidebarContextValue | null>(null);
 
+function getSidebarCookieValue(): string | undefined {
+  const cookiePrefix = `${SIDEBAR_STATE_COOKIE}=`;
+  const cookie = document.cookie
+    .split("; ")
+    .find((value: string): boolean => value.startsWith(cookiePrefix));
+
+  return cookie?.slice(cookiePrefix.length);
+}
+
 function getStoredSidebarState(): boolean {
-  return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
+  return !isSidebarOpen(getSidebarCookieValue());
 }
 
 function subscribeToSidebarState(listener: () => void): () => void {
   window.addEventListener(SIDEBAR_STATE_EVENT, listener);
-  window.addEventListener("storage", listener);
 
   return () => {
     window.removeEventListener(SIDEBAR_STATE_EVENT, listener);
-    window.removeEventListener("storage", listener);
   };
 }
 
@@ -62,7 +69,7 @@ function SidebarProvider({
   const open = !collapsed;
 
   const setOpen = React.useCallback((nextOpen: boolean): void => {
-    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(!nextOpen));
+    document.cookie = `${SIDEBAR_STATE_COOKIE}=${String(!nextOpen)}; Path=/; Max-Age=31536000; SameSite=Lax`;
     window.dispatchEvent(new Event(SIDEBAR_STATE_EVENT));
   }, []);
 

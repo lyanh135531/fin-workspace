@@ -1,5 +1,6 @@
 import { BookOpen, LayoutDashboard, Repeat2, Settings, SlidersHorizontal, WalletCards } from "lucide-react";
 import { getServerSession } from "next-auth";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -29,6 +30,7 @@ import {
 import { isAdminRole } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
+import { isSidebarOpen, SIDEBAR_STATE_COOKIE } from "@/lib/sidebar-state";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getPendingJoinRequestCount } from "@/services/join-request-query";
 import { activateDueScheduledTransactions } from "@/services/transaction-service";
@@ -43,11 +45,15 @@ type DashboardShellDataProps = {
   dataPromise: Promise<DashboardShellData>;
 };
 
-export function DashboardShell({ children }: DashboardShellProps) {
+export async function DashboardShell({ children }: DashboardShellProps) {
   const dataPromise = loadDashboardShellData();
+  const cookieStore = await cookies();
+  const defaultSidebarOpen = isSidebarOpen(
+    cookieStore.get(SIDEBAR_STATE_COOKIE)?.value,
+  );
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={defaultSidebarOpen}>
       <Suspense fallback={<DashboardSidebarFallback />}>
         <DashboardSidebar dataPromise={dataPromise} />
       </Suspense>

@@ -13,9 +13,6 @@ try {
         ? "dark"
         : "light";
 
-  if (localStorage.getItem("fin-sidebar-collapsed") === "true") {
-    root.dataset.sidebarCollapsed = "true";
-  }
 } catch (error) {
   console.warn("Unable to initialize the saved appearance settings.", error);
 }
