@@ -16,7 +16,7 @@ import { useCallback, useId, useState } from "react";
 import { registerAccountAction } from "@/app/setup/actions";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { AuthShowcase } from "@/components/auth-showcase";
-import { Button, Card, FormPendingSkeleton, Input } from "@/components/base";
+import { Button, Card, Input } from "@/components/base";
 import { FinLogo } from "@/components/fin-logo";
 
 type Strength = {
@@ -129,7 +129,6 @@ export default function SetupPage() {
 
             {!done && (
               <form onSubmit={submit} aria-busy={loading}>
-                {loading && <FormPendingSkeleton label="Đang tạo tài khoản" />}
                 <div className="auth-fields">
                   <div className="auth-floating-field">
                     <Input

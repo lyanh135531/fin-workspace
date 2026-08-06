@@ -7,7 +7,7 @@ import { useId, useState } from "react";
 
 import { ThemeToggle } from "@/app/theme-toggle";
 import { AuthShowcase } from "@/components/auth-showcase";
-import { Button, Card, FormPendingSkeleton, Input } from "@/components/base";
+import { Button, Card, Input } from "@/components/base";
 import { FinLogo } from "@/components/fin-logo";
 
 export default function SignInPage() {
@@ -70,7 +70,6 @@ export default function SignInPage() {
             </div>
 
             <form onSubmit={submit} aria-busy={loading}>
-              {loading && <FormPendingSkeleton label="Đang xác thực tài khoản" />}
               <div className="auth-fields">
                 <div className="auth-floating-field">
                   <Input

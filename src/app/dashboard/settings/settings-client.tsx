@@ -3,7 +3,7 @@
 import { ShieldCheck, UserRoundX, UsersRound } from "lucide-react";
 import { useTransition } from "react";
 import { changeMemberRoleAction, removeMemberAction } from "@/app/dashboard/settings/actions";
-import { Button, Card, Empty, FormPendingSkeleton, Select } from "@/components/base";
+import { Button, Card, Empty, Select } from "@/components/base";
 import { toast } from "sonner";
 
 type Role = { code: string; name: string };
@@ -69,7 +69,6 @@ export function SettingsClient({
 
   return (
     <Card as="section" className="gap-4 overflow-hidden" aria-busy={pending}>
-      {pending && <FormPendingSkeleton label="Đang cập nhật thành viên" />}
       {/* Header */}
       <header className="flex items-center gap-3">
         <div className="settings-section-icon">

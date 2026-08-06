@@ -40,8 +40,8 @@ import {
   CardHeader,
   CardTitle,
   Empty,
-  FormPendingSkeleton,
   Input,
+  Loading,
   MoneyInput,
   PageHeader,
   Select,
@@ -657,9 +657,6 @@ export function WalletManagement({
             className="flex h-full min-h-0 flex-col"
             aria-busy={pending}
           >
-            {pending && (
-              <FormPendingSkeleton label="Đang tạo ví" className="mx-6 mt-3" />
-            )}
             <SheetHeader className="border-b border-[var(--border)] bg-[var(--surface)] px-6 py-3.5 pr-14">
               <div className="relative flex items-start gap-3.5">
                 <div className="min-w-0">
@@ -855,10 +852,7 @@ export function WalletManagement({
                 }
               >
                 {pending ? (
-                  <>
-                    <span className="btn-spinner" aria-hidden />
-                    Đang tạo...
-                  </>
+                  <Loading label="Đang tạo..." />
                 ) : (
                   "Tạo ví"
                 )}
@@ -897,12 +891,6 @@ export function WalletManagement({
               className="flex min-h-0 flex-1 flex-col"
               aria-busy={pending}
             >
-              {pending && (
-                <FormPendingSkeleton
-                  label="Đang lưu thay đổi ví"
-                  className="mx-6 mt-3"
-                />
-              )}
               <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
                 <section
                   aria-label="Tóm tắt ví"
@@ -1082,10 +1070,7 @@ export function WalletManagement({
                   disabled={pending}
                 >
                   {pending ? (
-                    <>
-                      <span className="btn-spinner" aria-hidden />
-                      Đang lưu...
-                    </>
+                    <Loading label="Đang lưu..." />
                   ) : (
                     "Lưu thay đổi"
                   )}

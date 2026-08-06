@@ -4,7 +4,7 @@ import { useRef, useTransition } from "react";
 import { KeyRound, Loader2, Send } from "lucide-react";
 
 import { requestJoinAction } from "@/app/dashboard/join/actions";
-import { Button, Card, FormPendingSkeleton, Input } from "@/components/base";
+import { Button, Card, Input } from "@/components/base";
 import { toast } from "sonner";
 
 export function JoinForm() {
@@ -50,7 +50,6 @@ export function JoinForm() {
       </header>
 
       <div className="grid gap-5 p-6">
-        {pending && <FormPendingSkeleton label="Đang gửi yêu cầu tham gia" />}
         <Input
           label="Mã mời workspace"
           id="join-invite-code"

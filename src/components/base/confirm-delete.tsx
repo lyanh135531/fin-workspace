@@ -12,7 +12,6 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { FormPendingSkeleton } from "./form-pending-skeleton"
 
 type ConfirmDeleteProps = {
   ariaLabel: string
@@ -84,8 +83,6 @@ function ConfirmDelete({
             {description}
           </PopoverDescription>
         </PopoverHeader>
-
-        {isPending && <FormPendingSkeleton label="Đang xử lý thao tác xóa" />}
 
         <div className="flex justify-end gap-2">
           <Button

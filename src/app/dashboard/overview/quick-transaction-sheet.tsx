@@ -18,8 +18,8 @@ import {
   Checkbox,
   DatePicker,
   Empty,
-  FormPendingSkeleton,
   Label,
+  Loading,
   MoneyInput,
   Select,
   Sheet,
@@ -219,7 +219,6 @@ export function QuickTransactionSheet({
           </SheetHeader>
 
           <form className="quick-transaction-form" onSubmit={submit} aria-busy={pending}>
-            {pending && <FormPendingSkeleton label="Đang lưu giao dịch" />}
             <div className="quick-transaction-scroll">
               <Select
                 label="Workspace"
@@ -357,8 +356,14 @@ export function QuickTransactionSheet({
                 disabled={pending || !workspace.wallets.length}
                 className="quick-submit"
               >
-                <Check size={17} />
-                {pending ? "Đang lưu" : "Lưu giao dịch"}
+                {pending ? (
+                  <Loading label="Đang lưu..." />
+                ) : (
+                  <>
+                    <Check size={17} />
+                    Lưu giao dịch
+                  </>
+                )}
               </Button>
             </div>
           </form>

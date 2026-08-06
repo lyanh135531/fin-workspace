@@ -45,9 +45,9 @@ import {
   Card,
   CategoryTreeSelect,
   Empty,
-  FormPendingSkeleton,
   Input,
   Label,
+  Loading,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -406,12 +406,6 @@ export function UserCategoryTemplateManagement({
                 : "Tạo một danh mục mẫu mới để nhập vào các workspace khi cần thiết."}
             </SheetDescription>
           </SheetHeader>
-          {pending && (
-            <FormPendingSkeleton
-              label="Đang lưu danh mục mẫu"
-              className="mx-6 mt-3"
-            />
-          )}
           <div className="flex-1 overflow-y-auto px-6">
             <TemplateForm
               key={editing ?? "create"}
@@ -974,7 +968,7 @@ function TemplateForm({
           Hủy bỏ
         </Button>
         <Button type="submit" variant="default" disabled={pending}>
-          {pending ? "Đang xử lý..." : "Lưu danh mục"}
+          {pending ? <Loading label="Đang xử lý..." /> : "Lưu danh mục"}
         </Button>
       </div>
     </form>

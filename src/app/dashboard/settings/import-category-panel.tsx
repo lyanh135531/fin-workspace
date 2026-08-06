@@ -7,7 +7,6 @@ import {
   Card,
   Checkbox,
   Empty,
-  FormPendingSkeleton,
   Label,
 } from "@/components/base";
 import { cn } from "@/lib/utils";
@@ -183,10 +182,6 @@ export function ImportCategoryPanel({
           </div>
         )}
       </div>
-      {pending && (
-        <FormPendingSkeleton label="Đang import danh mục" className="mt-3" />
-      )}
-
       {/* Unified tree — all templates in hierarchy */}
       <div className="mt-4 space-y-1.5">
         {roots.map((root) => {

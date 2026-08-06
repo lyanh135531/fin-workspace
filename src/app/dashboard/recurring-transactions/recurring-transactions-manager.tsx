@@ -27,8 +27,8 @@ import {
   CategoryTreeSelect,
   DatePicker,
   Empty,
-  FormPendingSkeleton,
   Input,
+  Loading,
   MoneyInput,
   PageHeader,
   Select,
@@ -290,7 +290,6 @@ export function RecurringTransactionsManager({
                 Giao dịch sẽ tự động ghi nhận mỗi tháng theo lịch bạn chọn.
               </SheetDescription>
             </SheetHeader>
-            {busy && <FormPendingSkeleton label="Đang lưu giao dịch định kỳ" className="mx-6 mt-3" />}
             {draft && (
               <div className="min-h-0 flex-1 overflow-y-auto px-6">
                 <RecurringEditor
@@ -304,7 +303,9 @@ export function RecurringTransactionsManager({
             )}
             <SheetFooter className="shrink-0 flex-row justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-6 py-4">
               <Button variant="outline" disabled={busy} onClick={closeEditor}>Hủy</Button>
-              <Button variant="default" disabled={busy} onClick={save}>{busy ? "Đang lưu" : "Lưu đăng ký"}</Button>
+              <Button variant="default" disabled={busy} onClick={save}>
+                {busy ? <Loading label="Đang lưu..." /> : "Lưu đăng ký"}
+              </Button>
             </SheetFooter>
           </SheetContent>
         </Sheet>

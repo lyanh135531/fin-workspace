@@ -27,9 +27,9 @@ import {
   Card,
   CategoryTreeSelect,
   Empty,
-  FormPendingSkeleton,
   Input,
   Label,
+  Loading,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -343,12 +343,6 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
                 : "Tạo danh mục mới chỉ dùng trong workspace hiện tại."}
             </SheetDescription>
           </SheetHeader>
-          {pending && (
-            <FormPendingSkeleton
-              label="Đang lưu danh mục workspace"
-              className="mx-6 mt-3"
-            />
-          )}
           <div className="flex-1 overflow-y-auto px-6">
             {(creating || editingCategory) && (
               <CategoryForm
@@ -893,7 +887,7 @@ function CategoryForm({
           Hủy bỏ
         </Button>
         <Button type="submit" variant="default" disabled={pending}>
-          {pending ? "Đang xử lý..." : "Lưu danh mục"}
+          {pending ? <Loading label="Đang xử lý..." /> : "Lưu danh mục"}
         </Button>
       </div>
     </form>
