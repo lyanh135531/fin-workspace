@@ -31,11 +31,11 @@ export default async function RecurringTransactionsPage() {
     prisma.workspaceWallet.findMany({
       where: { workspaceId, wallet: { status: "active", deletedAt: null } },
       include: { wallet: true },
-      orderBy: { wallet: { name: "asc" } },
+      orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
     }),
     prisma.category.findMany({
       where: availableCategoryWhere(workspaceId),
-      select: { id: true, name: true, color: true, icon: true, parentId: true },
+      select: { id: true, name: true, color: true, icon: true, parentId: true, type: true },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     }),
     prisma.recurringTransaction.findMany({

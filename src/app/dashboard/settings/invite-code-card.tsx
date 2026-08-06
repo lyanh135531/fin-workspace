@@ -36,15 +36,10 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
 
   // Format code for display if it's 6 digits e.g. "892-415" -> "892 - 415"
   const formattedDisplay =
-    code.length === 7 && code.includes("-")
-      ? code.replace("-", " · ")
-      : code;
+    code.length === 7 && code.includes("-") ? code.replace("-", " · ") : code;
 
   return (
-    <Card as="section" className="rounded-2xl p-6 md:p-8 shadow-xs relative overflow-hidden flex flex-col h-full gap-6">
-      {/* Accent glow (subtle) */}
-      <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full blur-[80px] pointer-events-none opacity-20 bg-indigo-500" />
-
+    <Card as="section">
       <div className="space-y-3 relative z-10">
         <div className="flex items-center justify-between">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-900/10">
@@ -57,9 +52,12 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">Mã mời Workspace</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
+            Mã mời Workspace
+          </h2>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
-            Gửi mã này cho thành viên mới để họ có thể gửi yêu cầu tham gia vào workspace của bạn.
+            Gửi mã này cho thành viên mới để họ có thể gửi yêu cầu tham gia vào
+            workspace của bạn.
           </p>
         </div>
       </div>
@@ -70,33 +68,40 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
           <code className="font-mono text-xl font-bold tracking-[0.25em] text-[var(--foreground)] truncate select-all">
             {formattedDisplay}
           </code>
-          
-          <div className="flex items-center gap-1 shrink-0">
+
+          <div className="flex items-center gap-2 shrink-0">
             <Button
-              variant="unstyled"
+              variant="icon"
               size="auto"
               type="button"
               onClick={copy}
               title={copied ? "Đã sao chép" : "Sao chép mã mời"}
               aria-label={copied ? "Đã sao chép mã mời" : "Sao chép mã mời"}
               className={`transition-colors p-1 active:scale-[0.9] ${
-                copied ? "text-emerald-600" : "text-[var(--text-secondary)] hover:text-[var(--foreground)]"
+                copied && "text-emerald-600"
               }`}
+              disabled={copied}
             >
-              {copied ? <Check size={16} strokeWidth={2.5} /> : <Copy size={16} />}
+              {copied ? (
+                <Check size={16} strokeWidth={2.5} />
+              ) : (
+                <Copy size={16} />
+              )}
             </Button>
 
             <Button
-              variant="unstyled"
+              variant="icon"
               size="auto"
               type="button"
               disabled={pending}
               onClick={handleRegenerate}
               title="Đổi mã mới"
               aria-label="Đổi mã mới"
-              className="text-[var(--text-secondary)] hover:text-[var(--foreground)] transition-colors p-1 active:scale-[0.9]"
             >
-              <RefreshCw size={16} className={pending ? "animate-spin text-indigo-500" : ""} />
+              <RefreshCw
+                size={16}
+                className={pending ? "animate-spin text-indigo-500" : ""}
+              />
             </Button>
           </div>
         </div>

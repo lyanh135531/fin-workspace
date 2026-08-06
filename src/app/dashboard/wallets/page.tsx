@@ -34,10 +34,11 @@ export default async function WalletsPage() {
         },
       },
     },
-    orderBy: { wallet: { name: "asc" } },
+    orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
   });
   const totalBalance = links.filter(({ wallet }) => wallet.status === "active").reduce((total, { wallet }) => total.plus(wallet.currentBalance.toString()), new Decimal(0));
   return <PageContainer className="wallets-page-container"><WalletManagement
+    key={links.map(({ wallet, sortOrder }) => `${wallet.id}:${wallet.updatedAt.toISOString()}:${sortOrder}`).join("|")}
     workspace={{ name: membership.workspace.name, currency: membership.workspace.baseCurrency }}
     totalBalance={totalBalance.toString()}
     isAdmin={isAdminRole(membership.role.code)}

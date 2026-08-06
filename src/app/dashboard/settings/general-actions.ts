@@ -53,7 +53,10 @@ export async function setTemplateCategoryStatusAction(input: unknown) {
 
 export async function reorderTemplateCategoriesAction(orderedIds: string[]) {
   try {
-    const ids = z.array(idSchema).parse(orderedIds);
+    const ids = z.array(idSchema).min(1).refine(
+      (categoryIds) => new Set(categoryIds).size === categoryIds.length,
+      { message: "Thứ tự danh mục mẫu không được chứa mục trùng lặp." },
+    ).parse(orderedIds);
     await reorderUserCategoryTemplates(await actor(), ids);
     revalidatePath("/dashboard/settings/general");
     return { ok: true, message: null };

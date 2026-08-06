@@ -3,26 +3,15 @@
 import { Button } from "@/components/base";
 import { signOut } from "next-auth/react";
 import { LogOut, ChevronUp, User } from "lucide-react";
-import { useState, useTransition, useSyncExternalStore } from "react";
+import { useState, useTransition } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AccountSettingsModal } from "@/app/dashboard/account-settings-modal";
+import { useOptionalSidebar } from "@/components/ui/sidebar";
 
 function initials(username: string): string {
   const parts = username.trim().split(/[\s_\-\.]+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return username.slice(0, 2).toUpperCase();
-}
-
-function useSidebarCollapsed() {
-  return useSyncExternalStore(
-    (cb) => {
-      const obs = new MutationObserver(cb);
-      obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-sidebar-collapsed"] });
-      return () => obs.disconnect();
-    },
-    () => document.documentElement.dataset.sidebarCollapsed === "true",
-    () => false,
-  );
 }
 
 type Props = {
@@ -35,7 +24,8 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
   const [pending, start] = useTransition();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
-  const collapsed = useSidebarCollapsed() && !forceExpanded;
+  const sidebar = useOptionalSidebar();
+  const collapsed = sidebar?.state === "collapsed" && !forceExpanded;
 
   const roleLabel =
     role === "admin" ? "Admin" : role === "member" ? "Member" : "Chưa có ws";
@@ -44,7 +34,8 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
 
   function handleSignOut() {
     start(async () => {
-      await signOut({ callbackUrl: "/sign-in" });
+      await signOut({ callbackUrl: "/sign-in", redirect: false });
+      window.location.assign("/sign-in");
     });
   }
 
@@ -76,69 +67,15 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
     </Button>
   );
 
-  /* ── Collapsed: avatar icon → right flyout popover ── */
-  if (collapsed) {
-    return (
-      <div className="sidebar-user-section">
-        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-          <PopoverTrigger
-            render={
-              <Button variant="unstyled" size="auto"
-                type="button"
-                className="sidebar-user-row sidebar-user-card-collapsed"
-                aria-label={`Tài khoản: ${username}. Nhấn để xem tùy chọn.`}
-              />
-            }
-          >
-            <div className="sidebar-user-avatar-wrap">
-              <div className="sidebar-user-avatar" aria-hidden>
-                {avatarText}
-              </div>
-              <span className="sidebar-user-status-dot" aria-hidden />
-            </div>
-          </PopoverTrigger>
-          <PopoverContent
-            side="right"
-            align="end"
-            sideOffset={10}
-            className="sidebar-flyout-popover sidebar-user-popover-content"
-          >
-            <div className="sidebar-flyout-user-header">
-              <div className="sidebar-user-avatar-wrap">
-                <div className="sidebar-user-avatar sidebar-avatar-lg" aria-hidden>
-                  {avatarText}
-                </div>
-                <span className="sidebar-user-status-dot" aria-hidden />
-              </div>
-              <div className="sidebar-user-flyout-meta">
-                <p className="sidebar-flyout-username">{username}</p>
-                <span className={`sidebar-user-role ${roleClass}`}>{roleLabel}</span>
-              </div>
-            </div>
-            <div className="sidebar-flyout-divider" />
-            {OpenAccountSettingsBtn}
-            {LogoutButton}
-          </PopoverContent>
-        </Popover>
-
-        <AccountSettingsModal
-          open={accountModalOpen}
-          onClose={() => setAccountModalOpen(false)}
-          username={username}
-        />
-      </div>
-    );
-  }
-
-  /* ── Expanded: modern profile card layout ── */
   return (
-    <div className="sidebar-user-section" aria-label="Tài khoản người dùng">
+    <div className="sidebar-user-section group-data-[collapsible=icon]:m-0! group-data-[collapsible=icon]:p-0!" aria-label="Tài khoản người dùng">
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger
           render={
             <Button variant="unstyled" size="auto"
               type="button"
-              className="sidebar-user-row sidebar-user-card"
+              className="sidebar-user-row sidebar-user-card transition-[width,height,padding,gap] duration-300 ease-in-out group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0!"
+              data-sidebar-profile-state={collapsed ? "collapsed" : "expanded"}
               aria-label={`Tài khoản: ${username}. Nhấn để xem tùy chọn.`}
               aria-expanded={popoverOpen}
             />
@@ -149,7 +86,7 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
             <span className="sidebar-user-status-dot" aria-hidden />
           </div>
 
-          <div className="sidebar-user-info">
+          <div className="sidebar-user-info max-w-48 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
             <span className="sidebar-user-name" title={username}>{username}</span>
             <div className="flex items-center gap-2 mt-[2px]">
               {role !== "none" ? (
@@ -160,7 +97,7 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
             </div>
           </div>
 
-          <div className="sidebar-user-chevron-wrap">
+          <div className="sidebar-user-chevron-wrap shrink-0 opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0">
             <ChevronUp
               size={13}
               strokeWidth={2.2}
@@ -170,9 +107,9 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
         </PopoverTrigger>
 
         <PopoverContent
-          side="top"
-          align="start"
-          sideOffset={8}
+          side={collapsed ? "right" : "top"}
+          align={collapsed ? "end" : "start"}
+          sideOffset={collapsed ? 10 : 8}
           className="sidebar-flyout-popover sidebar-user-popover-content"
         >
           <div className="sidebar-flyout-user-header">

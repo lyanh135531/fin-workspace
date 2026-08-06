@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import type { DateRangeValue } from "@/components/base/date-range-picker";
 
 export type CashflowType = "income" | "expense";
 export type CashflowRange = 3 | 6 | 12;
@@ -35,6 +36,7 @@ export type CashflowFilters = {
   memberId: string;
   transactionType: string;
   categoryType?: CashflowType;
+  dateRange?: DateRangeValue;
 };
 
 export type MonthlyCashflow = {
@@ -57,6 +59,7 @@ export type MemberTransactionFilters = {
   walletId: string;
   categoryId: string;
   type: CashflowType;
+  dateRange?: DateRangeValue;
 };
 
 export function getVisibleCashflowTypes(
@@ -70,7 +73,7 @@ export function getVisibleCashflowTypes(
   return categoryType ? [categoryType] : ["income", "expense"];
 }
 
-function recentPeriods(endPeriod: string, count: CashflowRange) {
+function recentPeriods(endPeriod: string, count: CashflowRange): string[] {
   const [year, month] = endPeriod.split("-").map(Number);
   return Array.from({ length: count }, (_, index) => {
     const date = new Date(Date.UTC(year, month - count + index, 1));
@@ -82,7 +85,7 @@ export function buildMonthlyCashflow(
   transactions: ChartTransaction[],
   filters: CashflowFilters,
 ): MonthlyCashflow[] {
-  const periods = recentPeriods(filters.endPeriod, filters.range);
+  const periods = reportPeriods(filters.endPeriod, filters.range, filters.dateRange);
   const periodSet = new Set(periods);
   const totals = new Map(
     periods.map((period) => [
@@ -97,6 +100,9 @@ export function buildMonthlyCashflow(
       transaction.status !== "approved"
       || transaction.type === "transfer"
       || !periodSet.has(period)
+      || (filters.dateRange !== undefined
+        && (transaction.date.slice(0, 10) < filters.dateRange.from
+          || transaction.date.slice(0, 10) > filters.dateRange.to))
       || (filters.walletId !== "all"
         && transaction.walletId !== filters.walletId
         && transaction.toWalletId !== filters.walletId)
@@ -134,7 +140,7 @@ export function buildMemberMonthlyTotals(
   transactions: ChartTransaction[],
   filters: MemberTransactionFilters,
 ): MemberMonthlyTotal[] {
-  const periods = recentPeriods(filters.endPeriod, filters.range);
+  const periods = reportPeriods(filters.endPeriod, filters.range, filters.dateRange);
   const periodSet = new Set(periods);
   const totals = new Map(
     periods.map((period) => [
@@ -150,6 +156,9 @@ export function buildMemberMonthlyTotals(
       transaction.status !== "approved"
       || transaction.type !== filters.type
       || !periodSet.has(period)
+      || (filters.dateRange !== undefined
+        && (transaction.date.slice(0, 10) < filters.dateRange.from
+          || transaction.date.slice(0, 10) > filters.dateRange.to))
       || !memberIds.has(transaction.memberId)
       || (filters.walletId !== "all"
         && transaction.walletId !== filters.walletId
@@ -185,9 +194,10 @@ export function buildMonthlyBalances(
     endPeriod: string;
     range: CashflowRange;
     walletId: string;
+    dateRange?: DateRangeValue;
   },
 ): MonthlyBalance[] {
-  const periods = recentPeriods(filters.endPeriod, filters.range);
+  const periods = reportPeriods(filters.endPeriod, filters.range, filters.dateRange);
   const visibleWallets = filters.walletId === "all"
     ? wallets
     : wallets.filter((wallet) => wallet.id === filters.walletId);
@@ -195,6 +205,17 @@ export function buildMonthlyBalances(
     visibleWallets.map((wallet) => [wallet.id, new Decimal(wallet.balance)]),
   );
   const rows = new Map<string, MonthlyBalance>();
+
+  if (filters.dateRange) {
+    for (const transaction of transactions) {
+      if (
+        transaction.status === "approved"
+        && transaction.date.slice(0, 10) > filters.dateRange.to
+      ) {
+        reverseBalanceTransaction(balances, transaction);
+      }
+    }
+  }
 
   for (let index = periods.length - 1; index >= 0; index -= 1) {
     const period = periods[index];
@@ -223,26 +244,12 @@ export function buildMonthlyBalances(
       if (
         transaction.status !== "approved"
         || transaction.date.slice(0, 7) !== period
+        || (filters.dateRange !== undefined && transaction.date.slice(0, 10) > filters.dateRange.to)
       ) {
         continue;
       }
 
-      const amount = new Decimal(transaction.amount);
-      const sourceBalance = balances.get(transaction.walletId);
-      if (sourceBalance) {
-        if (transaction.type === "income") {
-          balances.set(transaction.walletId, sourceBalance.minus(amount));
-        } else {
-          balances.set(transaction.walletId, sourceBalance.plus(amount));
-        }
-      }
-
-      if (transaction.type === "transfer" && transaction.toWalletId) {
-        const destinationBalance = balances.get(transaction.toWalletId);
-        if (destinationBalance) {
-          balances.set(transaction.toWalletId, destinationBalance.minus(amount));
-        }
-      }
+      reverseBalanceTransaction(balances, transaction);
     }
   }
 
@@ -252,4 +259,54 @@ export function buildMonthlyBalances(
     wallets: {},
     hasNegativeBalance: false,
   });
+}
+
+function periodsInDateRange(dateRange: DateRangeValue): string[] {
+  if (dateRange.from > dateRange.to) {
+    throw new RangeError(`Invalid date range "${dateRange.from}"–"${dateRange.to}".`);
+  }
+
+  const [fromYear, fromMonth] = dateRange.from.slice(0, 7).split("-").map(Number);
+  const [toYear, toMonth] = dateRange.to.slice(0, 7).split("-").map(Number);
+  const cursor = new Date(Date.UTC(fromYear, fromMonth - 1, 1));
+  const lastMonth = new Date(Date.UTC(toYear, toMonth - 1, 1));
+  const periods: string[] = [];
+
+  while (cursor <= lastMonth) {
+    periods.push(cursor.toISOString().slice(0, 7));
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+
+  return periods;
+}
+
+function reportPeriods(
+  endPeriod: string,
+  range: CashflowRange,
+  dateRange: DateRangeValue | undefined,
+): string[] {
+  return dateRange ? periodsInDateRange(dateRange) : recentPeriods(endPeriod, range);
+}
+
+function reverseBalanceTransaction(
+  balances: Map<string, Decimal>,
+  transaction: ChartTransaction,
+): void {
+  const amount = new Decimal(transaction.amount);
+  const sourceBalance = balances.get(transaction.walletId);
+  if (sourceBalance) {
+    balances.set(
+      transaction.walletId,
+      transaction.type === "income"
+        ? sourceBalance.minus(amount)
+        : sourceBalance.plus(amount),
+    );
+  }
+
+  if (transaction.type === "transfer" && transaction.toWalletId) {
+    const destinationBalance = balances.get(transaction.toWalletId);
+    if (destinationBalance) {
+      balances.set(transaction.toWalletId, destinationBalance.minus(amount));
+    }
+  }
 }

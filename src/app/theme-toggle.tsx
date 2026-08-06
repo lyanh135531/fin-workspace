@@ -28,9 +28,8 @@ export function ThemeToggle() {
   const label = `Chuyển sang chế độ ${nextMode === "dark" ? "tối" : "sáng"}`;
 
   return (
-    <Button variant="unstyled" size="auto"
+    <Button variant="icon" size="auto"
       type="button"
-      className="theme-mode-toggle icon-button header-action-btn"
       aria-label={label}
       title={label}
       onClick={() => applyMode(nextMode)}

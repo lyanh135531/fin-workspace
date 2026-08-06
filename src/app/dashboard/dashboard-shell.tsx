@@ -1,30 +1,76 @@
-import { FinLogo } from "@/components/fin-logo";
+import { BookOpen, LayoutDashboard, Repeat2, Settings, SlidersHorizontal, WalletCards } from "lucide-react";
 import { getServerSession } from "next-auth";
+import Link from "next/link";
+import { Suspense } from "react";
+
 import { authOptions } from "@/auth";
-import { ThemeToggle } from "@/app/theme-toggle";
-import { WorkspaceNotifications } from "@/app/dashboard/workspace-notifications";
-import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
 import { DashboardHeaderSubtitle } from "@/app/dashboard/dashboard-header-subtitle";
-import { SidebarToggle } from "@/app/dashboard/sidebar-toggle";
-import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
-import { prisma } from "@/lib/prisma";
-import { resolveActiveWorkspaceId, resolveSampleWorkspaceContextId } from "@/services/active-workspace";
-import { activateDueScheduledTransactions } from "@/services/transaction-service";
-import { isAdminRole } from "@/domain/role-policy";
-import { getPendingJoinRequestCount } from "@/services/join-request-query";
+import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
 import { MobileNavigation } from "@/app/dashboard/mobile-navigation";
 import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transaction-sheet";
+import { SidebarToggle } from "@/app/dashboard/sidebar-toggle";
+import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
+import { WorkspaceNotifications } from "@/app/dashboard/workspace-notifications";
+import { ThemeToggle } from "@/app/theme-toggle";
+import { FinLogo } from "@/components/fin-logo";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
+import { isAdminRole } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
-import { SampleWorkspaceBanner } from "@/components/sample-workspace-banner";
+import { prisma } from "@/lib/prisma";
+import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { getPendingJoinRequestCount } from "@/services/join-request-query";
+import { activateDueScheduledTransactions } from "@/services/transaction-service";
 
-export async function DashboardShell({ children }: { children: React.ReactNode }) {
+type DashboardShellProps = {
+  children: React.ReactNode;
+};
+
+type DashboardShellData = Awaited<ReturnType<typeof loadDashboardShellData>>;
+
+type DashboardShellDataProps = {
+  dataPromise: Promise<DashboardShellData>;
+};
+
+export function DashboardShell({ children }: DashboardShellProps) {
+  const dataPromise = loadDashboardShellData();
+
+  return (
+    <SidebarProvider>
+      <Suspense fallback={<DashboardSidebarFallback />}>
+        <DashboardSidebar dataPromise={dataPromise} />
+      </Suspense>
+
+      <SidebarInset>
+        <Suspense fallback={<DashboardHeaderFallback />}>
+          <DashboardHeader dataPromise={dataPromise} />
+        </Suspense>
+
+        <main className="dashboard-content px-10 py-5">{children}</main>
+
+        <Suspense fallback={null}>
+          <DashboardQuickTransaction dataPromise={dataPromise} />
+        </Suspense>
+      </SidebarInset>
+    </SidebarProvider>
+  );
+}
+
+async function loadDashboardShellData() {
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
-  const sampleContextId = await resolveSampleWorkspaceContextId();
   const activeWorkspaceId = userId ? await resolveActiveWorkspaceId(userId) : null;
-  const navigationBasePath = sampleContextId && activeWorkspaceId === sampleContextId
-    ? `/sample/${sampleContextId}`
-    : "";
 
   if (activeWorkspaceId) await activateDueScheduledTransactions(activeWorkspaceId);
 
@@ -47,9 +93,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
           userId,
           status: "active",
           deletedAt: null,
-          workspace: sampleContextId
-            ? { id: sampleContextId, status: "active", deletedAt: null }
-            : { status: "active", deletedAt: null, sampleDatasetKey: null },
+          workspace: { status: "active", deletedAt: null },
         },
         include: {
           workspace: { select: { id: true, name: true, baseCurrency: true, timeZone: true } },
@@ -72,7 +116,11 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
           workspaceId: true,
           wallet: { select: { id: true, name: true } },
         },
-        orderBy: { wallet: { name: "asc" } },
+        orderBy: [
+          { workspaceId: "asc" },
+          { sortOrder: "asc" },
+          { wallet: { name: "asc" } },
+        ],
       }),
       prisma.category.findMany({
         where: {
@@ -95,7 +143,6 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
     : [[], []];
 
   const pendingJoinCount = userId ? await getPendingJoinRequestCount(userId) : 0;
-
   const isAdmin = membership ? isAdminRole(membership.role.code) : false;
   const userRole: "admin" | "member" | "none" = membership
     ? isAdmin
@@ -103,24 +150,28 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
       : "member"
     : "none";
 
-  const username = session?.user?.username ?? "User";
+  return {
+    membership,
+    workspaces,
+    quickWalletLinks,
+    quickCategories,
+    pendingJoinCount,
+    isAdmin,
+    userRole,
+    username: session?.user?.username ?? "User",
+  };
+}
+
+async function DashboardSidebar({ dataPromise }: DashboardShellDataProps) {
+  const { membership, workspaces, pendingJoinCount, isAdmin, userRole, username } = await dataPromise;
 
   return (
-    <div className="dashboard-app-shell">
-      {/* ────────────────────────────── SIDEBAR ─────────────────────────────── */}
-      <aside className="dashboard-sidebar" aria-label="Điều hướng">
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <BrandLink />
+      </SidebarHeader>
 
-        {/* Brand row */}
-        <div className="dashboard-brand-row">
-          <div className="dashboard-brand" style={{ display: "flex", alignItems: "center", gap: ".55rem", margin: "0 .35rem" }}>
-            <FinLogo size={28} />
-            <span className="sidebar-brand-text">Felice</span>
-          </div>
-          <SidebarToggle />
-        </div>
-
-
-        {/* Navigation */}
+      <SidebarContent>
         <DashboardNavigation
           currentId={membership?.workspaceId}
           workspaces={workspaces.map((item) => ({
@@ -131,90 +182,188 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
           pendingJoinCount={pendingJoinCount}
           isAdmin={isAdmin}
           username={username}
-          navigationBasePath={navigationBasePath}
         />
+      </SidebarContent>
 
-        {/* User section with logout */}
+      <SidebarFooter>
         <SidebarUserMenu username={username} role={userRole} />
-      </aside>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
 
-      {/* ────────────────────────── MAIN FRAME ──────────────────────────────── */}
-      <div className="dashboard-frame">
+async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
+  const { membership, workspaces, pendingJoinCount, isAdmin, userRole, username } = await dataPromise;
 
-        {/* ── HEADER ── */}
-        <header className="dashboard-header">
-          {/* Left: page subtitle (context) */}
-          <div className="dashboard-header-leading">
-            <MobileNavigation
-              currentId={membership?.workspaceId}
-              workspaces={workspaces.map((item) => ({
-                id: item.workspace.id,
-                name: item.workspace.name,
-                role: item.role.code,
-              }))}
-              pendingJoinCount={pendingJoinCount}
-              isAdmin={isAdmin}
-              username={username}
-              role={userRole}
-              navigationBasePath={navigationBasePath}
-            />
-            <div className="dashboard-header-copy">
-              <DashboardHeaderSubtitle
-                fallback={
-                  membership
-                    ? membership.workspace.name
-                    : "Felice"
-                }
-              />
-            </div>
-          </div>
-
-          {/* Right: action group */}
-          <div className="header-action-group">
-            {membership && (
-              <WorkspaceNotifications
-                workspaceId={membership.workspaceId}
-                currency={membership.workspace.baseCurrency}
-                timeZone={membership.workspace.timeZone}
-                isAdmin={isAdmin}
-              />
-            )}
-            <ThemeToggle />
-          </div>
-        </header>
-
-        {/* ── CONTENT ── */}
-        <main className="dashboard-content">
-          {navigationBasePath && membership ? (
-            <SampleWorkspaceBanner workspaceName={membership.workspace.name} />
-          ) : null}
-          {children}
-        </main>
-        <QuickTransactionSheet
-          initialWorkspaceId={membership?.workspaceId ?? workspaces[0]?.workspaceId ?? ""}
+  return (
+    <header className="dashboard-header">
+      <div className="dashboard-header-leading">
+        <MobileNavigation
+          currentId={membership?.workspaceId}
           workspaces={workspaces.map((item) => ({
-            id: item.workspaceId,
+            id: item.workspace.id,
             name: item.workspace.name,
-            currency: item.workspace.baseCurrency,
-            businessDate: getBusinessDateInTimeZone(item.workspace.timeZone),
             role: item.role.code,
-            wallets: quickWalletLinks
-              .filter((link) => link.workspaceId === item.workspaceId)
-              .map((link) => link.wallet),
-            categories: quickCategories
-              .filter((category) => category.workspaceId === item.workspaceId)
-              .map((category) => ({
-                id: category.id,
-                name: category.name,
-                color: category.color,
-                icon: category.icon,
-                parentId: category.parentId,
-                type: category.type as "income" | "expense",
-              })),
           }))}
+          pendingJoinCount={pendingJoinCount}
+          isAdmin={isAdmin}
+          username={username}
+          role={userRole}
         />
-
+        <div className="hidden min-[901px]:flex">
+          <SidebarToggle />
+        </div>
+        <div className="dashboard-header-copy">
+          <DashboardHeaderSubtitle fallback={membership?.workspace.name ?? "Felice"} />
+        </div>
       </div>
-    </div>
+
+      <div className="header-action-group">
+        {membership && (
+          <WorkspaceNotifications
+            workspaceId={membership.workspaceId}
+            currency={membership.workspace.baseCurrency}
+            timeZone={membership.workspace.timeZone}
+            isAdmin={isAdmin}
+          />
+        )}
+        <ThemeToggle />
+      </div>
+    </header>
+  );
+}
+
+async function DashboardQuickTransaction({ dataPromise }: DashboardShellDataProps) {
+  const { membership, workspaces, quickWalletLinks, quickCategories } = await dataPromise;
+
+  return (
+    <QuickTransactionSheet
+      initialWorkspaceId={membership?.workspaceId ?? workspaces[0]?.workspaceId ?? ""}
+      workspaces={workspaces.map((item) => ({
+        id: item.workspaceId,
+        name: item.workspace.name,
+        currency: item.workspace.baseCurrency,
+        businessDate: getBusinessDateInTimeZone(item.workspace.timeZone),
+        role: item.role.code,
+        wallets: quickWalletLinks
+          .filter((link) => link.workspaceId === item.workspaceId)
+          .map((link) => link.wallet),
+        categories: quickCategories
+          .filter((category) => category.workspaceId === item.workspaceId)
+          .map((category) => ({
+            id: category.id,
+            name: category.name,
+            color: category.color,
+            icon: category.icon,
+            parentId: category.parentId,
+            type: category.type as "income" | "expense",
+          })),
+      }))}
+    />
+  );
+}
+
+function DashboardSidebarFallback() {
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <BrandLink />
+      </SidebarHeader>
+
+      <SidebarContent>
+        <div className="h-12 shrink-0 px-2 pb-1" aria-hidden />
+        <FallbackNavigation />
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarUserMenu username="User" role="none" />
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
+
+function DashboardHeaderFallback() {
+  return (
+    <header className="dashboard-header">
+      <div className="dashboard-header-leading">
+        <MobileNavigation
+          workspaces={[]}
+          pendingJoinCount={0}
+          isAdmin={false}
+          username="User"
+          role="none"
+        />
+        <div className="hidden min-[901px]:flex">
+          <SidebarToggle />
+        </div>
+        <div className="dashboard-header-copy">Felice</div>
+      </div>
+      <div className="header-action-group">
+        <ThemeToggle />
+      </div>
+    </header>
+  );
+}
+
+function BrandLink() {
+  return (
+    <Link
+      href="/overview"
+      className="flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-md px-1 text-[var(--foreground)] outline-none transition-[width,height,padding,color,gap] duration-200 hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:self-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0!"
+      aria-label="Felice - về trang tổng quan"
+    >
+      <FinLogo size={36} />
+      <span className="max-w-24 truncate text-base font-semibold transition-[max-width,opacity] duration-200 group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
+        Felice
+      </span>
+    </Link>
+  );
+}
+
+function FallbackNavigation() {
+  const workspaceLinks = [
+    { href: "/overview", label: "Tổng quan", icon: LayoutDashboard },
+    { href: "/dashboard", label: "Sổ giao dịch", icon: BookOpen },
+    { href: "/recurring-transactions", label: "Giao dịch định kỳ", icon: Repeat2 },
+    { href: "/wallets", label: "Quản lý ví", icon: WalletCards },
+    { href: "/settings/workspace", label: "Cài đặt workspace", icon: Settings },
+  ];
+  const generalLinks = [
+    { href: "/setting", label: "Cài đặt chung", icon: SlidersHorizontal },
+  ];
+
+  return (
+    <nav className="flex min-h-0 flex-1 flex-col" aria-label="Điều hướng chính">
+      <FallbackNavigationGroup links={workspaceLinks} />
+      <div className="mx-4 my-1 h-px bg-[var(--border)] group-data-[collapsible=icon]:mx-3" aria-hidden />
+      <FallbackNavigationGroup links={generalLinks} />
+    </nav>
+  );
+}
+
+function FallbackNavigationGroup({
+  links,
+}: {
+  links: Array<{ href: string; label: string; icon: typeof LayoutDashboard }>;
+}) {
+  return (
+    <SidebarGroup>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {links.map((link) => {
+            const Icon = link.icon;
+
+            return (
+              <SidebarMenuItem key={link.href}>
+                <SidebarMenuButton render={<Link href={link.href} />} aria-label={link.label}>
+                  <Icon strokeWidth={1.8} />
+                  <span>{link.label}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
   );
 }

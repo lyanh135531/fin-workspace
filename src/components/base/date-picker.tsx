@@ -35,7 +35,7 @@ export type DatePickerProps = {
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-function parseIsoDate(value: string | undefined): Date | undefined {
+export function parseIsoDate(value: string | undefined): Date | undefined {
   if (!value) {
     return undefined;
   }
@@ -58,7 +58,7 @@ function parseIsoDate(value: string | undefined): Date | undefined {
   return date;
 }
 
-function toIsoDate(date: Date): string {
+export function toIsoDate(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }
 
@@ -91,15 +91,11 @@ export function DatePicker({
   const minimumDate = useMemo(() => parseIsoDate(minDate), [minDate]);
   const maximumDate = useMemo(() => parseIsoDate(maxDate), [maxDate]);
   const navigationStartMonth = useMemo(
-    () =>
-      minimumDate ??
-      new Date(new Date().getFullYear() - 50, 0, 1),
+    () => minimumDate ?? new Date(new Date().getFullYear() - 50, 0, 1),
     [minimumDate],
   );
   const navigationEndMonth = useMemo(
-    () =>
-      maximumDate ??
-      new Date(new Date().getFullYear() + 50, 11, 31),
+    () => maximumDate ?? new Date(new Date().getFullYear() + 50, 11, 31),
     [maximumDate],
   );
   const disabledDates = useMemo<Matcher[]>(
@@ -139,7 +135,7 @@ export function DatePicker({
             aria-label={ariaLabel ?? label}
             disabled={disabled}
             className={cn(
-              "w-full justify-between px-3 font-normal tabular-nums",
+              "date-picker border border-input shadow-none hover:bg-transparent w-full justify-between px-3 font-normal tabular-nums bg-transparent dark:bg-input/30 dark:hover:bg-input/50",
               !selectedDate && "text-muted-foreground",
               className,
             )}

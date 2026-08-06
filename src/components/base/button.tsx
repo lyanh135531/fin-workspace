@@ -1,8 +1,8 @@
-import { Button as ButtonPrimitive } from "@base-ui/react/button"
-import { cva, type VariantProps } from "class-variance-authority"
-import { Children, isValidElement, type ReactNode } from "react"
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
+import { cva, type VariantProps } from "class-variance-authority";
+import { Children, isValidElement, type ReactNode } from "react";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors cursor-pointer outline-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -10,22 +10,23 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow hover:bg-primary/90",
+          "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90",
         destructive:
-          "bg-destructive/10 text-destructive shadow-none hover:bg-destructive/15 focus-visible:ring-destructive/20 dark:bg-destructive/25 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
+          "bg-destructive/10 text-destructive shadow-sm hover:bg-destructive/15 focus-visible:ring-destructive/20 dark:bg-destructive/25 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         outline:
-          "border border-border bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
+          "bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
         secondary:
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
+        icon: "relative min-h-10 border-0 bg-transparent p-1 text-[var(--text-secondary)] shadow-none transition-[color,transform] duration-150 hover:bg-transparent hover:text-[var(--primary)] hover:-translate-y-px active:scale-95",
         link: "text-primary underline-offset-4 hover:underline",
         unstyled: "",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
+        default: "h-8 px-2.5",
+        sm: "h-7 rounded-md px-2.5 text-xs",
         lg: "h-10 rounded-md px-8",
-        icon: "h-9 w-9",
+        icon: "h-8",
         auto: "",
       },
     },
@@ -33,27 +34,27 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
-)
+  },
+);
 
-type ButtonProps = ButtonPrimitive.Props & VariantProps<typeof buttonVariants>
+type ButtonProps = ButtonPrimitive.Props & VariantProps<typeof buttonVariants>;
 
 function getButtonText(children: ReactNode): string {
   return Children.toArray(children)
     .map((child) => {
       if (typeof child === "string" || typeof child === "number") {
-        return String(child)
+        return String(child);
       }
 
       if (isValidElement<{ children?: ReactNode }>(child)) {
-        return getButtonText(child.props.children)
+        return getButtonText(child.props.children);
       }
 
-      return ""
+      return "";
     })
     .join(" ")
     .replace(/\s+/g, " ")
-    .trim()
+    .trim();
 }
 
 function Button({
@@ -66,7 +67,10 @@ function Button({
   ...props
 }: ButtonProps) {
   const resolvedTitle =
-    title || (typeof ariaLabel === "string" ? ariaLabel : "") || getButtonText(children) || undefined
+    title ||
+    (typeof ariaLabel === "string" ? ariaLabel : "") ||
+    getButtonText(children) ||
+    undefined;
 
   return (
     <ButtonPrimitive
@@ -82,8 +86,8 @@ function Button({
     >
       {children}
     </ButtonPrimitive>
-  )
+  );
 }
 
-export { Button, buttonVariants }
-export type { ButtonProps }
+export { Button, buttonVariants };
+export type { ButtonProps };

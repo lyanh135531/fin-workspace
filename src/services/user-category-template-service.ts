@@ -45,14 +45,32 @@ export async function setUserCategoryTemplateStatus(userId: string, categoryId: 
 }
 
 export async function reorderUserCategoryTemplates(userId: string, orderedIds: string[]) {
-  return prisma.$transaction(
-    orderedIds.map((id, index) =>
-      prisma.category.updateMany({
-        where: { id, workspaceId: null, userId },
-        data: { sortOrder: index },
-      })
-    )
-  );
+  return prisma.$transaction(async (tx) => {
+    const categories = await tx.category.findMany({
+      where: { workspaceId: null, userId, deletedAt: null },
+      select: { id: true },
+    });
+    const categoryIds = new Set(categories.map(({ id }) => id));
+    const hasExactCategorySet =
+      categoryIds.size === orderedIds.length &&
+      orderedIds.every((categoryId) => categoryIds.has(categoryId));
+
+    if (!hasExactCategorySet) {
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Danh sách sắp xếp không khớp với các danh mục mẫu hiện có. Hãy tải lại trang và thử lại.",
+      );
+    }
+
+    await Promise.all(
+      orderedIds.map((id, sortOrder) =>
+        tx.category.update({
+          where: { id },
+          data: { sortOrder },
+        }),
+      ),
+    );
+  });
 }
 
 export async function deleteUserCategoryTemplate(userId: string, categoryId: string) {

@@ -4,12 +4,19 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { authOptions } from "@/auth";
-import { createWalletSchema, idSchema, statusSchema, updateWalletSchema } from "@/domain";
+import {
+  createWalletSchema,
+  idSchema,
+  reorderWalletsSchema,
+  statusSchema,
+  updateWalletSchema,
+} from "@/domain";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import {
   createWalletForWorkspace,
+  reorderWalletsForWorkspace,
   setWalletStatusForWorkspace,
   softDeleteWalletForWorkspace,
   updateWalletForWorkspace,
@@ -54,6 +61,24 @@ export async function updateManagedWalletAction(input: unknown) {
     return { ok: true };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Không thể cập nhật ví." };
+  }
+}
+
+export async function reorderManagedWalletsAction(input: unknown) {
+  try {
+    const actor = await walletActor();
+    await reorderWalletsForWorkspace(
+      actor.userId,
+      actor.workspaceId,
+      reorderWalletsSchema.parse(input),
+    );
+    revalidateWalletViews(actor.workspaceId);
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Không thể sắp xếp ví.",
+    };
   }
 }
 

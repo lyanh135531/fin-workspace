@@ -12,7 +12,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
+import { FormPendingSkeleton } from "./form-pending-skeleton"
 
 type ConfirmDeleteProps = {
   ariaLabel: string
@@ -33,7 +33,6 @@ function ConfirmDelete({
   cancelLabel = "Hủy",
   confirmLabel = "Xóa",
   disabled,
-  className,
 }: ConfirmDeleteProps) {
   const [open, setOpen] = useState<boolean>(false)
   const [isPending, setIsPending] = useState<boolean>(false)
@@ -60,15 +59,10 @@ function ConfirmDelete({
       <PopoverTrigger
         render={
           <Button
-            type="button"
-            variant="ghost"
+            variant="icon"
             size="icon"
             aria-label={ariaLabel}
             disabled={disabled || isPending}
-            className={cn(
-              "text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
-              className
-            )}
           >
             <Trash2 aria-hidden="true" />
           </Button>
@@ -90,6 +84,8 @@ function ConfirmDelete({
             {description}
           </PopoverDescription>
         </PopoverHeader>
+
+        {isPending && <FormPendingSkeleton label="Đang xử lý thao tác xóa" />}
 
         <div className="flex justify-end gap-2">
           <Button

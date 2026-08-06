@@ -6,7 +6,11 @@ interface FinLogoProps {
   showText?: boolean;
 }
 
-export function FinLogo({ size = 28, className = "", showText = false }: FinLogoProps) {
+export function FinLogo({
+  size = 28,
+  className = "",
+  showText = false,
+}: FinLogoProps) {
   return (
     <div className={`inline-flex items-center gap-2.5 ${className}`}>
       <svg
@@ -18,12 +22,26 @@ export function FinLogo({ size = 28, className = "", showText = false }: FinLogo
         className="flex-shrink-0 transition-transform duration-200 hover:scale-105"
         aria-hidden="true"
       >
-        <rect x="1" y="1" width="34" height="34" rx="11" fill="#152A31" stroke="#FF765B" strokeWidth="1.35" />
+        <rect
+          x="1"
+          y="1"
+          width="34"
+          height="34"
+          rx="11"
+          fill="##ffe8e4"
+          stroke="#FF765B"
+          strokeWidth="1.35"
+        />
         <path d="M10 9H26V13H14V16H23V20H14V27H10V9Z" fill="#FF765B" />
-        <path d="M25 26H30" stroke="#FFF8ED" strokeWidth="2" strokeLinecap="round" />
+        <path
+          d="M25 26H30"
+          stroke="#FFF8ED"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
       </svg>
       {showText && (
-        <span className="font-extrabold text-base tracking-tight text-foreground">
+        <span className="font-extrabold text-lg tracking-tight text-foreground">
           Felice
         </span>
       )}

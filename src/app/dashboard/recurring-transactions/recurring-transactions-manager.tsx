@@ -13,7 +13,6 @@ import {
   Play,
   Plus,
   Repeat2,
-  Trash2,
 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import {
@@ -26,9 +25,9 @@ import { formatAmount } from "@/lib/format";
 import {
   Button,
   CategoryTreeSelect,
-  Card,
   DatePicker,
   Empty,
+  FormPendingSkeleton,
   Input,
   MoneyInput,
   PageHeader,
@@ -47,6 +46,7 @@ import { ConfirmDelete } from "@/components/base/confirm-delete";
 import { toast } from "sonner";
 
 type Option = { id: string; name: string; color?: string; icon?: string | null; parentId?: string | null };
+type CategoryOption = Option & { type: "income" | "expense" };
 type TransactionType = "income" | "expense" | "transfer";
 type Schedule = {
   id: string;
@@ -88,6 +88,10 @@ const typeOptions = [
 
 function defaultDestination(wallets: Option[], sourceId: string) {
   return wallets.find((wallet) => wallet.id !== sourceId)?.id ?? sourceId;
+}
+
+function categoriesForTransactionType(categories: CategoryOption[], type: TransactionType): CategoryOption[] {
+  return type === "transfer" ? [] : categories.filter((category) => category.type === type);
 }
 
 function emptyDraft(wallets: Option[], businessDate: string): Draft {
@@ -147,7 +151,7 @@ export function RecurringTransactionsManager({
 }: {
   workspace: { id: string; name: string; currency: string; timeZone: string; businessDate: string };
   wallets: Option[];
-  categories: Option[];
+  categories: CategoryOption[];
   schedules: Schedule[];
 }) {
   const [status, setStatus] = useState("all");
@@ -286,6 +290,7 @@ export function RecurringTransactionsManager({
                 Giao dịch sẽ tự động ghi nhận mỗi tháng theo lịch bạn chọn.
               </SheetDescription>
             </SheetHeader>
+            {busy && <FormPendingSkeleton label="Đang lưu giao dịch định kỳ" className="mx-6 mt-3" />}
             {draft && (
               <div className="min-h-0 flex-1 overflow-y-auto px-6">
                 <RecurringEditor
@@ -370,7 +375,7 @@ function RecurringEditor({
   mode: "create" | "edit";
   draft: Draft;
   wallets: Option[];
-  categories: Option[];
+  categories: CategoryOption[];
   onChange: (patch: Partial<Draft>) => void;
 }) {
   return (
@@ -393,7 +398,7 @@ function RecurringEditor({
         <div className="recurring-editor-section-title"><CircleDollarSign size={16} /><span>Giao dịch</span></div>
         <Tabs
           value={draft.type}
-          onValueChange={(value) => onChange({ type: value as TransactionType })}
+          onValueChange={(value) => onChange({ type: value as TransactionType, categoryId: "none" })}
           className="gap-0"
         >
           <TabsList className="w-full" aria-label="Loại giao dịch">
@@ -461,7 +466,7 @@ function RecurringEditor({
                 value={draft.categoryId}
                 onValueChange={(categoryId) => onChange({ categoryId })}
                 label="Danh mục"
-                categories={categories}
+                categories={categoriesForTransactionType(categories, draft.type)}
                 emptyOption={{ value: "none", label: "Không chọn" }}
               />
             </div>

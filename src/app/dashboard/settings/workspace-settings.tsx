@@ -2,10 +2,12 @@
 
 import { Trash2, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useState, useTransition } from "react";
-import { deleteWorkspaceAction, updateWorkspaceSettingsAction } from "@/app/dashboard/settings/actions";
-import { Button, Card, Input, Select } from "@/components/base";
+import {
+  deleteWorkspaceAction,
+  updateWorkspaceSettingsAction,
+} from "@/app/dashboard/settings/actions";
+import { Button, Card, FormPendingSkeleton, Input, Select } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 type Workspace = {
@@ -16,7 +18,13 @@ type Workspace = {
   status: "active" | "deactive";
 };
 
-export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace; isAdmin: boolean }) {
+export function WorkspaceSettings({
+  workspace,
+  isAdmin,
+}: {
+  workspace: Workspace;
+  isAdmin: boolean;
+}) {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pending, start] = useTransition();
@@ -61,7 +69,9 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
       <Card as="section" className="sunrise-card gap-0 p-6 space-y-2">
         <div className="flex items-center gap-2 text-slate-500">
           <ShieldCheck size={18} />
-          <h2 className="text-base font-bold text-[var(--foreground)]">Quyền truy cập thành viên</h2>
+          <h2 className="text-base font-bold text-[var(--foreground)]">
+            Quyền truy cập thành viên
+          </h2>
         </div>
         <p className="text-xs text-slate-500 leading-relaxed">
           Chỉ Admin mới có thể chỉnh sửa cấu hình vận hành, quản lý thành viên,
@@ -74,76 +84,80 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
   return (
     <div className="space-y-6">
       {/* ── Main Configuration Card (Single-Bezel) ── */}
-      <Card as="section" className="rounded-2xl p-6 sm:p-8 shadow-xs relative overflow-hidden flex flex-col gap-6">
-        
+      <Card
+        as="section"
+        className="shadow-xs relative overflow-hidden flex flex-col gap-6"
+      >
         <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-8 justify-between relative z-10">
           <div className="space-y-2 max-w-md">
-            <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">Thông tin chung</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+              Thông tin chung
+            </h2>
             <p className="text-xs leading-relaxed text-slate-500">
-              Quản lý tên, mô tả và trạng thái hoạt động của workspace. Những thông tin này giúp các thành viên nhận diện nhóm dễ dàng hơn.
+              Quản lý tên, mô tả và trạng thái hoạt động của workspace. Những
+              thông tin này giúp các thành viên nhận diện nhóm dễ dàng hơn.
             </p>
           </div>
         </div>
 
-        <form onSubmit={save} className="relative z-10 space-y-6">
+        <form onSubmit={save} className="relative z-10 space-y-6" aria-busy={pending}>
+          {pending && <FormPendingSkeleton label="Đang lưu cài đặt workspace" />}
           <div className="grid gap-6">
-          {/* Name — full width, prominent */}
-          <div className="space-y-2">
-            <Input
-              label="Tên workspace"
-              id="ws-name"
-              required
-              name="name"
-              defaultValue={workspace.name}
-              className="w-full text-base font-semibold"
-            />
-          </div>
+            {/* Name — full width, prominent */}
+            <div className="space-y-2">
+              <Input
+                label="Tên workspace"
+                id="ws-name"
+                required
+                name="name"
+                defaultValue={workspace.name}
+                className="w-full text-base font-semibold"
+              />
+            </div>
 
-          {/* Status */}
-          <div className="space-y-2">
-            <Select
-              label="Trạng thái"
-              id="ws-status"
-              name="status"
-              defaultValue={workspace.status}
-              options={[
-                {
-                  value: "active",
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                      <span>Đang hoạt động</span>
-                    </span>
-                  ),
-                },
-                {
-                  value: "deactive",
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                      <span>Tạm ngưng</span>
-                    </span>
-                  ),
-                },
-              ]}
-            />
-          </div>
+            {/* Status */}
+            <div className="space-y-2">
+              <Select
+                label="Trạng thái"
+                id="ws-status"
+                name="status"
+                defaultValue={workspace.status}
+                options={[
+                  {
+                    value: "active",
+                    label: (
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                        <span>Đang hoạt động</span>
+                      </span>
+                    ),
+                  },
+                  {
+                    value: "deactive",
+                    label: (
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                        <span>Tạm ngưng</span>
+                      </span>
+                    ),
+                  },
+                ]}
+              />
+            </div>
 
-          {/* Description with character hint */}
-          <div className="space-y-2">
-            <Textarea
-              label="Mô tả"
-              id="ws-desc"
-              name="description"
-              rows={3}
-              maxLength={500}
-              defaultValue={workspace.description ?? ""}
-              placeholder="Mục đích hoặc phạm vi sử dụng của workspace..."
-              className="settings-textarea w-full text-sm resize-none"
-            />
-          </div>
-
-
+            {/* Description with character hint */}
+            <div className="space-y-2">
+              <Textarea
+                label="Mô tả"
+                id="ws-desc"
+                name="description"
+                rows={3}
+                maxLength={500}
+                defaultValue={workspace.description ?? ""}
+                placeholder="Mục đích hoặc phạm vi sử dụng của workspace..."
+                className="settings-textarea w-full text-sm resize-none"
+              />
+            </div>
           </div>
 
           <div className="flex items-center justify-end border-t border-[var(--border)] pt-5">
@@ -151,7 +165,6 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
               type="submit"
               disabled={pending}
               variant="default"
-              className="rounded-full px-6 py-2.5 font-medium transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]"
             >
               {pending ? (
                 <>
@@ -167,16 +180,26 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
       </Card>
 
       {/* ── Danger Zone Card (Single-Bezel) ── */}
-      <Card as="section" className="rounded-2xl p-5 md:p-6 shadow-xs relative overflow-hidden">
+      <Card
+        as="section"
+        className="p-5 md:p-6 shadow-xs relative overflow-hidden"
+      >
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
           <div className="flex items-start gap-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-900/5 mt-1 md:mt-0">
               <AlertTriangle size={18} strokeWidth={2} />
             </div>
             <div className="space-y-1">
-              <h3 className="font-semibold text-sm text-[var(--foreground)]">Khu vực nguy hiểm</h3>
+              <h3 className="font-semibold text-sm text-[var(--foreground)]">
+                Khu vực nguy hiểm
+              </h3>
               <p className="text-xs text-slate-500 leading-relaxed max-w-lg">
-                Vô hiệu hóa workspace <strong className="font-semibold text-slate-700">{workspace.name}</strong>. Mọi dữ liệu sẽ bị ẩn và workspace bị gỡ khỏi danh sách của tất cả thành viên.
+                Vô hiệu hóa workspace{" "}
+                <strong className="font-semibold text-slate-700">
+                  {workspace.name}
+                </strong>
+                . Mọi dữ liệu sẽ bị ẩn và workspace bị gỡ khỏi danh sách của tất
+                cả thành viên.
               </p>
             </div>
           </div>
@@ -189,7 +212,6 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
               setDeleteDialog(true);
             }}
             variant="destructive"
-            className="shrink-0 rounded-full px-5 py-2.5 font-medium transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]"
           >
             <Trash2 size={16} className="mr-2" />
             Xóa Workspace
@@ -199,8 +221,16 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
 
       {/* ── Confirmation Modal ── */}
       {deleteDialog && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-workspace-title">
-          <Card as="section" className="sunrise-card gap-0 w-full max-w-md p-6 space-y-4 relative overflow-hidden">
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-workspace-title"
+        >
+          <Card
+            as="section"
+            className="sunrise-card gap-0 w-full max-w-md p-6 space-y-4 relative overflow-hidden"
+          >
             {/* Red accent glow */}
             <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-red-500" />
 
@@ -209,13 +239,21 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
                 <AlertTriangle size={20} />
               </div>
               <div>
-                <h2 id="delete-workspace-title" className="text-lg font-bold text-[var(--foreground)]">Xóa Workspace?</h2>
-                <p className="text-xs text-slate-500">Hành động này cần được xác nhận bằng mật khẩu.</p>
+                <h2
+                  id="delete-workspace-title"
+                  className="text-lg font-bold text-[var(--foreground)]"
+                >
+                  Xóa Workspace?
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Hành động này cần được xác nhận bằng mật khẩu.
+                </p>
               </div>
             </div>
 
             <p className="text-xs leading-relaxed text-slate-500 relative">
-              Workspace <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa. Để tiếp tục, vui lòng xác nhận bằng mật khẩu tài khoản của bạn.
+              Workspace <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa. Để
+              tiếp tục, vui lòng xác nhận bằng mật khẩu tài khoản của bạn.
             </p>
 
             <div className="space-y-1.5 relative">
@@ -246,7 +284,8 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
                   setDeleteDialog(false);
                   setConfirmPassword("");
                 }}
-                variant="outline" size="default"
+                variant="outline"
+                size="default"
               >
                 Hủy
               </Button>
@@ -254,7 +293,8 @@ export function WorkspaceSettings({ workspace, isAdmin }: { workspace: Workspace
                 type="button"
                 disabled={pending || !confirmPassword.trim()}
                 onClick={remove}
-                variant="destructive" size="default"
+                variant="destructive"
+                size="default"
               >
                 {pending ? (
                   <>

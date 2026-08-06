@@ -117,7 +117,11 @@ describe("wallet-service lifecycle", () => {
     expect(createData.openingBalance.toString()).toBe("0");
     expect(createData.currentBalance.toString()).toBe("0");
     expect(tx.workspaceWallet.create).toHaveBeenCalledWith({
-      data: { workspaceId: "workspace-1", walletId: "wallet-new" },
+      data: {
+        workspaceId: "workspace-1",
+        walletId: "wallet-new",
+        sortOrder: 0,
+      },
     });
   });
 

@@ -1,4 +1,8 @@
-import type { CreateWalletInput, UpdateWalletInput } from "@/domain";
+import type {
+  CreateWalletInput,
+  ReorderWalletsInput,
+  UpdateWalletInput,
+} from "@/domain";
 import { Prisma } from "@/generated/prisma/client";
 import Decimal from "decimal.js";
 import { getBusinessDateInTimeZone } from "@/lib/date";
@@ -55,7 +59,18 @@ export async function createWalletForWorkspace(userId: string, workspaceId: stri
         currentBalance: zero,
       },
     });
-    await tx.workspaceWallet.create({ data: { workspaceId, walletId: wallet.id } });
+    const lastWallet = await tx.workspaceWallet.findFirst({
+      where: { workspaceId },
+      orderBy: { sortOrder: "desc" },
+      select: { sortOrder: true },
+    });
+    await tx.workspaceWallet.create({
+      data: {
+        workspaceId,
+        walletId: wallet.id,
+        sortOrder: (lastWallet?.sortOrder ?? -1) + 1,
+      },
+    });
     if (input.funding && input.funding.amount.gt(0)) {
       const businessDate = getBusinessDateInTimeZone(
         member.workspace.timeZone,
@@ -94,6 +109,42 @@ export async function createWalletForWorkspace(userId: string, workspaceId: stri
       });
     }
     return wallet;
+  });
+}
+
+export async function reorderWalletsForWorkspace(
+  userId: string,
+  workspaceId: string,
+  input: ReorderWalletsInput,
+) {
+  await requireWorkspaceMember(userId, workspaceId, true);
+
+  return prisma.$transaction(async (tx) => {
+    await lockWorkspaceWalletNames(tx, workspaceId);
+    const links = await tx.workspaceWallet.findMany({
+      where: { workspaceId, wallet: { deletedAt: null } },
+      select: { walletId: true },
+    });
+    const existingWalletIds = new Set(links.map(({ walletId }) => walletId));
+    const hasExactWalletSet =
+      existingWalletIds.size === input.walletIds.length &&
+      input.walletIds.every((walletId) => existingWalletIds.has(walletId));
+
+    if (!hasExactWalletSet) {
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Danh sách sắp xếp không khớp với các ví hiện có. Hãy tải lại trang và thử lại.",
+      );
+    }
+
+    await Promise.all(
+      input.walletIds.map((walletId, sortOrder) =>
+        tx.workspaceWallet.update({
+          where: { workspaceId_walletId: { workspaceId, walletId } },
+          data: { sortOrder },
+        }),
+      ),
+    );
   });
 }
 

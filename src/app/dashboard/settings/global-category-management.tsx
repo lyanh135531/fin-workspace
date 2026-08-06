@@ -6,8 +6,6 @@ import {
   BookOpen,
   Briefcase,
   Car,
-  ChevronDown,
-  ChevronUp,
   CircleDollarSign,
   Coffee,
   CreditCard,
@@ -19,6 +17,7 @@ import {
   Fuel,
   Gift,
   GraduationCap,
+  GripVertical,
   Heart,
   House,
   Landmark,
@@ -30,12 +29,10 @@ import {
   Smartphone,
   Sparkles,
   Tag,
-  Trash2,
   Utensils,
-
   Wrench,
 } from "lucide-react";
-import { useState, useTransition } from "react";
+import { type DragEvent, useState, useTransition } from "react";
 import {
   createTemplateCategoryAction,
   deleteTemplateCategoryAction,
@@ -48,6 +45,7 @@ import {
   Card,
   CategoryTreeSelect,
   Empty,
+  FormPendingSkeleton,
   Input,
   Label,
   Sheet,
@@ -63,10 +61,7 @@ import {
 import { ConfirmDelete } from "@/components/base/confirm-delete";
 import { cn } from "@/lib/utils";
 
-
-
 import { toast } from "sonner";
-
 
 type Category = {
   id: string;
@@ -80,6 +75,31 @@ type Category = {
   status: "active" | "deactive";
 };
 
+type DraggedCategory = Pick<Category, "id" | "parentId">;
+
+function moveItem<T extends { id: string }>(
+  items: T[],
+  sourceId: string,
+  targetId: string,
+): T[] {
+  const sourceIndex = items.findIndex(({ id }) => id === sourceId);
+  const targetIndex = items.findIndex(({ id }) => id === targetId);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return items;
+  }
+
+  const movedItem = items[sourceIndex];
+  const remainingItems = [
+    ...items.slice(0, sourceIndex),
+    ...items.slice(sourceIndex + 1),
+  ];
+  return [
+    ...remainingItems.slice(0, targetIndex),
+    movedItem,
+    ...remainingItems.slice(targetIndex),
+  ];
+}
+
 const COLOR_PRESETS = [
   "#FF5B3D",
   "#69B7F3",
@@ -91,7 +111,10 @@ const COLOR_PRESETS = [
   "#334E8C",
 ];
 
-export const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+export const ICON_MAP: Record<
+  string,
+  React.ComponentType<{ size?: number; className?: string }>
+> = {
   tag: Tag,
   utensils: Utensils,
   coffee: Coffee,
@@ -152,12 +175,18 @@ export function slugifyCode(name: string): string {
     .toUpperCase();
 }
 
-export function UserCategoryTemplateManagement({ categories }: { categories: Category[] }) {
+export function UserCategoryTemplateManagement({
+  categories,
+}: {
+  categories: Category[];
+}) {
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [filterType, setFilterType] = useState<"expense" | "income">("expense");
+  const [draggedCategory, setDraggedCategory] =
+    useState<DraggedCategory | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [pending, start] = useTransition();
-
 
   function submit(form: FormData, categoryId?: string) {
     const category = {
@@ -166,8 +195,10 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
       color: String(form.get("color") ?? COLOR_PRESETS[0]),
       type: String(form.get("type") ?? "expense") as "income" | "expense",
       icon: String(form.get("icon") ?? "tag"),
-      parentId: form.get("parentId") === "none" ? undefined : (form.get("parentId") as string) || undefined,
-
+      parentId:
+        form.get("parentId") === "none"
+          ? undefined
+          : (form.get("parentId") as string) || undefined,
     };
     start(async () => {
       const result = categoryId
@@ -212,7 +243,6 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
   }
 
   function handleReorder(items: Category[]) {
-
     const orderedIds = items.map((c) => c.id);
     start(async () => {
       const result = await reorderTemplateCategoriesAction(orderedIds);
@@ -227,36 +257,32 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
   const currentCategories = categories.filter((c) => c.type === filterType);
   const rootCategories = currentCategories.filter((c) => !c.parentId);
 
-  function moveRootItem(index: number, direction: "up" | "down") {
-    const newRoots = [...rootCategories];
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= newRoots.length) return;
-    const [moved] = newRoots.splice(index, 1);
-    newRoots.splice(targetIndex, 0, moved);
-
-    // Flatten all items preserving new root order
+  function reorderRoots(sourceId: string, targetId: string) {
+    const newRoots = moveItem(rootCategories, sourceId, targetId);
+    if (newRoots === rootCategories) return;
     const allOrdered: Category[] = [];
     newRoots.forEach((root) => {
       allOrdered.push(root);
       allOrdered.push(...categories.filter((c) => c.parentId === root.id));
     });
-    // Add other type items
     const otherTypeItems = categories.filter((c) => c.type !== filterType);
     handleReorder([...allOrdered, ...otherTypeItems]);
   }
 
-  function moveChildItem(parentId: string, index: number, direction: "up" | "down") {
+  function reorderChildren(
+    parentId: string,
+    sourceId: string,
+    targetId: string,
+  ) {
     const siblings = currentCategories.filter((c) => c.parentId === parentId);
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= siblings.length) return;
-    const [moved] = siblings.splice(index, 1);
-    siblings.splice(targetIndex, 0, moved);
+    const reorderedSiblings = moveItem(siblings, sourceId, targetId);
+    if (reorderedSiblings === siblings) return;
 
     const allOrdered: Category[] = [];
     rootCategories.forEach((root) => {
       allOrdered.push(root);
       if (root.id === parentId) {
-        allOrdered.push(...siblings);
+        allOrdered.push(...reorderedSiblings);
       } else {
         allOrdered.push(...categories.filter((c) => c.parentId === root.id));
       }
@@ -265,10 +291,31 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
     handleReorder([...allOrdered, ...otherTypeItems]);
   }
 
+  function handleDrop(event: DragEvent<HTMLElement>, target: Category) {
+    event.preventDefault();
+    event.stopPropagation();
+    const source = draggedCategory;
+    setDraggedCategory(null);
+    setDropTargetId(null);
+    if (
+      !source ||
+      source.id === target.id ||
+      source.parentId !== target.parentId
+    ) {
+      return;
+    }
+
+    if (source.parentId === null) {
+      reorderRoots(source.id, target.id);
+      return;
+    }
+    reorderChildren(source.parentId, source.id, target.id);
+  }
+
   return (
-    <Card as="section" className="sunrise-card gap-0 p-6">
+    <Card as="section" className="gap-0" aria-busy={pending}>
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[var(--border)]">
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
         <div className="flex items-center gap-2.5">
           <div className="w-8.5 h-8.5 rounded-lg grid place-items-center bg-[var(--surface-muted)] text-[var(--primary)] border border-[var(--border)]">
             <FolderTree size={18} />
@@ -295,11 +342,10 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
         </Button>
       </div>
 
-
       {/* Info banner */}
 
       {/* Tabs: Chi tiêu & Thu nhập ONLY (No All, No Search) */}
-      <div className="mt-4 flex items-center justify-between gap-3 pb-3 border-b border-[var(--border)]">
+      <div className="flex items-center justify-between gap-3 py-4 border-b border-[var(--border)]">
         <Tabs
           value={filterType}
           onValueChange={(value) => {
@@ -333,12 +379,23 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
         </Tabs>
 
         <p className="text-xs text-slate-400 font-medium hidden sm:block">
-          Dùng mũi tên <ChevronUp size={12} className="inline" /> <ChevronDown size={12} className="inline" /> để thay đổi thứ tự
+          Kéo thả để thay đổi thứ tự trong cùng một cấp
         </p>
       </div>
 
-      <Sheet open={creating || editing !== null} onOpenChange={(open) => { if (!open) { setCreating(false); setEditing(null); } }}>
-        <SheetContent side="right" className="sm:max-w-md w-full flex flex-col h-full p-0 bg-[var(--surface)] text-[var(--foreground)] border-l border-[var(--border)]">
+      <Sheet
+        open={creating || editing !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreating(false);
+            setEditing(null);
+          }
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="sm:max-w-md w-full flex flex-col h-full p-0 bg-[var(--surface)] text-[var(--foreground)] border-l border-[var(--border)]"
+        >
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-[var(--border)]">
             <SheetTitle>
               {editing ? "Chỉnh sửa danh mục mẫu" : "Thêm danh mục mẫu"}
@@ -349,16 +406,29 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
                 : "Tạo một danh mục mẫu mới để nhập vào các workspace khi cần thiết."}
             </SheetDescription>
           </SheetHeader>
+          {pending && (
+            <FormPendingSkeleton
+              label="Đang lưu danh mục mẫu"
+              className="mx-6 mt-3"
+            />
+          )}
           <div className="flex-1 overflow-y-auto px-6">
             <TemplateForm
               key={editing ?? "create"}
-              defaultType={editing ? (categories.find((c) => c.id === editing)?.type ?? filterType) : filterType}
+              defaultType={
+                editing
+                  ? (categories.find((c) => c.id === editing)?.type ??
+                    filterType)
+                  : filterType
+              }
               categories={
                 editing
                   ? categories.filter((item) => item.id !== editing)
                   : categories
               }
-              category={editing ? categories.find((c) => c.id === editing) : undefined}
+              category={
+                editing ? categories.find((c) => c.id === editing) : undefined
+              }
               pending={pending}
               onCancel={() => {
                 setCreating(false);
@@ -372,9 +442,8 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
         </SheetContent>
       </Sheet>
 
-
       {/* Category Tree List */}
-      <div className="mt-4">
+      <div>
         {rootCategories.length === 0 ? (
           <Empty
             icon={Tag}
@@ -391,11 +460,18 @@ export function UserCategoryTemplateManagement({ categories }: { categories: Cat
               totalRoots={rootCategories.length}
               editing={editing}
               pending={pending}
+              draggedCategory={draggedCategory}
+              dropTargetId={dropTargetId}
               onEdit={setEditing}
               onStatus={status}
               onDelete={deleteItem}
-              onMoveRoot={moveRootItem}
-              onMoveChild={moveChildItem}
+              onDragStart={setDraggedCategory}
+              onDragOver={setDropTargetId}
+              onDragEnd={() => {
+                setDraggedCategory(null);
+                setDropTargetId(null);
+              }}
+              onDrop={handleDrop}
               onSubmit={submit}
               onCancel={() => setEditing(null)}
             />
@@ -413,11 +489,15 @@ function Node({
   totalRoots,
   editing,
   pending,
+  draggedCategory,
+  dropTargetId,
   onEdit,
   onStatus,
   onDelete,
-  onMoveRoot,
-  onMoveChild,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
   onSubmit,
   onCancel,
 }: {
@@ -427,15 +507,18 @@ function Node({
   totalRoots: number;
   editing: string | null;
   pending: boolean;
+  draggedCategory: DraggedCategory | null;
+  dropTargetId: string | null;
   onEdit: (id: string) => void;
   onStatus: (id: string, value: "active" | "deactive") => void;
   onDelete: (id: string) => void;
-  onMoveRoot: (index: number, dir: "up" | "down") => void;
-  onMoveChild: (parentId: string, index: number, dir: "up" | "down") => void;
+  onDragStart: (category: DraggedCategory) => void;
+  onDragOver: (categoryId: string | null) => void;
+  onDragEnd: () => void;
+  onDrop: (event: DragEvent<HTMLElement>, category: Category) => void;
   onSubmit: (form: FormData, id?: string) => void;
   onCancel: () => void;
 }) {
-
   const children = categories.filter((item) => item.parentId === category.id);
   const IconComponent = ICON_MAP[category.icon ?? "tag"] ?? Tag;
   const isChild = category.parentId !== null;
@@ -444,14 +527,46 @@ function Node({
   // Root category = mini-card style
   if (!isChild) {
     return (
-      <div
-        className="rounded-xl bg-[var(--surface)] transition-all duration-200 hover:bg-[var(--surface-muted)]/40"
-      >
+      <div className="mt-1 rounded-xl bg-[var(--surface)] transition-all duration-200">
         {/* Root row */}
-        <div className="group flex items-center justify-between gap-3 px-4 py-3">
+        <div
+          className={cn(
+            "group flex cursor-grab items-center justify-between gap-3 rounded-lg py-3 px-1 transition-[opacity,box-shadow] active:cursor-grabbing",
+            draggedCategory?.id === category.id && "opacity-50",
+            dropTargetId === category.id && "ring-2 ring-primary/60",
+          )}
+          draggable={!pending}
+          onDragStart={(event) => {
+            event.stopPropagation();
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", category.id);
+            onDragStart({ id: category.id, parentId: null });
+          }}
+          onDragEnd={(event) => {
+            event.stopPropagation();
+            onDragEnd();
+          }}
+          onDragOver={(event) => {
+            event.stopPropagation();
+            if (
+              draggedCategory?.parentId !== null ||
+              draggedCategory.id === category.id
+            )
+              return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            onDragOver(category.id);
+          }}
+          onDragLeave={(event) => {
+            event.stopPropagation();
+            if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+              onDragOver(null);
+            }
+          }}
+          onDrop={(event) => onDrop(event, category)}
+        >
           {/* Left: icon + info */}
           <div className="flex min-w-0 items-center gap-3">
-
             {/* Icon — large, prominent, with tinted bg + ring */}
             <span
               className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl transition-transform duration-200 group-hover:scale-105"
@@ -475,13 +590,15 @@ function Node({
                     "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium leading-none",
                     category.status === "active"
                       ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
-                      : "bg-slate-100 text-slate-400 dark:bg-slate-800/60 dark:text-slate-500"
+                      : "bg-slate-100 text-slate-400 dark:bg-slate-800/60 dark:text-slate-500",
                   )}
                 >
                   <span
                     className={cn(
                       "w-1 h-1 rounded-full",
-                      category.status === "active" ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"
+                      category.status === "active"
+                        ? "bg-emerald-500"
+                        : "bg-slate-300 dark:bg-slate-600",
                     )}
                   />
                   {category.status === "active" ? "Hoạt động" : "Đã tắt"}
@@ -496,44 +613,41 @@ function Node({
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <div className="flex items-center">
-              <Button variant="unstyled" size="auto"
-                className="text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20 transition-colors p-1"
-                disabled={pending || index === 0}
-                onClick={() => onMoveRoot(index, "up")}
-                title="Di chuyển lên" aria-label="Di chuyển lên"
-              >
-                <ChevronUp size={16} />
-              </Button>
-              <Button variant="unstyled" size="auto"
-                className="text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20 transition-colors p-1"
-                disabled={pending || index === totalRoots - 1}
-                onClick={() => onMoveRoot(index, "down")}
-                title="Di chuyển xuống" aria-label="Di chuyển xuống"
-              >
-                <ChevronDown size={16} />
-              </Button>
-            </div>
+          <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+            <span
+              className="grid min-h-10 place-items-center px-1 text-[var(--text-muted)]"
+              title={`Kéo để sắp xếp ${category.name} cùng các danh mục con`}
+            >
+              <GripVertical size={17} />
+            </span>
             <div className="w-px h-4 bg-[var(--border)] mx-1" />
-            <Button variant="unstyled" size="auto"
-              className="text-slate-400 hover:text-[var(--foreground)] transition-colors p-1"
-              onClick={() => onEdit(category.id)} disabled={pending}
-              title="Chỉnh sửa" aria-label={`Chỉnh sửa ${category.name}`}
+            <Button
+              variant="icon"
+              size="auto"
+              onClick={() => onEdit(category.id)}
+              disabled={pending}
+              title="Chỉnh sửa"
+              aria-label={`Chỉnh sửa ${category.name}`}
             >
               <Pencil size={15} />
             </Button>
-            <Button variant="unstyled" size="auto"
-              className={cn("text-slate-400 transition-colors p-1",
-                category.status === "active"
-                  ? "hover:text-amber-500"
-                  : "hover:text-emerald-500"
-              )}
-              onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}
+            <Button
+              variant="icon"
+              size="auto"
+              onClick={() =>
+                onStatus(
+                  category.id,
+                  category.status === "active" ? "deactive" : "active",
+                )
+              }
               disabled={pending}
               title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
             >
-              {category.status === "active" ? <EyeOff size={15} /> : <Eye size={15} />}
+              {category.status === "active" ? (
+                <EyeOff size={15} />
+              ) : (
+                <Eye size={15} />
+              )}
             </Button>
             <ConfirmDelete
               ariaLabel={`Xóa danh mục ${category.name}`}
@@ -541,14 +655,13 @@ function Node({
               description="Hành động này không thể hoàn tác."
               onConfirm={() => onDelete(category.id)}
               disabled={pending}
-              className="!w-auto !h-auto !bg-transparent hover:!bg-transparent text-slate-400 hover:!text-rose-500 transition-colors p-1 [&_svg]:size-[15px]"
             />
           </div>
         </div>
 
         {/* Children — tree branch from parent */}
         {hasChildren && (
-          <div className="ml-7 pb-1 relative">
+          <div className="ml-2 relative">
             {children.map((child, childIdx) => (
               <Node
                 key={child.id}
@@ -558,11 +671,15 @@ function Node({
                 totalRoots={children.length}
                 editing={editing}
                 pending={pending}
+                draggedCategory={draggedCategory}
+                dropTargetId={dropTargetId}
                 onEdit={onEdit}
                 onStatus={onStatus}
                 onDelete={onDelete}
-                onMoveRoot={onMoveRoot}
-                onMoveChild={onMoveChild}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDragEnd={onDragEnd}
+                onDrop={onDrop}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
               />
@@ -575,15 +692,50 @@ function Node({
 
   // Child category — compact row with tree connector
   return (
-    <article className="group relative flex items-center justify-between gap-3 pl-8 pr-3.5 py-2 transition-colors duration-150 hover:bg-[var(--surface-muted)]/30 rounded-lg">
+    <article
+      className={cn(
+        "group relative flex cursor-grab items-center justify-between gap-3 rounded-xl py-2 pl-9 pr-1 transition-[background-color,opacity,box-shadow] active:cursor-grabbing",
+        draggedCategory?.id === category.id && "opacity-50",
+        dropTargetId === category.id && "ring-2 ring-primary/60",
+      )}
+      draggable={!pending}
+      onDragStart={(event) => {
+        event.stopPropagation();
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", category.id);
+        onDragStart({ id: category.id, parentId: category.parentId });
+      }}
+      onDragEnd={(event) => {
+        event.stopPropagation();
+        onDragEnd();
+      }}
+      onDragOver={(event) => {
+        event.stopPropagation();
+        if (
+          draggedCategory?.parentId !== category.parentId ||
+          draggedCategory.id === category.id
+        )
+          return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        onDragOver(category.id);
+      }}
+      onDragLeave={(event) => {
+        event.stopPropagation();
+        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+          onDragOver(null);
+        }
+      }}
+      onDrop={(event) => onDrop(event, category)}
+    >
       {/* Vertical line: top half (always) */}
-      <div className="absolute left-2.5 top-0 h-1/2 w-px bg-[var(--border)]" />
+      <div className="absolute left-3.5 top-0 h-1/2 w-px bg-[var(--border)]" />
       {/* Vertical line: bottom half (not on last child) */}
       {index < totalRoots - 1 && (
-        <div className="absolute left-2.5 top-1/2 bottom-0 w-px bg-[var(--border)]" />
+        <div className="absolute left-3.5 top-1/2 bottom-0 w-px bg-[var(--border)]" />
       )}
       {/* Horizontal branch line */}
-      <div className="absolute left-2.5 top-1/2 w-5 h-px bg-[var(--border)]" />
+      <div className="absolute left-3.5 top-1/2 w-5 h-px bg-[var(--border)]" />
 
       <div className="flex min-w-0 items-center gap-2.5">
         {/* Child icon */}
@@ -605,7 +757,9 @@ function Node({
           <span
             className={cn(
               "w-1.5 h-1.5 rounded-full flex-shrink-0",
-              category.status === "active" ? "bg-emerald-400" : "bg-slate-300 dark:bg-slate-600"
+              category.status === "active"
+                ? "bg-emerald-400"
+                : "bg-slate-300 dark:bg-slate-600",
             )}
             title={category.status === "active" ? "Hoạt động" : "Đã tắt"}
           />
@@ -613,40 +767,41 @@ function Node({
       </div>
 
       {/* Child actions — minimal */}
-      <div className="flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-        <Button variant="unstyled" size="auto"
-          className="text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20 transition-colors p-1"
-          disabled={pending || index === 0}
-          onClick={() => onMoveChild(category.parentId!, index, "up")}
-          title="Di chuyển lên" aria-label="Di chuyển lên"
+      <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+        <span
+          className="grid min-h-10 place-items-center px-1 text-[var(--text-muted)]"
+          title={`Kéo để sắp xếp ${category.name} trong cùng danh mục cha`}
         >
-          <ChevronUp size={14} />
-        </Button>
-        <Button variant="unstyled" size="auto"
-          className="text-slate-300 hover:text-[var(--primary)] dark:text-slate-600 disabled:opacity-20 transition-colors p-1"
-          disabled={pending || index === totalRoots - 1}
-          onClick={() => onMoveChild(category.parentId!, index, "down")}
-          title="Di chuyển xuống" aria-label="Di chuyển xuống"
-        >
-          <ChevronDown size={14} />
-        </Button>
-        <div className="w-px h-3 bg-[var(--border)] mx-0.5" />
-        <Button variant="unstyled" size="auto"
-          className="text-slate-400 hover:text-[var(--foreground)] transition-colors p-1"
-          onClick={() => onEdit(category.id)} disabled={pending}
-          title="Chỉnh sửa" aria-label={`Chỉnh sửa ${category.name}`}
+          <GripVertical size={17} />
+        </span>
+        <div className="w-px h-4 bg-[var(--border)] mx-1" />
+        <Button
+          variant="icon"
+          size="auto"
+          onClick={() => onEdit(category.id)}
+          disabled={pending}
+          title="Chỉnh sửa"
+          aria-label={`Chỉnh sửa ${category.name}`}
         >
           <Pencil size={13} />
         </Button>
-        <Button variant="unstyled" size="auto"
-          className={cn("text-slate-400 transition-colors p-1",
-            category.status === "active" ? "hover:text-amber-500" : "hover:text-emerald-500"
-          )}
-          onClick={() => onStatus(category.id, category.status === "active" ? "deactive" : "active")}
+        <Button
+          variant="icon"
+          size="auto"
+          onClick={() =>
+            onStatus(
+              category.id,
+              category.status === "active" ? "deactive" : "active",
+            )
+          }
           disabled={pending}
           title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
         >
-          {category.status === "active" ? <EyeOff size={13} /> : <Eye size={13} />}
+          {category.status === "active" ? (
+            <EyeOff size={13} />
+          ) : (
+            <Eye size={13} />
+          )}
         </Button>
         <ConfirmDelete
           ariaLabel={`Xóa danh mục ${category.name}`}
@@ -679,7 +834,9 @@ function TemplateForm({
   const [name, setName] = useState(category?.name ?? "");
   const [code, setCode] = useState(category?.code ?? "");
   const [autoCode, setAutoCode] = useState(!category); // Auto-generate code when creating new
-  const [selectedColor, setSelectedColor] = useState((category?.color ?? COLOR_PRESETS[0]).toUpperCase());
+  const [selectedColor, setSelectedColor] = useState(
+    (category?.color ?? COLOR_PRESETS[0]).toUpperCase(),
+  );
   const [selectedIcon, setSelectedIcon] = useState(category?.icon ?? "tag");
 
   function handleNameChange(val: string) {
@@ -735,31 +892,30 @@ function TemplateForm({
             defaultValue={category?.parentId ?? "none"}
             label="Danh mục cha"
             emptyOption={{ value: "none", label: "Không có" }}
-            categories={categories
-                .filter(
-                  (item) =>
-                    item.status === "active" &&
-                    item.type === (category?.type ?? defaultType) &&
-                    (!category || item.id !== category.id) &&
-                    !item.parentId
-                )}
+            categories={categories.filter(
+              (item) =>
+                item.status === "active" &&
+                item.type === (category?.type ?? defaultType) &&
+                (!category || item.id !== category.id) &&
+                !item.parentId,
+            )}
           />
         </div>
 
-
-
         {/* Color Picker */}
         <div className="grid gap-1">
-          <Label>
-            Màu đại diện
-          </Label>
+          <Label>Màu đại diện</Label>
           <div className="flex flex-wrap items-center gap-2 mb-2">
             {COLOR_PRESETS.map((color) => (
-              <Button variant="unstyled" size="auto"
+              <Button
+                variant="unstyled"
+                size="auto"
                 key={color}
                 type="button"
                 className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                  selectedColor === color ? "scale-110 border-white shadow-md ring-2 ring-[var(--primary)]" : "border-transparent"
+                  selectedColor === color
+                    ? "scale-110 border-white shadow-md ring-2 ring-[var(--primary)]"
+                    : "border-transparent"
                 }`}
                 style={{ backgroundColor: color }}
                 onClick={() => setSelectedColor(color.toUpperCase())}
@@ -773,20 +929,19 @@ function TemplateForm({
             />
           </div>
           <input type="hidden" name="color" value={selectedColor} />
-
         </div>
 
         {/* Visual Icon Picker Grid */}
         <div className="grid gap-1">
-          <Label>
-            Chọn Biểu tượng
-          </Label>
+          <Label>Chọn Biểu tượng</Label>
           <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border border-[var(--border)] rounded-xl bg-[var(--surface)]">
             {ICON_LIST.map((item) => {
               const IconComp = ICON_MAP[item.id] ?? Tag;
               const isSelected = selectedIcon === item.id;
               return (
-                <Button variant="unstyled" size="auto"
+                <Button
+                  variant="unstyled"
+                  size="auto"
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedIcon(item.id)}
@@ -798,7 +953,9 @@ function TemplateForm({
                   title={item.label}
                 >
                   <IconComp size={18} />
-                  <span className="text-[10px] truncate max-w-full">{item.label}</span>
+                  <span className="text-[10px] truncate max-w-full">
+                    {item.label}
+                  </span>
                 </Button>
               );
             })}
@@ -807,16 +964,19 @@ function TemplateForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-4 border-t border-[var(--border)] mt-auto">
-        <Button type="button" variant="outline" className="hover:bg-[var(--surface-secondary)] hover:text-current" onClick={onCancel}>
+      <div className="flex justify-end gap-2 pt-4 border-t mt-auto">
+        <Button
+          type="button"
+          variant="outline"
+          className="hover:text-current"
+          onClick={onCancel}
+        >
           Hủy bỏ
         </Button>
         <Button type="submit" variant="default" disabled={pending}>
           {pending ? "Đang xử lý..." : "Lưu danh mục"}
         </Button>
       </div>
-
     </form>
-
   );
 }

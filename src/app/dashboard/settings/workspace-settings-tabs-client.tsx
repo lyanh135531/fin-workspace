@@ -107,9 +107,16 @@ export function WorkspaceSettingsTabsClient({
 
       {/* ── Tab 2: Danh mục thu/chi ── */}
       <TabsContent value="categories">
-        <div className="space-y-6">
-          <ImportCategoryPanel templates={templates} existingCodes={existingCodes} />
-          <CategoryManagement categories={categories} />
+        <div className="grid items-start gap-6 pt-4 xl:grid-cols-12">
+          <div className="min-w-0 xl:col-span-5">
+            <ImportCategoryPanel
+              templates={templates}
+              existingCodes={existingCodes}
+            />
+          </div>
+          <div className="min-w-0 xl:col-span-7">
+            <CategoryManagement categories={categories} />
+          </div>
         </div>
       </TabsContent>
 

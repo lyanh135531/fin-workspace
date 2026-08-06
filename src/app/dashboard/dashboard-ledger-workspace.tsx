@@ -39,7 +39,7 @@ export function DashboardLedgerWorkspace({
 
   return (
     <div className="ledger-page-shell">
-      <header className="ledger-page-hero">
+      <header className="ledger-page-hero rounded-xl">
         <div className="ledger-page-intro">
           <div className="ledger-page-kicker">
             <span><BookOpenText size={15} aria-hidden="true" /></span>
@@ -81,7 +81,7 @@ export function DashboardLedgerWorkspace({
       </section>
 
       <div className="ledger-table-viewport">
-        <Card as="section" className="dashboard-ledger-card ledger-book gap-0 py-0 overflow-hidden">
+        <Card as="section" className="dashboard-ledger-card ledger-book gap-0 p-0 overflow-hidden">
           <Ledger
             {...ledgerProps}
             selectedMonth={selectedMonth}

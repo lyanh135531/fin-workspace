@@ -1,2 +1,17 @@
 import { WorkspaceDashboard } from "@/app/dashboard/page";
-export default async function WorkspacePage({ params }: { params: Promise<{ workspaceId: string }> }) { return <WorkspaceDashboard targetWorkspaceId={(await params).workspaceId}/>; }
+
+type WorkspacePageProps = {
+  params: Promise<{ workspaceId: string }>;
+  searchParams: Promise<{ action?: string | string[] }>;
+};
+
+export default async function WorkspacePage({ params, searchParams }: WorkspacePageProps) {
+  const [{ workspaceId }, { action }] = await Promise.all([params, searchParams]);
+
+  return (
+    <WorkspaceDashboard
+      targetWorkspaceId={workspaceId}
+      startWithNewTransaction={action === "new-transaction"}
+    />
+  );
+}

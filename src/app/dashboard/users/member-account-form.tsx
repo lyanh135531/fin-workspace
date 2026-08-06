@@ -3,7 +3,7 @@
 import { UserPlus } from "lucide-react";
 import { useTransition } from "react";
 import { createMemberAccountAction } from "@/app/dashboard/users/actions";
-import { Button, Card, Checkbox, Input, Label } from "@/components/base";
+import { Button, Card, Checkbox, FormPendingSkeleton, Input, Label } from "@/components/base";
 import { toast } from "sonner";
 
 type Workspace = { id: string; name: string };
@@ -40,7 +40,8 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
           </p>
         </div>
       </div>
-      <form id="member-account-form" action={submit} className="mt-6 grid gap-4 md:grid-cols-2">
+      <form id="member-account-form" action={submit} className="mt-6 grid gap-4 md:grid-cols-2" aria-busy={pending}>
+        {pending && <FormPendingSkeleton label="Đang tạo tài khoản thành viên" className="md:col-span-2" />}
         <div className="grid gap-2">
           <Input id="member-username" label="Username" required name="username" minLength={3} maxLength={80} autoComplete="username" placeholder="minh"/>
         </div>

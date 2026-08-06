@@ -28,11 +28,20 @@ function avatarGradient(name: string): string {
   return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
 }
 
-export function JoinRequestsClient({ requests, roles }: { requests: Request[]; roles: Role[] }) {
+export function JoinRequestsClient({
+  requests,
+  roles,
+}: {
+  requests: Request[];
+  roles: Role[];
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const defaultRoleCode = roles.find((role) => role.code === "MEMBER")?.code ?? roles[0]?.code ?? "";
-  const [selectedRoles, setSelectedRoles] = useState<Record<string, string>>({});
+  const defaultRoleCode =
+    roles.find((role) => role.code === "MEMBER")?.code ?? roles[0]?.code ?? "";
+  const [selectedRoles, setSelectedRoles] = useState<Record<string, string>>(
+    {},
+  );
 
   function review(id: string, approve: boolean, roleCode?: string) {
     start(async () => {
@@ -47,84 +56,95 @@ export function JoinRequestsClient({ requests, roles }: { requests: Request[]; r
   }
 
   return (
-    <Card as="section" className="sunrise-card gap-0 py-0 overflow-hidden">
-      <header className="flex items-center gap-3 p-6 pb-4">
+    <Card as="section" className="gap-4 overflow-hidden">
+      <header className="flex items-center gap-3">
         <div className="settings-section-icon">
           <UserPlus size={18} />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)]">Yêu cầu tham gia</h2>
-          <p className="mt-0.5 text-xs text-slate-500">Chọn vai trò trước khi cấp quyền truy cập workspace.</p>
+          <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)]">
+            Yêu cầu tham gia
+          </h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Chọn vai trò trước khi cấp quyền truy cập workspace.
+          </p>
         </div>
-        <span className="ws-fixed-pill"><strong>{requests.length}</strong> đang chờ</span>
+        <span className="ws-fixed-pill">
+          <strong>{requests.length}</strong> đang chờ
+        </span>
       </header>
       <div className="settings-member-list">
-      {requests.map((r) => (
-        <article className="settings-member-row" key={r.id}>
-          {/* Avatar */}
-          <div
-            className="member-avatar"
-            style={{ background: avatarGradient(r.username) }}
-            aria-hidden="true"
-          >
-            {r.username.slice(0, 1)}
-          </div>
-
-          {/* Identity */}
-          <div className="member-identity">
-            <strong>{r.username}</strong>
-            <span>Đang chờ được phê duyệt</span>
-          </div>
-
-          {/* Role selection dropdown */}
-          <div className="member-role">
-            <Select
-              value={selectedRoles[r.id] ?? defaultRoleCode}
-              onValueChange={(roleCode) =>
-                setSelectedRoles((current) => ({ ...current, [r.id]: roleCode }))
-              }
-              label={`Vai trò cấp cho ${r.username}`}
-              options={roles.map((role) => ({ value: role.code, label: role.name }))}
-              className="w-auto min-w-34"
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2 justify-end">
-            <Button
-              disabled={pending}
-              onClick={() => review(r.id, false)}
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 text-slate-500 hover:text-rose-600 hover:bg-rose-50/50 hover:border-rose-200 transition-colors"
-              title="Từ chối yêu cầu"
-              aria-label="Từ chối yêu cầu"
+        {requests.map((r) => (
+          <article className="settings-member-row" key={r.id}>
+            {/* Avatar */}
+            <div
+              className="member-avatar"
+              style={{ background: avatarGradient(r.username) }}
+              aria-hidden="true"
             >
-              <X size={16} />
-            </Button>
-            <Button
-              disabled={pending}
-              onClick={() => review(r.id, true, selectedRoles[r.id] ?? defaultRoleCode)}
-              variant="default"
-              size="icon"
-              className="h-9 w-9"
-              title="Duyệt tham gia"
-              aria-label="Duyệt tham gia"
-            >
-              <Check size={16} />
-            </Button>
-          </div>
-        </article>
-      ))}
-      {requests.length === 0 && (
-        <Empty
-          variant="compact"
-          icon={UserPlus}
-          title="Không có yêu cầu chờ duyệt"
-          description="Các yêu cầu tham gia workspace mới sẽ xuất hiện tại đây."
-          className="rounded-none border-x-0 border-b-0"
-        />
-      )}
+              {r.username.slice(0, 1)}
+            </div>
+
+            {/* Identity */}
+            <div className="member-identity">
+              <strong>{r.username}</strong>
+              <span>Đang chờ được phê duyệt</span>
+            </div>
+
+            {/* Role selection dropdown */}
+            <div className="member-role">
+              <Select
+                value={selectedRoles[r.id] ?? defaultRoleCode}
+                onValueChange={(roleCode) =>
+                  setSelectedRoles((current) => ({
+                    ...current,
+                    [r.id]: roleCode,
+                  }))
+                }
+                options={roles.map((role) => ({
+                  value: role.code,
+                  label: role.name,
+                }))}
+                className="w-auto min-w-34"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 justify-end">
+              <Button
+                disabled={pending}
+                onClick={() => review(r.id, false)}
+                variant="icon"
+                size="icon"
+                title="Từ chối yêu cầu"
+                aria-label="Từ chối yêu cầu"
+              >
+                <X size={16} />
+              </Button>
+              <Button
+                disabled={pending}
+                onClick={() =>
+                  review(r.id, true, selectedRoles[r.id] ?? defaultRoleCode)
+                }
+                variant="icon"
+                size="icon"
+                title="Duyệt tham gia"
+                aria-label="Duyệt tham gia"
+              >
+                <Check size={16} />
+              </Button>
+            </div>
+          </article>
+        ))}
+        {requests.length === 0 && (
+          <Empty
+            variant="compact"
+            icon={UserPlus}
+            title="Không có yêu cầu chờ duyệt"
+            description="Các yêu cầu tham gia workspace mới sẽ xuất hiện tại đây."
+            className="rounded-none border-x-0 border-b-0"
+          />
+        )}
       </div>
     </Card>
   );
