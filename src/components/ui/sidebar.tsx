@@ -107,7 +107,7 @@ function SidebarProvider({
           } as React.CSSProperties
         }
         className={cn(
-          "group/sidebar-wrapper flex h-dvh min-h-0 w-full overflow-hidden max-[900px]:block max-[900px]:h-auto max-[900px]:min-h-dvh max-[900px]:overflow-visible",
+          "group/sidebar-wrapper flex h-dvh min-h-0 w-full overflow-hidden max-[639px]:block max-[639px]:h-auto max-[639px]:min-h-dvh max-[639px]:overflow-visible",
           className,
         )}
         {...props}
@@ -146,7 +146,7 @@ function Sidebar({
       data-slot="sidebar"
       data-state={state}
       data-collapsible={state === "collapsed" ? collapsible : ""}
-      className="group peer hidden text-[var(--foreground)] min-[901px]:block"
+      className="group peer hidden text-[var(--foreground)] min-[640px]:block"
     >
       <div
         data-slot="sidebar-gap"
@@ -156,7 +156,7 @@ function Sidebar({
         data-slot="sidebar-container"
         aria-label="Điều hướng"
         className={cn(
-          "fixed inset-y-0 left-0 z-20 hidden h-dvh w-(--sidebar-width) border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-in-out will-change-[width] min-[901px]:flex group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
+          "fixed inset-y-0 left-0 z-20 hidden h-dvh w-(--sidebar-width) border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-in-out will-change-[width] min-[640px]:flex group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
           className,
         )}
         {...props}

@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { authOptions } from "@/auth";
 import { DashboardHeaderSubtitle } from "@/app/dashboard/dashboard-header-subtitle";
+import { MobileBottomNavigation } from "@/app/dashboard/mobile-bottom-navigation";
 import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
 import { MobileNavigation } from "@/app/dashboard/mobile-navigation";
 import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transaction-sheet";
@@ -57,10 +58,16 @@ export function DashboardShell({ children }: DashboardShellProps) {
           <DashboardHeader dataPromise={dataPromise} />
         </Suspense>
 
-        <main className="dashboard-content px-10 py-5">{children}</main>
+        <main id="main-content" className="dashboard-content" tabIndex={-1}>
+          {children}
+        </main>
 
         <Suspense fallback={null}>
           <DashboardQuickTransaction dataPromise={dataPromise} />
+        </Suspense>
+
+        <Suspense fallback={null}>
+          <DashboardMobileBottomNavigation dataPromise={dataPromise} />
         </Suspense>
       </SidebarInset>
     </SidebarProvider>
@@ -210,7 +217,7 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
           username={username}
           role={userRole}
         />
-        <div className="hidden min-[901px]:flex">
+        <div className="hidden min-[1024px]:flex">
           <SidebarToggle />
         </div>
         <div className="dashboard-header-copy">
@@ -263,6 +270,16 @@ async function DashboardQuickTransaction({ dataPromise }: DashboardShellDataProp
   );
 }
 
+async function DashboardMobileBottomNavigation({
+  dataPromise,
+}: DashboardShellDataProps) {
+  const { membership } = await dataPromise;
+
+  return (
+    <MobileBottomNavigation currentWorkspaceId={membership?.workspaceId} />
+  );
+}
+
 function DashboardSidebarFallback() {
   return (
     <Sidebar collapsible="icon">
@@ -293,7 +310,7 @@ function DashboardHeaderFallback() {
           username="User"
           role="none"
         />
-        <div className="hidden min-[901px]:flex">
+        <div className="hidden min-[1024px]:flex">
           <SidebarToggle />
         </div>
         <div className="dashboard-header-copy">Felice</div>

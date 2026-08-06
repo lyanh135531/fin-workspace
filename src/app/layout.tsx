@@ -4,6 +4,7 @@ import Script from "next/script";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 import "./ledger-page.css";
+import "./responsive-foundation.css";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -31,6 +32,9 @@ export default function RootLayout({
         <Script src="/initialize-appearance.js" strategy="beforeInteractive" />
       </head>
       <body>
+        <a className="skip-link" href="#main-content">
+          Bỏ qua đến nội dung chính
+        </a>
         {children}
         <Toaster richColors position="top-right" />
       </body>

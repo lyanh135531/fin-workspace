@@ -546,10 +546,10 @@ export function WalletManagement({
                     </div>
                   </div>
                   {isAdmin && (
-                    <CardAction className="flex items-center gap-1">
+                    <CardAction className="wallet-card-actions flex items-center gap-1">
                       {filterStatus === "all" && (
                         <span
-                          className="grid min-h-10 cursor-grab place-items-center px-1 text-[var(--text-muted)] active:cursor-grabbing"
+                          className="wallet-drag-handle grid min-h-10 cursor-grab place-items-center px-1 text-[var(--text-muted)] active:cursor-grabbing"
                           title={`Kéo để sắp xếp ${wallet.name}`}
                           aria-label={`Kéo để sắp xếp ${wallet.name}`}
                         >
@@ -583,7 +583,7 @@ export function WalletManagement({
                     </p>
                   </div>
 
-                  <p className="min-h-10 text-sm leading-relaxed text-[var(--text-secondary)] line-clamp-2">
+                  <p className="wallet-card-description min-h-10 text-sm leading-relaxed text-[var(--text-secondary)] line-clamp-2">
                     {wallet.description ||
                       "Chưa có mô tả. Thêm ghi chú để thành viên dễ nhận diện ví này."}
                   </p>
@@ -597,11 +597,11 @@ export function WalletManagement({
                   )}
                 </CardContent>
 
-                <CardFooter className="justify-between gap-3 text-xs text-[var(--text-muted)]">
+                <CardFooter className="wallet-card-footer justify-between gap-3 text-xs text-[var(--text-muted)]">
                   <span className="font-medium tabular-nums">
                     {wallet.transactionCount} giao dịch
                   </span>
-                  <span className="flex items-center gap-1 text-[11px]">
+                  <span className="wallet-card-updated flex items-center gap-1 text-[11px]">
                     <Clock size={12} />
                     {new Intl.DateTimeFormat("vi-VN", {
                       dateStyle: "medium",

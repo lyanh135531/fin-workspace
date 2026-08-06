@@ -529,9 +529,9 @@ function CategoryNode({
           </div>
 
           {/* Actions */}
-          <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+          <div className="category-row-actions flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
             <span
-              className="grid min-h-10 place-items-center px-1 text-[var(--text-muted)]"
+              className="category-drag-handle grid min-h-10 place-items-center px-1 text-[var(--text-muted)]"
               title={`Kéo để sắp xếp ${category.name} cùng các danh mục con`}
             >
               <GripVertical size={17} />
@@ -680,9 +680,9 @@ function CategoryNode({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+      <div className="category-row-actions flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
         <span
-          className="grid min-h-10 place-items-center px-1 text-[var(--text-muted)]"
+          className="category-drag-handle grid min-h-10 place-items-center px-1 text-[var(--text-muted)]"
           title={`Kéo để sắp xếp ${category.name} trong cùng danh mục cha`}
         >
           <GripVertical size={17} />
