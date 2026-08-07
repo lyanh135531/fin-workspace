@@ -10,7 +10,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { addQuickTransactionAction } from "@/app/dashboard/actions";
 import {
   Button,
@@ -101,6 +101,14 @@ export function QuickTransactionSheet({
   const [showDetails, setShowDetails] = useState(false);
   const [keepOpen, setKeepOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    function handleOpenEvent() {
+      setOpen(true);
+    }
+    window.addEventListener("open-quick-transaction", handleOpenEvent);
+    return () => window.removeEventListener("open-quick-transaction", handleOpenEvent);
+  }, []);
 
   const workspace =
     workspaces.find((candidate) => candidate.id === workspaceId) ??

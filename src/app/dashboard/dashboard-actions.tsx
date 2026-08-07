@@ -9,6 +9,7 @@ import {
   Menu,
   Pencil,
   Plus,
+  SlidersHorizontal,
   Trash2,
   WalletCards,
   X,
@@ -31,12 +32,14 @@ import {
   CategoryTreeSelect,
   Checkbox,
   DatePicker,
+  DateRangePicker,
   Empty,
   Input,
   MoneyInput,
   Search,
   Select,
 } from "@/components/base";
+import type { DateRangeValue } from "@/components/base";
 import { toast } from "sonner";
 
 type Option = {
@@ -192,7 +195,7 @@ function isChanged(item: LedgerItem, draft: TransactionDraft) {
     item.description !== (draft.description || null) ||
     item.type !== draft.type ||
     item.categoryId !==
-      (draft.categoryId === "none" ? null : draft.categoryId) ||
+    (draft.categoryId === "none" ? null : draft.categoryId) ||
     item.walletId !== draft.walletId ||
     item.toWalletId !== (draft.type === "transfer" ? draft.toWalletId : null) ||
     item.date.slice(0, 10) !== draft.date ||
@@ -240,9 +243,25 @@ export function Ledger({
   startWithNewTransaction?: boolean;
 }) {
   const [query, setQuery] = useState("");
-  const [internalMonth, setInternalMonth] = useState(initialMonth);
-  const month = selectedMonth ?? internalMonth;
-  const [status, setStatus] = useState("all");
+  const initialDateRange = useMemo<DateRangeValue>(() => {
+    if (initialMonth !== "all") {
+      const [y, m] = initialMonth.split("-").map(Number);
+      const lastDay = new Date(y, m, 0).getDate();
+      return { from: `${initialMonth}-01`, to: `${initialMonth}-${String(lastDay).padStart(2, "0")}` };
+    }
+    if (transactions.length > 0) {
+      const dates = transactions.map((item) => item.date?.slice(0, 10)).filter(Boolean);
+      if (dates.length > 0) {
+        const sorted = [...dates].sort();
+        return { from: sorted[0] as string, to: sorted[sorted.length - 1] as string };
+      }
+    }
+    const [y, m] = businessDate.split("-");
+    const lastDay = new Date(Number(y), Number(m), 0).getDate();
+    return { from: `${y}-${m}-01`, to: `${y}-${m}-${String(lastDay).padStart(2, "0")}` };
+  }, [initialMonth, transactions, businessDate]);
+  const [dateRange, setDateRange] = useState<DateRangeValue>(() => initialDateRange);
+  const [filterCategory, setFilterCategory] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
@@ -260,40 +279,33 @@ export function Ledger({
   >({});
   const [editReason, setEditReason] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [scheduledExpanded, setScheduledExpanded] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileFilterRef = useRef<HTMLDivElement>(null);
   const [busy, start] = useTransition();
   const hasActiveFilters =
-    query.trim().length > 0 || month !== "all" || status !== "all";
-  const monthOptions = useMemo(
-    () => [
-      { value: "all", label: "Tất cả tháng" },
-      ...[
-        ...new Set([
-          initialMonth,
-          ...transactions.map((item) => item.date.slice(0, 7)),
-        ]),
-      ]
-        .sort((left, right) => right.localeCompare(left))
-        .map((value) => {
-          const [year, monthNumber] = value.split("-");
-          return { value, label: `Tháng ${monthNumber}/${year}` };
-        }),
-    ],
-    [initialMonth, transactions],
-  );
+    query.trim().length > 0 ||
+    dateRange.from !== initialDateRange.from ||
+    dateRange.to !== initialDateRange.to ||
+    filterCategory !== "";
   const filteredRows = useMemo(
     () =>
       transactions.filter(
-        (item) =>
-          (month === "all" || item.date.slice(0, 7) === month) &&
-          (status === "all" || item.status === status) &&
-          `${item.description ?? ""} ${item.category?.name ?? ""} ${item.wallet} ${item.member}`
-            .toLocaleLowerCase()
-            .includes(query.toLocaleLowerCase()),
+        (item) => {
+          const itemDate = item.date?.slice(0, 10) || "";
+          return (
+            itemDate >= dateRange.from &&
+            itemDate <= dateRange.to &&
+            (filterCategory === "" || item.categoryId === filterCategory) &&
+            `${item.description ?? ""} ${item.category?.name ?? ""} ${item.wallet} ${item.member}`
+              .toLocaleLowerCase()
+              .includes(query.toLocaleLowerCase())
+          );
+        }
       ),
-    [transactions, month, query, status],
+    [transactions, dateRange, filterCategory, query],
   );
   const scheduledRows = filteredRows.filter(
     (item) => item.status === "scheduled",
@@ -341,11 +353,37 @@ export function Ledger({
     };
   }, [mobileMenuOpen]);
 
+  useEffect(() => {
+    if (!mobileFilterOpen) return;
+
+    function closeOnOutsidePress(event: PointerEvent) {
+      const target = event.target as Element;
+      if (!target || !document.contains(target)) return;
+      
+      if (
+        !mobileFilterRef.current?.contains(target) &&
+        !target.closest('[data-radix-popper-content-wrapper], [role="dialog"], .date-range-picker-popover, [data-slot="select-content"], [data-slot="select-positioner"]')
+      ) {
+        setMobileFilterOpen(false);
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setMobileFilterOpen(false);
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsidePress);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePress);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [mobileFilterOpen]);
+
   function clearFilters() {
     setQuery("");
-    setInternalMonth("all");
-    onMonthChange?.("all");
-    setStatus("all");
+    setDateRange(initialDateRange);
+    setFilterCategory("");
     setCurrentPage(1);
     setSelected(new Set());
     setConfirmBulkDelete(false);
@@ -524,12 +562,11 @@ export function Ledger({
 
   function renderMobileTransaction(item: LedgerItem) {
     return (
-      <Card
-        as="article"
-        className="ledger-mobile-card gap-0 py-0"
+      <article
+        className="ledger-mobile-row"
         key={item.id}
       >
-        <div className="ledger-mobile-card-heading">
+        <div className="ledger-mobile-row-leading">
           {canApprove && (
             <Checkbox
               checked={selected.has(item.id)}
@@ -537,118 +574,98 @@ export function Ledger({
               aria-label={`Chọn giao dịch ${item.description || item.id}`}
             />
           )}
-          <div className="ledger-mobile-card-copy">
+          <span
+            className="ledger-mobile-row-dot"
+            style={{ background: item.category?.color ?? "var(--text-muted)" }}
+            aria-hidden="true"
+          />
+        </div>
+        <div className="ledger-mobile-row-body">
+          <div className="ledger-mobile-row-main">
             <strong title={item.description || "Không có nội dung"}>
               {item.description || "Không có nội dung"}
             </strong>
-            <div className="ledger-mobile-card-subline">
-              <small>
-                #
-                {String(transactionSequence.get(item.id) ?? 1).padStart(5, "0")}{" "}
-                · {item.member}
-                {item.isRecurring ? " · Tự động" : ""}
-              </small>
-              <b
-                className={`ledger-amount amount-${item.type}`}
-                title={`${item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}${formatAmount(item.amount)} ${currency}`}
-                aria-label={`Số tiền ${formatAmount(item.amount)} ${currency}`}
-              >
-                {item.type === "income"
-                  ? "+"
-                  : item.type === "expense"
-                    ? "−"
-                    : "↔"}
-                {formatAmount(item.amount)} {currency}
-              </b>
-            </div>
+            <b
+              className={`ledger-mobile-row-amount amount-${item.type}`}
+              aria-label={`Số tiền ${formatAmount(item.amount)} ${currency}`}
+            >
+              {item.type === "income"
+                ? "+"
+                : item.type === "expense"
+                  ? "−"
+                  : "↔"}
+              {formatAmount(item.amount)}
+            </b>
           </div>
-        </div>
-        <div className="ledger-mobile-card-meta">
-          <span>
-            <small>Loại</small>
-            {typeOptions.find((option) => option.value === item.type)?.label}
-          </span>
-          <span>
-            <small>Ví</small>
-            {item.wallet}
-            {item.toWallet ? ` → ${item.toWallet}` : ""}
-          </span>
-          <span>
-            <small>Ngày</small>
-            {formatLedgerDate(item.date)}
-          </span>
-          <span>
-            <small>Danh mục</small>
-            {item.category?.name ?? "Chưa phân loại"}
-          </span>
-        </div>
-        <div className="ledger-mobile-card-footer">
-          <div>
+          <div className="ledger-mobile-row-meta">
+            <span>
+              {item.category?.name ?? "Chưa phân loại"}
+              {" · "}
+              {item.wallet}
+              {item.isRecurring ? " · ↻" : ""}
+            </span>
             <Status value={item.status} />
-            {item.hasPendingChange && (
-              <small className="ledger-change-pending">Đang chờ thay đổi</small>
-            )}
-          </div>
-          <div className="ledger-row-actions">
-            {canApprove && item.status === "pending" && (
-              <Button
-                variant="outline"
-                size="default"
-                disabled={busy}
-                onClick={() => approveOne(item)}
-              >
-                Duyệt
-              </Button>
-            )}
-            {canApprove && item.status === "scheduled" && (
-              <Button
-                variant="icon"
-                size="icon"
-                disabled={busy}
-                onClick={() => approveOne(item)}
-                title="Ghi nhận sớm"
-                aria-label={`Ghi nhận sớm ${item.description || "giao dịch"}`}
-              >
-                <CircleCheckBig size={16} />
-              </Button>
-            )}
-            {canApprove && item.status === "pending" && (
-              <Button
-                variant="ghost"
-                size="default"
-                disabled={busy}
-                onClick={() => rejectOne(item)}
-              >
-                Từ chối
-              </Button>
-            )}
-            {canEditTransactions && !item.hasPendingChange && (
-              <Button
-                variant="icon"
-                size="icon"
-                disabled={busy}
-                onClick={() => beginEdit(item.id)}
-                title="Chỉnh sửa giao dịch"
-                aria-label={`Chỉnh sửa ${item.description || "giao dịch"}`}
-              >
-                <Pencil size={16} />
-              </Button>
-            )}
-            {!readonly && item.canRequestDelete && (
-              <Button
-                variant="icon"
-                size="icon"
-                disabled={busy || item.hasPendingChange}
-                onClick={() => setDeleteTarget(item)}
-                title="Xóa giao dịch"
-                aria-label={`Xóa ${item.description || "giao dịch"}`}
-              >
-                <Trash2 size={16} />
-              </Button>
-            )}
           </div>
         </div>
-      </Card>
+        <div className="ledger-mobile-row-actions">
+          {canApprove && item.status === "pending" && (
+            <Button
+              variant="outline"
+              size="default"
+              disabled={busy}
+              onClick={() => approveOne(item)}
+            >
+              Duyệt
+            </Button>
+          )}
+          {canApprove && item.status === "pending" && (
+            <Button
+              variant="ghost"
+              size="default"
+              disabled={busy}
+              onClick={() => rejectOne(item)}
+            >
+              Từ chối
+            </Button>
+          )}
+          {canApprove && item.status === "scheduled" && (
+            <Button
+              variant="icon"
+              size="icon"
+              disabled={busy}
+              onClick={() => approveOne(item)}
+              title="Ghi nhận sớm"
+              aria-label={`Ghi nhận sớm ${item.description || "giao dịch"}`}
+            >
+              <CircleCheckBig size={16} />
+            </Button>
+          )}
+          {canEditTransactions && !item.hasPendingChange && (
+            <Button
+              variant="icon"
+              size="icon"
+              disabled={busy}
+              onClick={() => beginEdit(item.id)}
+              title="Chỉnh sửa giao dịch"
+              aria-label={`Chỉnh sửa ${item.description || "giao dịch"}`}
+            >
+              <Pencil size={16} />
+            </Button>
+          )}
+          {!readonly && item.canRequestDelete && (
+            <Button
+              variant="icon"
+              size="icon"
+              disabled={busy || item.hasPendingChange}
+              onClick={() => setDeleteTarget(item)}
+              title="Xóa giao dịch"
+              aria-label={`Xóa ${item.description || "giao dịch"}`}
+            >
+              <Trash2 size={16} />
+            </Button>
+          )}
+        </div>
+      </article>
     );
   }
 
@@ -812,86 +829,84 @@ export function Ledger({
     <div className="ledger-shell">
       <div className="ledger-toolbar">
         <Search
-          containerClassName="max-[760px]:col-span-2 max-[760px]:row-start-1"
+          containerClassName=""
           value={query}
           onChange={(event) => changeFilter(() => setQuery(event.target.value))}
           disabled={editMode}
           placeholder="Tìm giao dịch"
           aria-label="Tìm giao dịch hoặc ghi chú"
         />
-        <Select
-          value={month}
-          ariaLabel="Lọc theo tháng"
-          onValueChange={(value) =>
-            changeFilter(() => {
-              setInternalMonth(value);
-              onMonthChange?.(value);
-            })
-          }
-          disabled={editMode}
-          className="w-auto max-w-44"
-          options={monthOptions}
-        />
-        <Select
-          value={status}
-          ariaLabel="Lọc trạng thái"
-          onValueChange={(value) =>
-            changeFilter(() => {
-              setStatus(value);
-              if (value === "scheduled") setScheduledExpanded(true);
-            })
-          }
-          disabled={editMode}
-          className="w-auto max-w-38"
-          options={[
-            { value: "all", label: "Tất cả" },
-            { value: "approved", label: "Đã ghi nhận" },
-            { value: "pending", label: "Chờ xác nhận" },
-            { value: "scheduled", label: "Đã lên lịch" },
-            { value: "rejected", label: "Đã từ chối" },
-          ]}
-        />
-        <Button
-          variant="icon"
-          size="icon"
-          className="ledger-clear-filter max-[760px]:hidden"
-          disabled={editMode || !hasActiveFilters}
-          onClick={clearFilters}
-          title="Xóa tìm kiếm và bộ lọc"
-          aria-label="Xóa bộ lọc"
-        >
-          <FilterX size={16} />
-        </Button>
-        <div className="ledger-desktop-tools">
-          {canApprove && selected.size > 0 && (
-            <Button
-              variant="outline"
-              size="icon"
-              className="ledger-delete-button"
-              disabled={editMode || busy}
-              onClick={() => setConfirmBulkDelete(true)}
-              title={`Xóa ${selected.size} giao dịch đã chọn`}
-              aria-label={`Xóa ${selected.size} giao dịch đã chọn`}
-            >
-              <Trash2 size={16} />
-            </Button>
-          )}
-          {!readonly && (
-            <div className="ledger-create-actions">
-              <Button
-                variant="default"
-                size="default"
-                disabled={
-                  busy || editMode || Boolean(createDraft) || !wallets.length
-                }
-                onClick={beginCreate}
-              >
-                <Plus size={17} />
-                Giao dịch mới
-              </Button>
+        {/* Filter popover (both Desktop and Mobile) */}
+        <div className="ledger-filter-popover" ref={mobileFilterRef}>
+          <Button
+            variant="icon"
+            size="icon"
+            type="button"
+            className="ledger-filter-popover-trigger"
+            aria-label={mobileFilterOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
+            aria-haspopup="dialog"
+            aria-expanded={mobileFilterOpen}
+            onClick={() => setMobileFilterOpen((o) => !o)}
+          >
+            <SlidersHorizontal size={16} />
+            {hasActiveFilters && <span className="ledger-filter-badge" />}
+          </Button>
+          {mobileFilterOpen && (
+            <div className="ledger-filter-popover-panel" role="dialog" aria-label="Bộ lọc giao dịch">
+              <div className="ledger-filter-popover-row">
+                <label className="ledger-filter-popover-label">Khoảng thời gian</label>
+                <DateRangePicker
+                  value={dateRange}
+                  ariaLabel="Lọc theo khoảng thời gian"
+                  onValueChange={(value) =>
+                    changeFilter(() => setDateRange(value))
+                  }
+                  disabled={editMode}
+                  className="ledger-filter-popover-select"
+                />
+              </div>
+              <div className="ledger-filter-popover-row">
+                <label className="ledger-filter-popover-label">Danh mục</label>
+                <CategoryTreeSelect
+                  value={filterCategory}
+                  ariaLabel="Lọc danh mục"
+                  placeholder="Tất cả danh mục"
+                  categories={categories}
+                  emptyOption={{ value: "", label: "Tất cả danh mục" }}
+                  onValueChange={(value) =>
+                    changeFilter(() => setFilterCategory(value))
+                  }
+                  disabled={editMode}
+                  className="ledger-filter-popover-select"
+                />
+              </div>
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ledger-filter-popover-clear"
+                  onClick={() => { clearFilters(); setMobileFilterOpen(false); }}
+                >
+                  <FilterX size={14} />
+                  Xóa bộ lọc
+                </Button>
+              )}
             </div>
           )}
         </div>
+        {canApprove && selected.size > 0 && (
+          <Button
+            variant="outline"
+            size="icon"
+            className="ledger-delete-button max-[1023px]:hidden"
+            disabled={editMode || busy}
+            onClick={() => setConfirmBulkDelete(true)}
+            title={`Xóa ${selected.size} giao dịch đã chọn`}
+            aria-label={`Xóa ${selected.size} giao dịch đã chọn`}
+          >
+            <Trash2 size={16} />
+          </Button>
+        )}
         <div className="ledger-mobile-tools">
           {editMode ? (
             <>
@@ -1161,7 +1176,14 @@ export function Ledger({
           {scheduledRows.length > 0 && rows.length > 0 && (
             <LatestTransactionsLabel />
           )}
-          {rows.map(renderMobileTransaction)}
+          {groupTransactionsByDate(rows).map(({ dateKey, label, items }) => (
+            <section key={dateKey} className="ledger-date-group">
+              <header className="ledger-date-group-header">
+                <span>{label}</span>
+              </header>
+              {items.map(renderMobileTransaction)}
+            </section>
+          ))}
           {!filteredRows.length && (
             <Empty
               variant="compact"
@@ -1295,6 +1317,23 @@ export function Ledger({
           </nav>
         )}
       </footer>
+
+      {/* Floating Create Button for Desktop */}
+      {!readonly && (
+        <Button
+          variant="default"
+          size="icon"
+          className="ledger-floating-create-btn"
+          disabled={
+            busy || editMode || Boolean(createDraft) || !wallets.length
+          }
+          onClick={beginCreate}
+          title="Giao dịch mới"
+          aria-label="Giao dịch mới"
+        >
+          <Plus size={20} />
+        </Button>
+      )}
     </div>
   );
 }
@@ -1512,7 +1551,7 @@ function EditDraftRow({
               toWalletId:
                 type === "transfer"
                   ? draft.toWalletId ||
-                    defaultDestination(wallets, draft.walletId)
+                  defaultDestination(wallets, draft.walletId)
                   : draft.toWalletId,
             });
           }}
@@ -1626,6 +1665,30 @@ function formatLedgerDate(value: string) {
   return `${day}/${month}/${year}`;
 }
 
+const dayNamesVi = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+
+function groupTransactionsByDate<T extends { date: string }>(
+  items: T[],
+): { dateKey: string; label: string; items: T[] }[] {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const key = item.date.slice(0, 10);
+    const list = groups.get(key);
+    if (list) list.push(item);
+    else groups.set(key, [item]);
+  }
+  return [...groups.entries()].map(([dateKey, groupItems]) => {
+    const [year, month, day] = dateKey.split("-");
+    const dateObj = new Date(Number(year), Number(month) - 1, Number(day));
+    const dayName = dayNamesVi[dateObj.getDay()];
+    return {
+      dateKey,
+      label: `${dayName}, ${day}/${month}/${year}`,
+      items: groupItems,
+    };
+  });
+}
+
 function MobileTransactionDraft({
   mode,
   title,
@@ -1690,7 +1753,7 @@ function MobileTransactionDraft({
               toWalletId:
                 type === "transfer"
                   ? draft.toWalletId ||
-                    defaultDestination(wallets, draft.walletId)
+                  defaultDestination(wallets, draft.walletId)
                   : draft.toWalletId,
             });
           }}

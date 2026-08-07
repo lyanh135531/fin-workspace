@@ -94,13 +94,13 @@ export async function WorkspaceDashboard({
     isRecurring: Boolean(item.recurringTransactionId),
   }));
   return <DashboardLedgerWorkspace
-    initialMonth={currentPeriod}
+    initialMonth="all"
     summaries={summaries}
     wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString() }))}
     ledgerProps={{
       workspaceId,
       businessDate,
-      initialMonth: currentPeriod,
+      initialMonth: "all",
       currency: membership.workspace.baseCurrency,
       transactions: ledger,
       totalTransactions,

@@ -17,16 +17,12 @@
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   background:
-    radial-gradient(
-      circle at 88% 15%,
+    radial-gradient(circle at 88% 15%,
       color-mix(in srgb, var(--primary) 13%, transparent),
-      transparent 32%
-    ),
-    linear-gradient(
-      135deg,
+      transparent 32%),
+    linear-gradient(135deg,
       color-mix(in srgb, var(--surface) 96%, var(--primary)),
-      var(--surface)
-    );
+      var(--surface));
   padding: 24px;
   box-shadow: none;
 }
@@ -61,7 +57,7 @@
   text-transform: uppercase;
 }
 
-.ledger-page-kicker > span,
+.ledger-page-kicker>span,
 .ledger-kpi-icon {
   display: grid;
   place-items: center;
@@ -69,7 +65,7 @@
   color: var(--primary);
 }
 
-.ledger-page-kicker > span {
+.ledger-page-kicker>span {
   width: 1.65rem;
   height: 1.65rem;
   border-radius: 0.45rem;
@@ -101,7 +97,7 @@
   text-align: right;
 }
 
-.ledger-hero-balance > div {
+.ledger-hero-balance>div {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -159,7 +155,7 @@
   padding: 0.6rem 0.85rem;
 }
 
-.ledger-kpi + .ledger-kpi {
+.ledger-kpi+.ledger-kpi {
   border-left: 1px solid var(--border);
 }
 
@@ -276,6 +272,12 @@
   width: min(19rem, 28vw);
 }
 
+.ledger-book .ledger-toolbar [data-slot="search-input"] {
+  border: 0;
+  background: transparent !important;
+  box-shadow: none;
+}
+
 .ledger-primary-create {
   min-height: 2.55rem;
   gap: 0.4rem;
@@ -361,20 +363,17 @@
   white-space: nowrap;
 }
 
-.ledger-book
-  .ledger-table
-  .ledger-actions-column
-  .ledger-row-actions::-webkit-scrollbar {
+.ledger-book .ledger-table .ledger-actions-column .ledger-row-actions::-webkit-scrollbar {
   display: none;
 }
 
-.ledger-book .ledger-table .ledger-description-column > p:first-child {
+.ledger-book .ledger-table .ledger-description-column>p:first-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ledger-book .ledger-draft-row > td {
+.ledger-book .ledger-draft-row>td {
   vertical-align: middle;
 }
 
@@ -398,7 +397,7 @@
     box-shadow 160ms ease;
 }
 
-.ledger-create-row > td {
+.ledger-create-row>td {
   box-shadow: inset 0 -1px color-mix(in srgb, var(--primary) 34%, var(--border));
 }
 
@@ -450,6 +449,7 @@
 }
 
 @media (max-width: 760px) {
+
   .dashboard-app-shell:has(.ledger-page-shell),
   .dashboard-frame:has(.ledger-page-shell) {
     height: 100dvh;
@@ -493,11 +493,11 @@
     text-align: right;
   }
 
-  .ledger-hero-balance > div {
+  .ledger-hero-balance>div {
     justify-content: flex-end;
   }
 
-  .ledger-hero-balance > div > span {
+  .ledger-hero-balance>div>span {
     display: none;
   }
 
@@ -511,34 +511,7 @@
   }
 
   .ledger-kpi-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .ledger-kpi {
-    gap: 0.4rem;
-    padding: 0.5rem;
-  }
-
-  .ledger-kpi-icon {
-    width: 1.8rem;
-    height: 1.8rem;
-  }
-
-  .ledger-kpi:nth-child(3) {
-    border-top: 0;
-    border-left: 1px solid var(--border);
-  }
-
-  .ledger-kpi-wallets {
     display: none;
-  }
-
-  .ledger-kpi small {
-    font-size: 0.58rem;
-  }
-
-  .ledger-kpi strong {
-    font-size: 0.7rem;
   }
 
   .ledger-book .ledger-toolbar [data-slot="search"] {
@@ -556,17 +529,134 @@
   }
 }
 
-@media (max-width: 480px) {
-  .ledger-kpi-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+/* Relative shell for absolute positioning */
+.ledger-shell {
+  position: relative;
+}
+
+/* Floating Create Transaction button on Desktop */
+.ledger-floating-create-btn {
+  position: absolute;
+  bottom: 4.75rem;
+  right: 1.5rem;
+  z-index: 10;
+  border-radius: 9999px;
+  width: 3.1rem;
+  height: 3.1rem;
+  padding: 0;
+  box-shadow: 0 10px 25px color-mix(in srgb, var(--primary) 35%, transparent);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ledger-floating-create-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+@media (max-width: 1023px) {
+  .ledger-floating-create-btn {
+    display: none !important;
+  }
+}
+
+/* Filter Popover Styles */
+.ledger-filter-popover {
+  position: relative;
+  display: flex;
+}
+
+@media (min-width: 1024px) {
+  .ledger-filter-popover {
+    margin-left: auto;
+  }
+}
+
+.ledger-filter-popover-trigger {
+  position: relative;
+  min-width: 2.15rem;
+  min-height: 2.15rem;
+  padding: 0.4rem;
+  border-radius: 0.5rem;
+  background: var(--surface);
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.ledger-filter-popover-trigger[aria-expanded="true"] {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+}
+
+.ledger-filter-badge {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.ledger-filter-popover-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 15rem;
+  max-width: min(92vw, 22rem);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  padding: 0.65rem;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--shadow) 70%, transparent);
+  animation: filter-panel-in 180ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes filter-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.35rem) scale(0.97);
   }
 
-  .ledger-kpi + .ledger-kpi {
-    border-top: 0;
-    border-left: 1px solid var(--border);
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
+}
 
-  .ledger-kpi-icon {
-    display: none;
-  }
+.ledger-filter-popover-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ledger-filter-popover-label {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ledger-filter-popover-select {
+  width: 100%;
+}
+
+.ledger-filter-popover-panel .date-range-picker-trigger {
+  width: 100%;
+}
+
+.ledger-filter-popover-clear {
+  margin-top: 0.15rem;
+  justify-content: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
 }

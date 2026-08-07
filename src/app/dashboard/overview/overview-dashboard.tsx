@@ -250,17 +250,7 @@ export function OverviewDashboard({
         eyebrow={`Workspace · ${workspace.name}`}
         title="Tổng quan tài chính"
         description="Theo dõi thu nhập, chi tiêu và số dư tài khoản của toàn bộ workspace."
-      >
-        <Link
-          href={`/workspace/${workspace.id}?action=new-transaction`}
-          className={buttonVariants({
-            className: "overview-quick-entry-trigger",
-          })}
-        >
-          <Plus size={17} />
-          Nhập giao dịch
-        </Link>
-      </PageHeader>
+      />
       <div className="flex flex-col gap-6">
         <OverviewFilters
           wallets={wallets.map(({ id, name }) => ({ id, name }))}
@@ -1309,15 +1299,15 @@ function MobileCategoryPie({
   const visibleItems =
     items.length > 6
       ? [
-          ...items.slice(0, 5),
-          {
-            name: "Khác",
-            color: "var(--chart-7)",
-            amount: items
-              .slice(5)
-              .reduce((sum, item) => sum.plus(item.amount), new Decimal(0)),
-          },
-        ]
+        ...items.slice(0, 5),
+        {
+          name: "Khác",
+          color: "var(--chart-7)",
+          amount: items
+            .slice(5)
+            .reduce((sum, item) => sum.plus(item.amount), new Decimal(0)),
+        },
+      ]
       : items;
   const data = visibleItems.map((item) => ({
     name: item.name,
