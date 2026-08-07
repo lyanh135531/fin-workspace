@@ -147,10 +147,6 @@
     grid-template-columns: minmax(0, 1fr) minmax(13rem, auto);
   }
 
-  .ledger-kpi-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .ledger-kpi-wallets {
     display: grid;
   }

@@ -1,16 +1,16 @@
-import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
-import { authOptions } from "@/auth";
 import { DashboardLedgerWorkspace } from "@/app/dashboard/dashboard-ledger-workspace";
 import { buildLedgerPeriodSummaries } from "@/app/dashboard/dashboard-summary-data";
+import { authOptions } from "@/auth";
 import { NoWorkspaceOnboarding } from "@/components/no-workspace-onboarding";
 import { isAdminRole } from "@/domain/role-policy";
-import { availableCategoryWhere } from "@/services/category-visibility";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { availableCategoryWhere } from "@/services/category-visibility";
 import { getUserJoinRequests } from "@/services/join-request-query";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
 
 const LEDGER_PAGE_SIZE = 20;
 
@@ -24,10 +24,16 @@ export async function WorkspaceDashboard({
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/sign-in");
 
-  const workspaceId = targetWorkspaceId ?? await resolveActiveWorkspaceId(session.user.id);
+  const workspaceId =
+    targetWorkspaceId ?? (await resolveActiveWorkspaceId(session.user.id));
   if (!workspaceId) {
     const joinRequests = await getUserJoinRequests(session.user.id);
-    return <NoWorkspaceOnboarding username={session.user.username ?? "User"} joinRequests={joinRequests} />;
+    return (
+      <NoWorkspaceOnboarding
+        username={session.user.username ?? "User"}
+        joinRequests={joinRequests}
+      />
+    );
   }
 
   const membership = await prisma.workspaceMember.findFirst({
@@ -42,7 +48,12 @@ export async function WorkspaceDashboard({
   });
   if (!membership) {
     const joinRequests = await getUserJoinRequests(session.user.id);
-    return <NoWorkspaceOnboarding username={session.user.username ?? "User"} joinRequests={joinRequests} />;
+    return (
+      <NoWorkspaceOnboarding
+        username={session.user.username ?? "User"}
+        joinRequests={joinRequests}
+      />
+    );
   }
 
   await activateDueScheduledTransactionsForRequest(workspaceId);
@@ -57,7 +68,14 @@ export async function WorkspaceDashboard({
     }),
     prisma.category.findMany({
       where: availableCategoryWhere(workspaceId),
-      select: { id: true, name: true, color: true, icon: true, parentId: true, type: true },
+      select: {
+        id: true,
+        name: true,
+        color: true,
+        icon: true,
+        parentId: true,
+        type: true,
+      },
       orderBy: { sortOrder: "asc" },
     }),
     prisma.transaction.findMany({
@@ -87,34 +105,40 @@ export async function WorkspaceDashboard({
     categoryId: item.categoryId,
     wallet: item.wallet.name,
     toWallet: item.toWallet?.name ?? null,
-    category: item.category ? { name: item.category.name, color: item.category.color } : null,
+    category: item.category
+      ? { name: item.category.name, color: item.category.color }
+      : null,
     member: item.member.user.username,
     canRequestDelete: isAdmin || item.memberId === membership.id,
     hasPendingChange: item.changeRequests.length > 0,
     isRecurring: Boolean(item.recurringTransactionId),
   }));
-  return <DashboardLedgerWorkspace
-    initialMonth="all"
-    summaries={summaries}
-    wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString() }))}
-    ledgerProps={{
-      workspaceId,
-      businessDate,
-      initialMonth: "all",
-      currency: membership.workspace.baseCurrency,
-      transactions: ledger,
-      totalTransactions,
-      pageSize: LEDGER_PAGE_SIZE,
-      isAdmin,
-      canEditTransactions: true,
-      canApprove: isAdmin,
-      scopeLabel: "workspace này",
-      wallets: walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name })),
-      categories,
-      canManageWallets: isAdmin,
-      startWithNewTransaction,
-    }}
-  />;
+  return (
+    <DashboardLedgerWorkspace
+      initialMonth="all"
+      summaries={summaries}
+      ledgerProps={{
+        workspaceId,
+        businessDate,
+        initialMonth: "all",
+        currency: membership.workspace.baseCurrency,
+        transactions: ledger,
+        totalTransactions,
+        pageSize: LEDGER_PAGE_SIZE,
+        isAdmin,
+        canEditTransactions: true,
+        canApprove: isAdmin,
+        scopeLabel: "workspace này",
+        wallets: walletLinks.map(({ wallet }) => ({
+          id: wallet.id,
+          name: wallet.name,
+        })),
+        categories,
+        canManageWallets: isAdmin,
+        startWithNewTransaction,
+      }}
+    />
+  );
 }
 
 import { PageContainer } from "@/components/base";
@@ -125,5 +149,11 @@ export default async function DashboardPage({
   searchParams: Promise<{ action?: string | string[] }>;
 }) {
   const { action } = await searchParams;
-  return <PageContainer className="dashboard-page-container"><WorkspaceDashboard startWithNewTransaction={action === "new-transaction"} /></PageContainer>;
+  return (
+    <PageContainer className="dashboard-page-container">
+      <WorkspaceDashboard
+        startWithNewTransaction={action === "new-transaction"}
+      />
+    </PageContainer>
+  );
 }
