@@ -185,7 +185,9 @@ export function QuickTransactionSheet({
     });
   }
 
-  if (!workspace || !supportsQuickTransaction(pathname)) return null;
+  const isSupported = supportsQuickTransaction(pathname);
+
+  if (!workspace) return null;
 
   const statusHint = date > workspace.businessDate
     ? "Giao dịch sẽ được lên lịch."
@@ -196,17 +198,19 @@ export function QuickTransactionSheet({
 
   return (
     <>
-      <Button
-        variant="unstyled"
-        size="auto"
-        type="button"
-        className="dashboard-quick-entry-floating dashboard-global-quick-entry"
-        onClick={() => setOpen(true)}
-        aria-label="Nhập nhanh giao dịch"
-      >
-        <Plus size={20} />
-        <span>Giao dịch</span>
-      </Button>
+      {isSupported && (
+        <Button
+          variant="unstyled"
+          size="auto"
+          type="button"
+          className="dashboard-quick-entry-floating dashboard-global-quick-entry"
+          onClick={() => setOpen(true)}
+          aria-label="Nhập nhanh giao dịch"
+        >
+          <Plus size={20} />
+          <span>Giao dịch</span>
+        </Button>
+      )}
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
