@@ -695,6 +695,131 @@
 }
 
 @media (max-width: 1023px) {
+  .ledger-mobile-edit-sheet {
+    right: auto !important;
+    bottom: max(0.5rem, env(safe-area-inset-bottom)) !important;
+    left: 50% !important;
+    box-sizing: border-box;
+    width: min(30rem, calc(100vw - 1rem)) !important;
+    max-height: calc(100vh - 1rem) !important;
+    max-height: calc(100svh - 1rem) !important;
+    gap: 0 !important;
+    overflow: hidden !important;
+    transform: translateX(-50%);
+    border: 1px solid var(--border) !important;
+    border-radius: 0.85rem;
+    background: var(--surface) !important;
+    padding: 0 !important;
+    box-shadow: 0 -20px 60px
+      color-mix(in srgb, var(--shadow) 90%, transparent);
+  }
+
+  .ledger-mobile-edit-sheet .ledger-mobile-draft {
+    display: flex;
+    min-height: 0;
+    max-height: 100%;
+    flex: 1 1 auto;
+    flex-direction: column;
+    margin: 0;
+    overflow: hidden;
+    background: var(--surface);
+  }
+
+  .ledger-mobile-edit-sheet .ledger-mobile-draft-heading,
+  .ledger-mobile-edit-sheet .ledger-mobile-draft-actions {
+    flex: 0 0 auto;
+  }
+
+  .ledger-mobile-edit-sheet .ledger-mobile-draft-heading {
+    padding-right: 3.25rem;
+  }
+
+  .ledger-mobile-edit-sheet .ledger-mobile-draft-grid {
+    display: grid;
+    min-height: 0;
+    flex: 1 1 auto;
+    grid-template-columns: minmax(0, 1fr);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ledger-mobile-edit-sheet .ledger-mobile-draft-actions {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .ledger-mobile-edit-sheet .ledger-create-money-input {
+    display: grid;
+    gap: 0.3rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 650;
+  }
+
+  .ledger-mobile-edit-sheet
+    .ledger-create-money-input
+    [data-slot="money-input-control"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    border-bottom: 1px solid var(--border-strong);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  .ledger-mobile-edit-sheet
+    .ledger-create-money-input
+    [data-slot="money-input-control"]:focus-within {
+    border-bottom-color: var(--primary);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+
+  .ledger-mobile-edit-sheet .ledger-create-money-input input,
+  .ledger-mobile-edit-sheet .ledger-create-money-input input:focus,
+  .ledger-mobile-edit-sheet .ledger-create-money-input input:focus-visible {
+    height: auto;
+    min-height: 3.25rem;
+    border: 0 !important;
+    background: transparent !important;
+    padding: 0.15rem 4.25rem 0.45rem 0 !important;
+    color: var(--text-primary);
+    font-size: 1.75rem;
+    font-weight: 750;
+    letter-spacing: -0.045em;
+    box-shadow: none !important;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ledger-mobile-edit-sheet
+    .ledger-create-money-input
+    [data-slot="money-input-currency"] {
+    right: 0;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .ledger-mobile-edit-sheet .ledger-create-details-toggle {
+    display: flex;
+    min-height: 2.5rem;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--primary);
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-align: left;
+  }
+
+  .ledger-mobile-edit-sheet .ledger-create-progressive-details {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--surface-secondary);
+  }
+
   .ledger-mobile-context-menu {
     width: min(15rem, calc(100vw - 2rem));
     padding: 0.35rem;

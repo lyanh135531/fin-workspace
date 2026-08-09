@@ -11798,7 +11798,6 @@ html[data-sidebar-collapsed="true"]
     display: block;
     margin: 0.75rem;
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
     border-radius: 0.45rem;
     background: var(--surface);
     box-shadow: 0 8px 22px var(--shadow);

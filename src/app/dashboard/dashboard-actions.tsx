@@ -57,6 +57,8 @@ import {
   PopoverTrigger,
   Search,
   Select,
+  Sheet,
+  SheetContent,
 } from "@/components/base";
 import type { DateRangeValue } from "@/components/base";
 import { toast } from "sonner";
@@ -431,7 +433,7 @@ function isChanged(item: LedgerItem, draft: TransactionDraft) {
     item.description !== (draft.description || null) ||
     item.type !== draft.type ||
     item.categoryId !==
-    (draft.categoryId === "none" ? null : draft.categoryId) ||
+      (draft.categoryId === "none" ? null : draft.categoryId) ||
     item.walletId !== draft.walletId ||
     item.toWalletId !== (draft.type === "transfer" ? draft.toWalletId : null) ||
     item.date.slice(0, 10) !== draft.date ||
@@ -487,35 +489,37 @@ export function Ledger({
     Record<string, TransactionDraft>
   >({});
   const [editReason, setEditReason] = useState("");
+  const [mobileEditTarget, setMobileEditTarget] = useState<LedgerItem | null>(
+    null,
+  );
+  const [mobileEditDraft, setMobileEditDraft] =
+    useState<TransactionDraft | null>(null);
+  const [mobileEditReason, setMobileEditReason] = useState("");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [scheduledExpanded, setScheduledExpanded] = useState(false);
   const mobileFilterRef = useRef<HTMLDivElement>(null);
   const [busy, start] = useTransition();
   const hasActiveFilters =
-    query.trim().length > 0 ||
-    dateRange !== null ||
-    filterCategory !== "";
+    query.trim().length > 0 || dateRange !== null || filterCategory !== "";
   const categoryFilterIds = useMemo(
     () => getCategoryFilterIds(categories, filterCategory),
     [categories, filterCategory],
   );
   const filteredRows = useMemo(
     () =>
-      transactions.filter(
-        (item) => {
-          const itemDate = item.date?.slice(0, 10) || "";
-          return (
-            isDateInRange(itemDate, dateRange) &&
-            (filterCategory === "" ||
-              (item.categoryId !== null &&
-                categoryFilterIds.has(item.categoryId))) &&
-            `${item.description ?? ""} ${item.category?.name ?? ""} ${item.wallet} ${item.member}`
-              .toLocaleLowerCase()
-              .includes(query.toLocaleLowerCase())
-          );
-        }
-      ),
+      transactions.filter((item) => {
+        const itemDate = item.date?.slice(0, 10) || "";
+        return (
+          isDateInRange(itemDate, dateRange) &&
+          (filterCategory === "" ||
+            (item.categoryId !== null &&
+              categoryFilterIds.has(item.categoryId))) &&
+          `${item.description ?? ""} ${item.category?.name ?? ""} ${item.wallet} ${item.member}`
+            .toLocaleLowerCase()
+            .includes(query.toLocaleLowerCase())
+        );
+      }),
     [transactions, dateRange, filterCategory, categoryFilterIds, query],
   );
   const scheduledRows = filteredRows.filter(
@@ -544,7 +548,15 @@ export function Ledger({
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const updateViewport = () => setIsDesktop(mediaQuery.matches);
+    const updateViewport = () => {
+      const desktop = mediaQuery.matches;
+      setIsDesktop(desktop);
+      if (desktop) {
+        setMobileEditTarget(null);
+        setMobileEditDraft(null);
+        setMobileEditReason("");
+      }
+    };
     updateViewport();
     mediaQuery.addEventListener("change", updateViewport);
     return () => mediaQuery.removeEventListener("change", updateViewport);
@@ -556,10 +568,12 @@ export function Ledger({
     function closeOnOutsidePress(event: PointerEvent) {
       const target = event.target as Element;
       if (!target || !document.contains(target)) return;
-      
+
       if (
         !mobileFilterRef.current?.contains(target) &&
-        !target.closest('[data-radix-popper-content-wrapper], [role="dialog"], .date-range-picker-popover, [data-slot="select-content"], [data-slot="select-positioner"]')
+        !target.closest(
+          '[data-radix-popper-content-wrapper], [role="dialog"], .date-range-picker-popover, [data-slot="select-content"], [data-slot="select-positioner"]',
+        )
       ) {
         setMobileFilterOpen(false);
       }
@@ -665,6 +679,9 @@ export function Ledger({
     });
   }
   function beginCreate() {
+    setMobileEditTarget(null);
+    setMobileEditDraft(null);
+    setMobileEditReason("");
     setEditMode(false);
     setEditDrafts({});
     setCreateDraft(newTransactionDraft(wallets, categories, businessDate));
@@ -691,6 +708,9 @@ export function Ledger({
     });
   }
   function beginEdit(transactionId?: string) {
+    setMobileEditTarget(null);
+    setMobileEditDraft(null);
+    setMobileEditReason("");
     setCreateDraft(null);
     const editableTransactions = transactionId
       ? transactions.filter((item) => item.id === transactionId)
@@ -712,6 +732,18 @@ export function Ledger({
     setEditTargetId(null);
     setEditDrafts({});
     setEditReason("");
+  }
+  function beginMobileEdit(item: LedgerItem) {
+    setCreateDraft(null);
+    setMobileEditTarget(item);
+    setMobileEditDraft(draftFromTransaction(item, wallets));
+    setMobileEditReason("");
+  }
+  function cancelMobileEdit() {
+    if (busy) return;
+    setMobileEditTarget(null);
+    setMobileEditDraft(null);
+    setMobileEditReason("");
   }
   function updateDraft(id: string, patch: Partial<TransactionDraft>) {
     setEditDrafts((current) => ({
@@ -750,6 +782,39 @@ export function Ledger({
         cancelEdit();
     });
   }
+  function saveMobileEdit() {
+    if (!mobileEditTarget || !mobileEditDraft) return;
+    if (!isChanged(mobileEditTarget, mobileEditDraft)) {
+      toast.info("Không có thay đổi để lưu.");
+      cancelMobileEdit();
+      return;
+    }
+
+    const target = mobileEditTarget;
+    const draft = mobileEditDraft;
+    const reason = mobileEditReason;
+    start(async () => {
+      const result = await updateTransactionsAction(
+        workspaceId,
+        [{ transactionId: target.id, input: transactionInput(draft) }],
+        reason,
+      );
+      if (result.ok) {
+        toast.success(
+          result.requested
+            ? "Đã gửi yêu cầu sửa đến Admin."
+            : "Đã lưu thay đổi giao dịch.",
+        );
+      } else {
+        toast.error(result.message ?? "Không thể lưu thay đổi giao dịch.");
+      }
+      if (result.ok || (result.updated ?? 0) + (result.requested ?? 0) > 0) {
+        setMobileEditTarget(null);
+        setMobileEditDraft(null);
+        setMobileEditReason("");
+      }
+    });
+  }
 
   function renderMobileTransaction(item: LedgerItem) {
     return (
@@ -767,7 +832,7 @@ export function Ledger({
         onToggle={() => toggle(item.id)}
         onApprove={() => approveOne(item)}
         onReject={() => rejectOne(item)}
-        onEdit={() => beginEdit(item.id)}
+        onEdit={() => beginMobileEdit(item)}
         onDelete={(reason) => removeOne(item, reason)}
       />
     );
@@ -956,9 +1021,15 @@ export function Ledger({
             )}
           </Button>
           {mobileFilterOpen && (
-            <div className="ledger-filter-popover-panel" role="dialog" aria-label="Bộ lọc giao dịch">
+            <div
+              className="ledger-filter-popover-panel"
+              role="dialog"
+              aria-label="Bộ lọc giao dịch"
+            >
               <div className="ledger-filter-popover-row">
-                <label className="ledger-filter-popover-label">Khoảng thời gian</label>
+                <label className="ledger-filter-popover-label">
+                  Khoảng thời gian
+                </label>
                 <DateRangePicker
                   value={dateRange}
                   ariaLabel="Lọc theo khoảng thời gian"
@@ -990,7 +1061,10 @@ export function Ledger({
                   variant="ghost"
                   size="sm"
                   className="ledger-filter-popover-clear"
-                  onClick={() => { clearFilters(); setMobileFilterOpen(false); }}
+                  onClick={() => {
+                    clearFilters();
+                    setMobileFilterOpen(false);
+                  }}
                 >
                   <FilterX size={14} />
                   Xóa bộ lọc
@@ -1223,6 +1297,55 @@ export function Ledger({
         )}
       </footer>
 
+      <Sheet
+        open={!isDesktop && Boolean(mobileEditTarget && mobileEditDraft)}
+        onOpenChange={(open) => {
+          if (!open) cancelMobileEdit();
+        }}
+      >
+        {mobileEditTarget && mobileEditDraft && (
+          <SheetContent
+            side="bottom"
+            className="ledger-mobile-edit-sheet"
+            aria-label="Chỉnh sửa giao dịch"
+          >
+            <MobileTransactionDraft
+              key={mobileEditTarget.id}
+              mode="edit"
+              progressiveDetails
+              title={
+                mobileEditTarget.description || "Giao dịch chưa có nội dung"
+              }
+              draft={mobileEditDraft}
+              wallets={wallets}
+              categories={categories}
+              busy={busy}
+              disabled={!isAdmin && mobileEditTarget.hasPendingChange}
+              reasonField={
+                !isAdmin ? (
+                  <Input
+                    label="Lý do chỉnh sửa"
+                    value={mobileEditReason}
+                    onChange={(event) =>
+                      setMobileEditReason(event.target.value)
+                    }
+                    placeholder="Mặc định: Đã thông báo"
+                    maxLength={2000}
+                  />
+                ) : undefined
+              }
+              onChange={(patch) =>
+                setMobileEditDraft((current) =>
+                  current ? { ...current, ...patch } : current,
+                )
+              }
+              onSave={saveMobileEdit}
+              onCancel={cancelMobileEdit}
+            />
+          </SheetContent>
+        )}
+      </Sheet>
+
       {/* Floating Create Button for Desktop */}
       {!readonly && (
         <Popover
@@ -1241,9 +1364,7 @@ export function Ledger({
                 disabled={busy || editMode || !wallets.length}
                 title={createDraft ? "Đóng form giao dịch" : "Giao dịch mới"}
                 aria-label={
-                  createDraft
-                    ? "Đóng form tạo giao dịch"
-                    : "Tạo giao dịch mới"
+                  createDraft ? "Đóng form tạo giao dịch" : "Tạo giao dịch mới"
                 }
               />
             }
@@ -1333,7 +1454,7 @@ function EditDraftRow({
               toWalletId:
                 type === "transfer"
                   ? draft.toWalletId ||
-                  defaultDestination(wallets, draft.walletId)
+                    defaultDestination(wallets, draft.walletId)
                   : draft.toWalletId,
             });
           }}
@@ -1480,6 +1601,7 @@ function MobileTransactionDraft({
   busy,
   disabled = false,
   progressiveDetails = false,
+  reasonField,
   onChange,
   onSave,
   onCancel,
@@ -1493,6 +1615,7 @@ function MobileTransactionDraft({
   busy: boolean;
   disabled?: boolean;
   progressiveDetails?: boolean;
+  reasonField?: React.ReactNode;
   onChange: (patch: Partial<TransactionDraft>) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -1678,6 +1801,7 @@ function MobileTransactionDraft({
             />
           </>
         )}
+        {reasonField}
       </div>
       <div className="ledger-mobile-draft-actions">
         <Button variant="outline" disabled={busy} onClick={onCancel}>
