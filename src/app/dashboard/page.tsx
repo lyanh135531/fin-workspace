@@ -120,7 +120,6 @@ export async function WorkspaceDashboard({
       ledgerProps={{
         workspaceId,
         businessDate,
-        initialMonth: "all",
         currency: membership.workspace.baseCurrency,
         transactions: ledger,
         totalTransactions,

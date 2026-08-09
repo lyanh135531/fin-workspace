@@ -325,12 +325,6 @@
   min-width: 12rem;
 }
 
-.ledger-book .ledger-table .ledger-status-column {
-  width: 5rem;
-  min-width: 5rem;
-  text-align: center;
-}
-
 .ledger-book .ledger-table .ledger-actions-column {
   width: 8rem;
   min-width: 8rem;
@@ -339,8 +333,7 @@
 
 .ledger-book .ledger-table .ledger-description-column,
 .ledger-book .ledger-table .ledger-category-column,
-.ledger-book .ledger-table .ledger-wallet-column,
-.ledger-book .ledger-table .ledger-status-column {
+.ledger-book .ledger-table .ledger-wallet-column {
   overflow: hidden;
 }
 

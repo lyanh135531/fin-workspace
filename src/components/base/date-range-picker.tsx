@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { CalendarDays, Check, X } from "lucide-react";
+import { CalendarDays, CalendarX2, Check, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 
@@ -25,11 +25,12 @@ export type DateRangeValue = {
 };
 
 type DateRangePickerProps = {
-  value: DateRangeValue;
-  onValueChange: (value: DateRangeValue) => void;
+  value: DateRangeValue | null;
+  onValueChange: (value: DateRangeValue | null) => void;
   minDate?: string;
   maxDate?: string;
   disabled?: boolean;
+  allowClear?: boolean;
   ariaLabel: string;
   className?: string;
 };
@@ -80,14 +81,18 @@ export function DateRangePicker({
   minDate,
   maxDate,
   disabled = false,
+  allowClear = false,
   ariaLabel,
   className,
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<DateRange | undefined>(() =>
-    toCalendarRange(value),
+    value ? toCalendarRange(value) : undefined,
   );
-  const selectedRange = useMemo(() => toCalendarRange(value), [value]);
+  const selectedRange = useMemo(
+    () => (value ? toCalendarRange(value) : undefined),
+    [value],
+  );
   const minimumDate = useMemo(() => parseIsoDate(minDate), [minDate]);
   const maximumDate = useMemo(() => parseIsoDate(maxDate), [maxDate]);
   const navigationStartMonth = useMemo(
@@ -120,6 +125,12 @@ export function DateRangePicker({
     setOpen(false);
   }
 
+  function clearSelection(): void {
+    onValueChange(null);
+    setDraft(undefined);
+    setOpen(false);
+  }
+
   function handleOpenChange(nextOpen: boolean): void {
     if (nextOpen) setDraft(selectedRange);
     setOpen(nextOpen);
@@ -142,7 +153,9 @@ export function DateRangePicker({
           />
         }
       >
-        <span className="truncate tabular-nums">{formatRange(value)}</span>
+        <span className="truncate tabular-nums">
+          {value ? formatRange(value) : "Tất cả thời gian"}
+        </span>
         <CalendarDays aria-hidden="true" />
       </PopoverTrigger>
       <PopoverContent
@@ -153,7 +166,9 @@ export function DateRangePicker({
         <Calendar
           mode="range"
           selected={draft}
-          defaultMonth={draft?.to ?? draft?.from ?? selectedRange.to}
+          defaultMonth={
+            draft?.to ?? draft?.from ?? selectedRange?.to ?? new Date()
+          }
           onSelect={selectRange}
           resetOnSelect
           captionLayout="dropdown"
@@ -186,6 +201,17 @@ export function DateRangePicker({
           </div>
         </div>
         <div className="date-range-picker-actions">
+          {allowClear && value && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={clearSelection}
+            >
+              <CalendarX2 aria-hidden="true" />
+              Bỏ lọc ngày
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"

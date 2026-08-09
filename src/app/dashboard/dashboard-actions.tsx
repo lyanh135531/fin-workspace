@@ -24,6 +24,10 @@ import {
   rejectTransactionAction,
   updateTransactionsAction,
 } from "@/app/dashboard/actions";
+import {
+  getCategoryFilterIds,
+  isDateInRange,
+} from "@/app/dashboard/dashboard-ledger-filters";
 import { formatAmount } from "@/lib/format";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -206,9 +210,6 @@ function isChanged(item: LedgerItem, draft: TransactionDraft) {
 export function Ledger({
   workspaceId,
   businessDate,
-  initialMonth,
-  selectedMonth,
-  onMonthChange,
   transactions,
   totalTransactions,
   pageSize,
@@ -225,9 +226,6 @@ export function Ledger({
 }: {
   workspaceId: string;
   businessDate: string;
-  initialMonth: string;
-  selectedMonth?: string;
-  onMonthChange?: (month: string) => void;
   transactions: LedgerItem[];
   totalTransactions: number;
   pageSize: number;
@@ -243,24 +241,7 @@ export function Ledger({
   startWithNewTransaction?: boolean;
 }) {
   const [query, setQuery] = useState("");
-  const initialDateRange = useMemo<DateRangeValue>(() => {
-    if (initialMonth !== "all") {
-      const [y, m] = initialMonth.split("-").map(Number);
-      const lastDay = new Date(y, m, 0).getDate();
-      return { from: `${initialMonth}-01`, to: `${initialMonth}-${String(lastDay).padStart(2, "0")}` };
-    }
-    if (transactions.length > 0) {
-      const dates = transactions.map((item) => item.date?.slice(0, 10)).filter(Boolean);
-      if (dates.length > 0) {
-        const sorted = [...dates].sort();
-        return { from: sorted[0] as string, to: sorted[sorted.length - 1] as string };
-      }
-    }
-    const [y, m] = businessDate.split("-");
-    const lastDay = new Date(Number(y), Number(m), 0).getDate();
-    return { from: `${y}-${m}-01`, to: `${y}-${m}-${String(lastDay).padStart(2, "0")}` };
-  }, [initialMonth, transactions, businessDate]);
-  const [dateRange, setDateRange] = useState<DateRangeValue>(() => initialDateRange);
+  const [dateRange, setDateRange] = useState<DateRangeValue | null>(null);
   const [filterCategory, setFilterCategory] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -287,25 +268,29 @@ export function Ledger({
   const [busy, start] = useTransition();
   const hasActiveFilters =
     query.trim().length > 0 ||
-    dateRange.from !== initialDateRange.from ||
-    dateRange.to !== initialDateRange.to ||
+    dateRange !== null ||
     filterCategory !== "";
+  const categoryFilterIds = useMemo(
+    () => getCategoryFilterIds(categories, filterCategory),
+    [categories, filterCategory],
+  );
   const filteredRows = useMemo(
     () =>
       transactions.filter(
         (item) => {
           const itemDate = item.date?.slice(0, 10) || "";
           return (
-            itemDate >= dateRange.from &&
-            itemDate <= dateRange.to &&
-            (filterCategory === "" || item.categoryId === filterCategory) &&
+            isDateInRange(itemDate, dateRange) &&
+            (filterCategory === "" ||
+              (item.categoryId !== null &&
+                categoryFilterIds.has(item.categoryId))) &&
             `${item.description ?? ""} ${item.category?.name ?? ""} ${item.wallet} ${item.member}`
               .toLocaleLowerCase()
               .includes(query.toLocaleLowerCase())
           );
         }
       ),
-    [transactions, dateRange, filterCategory, query],
+    [transactions, dateRange, filterCategory, categoryFilterIds, query],
   );
   const scheduledRows = filteredRows.filter(
     (item) => item.status === "scheduled",
@@ -317,7 +302,7 @@ export function Ledger({
   const visibleRows = scheduledExpanded ? [...scheduledRows, ...rows] : rows;
   const allSelected =
     visibleRows.length > 0 && visibleRows.every((row) => selected.has(row.id));
-  const columnCount = canApprove ? 9 : 8;
+  const columnCount = canApprove ? 8 : 7;
   const pageStart = latestRows.length ? (page - 1) * pageSize + 1 : 0;
   const pageEnd = Math.min(page * pageSize, latestRows.length);
   const transactionSequence = useMemo(
@@ -382,7 +367,7 @@ export function Ledger({
 
   function clearFilters() {
     setQuery("");
-    setDateRange(initialDateRange);
+    setDateRange(null);
     setFilterCategory("");
     setCurrentPage(1);
     setSelected(new Set());
@@ -681,16 +666,6 @@ export function Ledger({
           busy={busy}
           disabled={!isAdmin && item.hasPendingChange}
           autoFocus={visibleRows[0]?.id === item.id}
-          status={
-            <>
-              <Status value={item.status} />
-              {item.hasPendingChange && (
-                <small className="ledger-change-pending">
-                  Đang chờ thay đổi
-                </small>
-              )}
-            </>
-          }
           onChange={(patch) => updateDraft(item.id, patch)}
           onSave={saveEdits}
           onCancel={cancelEdit}
@@ -754,12 +729,6 @@ export function Ledger({
         >
           {item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}
           {formatAmount(item.amount)} {currency}
-        </td>
-        <td className="ledger-status-column">
-          <Status value={item.status} />
-          {item.hasPendingChange && (
-            <small className="ledger-change-pending">Đang chờ thay đổi</small>
-          )}
         </td>
         <td className="ledger-actions-column">
           <div className="ledger-row-actions">
@@ -843,13 +812,15 @@ export function Ledger({
             size="icon"
             type="button"
             className="ledger-filter-popover-trigger"
-            aria-label={mobileFilterOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
+            aria-label={`${mobileFilterOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}${hasActiveFilters ? " (đang lọc)" : ""}`}
             aria-haspopup="dialog"
             aria-expanded={mobileFilterOpen}
             onClick={() => setMobileFilterOpen((o) => !o)}
           >
             <SlidersHorizontal size={16} />
-            {hasActiveFilters && <span className="ledger-filter-badge" />}
+            {hasActiveFilters && (
+              <span className="ledger-filter-badge" aria-hidden="true" />
+            )}
           </Button>
           {mobileFilterOpen && (
             <div className="ledger-filter-popover-panel" role="dialog" aria-label="Bộ lọc giao dịch">
@@ -858,6 +829,7 @@ export function Ledger({
                 <DateRangePicker
                   value={dateRange}
                   ariaLabel="Lọc theo khoảng thời gian"
+                  allowClear
                   onValueChange={(value) =>
                     changeFilter(() => setDateRange(value))
                   }
@@ -1204,7 +1176,6 @@ export function Ledger({
             <col className="ledger-wallet-column" />
             <col className="ledger-date-column" />
             <col className="ledger-amount-column" />
-            <col className="ledger-status-column" />
             <col className="ledger-actions-column" />
           </colgroup>
           <thead>
@@ -1225,7 +1196,6 @@ export function Ledger({
               <th className="ledger-wallet-column">Ví</th>
               <th className="ledger-date-column">Ngày</th>
               <th className="ledger-amount-column text-right">Số tiền</th>
-              <th className="ledger-status-column">Trạng thái</th>
               <th className="ledger-actions-column">Thao tác</th>
             </tr>
           </thead>
@@ -1467,9 +1437,6 @@ function CreateDraftRow({
           aria-label="Số tiền"
         />
       </td>
-      <td className="ledger-status-column">
-        <span className="status status-scheduled">Mới</span>
-      </td>
       <td className="ledger-actions-column">
         <div className="ledger-row-actions">
           <Button
@@ -1506,7 +1473,6 @@ function EditDraftRow({
   busy,
   disabled = false,
   autoFocus = false,
-  status,
   onChange,
   onSave,
   onCancel,
@@ -1518,7 +1484,6 @@ function EditDraftRow({
   busy: boolean;
   disabled?: boolean;
   autoFocus?: boolean;
-  status?: React.ReactNode;
   onChange: (patch: Partial<TransactionDraft>) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -1631,7 +1596,6 @@ function EditDraftRow({
           aria-label="Số tiền"
         />
       </td>
-      <td className="ledger-status-column">{status}</td>
       <td className="ledger-actions-column">
         <div className="ledger-row-actions">
           <Button

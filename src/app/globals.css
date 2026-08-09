@@ -4861,12 +4861,6 @@ html[data-mode="dark"] .bg-\[\#17233c\]\/30 {
   white-space: nowrap;
 }
 
-.ledger-table th:nth-last-child(2),
-.ledger-table td:nth-last-child(2) {
-  min-width: 6rem;
-  white-space: nowrap;
-}
-
 .ledger-change-pending {
   display: block;
   margin-top: 0.3rem;
@@ -4984,10 +4978,6 @@ html[data-mode="dark"] .ledger-date-input {
   min-height: 2.3rem;
   background: var(--surface);
   font-size: 0.76rem;
-}
-
-.ledger-draft-row td:nth-last-child(2) {
-  white-space: nowrap;
 }
 
 .ledger-amount {

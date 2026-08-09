@@ -6,12 +6,9 @@ import { Card } from "@/components/base";
 import { formatAmount } from "@/lib/format";
 import Decimal from "decimal.js";
 import { BookOpenText, CalendarDays } from "lucide-react";
-import { useMemo, useState, type ComponentProps } from "react";
+import { useMemo, type ComponentProps } from "react";
 
-type LedgerProps = Omit<
-  ComponentProps<typeof Ledger>,
-  "selectedMonth" | "onMonthChange"
->;
+type LedgerProps = ComponentProps<typeof Ledger>;
 
 function periodLabel(period: string) {
   if (period === "all") return "Tất cả thời gian";
@@ -28,7 +25,7 @@ export function DashboardLedgerWorkspace({
   summaries: LedgerPeriodSummary[];
   ledgerProps: LedgerProps;
 }) {
-  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
+  const selectedMonth = initialMonth;
   const summary = useMemo(
     () =>
       summaries.find((item) => item.period === selectedMonth) ?? {
@@ -81,11 +78,7 @@ export function DashboardLedgerWorkspace({
           as="section"
           className="dashboard-ledger-card ledger-book gap-0 p-0 overflow-hidden"
         >
-          <Ledger
-            {...ledgerProps}
-            selectedMonth={selectedMonth}
-            onMonthChange={setSelectedMonth}
-          />
+          <Ledger {...ledgerProps} />
         </Card>
       </div>
     </div>
