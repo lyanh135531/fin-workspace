@@ -171,11 +171,16 @@
     --app-gutter: 1rem;
     --app-block-start: 0.75rem;
     --app-block-end: max(1.5rem, env(safe-area-inset-bottom));
+    --mobile-bottom-navigation-clearance: max(
+      5rem,
+      calc(4rem + env(safe-area-inset-bottom))
+    );
   }
 
   .dashboard-content {
     overflow-x: clip;
-    padding-bottom: max(7rem, calc(6rem + env(safe-area-inset-bottom)));
+    padding-bottom: var(--mobile-bottom-navigation-clearance) !important;
+    scroll-padding-bottom: var(--mobile-bottom-navigation-clearance);
   }
 
   .mobile-navigation-trigger {

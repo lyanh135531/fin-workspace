@@ -4359,10 +4359,6 @@ html[data-mode="dark"] .bg-\[\#17233c\]\/30 {
   .overview-card {
     padding: 0.9rem;
   }
-
-  .overview-shell {
-    padding-bottom: 1rem;
-  }
 }
 
 .expense-range {
@@ -9841,7 +9837,6 @@ html[data-sidebar-collapsed="true"] .sidebar-user-avatar {
 .recurring-page {
   width: min(100%, 96rem);
   margin-inline: auto;
-  padding-bottom: 1.5rem;
 }
 
 /* recurring-hero: replaced by compact page-header */
@@ -11540,15 +11535,27 @@ html[data-sidebar-collapsed="true"]
     display: none !important;
   }
 
-  .dashboard-frame:has(.dashboard-global-quick-entry) .dashboard-content {
-    padding-bottom: 0;
+  .quick-transaction-sheet {
+    bottom: 0.5rem !important;
+    box-sizing: border-box;
+    width: min(36rem, calc(100vw - 1rem)) !important;
+    max-height: calc(100vh - 1rem) !important;
+    max-height: calc(100svh - 1rem) !important;
+    overflow: hidden !important;
+    border-bottom: 1px solid var(--border) !important;
+    border-radius: 0.85rem;
+    box-shadow: 0 -20px 60px color-mix(in srgb, var(--shadow) 90%, transparent);
   }
 
-  .quick-transaction-sheet {
-    width: min(36rem, calc(100vw - 1rem)) !important;
-    max-height: 96dvh;
-    border-radius: 0.85rem 0.85rem 0 0;
-    box-shadow: 0 -20px 60px color-mix(in srgb, var(--shadow) 90%, transparent);
+  .quick-transaction-form {
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  .quick-transaction-scroll {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .quick-transaction-header {
@@ -11560,6 +11567,10 @@ html[data-sidebar-collapsed="true"]
   .quick-field textarea {
     min-height: 2.85rem;
     font-size: 1rem;
+  }
+
+  .quick-transaction-footer {
+    padding-bottom: max(0.8rem, env(safe-area-inset-bottom));
   }
 }
 
