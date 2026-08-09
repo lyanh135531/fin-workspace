@@ -15,10 +15,8 @@ import { addQuickTransactionAction } from "@/app/dashboard/actions";
 import {
   Button,
   CategoryTreeSelect,
-  Checkbox,
   DatePicker,
   Empty,
-  Label,
   Loading,
   MoneyInput,
   Select,
@@ -27,6 +25,9 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -88,7 +89,6 @@ export function QuickTransactionSheet({
     workspaces.find((workspace) => workspace.id === initialWorkspaceId) ??
     workspaces[0];
   const [open, setOpen] = useState(false);
-  const [workspaceId, setWorkspaceId] = useState(initialWorkspace?.id ?? "");
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
   const [walletId, setWalletId] = useState(initialWorkspace?.wallets[0]?.id ?? "");
@@ -99,7 +99,6 @@ export function QuickTransactionSheet({
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(initialWorkspace?.businessDate ?? "");
   const [showDetails, setShowDetails] = useState(false);
-  const [keepOpen, setKeepOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -110,26 +109,11 @@ export function QuickTransactionSheet({
     return () => window.removeEventListener("open-quick-transaction", handleOpenEvent);
   }, []);
 
-  const workspace =
-    workspaces.find((candidate) => candidate.id === workspaceId) ??
-    initialWorkspace;
+  const workspace = initialWorkspace;
   const categories = useMemo(
     () => workspace?.categories.filter((category) => category.type === type) ?? [],
     [type, workspace],
   );
-
-  function chooseWorkspace(nextId: string) {
-    const next = workspaces.find((candidate) => candidate.id === nextId);
-    if (!next) return;
-    const firstWalletId = next.wallets[0]?.id ?? "";
-    const nextType = type === "transfer" && next.wallets.length < 2 ? "expense" : type;
-    setWorkspaceId(next.id);
-    setType(nextType);
-    setWalletId(firstWalletId);
-    setToWalletId(destinationWallet(next, firstWalletId));
-    setCategoryId("none");
-    setDate(next.businessDate);
-  }
 
   function chooseType(nextType: TransactionType) {
     if (!workspace) return;
@@ -180,7 +164,7 @@ export function QuickTransactionSheet({
           : `Đã ghi nhận giao dịch trong ${workspace.name}.`;
       toast.success(message);
       resetEntry();
-      if (!keepOpen) setOpen(false);
+      setOpen(false);
       router.refresh();
     });
   }
@@ -193,7 +177,7 @@ export function QuickTransactionSheet({
     ? "Giao dịch sẽ được lên lịch."
     : date < workspace.businessDate && !isAdminRole(workspace.role)
       ? "Giao dịch quá khứ sẽ chờ Admin duyệt."
-      : "Giao dịch sẽ được ghi nhận ngay.";
+      : null;
   const transferDisabled = workspace.wallets.length < 2;
 
   return (
@@ -224,7 +208,7 @@ export function QuickTransactionSheet({
               <div>
                 <SheetTitle>Nhập nhanh giao dịch</SheetTitle>
                 <SheetDescription>
-                  Chọn workspace rồi ghi nhận khoản thu, chi hoặc chuyển khoản.
+                  Ghi nhận nhanh khoản thu, chi hoặc chuyển khoản.
                 </SheetDescription>
               </div>
             </div>
@@ -232,36 +216,33 @@ export function QuickTransactionSheet({
 
           <form className="quick-transaction-form" onSubmit={submit} aria-busy={pending}>
             <div className="quick-transaction-scroll">
-              <Select
-                label="Workspace"
-                value={workspace.id}
-                onValueChange={chooseWorkspace}
-                placeholder="Chọn workspace"
-                options={workspaces.map((item) => ({
-                  value: item.id,
-                  label: item.name,
-                }))}
-              />
-
-              <div className="quick-type-switch" aria-label="Loại giao dịch">
-                {transactionTypes.map((item) => {
-                  const Icon = item.icon;
-                  const disabled = item.value === "transfer" && transferDisabled;
-                  return (
-                    <Button variant="unstyled" size="auto"
-                      key={item.value}
-                      type="button"
-                      className={type === item.value ? "active" : ""}
-                      disabled={disabled}
-                      onClick={() => chooseType(item.value)}
-                      aria-pressed={type === item.value}
-                    >
-                      <Icon size={17} />
-                      {item.label}
-                    </Button>
-                  );
-                })}
-              </div>
+              <Tabs
+                value={type}
+                onValueChange={(value) => chooseType(value as TransactionType)}
+                className="quick-type-tabs"
+              >
+                <TabsList
+                  className="quick-type-switch"
+                  aria-label="Loại giao dịch"
+                >
+                  {transactionTypes.map((item) => {
+                    const Icon = item.icon;
+                    const disabled =
+                      item.value === "transfer" && transferDisabled;
+                    return (
+                      <TabsTrigger
+                        key={item.value}
+                        value={item.value}
+                        data-transaction-type={item.value}
+                        disabled={disabled}
+                      >
+                        <Icon size={17} />
+                        {item.label}
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
+              </Tabs>
 
               <MoneyInput
                 label="Số tiền"
@@ -351,18 +332,10 @@ export function QuickTransactionSheet({
                 </div>
               )}
 
-              <p className="quick-status-hint">{statusHint}</p>
+              {statusHint && <p className="quick-status-hint">{statusHint}</p>}
             </div>
 
             <div className="quick-transaction-footer">
-              <Label className="quick-keep-open">
-                <Checkbox
-                  checked={keepOpen}
-                  onCheckedChange={setKeepOpen}
-                  aria-label="Nhập tiếp sau khi lưu"
-                />
-                Nhập tiếp sau khi lưu
-              </Label>
               <Button
                 type="submit"
                 disabled={pending || !workspace.wallets.length}

@@ -1,7 +1,7 @@
 "use client"
 
 import { LoaderCircle, Trash2 } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { useState, type ReactElement, type ReactNode } from "react"
 
 import { Button } from "@/components/base/button"
 import {
@@ -17,21 +17,28 @@ type ConfirmDeleteProps = {
   ariaLabel: string
   title: string
   description: ReactNode
+  content?: ReactNode
   onConfirm: () => void | Promise<void>
+  onOpenChange?: (open: boolean) => void
   cancelLabel?: string
   confirmLabel?: string
   disabled?: boolean
   className?: string
+  trigger?: ReactElement
 }
 
 function ConfirmDelete({
   ariaLabel,
   title,
   description,
+  content,
   onConfirm,
+  onOpenChange,
   cancelLabel = "Hủy",
   confirmLabel = "Xóa",
   disabled,
+  className,
+  trigger,
 }: ConfirmDeleteProps) {
   const [open, setOpen] = useState<boolean>(false)
   const [isPending, setIsPending] = useState<boolean>(false)
@@ -39,6 +46,7 @@ function ConfirmDelete({
   function handleOpenChange(nextOpen: boolean): void {
     if (!isPending) {
       setOpen(nextOpen)
+      onOpenChange?.(nextOpen)
     }
   }
 
@@ -48,6 +56,7 @@ function ConfirmDelete({
     try {
       await onConfirm()
       setOpen(false)
+      onOpenChange?.(false)
     } finally {
       setIsPending(false)
     }
@@ -57,14 +66,17 @@ function ConfirmDelete({
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger
         render={
-          <Button
-            variant="icon"
-            size="icon"
-            aria-label={ariaLabel}
-            disabled={disabled || isPending}
-          >
-            <Trash2 aria-hidden="true" />
-          </Button>
+          trigger ?? (
+            <Button
+              variant="icon"
+              size="icon"
+              className={className}
+              aria-label={ariaLabel}
+              disabled={disabled || isPending}
+            >
+              <Trash2 aria-hidden="true" />
+            </Button>
+          )
         }
       />
 
@@ -84,13 +96,15 @@ function ConfirmDelete({
           </PopoverDescription>
         </PopoverHeader>
 
+        {content}
+
         <div className="flex justify-end gap-2">
           <Button
             type="button"
             variant="outline"
             size="sm"
             disabled={isPending}
-            onClick={() => setOpen(false)}
+            onClick={() => handleOpenChange(false)}
           >
             {cancelLabel}
           </Button>

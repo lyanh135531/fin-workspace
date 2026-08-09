@@ -20,7 +20,7 @@ function MoneyInput({ className, id, label, placeholder = "0", wrapperClassName,
   const generatedId = React.useId()
   const inputId = id ?? (label ? generatedId : undefined)
   const input = (
-    <div className="relative">
+    <div className="relative" data-slot="money-input-control">
       <Input
         id={inputId}
         inputMode="numeric"
@@ -31,6 +31,7 @@ function MoneyInput({ className, id, label, placeholder = "0", wrapperClassName,
         {...props}
       />
       <span
+        data-slot="money-input-currency"
         className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted-foreground"
         aria-hidden
       >
@@ -42,7 +43,7 @@ function MoneyInput({ className, id, label, placeholder = "0", wrapperClassName,
   if (!label) return input
 
   return (
-    <div className={cn("grid gap-1", wrapperClassName)}>
+    <div data-slot="money-input" className={cn("grid gap-1", wrapperClassName)}>
       <Label required={props.required}>{label}</Label>
       {input}
     </div>

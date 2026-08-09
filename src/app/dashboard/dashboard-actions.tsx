@@ -4,20 +4,18 @@ import {
   ArrowDownLeft,
   ArrowLeftRight,
   ArrowUpRight,
+  CalendarDays,
   CalendarClock,
   Check,
   ChevronDown,
   CircleCheckBig,
   FilterX,
-  Menu,
   Pencil,
   Plus,
   SlidersHorizontal,
   Trash2,
-  WalletCards,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   addTransactionAction,
@@ -31,13 +29,24 @@ import {
   getCategoryFilterIds,
   isDateInRange,
 } from "@/app/dashboard/dashboard-ledger-filters";
+import {
+  getMobileLedgerActions,
+  useLongPress,
+} from "@/app/dashboard/mobile-ledger-interactions";
 import { formatAmount } from "@/lib/format";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Button,
-  Card,
   CategoryTreeSelect,
   Checkbox,
+  ConfirmDelete as ConfirmDeletePopover,
   DatePicker,
   DateRangePicker,
   Empty,
@@ -151,6 +160,214 @@ function LatestTransactionsLabel() {
   );
 }
 
+function MobileTransactionRow({
+  item,
+  currency,
+  selected,
+  selectionMode,
+  canApprove,
+  canEditTransactions,
+  isAdmin,
+  readonly,
+  busy,
+  onToggle,
+  onApprove,
+  onReject,
+  onEdit,
+  onDelete,
+}: {
+  item: LedgerItem;
+  currency: string;
+  selected: boolean;
+  selectionMode: boolean;
+  canApprove: boolean;
+  canEditTransactions: boolean;
+  isAdmin: boolean;
+  readonly: boolean;
+  busy: boolean;
+  onToggle: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  onEdit: () => void;
+  onDelete: (reason: string) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [mobileDeleteReason, setMobileDeleteReason] = useState("");
+  const { isPressing, handlers } = useLongPress(() => {
+    if (!selectionMode) setMenuOpen(true);
+  });
+  const actions = getMobileLedgerActions({
+    canApprove,
+    canEdit: canEditTransactions,
+    canDelete: !readonly && item.canRequestDelete,
+    hasPendingChange: item.hasPendingChange,
+    status: item.status,
+  });
+  const categoryName = item.category?.name ?? "Chưa phân loại";
+  const amountPrefix =
+    item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔";
+
+  function run(action: () => void) {
+    setMenuOpen(false);
+    action();
+  }
+
+  const rowHandlers = selectionMode
+    ? {
+        ...handlers,
+        onClick: (event: React.MouseEvent<HTMLElement>) => {
+          event.preventDefault();
+          if (!busy) onToggle();
+        },
+        onContextMenu: (event: React.MouseEvent<HTMLElement>) => {
+          event.preventDefault();
+        },
+        onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            if (!busy) onToggle();
+            return;
+          }
+          if (
+            event.key === "ContextMenu" ||
+            (event.shiftKey && event.key === "F10")
+          ) {
+            event.preventDefault();
+          }
+        },
+      }
+    : handlers;
+
+  return (
+    <DropdownMenu
+      open={!selectionMode && (menuOpen || deleteConfirmOpen)}
+      onOpenChange={(open) => {
+        if (!selectionMode && !deleteConfirmOpen) setMenuOpen(open);
+      }}
+    >
+      <DropdownMenuTrigger
+        nativeButton={false}
+        render={
+          <article
+            className="ledger-mobile-row"
+            data-pressing={isPressing || undefined}
+            data-selected={selected || undefined}
+            data-selection-mode={selectionMode || undefined}
+            aria-label={`${categoryName}, ${amountPrefix}${formatAmount(item.amount)} ${currency}. Nhấn giữ để mở thao tác.`}
+            {...rowHandlers}
+          />
+        }
+      >
+        <div className="ledger-mobile-row-category">
+          <span
+            className="ledger-mobile-row-dot"
+            style={{ background: item.category?.color ?? "var(--text-muted)" }}
+            aria-hidden="true"
+          />
+          <strong>{categoryName}</strong>
+        </div>
+        <b
+          className={`ledger-mobile-row-amount amount-${item.type}`}
+          aria-hidden="true"
+        >
+          {amountPrefix}
+          {formatAmount(item.amount)}
+        </b>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        align="start"
+        side="bottom"
+        sideOffset={4}
+        className="ledger-mobile-context-menu"
+      >
+        {actions.includes("select") && (
+          <DropdownMenuItem onClick={() => run(onToggle)} disabled={busy}>
+            <Check aria-hidden="true" />
+            {selected ? "Bỏ chọn" : "Chọn"}
+          </DropdownMenuItem>
+        )}
+        {actions.includes("approve") && (
+          <DropdownMenuItem onClick={() => run(onApprove)} disabled={busy}>
+            <CircleCheckBig aria-hidden="true" />
+            Duyệt giao dịch
+          </DropdownMenuItem>
+        )}
+        {actions.includes("reject") && (
+          <DropdownMenuItem onClick={() => run(onReject)} disabled={busy}>
+            <X aria-hidden="true" />
+            Từ chối giao dịch
+          </DropdownMenuItem>
+        )}
+        {actions.includes("approve-early") && (
+          <DropdownMenuItem onClick={() => run(onApprove)} disabled={busy}>
+            <CircleCheckBig aria-hidden="true" />
+            Ghi nhận sớm
+          </DropdownMenuItem>
+        )}
+        {(actions.includes("edit") || actions.includes("delete")) &&
+          actions.some((action) =>
+            ["select", "approve", "reject", "approve-early"].includes(action),
+          ) && <DropdownMenuSeparator />}
+        {actions.includes("edit") && (
+          <DropdownMenuItem onClick={() => run(onEdit)} disabled={busy}>
+            <Pencil aria-hidden="true" />
+            Chỉnh sửa
+          </DropdownMenuItem>
+        )}
+        {actions.includes("delete") && (
+          <ConfirmDeletePopover
+            ariaLabel={`Xóa ${item.description || "giao dịch"}`}
+            title="Xóa giao dịch?"
+            description={
+              isAdmin
+                ? "Nếu đã ghi nhận, số dư ví sẽ được hoàn tác."
+                : "Giao dịch chỉ bị xóa sau khi Admin duyệt."
+            }
+            content={
+              !isAdmin ? (
+                <Textarea
+                  className="ledger-reason"
+                  value={mobileDeleteReason}
+                  onChange={(event) =>
+                    setMobileDeleteReason(event.target.value)
+                  }
+                  placeholder="Lý do (mặc định: Đã thông báo)"
+                  maxLength={2000}
+                />
+              ) : undefined
+            }
+            confirmLabel={isAdmin ? "Xóa" : "Gửi yêu cầu"}
+            disabled={busy}
+            trigger={
+              <Button
+                type="button"
+                variant="unstyled"
+                size="auto"
+                className="ledger-mobile-context-delete-trigger"
+                aria-label={`Xóa ${item.description || "giao dịch"}`}
+                disabled={busy}
+              >
+                <Trash2 aria-hidden="true" />
+                Xóa giao dịch
+              </Button>
+            }
+            onOpenChange={(open) => {
+              setDeleteConfirmOpen(open);
+              if (!open) {
+                setMenuOpen(false);
+                setMobileDeleteReason("");
+              }
+            }}
+            onConfirm={() => onDelete(mobileDeleteReason)}
+          />
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function defaultDestination(wallets: Option[], sourceId: string) {
   return wallets.find((wallet) => wallet.id !== sourceId)?.id ?? sourceId;
 }
@@ -234,7 +451,6 @@ export function Ledger({
   scopeLabel,
   wallets,
   categories,
-  canManageWallets,
   currency,
   readonly = false,
   startWithNewTransaction = false,
@@ -250,7 +466,6 @@ export function Ledger({
   scopeLabel: string;
   wallets: Option[];
   categories: CategoryOption[];
-  canManageWallets: boolean;
   currency: string;
   readonly?: boolean;
   startWithNewTransaction?: boolean;
@@ -260,8 +475,6 @@ export function Ledger({
   const [filterCategory, setFilterCategory] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<LedgerItem | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [createDraft, setCreateDraft] = useState<TransactionDraft | null>(() =>
     startWithNewTransaction && wallets.length
@@ -274,12 +487,9 @@ export function Ledger({
     Record<string, TransactionDraft>
   >({});
   const [editReason, setEditReason] = useState("");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [scheduledExpanded, setScheduledExpanded] = useState(false);
-  const mobileMenuRef = useRef<HTMLDivElement>(null);
-  const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileFilterRef = useRef<HTMLDivElement>(null);
   const [busy, start] = useTransition();
   const hasActiveFilters =
@@ -341,28 +551,6 @@ export function Ledger({
   }, []);
 
   useEffect(() => {
-    if (!mobileMenuOpen) return;
-
-    function closeOnOutsidePress(event: PointerEvent) {
-      if (!mobileMenuRef.current?.contains(event.target as Node))
-        setMobileMenuOpen(false);
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setMobileMenuOpen(false);
-      mobileMenuTriggerRef.current?.focus();
-    }
-
-    document.addEventListener("pointerdown", closeOnOutsidePress);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePress);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [mobileMenuOpen]);
-
-  useEffect(() => {
     if (!mobileFilterOpen) return;
 
     function closeOnOutsidePress(event: PointerEvent) {
@@ -395,7 +583,6 @@ export function Ledger({
     setFilterCategory("");
     setCurrentPage(1);
     setSelected(new Set());
-    setConfirmBulkDelete(false);
     setScheduledExpanded(false);
   }
 
@@ -403,7 +590,6 @@ export function Ledger({
     update();
     setCurrentPage(1);
     setSelected(new Set());
-    setConfirmBulkDelete(false);
   }
 
   function toggle(id: string) {
@@ -440,19 +626,17 @@ export function Ledger({
       if (result.ok) {
         toast.success(`Đã xóa ${ids.length} giao dịch.`);
         setSelected(new Set());
-        setConfirmBulkDelete(false);
       } else {
         toast.error(result.message ?? "Không thể xóa giao dịch.");
       }
     });
   }
-  function removeOne() {
-    if (!deleteTarget) return;
+  function removeOne(target: LedgerItem, reason = "") {
     start(async () => {
       const result = await deleteTransactionAction(
         workspaceId,
-        deleteTarget.id,
-        deleteReason,
+        target.id,
+        reason,
       );
       if (result.ok) {
         toast.success(
@@ -460,7 +644,6 @@ export function Ledger({
             ? "Đã gửi yêu cầu xóa đến Admin."
             : "Đã xóa giao dịch và cập nhật lại số dư ví.",
         );
-        setDeleteTarget(null);
         setDeleteReason("");
       } else {
         toast.error(result.message ?? "Không thể xử lý yêu cầu xóa.");
@@ -509,7 +692,6 @@ export function Ledger({
   }
   function beginEdit(transactionId?: string) {
     setCreateDraft(null);
-    setDeleteTarget(null);
     const editableTransactions = transactionId
       ? transactions.filter((item) => item.id === transactionId)
       : visibleRows;
@@ -571,110 +753,23 @@ export function Ledger({
 
   function renderMobileTransaction(item: LedgerItem) {
     return (
-      <article
-        className="ledger-mobile-row"
+      <MobileTransactionRow
         key={item.id}
-      >
-        <div className="ledger-mobile-row-leading">
-          {canApprove && (
-            <Checkbox
-              checked={selected.has(item.id)}
-              onCheckedChange={() => toggle(item.id)}
-              aria-label={`Chọn giao dịch ${item.description || item.id}`}
-            />
-          )}
-          <span
-            className="ledger-mobile-row-dot"
-            style={{ background: item.category?.color ?? "var(--text-muted)" }}
-            aria-hidden="true"
-          />
-        </div>
-        <div className="ledger-mobile-row-body">
-          <div className="ledger-mobile-row-main">
-            <strong title={item.description || "Không có nội dung"}>
-              {item.description || "Không có nội dung"}
-            </strong>
-            <b
-              className={`ledger-mobile-row-amount amount-${item.type}`}
-              aria-label={`Số tiền ${formatAmount(item.amount)} ${currency}`}
-            >
-              {item.type === "income"
-                ? "+"
-                : item.type === "expense"
-                  ? "−"
-                  : "↔"}
-              {formatAmount(item.amount)}
-            </b>
-          </div>
-          <div className="ledger-mobile-row-meta">
-            <span>
-              {item.category?.name ?? "Chưa phân loại"}
-              {" · "}
-              {item.wallet}
-              {item.isRecurring ? " · ↻" : ""}
-            </span>
-            <Status value={item.status} />
-          </div>
-        </div>
-        <div className="ledger-mobile-row-actions">
-          {canApprove && item.status === "pending" && (
-            <Button
-              variant="outline"
-              size="default"
-              disabled={busy}
-              onClick={() => approveOne(item)}
-            >
-              Duyệt
-            </Button>
-          )}
-          {canApprove && item.status === "pending" && (
-            <Button
-              variant="ghost"
-              size="default"
-              disabled={busy}
-              onClick={() => rejectOne(item)}
-            >
-              Từ chối
-            </Button>
-          )}
-          {canApprove && item.status === "scheduled" && (
-            <Button
-              variant="icon"
-              size="icon"
-              disabled={busy}
-              onClick={() => approveOne(item)}
-              title="Ghi nhận sớm"
-              aria-label={`Ghi nhận sớm ${item.description || "giao dịch"}`}
-            >
-              <CircleCheckBig size={16} />
-            </Button>
-          )}
-          {canEditTransactions && !item.hasPendingChange && (
-            <Button
-              variant="icon"
-              size="icon"
-              disabled={busy}
-              onClick={() => beginEdit(item.id)}
-              title="Chỉnh sửa giao dịch"
-              aria-label={`Chỉnh sửa ${item.description || "giao dịch"}`}
-            >
-              <Pencil size={16} />
-            </Button>
-          )}
-          {!readonly && item.canRequestDelete && (
-            <Button
-              variant="icon"
-              size="icon"
-              disabled={busy || item.hasPendingChange}
-              onClick={() => setDeleteTarget(item)}
-              title="Xóa giao dịch"
-              aria-label={`Xóa ${item.description || "giao dịch"}`}
-            >
-              <Trash2 size={16} />
-            </Button>
-          )}
-        </div>
-      </article>
+        item={item}
+        currency={currency}
+        selected={selected.has(item.id)}
+        selectionMode={selected.size > 0}
+        canApprove={canApprove}
+        canEditTransactions={canEditTransactions}
+        isAdmin={isAdmin}
+        readonly={readonly}
+        busy={busy}
+        onToggle={() => toggle(item.id)}
+        onApprove={() => approveOne(item)}
+        onReject={() => rejectOne(item)}
+        onEdit={() => beginEdit(item.id)}
+        onDelete={(reason) => removeOne(item, reason)}
+      />
     );
   }
 
@@ -801,16 +896,30 @@ export function Ledger({
               </Button>
             )}
             {!readonly && item.canRequestDelete && (
-              <Button
-                variant="icon"
-                size="icon"
+              <ConfirmDeletePopover
+                ariaLabel={`Xóa ${item.description || "giao dịch"}`}
+                title="Xóa giao dịch?"
+                description={
+                  isAdmin
+                    ? "Nếu đã ghi nhận, số dư ví sẽ được hoàn tác."
+                    : "Giao dịch chỉ bị xóa sau khi Admin duyệt."
+                }
+                content={
+                  !isAdmin ? (
+                    <Textarea
+                      className="ledger-reason"
+                      value={deleteReason}
+                      onChange={(event) => setDeleteReason(event.target.value)}
+                      placeholder="Lý do (mặc định: Đã thông báo)"
+                      maxLength={2000}
+                    />
+                  ) : undefined
+                }
+                confirmLabel={isAdmin ? "Xóa" : "Gửi yêu cầu"}
                 disabled={busy || editMode || item.hasPendingChange}
-                onClick={() => setDeleteTarget(item)}
-                title="Xóa giao dịch"
-                aria-label={`Xóa ${item.description || "giao dịch"}`}
-              >
-                <Trash2 size={16} />
-              </Button>
+                onOpenChange={() => setDeleteReason("")}
+                onConfirm={() => removeOne(item, deleteReason)}
+              />
             )}
           </div>
         </td>
@@ -891,201 +1000,17 @@ export function Ledger({
           )}
         </div>
         {canApprove && selected.size > 0 && (
-          <Button
-            variant="outline"
-            size="icon"
+          <ConfirmDeletePopover
+            ariaLabel={`Xóa ${selected.size} giao dịch đã chọn`}
+            title={`Xóa ${selected.size} giao dịch?`}
+            description="Giao dịch đã ghi nhận sẽ được hoàn tác khỏi số dư ví."
+            confirmLabel="Xóa"
             className="ledger-delete-button max-[1023px]:hidden"
             disabled={editMode || busy}
-            onClick={() => setConfirmBulkDelete(true)}
-            title={`Xóa ${selected.size} giao dịch đã chọn`}
-            aria-label={`Xóa ${selected.size} giao dịch đã chọn`}
-          >
-            <Trash2 size={16} />
-          </Button>
+            onConfirm={removeBulk}
+          />
         )}
-        <div className="ledger-mobile-tools">
-          {editMode ? (
-            <>
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={busy}
-                onClick={cancelEdit}
-                aria-label="Hủy chỉnh sửa"
-              >
-                <X size={17} />
-              </Button>
-              <Button
-                variant="default"
-                size="icon"
-                disabled={busy}
-                onClick={saveEdits}
-                aria-label={busy ? "Đang lưu" : "Lưu chỉnh sửa"}
-              >
-                <Check size={17} />
-              </Button>
-            </>
-          ) : (
-            <>
-              <div className="ledger-mobile-menu" ref={mobileMenuRef}>
-                <Button
-                  variant="unstyled"
-                  size="auto"
-                  ref={mobileMenuTriggerRef}
-                  type="button"
-                  className="ledger-mobile-menu-trigger"
-                  aria-label={
-                    mobileMenuOpen ? "Đóng menu thao tác" : "Mở menu thao tác"
-                  }
-                  aria-haspopup="menu"
-                  aria-expanded={mobileMenuOpen}
-                  title="Thao tác khác"
-                  onClick={() => setMobileMenuOpen((open) => !open)}
-                >
-                  <Menu size={18} />
-                </Button>
-                {mobileMenuOpen && (
-                  <div
-                    className="ledger-mobile-action-menu"
-                    role="menu"
-                    aria-label="Thao tác sổ giao dịch"
-                  >
-                    <span className="ledger-mobile-action-menu-label">
-                      Thao tác
-                    </span>
-                    <Button
-                      variant="unstyled"
-                      size="auto"
-                      type="button"
-                      role="menuitem"
-                      disabled={!hasActiveFilters}
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        clearFilters();
-                      }}
-                    >
-                      <FilterX />
-                      Xóa bộ lọc
-                    </Button>
-                    {canEditTransactions && (
-                      <Button
-                        variant="unstyled"
-                        size="auto"
-                        type="button"
-                        role="menuitem"
-                        disabled={
-                          busy || !transactions.length || Boolean(createDraft)
-                        }
-                        onClick={() => {
-                          setMobileMenuOpen(false);
-                          beginEdit();
-                        }}
-                      >
-                        <Pencil />
-                        Chỉnh sửa nhiều giao dịch
-                      </Button>
-                    )}
-                    {canApprove && (
-                      <Button
-                        variant="unstyled"
-                        size="auto"
-                        type="button"
-                        role="menuitem"
-                        className="destructive"
-                        disabled={!selected.size || busy}
-                        onClick={() => {
-                          setMobileMenuOpen(false);
-                          setConfirmBulkDelete(true);
-                        }}
-                      >
-                        <Trash2 />
-                        Xóa{" "}
-                        {selected.size
-                          ? `${selected.size} mục đã chọn`
-                          : "mục đã chọn"}
-                      </Button>
-                    )}
-                    {!readonly && canManageWallets && (
-                      <>
-                        <span className="ledger-mobile-action-menu-separator" />
-                        <Link
-                          href="/wallets"
-                          role="menuitem"
-                          onClick={() => setMobileMenuOpen(false)}
-                        >
-                          <WalletCards />
-                          Quản lý ví
-                        </Link>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
       </div>
-      {confirmBulkDelete && (
-        <ConfirmDelete
-          count={selected.size}
-          busy={busy}
-          onCancel={() => setConfirmBulkDelete(false)}
-          onConfirm={removeBulk}
-        />
-      )}
-      {deleteTarget && (
-        <Card
-          as="section"
-          className="ledger-confirm-panel gap-0 py-0"
-          aria-labelledby="delete-transaction-title"
-        >
-          <div>
-            <p className="public-eyebrow">
-              {isAdmin
-                ? "Thao tác có hiệu lực ngay"
-                : "Yêu cầu Admin phê duyệt"}
-            </p>
-            <h2 id="delete-transaction-title">
-              Xóa “{deleteTarget.description || "giao dịch này"}”?
-            </h2>
-            <p>
-              {isAdmin
-                ? "Nếu đã ghi nhận, số dư ví sẽ được hoàn tác."
-                : "Giao dịch chỉ bị xóa sau khi Admin duyệt."}
-            </p>
-            {!isAdmin && (
-              <Textarea
-                className="ledger-reason"
-                value={deleteReason}
-                onChange={(event) => setDeleteReason(event.target.value)}
-                placeholder="Lý do (mặc định: Đã thông báo)"
-                maxLength={2000}
-              />
-            )}
-          </div>
-          <div className="dialog-actions">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={() => {
-                setDeleteTarget(null);
-                setDeleteReason("");
-              }}
-            >
-              Hủy
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={busy}
-              onClick={removeOne}
-            >
-              {busy ? "Đang xử lý" : isAdmin ? "Xác nhận xóa" : "Gửi yêu cầu"}
-            </Button>
-          </div>
-        </Card>
-      )}
       {editMode && !isAdmin && (
         <div className="ledger-edit-reason-bar">
           <Input
@@ -1151,16 +1076,16 @@ export function Ledger({
 
       {!createDraft && !editMode && (
         <div className="ledger-mobile-list" aria-label="Danh sách giao dịch">
-          {canApprove && visibleRows.length > 0 && (
+          {canApprove && selected.size > 0 && (
             <div className="ledger-mobile-selection">
-              <Button variant="ghost" size="default" onClick={toggleAll}>
-                {allSelected ? "Bỏ chọn trang này" : "Chọn trang này"}
+              <Button
+                variant="ghost"
+                size="default"
+                onClick={() => setSelected(new Set())}
+              >
+                Bỏ chọn
               </Button>
-              <span>
-                {selected.size
-                  ? `${selected.size} mục đã chọn`
-                  : `${visibleRows.length} giao dịch đang hiển thị`}
-              </span>
+              <span>{selected.size} mục đã chọn</span>
             </div>
           )}
           {scheduledRows.length > 0 && (
@@ -1336,6 +1261,7 @@ export function Ledger({
             >
               <MobileTransactionDraft
                 mode="create"
+                progressiveDetails
                 draft={createDraft}
                 wallets={wallets}
                 categories={categories}
@@ -1553,6 +1479,7 @@ function MobileTransactionDraft({
   categories,
   busy,
   disabled = false,
+  progressiveDetails = false,
   onChange,
   onSave,
   onCancel,
@@ -1565,11 +1492,13 @@ function MobileTransactionDraft({
   categories: CategoryOption[];
   busy: boolean;
   disabled?: boolean;
+  progressiveDetails?: boolean;
   onChange: (patch: Partial<TransactionDraft>) => void;
   onSave: () => void;
   onCancel: () => void;
 }) {
   const locked = disabled || busy;
+  const [showDetails, setShowDetails] = useState(!progressiveDetails);
   function changeType(type: TransactionType) {
     onChange({
       type,
@@ -1603,7 +1532,11 @@ function MobileTransactionDraft({
         </div>
         {mode === "edit" ? status : null}
       </div>
-      <div className="ledger-mobile-draft-grid">
+      <div
+        className={`ledger-mobile-draft-grid ${
+          progressiveDetails ? "ledger-create-progressive-grid" : ""
+        }`}
+      >
         <div
           className="ledger-transaction-type-tabs"
           role="group"
@@ -1626,7 +1559,13 @@ function MobileTransactionDraft({
                 onClick={() => changeType(tab.value)}
               >
                 <Icon aria-hidden="true" />
-                {tab.label}
+                {progressiveDetails
+                  ? {
+                      expense: "Chi",
+                      income: "Thu",
+                      transfer: "Chuyển",
+                    }[tab.value]
+                  : tab.label}
               </Button>
             );
           })}
@@ -1638,6 +1577,9 @@ function MobileTransactionDraft({
           onValueChange={(amount) => onChange({ amount })}
           placeholder="0"
           label="Số tiền"
+          wrapperClassName={
+            progressiveDetails ? "ledger-create-money-input" : undefined
+          }
         />
         <Select
           disabled={locked}
@@ -1680,20 +1622,62 @@ function MobileTransactionDraft({
             emptyOption={{ value: "none", label: "Không chọn" }}
           />
         )}
-        <DatePicker
-          disabled={locked}
-          label="Ngày giao dịch"
-          value={draft.date}
-          onValueChange={(date) => onChange({ date })}
-        />
-        <Input
-          disabled={locked}
-          value={draft.description}
-          onChange={(event) => onChange({ description: event.target.value })}
-          placeholder="Ăn trưa, nhận lương"
-          label="Nội dung"
-          wrapperClassName="ledger-mobile-draft-wide"
-        />
+        {progressiveDetails ? (
+          <>
+            <Button
+              type="button"
+              variant="unstyled"
+              size="auto"
+              className="ledger-create-details-toggle"
+              disabled={locked}
+              aria-expanded={showDetails}
+              onClick={() => setShowDetails((current) => !current)}
+            >
+              <CalendarDays aria-hidden="true" />
+              {showDetails
+                ? "Ẩn thông tin bổ sung"
+                : "Thêm nội dung hoặc đổi ngày"}
+            </Button>
+            {showDetails && (
+              <div className="ledger-create-progressive-details">
+                <DatePicker
+                  disabled={locked}
+                  label="Ngày giao dịch"
+                  value={draft.date}
+                  onValueChange={(date) => onChange({ date })}
+                />
+                <Input
+                  disabled={locked}
+                  value={draft.description}
+                  onChange={(event) =>
+                    onChange({ description: event.target.value })
+                  }
+                  placeholder="Ăn trưa, nhận lương"
+                  label="Nội dung"
+                />
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <DatePicker
+              disabled={locked}
+              label="Ngày giao dịch"
+              value={draft.date}
+              onValueChange={(date) => onChange({ date })}
+            />
+            <Input
+              disabled={locked}
+              value={draft.description}
+              onChange={(event) =>
+                onChange({ description: event.target.value })
+              }
+              placeholder="Ăn trưa, nhận lương"
+              label="Nội dung"
+              wrapperClassName="ledger-mobile-draft-wide"
+            />
+          </>
+        )}
       </div>
       <div className="ledger-mobile-draft-actions">
         <Button variant="outline" disabled={busy} onClick={onCancel}>
@@ -1708,51 +1692,6 @@ function MobileTransactionDraft({
         </Button>
       </div>
     </section>
-  );
-}
-
-function ConfirmDelete({
-  count,
-  busy,
-  onCancel,
-  onConfirm,
-}: {
-  count: number;
-  busy: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <Card
-      as="section"
-      className="ledger-confirm-panel gap-0 py-0"
-      aria-labelledby="delete-transactions-title"
-    >
-      <div>
-        <p className="public-eyebrow">Thao tác có hiệu lực ngay</p>
-        <h2 id="delete-transactions-title">Xóa {count} giao dịch?</h2>
-        <p>Giao dịch đã ghi nhận sẽ được hoàn tác khỏi số dư ví.</p>
-      </div>
-      <div className="dialog-actions">
-        <Button
-          type="button"
-          variant="outline"
-          autoFocus
-          disabled={busy}
-          onClick={onCancel}
-        >
-          Hủy
-        </Button>
-        <Button
-          type="button"
-          variant="destructive"
-          disabled={busy}
-          onClick={onConfirm}
-        >
-          {busy ? "Đang xóa" : "Xác nhận xóa"}
-        </Button>
-      </div>
-    </Card>
   );
 }
 

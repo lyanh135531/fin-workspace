@@ -133,7 +133,6 @@ export async function WorkspaceDashboard({
           name: wallet.name,
         })),
         categories,
-        canManageWallets: isAdmin,
         startWithNewTransaction,
       }}
     />
