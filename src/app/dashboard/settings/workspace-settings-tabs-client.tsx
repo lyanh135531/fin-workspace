@@ -132,7 +132,7 @@ export function WorkspaceSettingsTabsClient({
 
       {/* ── Tab 3: Thành viên ── */}
       <TabsContent value="members" className="workspace-settings-tab-content">
-        <div className="space-y-3 sm:space-y-6 sm:pt-4">
+        <div className="workspace-members-stack space-y-3 sm:space-y-6 sm:pt-4">
           <SettingsClient roles={roles} members={members} isAdmin={isAdmin} />
           <JoinRequestsClient roles={roles} requests={joinRequests} />
         </div>

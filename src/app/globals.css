@@ -10867,6 +10867,11 @@ html[data-mode="dark"] .mini-card {
   color: var(--foreground);
 }
 
+.member-mobile-summary,
+.member-mobile-row {
+  display: none;
+}
+
 /* ═══════════════════════════════════════════════════
    REDESIGN — Compact Page Header (replaces hero sections)
    ═══════════════════════════════════════════════════ */
@@ -13221,29 +13226,293 @@ html[data-sidebar-collapsed="true"]
     width: 100%;
   }
 
+  .workspace-members-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .workspace-members-stack > * + * {
+    margin-top: 0 !important;
+  }
+
+  .workspace-join-section {
+    order: 0;
+  }
+
+  .workspace-members-section {
+    order: 1;
+  }
+
+  .workspace-join-section[data-empty="true"] {
+    display: none;
+  }
+
   .workspace-members-section,
   .workspace-join-section {
-    gap: 0.85rem !important;
+    gap: 0.45rem !important;
   }
 
-  .workspace-members-section > header,
-  .workspace-join-section > header {
-    align-items: flex-start;
+  .member-management-header {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center !important;
+    gap: 0.75rem !important;
   }
 
-  .workspace-members-section > header h2,
-  .workspace-join-section > header h2 {
-    font-size: 1rem;
+  .member-management-header .settings-section-icon {
+    display: none;
+  }
+
+  .member-management-header h2 {
+    margin-top: 0 !important;
+    font-size: 0.92rem !important;
+    font-weight: 700;
+  }
+
+  .member-management-header p {
+    display: none;
+  }
+
+  .member-management-header .ws-fixed-pill {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+  }
+
+  .member-management-header .ws-fixed-pill strong {
+    color: var(--text-secondary);
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .workspace-members-section .settings-member-list,
   .workspace-join-section .settings-member-list {
-    margin-inline: -1rem;
+    display: block;
+    margin-inline: 0;
+    border-top: 1px solid var(--border);
   }
 
   .workspace-members-section .settings-member-row,
   .workspace-join-section .settings-member-row {
-    padding-inline: 1rem;
+    min-height: 0;
+    grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    gap: 0.15rem 0.65rem;
+    padding: 0.72rem 0 !important;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .workspace-members-section .settings-member-row:last-child,
+  .workspace-join-section .settings-member-row:last-child {
+    border-bottom: 0;
+  }
+
+  .workspace-members-section .ws-member-avatar,
+  .workspace-join-section .member-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    grid-row: 1 / span 2;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--surface-secondary) !important;
+    color: var(--text-secondary);
+    box-shadow: none;
+  }
+
+  .workspace-members-section .member-identity,
+  .workspace-join-section .member-identity {
+    min-width: 0;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+  }
+
+  .workspace-members-section .member-identity strong,
+  .workspace-join-section .member-identity strong {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 0.84rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workspace-members-section .member-identity > span,
+  .workspace-join-section .member-identity > span {
+    display: none;
+  }
+
+  .workspace-members-section .member-role,
+  .workspace-join-section .member-role {
+    display: block;
+    min-width: 0;
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+  }
+
+  .member-role .member-role-select {
+    width: min(8.5rem, 48vw);
+    min-width: 0;
+    min-height: 1.85rem;
+    height: 1.85rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding-inline: 0;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    box-shadow: none;
+  }
+
+  .workspace-members-section .member-actions {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .workspace-members-section .member-actions [data-slot="button"] {
+    width: 2rem;
+    height: 2rem;
+    color: var(--text-muted);
+    background: transparent;
+  }
+
+  .join-request-actions {
+    display: flex !important;
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+    gap: 0.15rem !important;
+  }
+
+  .join-request-actions [data-slot="button"] {
+    width: 2rem;
+    min-height: 2rem;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .join-request-actions [data-slot="button"]:last-child {
+    border: 0;
+    background: transparent;
+    color: var(--primary);
+  }
+
+  .workspace-members-section [data-slot="empty"],
+  .workspace-join-section [data-slot="empty"] {
+    min-height: 3rem;
+    align-items: flex-start;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent;
+    padding: 0.8rem 0;
+    text-align: left;
+  }
+
+  .workspace-members-section [data-slot="empty-icon"],
+  .workspace-join-section [data-slot="empty-icon"],
+  .workspace-members-section [data-slot="empty-description"],
+  .workspace-join-section [data-slot="empty-description"] {
+    display: none;
+  }
+
+  .workspace-members-section [data-slot="empty-title"],
+  .workspace-join-section [data-slot="empty-title"] {
+    margin-top: 0;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 550;
+  }
+
+  .workspace-members-section .member-identity,
+  .workspace-join-section .member-identity {
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .workspace-members-section .member-role,
+  .workspace-members-section .member-actions,
+  .workspace-join-section .member-role,
+  .workspace-join-section .join-request-actions {
+    display: none !important;
+  }
+
+  .member-mobile-summary {
+    display: block;
+    margin-top: 0.12rem;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 550;
+  }
+
+  .workspace-members-section .workspace-member-desktop-row,
+  .workspace-join-section .join-request-desktop-row {
+    display: none;
+  }
+
+  .member-mobile-row {
+    display: grid;
+    width: 100%;
+    min-height: 3.75rem;
+    grid-template-columns: 2.25rem minmax(0, 1fr) 2rem;
+    align-items: center;
+    gap: 0.65rem;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    padding: 0.72rem 0;
+    color: var(--text-primary);
+    text-align: left;
+    transition: background-color 140ms ease;
+  }
+
+  .member-mobile-row:last-of-type {
+    border-bottom: 0;
+  }
+
+  .member-mobile-row .member-avatar,
+  .member-mobile-row .ws-member-avatar {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .member-mobile-row .member-identity {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .member-mobile-row > svg {
+    grid-column: 3;
+    color: var(--text-muted);
+    justify-self: end;
+  }
+
+  .member-mobile-row:active {
+    background: color-mix(in srgb, var(--primary) 5%, transparent);
+  }
+
+  .member-mobile-row:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+  }
+
+  .member-management-sheet-body [data-slot="select-trigger"] {
+    min-height: 2.75rem;
+    width: 100%;
+  }
+
+  .member-management-actions-single {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .workspace-delete-overlay {
@@ -13258,20 +13527,6 @@ html[data-sidebar-collapsed="true"]
     padding: 1rem !important;
     padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
     box-shadow: 0 -20px 60px color-mix(in srgb, var(--shadow) 90%, transparent);
-  }
-
-  .settings-member-row {
-    grid-template-columns: 2.5rem minmax(0, 1fr) auto;
-    gap: 0.65rem;
-  }
-
-  .member-role {
-    grid-column: 2;
-  }
-
-  .member-actions {
-    grid-column: 3;
-    grid-row: 1 / span 2;
   }
 
   .settings-config-card,

@@ -1,12 +1,24 @@
 "use client";
 
-import { ShieldCheck, UserRoundX, UsersRound } from "lucide-react";
-import { useTransition } from "react";
+import { ChevronRight, ShieldCheck, UserRoundX, UsersRound } from "lucide-react";
+import { Fragment, useState, useTransition } from "react";
 import {
   changeMemberRoleAction,
   removeMemberAction,
 } from "@/app/dashboard/settings/actions";
-import { Button, Card, ConfirmDelete, Empty, Select } from "@/components/base";
+import {
+  Button,
+  Card,
+  ConfirmDelete,
+  Empty,
+  Select,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/base";
 import { toast } from "sonner";
 
 type Role = { code: string; name: string };
@@ -52,12 +64,22 @@ export function SettingsClient({
   isAdmin: boolean;
 }) {
   const [pending, start] = useTransition();
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const selectedMember = members.find((member) => member.id === selectedMemberId);
+  const selectedMemberRoleName = selectedMember
+    ? (roles.find((role) => role.code === selectedMember.roleCode)?.name ??
+      selectedMember.roleCode)
+    : "";
+  const canManageSelectedMember =
+    selectedMember !== undefined && isAdmin && !selectedMember.isSelf;
 
   function changeRole(id: string, roleCode: string) {
     start(async () => {
       const result = await changeMemberRoleAction({ memberId: id, roleCode });
       if (result.ok) {
         toast.success("Đã cập nhật vai trò thành viên.");
+        setSelectedMemberId(null);
       } else {
         toast.error(result.message ?? "Không thể cập nhật vai trò.");
       }
@@ -69,6 +91,8 @@ export function SettingsClient({
       const result = await removeMemberAction(id);
       if (result.ok) {
         toast.success("Đã gỡ thành viên khỏi workspace.");
+        setSelectedMemberId(null);
+        setConfirmingRemove(false);
       } else {
         toast.error(result.message ?? "Không thể gỡ thành viên.");
       }
@@ -76,13 +100,14 @@ export function SettingsClient({
   }
 
   return (
-    <Card
-      as="section"
-      className="workspace-members-section gap-4 overflow-hidden"
-      aria-busy={pending}
-    >
+    <>
+      <Card
+        as="section"
+        className="workspace-members-section gap-4 overflow-hidden"
+        aria-busy={pending}
+      >
       {/* Header */}
-      <header className="flex items-center gap-3">
+      <header className="member-management-header flex items-center gap-3">
         <div className="settings-section-icon">
           <UsersRound size={18} />
         </div>
@@ -106,7 +131,40 @@ export function SettingsClient({
             roles.find((r) => r.code === member.roleCode)?.name ??
             member.roleCode;
           return (
-            <article key={member.id} className="settings-member-row">
+            <Fragment key={member.id}>
+              <Button
+                type="button"
+                variant="unstyled"
+                size="auto"
+                className="member-mobile-row workspace-member-mobile-row"
+                onClick={() => {
+                  setConfirmingRemove(false);
+                  setSelectedMemberId(member.id);
+                }}
+                aria-label={`Xem thông tin ${member.username}`}
+              >
+                <span
+                  className="ws-member-avatar"
+                  style={{ background: avatarGradient(member.username) }}
+                  aria-hidden="true"
+                >
+                  {member.username.slice(0, 1)}
+                </span>
+                <span className="member-identity">
+                  <span className="flex items-center gap-2">
+                    <strong>{member.username}</strong>
+                    {member.isSelf && (
+                      <span className="text-[10px] font-semibold text-[var(--primary)] bg-[var(--primary-soft)] px-1.5 py-0.5 rounded-md">
+                        Bạn
+                      </span>
+                    )}
+                  </span>
+                  <small className="member-mobile-summary">{roleName}</small>
+                </span>
+                <ChevronRight size={17} aria-hidden="true" />
+              </Button>
+
+            <article className="settings-member-row workspace-member-desktop-row">
               {/* Avatar */}
               <div
                 className="ws-member-avatar"
@@ -131,6 +189,7 @@ export function SettingsClient({
                     ? "Tài khoản của bạn"
                     : "Đang có quyền truy cập"}
                 </span>
+                <small className="member-mobile-summary">{roleName}</small>
               </div>
 
               {/* Role */}
@@ -146,7 +205,7 @@ export function SettingsClient({
                       value: role.code,
                       label: role.name,
                     }))}
-                    className="min-w-34"
+                    className="member-role-select min-w-34"
                   />
                 ) : (
                   <span className={roleBadgeClass(member.roleCode)}>
@@ -183,7 +242,9 @@ export function SettingsClient({
                       />
                     )}
               </div>
+
             </article>
+            </Fragment>
           );
         })}
         {members.length === 0 && (
@@ -196,6 +257,132 @@ export function SettingsClient({
           />
         )}
       </div>
-    </Card>
+      </Card>
+
+      <Sheet
+        open={selectedMember !== undefined}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedMemberId(null);
+            setConfirmingRemove(false);
+          }
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          className={`ledger-mobile-review-sheet member-management-sheet${confirmingRemove ? " pending-delete" : ""}`}
+        >
+          {selectedMember && (
+            <>
+              <SheetHeader className="ledger-mobile-review-header">
+                <div className="ledger-mobile-review-heading">
+                  <span aria-hidden="true">
+                    {confirmingRemove ? (
+                      <UserRoundX size={18} />
+                    ) : (
+                      <ShieldCheck size={18} />
+                    )}
+                  </span>
+                  <div>
+                    <SheetTitle>
+                      {confirmingRemove
+                        ? "Gỡ thành viên?"
+                        : selectedMember.username}
+                    </SheetTitle>
+                    <SheetDescription>
+                      {confirmingRemove
+                        ? `${selectedMember.username} sẽ mất quyền truy cập workspace.`
+                        : canManageSelectedMember
+                          ? "Quản lý vai trò và quyền truy cập workspace."
+                          : "Thông tin vai trò trong workspace."}
+                    </SheetDescription>
+                  </div>
+                </div>
+              </SheetHeader>
+
+              <div className="ledger-mobile-review-body member-management-sheet-body">
+                <div className="ledger-mobile-review-transaction">
+                  <div>
+                    <span>{selectedMember.username}</span>
+                    <small>Thành viên workspace</small>
+                  </div>
+                  <strong>{selectedMemberRoleName}</strong>
+                </div>
+
+                {!confirmingRemove && canManageSelectedMember && (
+                  <Select
+                    label="Vai trò"
+                    value={selectedMember.roleCode}
+                    disabled={pending}
+                    onValueChange={(roleCode) =>
+                      changeRole(selectedMember.id, roleCode)
+                    }
+                    options={roles.map((role) => ({
+                      value: role.code,
+                      label: role.name,
+                    }))}
+                    className="w-full"
+                  />
+                )}
+              </div>
+
+              <SheetFooter
+                className={`ledger-mobile-review-actions${canManageSelectedMember ? "" : " member-management-actions-single"}`}
+              >
+                {confirmingRemove ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={() => setConfirmingRemove(false)}
+                    >
+                      Quay lại
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={pending}
+                      onClick={() => remove(selectedMember.id)}
+                    >
+                      Gỡ thành viên
+                    </Button>
+                  </>
+                ) : canManageSelectedMember ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSelectedMemberId(null)}
+                    >
+                      Đóng
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="ledger-mobile-review-reject"
+                      data-delete
+                      disabled={pending}
+                      onClick={() => setConfirmingRemove(true)}
+                    >
+                      <UserRoundX size={16} />
+                      Gỡ thành viên
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setSelectedMemberId(null)}
+                  >
+                    Đóng
+                  </Button>
+                )}
+              </SheetFooter>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
