@@ -298,6 +298,12 @@ export async function deleteOrRequestTransaction(userId: string, workspaceId: st
     if (record.memberId !== member.id) {
       throw new AppError("FORBIDDEN", "Bạn chỉ có thể gửi yêu cầu xóa giao dịch do mình tạo.");
     }
+    if (!reason.trim()) {
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Vui lòng nhập lý do xóa giao dịch.",
+      );
+    }
     await ensureNoPendingChange(tx, record.id);
     const request = await tx.transactionChangeRequest.create({
       data: { transactionId: record.id, requesterMemberId: member.id, previousData: transactionSnapshot(record), proposedData: { action: "delete", reason } },

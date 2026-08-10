@@ -58,7 +58,6 @@ function MobileNavigationDrawer({
       <SheetContent
         side="left"
         className="mobile-navigation-sheet"
-        showCloseButton
       >
         <SheetHeader className="mobile-navigation-header">
           <div className="mobile-navigation-brand">

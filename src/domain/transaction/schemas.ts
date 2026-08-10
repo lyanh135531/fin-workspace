@@ -42,3 +42,10 @@ export const createTransactionSchema = z
 export type CreateTransactionInput = z.output<typeof createTransactionSchema>;
 
 export const changeReasonSchema = z.string().trim().max(2_000).optional().transform((reason) => reason || "Đã thông báo");
+
+export const deleteRequestReasonSchema = z
+  .string()
+  .trim()
+  .max(2_000)
+  .optional()
+  .transform((reason) => reason ?? "");

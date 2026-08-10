@@ -200,7 +200,6 @@ export function QuickTransactionSheet({
         <SheetContent
           side="bottom"
           className="quick-transaction-sheet"
-          showCloseButton
         >
           <SheetHeader className="quick-transaction-header">
             <div className="quick-transaction-heading">

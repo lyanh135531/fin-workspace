@@ -340,13 +340,18 @@ function ChangeNotificationCard({
                       </span>
                       <span className="flex min-w-0 flex-wrap items-center gap-1.5">
                         <del className="text-[var(--text-muted)]">
-                          {detail.previous}{unit}
+                          {detail.previous}
+                          {unit}
                         </del>
-                        <span className="text-[var(--warning)]" aria-hidden="true">
+                        <span
+                          className="text-[var(--warning)]"
+                          aria-hidden="true"
+                        >
                           →
                         </span>
                         <strong className="font-semibold text-[var(--success)]">
-                          {detail.proposed}{unit}
+                          {detail.proposed}
+                          {unit}
                         </strong>
                       </span>
                     </div>
@@ -360,14 +365,16 @@ function ChangeNotificationCard({
             <Button
               size="sm"
               variant="outline"
+              className={deleting ? undefined : "notification-review-reject"}
               disabled={pending}
               onClick={() => onReview(false)}
             >
-              {deleting ? "Từ chối xóa" : "Từ chối"}
+              Từ chối
             </Button>
             <Button
               size="sm"
-              variant={deleting ? "destructive" : "default"}
+              variant={deleting ? "destructive" : "outline"}
+              className={deleting ? undefined : "notification-review-approve"}
               disabled={pending}
               onClick={() => onReview(true)}
             >

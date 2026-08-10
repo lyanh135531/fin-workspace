@@ -69,6 +69,12 @@ export function getTransactionChangeAction(
   return action === "update" || action === "delete" ? action : null;
 }
 
+export function getTransactionChangeReason(value: unknown): string | null {
+  const request = jsonRecord(value);
+  const reason = request?.reason;
+  return typeof reason === "string" && reason.trim() ? reason.trim() : null;
+}
+
 export function getTransactionChangeDetails(
   value: unknown,
   current: ComparableTransaction,

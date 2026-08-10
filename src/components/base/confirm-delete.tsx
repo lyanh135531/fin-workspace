@@ -22,6 +22,7 @@ type ConfirmDeleteProps = {
   onOpenChange?: (open: boolean) => void
   cancelLabel?: string
   confirmLabel?: string
+  confirmDisabled?: boolean
   disabled?: boolean
   className?: string
   trigger?: ReactElement
@@ -36,6 +37,7 @@ function ConfirmDelete({
   onOpenChange,
   cancelLabel = "Hủy",
   confirmLabel = "Xóa",
+  confirmDisabled = false,
   disabled,
   className,
   trigger,
@@ -51,6 +53,7 @@ function ConfirmDelete({
   }
 
   async function handleConfirm(): Promise<void> {
+    if (confirmDisabled) return
     setIsPending(true)
 
     try {
@@ -113,7 +116,7 @@ function ConfirmDelete({
             variant="destructive"
             size="sm"
             aria-busy={isPending}
-            disabled={isPending}
+            disabled={isPending || confirmDisabled}
             onClick={handleConfirm}
           >
             {isPending ? (

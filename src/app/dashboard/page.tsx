@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import {
   getTransactionChangeAction,
   getTransactionChangeDetails,
+  getTransactionChangeReason,
   type TransactionChangeLookups,
 } from "@/lib/transaction-change-display";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
@@ -104,7 +105,6 @@ export async function WorkspaceDashboard({
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     }),
   ]);
-  const totalTransactions = transactions.length;
   const summaries = buildLedgerPeriodSummaries(transactions, currentPeriod);
   const isAdmin = isAdminRole(membership.role.code);
   const changeLookups: TransactionChangeLookups = {
@@ -143,6 +143,9 @@ export async function WorkspaceDashboard({
     ),
     pendingChangeRequester:
       item.changeRequests[0]?.requester.user.username ?? null,
+    pendingChangeReason: getTransactionChangeReason(
+      item.changeRequests[0]?.proposedData,
+    ),
     pendingChangeDetails: getTransactionChangeDetails(
       item.changeRequests[0]?.proposedData,
       {
@@ -167,7 +170,6 @@ export async function WorkspaceDashboard({
         businessDate,
         currency: membership.workspace.baseCurrency,
         transactions: ledger,
-        totalTransactions,
         pageSize: LEDGER_PAGE_SIZE,
         isAdmin,
         canEditTransactions: true,

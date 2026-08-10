@@ -8,6 +8,8 @@ import {
   CalendarClock,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleCheckBig,
   FilterX,
   Pencil,
@@ -68,6 +70,11 @@ import {
   Select,
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
 } from "@/components/base";
 import type { DateRangeValue } from "@/components/base";
 import { toast } from "sonner";
@@ -100,6 +107,7 @@ type LedgerItem = {
   pendingChangeRequestId: string | null;
   pendingChangeAction: "update" | "delete" | null;
   pendingChangeRequester: string | null;
+  pendingChangeReason: string | null;
   pendingChangeDetails: {
     label: string;
     previous: string;
@@ -135,7 +143,9 @@ function TransactionTypeLabel({
 }) {
   const option = typeOptions.find((item) => item.value === type);
   if (!option) {
-    throw new Error(`Không tìm thấy cấu hình hiển thị cho loại giao dịch: ${type}`);
+    throw new Error(
+      `Không tìm thấy cấu hình hiển thị cho loại giao dịch: ${type}`,
+    );
   }
   const Icon = option.icon;
   return (
@@ -207,6 +217,243 @@ function LatestTransactionsLabel() {
   );
 }
 
+function TransactionReviewSheetContent({
+  item,
+  currency,
+  busy,
+  onReview,
+  onClose,
+}: {
+  item: LedgerItem;
+  currency: string;
+  busy: boolean;
+  onReview: (approve: boolean) => void;
+  onClose: () => void;
+}) {
+  const isDeleteReview = item.pendingChangeAction === "delete";
+  const categoryName = item.category?.name ?? "Chưa phân loại";
+  const amountPrefix =
+    item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔";
+
+  function review(approve: boolean) {
+    onClose();
+    onReview(approve);
+  }
+
+  return (
+    <SheetContent
+      side="bottom"
+      className={`ledger-mobile-review-sheet${isDeleteReview ? " pending-delete" : ""}`}
+      aria-label={
+        isDeleteReview
+          ? "Duyệt yêu cầu xóa giao dịch"
+          : "Duyệt yêu cầu sửa giao dịch"
+      }
+    >
+      <SheetHeader className="ledger-mobile-review-header">
+        <div className="ledger-mobile-review-heading">
+          <span aria-hidden="true">
+            {isDeleteReview ? <Trash2 size={18} /> : <Pencil size={18} />}
+          </span>
+          <div>
+            <SheetTitle>
+              {item.pendingChangeRequester ?? "Thành viên"}{" "}
+              {isDeleteReview ? "đề nghị xóa giao dịch" : "đã sửa giao dịch"}
+            </SheetTitle>
+            <SheetDescription>
+              {isDeleteReview
+                ? "Kiểm tra lý do trước khi duyệt xóa"
+                : `Yêu cầu chỉnh sửa · ${item.pendingChangeDetails.length} thay đổi`}
+            </SheetDescription>
+          </div>
+        </div>
+      </SheetHeader>
+
+      <div className="ledger-mobile-review-body">
+        <div className="ledger-mobile-review-transaction">
+          <div>
+            <span>{categoryName}</span>
+          </div>
+          <strong>
+            {amountPrefix}
+            {formatAmount(item.amount)} {currency}
+          </strong>
+        </div>
+        {isDeleteReview ? (
+          <div className="ledger-mobile-delete-reason">
+            <span>Lý do xóa</span>
+            <p>{item.pendingChangeReason ?? "Không có lý do"}</p>
+          </div>
+        ) : (
+          <div className="ledger-mobile-review-comparisons">
+            {item.pendingChangeDetails.map((detail) => {
+              const unit = detail.label === "Số tiền" ? ` ${currency}` : "";
+              return (
+                <section key={detail.label}>
+                  <h3>{detail.label}</h3>
+                  <div>
+                    <del>
+                      {detail.previous}
+                      {unit}
+                    </del>
+                    <span aria-hidden="true">→</span>
+                    <strong>
+                      {detail.proposed}
+                      {unit}
+                    </strong>
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <SheetFooter className="ledger-mobile-review-actions">
+        <Button
+          variant="outline"
+          className="ledger-mobile-review-reject"
+          data-delete={isDeleteReview || undefined}
+          disabled={busy}
+          onClick={() => review(false)}
+        >
+          <X size={16} />
+          Từ chối
+        </Button>
+        <Button
+          variant="outline"
+          className="ledger-mobile-review-approve"
+          data-delete={isDeleteReview || undefined}
+          disabled={busy}
+          onClick={() => review(true)}
+        >
+          <Check size={16} />
+          {isDeleteReview ? "Duyệt xóa" : "Duyệt sửa"}
+        </Button>
+      </SheetFooter>
+    </SheetContent>
+  );
+}
+
+function DesktopTransactionReviewSheet({
+  item,
+  currency,
+  busy,
+  onReview,
+  onClose,
+}: {
+  item: LedgerItem;
+  currency: string;
+  busy: boolean;
+  onReview: (approve: boolean) => void;
+  onClose: () => void;
+}) {
+  const isDeleteReview = item.pendingChangeAction === "delete";
+  const categoryName = item.category?.name ?? "Chưa phân loại";
+  const amountPrefix =
+    item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔";
+
+  function review(approve: boolean) {
+    onClose();
+    onReview(approve);
+  }
+
+  return (
+    <SheetContent
+      side="right"
+      className="ledger-desktop-review-sheet w-full gap-0 border-l border-[var(--border)] bg-[var(--surface)] p-0 sm:!w-[min(100vw,32rem)] sm:!max-w-none"
+      aria-label={
+        isDeleteReview
+          ? "Duyệt yêu cầu xóa giao dịch"
+          : "Duyệt yêu cầu sửa giao dịch"
+      }
+    >
+      <SheetHeader className="ledger-desktop-review-header">
+        <SheetTitle>
+          {isDeleteReview ? "Yêu cầu xóa giao dịch" : "Yêu cầu sửa giao dịch"}
+        </SheetTitle>
+        <SheetDescription>
+          <strong>{item.pendingChangeRequester ?? "Thành viên"}</strong>{" "}
+          {isDeleteReview
+            ? "đề nghị xóa giao dịch này."
+            : `đã thay đổi ${item.pendingChangeDetails.length} mục.`}
+        </SheetDescription>
+      </SheetHeader>
+
+      <div className="ledger-desktop-review-body">
+        <section className="ledger-desktop-review-summary">
+          <div>
+            <span>Danh mục</span>
+            <strong>{categoryName}</strong>
+          </div>
+          <div>
+            <span>Số tiền</span>
+            <strong>
+              {amountPrefix}
+              {formatAmount(item.amount)} {currency}
+            </strong>
+          </div>
+        </section>
+
+        {isDeleteReview ? (
+          <section className="ledger-desktop-delete-reason">
+            <h3>Lý do xóa</h3>
+            <p>{item.pendingChangeReason ?? "Không có lý do"}</p>
+          </section>
+        ) : (
+          <section className="ledger-desktop-review-changes">
+            <h3>Chi tiết thay đổi</h3>
+            <div>
+              {item.pendingChangeDetails.map((detail) => {
+                const unit = detail.label === "Số tiền" ? ` ${currency}` : "";
+                return (
+                  <dl key={detail.label}>
+                    <dt>{detail.label}</dt>
+                    <dd>
+                      <del>
+                        {detail.previous}
+                        {unit}
+                      </del>
+                      <span aria-hidden="true">→</span>
+                      <strong>
+                        {detail.proposed}
+                        {unit}
+                      </strong>
+                    </dd>
+                  </dl>
+                );
+              })}
+            </div>
+          </section>
+        )}
+      </div>
+
+      <SheetFooter className="ledger-desktop-review-footer">
+        <Button
+          variant="outline"
+          className="ledger-desktop-review-reject"
+          data-delete={isDeleteReview || undefined}
+          disabled={busy}
+          onClick={() => review(false)}
+        >
+          <X size={16} />
+          Từ chối
+        </Button>
+        <Button
+          variant="outline"
+          className="ledger-desktop-review-approve"
+          data-delete={isDeleteReview || undefined}
+          disabled={busy}
+          onClick={() => review(true)}
+        >
+          <Check size={16} />
+          {isDeleteReview ? "Duyệt xóa" : "Duyệt sửa"}
+        </Button>
+      </SheetFooter>
+    </SheetContent>
+  );
+}
+
 function MobileTransactionRow({
   item,
   currency,
@@ -220,6 +467,7 @@ function MobileTransactionRow({
   onToggle,
   onApprove,
   onReject,
+  onReviewChange,
   onEdit,
   onDelete,
 }: {
@@ -235,14 +483,23 @@ function MobileTransactionRow({
   onToggle: () => void;
   onApprove: () => void;
   onReject: () => void;
+  onReviewChange: (approve: boolean) => void;
   onEdit: () => void;
   onDelete: (reason: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [mobileDeleteReason, setMobileDeleteReason] = useState("");
+  const isChangeReview = Boolean(
+    canApprove &&
+    item.pendingChangeRequestId &&
+    (item.pendingChangeAction === "update" ||
+      item.pendingChangeAction === "delete"),
+  );
+  const isDeleteReview = item.pendingChangeAction === "delete";
   const longPressEnabled =
-    !selectionMode && !menuOpen && !deleteConfirmOpen;
+    !isChangeReview && !selectionMode && !menuOpen && !deleteConfirmOpen;
   const { isPressing, handlers } = useLongPress(
     () => setMenuOpen(true),
     longPressEnabled,
@@ -289,141 +546,281 @@ function MobileTransactionRow({
       }
     : handlers;
 
-  return (
-    <DropdownMenu
-      open={!selectionMode && (menuOpen || deleteConfirmOpen)}
-      onOpenChange={(open) => {
-        if (!selectionMode && !deleteConfirmOpen) setMenuOpen(open);
-      }}
-    >
-      <DropdownMenuTrigger
-        nativeButton={false}
-        render={
-          <article
-            className="ledger-mobile-row"
-            data-pressing={isPressing || undefined}
-            data-selected={selected || undefined}
-            data-selection-mode={selectionMode || undefined}
-            aria-label={`${categoryName}, ${amountPrefix}${formatAmount(item.amount)} ${currency}. Nhấn giữ để mở thao tác.`}
-            {...rowHandlers}
-          />
-        }
-      >
-        <div className="ledger-mobile-row-category">
-          <CategoryIcon
-            category={
-              item.category ?? {
-                color: "var(--text-muted)",
-                icon: "tag",
-              }
+  const rowContent = (
+    <>
+      <div className="ledger-mobile-row-category">
+        <CategoryIcon
+          category={
+            item.category ?? {
+              color: "var(--text-muted)",
+              icon: "tag",
             }
-            size={14}
-            className="ledger-mobile-row-category-icon"
-          />
-          <strong
-            style={{ color: item.category?.color ?? "var(--text-muted)" }}
-          >
-            {categoryName}
-          </strong>
+          }
+          size={14}
+          className="ledger-mobile-row-category-icon"
+        />
+        <strong style={{ color: item.category?.color ?? "var(--text-muted)" }}>
+          {categoryName}
+        </strong>
+      </div>
+      <b
+        className={`ledger-mobile-row-amount amount-${item.type}`}
+        aria-hidden="true"
+      >
+        {amountPrefix}
+        {formatAmount(item.amount)}
+      </b>
+      {isChangeReview && (
+        <div className="ledger-mobile-review-summary">
+          <small>
+            <b>{item.pendingChangeRequester ?? "Thành viên"}</b>{" "}
+            {isDeleteReview
+              ? "đề nghị xóa giao dịch"
+              : `đề nghị sửa ${item.pendingChangeDetails.length} mục`}
+          </small>
+          <ChevronRight size={15} aria-hidden="true" />
         </div>
-        <b
-          className={`ledger-mobile-row-amount amount-${item.type}`}
-          aria-hidden="true"
-        >
-          {amountPrefix}
-          {formatAmount(item.amount)}
-        </b>
-      </DropdownMenuTrigger>
+      )}
+    </>
+  );
 
-      <DropdownMenuContent
-        align="start"
-        side="bottom"
-        sideOffset={4}
-        className="ledger-mobile-context-menu"
+  if (isChangeReview) {
+    return (
+      <Sheet open={reviewSheetOpen} onOpenChange={setReviewSheetOpen}>
+        <SheetTrigger
+          nativeButton={false}
+          render={
+            <article
+              className={`ledger-mobile-row ledger-mobile-review-row${isDeleteReview ? " pending-delete" : ""}`}
+              aria-label={`${categoryName}, ${amountPrefix}${formatAmount(item.amount)} ${currency}. ${isDeleteReview ? "Chờ duyệt xóa." : `Chờ duyệt ${item.pendingChangeDetails.length} thay đổi.`}`}
+            />
+          }
+        >
+          {rowContent}
+        </SheetTrigger>
+        <TransactionReviewSheetContent
+          item={item}
+          currency={currency}
+          busy={busy}
+          onClose={() => setReviewSheetOpen(false)}
+          onReview={onReviewChange}
+        />
+      </Sheet>
+    );
+  }
+
+  return (
+    <>
+      <DropdownMenu
+        open={!selectionMode && menuOpen}
+        onOpenChange={(open) => {
+          if (!selectionMode) setMenuOpen(open);
+        }}
       >
-        {actions.includes("select") && (
-          <DropdownMenuItem onClick={() => run(onToggle)} disabled={busy}>
-            <Check aria-hidden="true" />
-            {selected ? "Bỏ chọn" : "Chọn"}
-          </DropdownMenuItem>
-        )}
-        {actions.includes("approve") && (
-          <DropdownMenuItem onClick={() => run(onApprove)} disabled={busy}>
-            <CircleCheckBig aria-hidden="true" />
-            Duyệt giao dịch
-          </DropdownMenuItem>
-        )}
-        {actions.includes("reject") && (
-          <DropdownMenuItem onClick={() => run(onReject)} disabled={busy}>
-            <X aria-hidden="true" />
-            Từ chối giao dịch
-          </DropdownMenuItem>
-        )}
-        {actions.includes("approve-early") && (
-          <DropdownMenuItem onClick={() => run(onApprove)} disabled={busy}>
-            <CircleCheckBig aria-hidden="true" />
-            Ghi nhận sớm
-          </DropdownMenuItem>
-        )}
-        {(actions.includes("edit") || actions.includes("delete")) &&
-          actions.some((action) =>
-            ["select", "approve", "reject", "approve-early"].includes(action),
-          ) && <DropdownMenuSeparator />}
-        {actions.includes("edit") && (
-          <DropdownMenuItem onClick={() => run(onEdit)} disabled={busy}>
-            <Pencil aria-hidden="true" />
-            Chỉnh sửa
-          </DropdownMenuItem>
-        )}
-        {actions.includes("delete") && (
-          <ConfirmDeletePopover
-            ariaLabel={`Xóa ${item.description || "giao dịch"}`}
-            title="Xóa giao dịch?"
-            description={
-              isAdmin
-                ? "Nếu đã ghi nhận, số dư ví sẽ được hoàn tác."
-                : "Giao dịch chỉ bị xóa sau khi Admin duyệt."
-            }
-            content={
-              !isAdmin ? (
+        <DropdownMenuTrigger
+          nativeButton={false}
+          render={
+            <article
+              className="ledger-mobile-row"
+              data-pressing={isPressing || undefined}
+              data-selected={selected || undefined}
+              data-selection-mode={selectionMode || undefined}
+              aria-label={`${categoryName}, ${amountPrefix}${formatAmount(item.amount)} ${currency}. Nhấn giữ để mở thao tác.`}
+              {...rowHandlers}
+            />
+          }
+        >
+          {rowContent}
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent
+          align="start"
+          side="bottom"
+          sideOffset={4}
+          className="ledger-mobile-context-menu"
+        >
+          {actions.includes("select") && (
+            <DropdownMenuItem onClick={() => run(onToggle)} disabled={busy}>
+              <Check aria-hidden="true" />
+              {selected ? "Bỏ chọn" : "Chọn"}
+            </DropdownMenuItem>
+          )}
+          {actions.includes("approve") && (
+            <DropdownMenuItem onClick={() => run(onApprove)} disabled={busy}>
+              <CircleCheckBig aria-hidden="true" />
+              Duyệt giao dịch
+            </DropdownMenuItem>
+          )}
+          {actions.includes("reject") && (
+            <DropdownMenuItem onClick={() => run(onReject)} disabled={busy}>
+              <X aria-hidden="true" />
+              Từ chối giao dịch
+            </DropdownMenuItem>
+          )}
+          {actions.includes("approve-early") && (
+            <DropdownMenuItem onClick={() => run(onApprove)} disabled={busy}>
+              <CircleCheckBig aria-hidden="true" />
+              Ghi nhận sớm
+            </DropdownMenuItem>
+          )}
+          {(actions.includes("edit") || actions.includes("delete")) &&
+            actions.some((action) =>
+              ["select", "approve", "reject", "approve-early"].includes(action),
+            ) && <DropdownMenuSeparator />}
+          {actions.includes("edit") && (
+            <DropdownMenuItem onClick={() => run(onEdit)} disabled={busy}>
+              <Pencil aria-hidden="true" />
+              Chỉnh sửa
+            </DropdownMenuItem>
+          )}
+          {actions.includes("delete") && (
+            <DropdownMenuItem
+              className="ledger-mobile-context-delete"
+              disabled={busy}
+              onClick={() => {
+                setMenuOpen(false);
+                setDeleteConfirmOpen(true);
+              }}
+            >
+              <Trash2 aria-hidden="true" />
+              Xóa giao dịch
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Sheet
+        open={deleteConfirmOpen}
+        onOpenChange={(open) => {
+          setDeleteConfirmOpen(open);
+          if (!open) setMobileDeleteReason("");
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          className="ledger-mobile-review-sheet pending-delete"
+          aria-label="Xác nhận xóa giao dịch"
+        >
+          <SheetHeader className="ledger-mobile-review-header">
+            <div className="ledger-mobile-review-heading">
+              <span aria-hidden="true">
+                <Trash2 size={18} />
+              </span>
+              <div>
+                <SheetTitle>Xóa giao dịch?</SheetTitle>
+                <SheetDescription>
+                  {isAdmin
+                    ? "Số dư ví sẽ được hoàn tác sau khi xóa."
+                    : "Yêu cầu sẽ được gửi đến Admin để duyệt."}
+                </SheetDescription>
+              </div>
+            </div>
+          </SheetHeader>
+
+          <div className="ledger-mobile-review-body">
+            <div className="ledger-mobile-review-transaction">
+              <div>
+                <span>{categoryName}</span>
+              </div>
+              <strong>
+                {amountPrefix}
+                {formatAmount(item.amount)} {currency}
+              </strong>
+            </div>
+            {!isAdmin && (
+              <label className="ledger-mobile-delete-reason-field">
+                <span>Lý do xóa</span>
                 <Textarea
                   className="ledger-reason"
                   value={mobileDeleteReason}
                   onChange={(event) =>
                     setMobileDeleteReason(event.target.value)
                   }
-                  placeholder="Lý do (mặc định: Đã thông báo)"
+                  placeholder="Nhập lý do xóa (bắt buộc)"
+                  required
                   maxLength={2000}
                 />
-              ) : undefined
+              </label>
+            )}
+          </div>
+
+          <SheetFooter className="ledger-mobile-review-actions">
+            <Button
+              variant="outline"
+              className="ledger-mobile-review-reject"
+              data-delete
+              disabled={busy}
+              onClick={() => setDeleteConfirmOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="outline"
+              className="ledger-mobile-review-approve"
+              data-delete
+              disabled={busy || (!isAdmin && !mobileDeleteReason.trim())}
+              onClick={() => {
+                setDeleteConfirmOpen(false);
+                onDelete(mobileDeleteReason);
+              }}
+            >
+              <Trash2 size={16} />
+              {isAdmin ? "Xóa giao dịch" : "Gửi yêu cầu"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}
+
+function DesktopReviewRequestRow({
+  item,
+  currency,
+  columnCount,
+  busy,
+  onReview,
+}: {
+  item: LedgerItem;
+  currency: string;
+  columnCount: number;
+  busy: boolean;
+  onReview: (approve: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const isDeleteReview = item.pendingChangeAction === "delete";
+
+  return (
+    <tr
+      className="ledger-pending-change-detail-row"
+      data-review-action={isDeleteReview ? "delete" : "update"}
+    >
+      <td className="ledger-pending-change-detail-cell" colSpan={columnCount}>
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger
+            nativeButton
+            render={
+              <button type="button" className="ledger-pending-change-trigger" />
             }
-            confirmLabel={isAdmin ? "Xóa" : "Gửi yêu cầu"}
-            disabled={busy}
-            trigger={
-              <Button
-                type="button"
-                variant="unstyled"
-                size="auto"
-                className="ledger-mobile-context-delete-trigger"
-                aria-label={`Xóa ${item.description || "giao dịch"}`}
-                disabled={busy}
-              >
-                <Trash2 aria-hidden="true" />
-                Xóa giao dịch
-              </Button>
-            }
-            onOpenChange={(open) => {
-              setDeleteConfirmOpen(open);
-              if (!open) {
-                setMenuOpen(false);
-                setMobileDeleteReason("");
-              }
-            }}
-            onConfirm={() => onDelete(mobileDeleteReason)}
+          >
+            <span className="ledger-pending-change-link">
+              <strong>{item.pendingChangeRequester ?? "Thành viên"}</strong>{" "}
+              {isDeleteReview
+                ? "đề nghị xóa giao dịch"
+                : `đề nghị sửa ${item.pendingChangeDetails.length} mục`}
+              <ChevronRight size={14} aria-hidden="true" />
+            </span>
+          </SheetTrigger>
+          <DesktopTransactionReviewSheet
+            item={item}
+            currency={currency}
+            busy={busy}
+            onClose={() => setOpen(false)}
+            onReview={onReview}
           />
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </Sheet>
+      </td>
+    </tr>
   );
 }
 
@@ -506,7 +903,6 @@ export function Ledger({
   workspaceId,
   businessDate,
   transactions,
-  totalTransactions,
   pageSize,
   canApprove,
   canEditTransactions,
@@ -521,7 +917,6 @@ export function Ledger({
   workspaceId: string;
   businessDate: string;
   transactions: LedgerItem[];
-  totalTransactions: number;
   pageSize: number;
   canApprove: boolean;
   canEditTransactions: boolean;
@@ -555,6 +950,7 @@ export function Ledger({
   const [mobileEditDraft, setMobileEditDraft] =
     useState<TransactionDraft | null>(null);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [mobileBulkDeleteOpen, setMobileBulkDeleteOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [scheduledExpanded, setScheduledExpanded] = useState(false);
   const mobileFilterRef = useRef<HTMLDivElement>(null);
@@ -596,16 +992,6 @@ export function Ledger({
   const columnCount = canApprove ? 8 : 7;
   const pageStart = latestRows.length ? (page - 1) * pageSize + 1 : 0;
   const pageEnd = Math.min(page * pageSize, latestRows.length);
-  const transactionSequence = useMemo(
-    () =>
-      new Map(
-        transactions.map((item, index) => [
-          item.id,
-          Math.max(1, totalTransactions - index),
-        ]),
-      ),
-    [totalTransactions, transactions],
-  );
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -741,7 +1127,7 @@ export function Ledger({
   function reviewChange(item: LedgerItem, approve: boolean) {
     const changeRequestId = item.pendingChangeRequestId;
     if (!changeRequestId) {
-      toast.error("Không tìm thấy yêu cầu chỉnh sửa đang chờ duyệt.");
+      toast.error("Không tìm thấy yêu cầu đang chờ duyệt.");
       return;
     }
     start(async () => {
@@ -761,7 +1147,7 @@ export function Ledger({
               : "Đã từ chối thay đổi giao dịch.",
         );
       } else {
-        toast.error(result.message ?? "Không thể xử lý yêu cầu chỉnh sửa.");
+        toast.error(result.message ?? "Không thể xử lý yêu cầu.");
       }
     });
   }
@@ -870,10 +1256,9 @@ export function Ledger({
     const target = mobileEditTarget;
     const draft = mobileEditDraft;
     start(async () => {
-      const result = await updateTransactionsAction(
-        workspaceId,
-        [{ transactionId: target.id, input: transactionInput(draft) }],
-      );
+      const result = await updateTransactionsAction(workspaceId, [
+        { transactionId: target.id, input: transactionInput(draft) },
+      ]);
       if (result.ok) {
         toast.success(
           result.requested
@@ -906,6 +1291,7 @@ export function Ledger({
         onToggle={() => toggle(item.id)}
         onApprove={() => approveOne(item)}
         onReject={() => rejectOne(item)}
+        onReviewChange={(approve) => reviewChange(item, approve)}
         onEdit={() => beginMobileEdit(item)}
         onDelete={(reason) => removeOne(item, reason)}
       />
@@ -933,228 +1319,199 @@ export function Ledger({
 
     return (
       <Fragment key={item.id}>
-      <tr
-        className="ledger-transaction-row border-b border-[var(--border)]"
-        data-pending-change={
-          canApprove && item.pendingChangeRequestId
-            ? (item.pendingChangeAction ?? "update")
-            : undefined
-        }
-      >
-        {canApprove && (
-          <td>
-            {!requiresReview(item) && (
-              <Checkbox
-                checked={selected.has(item.id)}
-                onCheckedChange={() => toggle(item.id)}
-                aria-label={`Chọn giao dịch ${item.description || item.id}`}
-              />
+        <tr
+          className="ledger-transaction-row border-b border-[var(--border)]"
+          data-pending-change={
+            canApprove && item.pendingChangeRequestId
+              ? (item.pendingChangeAction ?? "update")
+              : undefined
+          }
+        >
+          {canApprove && (
+            <td>
+              {!requiresReview(item) && (
+                <Checkbox
+                  checked={selected.has(item.id)}
+                  onCheckedChange={() => toggle(item.id)}
+                  aria-label={`Chọn giao dịch ${item.description || item.id}`}
+                />
+              )}
+            </td>
+          )}
+          <td className="ledger-description-column">
+            <p className="font-medium">
+              {item.description || "Không có nội dung"}
+            </p>
+            <p className="ledger-transaction-meta mt-1 text-xs text-[var(--text-muted)]">
+              <span>
+                {item.member}
+                {item.isRecurring ? " · Tự động" : ""}
+              </span>
+            </p>
+          </td>
+          <td className="ledger-type-column">
+            <TransactionTypeLabel type={item.type} variant="badge" />
+          </td>
+          <td className="ledger-wallet-column">
+            {item.wallet}
+            {item.toWallet ? (
+              <small className="ledger-wallet-destination">
+                → {item.toWallet}
+              </small>
+            ) : null}
+          </td>
+          <td className="ledger-date-column">{formatLedgerDate(item.date)}</td>
+          <td className="ledger-category-column">
+            {item.category ? (
+              <span
+                className="category-tag"
+                style={{
+                  backgroundColor: `${item.category.color}22`,
+                  color: item.category.color,
+                }}
+              >
+                <CategoryIcon
+                  category={item.category}
+                  size={13}
+                  className="ledger-category-icon"
+                />
+                {item.category.name}
+              </span>
+            ) : (
+              "—"
             )}
           </td>
-        )}
-        <td className="ledger-description-column">
-          <p className="font-medium">
-            {item.description || "Không có nội dung"}
-          </p>
-          <p className="ledger-transaction-meta mt-1 text-xs text-[var(--text-muted)]">
-            <span>
-              #{String(transactionSequence.get(item.id) ?? 1).padStart(5, "0")} ·{" "}
-              {item.member}
-              {item.isRecurring ? " · Tự động" : ""}
-            </span>
-            {canApprove && item.pendingChangeRequestId && (
-              <span
-                className={`ledger-pending-change-badge pending-${item.pendingChangeAction ?? "update"}`}
-              >
-                {item.pendingChangeAction === "delete"
-                  ? "Chờ duyệt xóa"
-                  : "Chờ duyệt sửa"}
-              </span>
-            )}
-          </p>
-        </td>
-        <td className="ledger-type-column">
-          <TransactionTypeLabel type={item.type} variant="badge" />
-        </td>
-        <td className="ledger-wallet-column">
-          {item.wallet}
-          {item.toWallet ? (
-            <small className="ledger-wallet-destination">
-              → {item.toWallet}
-            </small>
-          ) : null}
-        </td>
-        <td className="ledger-date-column">{formatLedgerDate(item.date)}</td>
-        <td className="ledger-category-column">
-          {item.category ? (
-            <span
-              className="category-tag"
-              style={{
-                backgroundColor: `${item.category.color}22`,
-                color: item.category.color,
-              }}
-            >
-              <CategoryIcon
-                category={item.category}
-                size={13}
-                className="ledger-category-icon"
-              />
-              {item.category.name}
-            </span>
-          ) : (
-            "—"
-          )}
-        </td>
-        <td
-          className={`ledger-amount ledger-amount-column amount-${item.type}`}
-        >
-          {item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}
-          {formatAmount(item.amount)} {currency}
-        </td>
-        <td className="ledger-actions-column">
-          <div className="ledger-row-actions">
-            {canApprove && item.pendingChangeRequestId && (
-              <Button
-                variant="icon"
-                size="icon"
-                className="ledger-review-reject-button"
-                disabled={busy || editMode}
-                onClick={() => reviewChange(item, false)}
-                title={`Từ chối yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
-                aria-label={`Từ chối yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
-              >
-                <X size={16} />
-              </Button>
-            )}
-            {canApprove && item.pendingChangeRequestId && (
-              <Button
-                variant="icon"
-                size="icon"
-                className="ledger-review-approve-button"
-                disabled={busy || editMode}
-                onClick={() => reviewChange(item, true)}
-                title={`Duyệt yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
-                aria-label={`Duyệt yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
-              >
-                <Check size={16} />
-              </Button>
-            )}
-            {canApprove &&
-              !item.pendingChangeRequestId &&
-              item.status === "pending" && (
-              <Button
-                variant="icon"
-                size="icon"
-                className="ledger-review-reject-button"
-                disabled={busy || editMode}
-                onClick={() => rejectOne(item)}
-                title="Từ chối giao dịch"
-                aria-label={`Từ chối ${item.description || "giao dịch"}`}
-              >
-                <X size={16} />
-              </Button>
-            )}
-            {canApprove &&
-              !item.pendingChangeRequestId &&
-              item.status === "pending" && (
-              <Button
-                variant="icon"
-                size="icon"
-                className="ledger-review-approve-button"
-                disabled={busy || editMode}
-                onClick={() => approveOne(item)}
-                title="Duyệt giao dịch"
-                aria-label={`Duyệt ${item.description || "giao dịch"}`}
-              >
-                <Check size={16} />
-              </Button>
-            )}
-            {canApprove && item.status === "scheduled" && (
-              <Button
-                variant="icon"
-                size="icon"
-                disabled={busy || editMode}
-                onClick={() => approveOne(item)}
-                title="Ghi nhận sớm"
-                aria-label={`Ghi nhận sớm ${item.description || "giao dịch"}`}
-              >
-                <CircleCheckBig size={16} />
-              </Button>
-            )}
-            {canEditTransactions && !item.hasPendingChange && (
-              <Button
-                variant="icon"
-                size="icon"
-                disabled={busy || editMode}
-                onClick={() => beginEdit(item.id)}
-                title="Chỉnh sửa giao dịch"
-                aria-label={`Chỉnh sửa ${item.description || "giao dịch"}`}
-              >
-                <Pencil size={16} />
-              </Button>
-            )}
-            {!readonly && item.canRequestDelete && !requiresReview(item) && (
-              <ConfirmDeletePopover
-                ariaLabel={`Xóa ${item.description || "giao dịch"}`}
-                title="Xóa giao dịch?"
-                description={
-                  isAdmin
-                    ? "Nếu đã ghi nhận, số dư ví sẽ được hoàn tác."
-                    : "Giao dịch chỉ bị xóa sau khi Admin duyệt."
-                }
-                content={
-                  !isAdmin ? (
-                    <Textarea
-                      className="ledger-reason"
-                      value={deleteReason}
-                      onChange={(event) => setDeleteReason(event.target.value)}
-                      placeholder="Lý do (mặc định: Đã thông báo)"
-                      maxLength={2000}
-                    />
-                  ) : undefined
-                }
-                confirmLabel={isAdmin ? "Xóa" : "Gửi yêu cầu"}
-                className="ledger-delete-button"
-                disabled={busy || editMode || item.hasPendingChange}
-                onOpenChange={() => setDeleteReason("")}
-                onConfirm={() => removeOne(item, deleteReason)}
-              />
-            )}
-          </div>
-        </td>
-      </tr>
-      {canApprove &&
-        item.pendingChangeAction === "update" &&
-        item.pendingChangeRequester &&
-        item.pendingChangeDetails.length > 0 && (
-          <tr className="ledger-pending-change-detail-row">
-            <td
-              className="ledger-pending-change-detail-cell"
-              colSpan={columnCount}
-            >
-              <div className="ledger-pending-change-detail">
-                <span className="ledger-pending-change-requester">
-                  <strong>{item.pendingChangeRequester}</strong> đã sửa
-                </span>
-                <div className="ledger-pending-change-values">
-                  {item.pendingChangeDetails.map((detail) => {
-                    const unit = detail.label === "Số tiền" ? ` ${currency}` : "";
-                    return (
-                      <span
-                        key={detail.label}
-                        className="ledger-pending-change-value"
-                      >
-                        <b>{detail.label}</b>
-                        <del>{detail.previous}{unit}</del>
-                        <span aria-hidden="true">→</span>
-                        <strong>{detail.proposed}{unit}</strong>
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            </td>
-          </tr>
+          <td
+            className={`ledger-amount ledger-amount-column amount-${item.type}`}
+          >
+            {item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}
+            {formatAmount(item.amount)} {currency}
+          </td>
+          <td className="ledger-actions-column">
+            <div className="ledger-row-actions">
+              {canApprove && item.pendingChangeRequestId && (
+                <Button
+                  variant="icon"
+                  size="icon"
+                  className="ledger-review-reject-button"
+                  disabled={busy || editMode}
+                  onClick={() => reviewChange(item, false)}
+                  title={`Từ chối yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
+                  aria-label={`Từ chối yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
+                >
+                  <X size={16} />
+                </Button>
+              )}
+              {canApprove && item.pendingChangeRequestId && (
+                <Button
+                  variant="icon"
+                  size="icon"
+                  className="ledger-review-approve-button"
+                  disabled={busy || editMode}
+                  onClick={() => reviewChange(item, true)}
+                  title={`Duyệt yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
+                  aria-label={`Duyệt yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
+                >
+                  <Check size={16} />
+                </Button>
+              )}
+              {canApprove &&
+                !item.pendingChangeRequestId &&
+                item.status === "pending" && (
+                  <Button
+                    variant="icon"
+                    size="icon"
+                    className="ledger-review-reject-button"
+                    disabled={busy || editMode}
+                    onClick={() => rejectOne(item)}
+                    title="Từ chối giao dịch"
+                    aria-label={`Từ chối ${item.description || "giao dịch"}`}
+                  >
+                    <X size={16} />
+                  </Button>
+                )}
+              {canApprove &&
+                !item.pendingChangeRequestId &&
+                item.status === "pending" && (
+                  <Button
+                    variant="icon"
+                    size="icon"
+                    className="ledger-review-approve-button"
+                    disabled={busy || editMode}
+                    onClick={() => approveOne(item)}
+                    title="Duyệt giao dịch"
+                    aria-label={`Duyệt ${item.description || "giao dịch"}`}
+                  >
+                    <Check size={16} />
+                  </Button>
+                )}
+              {canApprove && item.status === "scheduled" && (
+                <Button
+                  variant="icon"
+                  size="icon"
+                  disabled={busy || editMode}
+                  onClick={() => approveOne(item)}
+                  title="Ghi nhận sớm"
+                  aria-label={`Ghi nhận sớm ${item.description || "giao dịch"}`}
+                >
+                  <CircleCheckBig size={16} />
+                </Button>
+              )}
+              {canEditTransactions && !item.hasPendingChange && (
+                <Button
+                  variant="icon"
+                  size="icon"
+                  disabled={busy || editMode}
+                  onClick={() => beginEdit(item.id)}
+                  title="Chỉnh sửa giao dịch"
+                  aria-label={`Chỉnh sửa ${item.description || "giao dịch"}`}
+                >
+                  <Pencil size={16} />
+                </Button>
+              )}
+              {!readonly && item.canRequestDelete && !requiresReview(item) && (
+                <ConfirmDeletePopover
+                  ariaLabel={`Xóa ${item.description || "giao dịch"}`}
+                  title="Xóa giao dịch?"
+                  description={
+                    isAdmin
+                      ? "Nếu đã ghi nhận, số dư ví sẽ được hoàn tác."
+                      : "Giao dịch chỉ bị xóa sau khi Admin duyệt."
+                  }
+                  content={
+                    !isAdmin ? (
+                      <Textarea
+                        className="ledger-reason"
+                        value={deleteReason}
+                        onChange={(event) =>
+                          setDeleteReason(event.target.value)
+                        }
+                        placeholder="Nhập lý do xóa (bắt buộc)"
+                        aria-label="Lý do xóa giao dịch"
+                        required
+                        maxLength={2000}
+                      />
+                    ) : undefined
+                  }
+                  confirmLabel={isAdmin ? "Xóa" : "Gửi yêu cầu"}
+                  confirmDisabled={!isAdmin && !deleteReason.trim()}
+                  className="ledger-delete-button"
+                  disabled={busy || editMode || item.hasPendingChange}
+                  onOpenChange={() => setDeleteReason("")}
+                  onConfirm={() => removeOne(item, deleteReason)}
+                />
+              )}
+            </div>
+          </td>
+        </tr>
+        {canApprove && item.pendingChangeRequestId && (
+          <DesktopReviewRequestRow
+            item={item}
+            currency={currency}
+            columnCount={columnCount}
+            busy={busy}
+            onReview={(approve) => reviewChange(item, approve)}
+          />
         )}
       </Fragment>
     );
@@ -1303,18 +1660,95 @@ export function Ledger({
       )}
 
       {!createDraft && !editMode && (
-        <div className="ledger-mobile-list" aria-label="Danh sách giao dịch">
+        <div
+          className="ledger-mobile-list"
+          data-selection-mode={selected.size > 0 || undefined}
+          aria-label="Danh sách giao dịch"
+        >
           {canApprove && selected.size > 0 && (
-            <div className="ledger-mobile-selection">
-              <Button
-                variant="ghost"
-                size="default"
-                onClick={() => setSelected(new Set())}
+            <>
+              <div className="ledger-mobile-selection">
+                <span>{selected.size} mục đã chọn</span>
+                <div className="ledger-mobile-selection-actions">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelected(new Set())}
+                  >
+                    Bỏ chọn
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => setMobileBulkDeleteOpen(true)}
+                  >
+                    <Trash2 size={15} />
+                    Xóa
+                  </Button>
+                </div>
+              </div>
+
+              <Sheet
+                open={mobileBulkDeleteOpen}
+                onOpenChange={setMobileBulkDeleteOpen}
               >
-                Bỏ chọn
-              </Button>
-              <span>{selected.size} mục đã chọn</span>
-            </div>
+                <SheetContent
+                  side="bottom"
+                  className="ledger-mobile-review-sheet pending-delete"
+                  aria-label={`Xác nhận xóa ${selected.size} giao dịch`}
+                >
+                  <SheetHeader className="ledger-mobile-review-header">
+                    <div className="ledger-mobile-review-heading">
+                      <span aria-hidden="true">
+                        <Trash2 size={18} />
+                      </span>
+                      <div>
+                        <SheetTitle>
+                          Xóa {selected.size} giao dịch?
+                        </SheetTitle>
+                        <SheetDescription>
+                          Các giao dịch đã ghi nhận sẽ được hoàn tác khỏi số dư
+                          ví.
+                        </SheetDescription>
+                      </div>
+                    </div>
+                  </SheetHeader>
+
+                  <div className="ledger-mobile-review-body">
+                    <p className="ledger-mobile-bulk-delete-warning">
+                      Hành động này sẽ xóa toàn bộ giao dịch đang chọn và không
+                      thể hoàn tác.
+                    </p>
+                  </div>
+
+                  <SheetFooter className="ledger-mobile-review-actions">
+                    <Button
+                      variant="outline"
+                      className="ledger-mobile-review-reject"
+                      data-delete
+                      disabled={busy}
+                      onClick={() => setMobileBulkDeleteOpen(false)}
+                    >
+                      Hủy
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="ledger-mobile-review-approve"
+                      data-delete
+                      disabled={busy}
+                      onClick={() => {
+                        setMobileBulkDeleteOpen(false);
+                        removeBulk();
+                      }}
+                    >
+                      <Trash2 size={16} />
+                      Xóa giao dịch
+                    </Button>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
+            </>
           )}
           {scheduledRows.length > 0 && (
             <ScheduledTransactionsToggle
@@ -1421,31 +1855,40 @@ export function Ledger({
       </div>
       <footer className="ledger-pagination">
         <p className="ledger-record-count">
-          Hiển thị {pageStart}–{pageEnd}/{latestRows.length} giao dịch mới nhất
-          {scheduledRows.length
-            ? ` · ${scheduledRows.length} giao dịch đã lên lịch`
-            : ""}{" "}
+          <span className="ledger-record-count-desktop">
+            Hiển thị {pageStart}–{pageEnd}/{latestRows.length} giao dịch mới nhất
+            {scheduledRows.length
+              ? ` · ${scheduledRows.length} giao dịch đã lên lịch`
+              : ""}
+          </span>
+          <span className="ledger-record-count-mobile">
+            {pageStart}–{pageEnd} / {latestRows.length}
+          </span>
         </p>
         {pageCount > 1 && (
           <nav aria-label="Phân trang sổ giao dịch">
             <Button
-              variant="outline"
-              size="default"
+              variant="icon"
+              size="icon"
               disabled={page <= 1}
               onClick={() => setCurrentPage(Math.max(1, page - 1))}
+              title="Trang trước"
+              aria-label="Trang trước"
             >
-              Trang trước
+              <ChevronLeft size={16} />
             </Button>
             <span>
               Trang {page}/{pageCount}
             </span>
             <Button
-              variant="outline"
-              size="default"
+              variant="icon"
+              size="icon"
               disabled={page >= pageCount}
               onClick={() => setCurrentPage(Math.min(pageCount, page + 1))}
+              title="Trang sau"
+              aria-label="Trang sau"
             >
-              Trang sau
+              <ChevronRight size={16} />
             </Button>
           </nav>
         )}
@@ -1948,10 +2391,14 @@ function MobileTransactionDraft({
           </>
         )}
       </div>
-      <div className="ledger-mobile-draft-actions">
-        <Button variant="outline" disabled={busy} onClick={onCancel}>
-          Hủy
-        </Button>
+      <div
+        className={`ledger-mobile-draft-actions${mode === "edit" && progressiveDetails ? " single-action" : ""}`}
+      >
+        {(mode !== "edit" || !progressiveDetails) && (
+          <Button variant="outline" disabled={busy} onClick={onCancel}>
+            Hủy
+          </Button>
+        )}
         <Button variant="default" disabled={locked} onClick={onSave}>
           {busy
             ? "Đang lưu"

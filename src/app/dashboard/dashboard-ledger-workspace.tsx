@@ -51,9 +51,7 @@ export function DashboardLedgerWorkspace({
             Nhật ký dòng tiền
           </div>
           <h1>Sổ giao dịch</h1>
-          <p>
-            Theo dõi toàn bộ khoản thu, chi và chuyển khoản.
-          </p>
+          <p>Theo dõi toàn bộ khoản thu, chi và chuyển khoản.</p>
         </div>
         <div
           className={`ledger-hero-balance ledger-hero-balance-${cashflowTone}`}
@@ -61,7 +59,7 @@ export function DashboardLedgerWorkspace({
           <div>
             <span>Dòng tiền ròng</span>
             <small>
-              <CalendarDays size={13} aria-hidden="true" />
+              <CalendarDays size={14} aria-hidden="true" />
               {label}
             </small>
           </div>
