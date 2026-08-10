@@ -10,6 +10,8 @@ import { Label } from "./label";
 export type SelectOption = {
   value: string;
   label: React.ReactNode;
+  content?: React.ReactNode;
+  selectedContent?: React.ReactNode;
   disabled?: boolean;
 };
 
@@ -249,7 +251,20 @@ function Select({
         size={size}
         aria-label={ariaLabel ?? label}
       >
-        <SelectValue placeholder={placeholder ?? label} />
+        <SelectValue placeholder={placeholder ?? label}>
+          {(selectedValue: string | null) => {
+            const selectedOption = options.find(
+              (option) => option.value === selectedValue,
+            );
+            return (
+              selectedOption?.selectedContent ??
+              selectedOption?.content ??
+              selectedOption?.label ??
+              placeholder ??
+              label
+            );
+          }}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent align="start" className={contentClassName}>
         {options.map((option) => (
@@ -258,7 +273,7 @@ function Select({
             value={option.value}
             disabled={option.disabled}
           >
-            {option.label}
+            {option.content ?? option.label}
           </SelectItem>
         ))}
       </SelectContent>

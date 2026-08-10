@@ -2,12 +2,20 @@
 
 import { ShieldCheck, UserRoundX, UsersRound } from "lucide-react";
 import { useTransition } from "react";
-import { changeMemberRoleAction, removeMemberAction } from "@/app/dashboard/settings/actions";
-import { Button, Card, Empty, Select } from "@/components/base";
+import {
+  changeMemberRoleAction,
+  removeMemberAction,
+} from "@/app/dashboard/settings/actions";
+import { Button, Card, ConfirmDelete, Empty, Select } from "@/components/base";
 import { toast } from "sonner";
 
 type Role = { code: string; name: string };
-type Member = { id: string; username: string; roleCode: string; isSelf: boolean };
+type Member = {
+  id: string;
+  username: string;
+  roleCode: string;
+  isSelf: boolean;
+};
 
 /* Deterministic gradient from username for avatar */
 const AVATAR_GRADIENTS = [
@@ -90,7 +98,9 @@ export function SettingsClient({
       {/* Member list */}
       <div className="settings-member-list">
         {members.map((member) => {
-          const roleName = roles.find((r) => r.code === member.roleCode)?.name ?? member.roleCode;
+          const roleName =
+            roles.find((r) => r.code === member.roleCode)?.name ??
+            member.roleCode;
           return (
             <article key={member.id} className="settings-member-row">
               {/* Avatar */}
@@ -112,7 +122,11 @@ export function SettingsClient({
                     </span>
                   )}
                 </div>
-                <span>{member.isSelf ? "Tài khoản của bạn" : "Đang có quyền truy cập"}</span>
+                <span>
+                  {member.isSelf
+                    ? "Tài khoản của bạn"
+                    : "Đang có quyền truy cập"}
+                </span>
               </div>
 
               {/* Role */}
@@ -121,8 +135,13 @@ export function SettingsClient({
                   <Select
                     value={member.roleCode}
                     disabled={pending}
-                    onValueChange={(roleCode) => changeRole(member.id, roleCode)}
-                    options={roles.map((role) => ({ value: role.code, label: role.name }))}
+                    onValueChange={(roleCode) =>
+                      changeRole(member.id, roleCode)
+                    }
+                    options={roles.map((role) => ({
+                      value: role.code,
+                      label: role.name,
+                    }))}
                     className="min-w-34"
                   />
                 ) : (
@@ -135,19 +154,30 @@ export function SettingsClient({
 
               {/* Actions */}
               <div className="member-actions">
-                {member.isSelf ? null : (
-                  isAdmin && (
-                    <Button
-                      disabled={pending}
-                      variant="outline" size="icon" className="hover:text-rose-500 hover:border-rose-500/30"
-                      title={`Gỡ ${member.username} khỏi workspace`}
-                      aria-label={`Gỡ ${member.username} khỏi workspace`}
-                      onClick={() => remove(member.id)}
-                    >
-                      <UserRoundX size={16} />
-                    </Button>
-                  )
-                )}
+                {member.isSelf
+                  ? null
+                  : isAdmin && (
+                      <ConfirmDelete
+                        ariaLabel={`Gỡ ${member.username} khỏi workspace`}
+                        title="Gỡ thành viên?"
+                        description={`${member.username} sẽ mất quyền truy cập vào workspace này.`}
+                        confirmLabel="Gỡ"
+                        onConfirm={() => remove(member.id)}
+                        disabled={pending}
+                        trigger={
+                          <Button
+                            disabled={pending}
+                            variant="icon"
+                            size="icon"
+                            className="hover:text-rose-500 hover:border-rose-500/30"
+                            title={`Gỡ ${member.username} khỏi workspace`}
+                            aria-label={`Gỡ ${member.username} khỏi workspace`}
+                          >
+                            <UserRoundX size={16} />
+                          </Button>
+                        }
+                      />
+                    )}
               </div>
             </article>
           );

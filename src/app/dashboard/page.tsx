@@ -83,7 +83,7 @@ export async function WorkspaceDashboard({
       include: {
         wallet: { select: { name: true } },
         toWallet: { select: { name: true } },
-        category: { select: { name: true, color: true } },
+        category: { select: { name: true, color: true, icon: true } },
         member: { include: { user: { select: { username: true } } } },
         changeRequests: { where: { status: "pending" }, select: { id: true } },
       },
@@ -106,7 +106,11 @@ export async function WorkspaceDashboard({
     wallet: item.wallet.name,
     toWallet: item.toWallet?.name ?? null,
     category: item.category
-      ? { name: item.category.name, color: item.category.color }
+      ? {
+          name: item.category.name,
+          color: item.category.color,
+          icon: item.category.icon,
+        }
       : null,
     member: item.member.user.username,
     canRequestDelete: isAdmin || item.memberId === membership.id,

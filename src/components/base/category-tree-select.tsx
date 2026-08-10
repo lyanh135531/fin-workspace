@@ -17,7 +17,7 @@ export type CategoryTreeSelectProps = {
 type TreeNode = CategoryTreeOption & { children: TreeNode[] }
 const CATEGORY_ICON_MAP = { tag: Tag, utensils: Utensils, coffee: Coffee, house: House, car: Car, fuel: Fuel, shopping: ShoppingBag, heart: Heart, work: BriefcaseBusiness, money: WalletCards, card: WalletCards } as const
 
-function CategoryIcon({ category, size, className }: { category: CategoryTreeOption; size: number; className?: string }) {
+function CategoryIcon({ category, size, className }: { category: Pick<CategoryTreeOption, "color" | "icon">; size: number; className?: string }) {
   const Icon = CATEGORY_ICON_MAP[category.icon as keyof typeof CATEGORY_ICON_MAP] ?? Tag
   return (
     <span
@@ -128,4 +128,4 @@ function CategoryTreeSelect({ id, value, defaultValue, onValueChange, name, labe
   )
 }
 
-export { CategoryTreeSelect }
+export { CategoryIcon, CategoryTreeSelect }

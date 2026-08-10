@@ -3,7 +3,7 @@
   --app-content-max: 96rem;
   --app-gutter: clamp(1.5rem, 2.5vw, 2.5rem);
   --app-block-start: 1.25rem;
-  --app-block-end: 2.5rem;
+  --app-block-end: 1.5rem;
   --app-header-height: 3.5rem;
   --app-touch-target: 2.75rem;
 }
@@ -296,7 +296,8 @@
     transform: scale(0.92);
   }
 
-  .mobile-bottom-navigation-fab:focus-visible .mobile-bottom-navigation-fab-icon {
+  .mobile-bottom-navigation-fab:focus-visible
+    .mobile-bottom-navigation-fab-icon {
     box-shadow:
       0 4px 14px color-mix(in srgb, var(--primary) 35%, transparent),
       0 0 0 3px var(--focus-ring);

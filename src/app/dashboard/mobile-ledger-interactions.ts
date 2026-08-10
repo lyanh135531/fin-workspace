@@ -49,7 +49,7 @@ export function getMobileLedgerActions({
   return actions;
 }
 
-export function useLongPress(onLongPress: () => void) {
+export function useLongPress(onLongPress: () => void, enabled: boolean) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startRef = useRef<{ x: number; y: number } | null>(null);
   const [isPressing, setIsPressing] = useState(false);
@@ -64,19 +64,20 @@ export function useLongPress(onLongPress: () => void) {
   useEffect(() => cancel, [cancel]);
 
   const open = useCallback(() => {
+    if (!enabled) return;
     cancel();
     onLongPress();
-  }, [cancel, onLongPress]);
+  }, [cancel, enabled, onLongPress]);
 
   const onPointerDown = useCallback(
     (event: PointerEvent<HTMLElement>) => {
-      if (event.button !== 0) return;
+      if (!enabled || event.button !== 0) return;
       cancel();
       startRef.current = { x: event.clientX, y: event.clientY };
       setIsPressing(true);
       timerRef.current = setTimeout(open, MOBILE_LONG_PRESS_DELAY);
     },
-    [cancel, open],
+    [cancel, enabled, open],
   );
 
   const onPointerMove = useCallback(

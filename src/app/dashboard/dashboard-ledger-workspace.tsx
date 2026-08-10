@@ -52,8 +52,7 @@ export function DashboardLedgerWorkspace({
           </div>
           <h1>Sổ giao dịch</h1>
           <p>
-            Theo dõi mọi khoản thu, chi và chuyển khoản trong một dòng thời gian
-            rõ ràng.
+            Theo dõi toàn bộ khoản thu, chi và chuyển khoản.
           </p>
         </div>
         <div

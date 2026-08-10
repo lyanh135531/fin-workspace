@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Button,
+  CategoryIcon,
   CategoryTreeSelect,
   Checkbox,
   ConfirmDelete as ConfirmDeletePopover,
@@ -84,7 +85,7 @@ type LedgerItem = {
   toWallet: string | null;
   categoryId: string | null;
   wallet: string;
-  category: { name: string; color: string } | null;
+  category: { name: string; color: string; icon: string | null } | null;
   member: string;
   canRequestDelete: boolean;
   hasPendingChange: boolean;
@@ -100,10 +101,38 @@ type TransactionDraft = {
   amount: string;
 };
 const typeOptions = [
-  { value: "expense", label: "Chi tiêu" },
-  { value: "income", label: "Thu nhập" },
-  { value: "transfer", label: "Chuyển khoản" },
-];
+  { value: "expense", label: "Chi tiêu", icon: ArrowUpRight },
+  { value: "income", label: "Thu nhập", icon: ArrowDownLeft },
+  { value: "transfer", label: "Chuyển khoản", icon: ArrowLeftRight },
+] satisfies {
+  value: TransactionType;
+  label: string;
+  icon: typeof ArrowUpRight;
+}[];
+
+function TransactionTypeLabel({
+  type,
+  variant,
+}: {
+  type: TransactionType;
+  variant: "badge" | "option";
+}) {
+  const option = typeOptions.find((item) => item.value === type);
+  if (!option) {
+    throw new Error(`Không tìm thấy cấu hình hiển thị cho loại giao dịch: ${type}`);
+  }
+  const Icon = option.icon;
+  return (
+    <span
+      className={`ledger-transaction-type ledger-transaction-type-${variant} type-${type}`}
+    >
+      <span className="ledger-transaction-type-icon" aria-hidden>
+        <Icon size={14} strokeWidth={2} />
+      </span>
+      <span>{option.label}</span>
+    </span>
+  );
+}
 const transactionTypeTabs = [
   { value: "expense", label: "Chi tiêu", icon: ArrowUpRight },
   { value: "income", label: "Thu nhập", icon: ArrowDownLeft },
@@ -196,9 +225,12 @@ function MobileTransactionRow({
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [mobileDeleteReason, setMobileDeleteReason] = useState("");
-  const { isPressing, handlers } = useLongPress(() => {
-    if (!selectionMode) setMenuOpen(true);
-  });
+  const longPressEnabled =
+    !selectionMode && !menuOpen && !deleteConfirmOpen;
+  const { isPressing, handlers } = useLongPress(
+    () => setMenuOpen(true),
+    longPressEnabled,
+  );
   const actions = getMobileLedgerActions({
     canApprove,
     canEdit: canEditTransactions,
@@ -262,12 +294,21 @@ function MobileTransactionRow({
         }
       >
         <div className="ledger-mobile-row-category">
-          <span
-            className="ledger-mobile-row-dot"
-            style={{ background: item.category?.color ?? "var(--text-muted)" }}
-            aria-hidden="true"
+          <CategoryIcon
+            category={
+              item.category ?? {
+                color: "var(--text-muted)",
+                icon: "tag",
+              }
+            }
+            size={14}
+            className="ledger-mobile-row-category-icon"
           />
-          <strong>{categoryName}</strong>
+          <strong
+            style={{ color: item.category?.color ?? "var(--text-muted)" }}
+          >
+            {categoryName}
+          </strong>
         </div>
         <b
           className={`ledger-mobile-row-amount amount-${item.type}`}
@@ -488,13 +529,11 @@ export function Ledger({
   const [editDrafts, setEditDrafts] = useState<
     Record<string, TransactionDraft>
   >({});
-  const [editReason, setEditReason] = useState("");
   const [mobileEditTarget, setMobileEditTarget] = useState<LedgerItem | null>(
     null,
   );
   const [mobileEditDraft, setMobileEditDraft] =
     useState<TransactionDraft | null>(null);
-  const [mobileEditReason, setMobileEditReason] = useState("");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [scheduledExpanded, setScheduledExpanded] = useState(false);
@@ -554,7 +593,6 @@ export function Ledger({
       if (desktop) {
         setMobileEditTarget(null);
         setMobileEditDraft(null);
-        setMobileEditReason("");
       }
     };
     updateViewport();
@@ -681,7 +719,6 @@ export function Ledger({
   function beginCreate() {
     setMobileEditTarget(null);
     setMobileEditDraft(null);
-    setMobileEditReason("");
     setEditMode(false);
     setEditDrafts({});
     setCreateDraft(newTransactionDraft(wallets, categories, businessDate));
@@ -710,7 +747,6 @@ export function Ledger({
   function beginEdit(transactionId?: string) {
     setMobileEditTarget(null);
     setMobileEditDraft(null);
-    setMobileEditReason("");
     setCreateDraft(null);
     const editableTransactions = transactionId
       ? transactions.filter((item) => item.id === transactionId)
@@ -724,26 +760,22 @@ export function Ledger({
       ),
     );
     setEditTargetId(transactionId ?? null);
-    setEditReason("");
     setEditMode(true);
   }
   function cancelEdit() {
     setEditMode(false);
     setEditTargetId(null);
     setEditDrafts({});
-    setEditReason("");
   }
   function beginMobileEdit(item: LedgerItem) {
     setCreateDraft(null);
     setMobileEditTarget(item);
     setMobileEditDraft(draftFromTransaction(item, wallets));
-    setMobileEditReason("");
   }
   function cancelMobileEdit() {
     if (busy) return;
     setMobileEditTarget(null);
     setMobileEditDraft(null);
-    setMobileEditReason("");
   }
   function updateDraft(id: string, patch: Partial<TransactionDraft>) {
     setEditDrafts((current) => ({
@@ -764,11 +796,7 @@ export function Ledger({
       return;
     }
     start(async () => {
-      const result = await updateTransactionsAction(
-        workspaceId,
-        changes,
-        editReason,
-      );
+      const result = await updateTransactionsAction(workspaceId, changes);
       if (result.ok) {
         toast.success(
           result.requested
@@ -792,12 +820,10 @@ export function Ledger({
 
     const target = mobileEditTarget;
     const draft = mobileEditDraft;
-    const reason = mobileEditReason;
     start(async () => {
       const result = await updateTransactionsAction(
         workspaceId,
         [{ transactionId: target.id, input: transactionInput(draft) }],
-        reason,
       );
       if (result.ok) {
         toast.success(
@@ -811,7 +837,6 @@ export function Ledger({
       if (result.ok || (result.updated ?? 0) + (result.requested ?? 0) > 0) {
         setMobileEditTarget(null);
         setMobileEditDraft(null);
-        setMobileEditReason("");
       }
     });
   }
@@ -882,22 +907,7 @@ export function Ledger({
           </p>
         </td>
         <td className="ledger-type-column">
-          {typeOptions.find((option) => option.value === item.type)?.label}
-        </td>
-        <td className="ledger-category-column">
-          {item.category ? (
-            <span
-              className="category-tag"
-              style={{
-                backgroundColor: `${item.category.color}22`,
-                color: item.category.color,
-              }}
-            >
-              {item.category.name}
-            </span>
-          ) : (
-            "—"
-          )}
+          <TransactionTypeLabel type={item.type} variant="badge" />
         </td>
         <td className="ledger-wallet-column">
           {item.wallet}
@@ -908,6 +918,26 @@ export function Ledger({
           ) : null}
         </td>
         <td className="ledger-date-column">{formatLedgerDate(item.date)}</td>
+        <td className="ledger-category-column">
+          {item.category ? (
+            <span
+              className="category-tag"
+              style={{
+                backgroundColor: `${item.category.color}22`,
+                color: item.category.color,
+              }}
+            >
+              <CategoryIcon
+                category={item.category}
+                size={13}
+                className="ledger-category-icon"
+              />
+              {item.category.name}
+            </span>
+          ) : (
+            "—"
+          )}
+        </td>
         <td
           className={`ledger-amount ledger-amount-column amount-${item.type}`}
         >
@@ -1085,20 +1115,6 @@ export function Ledger({
           />
         )}
       </div>
-      {editMode && !isAdmin && (
-        <div className="ledger-edit-reason-bar">
-          <Input
-            label="Lý do chỉnh sửa"
-            wrapperClassName="w-full max-w-[28rem]"
-            value={editReason}
-            onChange={(event) => setEditReason(event.target.value)}
-            placeholder="Mặc định: Đã thông báo"
-            maxLength={2000}
-          />
-          <span>Áp dụng cho các hàng đã thay đổi.</span>
-        </div>
-      )}
-
       {createDraft && (
         <div className="ledger-mobile-create-draft">
           <MobileTransactionDraft
@@ -1197,9 +1213,9 @@ export function Ledger({
             {canApprove && <col className="ledger-selection-column" />}
             <col className="ledger-description-column" />
             <col className="ledger-type-column" />
-            <col className="ledger-category-column" />
             <col className="ledger-wallet-column" />
             <col className="ledger-date-column" />
+            <col className="ledger-category-column" />
             <col className="ledger-amount-column" />
             <col className="ledger-actions-column" />
           </colgroup>
@@ -1215,11 +1231,11 @@ export function Ledger({
                   />
                 </th>
               )}
-              <th className="ledger-description-column">Giao dịch</th>
+              <th className="ledger-description-column">Nội dung</th>
               <th className="ledger-type-column">Loại</th>
-              <th className="ledger-category-column">Danh mục</th>
               <th className="ledger-wallet-column">Ví</th>
               <th className="ledger-date-column">Ngày</th>
+              <th className="ledger-category-column">Danh mục</th>
               <th className="ledger-amount-column text-right">Số tiền</th>
               <th className="ledger-actions-column">Thao tác</th>
             </tr>
@@ -1321,19 +1337,6 @@ export function Ledger({
               categories={categories}
               busy={busy}
               disabled={!isAdmin && mobileEditTarget.hasPendingChange}
-              reasonField={
-                !isAdmin ? (
-                  <Input
-                    label="Lý do chỉnh sửa"
-                    value={mobileEditReason}
-                    onChange={(event) =>
-                      setMobileEditReason(event.target.value)
-                    }
-                    placeholder="Mặc định: Đã thông báo"
-                    maxLength={2000}
-                  />
-                ) : undefined
-              }
               onChange={(patch) =>
                 setMobileEditDraft((current) =>
                   current ? { ...current, ...patch } : current,
@@ -1433,7 +1436,6 @@ function EditDraftRow({
       {canApprove && <td aria-hidden="true" />}
       <td className="ledger-description-column">
         <Input
-          autoFocus={autoFocus}
           disabled={disabled || busy}
           className="ledger-cell-input"
           value={draft.description}
@@ -1460,24 +1462,16 @@ function EditDraftRow({
           }}
           ariaLabel="Loại giao dịch"
           options={typeOptions.map((option) => ({
-            ...option,
+            value: option.value,
+            label: option.label,
+            content: (
+              <TransactionTypeLabel type={option.value} variant="option" />
+            ),
+            selectedContent: (
+              <TransactionTypeLabel type={option.value} variant="badge" />
+            ),
             disabled: option.value === "transfer" && wallets.length < 2,
           }))}
-        />
-      </td>
-      <td className="ledger-category-column">
-        <CategoryTreeSelect
-          disabled={
-            disabled ||
-            busy ||
-            draft.type === "transfer" ||
-            !categoriesForTransactionType(categories, draft.type).length
-          }
-          value={draft.categoryId}
-          onValueChange={(categoryId) => onChange({ categoryId })}
-          ariaLabel="Danh mục"
-          categories={categoriesForTransactionType(categories, draft.type)}
-          emptyOption={{ value: "none", label: "Không chọn" }}
         />
       </td>
       <td className="ledger-wallet-column">
@@ -1524,8 +1518,24 @@ function EditDraftRow({
           onValueChange={(date) => onChange({ date })}
         />
       </td>
+      <td className="ledger-category-column">
+        <CategoryTreeSelect
+          disabled={
+            disabled ||
+            busy ||
+            draft.type === "transfer" ||
+            !categoriesForTransactionType(categories, draft.type).length
+          }
+          value={draft.categoryId}
+          onValueChange={(categoryId) => onChange({ categoryId })}
+          ariaLabel="Danh mục"
+          categories={categoriesForTransactionType(categories, draft.type)}
+          emptyOption={{ value: "none", label: "Không chọn" }}
+        />
+      </td>
       <td className="ledger-amount-column">
         <MoneyInput
+          autoFocus={autoFocus}
           disabled={disabled || busy}
           className="ledger-amount-input"
           value={draft.amount}
@@ -1601,7 +1611,6 @@ function MobileTransactionDraft({
   busy,
   disabled = false,
   progressiveDetails = false,
-  reasonField,
   onChange,
   onSave,
   onCancel,
@@ -1615,7 +1624,6 @@ function MobileTransactionDraft({
   busy: boolean;
   disabled?: boolean;
   progressiveDetails?: boolean;
-  reasonField?: React.ReactNode;
   onChange: (patch: Partial<TransactionDraft>) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -1801,7 +1809,6 @@ function MobileTransactionDraft({
             />
           </>
         )}
-        {reasonField}
       </div>
       <div className="ledger-mobile-draft-actions">
         <Button variant="outline" disabled={busy} onClick={onCancel}>
