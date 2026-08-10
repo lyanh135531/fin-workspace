@@ -1,6 +1,5 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { Palette } from "lucide-react";
 import { authOptions } from "@/auth";
 import { GeneralSettingsClient } from "@/app/dashboard/settings/general-settings-client";
 import { UserCategoryTemplateManagement } from "@/app/dashboard/settings/global-category-management";
@@ -16,20 +15,17 @@ export default async function GeneralSettingsPage() {
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
 
-  const activeCategoryCount = categories.filter((c) => c.status === "active").length;
-
   return (
     <div className="workspace-settings-page">
       <div className="workspace-settings-container">
-        {/* Page Header */}
         <PageHeader
           eyebrow="Cài đặt cá nhân"
           title="Giao diện & Danh mục mẫu"
           description="Tùy chỉnh phong cách giao diện và quản lý bộ danh mục mẫu cá nhân để import vào workspace."
+          className="max-sm:hidden"
         />
 
-        {/* Content sections */}
-        <div className="settings-sections-grid mt-6 space-y-6">
+        <div className="settings-sections-grid space-y-3 sm:mt-6 sm:space-y-6">
           <GeneralSettingsClient />
           <UserCategoryTemplateManagement
             categories={categories.map((category) => ({

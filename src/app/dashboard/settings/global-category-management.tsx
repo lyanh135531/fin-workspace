@@ -32,7 +32,7 @@ import {
   Utensils,
   Wrench,
 } from "lucide-react";
-import { type DragEvent, useState, useTransition } from "react";
+import { type DragEvent, useEffect, useState, useTransition } from "react";
 import {
   createTemplateCategoryAction,
   deleteTemplateCategoryAction,
@@ -186,7 +186,16 @@ export function UserCategoryTemplateManagement({
   const [draggedCategory, setDraggedCategory] =
     useState<DraggedCategory | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const [pending, start] = useTransition();
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 760px)");
+    const updateViewport = () => setIsMobile(mediaQuery.matches);
+    updateViewport();
+    mediaQuery.addEventListener("change", updateViewport);
+    return () => mediaQuery.removeEventListener("change", updateViewport);
+  }, []);
 
   function submit(form: FormData, categoryId?: string) {
     const category = {
@@ -313,9 +322,13 @@ export function UserCategoryTemplateManagement({
   }
 
   return (
-    <Card as="section" className="gap-0" aria-busy={pending}>
+    <Card
+      as="section"
+      className="gap-0 max-sm:p-4 max-sm:ring-0"
+      aria-busy={pending}
+    >
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
         <div className="flex items-center gap-2.5">
           <div className="w-8.5 h-8.5 rounded-lg grid place-items-center bg-[var(--surface-muted)] text-[var(--primary)] border border-[var(--border)]">
             <FolderTree size={18} />
@@ -331,6 +344,7 @@ export function UserCategoryTemplateManagement({
         <Button
           variant="default"
           size="default"
+          className="max-sm:h-9 max-sm:px-3 max-sm:text-xs"
           onClick={() => {
             setCreating(true);
             setEditing(null);
@@ -338,14 +352,15 @@ export function UserCategoryTemplateManagement({
           disabled={pending}
         >
           <Plus size={15} />
-          Thêm danh mục mẫu
+          <span className="max-sm:hidden">Thêm danh mục mẫu</span>
+          <span className="sm:hidden">Thêm</span>
         </Button>
       </div>
 
       {/* Info banner */}
 
       {/* Tabs: Chi tiêu & Thu nhập ONLY (No All, No Search) */}
-      <div className="flex items-center justify-between gap-3 py-4 border-b border-[var(--border)]">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] py-4">
         <Tabs
           value={filterType}
           onValueChange={(value) => {
@@ -353,11 +368,12 @@ export function UserCategoryTemplateManagement({
             setCreating(false);
             setEditing(null);
           }}
+          className="max-sm:w-full"
         >
-          <TabsList>
+          <TabsList className="max-sm:grid max-sm:w-full max-sm:grid-cols-2">
             <TabsTrigger
               value="expense"
-              className="data-active:text-red-600 dark:data-active:text-red-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              className="transition-colors data-active:text-red-600 hover:text-red-600 dark:data-active:text-red-400 dark:hover:text-red-400 max-sm:justify-center"
             >
               <ArrowUpRight size={14} strokeWidth={2.5} />
               <span>Chi tiêu</span>
@@ -367,7 +383,7 @@ export function UserCategoryTemplateManagement({
             </TabsTrigger>
             <TabsTrigger
               value="income"
-              className="data-active:text-emerald-600 dark:data-active:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+              className="transition-colors data-active:text-emerald-600 hover:text-emerald-600 dark:data-active:text-emerald-400 dark:hover:text-emerald-400 max-sm:justify-center"
             >
               <ArrowDownLeft size={14} strokeWidth={2.5} />
               <span>Thu nhập</span>
@@ -393,51 +409,66 @@ export function UserCategoryTemplateManagement({
         }}
       >
         <SheetContent
-          side="right"
-          className="sm:max-w-md w-full flex flex-col h-full p-0 bg-[var(--surface)] text-[var(--foreground)] border-l border-[var(--border)]"
+          side={isMobile ? "bottom" : "right"}
+          className={cn(
+            "general-category-sheet flex h-full w-full flex-col border-l border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--foreground)] sm:max-w-md",
+            isMobile && "quick-transaction-sheet",
+          )}
         >
-          <SheetHeader className="px-6 pt-6 pb-4 border-b border-[var(--border)]">
-            <SheetTitle>
-              {editing ? "Chỉnh sửa danh mục mẫu" : "Thêm danh mục mẫu"}
-            </SheetTitle>
-            <SheetDescription>
-              {editing
-                ? "Cập nhật thông tin chi tiết cho danh mục mẫu cá nhân này."
-                : "Tạo một danh mục mẫu mới để nhập vào các workspace khi cần thiết."}
-            </SheetDescription>
+          <SheetHeader
+            className={cn(
+              "border-b border-[var(--border)] px-4 pb-4 pt-5 sm:px-6 sm:pt-6",
+              isMobile && "quick-transaction-header",
+            )}
+          >
+            <div className={cn(isMobile && "quick-transaction-heading")}>
+              {isMobile && (
+                <span aria-hidden="true">
+                  <FolderTree size={18} />
+                </span>
+              )}
+              <div>
+                <SheetTitle>
+                  {editing ? "Chỉnh sửa danh mục mẫu" : "Thêm danh mục mẫu"}
+                </SheetTitle>
+                <SheetDescription>
+                  {editing
+                    ? "Cập nhật thông tin cho danh mục mẫu này."
+                    : "Tạo danh mục để dùng lại trong các workspace."}
+                </SheetDescription>
+              </div>
+            </div>
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-6">
-            <TemplateForm
-              key={editing ?? "create"}
-              defaultType={
-                editing
-                  ? (categories.find((c) => c.id === editing)?.type ??
-                    filterType)
-                  : filterType
-              }
-              categories={
-                editing
-                  ? categories.filter((item) => item.id !== editing)
-                  : categories
-              }
-              category={
-                editing ? categories.find((c) => c.id === editing) : undefined
-              }
-              pending={pending}
-              onCancel={() => {
-                setCreating(false);
-                setEditing(null);
-              }}
-              onSubmit={(form) => {
-                submit(form, editing ?? undefined);
-              }}
-            />
-          </div>
+          <TemplateForm
+            key={editing ?? "create"}
+            defaultType={
+              editing
+                ? (categories.find((c) => c.id === editing)?.type ?? filterType)
+                : filterType
+            }
+            categories={
+              editing
+                ? categories.filter((item) => item.id !== editing)
+                : categories
+            }
+            category={
+              editing ? categories.find((c) => c.id === editing) : undefined
+            }
+            pending={pending}
+            isMobile={isMobile}
+            onCancel={() => {
+              setCreating(false);
+              setEditing(null);
+            }}
+            onSubmit={(form) => {
+              submit(form, editing ?? undefined);
+            }}
+          />
         </SheetContent>
       </Sheet>
 
       {/* Category Tree List */}
-      <div>
+      <div className="max-sm:pt-1">
         {rootCategories.length === 0 ? (
           <Empty
             icon={Tag}
@@ -525,7 +556,7 @@ function Node({
         {/* Root row */}
         <div
           className={cn(
-            "group flex cursor-grab items-center justify-between gap-3 rounded-lg py-3 px-1 transition-[opacity,box-shadow] active:cursor-grabbing",
+            "group flex cursor-grab items-center justify-between gap-3 rounded-lg px-1 py-3 transition-[opacity,box-shadow] active:cursor-grabbing max-sm:cursor-default",
             draggedCategory?.id === category.id && "opacity-50",
             dropTargetId === category.id && "ring-2 ring-primary/60",
           )}
@@ -607,14 +638,14 @@ function Node({
           </div>
 
           {/* Right: Actions */}
-          <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+          <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100">
             <span
-              className="grid min-h-10 place-items-center px-1 text-[var(--text-muted)]"
+              className="grid min-h-10 place-items-center px-1 text-[var(--text-muted)] max-sm:hidden"
               title={`Kéo để sắp xếp ${category.name} cùng các danh mục con`}
             >
               <GripVertical size={17} />
             </span>
-            <div className="w-px h-4 bg-[var(--border)] mx-1" />
+            <div className="mx-1 h-4 w-px bg-[var(--border)] max-sm:hidden" />
             <Button
               variant="icon"
               size="auto"
@@ -688,7 +719,7 @@ function Node({
   return (
     <article
       className={cn(
-        "group relative flex cursor-grab items-center justify-between gap-3 rounded-xl py-2 pl-9 pr-1 transition-[background-color,opacity,box-shadow] active:cursor-grabbing",
+        "group relative flex cursor-grab items-center justify-between gap-3 rounded-xl py-2 pl-9 pr-1 transition-[background-color,opacity,box-shadow] active:cursor-grabbing max-sm:cursor-default",
         draggedCategory?.id === category.id && "opacity-50",
         dropTargetId === category.id && "ring-2 ring-primary/60",
       )}
@@ -761,14 +792,14 @@ function Node({
       </div>
 
       {/* Child actions — minimal */}
-      <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100">
         <span
-          className="grid min-h-10 place-items-center px-1 text-[var(--text-muted)]"
+          className="grid min-h-10 place-items-center px-1 text-[var(--text-muted)] max-sm:hidden"
           title={`Kéo để sắp xếp ${category.name} trong cùng danh mục cha`}
         >
           <GripVertical size={17} />
         </span>
-        <div className="w-px h-4 bg-[var(--border)] mx-1" />
+        <div className="mx-1 h-4 w-px bg-[var(--border)] max-sm:hidden" />
         <Button
           variant="icon"
           size="auto"
@@ -815,6 +846,7 @@ function TemplateForm({
   categories,
   category,
   pending,
+  isMobile,
   onCancel,
   onSubmit,
 }: {
@@ -822,6 +854,7 @@ function TemplateForm({
   categories: Category[];
   category?: Category;
   pending: boolean;
+  isMobile: boolean;
   onCancel: () => void;
   onSubmit: (form: FormData) => void;
 }) {
@@ -846,11 +879,19 @@ function TemplateForm({
         e.preventDefault();
         onSubmit(new FormData(e.currentTarget));
       }}
-      className="space-y-5 py-4 flex flex-col h-full bg-transparent border-0 shadow-none mt-0"
+      className={cn(
+        "mt-0 flex min-h-0 flex-1 flex-col overflow-hidden border-0 bg-transparent shadow-none",
+        isMobile && "quick-transaction-form",
+      )}
     >
       <input type="hidden" name="type" value={category?.type ?? defaultType} />
 
-      <div className="flex flex-col gap-4">
+      <div
+        className={cn(
+          "flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6",
+          isMobile && "quick-transaction-scroll",
+        )}
+      >
         {/* Name Input */}
         <div>
           <Input
@@ -958,16 +999,26 @@ function TemplateForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-4 border-t mt-auto">
+      <div
+        className={cn(
+          "mt-auto flex justify-end gap-2 border-t px-4 py-3 sm:px-6",
+          isMobile && "quick-transaction-footer",
+        )}
+      >
         <Button
           type="button"
           variant="outline"
-          className="hover:text-current"
+          className="hover:text-current max-sm:hidden"
           onClick={onCancel}
         >
           Hủy bỏ
         </Button>
-        <Button type="submit" variant="default" disabled={pending}>
+        <Button
+          type="submit"
+          variant="default"
+          disabled={pending}
+          className={cn(isMobile && "quick-submit flex-1")}
+        >
           {pending ? <Loading label="Đang xử lý..." /> : "Lưu danh mục"}
         </Button>
       </div>

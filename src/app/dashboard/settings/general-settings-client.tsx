@@ -109,7 +109,10 @@ export function GeneralSettingsClient() {
   }
 
   return (
-    <Card as="section" className="gap-0 relative overflow-hidden">
+    <Card
+      as="section"
+      className="relative gap-0 overflow-hidden max-sm:p-4 max-sm:ring-0"
+    >
       {/* Accent background glow */}
       <div
         className="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-20 transition-all duration-500"
@@ -119,7 +122,7 @@ export function GeneralSettingsClient() {
         }}
       />
 
-      <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4 max-sm:items-start">
         <div className="flex items-center gap-2.5">
           <div className="w-8.5 h-8.5 rounded-lg grid place-items-center bg-[var(--surface-muted)] text-[var(--primary)] border border-[var(--border)]">
             <Palette size={18} />
@@ -136,18 +139,22 @@ export function GeneralSettingsClient() {
         </div>
 
         {/* Mode Segmented Switcher */}
-        <Tabs value={mode} onValueChange={(value) => selectMode(value as Mode)}>
-          <TabsList className="bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-xl">
+        <Tabs
+          value={mode}
+          onValueChange={(value) => selectMode(value as Mode)}
+          className="max-sm:w-full"
+        >
+          <TabsList className="rounded-xl bg-slate-100/80 p-1 dark:bg-slate-800/80 max-sm:grid max-sm:w-full max-sm:grid-cols-2">
             <TabsTrigger
               value="light"
-              className="data-active:bg-white dark:data-active:bg-slate-700 data-active:shadow-sm hover:text-[var(--primary)] rounded-lg transition-all"
+              className="rounded-lg transition-all data-active:bg-white data-active:shadow-sm hover:text-[var(--primary)] dark:data-active:bg-slate-700 max-sm:justify-center"
             >
               <Sun className="h-4 w-4 mr-1.5" />
               <span className="text-xs font-medium">Sáng</span>
             </TabsTrigger>
             <TabsTrigger
               value="dark"
-              className="data-active:bg-white dark:data-active:bg-slate-700 data-active:shadow-sm hover:text-[var(--primary)] rounded-lg transition-all"
+              className="rounded-lg transition-all data-active:bg-white data-active:shadow-sm hover:text-[var(--primary)] dark:data-active:bg-slate-700 max-sm:justify-center"
             >
               <Moon className="h-4 w-4 mr-1.5" />
               <span className="text-xs font-medium">Tối</span>
@@ -156,14 +163,76 @@ export function GeneralSettingsClient() {
         </Tabs>
       </header>
 
-      <p className="text-xs text-[var(--text-muted)] mt-3.5 leading-relaxed">
+      <p className="mt-3.5 text-xs leading-relaxed text-[var(--text-muted)] max-sm:hidden">
         Chọn chủ đề màu phù hợp với sở thích của bạn. Cài đặt này được đồng bộ
         tức thì trên trình duyệt thiết bị này.
       </p>
 
-      {/* Modern High-End Theme Cards Grid */}
       <div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 mt-5"
+        className="mt-3 grid gap-1 sm:hidden"
+        role="radiogroup"
+        aria-label="Chọn chủ đề màu"
+      >
+        {themes.map((item) => {
+          const isSelected = theme === item.value;
+          return (
+            <Button
+              key={item.value}
+              variant="unstyled"
+              size="auto"
+              type="button"
+              role="radio"
+              aria-checked={isSelected}
+              className={cn(
+                "flex min-h-16 w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors",
+                isSelected
+                  ? "bg-[var(--surface-muted)]"
+                  : "hover:bg-[var(--surface-muted)]/60",
+              )}
+              onClick={() => selectTheme(item.value)}
+            >
+              <span
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
+                style={{ background: item.previewBg }}
+              >
+                <span className="flex -space-x-1">
+                  {item.swatches.map((color) => (
+                    <span
+                      key={color}
+                      className="h-3.5 w-3.5 rounded-full border-2 border-[var(--surface)]"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </span>
+              </span>
+              <span className="min-w-0 flex-1">
+                <strong className="block truncate text-sm font-semibold text-[var(--foreground)]">
+                  {item.label}
+                </strong>
+                <small className="mt-0.5 block truncate text-[11px] text-[var(--text-muted)]">
+                  {item.description}
+                </small>
+              </span>
+              <span
+                className={cn(
+                  "grid h-5 w-5 shrink-0 place-items-center rounded-full border",
+                  isSelected
+                    ? "border-transparent text-white"
+                    : "border-[var(--border)] text-transparent",
+                )}
+                style={{
+                  backgroundColor: isSelected ? item.primaryColor : undefined,
+                }}
+              >
+                <Check size={11} strokeWidth={3.5} />
+              </span>
+            </Button>
+          );
+        })}
+      </div>
+
+      <div
+        className="mt-5 hidden grid-cols-1 gap-3.5 sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
         role="radiogroup"
         aria-label="Chọn chủ đề màu"
       >

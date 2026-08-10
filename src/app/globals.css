@@ -12460,6 +12460,18 @@ html[data-sidebar-collapsed="true"]
 }
 
 @media (max-width: 760px) {
+  .workspace-settings-page:has(.settings-sections-grid) {
+    min-height: 100%;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    background: var(--background);
+  }
+
+  .workspace-settings-page:has(.settings-sections-grid)
+    .settings-sections-grid
+    > [data-slot="card"] {
+    border-block: 1px solid var(--border);
+  }
+
   .dashboard-content {
     padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
   }

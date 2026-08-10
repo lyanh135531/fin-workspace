@@ -23,12 +23,12 @@ export function PageHeader({
       className={cn(
         "page-header flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 mb-6",
         border && "border-b border-slate-100 dark:border-slate-800",
-        className
+        className,
       )}
     >
       <div className="space-y-1.5 max-w-2xl">
         {eyebrow && (
-          <span className="inline-flex items-center rounded-full bg-indigo-50 dark:bg-indigo-950/30 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+          <span className="inline-flex items-center rounded-full bg-indigo-50 dark:bg-indigo-950/30 py-0.5 text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
             {eyebrow}
           </span>
         )}
