@@ -10024,13 +10024,6 @@ html[data-sidebar-collapsed="true"] .sidebar-user-avatar {
   font-weight: 650;
 }
 
-.recurring-schedule-section {
-  padding: 0.9rem;
-  border: 1px solid color-mix(in srgb, var(--primary) 11%, var(--border));
-  border-radius: 0.8rem;
-  background: color-mix(in srgb, var(--primary) 3%, var(--surface));
-}
-
 .recurring-editor-footer {
   margin-top: 0.05rem;
   padding-top: 0.9rem;
@@ -11010,6 +11003,27 @@ th {
   flex-shrink: 0;
 }
 
+.account-settings-sheet-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.account-settings-sheet-heading > span {
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.36rem;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.account-settings-sheet-heading > div {
+  min-width: 0;
+}
+
 .account-settings-sheet-header [data-slot="sheet-title"] {
   font-size: 1rem;
   font-weight: 700;
@@ -11022,6 +11036,43 @@ th {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 1.25rem;
+}
+
+.account-settings-sheet-header [data-slot="sheet-description"] {
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 760px) {
+  .account-settings-sheet {
+    right: auto !important;
+    bottom: 0.5rem !important;
+    left: 50% !important;
+    box-sizing: border-box;
+    width: min(36rem, calc(100vw - 1rem)) !important;
+    max-width: none !important;
+    max-height: calc(100vh - 1rem) !important;
+    max-height: calc(100svh - 1rem) !important;
+    transform: translateX(-50%);
+    gap: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 0.85rem;
+    box-shadow: 0 -20px 60px color-mix(in srgb, var(--shadow) 90%, transparent);
+  }
+
+  .account-settings-sheet-header {
+    padding: 0.85rem 3rem 0.75rem 0.85rem !important;
+  }
+
+  .account-settings-sheet-body {
+    min-height: 0;
+    padding: 1rem;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 .account-settings-sheet ~ [data-slot="sheet-overlay"],

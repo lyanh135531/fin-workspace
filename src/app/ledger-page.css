@@ -8,6 +8,141 @@
   overflow: hidden;
 }
 
+.ledger-skeleton-book {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.ledger-skeleton-balance {
+  display: grid;
+  justify-items: end;
+  gap: 0.5rem;
+}
+
+.ledger-skeleton-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.55rem;
+  border-bottom: 1px solid var(--border);
+  padding: 0.55rem 0.75rem;
+}
+
+.ledger-skeleton-search {
+  width: min(19rem, 28vw);
+  height: 2.5rem;
+}
+
+.ledger-skeleton-filter {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.ledger-skeleton-desktop-table {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.ledger-skeleton-desktop-head,
+.ledger-skeleton-desktop-row {
+  display: grid;
+  min-width: 91rem;
+  grid-template-columns: 2.75rem 12rem 10rem 8rem 12rem 12rem 11rem 8rem;
+  align-items: center;
+}
+
+.ledger-skeleton-desktop-head {
+  height: 2.9rem;
+  border-bottom: 1px solid var(--border);
+  padding-inline: 1rem;
+}
+
+.ledger-skeleton-desktop-row {
+  height: 4.25rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  padding-inline: 1rem;
+}
+
+.ledger-skeleton-mobile-list {
+  display: none;
+}
+
+.ledger-skeleton-footer {
+  display: flex;
+  min-height: 2.4rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding: 0.4rem 0.75rem;
+}
+
+@media (max-width: 1023px) {
+  .ledger-skeleton-desktop-table {
+    display: none;
+  }
+
+  .ledger-skeleton-mobile-list {
+    display: block;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .ledger-skeleton-search {
+    min-width: 0;
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  .ledger-skeleton-date-heading {
+    display: flex;
+    min-height: 2.25rem;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-secondary);
+    padding: 0.35rem 0.75rem;
+  }
+
+  .ledger-skeleton-mobile-row {
+    display: grid;
+    min-height: 3.25rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    padding: 0.65rem 0.75rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .ledger-skeleton-toolbar {
+    gap: 0.35rem;
+    padding: 0.35rem 0.5rem;
+  }
+
+  .ledger-skeleton-search,
+  .ledger-skeleton-filter {
+    height: 2.15rem;
+  }
+
+  .ledger-skeleton-filter {
+    width: 2.15rem;
+    flex: 0 0 2.15rem;
+  }
+
+  .ledger-skeleton-footer {
+    min-height: 2.9rem;
+    padding: 0.4rem 0.55rem;
+  }
+}
+
 .ledger-page-hero {
   position: relative;
   display: grid;

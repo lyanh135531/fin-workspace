@@ -13,6 +13,7 @@ import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
+import { AccountSettingsModal } from "@/app/dashboard/account-settings-modal";
 import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
 import { FinLogo } from "@/components/fin-logo";
 
@@ -41,9 +42,11 @@ function MobileNavigationDrawer({
   role,
 }: MobileNavigationProps) {
   const [open, setOpen] = useState(false);
+  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <>
+      <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
           <Button variant="unstyled" size="auto"
@@ -81,9 +84,24 @@ function MobileNavigationDrawer({
         </div>
 
         <div className="mobile-navigation-user">
-          <SidebarUserMenu username={username} role={role} forceExpanded />
+          <SidebarUserMenu
+            username={username}
+            role={role}
+            forceExpanded
+            onOpenAccountSettings={() => {
+              setOpen(false);
+              setAccountSettingsOpen(true);
+            }}
+          />
         </div>
       </SheetContent>
-    </Sheet>
+      </Sheet>
+
+      <AccountSettingsModal
+        open={accountSettingsOpen}
+        onClose={() => setAccountSettingsOpen(false)}
+        username={username}
+      />
+    </>
   );
 }

@@ -18,9 +18,15 @@ type Props = {
   username: string;
   role: "admin" | "member" | "none";
   forceExpanded?: boolean;
+  onOpenAccountSettings?: () => void;
 };
 
-export function SidebarUserMenu({ username, role, forceExpanded = false }: Props) {
+export function SidebarUserMenu({
+  username,
+  role,
+  forceExpanded = false,
+  onOpenAccountSettings,
+}: Props) {
   const [pending, start] = useTransition();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
@@ -64,7 +70,8 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
       className="sidebar-user-popover-link"
       onClick={() => {
         setPopoverOpen(false);
-        setAccountModalOpen(true);
+        if (onOpenAccountSettings) onOpenAccountSettings();
+        else setAccountModalOpen(true);
       }}
     >
       <User size={14} strokeWidth={2} />
@@ -128,11 +135,13 @@ export function SidebarUserMenu({ username, role, forceExpanded = false }: Props
         </PopoverContent>
       </Popover>
 
-      <AccountSettingsModal
-        open={accountModalOpen}
-        onClose={() => setAccountModalOpen(false)}
-        username={username}
-      />
+      {!onOpenAccountSettings && (
+        <AccountSettingsModal
+          open={accountModalOpen}
+          onClose={() => setAccountModalOpen(false)}
+          username={username}
+        />
+      )}
     </div>
   );
 }
