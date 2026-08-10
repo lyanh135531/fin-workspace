@@ -663,10 +663,6 @@ function MobileTransactionRow({
               Ghi nhận sớm
             </DropdownMenuItem>
           )}
-          {(actions.includes("edit") || actions.includes("delete")) &&
-            actions.some((action) =>
-              ["select", "approve", "reject", "approve-early"].includes(action),
-            ) && <DropdownMenuSeparator />}
           {actions.includes("edit") && (
             <DropdownMenuItem onClick={() => run(onEdit)} disabled={busy}>
               <Pencil aria-hidden="true" />
@@ -674,17 +670,22 @@ function MobileTransactionRow({
             </DropdownMenuItem>
           )}
           {actions.includes("delete") && (
-            <DropdownMenuItem
-              className="ledger-mobile-context-delete"
-              disabled={busy}
-              onClick={() => {
-                setMenuOpen(false);
-                setDeleteConfirmOpen(true);
-              }}
-            >
-              <Trash2 aria-hidden="true" />
-              Xóa giao dịch
-            </DropdownMenuItem>
+            <>
+              {actions.some((action) => action !== "delete") && (
+                <DropdownMenuSeparator />
+              )}
+              <DropdownMenuItem
+                className="ledger-mobile-context-delete"
+                disabled={busy}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setDeleteConfirmOpen(true);
+                }}
+              >
+                <Trash2 aria-hidden="true" />
+                Xóa giao dịch
+              </DropdownMenuItem>
+            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>

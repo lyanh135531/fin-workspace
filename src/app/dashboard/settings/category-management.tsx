@@ -5,12 +5,21 @@ import {
   ArrowUpRight,
   Eye,
   EyeOff,
+  FolderTree,
   GripVertical,
   Pencil,
   Plus,
   Tag,
+  Trash2,
 } from "lucide-react";
-import { type DragEvent, useState, useTransition } from "react";
+import {
+  type DragEvent,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useState,
+  useTransition,
+} from "react";
 import {
   createCategoryAction,
   deleteCategoryAction,
@@ -33,6 +42,7 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
   Tabs,
@@ -41,7 +51,24 @@ import {
   TabsTrigger,
 } from "@/components/base";
 import { cn } from "@/lib/utils";
-import { ConfirmDelete } from "@/components/base/confirm-delete";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { toast } from "sonner";
 
@@ -124,7 +151,16 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   const [draggedCategory, setDraggedCategory] =
     useState<DraggedCategory | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const [pending, start] = useTransition();
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 760px)");
+    const updateViewport = () => setIsMobile(mediaQuery.matches);
+    updateViewport();
+    mediaQuery.addEventListener("change", updateViewport);
+    return () => mediaQuery.removeEventListener("change", updateViewport);
+  }, []);
 
   function submit(form: FormData, id?: string) {
     const category = {
@@ -253,18 +289,27 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   }
 
   return (
-    <Card as="section" className="gap-0" aria-busy={pending}>
+    <Card
+      as="section"
+      className="workspace-category-section gap-0"
+      aria-busy={pending}
+    >
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[var(--border)]">
-        <div>
+      <div className="flex items-center justify-between gap-3 pb-4 border-b border-[var(--border)]">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="settings-section-icon shrink-0">
+            <FolderTree size={18} />
+          </span>
+          <div className="min-w-0">
           <p className="settings-eyebrow">Danh mục workspace</p>
           <h2 className="mt-0.5 text-base font-bold tracking-tight">
-            Quản lý danh mục workspace
+            Quản lý danh mục
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             Danh mục thuộc workspace này. Bạn có thể tạo mới hoặc import từ danh
             mục mẫu cá nhân.
           </p>
+          </div>
         </div>
         <Button
           variant="default"
@@ -273,9 +318,11 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             setEditing(null);
           }}
           disabled={pending}
+          className="max-md:h-9 max-md:px-3 max-md:text-xs"
         >
           <Plus size={15} />
-          Thêm danh mục
+          <span className="max-md:hidden">Thêm danh mục</span>
+          <span className="md:hidden">Thêm</span>
         </Button>
       </div>
 
@@ -328,43 +375,41 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         }}
       >
         <SheetContent
-          side="right"
-          className="sm:max-w-md w-full flex flex-col h-full p-0 bg-[var(--surface)] text-[var(--foreground)] border-l border-[var(--border)]"
+          side={isMobile ? "bottom" : "right"}
+          className={cn(
+            "workspace-category-editor-sheet sm:max-w-md w-full flex flex-col h-full p-0 bg-[var(--surface)] text-[var(--foreground)] border-l border-[var(--border)]",
+            isMobile && "quick-transaction-sheet",
+          )}
         >
-          <SheetHeader className="px-6 pt-6 pb-4 border-b border-[var(--border)]">
-            <SheetTitle>
-              {editingCategory
-                ? "Chỉnh sửa danh mục workspace"
-                : `Thêm danh mục ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`}
-            </SheetTitle>
-            <SheetDescription>
-              {editingCategory
-                ? `Cập nhật thông tin cho “${editingCategory.name}”.`
-                : "Tạo danh mục mới chỉ dùng trong workspace hiện tại."}
-            </SheetDescription>
+          <SheetHeader className={cn("px-6 pt-6 pb-4 border-b border-[var(--border)]", isMobile && "quick-transaction-header")}>
+            <div className={cn(isMobile && "quick-transaction-heading")}>
+              {isMobile && <span aria-hidden="true"><FolderTree size={18} /></span>}
+              <div>
+                <SheetTitle>
+                  {editingCategory
+                    ? "Chỉnh sửa danh mục"
+                    : `Thêm danh mục ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`}
+                </SheetTitle>
+                <SheetDescription>
+                  {editingCategory
+                    ? `Cập nhật thông tin cho “${editingCategory.name}”.`
+                    : "Tạo danh mục mới trong workspace này."}
+                </SheetDescription>
+              </div>
+            </div>
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-6">
-            {(creating || editingCategory) && (
-              <CategoryForm
-                key={editingCategory?.id ?? `create-${filterType}`}
-                defaultType={editingCategory?.type ?? filterType}
-                categories={
-                  editingCategory
-                    ? categories.filter(
-                        (item) => item.id !== editingCategory.id,
-                      )
-                    : categories
-                }
-                category={editingCategory}
-                pending={pending}
-                onCancel={() => {
-                  setCreating(false);
-                  setEditing(null);
-                }}
-                onSubmit={(form) => submit(form, editingCategory?.id)}
-              />
-            )}
-          </div>
+          {(creating || editingCategory) && (
+            <CategoryForm
+              key={editingCategory?.id ?? `create-${filterType}`}
+              defaultType={editingCategory?.type ?? filterType}
+              categories={editingCategory ? categories.filter((item) => item.id !== editingCategory.id) : categories}
+              category={editingCategory}
+              pending={pending}
+              isMobile={isMobile}
+              onCancel={() => { setCreating(false); setEditing(null); }}
+              onSubmit={(form) => submit(form, editingCategory?.id)}
+            />
+          )}
         </SheetContent>
       </Sheet>
 
@@ -378,6 +423,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             index={index}
             totalRoots={rootCategories.length}
             pending={pending}
+            isMobile={isMobile}
             draggedCategory={draggedCategory}
             dropTargetId={dropTargetId}
             onEdit={setEditing}
@@ -404,12 +450,139 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   );
 }
 
+function WorkspaceCategoryActionsMenu({
+  category,
+  pending,
+  isMobile,
+  trigger,
+  children,
+  onEdit,
+  onStatus,
+  onDelete,
+}: {
+  category: Category;
+  pending: boolean;
+  isMobile: boolean;
+  trigger: ReactElement;
+  children: ReactNode;
+  onEdit: (id: string) => void;
+  onStatus: (id: string, status: "active" | "deactive") => void;
+  onDelete: (id: string) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const isActive = category.status === "active";
+
+  function run(action: () => void) {
+    setMenuOpen(false);
+    action();
+  }
+
+  const deleteAction = () => {
+    setDeleteConfirmOpen(false);
+    onDelete(category.id);
+  };
+
+  return (
+    <>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger nativeButton={false} render={trigger}>
+          {children}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          side="bottom"
+          sideOffset={4}
+          className="!w-52 p-1.5 [&_[data-slot=dropdown-menu-item]]:min-h-10 [&_[data-slot=dropdown-menu-item]]:gap-2 [&_[data-slot=dropdown-menu-item]]:px-2.5"
+        >
+          <DropdownMenuItem disabled={pending} onClick={() => run(() => onEdit(category.id))}>
+            <Pencil aria-hidden="true" />
+            Chỉnh sửa
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={pending}
+            onClick={() => run(() => onStatus(category.id, isActive ? "deactive" : "active"))}
+          >
+            {isActive ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+            {isActive ? "Tắt danh mục" : "Bật danh mục"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={pending}
+            onClick={() => { setMenuOpen(false); setDeleteConfirmOpen(true); }}
+          >
+            <Trash2 aria-hidden="true" />
+            Xóa danh mục
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {isMobile ? (
+        <Sheet open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <SheetContent side="bottom" className="ledger-mobile-review-sheet pending-delete">
+            <SheetHeader className="ledger-mobile-review-header">
+              <div className="ledger-mobile-review-heading">
+                <span aria-hidden="true"><Trash2 size={18} /></span>
+                <div>
+                  <SheetTitle>Xóa danh mục?</SheetTitle>
+                  <SheetDescription>Hành động này không thể hoàn tác.</SheetDescription>
+                </div>
+              </div>
+            </SheetHeader>
+            <div className="ledger-mobile-review-body">
+              <div className="ledger-mobile-review-transaction">
+                <div>
+                  <span>{category.name}</span>
+                  <small>{category.transactionCount} giao dịch</small>
+                </div>
+                <strong style={{ color: category.color }}>
+                  {category.type === "expense" ? "Chi tiêu" : "Thu nhập"}
+                </strong>
+              </div>
+            </div>
+            <SheetFooter className="ledger-mobile-review-actions">
+              <Button variant="outline" className="ledger-mobile-review-reject" data-delete disabled={pending} onClick={() => setDeleteConfirmOpen(false)}>
+                Hủy
+              </Button>
+              <Button variant="outline" className="ledger-mobile-review-approve" data-delete disabled={pending} onClick={deleteAction}>
+                <Trash2 size={16} />
+                Xóa danh mục
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogMedia className="bg-rose-500/10 text-rose-500"><Trash2 /></AlertDialogMedia>
+              <AlertDialogTitle>Xóa danh mục?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Danh mục “{category.name}” sẽ bị xóa và không thể khôi phục.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={pending}>Hủy</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" disabled={pending} onClick={deleteAction}>
+                <Trash2 />
+                Xóa danh mục
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </>
+  );
+}
+
 function CategoryNode({
   category,
   categories,
   index,
   totalRoots,
   pending,
+  isMobile,
   draggedCategory,
   dropTargetId,
   onEdit,
@@ -425,6 +598,7 @@ function CategoryNode({
   index: number;
   totalRoots: number;
   pending: boolean;
+  isMobile: boolean;
   draggedCategory: DraggedCategory | null;
   dropTargetId: string | null;
   onEdit: (id: string) => void;
@@ -444,41 +618,42 @@ function CategoryNode({
   if (!isChild) {
     return (
       <div className="rounded-xl bg-[var(--surface)] transition-all duration-200">
-        <div
-          className={cn(
-            "group flex cursor-grab items-center justify-between gap-3 rounded-lg py-3 px-1 transition-[opacity,box-shadow] active:cursor-grabbing",
-            draggedCategory?.id === category.id && "opacity-50",
-            dropTargetId === category.id && "ring-2 ring-primary/60",
-          )}
-          draggable={!pending}
-          onDragStart={(event) => {
-            event.stopPropagation();
-            event.dataTransfer.effectAllowed = "move";
-            event.dataTransfer.setData("text/plain", category.id);
-            onDragStart({ id: category.id, parentId: null });
-          }}
-          onDragEnd={(event) => {
-            event.stopPropagation();
-            onDragEnd();
-          }}
-          onDragOver={(event) => {
-            event.stopPropagation();
-            if (
-              draggedCategory?.parentId !== null ||
-              draggedCategory.id === category.id
-            )
-              return;
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-            onDragOver(category.id);
-          }}
-          onDragLeave={(event) => {
-            event.stopPropagation();
-            if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-              onDragOver(null);
-            }
-          }}
-          onDrop={(event) => onDrop(event, category)}
+        <WorkspaceCategoryActionsMenu
+          category={category}
+          pending={pending}
+          isMobile={isMobile}
+          onEdit={onEdit}
+          onStatus={onStatus}
+          onDelete={onDelete}
+          trigger={
+            <div
+              className={cn(
+                "group flex cursor-pointer items-center justify-between gap-3 rounded-lg py-3 px-1 transition-[opacity,box-shadow]",
+                draggedCategory?.id === category.id && "opacity-50",
+                dropTargetId === category.id && "ring-2 ring-primary/60",
+              )}
+              draggable={!pending}
+              onDragStart={(event) => {
+                event.stopPropagation();
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", category.id);
+                onDragStart({ id: category.id, parentId: null });
+              }}
+              onDragEnd={(event) => { event.stopPropagation(); onDragEnd(); }}
+              onDragOver={(event) => {
+                event.stopPropagation();
+                if (draggedCategory?.parentId !== null || draggedCategory.id === category.id) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                onDragOver(category.id);
+              }}
+              onDragLeave={(event) => {
+                event.stopPropagation();
+                if (!event.currentTarget.contains(event.relatedTarget as Node)) onDragOver(null);
+              }}
+              onDrop={(event) => onDrop(event, category)}
+            />
+          }
         >
           <div className="flex min-w-0 items-center gap-3">
             {/* Icon — large, prominent */}
@@ -528,52 +703,8 @@ function CategoryNode({
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="category-row-actions flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-            <span
-              className="category-drag-handle grid min-h-10 place-items-center px-1 text-[var(--text-muted)]"
-              title={`Kéo để sắp xếp ${category.name} cùng các danh mục con`}
-            >
-              <GripVertical size={17} />
-            </span>
-            <div className="w-px h-4 bg-[var(--border)] mx-1" />
-            <Button
-              variant="icon"
-              size="auto"
-              onClick={() => onEdit(category.id)}
-              disabled={pending}
-              title="Chỉnh sửa"
-              aria-label={`Chỉnh sửa ${category.name}`}
-            >
-              <Pencil size={15} />
-            </Button>
-            <Button
-              variant="icon"
-              size="auto"
-              onClick={() =>
-                onStatus(
-                  category.id,
-                  category.status === "active" ? "deactive" : "active",
-                )
-              }
-              disabled={pending}
-              title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
-            >
-              {category.status === "active" ? (
-                <EyeOff size={15} />
-              ) : (
-                <Eye size={15} />
-              )}
-            </Button>
-            <ConfirmDelete
-              ariaLabel={`Xóa danh mục ${category.name}`}
-              title="Xóa danh mục?"
-              description="Hành động này không thể hoàn tác. Các danh mục con cũng sẽ bị xóa theo."
-              onConfirm={() => onDelete(category.id)}
-              disabled={pending}
-            />
-          </div>
-        </div>
+          <GripVertical size={17} className="shrink-0 text-[var(--text-muted)] max-md:hidden" />
+        </WorkspaceCategoryActionsMenu>
 
         {/* Children — tree branch from parent */}
         {hasChildren && (
@@ -586,6 +717,7 @@ function CategoryNode({
                 index={childIdx}
                 totalRoots={children.length}
                 pending={pending}
+                isMobile={isMobile}
                 draggedCategory={draggedCategory}
                 dropTargetId={dropTargetId}
                 onEdit={onEdit}
@@ -605,41 +737,42 @@ function CategoryNode({
 
   // Child category — compact row with tree connector
   return (
-    <article
-      className={cn(
-        "group relative flex cursor-grab items-center justify-between gap-3 rounded-lg py-2 pl-9 pr-1 transition-[background-color,opacity,box-shadow] active:cursor-grabbing",
-        draggedCategory?.id === category.id && "opacity-50",
-        dropTargetId === category.id && "ring-2 ring-primary/60",
-      )}
-      draggable={!pending}
-      onDragStart={(event) => {
-        event.stopPropagation();
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", category.id);
-        onDragStart({ id: category.id, parentId: category.parentId });
-      }}
-      onDragEnd={(event) => {
-        event.stopPropagation();
-        onDragEnd();
-      }}
-      onDragOver={(event) => {
-        event.stopPropagation();
-        if (
-          draggedCategory?.parentId !== category.parentId ||
-          draggedCategory.id === category.id
-        )
-          return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-        onDragOver(category.id);
-      }}
-      onDragLeave={(event) => {
-        event.stopPropagation();
-        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-          onDragOver(null);
-        }
-      }}
-      onDrop={(event) => onDrop(event, category)}
+    <WorkspaceCategoryActionsMenu
+      category={category}
+      pending={pending}
+      isMobile={isMobile}
+      onEdit={onEdit}
+      onStatus={onStatus}
+      onDelete={onDelete}
+      trigger={
+        <article
+          className={cn(
+            "group relative flex cursor-pointer items-center justify-between gap-3 rounded-lg py-2 pl-9 pr-1 transition-[background-color,opacity,box-shadow]",
+            draggedCategory?.id === category.id && "opacity-50",
+            dropTargetId === category.id && "ring-2 ring-primary/60",
+          )}
+          draggable={!pending}
+          onDragStart={(event) => {
+            event.stopPropagation();
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", category.id);
+            onDragStart({ id: category.id, parentId: category.parentId });
+          }}
+          onDragEnd={(event) => { event.stopPropagation(); onDragEnd(); }}
+          onDragOver={(event) => {
+            event.stopPropagation();
+            if (draggedCategory?.parentId !== category.parentId || draggedCategory.id === category.id) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            onDragOver(category.id);
+          }}
+          onDragLeave={(event) => {
+            event.stopPropagation();
+            if (!event.currentTarget.contains(event.relatedTarget as Node)) onDragOver(null);
+          }}
+          onDrop={(event) => onDrop(event, category)}
+        />
+      }
     >
       {/* Vertical line: top half (always) */}
       <div className="absolute left-3.5 top-0 h-1/2 w-px bg-[var(--border)]" />
@@ -680,52 +813,8 @@ function CategoryNode({
         </div>
       </div>
 
-      <div className="category-row-actions flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-        <span
-          className="category-drag-handle grid min-h-10 place-items-center px-1 text-[var(--text-muted)]"
-          title={`Kéo để sắp xếp ${category.name} trong cùng danh mục cha`}
-        >
-          <GripVertical size={17} />
-        </span>
-        <div className="w-px h-4 bg-[var(--border)] mx-1" />
-        <Button
-          variant="icon"
-          size="auto"
-          onClick={() => onEdit(category.id)}
-          disabled={pending}
-          title="Chỉnh sửa"
-          aria-label={`Chỉnh sửa ${category.name}`}
-        >
-          <Pencil size={13} />
-        </Button>
-        <Button
-          variant="icon"
-          size="auto"
-          onClick={() =>
-            onStatus(
-              category.id,
-              category.status === "active" ? "deactive" : "active",
-            )
-          }
-          disabled={pending}
-          title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
-        >
-          {category.status === "active" ? (
-            <EyeOff size={13} />
-          ) : (
-            <Eye size={13} />
-          )}
-        </Button>
-        <ConfirmDelete
-          ariaLabel={`Xóa danh mục ${category.name}`}
-          title="Xóa danh mục?"
-          description="Hành động này không thể hoàn tác."
-          onConfirm={() => onDelete(category.id)}
-          disabled={pending}
-          className="!w-auto !h-auto !bg-transparent hover:!bg-transparent text-slate-400 hover:!text-rose-500 transition-colors p-1 [&_svg]:size-[13px]"
-        />
-      </div>
-    </article>
+      <GripVertical size={15} className="shrink-0 text-[var(--text-muted)] max-md:hidden" />
+    </WorkspaceCategoryActionsMenu>
   );
 }
 
@@ -734,6 +823,7 @@ function CategoryForm({
   categories,
   category,
   pending,
+  isMobile,
   onCancel,
   onSubmit,
 }: {
@@ -741,6 +831,7 @@ function CategoryForm({
   categories: Category[];
   category?: Category;
   pending: boolean;
+  isMobile: boolean;
   onCancel: () => void;
   onSubmit: (form: FormData) => void;
 }) {
@@ -765,11 +856,14 @@ function CategoryForm({
         e.preventDefault();
         onSubmit(new FormData(e.currentTarget));
       }}
-      className="space-y-5 py-4 flex flex-col h-full bg-transparent border-0 shadow-none mt-0"
+      className={cn(
+        "mt-0 flex min-h-0 flex-1 flex-col overflow-hidden border-0 bg-transparent shadow-none",
+        isMobile && "quick-transaction-form",
+      )}
     >
       <input type="hidden" name="type" value={category?.type ?? defaultType} />
 
-      <div className="grid gap-4">
+      <div className={cn("grid flex-1 gap-4 overflow-y-auto px-4 py-4 sm:px-6", isMobile && "quick-transaction-scroll")}>
         {/* Name Input */}
         <div>
           <Input
@@ -877,16 +971,16 @@ function CategoryForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-4 border-t border-[var(--border)] mt-auto">
+      <div className={cn("mt-auto flex justify-end gap-2 border-t border-[var(--border)] px-4 py-3 sm:px-6", isMobile && "quick-transaction-footer")}>
         <Button
           type="button"
           variant="outline"
-          className="hover:bg-[var(--surface-secondary)] hover:text-current"
+          className="hover:bg-[var(--surface-secondary)] hover:text-current max-md:hidden"
           onClick={onCancel}
         >
           Hủy bỏ
         </Button>
-        <Button type="submit" variant="default" disabled={pending}>
+        <Button type="submit" variant="default" disabled={pending} className={cn(isMobile && "quick-submit flex-1")}>
           {pending ? <Loading label="Đang xử lý..." /> : "Lưu danh mục"}
         </Button>
       </div>

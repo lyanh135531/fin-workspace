@@ -56,7 +56,7 @@ export function JoinRequestsClient({
   }
 
   return (
-    <Card as="section" className="gap-4 overflow-hidden">
+    <Card as="section" className="workspace-join-section gap-4 overflow-hidden">
       <header className="flex items-center gap-3">
         <div className="settings-section-icon">
           <UserPlus size={18} />

@@ -29,10 +29,18 @@ import {
   Smartphone,
   Sparkles,
   Tag,
+  Trash2,
   Utensils,
   Wrench,
 } from "lucide-react";
-import { type DragEvent, useEffect, useState, useTransition } from "react";
+import {
+  type DragEvent,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useState,
+  useTransition,
+} from "react";
 import {
   createTemplateCategoryAction,
   deleteTemplateCategoryAction,
@@ -51,6 +59,7 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
   Tabs,
@@ -58,7 +67,24 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/base";
-import { ConfirmDelete } from "@/components/base/confirm-delete";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 import { toast } from "sonner";
@@ -485,6 +511,7 @@ export function UserCategoryTemplateManagement({
               totalRoots={rootCategories.length}
               editing={editing}
               pending={pending}
+              isMobile={isMobile}
               draggedCategory={draggedCategory}
               dropTargetId={dropTargetId}
               onEdit={setEditing}
@@ -514,6 +541,7 @@ function Node({
   totalRoots,
   editing,
   pending,
+  isMobile,
   draggedCategory,
   dropTargetId,
   onEdit,
@@ -532,6 +560,7 @@ function Node({
   totalRoots: number;
   editing: string | null;
   pending: boolean;
+  isMobile: boolean;
   draggedCategory: DraggedCategory | null;
   dropTargetId: string | null;
   onEdit: (id: string) => void;
@@ -554,41 +583,51 @@ function Node({
     return (
       <div className="mt-1 rounded-xl bg-[var(--surface)] transition-all duration-200">
         {/* Root row */}
-        <div
-          className={cn(
-            "group flex cursor-grab items-center justify-between gap-3 rounded-lg px-1 py-3 transition-[opacity,box-shadow] active:cursor-grabbing max-sm:cursor-default",
-            draggedCategory?.id === category.id && "opacity-50",
-            dropTargetId === category.id && "ring-2 ring-primary/60",
-          )}
-          draggable={!pending}
-          onDragStart={(event) => {
-            event.stopPropagation();
-            event.dataTransfer.effectAllowed = "move";
-            event.dataTransfer.setData("text/plain", category.id);
-            onDragStart({ id: category.id, parentId: null });
-          }}
-          onDragEnd={(event) => {
-            event.stopPropagation();
-            onDragEnd();
-          }}
-          onDragOver={(event) => {
-            event.stopPropagation();
-            if (
-              draggedCategory?.parentId !== null ||
-              draggedCategory.id === category.id
-            )
-              return;
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-            onDragOver(category.id);
-          }}
-          onDragLeave={(event) => {
-            event.stopPropagation();
-            if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-              onDragOver(null);
-            }
-          }}
-          onDrop={(event) => onDrop(event, category)}
+        <CategoryActionsMenu
+          category={category}
+          pending={pending}
+          isMobile={isMobile}
+          onEdit={onEdit}
+          onStatus={onStatus}
+          onDelete={onDelete}
+          trigger={
+            <div
+              className={cn(
+                "group flex cursor-pointer items-center justify-between gap-3 rounded-lg px-1 py-3 transition-[opacity,box-shadow]",
+                draggedCategory?.id === category.id && "opacity-50",
+                dropTargetId === category.id && "ring-2 ring-primary/60",
+              )}
+              draggable={!pending}
+              onDragStart={(event) => {
+                event.stopPropagation();
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", category.id);
+                onDragStart({ id: category.id, parentId: null });
+              }}
+              onDragEnd={(event) => {
+                event.stopPropagation();
+                onDragEnd();
+              }}
+              onDragOver={(event) => {
+                event.stopPropagation();
+                if (
+                  draggedCategory?.parentId !== null ||
+                  draggedCategory.id === category.id
+                )
+                  return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                onDragOver(category.id);
+              }}
+              onDragLeave={(event) => {
+                event.stopPropagation();
+                if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                  onDragOver(null);
+                }
+              }}
+              onDrop={(event) => onDrop(event, category)}
+            />
+          }
         >
           {/* Left: icon + info */}
           <div className="flex min-w-0 items-center gap-3">
@@ -637,52 +676,12 @@ function Node({
             </div>
           </div>
 
-          {/* Right: Actions */}
-          <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100">
-            <span
-              className="grid min-h-10 place-items-center px-1 text-[var(--text-muted)] max-sm:hidden"
-              title={`Kéo để sắp xếp ${category.name} cùng các danh mục con`}
-            >
-              <GripVertical size={17} />
-            </span>
-            <div className="mx-1 h-4 w-px bg-[var(--border)] max-sm:hidden" />
-            <Button
-              variant="icon"
-              size="auto"
-              onClick={() => onEdit(category.id)}
-              disabled={pending}
-              title="Chỉnh sửa"
-              aria-label={`Chỉnh sửa ${category.name}`}
-            >
-              <Pencil size={15} />
-            </Button>
-            <Button
-              variant="icon"
-              size="auto"
-              onClick={() =>
-                onStatus(
-                  category.id,
-                  category.status === "active" ? "deactive" : "active",
-                )
-              }
-              disabled={pending}
-              title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
-            >
-              {category.status === "active" ? (
-                <EyeOff size={15} />
-              ) : (
-                <Eye size={15} />
-              )}
-            </Button>
-            <ConfirmDelete
-              ariaLabel={`Xóa danh mục ${category.name}`}
-              title="Xóa danh mục?"
-              description="Hành động này không thể hoàn tác."
-              onConfirm={() => onDelete(category.id)}
-              disabled={pending}
-            />
-          </div>
-        </div>
+          <GripVertical
+            size={17}
+            className="shrink-0 text-[var(--text-muted)] max-sm:hidden"
+            aria-label={`Kéo để sắp xếp ${category.name}`}
+          />
+        </CategoryActionsMenu>
 
         {/* Children — tree branch from parent */}
         {hasChildren && (
@@ -696,6 +695,7 @@ function Node({
                 totalRoots={children.length}
                 editing={editing}
                 pending={pending}
+                isMobile={isMobile}
                 draggedCategory={draggedCategory}
                 dropTargetId={dropTargetId}
                 onEdit={onEdit}
@@ -717,41 +717,51 @@ function Node({
 
   // Child category — compact row with tree connector
   return (
-    <article
-      className={cn(
-        "group relative flex cursor-grab items-center justify-between gap-3 rounded-xl py-2 pl-9 pr-1 transition-[background-color,opacity,box-shadow] active:cursor-grabbing max-sm:cursor-default",
-        draggedCategory?.id === category.id && "opacity-50",
-        dropTargetId === category.id && "ring-2 ring-primary/60",
-      )}
-      draggable={!pending}
-      onDragStart={(event) => {
-        event.stopPropagation();
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", category.id);
-        onDragStart({ id: category.id, parentId: category.parentId });
-      }}
-      onDragEnd={(event) => {
-        event.stopPropagation();
-        onDragEnd();
-      }}
-      onDragOver={(event) => {
-        event.stopPropagation();
-        if (
-          draggedCategory?.parentId !== category.parentId ||
-          draggedCategory.id === category.id
-        )
-          return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-        onDragOver(category.id);
-      }}
-      onDragLeave={(event) => {
-        event.stopPropagation();
-        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-          onDragOver(null);
-        }
-      }}
-      onDrop={(event) => onDrop(event, category)}
+    <CategoryActionsMenu
+      category={category}
+      pending={pending}
+      isMobile={isMobile}
+      onEdit={onEdit}
+      onStatus={onStatus}
+      onDelete={onDelete}
+      trigger={
+        <article
+          className={cn(
+            "group relative flex cursor-pointer items-center justify-between gap-3 rounded-xl py-2 pl-9 pr-1 transition-[background-color,opacity,box-shadow]",
+            draggedCategory?.id === category.id && "opacity-50",
+            dropTargetId === category.id && "ring-2 ring-primary/60",
+          )}
+          draggable={!pending}
+          onDragStart={(event) => {
+            event.stopPropagation();
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", category.id);
+            onDragStart({ id: category.id, parentId: category.parentId });
+          }}
+          onDragEnd={(event) => {
+            event.stopPropagation();
+            onDragEnd();
+          }}
+          onDragOver={(event) => {
+            event.stopPropagation();
+            if (
+              draggedCategory?.parentId !== category.parentId ||
+              draggedCategory.id === category.id
+            )
+              return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            onDragOver(category.id);
+          }}
+          onDragLeave={(event) => {
+            event.stopPropagation();
+            if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+              onDragOver(null);
+            }
+          }}
+          onDrop={(event) => onDrop(event, category)}
+        />
+      }
     >
       {/* Vertical line: top half (always) */}
       <div className="absolute left-3.5 top-0 h-1/2 w-px bg-[var(--border)]" />
@@ -791,53 +801,186 @@ function Node({
         </div>
       </div>
 
-      {/* Child actions — minimal */}
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100">
-        <span
-          className="grid min-h-10 place-items-center px-1 text-[var(--text-muted)] max-sm:hidden"
-          title={`Kéo để sắp xếp ${category.name} trong cùng danh mục cha`}
+      <GripVertical
+        size={15}
+        className="shrink-0 text-[var(--text-muted)] max-sm:hidden"
+        aria-label={`Kéo để sắp xếp ${category.name}`}
+      />
+    </CategoryActionsMenu>
+  );
+}
+
+function CategoryActionsMenu({
+  category,
+  pending,
+  isMobile,
+  trigger,
+  children,
+  onEdit,
+  onStatus,
+  onDelete,
+}: {
+  category: Category;
+  pending: boolean;
+  isMobile: boolean;
+  trigger: ReactElement;
+  children: ReactNode;
+  onEdit: (id: string) => void;
+  onStatus: (id: string, value: "active" | "deactive") => void;
+  onDelete: (id: string) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const isActive = category.status === "active";
+
+  function run(action: () => void) {
+    setMenuOpen(false);
+    action();
+  }
+
+  return (
+    <>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger nativeButton={false} render={trigger}>
+          {children}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          side="bottom"
+          sideOffset={4}
+          className="!w-52 p-1.5 [&_[data-slot=dropdown-menu-item]]:min-h-10 [&_[data-slot=dropdown-menu-item]]:gap-2 [&_[data-slot=dropdown-menu-item]]:px-2.5"
         >
-          <GripVertical size={17} />
-        </span>
-        <div className="mx-1 h-4 w-px bg-[var(--border)] max-sm:hidden" />
-        <Button
-          variant="icon"
-          size="auto"
-          onClick={() => onEdit(category.id)}
-          disabled={pending}
-          title="Chỉnh sửa"
-          aria-label={`Chỉnh sửa ${category.name}`}
+          <DropdownMenuItem
+            disabled={pending}
+            onClick={() => run(() => onEdit(category.id))}
+          >
+            <Pencil aria-hidden="true" />
+            Chỉnh sửa
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={pending}
+            onClick={() =>
+              run(() =>
+                onStatus(category.id, isActive ? "deactive" : "active"),
+              )
+            }
+          >
+            {isActive ? (
+              <EyeOff aria-hidden="true" />
+            ) : (
+              <Eye aria-hidden="true" />
+            )}
+            {isActive ? "Tắt danh mục" : "Bật danh mục"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={pending}
+            onClick={() => {
+              setMenuOpen(false);
+              setDeleteConfirmOpen(true);
+            }}
+          >
+            <Trash2 aria-hidden="true" />
+            Xóa danh mục
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {isMobile ? (
+        <Sheet open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <SheetContent
+            side="bottom"
+            className="ledger-mobile-review-sheet pending-delete"
+            aria-label={`Xác nhận xóa danh mục ${category.name}`}
+          >
+            <SheetHeader className="ledger-mobile-review-header">
+              <div className="ledger-mobile-review-heading">
+                <span aria-hidden="true">
+                  <Trash2 size={18} />
+                </span>
+                <div>
+                  <SheetTitle>Xóa danh mục?</SheetTitle>
+                  <SheetDescription>
+                    Hành động này không thể hoàn tác.
+                  </SheetDescription>
+                </div>
+              </div>
+            </SheetHeader>
+
+            <div className="ledger-mobile-review-body">
+              <div className="ledger-mobile-review-transaction">
+                <div>
+                  <span>{category.name}</span>
+                  <small>
+                    {category.type === "expense" ? "Chi tiêu" : "Thu nhập"}
+                  </small>
+                </div>
+                <strong style={{ color: category.color }}>
+                  {category.status === "active" ? "Hoạt động" : "Đã tắt"}
+                </strong>
+              </div>
+            </div>
+
+            <SheetFooter className="ledger-mobile-review-actions">
+              <Button
+                variant="outline"
+                className="ledger-mobile-review-reject"
+                data-delete
+                disabled={pending}
+                onClick={() => setDeleteConfirmOpen(false)}
+              >
+                Hủy
+              </Button>
+              <Button
+                variant="outline"
+                className="ledger-mobile-review-approve"
+                data-delete
+                disabled={pending}
+                onClick={() => {
+                  setDeleteConfirmOpen(false);
+                  onDelete(category.id);
+                }}
+              >
+                <Trash2 size={16} />
+                Xóa danh mục
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <AlertDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
         >
-          <Pencil size={13} />
-        </Button>
-        <Button
-          variant="icon"
-          size="auto"
-          onClick={() =>
-            onStatus(
-              category.id,
-              category.status === "active" ? "deactive" : "active",
-            )
-          }
-          disabled={pending}
-          title={category.status === "active" ? "Vô hiệu hóa" : "Kích hoạt"}
-        >
-          {category.status === "active" ? (
-            <EyeOff size={13} />
-          ) : (
-            <Eye size={13} />
-          )}
-        </Button>
-        <ConfirmDelete
-          ariaLabel={`Xóa danh mục ${category.name}`}
-          title="Xóa danh mục?"
-          description="Hành động này không thể hoàn tác."
-          onConfirm={() => onDelete(category.id)}
-          disabled={pending}
-          className="!w-auto !h-auto !bg-transparent hover:!bg-transparent text-slate-400 hover:!text-rose-500 transition-colors p-1 [&_svg]:size-[13px]"
-        />
-      </div>
-    </article>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogMedia className="bg-rose-500/10 text-rose-500">
+                <Trash2 aria-hidden="true" />
+              </AlertDialogMedia>
+              <AlertDialogTitle>Xóa danh mục?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Danh mục “{category.name}” sẽ bị xóa và không thể khôi phục.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={pending}>Hủy</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={pending}
+                onClick={() => {
+                  setDeleteConfirmOpen(false);
+                  onDelete(category.id);
+                }}
+              >
+                <Trash2 aria-hidden="true" />
+                Xóa danh mục
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </>
   );
 }
 

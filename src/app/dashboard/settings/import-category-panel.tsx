@@ -112,7 +112,7 @@ export function ImportCategoryPanel({
 
   if (templates.length === 0) {
     return (
-      <Card as="section">
+      <Card as="section" className="workspace-import-section">
         <div className="pb-4 border-b border-[var(--border)]">
           <p className="settings-eyebrow">Import danh mục</p>
           <h2 className="mt-0.5 text-base font-bold tracking-tight">
@@ -138,7 +138,11 @@ export function ImportCategoryPanel({
   const allImported = importableTemplates.length === 0;
 
   return (
-    <Card as="section" className="sunrise-card gap-0 p-6" aria-busy={pending}>
+    <Card
+      as="section"
+      className="workspace-import-section sunrise-card gap-0 p-6"
+      aria-busy={pending}
+    >
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
         <div>

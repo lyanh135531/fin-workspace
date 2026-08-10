@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2, AlertTriangle, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Building2, ShieldCheck, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import {
   deleteWorkspaceAction,
@@ -66,7 +66,10 @@ export function WorkspaceSettings({
 
   if (!isAdmin) {
     return (
-      <Card as="section" className="sunrise-card gap-0 p-6 space-y-2">
+      <Card
+        as="section"
+        className="workspace-access-section sunrise-card gap-0 p-6 space-y-2"
+      >
         <div className="flex items-center gap-2 text-slate-500">
           <ShieldCheck size={18} />
           <h2 className="text-base font-bold text-[var(--foreground)]">
@@ -82,25 +85,33 @@ export function WorkspaceSettings({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="workspace-settings-stack space-y-6">
       {/* ── Main Configuration Card (Single-Bezel) ── */}
       <Card
         as="section"
-        className="shadow-xs relative overflow-hidden flex flex-col gap-6"
+        className="workspace-config-section shadow-xs relative overflow-hidden flex flex-col gap-6"
       >
-        <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-8 justify-between relative z-10">
-          <div className="space-y-2 max-w-md">
-            <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
-              Thông tin chung
-            </h2>
-            <p className="text-xs leading-relaxed text-slate-500">
-              Quản lý tên, mô tả và trạng thái hoạt động của workspace. Những
-              thông tin này giúp các thành viên nhận diện nhóm dễ dàng hơn.
-            </p>
+        <div className="workspace-config-heading flex flex-col md:flex-row md:items-start gap-4 md:gap-8 justify-between relative z-10">
+          <div className="flex max-w-md items-start gap-3">
+            <span className="workspace-config-heading-icon" aria-hidden="true">
+              <Building2 size={18} strokeWidth={1.8} />
+            </span>
+            <div className="space-y-1.5">
+              <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+                Thông tin chung
+              </h2>
+              <p className="text-xs leading-relaxed text-slate-500">
+                Quản lý tên, mô tả và trạng thái hoạt động của workspace.
+              </p>
+            </div>
           </div>
         </div>
 
-        <form onSubmit={save} className="relative z-10 space-y-6" aria-busy={pending}>
+        <form
+          onSubmit={save}
+          className="relative z-10 space-y-6"
+          aria-busy={pending}
+        >
           <div className="grid gap-6">
             {/* Name — full width, prominent */}
             <div className="space-y-2">
@@ -159,12 +170,8 @@ export function WorkspaceSettings({
             </div>
           </div>
 
-          <div className="flex items-center justify-end border-t border-[var(--border)] pt-5">
-            <Button
-              type="submit"
-              disabled={pending}
-              variant="default"
-            >
+          <div className="workspace-config-actions flex items-center justify-end border-t border-[var(--border)] pt-5">
+            <Button type="submit" disabled={pending} variant="default">
               {pending ? (
                 <>
                   <span className="btn-spinner mr-2" aria-hidden />
@@ -181,7 +188,7 @@ export function WorkspaceSettings({
       {/* ── Danger Zone Card (Single-Bezel) ── */}
       <Card
         as="section"
-        className="p-5 md:p-6 shadow-xs relative overflow-hidden"
+        className="workspace-danger-section p-5 md:p-6 shadow-xs relative overflow-hidden"
       >
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
           <div className="flex items-start gap-4">
@@ -194,7 +201,7 @@ export function WorkspaceSettings({
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed max-w-lg">
                 Vô hiệu hóa workspace{" "}
-                <strong className="font-semibold text-slate-700">
+                <strong className="font-semibold text-[var(--text-primary)]">
                   {workspace.name}
                 </strong>
                 . Mọi dữ liệu sẽ bị ẩn và workspace bị gỡ khỏi danh sách của tất
@@ -221,14 +228,14 @@ export function WorkspaceSettings({
       {/* ── Confirmation Modal ── */}
       {deleteDialog && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
+          className="workspace-delete-overlay fixed inset-0 z-50 grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-workspace-title"
         >
           <Card
             as="section"
-            className="sunrise-card gap-0 w-full max-w-md p-6 space-y-4 relative overflow-hidden"
+            className="workspace-delete-panel sunrise-card gap-0 w-full max-w-md p-6 space-y-4 relative overflow-hidden"
           >
             {/* Red accent glow */}
             <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-red-500" />

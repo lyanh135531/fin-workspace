@@ -39,7 +39,27 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
     code.length === 7 && code.includes("-") ? code.replace("-", " · ") : code;
 
   return (
-    <Card as="section">
+    <>
+      <Button
+        variant="unstyled"
+        size="auto"
+        type="button"
+        className="workspace-mobile-invite-code md:hidden"
+        onClick={copy}
+        disabled={copied}
+        aria-label={copied ? `Đã sao chép mã mời ${code}` : `Sao chép mã mời ${code}`}
+      >
+        <span className="workspace-mobile-invite-icon" aria-hidden="true">
+          <KeyRound size={16} />
+        </span>
+        <span className="workspace-mobile-invite-label">Mã mời</span>
+        <code>{code}</code>
+      </Button>
+
+      <Card
+        as="section"
+        className="workspace-invite-card max-md:hidden"
+      >
       <div className="space-y-3 relative z-10">
         <div className="flex items-center justify-between">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-900/10">
@@ -110,6 +130,7 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
           Mã mời gồm 6 chữ số.
         </p>
       </div>
-    </Card>
+      </Card>
+    </>
   );
 }

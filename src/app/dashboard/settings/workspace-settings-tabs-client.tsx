@@ -73,9 +73,12 @@ export function WorkspaceSettingsTabsClient({
     <Tabs
       value={activeTab}
       onValueChange={(value) => setActiveTab(value as TabKey)}
+      className="workspace-settings-tabs"
     >
-      {/* ── Pill Tab Navigation ── */}
-      <TabsList aria-label="Workspace settings tabs">
+      <TabsList
+        className="workspace-settings-tab-list"
+        aria-label="Workspace settings tabs"
+      >
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -84,7 +87,14 @@ export function WorkspaceSettingsTabsClient({
               value={tab.key}
             >
               <Icon />
-              <span>{tab.label}</span>
+              <span className="max-md:hidden">{tab.label}</span>
+              <span className="md:hidden">
+                {tab.key === "general"
+                  ? "Chung"
+                  : tab.key === "categories"
+                    ? "Danh mục"
+                    : "Thành viên"}
+              </span>
               {tab.count !== undefined && (
                 <TabsCount>{tab.count}</TabsCount>
               )}
@@ -94,35 +104,35 @@ export function WorkspaceSettingsTabsClient({
       </TabsList>
 
       {/* ── Tab 1: Cấu hình & Vận hành ── */}
-      <TabsContent value="general">
-        <div className="grid gap-8 xl:gap-12 lg:grid-cols-12 items-start pt-4">
-          <div className="lg:col-span-7 xl:col-span-8">
+      <TabsContent value="general" className="workspace-settings-tab-content">
+        <div className="grid items-start gap-3 pt-4 sm:gap-8 lg:grid-cols-12 xl:gap-12">
+          <div className="workspace-general-main lg:col-span-7 xl:col-span-8">
             <WorkspaceSettings workspace={workspace} isAdmin={isAdmin} />
           </div>
-          <div className="lg:col-span-5 xl:col-span-4">
+          <div className="workspace-general-invite max-md:hidden lg:col-span-5 xl:col-span-4">
             <InviteCodeCard code={workspace.inviteCode} />
           </div>
         </div>
       </TabsContent>
 
       {/* ── Tab 2: Danh mục thu/chi ── */}
-      <TabsContent value="categories">
-        <div className="grid items-start gap-6 pt-4 xl:grid-cols-12">
-          <div className="min-w-0 xl:col-span-5">
+      <TabsContent value="categories" className="workspace-settings-tab-content">
+        <div className="grid items-start gap-3 pt-4 sm:gap-6 xl:grid-cols-12">
+          <div className="workspace-category-import min-w-0 xl:col-span-5">
             <ImportCategoryPanel
               templates={templates}
               existingCodes={existingCodes}
             />
           </div>
-          <div className="min-w-0 xl:col-span-7">
+          <div className="workspace-category-manager min-w-0 xl:col-span-7">
             <CategoryManagement categories={categories} />
           </div>
         </div>
       </TabsContent>
 
       {/* ── Tab 3: Thành viên ── */}
-      <TabsContent value="members">
-        <div className="space-y-6">
+      <TabsContent value="members" className="workspace-settings-tab-content">
+        <div className="space-y-3 sm:space-y-6 sm:pt-4">
           <SettingsClient roles={roles} members={members} isAdmin={isAdmin} />
           <JoinRequestsClient roles={roles} requests={joinRequests} />
         </div>

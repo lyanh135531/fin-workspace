@@ -76,7 +76,11 @@ export function SettingsClient({
   }
 
   return (
-    <Card as="section" className="gap-4 overflow-hidden" aria-busy={pending}>
+    <Card
+      as="section"
+      className="workspace-members-section gap-4 overflow-hidden"
+      aria-busy={pending}
+    >
       {/* Header */}
       <header className="flex items-center gap-3">
         <div className="settings-section-icon">

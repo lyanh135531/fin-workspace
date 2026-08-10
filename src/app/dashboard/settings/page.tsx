@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/auth";
 import { PageContainer, PageHeader } from "@/components/base";
 import { WorkspaceSettingsTabsClient } from "@/app/dashboard/settings/workspace-settings-tabs-client";
+import { InviteCodeCard } from "@/app/dashboard/settings/invite-code-card";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { manageableCategoryWhere } from "@/services/category-visibility";
@@ -69,11 +70,41 @@ export default async function SettingsPage({
 
   return (
     <PageContainer className="workspace-settings-page">
-      <div className="workspace-settings-container space-y-6">
-        {/* ── Page Header ── */}
+      <div className="workspace-settings-container workspace-admin-settings-container space-y-6">
+        <section className="workspace-mobile-overview md:hidden">
+          <div className="workspace-mobile-overview-head">
+            <div className="workspace-mobile-overview-copy">
+              <p>Quản trị workspace</p>
+              <h1>{membership.workspace.name}</h1>
+              <span>
+                <i data-active={membership.workspace.status === "active"} />
+                {membership.workspace.status === "active"
+                  ? "Đang hoạt động"
+                  : "Tạm ngưng"}
+              </span>
+            </div>
+            <InviteCodeCard code={inviteCode} />
+          </div>
+          <dl>
+            <div>
+              <dt>Thành viên</dt>
+              <dd>{members.length}</dd>
+            </div>
+            <div>
+              <dt>Danh mục</dt>
+              <dd>{categories.length}</dd>
+            </div>
+            <div>
+              <dt>Chờ duyệt</dt>
+              <dd>{joinRequests.length}</dd>
+            </div>
+          </dl>
+        </section>
+
         <PageHeader
           title="Cài đặt Workspace"
           description="Cấu hình thông tin chung, quản lý danh mục thu chi và thành viên trong nhóm của bạn."
+          className="max-md:hidden"
         />
 
         <WorkspaceSettingsTabsClient
