@@ -5,6 +5,11 @@ import { NoWorkspaceOnboarding } from "@/components/no-workspace-onboarding";
 import { isAdminRole } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
+import {
+  getTransactionChangeAction,
+  getTransactionChangeDetails,
+  type TransactionChangeLookups,
+} from "@/lib/transaction-change-display";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { getUserJoinRequests } from "@/services/join-request-query";
@@ -85,7 +90,16 @@ export async function WorkspaceDashboard({
         toWallet: { select: { name: true } },
         category: { select: { name: true, color: true, icon: true } },
         member: { include: { user: { select: { username: true } } } },
-        changeRequests: { where: { status: "pending" }, select: { id: true } },
+        changeRequests: {
+          where: { status: "pending" },
+          select: {
+            id: true,
+            proposedData: true,
+            requester: {
+              select: { user: { select: { username: true } } },
+            },
+          },
+        },
       },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     }),
@@ -93,6 +107,14 @@ export async function WorkspaceDashboard({
   const totalTransactions = transactions.length;
   const summaries = buildLedgerPeriodSummaries(transactions, currentPeriod);
   const isAdmin = isAdminRole(membership.role.code);
+  const changeLookups: TransactionChangeLookups = {
+    wallets: new Map(
+      walletLinks.map(({ wallet }) => [wallet.id, wallet.name] as const),
+    ),
+    categories: new Map(
+      categories.map((category) => [category.id, category.name] as const),
+    ),
+  };
   const ledger = transactions.map((item) => ({
     id: item.id,
     amount: item.amount.toString(),
@@ -115,6 +137,25 @@ export async function WorkspaceDashboard({
     member: item.member.user.username,
     canRequestDelete: isAdmin || item.memberId === membership.id,
     hasPendingChange: item.changeRequests.length > 0,
+    pendingChangeRequestId: item.changeRequests[0]?.id ?? null,
+    pendingChangeAction: getTransactionChangeAction(
+      item.changeRequests[0]?.proposedData,
+    ),
+    pendingChangeRequester:
+      item.changeRequests[0]?.requester.user.username ?? null,
+    pendingChangeDetails: getTransactionChangeDetails(
+      item.changeRequests[0]?.proposedData,
+      {
+        walletId: item.walletId,
+        toWalletId: item.toWalletId,
+        categoryId: item.categoryId,
+        type: item.type,
+        amount: item.amount.toString(),
+        description: item.description,
+        date: item.date.toISOString().slice(0, 10),
+      },
+      changeLookups,
+    ),
     isRecurring: Boolean(item.recurringTransactionId),
   }));
   return (

@@ -2,6 +2,12 @@ import { NotificationsMenu, type NotificationItem } from "@/app/dashboard/notifi
 import { WORKSPACE_ROLE_CODES } from "@/domain/role-policy";
 import { getBusinessNotificationRange } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
+import {
+  getTransactionChangeAction,
+  getTransactionChangeDetails,
+  type TransactionChangeLookups,
+} from "@/lib/transaction-change-display";
+import { availableCategoryWhere } from "@/services/category-visibility";
 
 function changeDetails(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -9,7 +15,7 @@ function changeDetails(value: unknown) {
   }
   const data = value as Record<string, unknown>;
   return {
-    action: data.action === "delete" ? "delete" as const : "update" as const,
+    action: getTransactionChangeAction(value) ?? "update",
     reason: typeof data.reason === "string" && data.reason.trim() ? data.reason : "Đã thông báo",
   };
 }
@@ -74,10 +80,16 @@ export async function WorkspaceNotifications({
         requester: { include: { user: { select: { username: true } } } },
         transaction: {
           select: {
+            walletId: true,
+            toWalletId: true,
+            categoryId: true,
             description: true,
             amount: true,
             type: true,
+            date: true,
             wallet: { select: { name: true } },
+            toWallet: { select: { name: true } },
+            category: { select: { name: true } },
           },
         },
       },
@@ -100,14 +112,61 @@ export async function WorkspaceNotifications({
       orderBy: { name: "asc" },
     })
     : Promise.resolve([]);
+  const changeWalletsPromise = isAdmin
+    ? prisma.workspaceWallet.findMany({
+      where: { workspaceId },
+      select: { walletId: true, wallet: { select: { name: true } } },
+    })
+    : Promise.resolve([]);
+  const changeCategoriesPromise = isAdmin
+    ? prisma.category.findMany({
+      where: availableCategoryWhere(workspaceId),
+      select: { id: true, name: true },
+    })
+    : Promise.resolve([]);
 
-  const [transactions, activationLogs, changes, joinRequests, roles] = await Promise.all([
+  const [
+    transactions,
+    activationLogs,
+    changes,
+    joinRequests,
+    roles,
+    changeWallets,
+    changeCategories,
+  ] = await Promise.all([
     transactionsPromise,
     activationLogsPromise,
     changesPromise,
     joinRequestsPromise,
     rolesPromise,
+    changeWalletsPromise,
+    changeCategoriesPromise,
   ]);
+  const walletNames = new Map(
+    changeWallets.map((item) => [item.walletId, item.wallet.name] as const),
+  );
+  const categoryNames = new Map(
+    changeCategories.map((item) => [item.id, item.name] as const),
+  );
+  for (const change of changes) {
+    walletNames.set(change.transaction.walletId, change.transaction.wallet.name);
+    if (change.transaction.toWalletId && change.transaction.toWallet) {
+      walletNames.set(
+        change.transaction.toWalletId,
+        change.transaction.toWallet.name,
+      );
+    }
+    if (change.transaction.categoryId && change.transaction.category) {
+      categoryNames.set(
+        change.transaction.categoryId,
+        change.transaction.category.name,
+      );
+    }
+  }
+  const changeLookups: TransactionChangeLookups = {
+    wallets: walletNames,
+    categories: categoryNames,
+  };
   const activatedTransactionIds = activationLogs
     .map((log) => log.entityId)
     .filter((id): id is string => Boolean(id));
@@ -161,6 +220,19 @@ export async function WorkspaceNotifications({
       amount: item.transaction.amount.toString(),
       type: item.transaction.type,
       wallet: item.transaction.wallet.name,
+      details: getTransactionChangeDetails(
+        item.proposedData,
+        {
+          walletId: item.transaction.walletId,
+          toWalletId: item.transaction.toWalletId,
+          categoryId: item.transaction.categoryId,
+          type: item.transaction.type,
+          amount: item.transaction.amount.toString(),
+          description: item.transaction.description,
+          date: item.transaction.date.toISOString().slice(0, 10),
+        },
+        changeLookups,
+      ),
       ...changeDetails(item.proposedData),
     })),
   ];

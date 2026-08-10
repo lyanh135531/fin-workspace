@@ -28,6 +28,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { formatAmount } from "@/lib/format";
+import type { TransactionChangeDetail } from "@/lib/transaction-change-display";
 
 export type NotificationItem =
   | {
@@ -52,6 +53,7 @@ export type NotificationItem =
       amount: string;
       action: "update" | "delete";
       reason: string;
+      details: TransactionChangeDetail[];
     }
   | { kind: "join"; id: string; username: string };
 
@@ -310,12 +312,49 @@ function ChangeNotificationCard({
           <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-[var(--foreground)]">
             {money(item.amount, currency)}
           </p>
-          <p className="mt-3 rounded-lg bg-[var(--surface-secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--text-secondary)]">
-            <strong className="font-semibold text-[var(--foreground)]">
-              Lý do:
-            </strong>{" "}
-            {item.reason}
-          </p>
+          {deleting ? (
+            <p className="mt-3 rounded-lg bg-[var(--surface-secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--text-secondary)]">
+              <strong className="font-semibold text-[var(--foreground)]">
+                Lý do:
+              </strong>{" "}
+              {item.reason}
+            </p>
+          ) : (
+            <div className="mt-3 rounded-lg bg-[var(--surface-secondary)] px-3 py-2.5">
+              <p className="text-xs text-[var(--text-secondary)]">
+                <strong className="font-semibold text-[var(--foreground)]">
+                  {item.username}
+                </strong>{" "}
+                đã chỉnh sửa:
+              </p>
+              <div className="mt-2 grid gap-2">
+                {item.details.map((detail) => {
+                  const unit = detail.label === "Số tiền" ? ` ${currency}` : "";
+                  return (
+                    <div
+                      key={detail.label}
+                      className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-2 text-xs"
+                    >
+                      <span className="font-semibold text-[var(--text-secondary)]">
+                        {detail.label}
+                      </span>
+                      <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <del className="text-[var(--text-muted)]">
+                          {detail.previous}{unit}
+                        </del>
+                        <span className="text-[var(--warning)]" aria-hidden="true">
+                          →
+                        </span>
+                        <strong className="font-semibold text-[var(--success)]">
+                          {detail.proposed}{unit}
+                        </strong>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="mt-3 flex justify-end gap-2">
             <Button

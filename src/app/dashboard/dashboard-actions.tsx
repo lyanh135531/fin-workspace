@@ -16,13 +16,21 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   addTransactionAction,
   approveTransactionAction,
   deleteTransactionAction,
   deleteTransactionsAction,
   rejectTransactionAction,
+  reviewTransactionChangeAction,
   updateTransactionsAction,
 } from "@/app/dashboard/actions";
 import {
@@ -89,6 +97,14 @@ type LedgerItem = {
   member: string;
   canRequestDelete: boolean;
   hasPendingChange: boolean;
+  pendingChangeRequestId: string | null;
+  pendingChangeAction: "update" | "delete" | null;
+  pendingChangeRequester: string | null;
+  pendingChangeDetails: {
+    label: string;
+    previous: string;
+    proposed: string;
+  }[];
   isRecurring: boolean;
 };
 type TransactionDraft = {
@@ -482,6 +498,10 @@ function isChanged(item: LedgerItem, draft: TransactionDraft) {
   );
 }
 
+function requiresReview(item: LedgerItem): boolean {
+  return item.status === "pending" || item.pendingChangeRequestId !== null;
+}
+
 export function Ledger({
   workspaceId,
   businessDate,
@@ -569,8 +589,10 @@ export function Ledger({
   const page = Math.min(currentPage, pageCount);
   const rows = latestRows.slice((page - 1) * pageSize, page * pageSize);
   const visibleRows = scheduledExpanded ? [...scheduledRows, ...rows] : rows;
+  const selectableRows = visibleRows.filter((item) => !requiresReview(item));
   const allSelected =
-    visibleRows.length > 0 && visibleRows.every((row) => selected.has(row.id));
+    selectableRows.length > 0 &&
+    selectableRows.every((row) => selected.has(row.id));
   const columnCount = canApprove ? 8 : 7;
   const pageStart = latestRows.length ? (page - 1) * pageSize + 1 : 0;
   const pageEnd = Math.min(page * pageSize, latestRows.length);
@@ -655,8 +677,8 @@ export function Ledger({
   function toggleAll() {
     setSelected((current) => {
       const next = new Set(current);
-      if (allSelected) visibleRows.forEach((row) => next.delete(row.id));
-      else visibleRows.forEach((row) => next.add(row.id));
+      if (allSelected) selectableRows.forEach((row) => next.delete(row.id));
+      else selectableRows.forEach((row) => next.add(row.id));
       return next;
     });
   }
@@ -714,6 +736,33 @@ export function Ledger({
       const result = await rejectTransactionAction(workspaceId, item.id);
       if (result.ok) toast.success("Đã từ chối giao dịch.");
       else toast.error(result.message ?? "Không thể từ chối giao dịch.");
+    });
+  }
+  function reviewChange(item: LedgerItem, approve: boolean) {
+    const changeRequestId = item.pendingChangeRequestId;
+    if (!changeRequestId) {
+      toast.error("Không tìm thấy yêu cầu chỉnh sửa đang chờ duyệt.");
+      return;
+    }
+    start(async () => {
+      const result = await reviewTransactionChangeAction(
+        workspaceId,
+        changeRequestId,
+        approve,
+      );
+      if (result.ok) {
+        toast.success(
+          item.pendingChangeAction === "delete"
+            ? approve
+              ? "Đã duyệt xóa giao dịch."
+              : "Đã từ chối yêu cầu xóa giao dịch."
+            : approve
+              ? "Đã duyệt thay đổi giao dịch."
+              : "Đã từ chối thay đổi giao dịch.",
+        );
+      } else {
+        toast.error(result.message ?? "Không thể xử lý yêu cầu chỉnh sửa.");
+      }
     });
   }
   function beginCreate() {
@@ -883,27 +932,45 @@ export function Ledger({
     }
 
     return (
+      <Fragment key={item.id}>
       <tr
-        key={item.id}
         className="ledger-transaction-row border-b border-[var(--border)]"
+        data-pending-change={
+          canApprove && item.pendingChangeRequestId
+            ? (item.pendingChangeAction ?? "update")
+            : undefined
+        }
       >
         {canApprove && (
           <td>
-            <Checkbox
-              checked={selected.has(item.id)}
-              onCheckedChange={() => toggle(item.id)}
-              aria-label={`Chọn giao dịch ${item.description || item.id}`}
-            />
+            {!requiresReview(item) && (
+              <Checkbox
+                checked={selected.has(item.id)}
+                onCheckedChange={() => toggle(item.id)}
+                aria-label={`Chọn giao dịch ${item.description || item.id}`}
+              />
+            )}
           </td>
         )}
         <td className="ledger-description-column">
           <p className="font-medium">
             {item.description || "Không có nội dung"}
           </p>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            #{String(transactionSequence.get(item.id) ?? 1).padStart(5, "0")} ·{" "}
-            {item.member}
-            {item.isRecurring ? " · Tự động" : ""}
+          <p className="ledger-transaction-meta mt-1 text-xs text-[var(--text-muted)]">
+            <span>
+              #{String(transactionSequence.get(item.id) ?? 1).padStart(5, "0")} ·{" "}
+              {item.member}
+              {item.isRecurring ? " · Tự động" : ""}
+            </span>
+            {canApprove && item.pendingChangeRequestId && (
+              <span
+                className={`ledger-pending-change-badge pending-${item.pendingChangeAction ?? "update"}`}
+              >
+                {item.pendingChangeAction === "delete"
+                  ? "Chờ duyệt xóa"
+                  : "Chờ duyệt sửa"}
+              </span>
+            )}
           </p>
         </td>
         <td className="ledger-type-column">
@@ -946,24 +1013,60 @@ export function Ledger({
         </td>
         <td className="ledger-actions-column">
           <div className="ledger-row-actions">
-            {canApprove && item.status === "pending" && (
+            {canApprove && item.pendingChangeRequestId && (
               <Button
-                variant="ghost"
-                size="default"
+                variant="icon"
+                size="icon"
+                className="ledger-review-reject-button"
                 disabled={busy || editMode}
-                onClick={() => rejectOne(item)}
+                onClick={() => reviewChange(item, false)}
+                title={`Từ chối yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
+                aria-label={`Từ chối yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
               >
-                Từ chối
+                <X size={16} />
               </Button>
             )}
-            {canApprove && item.status === "pending" && (
+            {canApprove && item.pendingChangeRequestId && (
               <Button
-                variant="outline"
-                size="default"
+                variant="icon"
+                size="icon"
+                className="ledger-review-approve-button"
+                disabled={busy || editMode}
+                onClick={() => reviewChange(item, true)}
+                title={`Duyệt yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
+                aria-label={`Duyệt yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
+              >
+                <Check size={16} />
+              </Button>
+            )}
+            {canApprove &&
+              !item.pendingChangeRequestId &&
+              item.status === "pending" && (
+              <Button
+                variant="icon"
+                size="icon"
+                className="ledger-review-reject-button"
+                disabled={busy || editMode}
+                onClick={() => rejectOne(item)}
+                title="Từ chối giao dịch"
+                aria-label={`Từ chối ${item.description || "giao dịch"}`}
+              >
+                <X size={16} />
+              </Button>
+            )}
+            {canApprove &&
+              !item.pendingChangeRequestId &&
+              item.status === "pending" && (
+              <Button
+                variant="icon"
+                size="icon"
+                className="ledger-review-approve-button"
                 disabled={busy || editMode}
                 onClick={() => approveOne(item)}
+                title="Duyệt giao dịch"
+                aria-label={`Duyệt ${item.description || "giao dịch"}`}
               >
-                Duyệt
+                <Check size={16} />
               </Button>
             )}
             {canApprove && item.status === "scheduled" && (
@@ -990,7 +1093,7 @@ export function Ledger({
                 <Pencil size={16} />
               </Button>
             )}
-            {!readonly && item.canRequestDelete && (
+            {!readonly && item.canRequestDelete && !requiresReview(item) && (
               <ConfirmDeletePopover
                 ariaLabel={`Xóa ${item.description || "giao dịch"}`}
                 title="Xóa giao dịch?"
@@ -1011,6 +1114,7 @@ export function Ledger({
                   ) : undefined
                 }
                 confirmLabel={isAdmin ? "Xóa" : "Gửi yêu cầu"}
+                className="ledger-delete-button"
                 disabled={busy || editMode || item.hasPendingChange}
                 onOpenChange={() => setDeleteReason("")}
                 onConfirm={() => removeOne(item, deleteReason)}
@@ -1019,6 +1123,40 @@ export function Ledger({
           </div>
         </td>
       </tr>
+      {canApprove &&
+        item.pendingChangeAction === "update" &&
+        item.pendingChangeRequester &&
+        item.pendingChangeDetails.length > 0 && (
+          <tr className="ledger-pending-change-detail-row">
+            <td
+              className="ledger-pending-change-detail-cell"
+              colSpan={columnCount}
+            >
+              <div className="ledger-pending-change-detail">
+                <span className="ledger-pending-change-requester">
+                  <strong>{item.pendingChangeRequester}</strong> đã sửa
+                </span>
+                <div className="ledger-pending-change-values">
+                  {item.pendingChangeDetails.map((detail) => {
+                    const unit = detail.label === "Số tiền" ? ` ${currency}` : "";
+                    return (
+                      <span
+                        key={detail.label}
+                        className="ledger-pending-change-value"
+                      >
+                        <b>{detail.label}</b>
+                        <del>{detail.previous}{unit}</del>
+                        <span aria-hidden="true">→</span>
+                        <strong>{detail.proposed}{unit}</strong>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            </td>
+          </tr>
+        )}
+      </Fragment>
     );
   }
 
@@ -1225,7 +1363,7 @@ export function Ledger({
                 <th className="w-10">
                   <Checkbox
                     checked={allSelected}
-                    disabled={editMode}
+                    disabled={editMode || selectableRows.length === 0}
                     onCheckedChange={toggleAll}
                     aria-label="Chọn tất cả giao dịch đang hiển thị"
                   />

@@ -4733,6 +4733,20 @@ html[data-mode="dark"] .bg-\[\#17233c\]\/30 {
   color: var(--danger);
 }
 
+.ledger-delete-button:hover,
+.ledger-delete-button:focus-visible,
+.ledger-review-reject-button,
+.ledger-review-reject-button:hover,
+.ledger-review-reject-button:focus-visible {
+  color: var(--danger) !important;
+}
+
+.ledger-review-approve-button,
+.ledger-review-approve-button:hover,
+.ledger-review-approve-button:focus-visible {
+  color: var(--success) !important;
+}
+
 .ledger-row-actions {
   display: flex;
   align-items: center;

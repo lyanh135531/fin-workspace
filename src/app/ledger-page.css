@@ -459,6 +459,121 @@
     box-shadow 160ms ease;
 }
 
+.ledger-book .ledger-transaction-row[data-pending-change="update"] {
+  background: color-mix(in srgb, var(--warning) 6%, var(--surface));
+}
+
+.ledger-book
+  .ledger-transaction-row[data-pending-change="update"]
+  > td:first-child {
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+.ledger-book .ledger-transaction-row[data-pending-change="delete"] {
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+}
+
+.ledger-book
+  .ledger-transaction-row[data-pending-change="delete"]
+  > td:first-child {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.ledger-transaction-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.ledger-pending-change-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  border-radius: 0.35rem;
+  padding: 0.16rem 0.35rem;
+  font-size: 0.62rem;
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+.ledger-pending-change-badge.pending-update {
+  background: color-mix(in srgb, var(--warning) 14%, var(--surface));
+  color: var(--warning);
+}
+
+.ledger-pending-change-badge.pending-delete {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--danger);
+}
+
+.ledger-book .ledger-table .ledger-pending-change-detail-cell {
+  height: auto;
+  padding: 0.55rem 0.75rem 0.65rem;
+  background: color-mix(in srgb, var(--warning) 7%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+.ledger-pending-change-detail {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.ledger-pending-change-requester {
+  flex: 0 0 auto;
+  padding-top: 0.22rem;
+  color: color-mix(in srgb, var(--warning) 82%, var(--foreground));
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ledger-pending-change-requester strong {
+  font-weight: 800;
+}
+
+.ledger-pending-change-values {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.ledger-pending-change-value {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.32rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 18%, var(--border));
+  border-radius: 0.4rem;
+  background: var(--surface);
+  padding: 0.2rem 0.42rem;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.ledger-pending-change-value b {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.ledger-pending-change-value del {
+  color: var(--text-muted);
+}
+
+.ledger-pending-change-value > span {
+  color: var(--warning);
+}
+
+.ledger-pending-change-value strong {
+  color: var(--success);
+  font-weight: 750;
+}
+
 .ledger-book .ledger-table td {
   height: 4.25rem;
   border-color: color-mix(in srgb, var(--border) 74%, transparent);
