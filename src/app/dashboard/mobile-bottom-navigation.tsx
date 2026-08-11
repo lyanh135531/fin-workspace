@@ -58,7 +58,9 @@ function navigationItems(currentWorkspaceId?: string): {
     label: "Cài đặt",
     icon: Settings,
     active: (pathname: string): boolean =>
-      pathname.startsWith("/settings/") || pathname === "/setting",
+      pathname === "/settings/workspace" ||
+      pathname === "/dashboard/settings" ||
+      pathname === "/dashboard/join-requests",
   });
 
   return { left, right };

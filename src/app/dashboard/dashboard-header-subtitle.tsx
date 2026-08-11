@@ -27,11 +27,15 @@ const PAGE_LABELS: Record<string, string> = {
 export function DashboardHeaderSubtitle({ fallback }: { fallback: string }) {
   const pathname = usePathname();
   const pageLabel = PAGE_LABELS[pathname] ?? (pathname.startsWith("/workspace/") ? "Sổ giao dịch" : null);
+  const showWorkspaceName =
+    pathname !== "/setting" && pathname !== "/dashboard/settings/general";
 
   return (
     <span className="dashboard-header-subtitle">
-      {fallback}
-      {pageLabel && <span style={{ opacity: 0.4, margin: "0 0.35rem" }}>·</span>}
+      {showWorkspaceName && fallback}
+      {showWorkspaceName && pageLabel && (
+        <span style={{ opacity: 0.4, margin: "0 0.35rem" }}>·</span>
+      )}
       {pageLabel}
     </span>
   );
