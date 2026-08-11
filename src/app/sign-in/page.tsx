@@ -49,7 +49,7 @@ export default function SignInPage() {
   }
 
   return (
-    <main className="auth-split-shell">
+    <main className="auth-split-shell auth-mobile-polished-shell">
       <AuthShowcase mode="sign-in" />
 
       <section className="auth-form-panel" aria-labelledby="sign-in-title">
@@ -142,7 +142,7 @@ export default function SignInPage() {
                   type="submit"
                   id="sign-in-submit"
                   size="lg"
-                  className="auth-submit-btn"
+                  className={`auth-submit-btn ${loading ? "is-loading" : ""}`}
                   disabled={loading}
                 >
                   {loading ? (
@@ -150,7 +150,9 @@ export default function SignInPage() {
                   ) : (
                     <>
                       Đăng nhập
-                      <ArrowRight size={17} aria-hidden />
+                      <span className="auth-submit-icon" aria-hidden="true">
+                        <ArrowRight size={16} />
+                      </span>
                     </>
                   )}
                 </Button>

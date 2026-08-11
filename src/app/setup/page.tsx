@@ -95,7 +95,7 @@ export default function SetupPage() {
   const hasLettersAndNumbers = /[A-Za-z]/.test(password) && /\d/.test(password);
 
   return (
-    <main className="auth-split-shell">
+    <main className="auth-split-shell auth-mobile-polished-shell">
       <AuthShowcase mode="register" />
 
       <section className="auth-form-panel" aria-labelledby="register-title">
@@ -244,7 +244,7 @@ export default function SetupPage() {
                     type="submit"
                     id="setup-submit"
                     size="lg"
-                    className="auth-submit-btn"
+                    className={`auth-submit-btn ${loading ? "is-loading" : ""}`}
                     disabled={loading}
                   >
                     {loading ? (
@@ -255,7 +255,9 @@ export default function SetupPage() {
                     ) : (
                       <>
                         Tạo tài khoản
-                        <ArrowRight size={17} aria-hidden />
+                        <span className="auth-submit-icon" aria-hidden="true">
+                          <ArrowRight size={16} />
+                        </span>
                       </>
                     )}
                   </Button>
