@@ -194,6 +194,12 @@ export function RecurringTransactionsManager({
   const pausedCount = schedules.filter((item) => !item.completedAt && item.status === "deactive").length;
   const completedCount = schedules.filter((item) => Boolean(item.completedAt)).length;
   const errorCount = schedules.filter((item) => Boolean(item.lastError)).length;
+  const nextSchedule = useMemo(
+    () => schedules
+      .filter((item) => !item.completedAt && item.status === "active")
+      .sort((a, b) => a.nextExecutionDate.localeCompare(b.nextExecutionDate))[0],
+    [schedules],
+  );
   function beginCreate() {
     setEditingId(null);
     setDraft(emptyDraft(wallets, workspace.businessDate));
@@ -264,6 +270,54 @@ export function RecurringTransactionsManager({
           <span className="recurring-create-label-mobile">Tạo lịch</span>
         </Button>
       </PageHeader>
+
+      <section className="recurring-mobile-control" aria-label="Trung tâm điều khiển lịch tự động">
+        <header>
+          <div className="recurring-mobile-control-state">
+            <i data-active={activeCount > 0} aria-hidden="true" />
+            <span>{activeCount > 0 ? "Autopilot đang chạy" : "Autopilot đang nghỉ"}</span>
+          </div>
+          <small>{schedules.length} lịch đã thiết lập</small>
+        </header>
+        <div className="recurring-mobile-control-main">
+          <div>
+            <span>Lịch đang hoạt động</span>
+            <strong>{activeCount}</strong>
+            <p>{activeCount > 0 ? "Fin sẽ tự ghi nhận đúng ngày" : "Tạo hoặc kích hoạt một lịch để bắt đầu"}</p>
+          </div>
+          <div className="recurring-mobile-orbit" data-active={activeCount > 0} aria-hidden="true">
+            <span><Repeat2 size={22} /></span>
+            <i />
+          </div>
+        </div>
+        {nextSchedule ? (
+          <div className="recurring-mobile-next-run">
+            <time dateTime={nextSchedule.nextExecutionDate}>
+              <small>{mobileDateParts(nextSchedule.nextExecutionDate).month}</small>
+              <strong>{mobileDateParts(nextSchedule.nextExecutionDate).day}</strong>
+            </time>
+            <div>
+              <span>Chạy kế tiếp</span>
+              <strong>{nextSchedule.description || "Giao dịch định kỳ"}</strong>
+              <small>{nextSchedule.wallet}{nextSchedule.toWallet ? ` → ${nextSchedule.toWallet}` : ""}</small>
+            </div>
+            <b className={`amount-${nextSchedule.type}`}>
+              {nextSchedule.type === "income" ? "+" : nextSchedule.type === "expense" ? "−" : "↔"}
+              {formatAmount(nextSchedule.amount)} <small>{workspace.currency}</small>
+            </b>
+          </div>
+        ) : (
+          <div className="recurring-mobile-next-run is-empty">
+            <CalendarClock size={18} aria-hidden="true" />
+            <div><strong>Chưa có lần chạy kế tiếp</strong><small>Các lịch đang tạm dừng hoặc đã kết thúc.</small></div>
+          </div>
+        )}
+        <dl className="recurring-mobile-control-stats">
+          <div><dt>Tạm dừng</dt><dd>{pausedCount}</dd></div>
+          <div><dt>Đã hoàn tất</dt><dd>{completedCount}</dd></div>
+          <div data-alert={errorCount > 0}><dt>Cần kiểm tra</dt><dd>{errorCount}</dd></div>
+        </dl>
+      </section>
 
       <section className="recurring-summary" aria-label="Tổng quan giao dịch định kỳ">
         <div className="recurring-summary-primary">
@@ -513,6 +567,8 @@ function RecurringMobileScheduleCard({
           render={
             <article
               className="recurring-mobile-card"
+              data-type={schedule.type}
+              data-status={schedule.completedAt ? "completed" : schedule.status}
               aria-label={`${schedule.description || "Giao dịch định kỳ"}, ${amountPrefix}${formatAmount(schedule.amount)} ${currency}, ${statusLabel}. Chạm để mở menu thao tác.`}
             />
           }
