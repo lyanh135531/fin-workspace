@@ -1,8 +1,26 @@
 "use client";
 
-import { Button, Card, Tabs, TabsList, TabsTrigger } from "@/components/base";
-import { Check, Moon, Palette, Sun, Sparkles } from "lucide-react";
-import { useSyncExternalStore } from "react";
+import {
+  Button,
+  Card,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/base";
+import {
+  Check,
+  ChevronRight,
+  Moon,
+  Palette,
+  Sparkles,
+  Sun,
+} from "lucide-react";
+import { useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 
 const themes = [
@@ -93,12 +111,15 @@ function subscribeTheme(callback: () => void) {
 }
 
 export function GeneralSettingsClient() {
+  const [themeSheetOpen, setThemeSheetOpen] = useState(false);
   const mode = useSyncExternalStore<Mode>(subscribeMode, getMode, () => "dark");
   const theme = useSyncExternalStore<ThemeName>(
     subscribeTheme,
     getTheme,
     () => "sunrise",
   );
+  const selectedTheme =
+    themes.find((item) => item.value === theme) ?? themes[0];
 
   function selectTheme(nextTheme: ThemeName) {
     applyAppearance(nextTheme, mode);
@@ -122,9 +143,9 @@ export function GeneralSettingsClient() {
         }}
       />
 
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4 max-sm:items-start">
+      <header className="flex flex-wrap items-center justify-between gap-4 pb-4 max-sm:items-start">
         <div className="flex items-center gap-2.5">
-          <div className="w-8.5 h-8.5 rounded-lg grid place-items-center bg-[var(--surface-muted)] text-[var(--primary)] border border-[var(--border)]">
+          <div className="w-8.5 h-8.5 rounded-lg grid place-items-center text-[var(--primary)]">
             <Palette size={18} />
           </div>
           <div>
@@ -142,9 +163,12 @@ export function GeneralSettingsClient() {
         <Tabs
           value={mode}
           onValueChange={(value) => selectMode(value as Mode)}
-          className="max-sm:w-full"
+          className="appearance-mode-tabs max-sm:w-full"
         >
-          <TabsList className="rounded-xl bg-slate-100/80 p-1 dark:bg-slate-800/80 max-sm:grid max-sm:w-full max-sm:grid-cols-2">
+          <TabsList
+            className="appearance-mode-switch rounded-xl bg-slate-100/80 p-1 dark:bg-slate-800/80 max-sm:grid max-sm:w-full max-sm:grid-cols-2"
+            aria-label="Chế độ hiển thị"
+          >
             <TabsTrigger
               value="light"
               className="rounded-lg transition-all data-active:bg-white data-active:shadow-sm hover:text-[var(--primary)] dark:data-active:bg-slate-700 max-sm:justify-center"
@@ -168,68 +192,133 @@ export function GeneralSettingsClient() {
         tức thì trên trình duyệt thiết bị này.
       </p>
 
-      <div
-        className="mt-3 grid gap-1 sm:hidden"
-        role="radiogroup"
-        aria-label="Chọn chủ đề màu"
-      >
-        {themes.map((item) => {
-          const isSelected = theme === item.value;
-          return (
-            <Button
-              key={item.value}
-              variant="unstyled"
-              size="auto"
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              className={cn(
-                "flex min-h-16 w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors",
-                isSelected
-                  ? "bg-[var(--surface-muted)]"
-                  : "hover:bg-[var(--surface-muted)]/60",
-              )}
-              onClick={() => selectTheme(item.value)}
-            >
-              <span
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
-                style={{ background: item.previewBg }}
-              >
-                <span className="flex -space-x-1">
-                  {item.swatches.map((color) => (
-                    <span
-                      key={color}
-                      className="h-3.5 w-3.5 rounded-full border-2 border-[var(--surface)]"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </span>
-              </span>
-              <span className="min-w-0 flex-1">
-                <strong className="block truncate text-sm font-semibold text-[var(--foreground)]">
-                  {item.label}
-                </strong>
-                <small className="mt-0.5 block truncate text-[11px] text-[var(--text-muted)]">
-                  {item.description}
-                </small>
-              </span>
-              <span
-                className={cn(
-                  "grid h-5 w-5 shrink-0 place-items-center rounded-full border",
-                  isSelected
-                    ? "border-transparent text-white"
-                    : "border-[var(--border)] text-transparent",
-                )}
-                style={{
-                  backgroundColor: isSelected ? item.primaryColor : undefined,
-                }}
-              >
-                <Check size={11} strokeWidth={3.5} />
-              </span>
-            </Button>
-          );
-        })}
+      <div className="mt-3 sm:hidden">
+        <Button
+          variant="unstyled"
+          size="auto"
+          type="button"
+          className="flex min-h-16 w-full items-center gap-3 rounded-3xl bg-[var(--surface-muted)] px-2.5 py-2 text-left transition-[background-color,transform] active:scale-[0.98]"
+          aria-haspopup="dialog"
+          onClick={() => setThemeSheetOpen(true)}
+        >
+          <span
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
+            style={{ background: selectedTheme.previewBg }}
+          >
+            <span className="flex -space-x-1">
+              {selectedTheme.swatches.map((color) => (
+                <span
+                  key={color}
+                  className="h-3.5 w-3.5 rounded-full border-2 border-[var(--surface)]"
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </span>
+          </span>
+          <span className="min-w-0 flex-1">
+            <small className="block text-[10px] font-medium text-[var(--text-muted)]">
+              Chủ đề màu
+            </small>
+            <strong className="mt-0.5 block truncate text-sm font-semibold text-[var(--foreground)]">
+              {selectedTheme.label}
+            </strong>
+          </span>
+          <ChevronRight
+            size={17}
+            className="shrink-0 text-[var(--text-muted)]"
+            aria-hidden="true"
+          />
+        </Button>
       </div>
+
+      <Sheet open={themeSheetOpen} onOpenChange={setThemeSheetOpen}>
+        <SheetContent
+          side="bottom"
+          className="quick-transaction-sheet sm:hidden"
+        >
+          <SheetHeader className="quick-transaction-header">
+            <div className="quick-transaction-heading">
+              <span aria-hidden="true">
+                <Palette size={18} />
+              </span>
+              <div>
+                <SheetTitle>Chọn chủ đề màu</SheetTitle>
+                <SheetDescription>
+                  Màu sắc được áp dụng ngay trên thiết bị này.
+                </SheetDescription>
+              </div>
+            </div>
+          </SheetHeader>
+
+          <div
+            className="quick-transaction-scroll grid gap-1"
+            role="radiogroup"
+            aria-label="Chọn chủ đề màu"
+          >
+            {themes.map((item) => {
+              const isSelected = theme === item.value;
+              return (
+                <Button
+                  key={item.value}
+                  variant="unstyled"
+                  size="auto"
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  className={cn(
+                    "flex min-h-16 w-full items-center gap-3 rounded-3xl px-2.5 py-2 text-left transition-[background-color,transform] active:scale-[0.98]",
+                    isSelected
+                      ? "bg-[var(--surface-muted)]"
+                      : "hover:bg-[var(--surface-muted)]/60",
+                  )}
+                  onClick={() => {
+                    selectTheme(item.value);
+                    setThemeSheetOpen(false);
+                  }}
+                >
+                  <span
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
+                    style={{ background: item.previewBg }}
+                  >
+                    <span className="flex -space-x-1">
+                      {item.swatches.map((color) => (
+                        <span
+                          key={color}
+                          className="h-3.5 w-3.5 rounded-full border-2 border-[var(--surface)]"
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </span>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm font-semibold text-[var(--foreground)]">
+                      {item.label}
+                    </strong>
+                    <small className="mt-0.5 block truncate text-[11px] text-[var(--text-muted)]">
+                      {item.description}
+                    </small>
+                  </span>
+                  <span
+                    className={cn(
+                      "grid h-5 w-5 shrink-0 place-items-center rounded-full border",
+                      isSelected
+                        ? "border-transparent text-white"
+                        : "border-[var(--border)] text-transparent",
+                    )}
+                    style={{
+                      backgroundColor: isSelected
+                        ? item.primaryColor
+                        : undefined,
+                    }}
+                  >
+                    <Check size={11} strokeWidth={3.5} />
+                  </span>
+                </Button>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <div
         className="mt-5 hidden grid-cols-1 gap-3.5 sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"

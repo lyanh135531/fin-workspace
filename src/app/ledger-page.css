@@ -733,14 +733,12 @@
     flex: 0 0 auto;
     place-items: center;
     border-radius: 0.36rem;
-    background: color-mix(in srgb, var(--warning) 14%, var(--surface));
     color: var(--warning);
   }
 
   .ledger-mobile-review-sheet.pending-delete
     .ledger-mobile-review-heading
     > span {
-    background: color-mix(in srgb, var(--danger) 14%, var(--surface));
     color: var(--danger);
   }
 
@@ -776,7 +774,6 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    border-radius: 0.75rem;
     background: var(--surface-secondary);
     padding: 0.75rem 0.8rem;
   }

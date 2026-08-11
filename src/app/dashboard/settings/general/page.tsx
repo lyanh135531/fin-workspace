@@ -25,7 +25,7 @@ export default async function GeneralSettingsPage() {
           className="max-sm:hidden"
         />
 
-        <div className="settings-sections-grid space-y-3 sm:mt-6 sm:space-y-6">
+        <div className="settings-sections-grid space-y-6 sm:mt-6">
           <GeneralSettingsClient />
           <UserCategoryTemplateManagement
             categories={categories.map((category) => ({

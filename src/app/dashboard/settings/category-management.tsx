@@ -301,14 +301,14 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             <FolderTree size={18} />
           </span>
           <div className="min-w-0">
-          <p className="settings-eyebrow">Danh mục workspace</p>
-          <h2 className="mt-0.5 text-base font-bold tracking-tight">
-            Quản lý danh mục
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Danh mục thuộc workspace này. Bạn có thể tạo mới hoặc import từ danh
-            mục mẫu cá nhân.
-          </p>
+            <p className="settings-eyebrow">Danh mục workspace</p>
+            <h2 className="mt-0.5 text-base font-bold tracking-tight">
+              Quản lý danh mục
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Danh mục thuộc workspace này. Bạn có thể tạo mới hoặc import từ
+              danh mục mẫu cá nhân.
+            </p>
           </div>
         </div>
         <Button
@@ -318,7 +318,6 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             setEditing(null);
           }}
           disabled={pending}
-          className="max-md:h-9 max-md:px-3 max-md:text-xs"
         >
           <Plus size={15} />
           <span className="max-md:hidden">Thêm danh mục</span>
@@ -330,30 +329,36 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       <div className="flex items-center justify-between gap-3 py-4 mb-1 border-b border-[var(--border)]">
         <Tabs
           value={filterType}
+          className="category-type-tabs"
           onValueChange={(value) => {
             setFilterType(value as "expense" | "income");
             setCreating(false);
             setEditing(null);
           }}
         >
-          <TabsList>
+          <TabsList
+            className="category-type-switch"
+            aria-label="Loại danh mục"
+          >
             <TabsTrigger
               value="expense"
+              data-transaction-type="expense"
               className="data-active:text-red-600 dark:data-active:text-red-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
             >
               <ArrowUpRight size={14} strokeWidth={2.5} />
               <span>Chi tiêu</span>
-              <TabsCount className="[button[data-active]_&]:bg-red-100 dark:[button[data-active]_&]:bg-red-950/80 [button[data-active]_&]:text-red-700 dark:[button[data-active]_&]:text-red-400 [button:hover_&]:bg-red-100 dark:[button:hover_&]:bg-red-950/80 [button:hover_&]:text-red-700 dark:[button:hover_&]:text-red-400 transition-colors">
+              <TabsCount className="bg-red-100 text-red-700 transition-colors dark:bg-red-950/80 dark:text-red-400">
                 {categories.filter((c) => c.type === "expense").length}
               </TabsCount>
             </TabsTrigger>
             <TabsTrigger
               value="income"
+              data-transaction-type="income"
               className="data-active:text-emerald-600 dark:data-active:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
             >
               <ArrowDownLeft size={14} strokeWidth={2.5} />
               <span>Thu nhập</span>
-              <TabsCount className="[button[data-active]_&]:bg-emerald-100 dark:[button[data-active]_&]:bg-emerald-950/80 [button[data-active]_&]:text-emerald-700 dark:[button[data-active]_&]:text-emerald-400 [button:hover_&]:bg-emerald-100 dark:[button:hover_&]:bg-emerald-950/80 [button:hover_&]:text-emerald-700 dark:[button:hover_&]:text-emerald-400 transition-colors">
+              <TabsCount className="bg-emerald-100 text-emerald-700 transition-colors dark:bg-emerald-950/80 dark:text-emerald-400">
                 {categories.filter((c) => c.type === "income").length}
               </TabsCount>
             </TabsTrigger>
@@ -381,9 +386,18 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             isMobile && "quick-transaction-sheet",
           )}
         >
-          <SheetHeader className={cn("px-6 pt-6 pb-4 border-b border-[var(--border)]", isMobile && "quick-transaction-header")}>
+          <SheetHeader
+            className={cn(
+              "px-6 pt-6 pb-4 border-b border-[var(--border)]",
+              isMobile && "quick-transaction-header",
+            )}
+          >
             <div className={cn(isMobile && "quick-transaction-heading")}>
-              {isMobile && <span aria-hidden="true"><FolderTree size={18} /></span>}
+              {isMobile && (
+                <span aria-hidden="true">
+                  <FolderTree size={18} />
+                </span>
+              )}
               <div>
                 <SheetTitle>
                   {editingCategory
@@ -402,11 +416,18 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             <CategoryForm
               key={editingCategory?.id ?? `create-${filterType}`}
               defaultType={editingCategory?.type ?? filterType}
-              categories={editingCategory ? categories.filter((item) => item.id !== editingCategory.id) : categories}
+              categories={
+                editingCategory
+                  ? categories.filter((item) => item.id !== editingCategory.id)
+                  : categories
+              }
               category={editingCategory}
               pending={pending}
               isMobile={isMobile}
-              onCancel={() => { setCreating(false); setEditing(null); }}
+              onCancel={() => {
+                setCreating(false);
+                setEditing(null);
+              }}
               onSubmit={(form) => submit(form, editingCategory?.id)}
             />
           )}
@@ -495,22 +516,34 @@ function WorkspaceCategoryActionsMenu({
           sideOffset={4}
           className="!w-52 p-1.5 [&_[data-slot=dropdown-menu-item]]:min-h-10 [&_[data-slot=dropdown-menu-item]]:gap-2 [&_[data-slot=dropdown-menu-item]]:px-2.5"
         >
-          <DropdownMenuItem disabled={pending} onClick={() => run(() => onEdit(category.id))}>
+          <DropdownMenuItem
+            disabled={pending}
+            onClick={() => run(() => onEdit(category.id))}
+          >
             <Pencil aria-hidden="true" />
             Chỉnh sửa
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={pending}
-            onClick={() => run(() => onStatus(category.id, isActive ? "deactive" : "active"))}
+            onClick={() =>
+              run(() => onStatus(category.id, isActive ? "deactive" : "active"))
+            }
           >
-            {isActive ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+            {isActive ? (
+              <EyeOff aria-hidden="true" />
+            ) : (
+              <Eye aria-hidden="true" />
+            )}
             {isActive ? "Tắt danh mục" : "Bật danh mục"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
             disabled={pending}
-            onClick={() => { setMenuOpen(false); setDeleteConfirmOpen(true); }}
+            onClick={() => {
+              setMenuOpen(false);
+              setDeleteConfirmOpen(true);
+            }}
           >
             <Trash2 aria-hidden="true" />
             Xóa danh mục
@@ -520,13 +553,20 @@ function WorkspaceCategoryActionsMenu({
 
       {isMobile ? (
         <Sheet open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-          <SheetContent side="bottom" className="ledger-mobile-review-sheet pending-delete">
+          <SheetContent
+            side="bottom"
+            className="ledger-mobile-review-sheet pending-delete"
+          >
             <SheetHeader className="ledger-mobile-review-header">
               <div className="ledger-mobile-review-heading">
-                <span aria-hidden="true"><Trash2 size={18} /></span>
+                <span aria-hidden="true">
+                  <Trash2 size={18} />
+                </span>
                 <div>
                   <SheetTitle>Xóa danh mục?</SheetTitle>
-                  <SheetDescription>Hành động này không thể hoàn tác.</SheetDescription>
+                  <SheetDescription>
+                    Hành động này không thể hoàn tác.
+                  </SheetDescription>
                 </div>
               </div>
             </SheetHeader>
@@ -542,10 +582,22 @@ function WorkspaceCategoryActionsMenu({
               </div>
             </div>
             <SheetFooter className="ledger-mobile-review-actions">
-              <Button variant="outline" className="ledger-mobile-review-reject" data-delete disabled={pending} onClick={() => setDeleteConfirmOpen(false)}>
+              <Button
+                variant="outline"
+                className="ledger-mobile-review-reject"
+                data-delete
+                disabled={pending}
+                onClick={() => setDeleteConfirmOpen(false)}
+              >
                 Hủy
               </Button>
-              <Button variant="outline" className="ledger-mobile-review-approve" data-delete disabled={pending} onClick={deleteAction}>
+              <Button
+                variant="outline"
+                className="ledger-mobile-review-approve"
+                data-delete
+                disabled={pending}
+                onClick={deleteAction}
+              >
                 <Trash2 size={16} />
                 Xóa danh mục
               </Button>
@@ -553,10 +605,15 @@ function WorkspaceCategoryActionsMenu({
           </SheetContent>
         </Sheet>
       ) : (
-        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogMedia className="bg-rose-500/10 text-rose-500"><Trash2 /></AlertDialogMedia>
+              <AlertDialogMedia className="bg-rose-500/10 text-rose-500">
+                <Trash2 />
+              </AlertDialogMedia>
               <AlertDialogTitle>Xóa danh mục?</AlertDialogTitle>
               <AlertDialogDescription>
                 Danh mục “{category.name}” sẽ bị xóa và không thể khôi phục.
@@ -564,7 +621,11 @@ function WorkspaceCategoryActionsMenu({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={pending}>Hủy</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" disabled={pending} onClick={deleteAction}>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={pending}
+                onClick={deleteAction}
+              >
                 <Trash2 />
                 Xóa danh mục
               </AlertDialogAction>
@@ -639,17 +700,25 @@ function CategoryNode({
                 event.dataTransfer.setData("text/plain", category.id);
                 onDragStart({ id: category.id, parentId: null });
               }}
-              onDragEnd={(event) => { event.stopPropagation(); onDragEnd(); }}
+              onDragEnd={(event) => {
+                event.stopPropagation();
+                onDragEnd();
+              }}
               onDragOver={(event) => {
                 event.stopPropagation();
-                if (draggedCategory?.parentId !== null || draggedCategory.id === category.id) return;
+                if (
+                  draggedCategory?.parentId !== null ||
+                  draggedCategory.id === category.id
+                )
+                  return;
                 event.preventDefault();
                 event.dataTransfer.dropEffect = "move";
                 onDragOver(category.id);
               }}
               onDragLeave={(event) => {
                 event.stopPropagation();
-                if (!event.currentTarget.contains(event.relatedTarget as Node)) onDragOver(null);
+                if (!event.currentTarget.contains(event.relatedTarget as Node))
+                  onDragOver(null);
               }}
               onDrop={(event) => onDrop(event, category)}
             />
@@ -703,7 +772,10 @@ function CategoryNode({
             </div>
           </div>
 
-          <GripVertical size={17} className="shrink-0 text-[var(--text-muted)] max-md:hidden" />
+          <GripVertical
+            size={17}
+            className="shrink-0 text-[var(--text-muted)] max-md:hidden"
+          />
         </WorkspaceCategoryActionsMenu>
 
         {/* Children — tree branch from parent */}
@@ -758,17 +830,25 @@ function CategoryNode({
             event.dataTransfer.setData("text/plain", category.id);
             onDragStart({ id: category.id, parentId: category.parentId });
           }}
-          onDragEnd={(event) => { event.stopPropagation(); onDragEnd(); }}
+          onDragEnd={(event) => {
+            event.stopPropagation();
+            onDragEnd();
+          }}
           onDragOver={(event) => {
             event.stopPropagation();
-            if (draggedCategory?.parentId !== category.parentId || draggedCategory.id === category.id) return;
+            if (
+              draggedCategory?.parentId !== category.parentId ||
+              draggedCategory.id === category.id
+            )
+              return;
             event.preventDefault();
             event.dataTransfer.dropEffect = "move";
             onDragOver(category.id);
           }}
           onDragLeave={(event) => {
             event.stopPropagation();
-            if (!event.currentTarget.contains(event.relatedTarget as Node)) onDragOver(null);
+            if (!event.currentTarget.contains(event.relatedTarget as Node))
+              onDragOver(null);
           }}
           onDrop={(event) => onDrop(event, category)}
         />
@@ -813,7 +893,10 @@ function CategoryNode({
         </div>
       </div>
 
-      <GripVertical size={15} className="shrink-0 text-[var(--text-muted)] max-md:hidden" />
+      <GripVertical
+        size={15}
+        className="shrink-0 text-[var(--text-muted)] max-md:hidden"
+      />
     </WorkspaceCategoryActionsMenu>
   );
 }
@@ -837,7 +920,6 @@ function CategoryForm({
 }) {
   const [name, setName] = useState(category?.name ?? "");
   const [code, setCode] = useState(category?.code ?? "");
-  const [autoCode, setAutoCode] = useState(!category);
   const [selectedColor, setSelectedColor] = useState(
     category?.color ?? COLOR_PRESETS[0],
   );
@@ -845,7 +927,7 @@ function CategoryForm({
 
   function handleNameChange(val: string) {
     setName(val);
-    if (autoCode) {
+    if (!category) {
       setCode(slugifyCode(val));
     }
   }
@@ -862,8 +944,14 @@ function CategoryForm({
       )}
     >
       <input type="hidden" name="type" value={category?.type ?? defaultType} />
+      <input type="hidden" name="code" value={code} />
 
-      <div className={cn("grid flex-1 gap-4 overflow-y-auto px-4 py-4 sm:px-6", isMobile && "quick-transaction-scroll")}>
+      <div
+        className={cn(
+          "grid flex-1 gap-4 overflow-y-auto px-4 py-4 sm:px-6",
+          isMobile && "quick-transaction-scroll",
+        )}
+      >
         {/* Name Input */}
         <div>
           <Input
@@ -873,22 +961,6 @@ function CategoryForm({
             value={name}
             onChange={(e) => handleNameChange(e.target.value)}
             placeholder="Ăn uống, Lương..."
-          />
-        </div>
-
-        {/* Code Input (Auto-generated) */}
-        <div>
-          <Input
-            label={"Mã danh mục"}
-            className="font-mono text-sm uppercase"
-            name="code"
-            required
-            value={code}
-            onChange={(e) => {
-              setCode(e.target.value.toUpperCase());
-              setAutoCode(false);
-            }}
-            placeholder="FOOD_DRINK, SALARY..."
           />
         </div>
 
@@ -941,7 +1013,7 @@ function CategoryForm({
         {/* Visual Icon Picker Grid */}
         <div className="grid gap-1">
           <Label>Chọn Biểu tượng</Label>
-          <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border border-[var(--border)] rounded-xl bg-[var(--surface)]">
+          <div className="category-icon-picker grid max-h-48 grid-cols-4 gap-2 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2">
             {ICON_LIST.map((item) => {
               const IconComp = ICON_MAP[item.id] ?? Tag;
               const isSelected = selectedIcon === item.id;
@@ -971,7 +1043,12 @@ function CategoryForm({
         </div>
       </div>
 
-      <div className={cn("mt-auto flex justify-end gap-2 border-t border-[var(--border)] px-4 py-3 sm:px-6", isMobile && "quick-transaction-footer")}>
+      <div
+        className={cn(
+          "mt-auto flex justify-end gap-2 border-t border-[var(--border)] px-4 py-3 sm:px-6",
+          isMobile && "quick-transaction-footer",
+        )}
+      >
         <Button
           type="button"
           variant="outline"
@@ -980,7 +1057,12 @@ function CategoryForm({
         >
           Hủy bỏ
         </Button>
-        <Button type="submit" variant="default" disabled={pending} className={cn(isMobile && "quick-submit flex-1")}>
+        <Button
+          type="submit"
+          variant="default"
+          disabled={pending}
+          className={cn(isMobile && "quick-submit flex-1")}
+        >
           {pending ? <Loading label="Đang xử lý..." /> : "Lưu danh mục"}
         </Button>
       </div>

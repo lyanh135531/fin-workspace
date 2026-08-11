@@ -1,10 +1,34 @@
 import type { CreateCategoryInput, UpdateCategoryInput } from "@/domain";
+import { scopeCategoryCode } from "@/domain/category/category-code";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
 type CategoryInput = Omit<CreateCategoryInput, "parentId"> & { parentId?: string };
+
+async function hasWorkspaceCategoryConflict(
+  workspaceId: string,
+  input: Pick<CategoryInput, "name" | "code" | "parentId">,
+  categoryId?: string,
+): Promise<boolean> {
+  const category = await prisma.category.findFirst({
+    where: {
+      workspaceId,
+      deletedAt: null,
+      ...(categoryId ? { id: { not: categoryId } } : {}),
+      OR: [
+        { code: input.code },
+        {
+          name: { equals: input.name, mode: "insensitive" },
+          parentId: input.parentId ?? null,
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  return category !== null;
+}
 
 async function validateParent(workspaceId: string, parentId: string | undefined, type: "income" | "expense", categoryId?: string) {
   if (!parentId) return;
@@ -24,8 +48,15 @@ async function validateParent(workspaceId: string, parentId: string | undefined,
 export async function createWorkspaceCategory(userId: string, workspaceId: string, input: CategoryInput) {
   await requireWorkspaceMember(userId, workspaceId, true);
   await validateParent(workspaceId, input.parentId, input.type);
+  const scopedInput = {
+    ...input,
+    code: scopeCategoryCode(input.code, input.parentId),
+  };
+  if (await hasWorkspaceCategoryConflict(workspaceId, scopedInput)) {
+    throw new AppError("CONFLICT", "Tên danh mục này đã tồn tại.");
+  }
   return prisma.$transaction(async (tx) => {
-    const category = await tx.category.create({ data: { workspaceId, ...input } });
+    const category = await tx.category.create({ data: { workspaceId, ...scopedInput } });
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "CATEGORY_CREATED", entityType: "CATEGORY", entityId: category.id, metadata: { name: category.name, code: category.code } } });
     return category;
   });
@@ -36,6 +67,9 @@ export async function updateWorkspaceCategory(userId: string, workspaceId: strin
   const category = await prisma.category.findFirst({ where: { id: input.categoryId, workspaceId, deletedAt: null } });
   if (!category) throw new AppError("NOT_FOUND", "Category riêng của workspace không tồn tại.");
   await validateParent(workspaceId, input.parentId, input.type, category.id);
+  if (await hasWorkspaceCategoryConflict(workspaceId, input, category.id)) {
+    throw new AppError("CONFLICT", "Tên danh mục này đã tồn tại.");
+  }
   return prisma.$transaction(async (tx) => {
     const updated = await tx.category.update({ where: { id: category.id }, data: { name: input.name, code: input.code, color: input.color, type: input.type, icon: input.icon, parentId: input.parentId ?? null, sortOrder: input.sortOrder } });
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "CATEGORY_UPDATED", entityType: "CATEGORY", entityId: category.id, metadata: { name: updated.name, code: updated.code } } });

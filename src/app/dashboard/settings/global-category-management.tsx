@@ -6,6 +6,7 @@ import {
   BookOpen,
   Briefcase,
   Car,
+  CircleAlert,
   CircleDollarSign,
   Coffee,
   CreditCard,
@@ -347,6 +348,11 @@ export function UserCategoryTemplateManagement({
     reorderChildren(source.parentId, source.id, target.id);
   }
 
+  function startCreating() {
+    setCreating(true);
+    setEditing(null);
+  }
+
   return (
     <Card
       as="section"
@@ -354,9 +360,9 @@ export function UserCategoryTemplateManagement({
       aria-busy={pending}
     >
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8.5 h-8.5 rounded-lg grid place-items-center bg-[var(--surface-muted)] text-[var(--primary)] border border-[var(--border)]">
+          <div className="w-8.5 h-8.5 rounded-lg grid place-items-center text-[var(--primary)]">
             <FolderTree size={18} />
           </div>
           <div>
@@ -370,50 +376,51 @@ export function UserCategoryTemplateManagement({
         <Button
           variant="default"
           size="default"
-          className="max-sm:h-9 max-sm:px-3 max-sm:text-xs"
-          onClick={() => {
-            setCreating(true);
-            setEditing(null);
-          }}
+          className="max-sm:hidden"
+          onClick={startCreating}
           disabled={pending}
         >
           <Plus size={15} />
           <span className="max-sm:hidden">Thêm danh mục mẫu</span>
-          <span className="sm:hidden">Thêm</span>
         </Button>
       </div>
 
       {/* Info banner */}
 
       {/* Tabs: Chi tiêu & Thu nhập ONLY (No All, No Search) */}
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] py-4">
+      <div className="flex items-center justify-between gap-3 py-4">
         <Tabs
           value={filterType}
+          className="category-type-tabs max-sm:w-full"
           onValueChange={(value) => {
             setFilterType(value as "expense" | "income");
             setCreating(false);
             setEditing(null);
           }}
-          className="max-sm:w-full"
         >
-          <TabsList className="max-sm:grid max-sm:w-full max-sm:grid-cols-2">
+          <TabsList
+            className="category-type-switch max-sm:grid max-sm:w-full max-sm:grid-cols-2"
+            aria-label="Loại danh mục"
+          >
             <TabsTrigger
               value="expense"
+              data-transaction-type="expense"
               className="transition-colors data-active:text-red-600 hover:text-red-600 dark:data-active:text-red-400 dark:hover:text-red-400 max-sm:justify-center"
             >
               <ArrowUpRight size={14} strokeWidth={2.5} />
               <span>Chi tiêu</span>
-              <TabsCount className="[button[data-active]_&]:bg-red-100 dark:[button[data-active]_&]:bg-red-950/80 [button[data-active]_&]:text-red-700 dark:[button[data-active]_&]:text-red-400 [button:hover_&]:bg-red-100 dark:[button:hover_&]:bg-red-950/80 [button:hover_&]:text-red-700 dark:[button:hover_&]:text-red-400 transition-colors">
+              <TabsCount className="bg-red-100 text-red-700 transition-colors dark:bg-red-950/80 dark:text-red-400">
                 {categories.filter((c) => c.type === "expense").length}
               </TabsCount>
             </TabsTrigger>
             <TabsTrigger
               value="income"
+              data-transaction-type="income"
               className="transition-colors data-active:text-emerald-600 hover:text-emerald-600 dark:data-active:text-emerald-400 dark:hover:text-emerald-400 max-sm:justify-center"
             >
               <ArrowDownLeft size={14} strokeWidth={2.5} />
               <span>Thu nhập</span>
-              <TabsCount className="[button[data-active]_&]:bg-emerald-100 dark:[button[data-active]_&]:bg-emerald-950/80 [button[data-active]_&]:text-emerald-700 dark:[button[data-active]_&]:text-emerald-400 [button:hover_&]:bg-emerald-100 dark:[button:hover_&]:bg-emerald-950/80 [button:hover_&]:text-emerald-700 dark:[button:hover_&]:text-emerald-400 transition-colors">
+              <TabsCount className="bg-emerald-100 text-emerald-700 transition-colors dark:bg-emerald-950/80 dark:text-emerald-400">
                 {categories.filter((c) => c.type === "income").length}
               </TabsCount>
             </TabsTrigger>
@@ -424,6 +431,17 @@ export function UserCategoryTemplateManagement({
           Kéo thả để thay đổi thứ tự trong cùng một cấp
         </p>
       </div>
+
+      <Button
+        variant="default"
+        size="default"
+        className="mb-3 w-full sm:hidden"
+        onClick={startCreating}
+        disabled={pending}
+      >
+        <Plus size={15} />
+        Tạo danh mục mới
+      </Button>
 
       <Sheet
         open={creating || editing !== null}
@@ -437,7 +455,7 @@ export function UserCategoryTemplateManagement({
         <SheetContent
           side={isMobile ? "bottom" : "right"}
           className={cn(
-            "general-category-sheet flex h-full w-full flex-col border-l border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--foreground)] sm:max-w-md",
+            "general-category-sheet flex h-full w-full flex-col bg-[var(--surface)] p-0 text-[var(--foreground)] sm:max-w-md",
             isMobile && "quick-transaction-sheet",
           )}
         >
@@ -494,7 +512,7 @@ export function UserCategoryTemplateManagement({
       </Sheet>
 
       {/* Category Tree List */}
-      <div className="max-sm:pt-1">
+      <div>
         {rootCategories.length === 0 ? (
           <Empty
             icon={Tag}
@@ -585,6 +603,7 @@ function Node({
         {/* Root row */}
         <CategoryActionsMenu
           category={category}
+          childCount={children.length}
           pending={pending}
           isMobile={isMobile}
           onEdit={onEdit}
@@ -594,6 +613,7 @@ function Node({
             <div
               className={cn(
                 "group flex cursor-pointer items-center justify-between gap-3 rounded-lg px-1 py-3 transition-[opacity,box-shadow]",
+                category.status === "deactive" && "opacity-50",
                 draggedCategory?.id === category.id && "opacity-50",
                 dropTargetId === category.id && "ring-2 ring-primary/60",
               )}
@@ -621,7 +641,9 @@ function Node({
               }}
               onDragLeave={(event) => {
                 event.stopPropagation();
-                if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                if (
+                  !event.currentTarget.contains(event.relatedTarget as Node)
+                ) {
                   onDragOver(null);
                 }
               }}
@@ -645,29 +667,9 @@ function Node({
 
             {/* Text info */}
             <div className="min-w-0">
-              <div className="flex items-center gap-2.5">
-                <strong className="text-sm font-semibold text-[var(--foreground)] truncate">
-                  {category.name}
-                </strong>
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium leading-none",
-                    category.status === "active"
-                      ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
-                      : "bg-slate-100 text-slate-400 dark:bg-slate-800/60 dark:text-slate-500",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "w-1 h-1 rounded-full",
-                      category.status === "active"
-                        ? "bg-emerald-500"
-                        : "bg-slate-300 dark:bg-slate-600",
-                    )}
-                  />
-                  {category.status === "active" ? "Hoạt động" : "Đã tắt"}
-                </span>
-              </div>
+              <strong className="block truncate text-sm font-semibold text-[var(--foreground)]">
+                {category.name}
+              </strong>
               {hasChildren && (
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
                   {children.length} danh mục con
@@ -719,6 +721,7 @@ function Node({
   return (
     <CategoryActionsMenu
       category={category}
+      childCount={0}
       pending={pending}
       isMobile={isMobile}
       onEdit={onEdit}
@@ -728,6 +731,7 @@ function Node({
         <article
           className={cn(
             "group relative flex cursor-pointer items-center justify-between gap-3 rounded-xl py-2 pl-9 pr-1 transition-[background-color,opacity,box-shadow]",
+            category.status === "deactive" && "opacity-50",
             draggedCategory?.id === category.id && "opacity-50",
             dropTargetId === category.id && "ring-2 ring-primary/60",
           )}
@@ -784,21 +788,9 @@ function Node({
           <IconComponent size={13} />
         </span>
 
-        {/* Name + status dot */}
-        <div className="min-w-0 flex items-center gap-2">
-          <span className="text-[12.5px] font-medium text-[var(--foreground)]/90 truncate">
-            {category.name}
-          </span>
-          <span
-            className={cn(
-              "w-1.5 h-1.5 rounded-full flex-shrink-0",
-              category.status === "active"
-                ? "bg-emerald-400"
-                : "bg-slate-300 dark:bg-slate-600",
-            )}
-            title={category.status === "active" ? "Hoạt động" : "Đã tắt"}
-          />
-        </div>
+        <span className="truncate text-[12.5px] font-medium text-[var(--foreground)]/90">
+          {category.name}
+        </span>
       </div>
 
       <GripVertical
@@ -812,6 +804,7 @@ function Node({
 
 function CategoryActionsMenu({
   category,
+  childCount,
   pending,
   isMobile,
   trigger,
@@ -821,6 +814,7 @@ function CategoryActionsMenu({
   onDelete,
 }: {
   category: Category;
+  childCount: number;
   pending: boolean;
   isMobile: boolean;
   trigger: ReactElement;
@@ -832,6 +826,7 @@ function CategoryActionsMenu({
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const isActive = category.status === "active";
+  const IconComponent = ICON_MAP[category.icon ?? "tag"] ?? Tag;
 
   function run(action: () => void) {
     setMenuOpen(false);
@@ -845,7 +840,7 @@ function CategoryActionsMenu({
           {children}
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          align="end"
+          align={isMobile ? "center" : "end"}
           side="bottom"
           sideOffset={4}
           className="!w-52 p-1.5 [&_[data-slot=dropdown-menu-item]]:min-h-10 [&_[data-slot=dropdown-menu-item]]:gap-2 [&_[data-slot=dropdown-menu-item]]:px-2.5"
@@ -860,9 +855,7 @@ function CategoryActionsMenu({
           <DropdownMenuItem
             disabled={pending}
             onClick={() =>
-              run(() =>
-                onStatus(category.id, isActive ? "deactive" : "active"),
-              )
+              run(() => onStatus(category.id, isActive ? "deactive" : "active"))
             }
           >
             {isActive ? (
@@ -891,7 +884,7 @@ function CategoryActionsMenu({
         <Sheet open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
           <SheetContent
             side="bottom"
-            className="ledger-mobile-review-sheet pending-delete"
+            className="category-delete-confirm ledger-mobile-review-sheet pending-delete"
             aria-label={`Xác nhận xóa danh mục ${category.name}`}
           >
             <SheetHeader className="ledger-mobile-review-header">
@@ -909,29 +902,38 @@ function CategoryActionsMenu({
             </SheetHeader>
 
             <div className="ledger-mobile-review-body">
-              <div className="ledger-mobile-review-transaction">
-                <div>
-                  <span>{category.name}</span>
-                  <small>
+              <div className="category-delete-target">
+                <span
+                  className="category-delete-target-icon"
+                  style={{
+                    backgroundColor: `${category.color}18`,
+                    color: category.color,
+                    boxShadow: `inset 0 0 0 1px ${category.color}25`,
+                  }}
+                  aria-hidden="true"
+                >
+                  <IconComponent size={20} />
+                </span>
+                <div className="category-delete-target-copy">
+                  <strong>{category.name}</strong>
+                  <span>
                     {category.type === "expense" ? "Chi tiêu" : "Thu nhập"}
-                  </small>
+                    {childCount > 0 && ` · ${childCount} danh mục con`}
+                  </span>
                 </div>
-                <strong style={{ color: category.color }}>
-                  {category.status === "active" ? "Hoạt động" : "Đã tắt"}
-                </strong>
+              </div>
+
+              <div className="category-delete-warning" role="note">
+                <CircleAlert size={17} aria-hidden="true" />
+                <p>
+                  {childCount > 0
+                    ? `Danh mục này và ${childCount} danh mục con sẽ bị xóa vĩnh viễn.`
+                    : "Danh mục này sẽ bị xóa vĩnh viễn."}
+                </p>
               </div>
             </div>
 
             <SheetFooter className="ledger-mobile-review-actions">
-              <Button
-                variant="outline"
-                className="ledger-mobile-review-reject"
-                data-delete
-                disabled={pending}
-                onClick={() => setDeleteConfirmOpen(false)}
-              >
-                Hủy
-              </Button>
               <Button
                 variant="outline"
                 className="ledger-mobile-review-approve"
@@ -1003,7 +1005,6 @@ function TemplateForm({
 }) {
   const [name, setName] = useState(category?.name ?? "");
   const [code, setCode] = useState(category?.code ?? "");
-  const [autoCode, setAutoCode] = useState(!category); // Auto-generate code when creating new
   const [selectedColor, setSelectedColor] = useState(
     (category?.color ?? COLOR_PRESETS[0]).toUpperCase(),
   );
@@ -1011,7 +1012,7 @@ function TemplateForm({
 
   function handleNameChange(val: string) {
     setName(val);
-    if (autoCode) {
+    if (!category) {
       setCode(slugifyCode(val));
     }
   }
@@ -1028,6 +1029,7 @@ function TemplateForm({
       )}
     >
       <input type="hidden" name="type" value={category?.type ?? defaultType} />
+      <input type="hidden" name="code" value={code} />
 
       <div
         className={cn(
@@ -1044,22 +1046,6 @@ function TemplateForm({
             value={name}
             onChange={(e) => handleNameChange(e.target.value)}
             placeholder="Ăn uống, Lương..."
-          />
-        </div>
-
-        {/* Code Input (Auto-generated) */}
-        <div>
-          <Input
-            label={"Mã danh mục"}
-            className="font-mono text-sm uppercase"
-            name="code"
-            required
-            value={code}
-            onChange={(e) => {
-              setCode(e.target.value.toUpperCase());
-              setAutoCode(false);
-            }}
-            placeholder="FOOD_DRINK, SALARY..."
           />
         </div>
 
@@ -1112,7 +1098,7 @@ function TemplateForm({
         {/* Visual Icon Picker Grid */}
         <div className="grid gap-1">
           <Label>Chọn Biểu tượng</Label>
-          <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border border-[var(--border)] rounded-xl bg-[var(--surface)]">
+          <div className="category-icon-picker grid max-h-48 grid-cols-4 gap-2 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
             {ICON_LIST.map((item) => {
               const IconComp = ICON_MAP[item.id] ?? Tag;
               const isSelected = selectedIcon === item.id;
@@ -1123,7 +1109,7 @@ function TemplateForm({
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedIcon(item.id)}
-                  className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all text-xs gap-1 ${
+                  className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all text-xs gap-1 ${
                     isSelected
                       ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] font-bold shadow-sm"
                       : "border-transparent hover:bg-[var(--surface-muted)] text-slate-600 dark:text-slate-400"

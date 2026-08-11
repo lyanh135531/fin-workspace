@@ -1,6 +1,31 @@
 import type { CreateCategoryInput, UpdateCategoryInput } from "@/domain";
+import { scopeCategoryCode } from "@/domain/category/category-code";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
+
+async function hasTemplateCategoryConflict(
+  userId: string,
+  input: Pick<CreateCategoryInput, "name" | "code" | "parentId">,
+  categoryId?: string,
+): Promise<boolean> {
+  const category = await prisma.category.findFirst({
+    where: {
+      workspaceId: null,
+      userId,
+      deletedAt: null,
+      ...(categoryId ? { id: { not: categoryId } } : {}),
+      OR: [
+        { code: input.code },
+        {
+          name: { equals: input.name, mode: "insensitive" },
+          parentId: input.parentId ?? null,
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  return category !== null;
+}
 
 /** Validate parent template category belongs to the same user and type. */
 async function validateParent(userId: string, parentId: string | undefined, type: "income" | "expense", categoryId?: string) {
@@ -20,18 +45,23 @@ async function validateParent(userId: string, parentId: string | undefined, type
 
 export async function createUserCategoryTemplate(userId: string, input: CreateCategoryInput) {
   await validateParent(userId, input.parentId, input.type);
-  if (await prisma.category.findFirst({ where: { workspaceId: null, userId, code: input.code, deletedAt: null } })) {
-    throw new AppError("CONFLICT", "Mã danh mục mẫu đã tồn tại.");
+  const scopedInput = {
+    ...input,
+    code: scopeCategoryCode(input.code, input.parentId),
+  };
+  if (await hasTemplateCategoryConflict(userId, scopedInput)) {
+    throw new AppError("CONFLICT", "Tên danh mục này đã tồn tại.");
   }
-  return prisma.category.create({ data: { ...input, workspaceId: null, userId } });
+  return prisma.category.create({ data: { ...scopedInput, workspaceId: null, userId } });
 }
 
 export async function updateUserCategoryTemplate(userId: string, input: UpdateCategoryInput) {
   const item = await prisma.category.findFirst({ where: { id: input.categoryId, workspaceId: null, userId, deletedAt: null } });
   if (!item) throw new AppError("NOT_FOUND", "Danh mục mẫu không tồn tại.");
   await validateParent(userId, input.parentId, input.type, item.id);
-  const duplicate = await prisma.category.findFirst({ where: { workspaceId: null, userId, code: input.code, id: { not: item.id }, deletedAt: null } });
-  if (duplicate) throw new AppError("CONFLICT", "Mã danh mục mẫu đã tồn tại.");
+  if (await hasTemplateCategoryConflict(userId, input, item.id)) {
+    throw new AppError("CONFLICT", "Tên danh mục này đã tồn tại.");
+  }
   return prisma.category.update({ where: { id: item.id }, data: { name: input.name, code: input.code, color: input.color, type: input.type, icon: input.icon, parentId: input.parentId ?? null, sortOrder: input.sortOrder } });
 }
 

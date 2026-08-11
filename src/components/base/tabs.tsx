@@ -58,7 +58,6 @@ function TabsCount({ className, ...props }: React.ComponentProps<"span">) {
       data-slot="tabs-count"
       className={cn(
         "inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-foreground/8 px-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground",
-        "[button[data-active]_&]:bg-primary/12 [button[data-active]_&]:text-foreground",
         className,
       )}
       {...props}
