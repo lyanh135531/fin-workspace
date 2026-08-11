@@ -31,7 +31,12 @@ export function AccountSettingsModal({
   }, []);
 
   return (
-    <Sheet open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
+    <Sheet
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onClose();
+      }}
+    >
       <SheetContent
         side={isMobile ? "bottom" : "right"}
         className={`account-settings-sheet w-full sm:max-w-[520px] ${isMobile ? "quick-transaction-sheet" : ""}`}
@@ -54,7 +59,7 @@ export function AccountSettingsModal({
           </div>
         </SheetHeader>
         <div
-          className={`account-settings-sheet-body ${isMobile ? "quick-transaction-scroll" : ""}`}
+          className={`account-settings-sheet-body ${isMobile ? "quick-transaction-scroll" : ""} !p-0`}
         >
           <AccountSettingsClient username={username} />
         </div>

@@ -1,6 +1,11 @@
 "use client";
 
-import { ChevronRight, ShieldCheck, UserRoundX, UsersRound } from "lucide-react";
+import {
+  ChevronRight,
+  ShieldCheck,
+  UserRoundX,
+  UsersRound,
+} from "lucide-react";
 import { Fragment, useState, useTransition } from "react";
 import {
   changeMemberRoleAction,
@@ -9,7 +14,6 @@ import {
 import {
   Button,
   Card,
-  ConfirmDelete,
   Empty,
   Select,
   Sheet,
@@ -66,7 +70,9 @@ export function SettingsClient({
   const [pending, start] = useTransition();
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
-  const selectedMember = members.find((member) => member.id === selectedMemberId);
+  const selectedMember = members.find(
+    (member) => member.id === selectedMemberId,
+  );
   const selectedMemberRoleName = selectedMember
     ? (roles.find((role) => role.code === selectedMember.roleCode)?.name ??
       selectedMember.roleCode)
@@ -106,157 +112,152 @@ export function SettingsClient({
         className="workspace-members-section gap-4 overflow-hidden"
         aria-busy={pending}
       >
-      {/* Header */}
-      <header className="member-management-header flex items-center gap-3">
-        <div className="settings-section-icon">
-          <UsersRound size={18} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)] mt-0.5">
-            Thành viên workspace
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Quản lý vai trò và quyền hoạt động của từng tài khoản.
-          </p>
-        </div>
-        <span className="ws-fixed-pill">
-          <strong>{members.length}</strong> người
-        </span>
-      </header>
+        {/* Header */}
+        <header className="member-management-header flex items-center gap-3">
+          <div className="settings-section-icon">
+            <UsersRound size={18} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)] mt-0.5">
+              Thành viên workspace
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Quản lý vai trò và quyền hoạt động của từng tài khoản.
+            </p>
+          </div>
+          <span className="ws-fixed-pill">
+            <strong>{members.length}</strong> người
+          </span>
+        </header>
 
-      {/* Member list */}
-      <div className="settings-member-list">
-        {members.map((member) => {
-          const roleName =
-            roles.find((r) => r.code === member.roleCode)?.name ??
-            member.roleCode;
-          return (
-            <Fragment key={member.id}>
-              <Button
-                type="button"
-                variant="unstyled"
-                size="auto"
-                className="member-mobile-row workspace-member-mobile-row"
-                onClick={() => {
-                  setConfirmingRemove(false);
-                  setSelectedMemberId(member.id);
-                }}
-                aria-label={`Xem thông tin ${member.username}`}
-              >
-                <span
-                  className="ws-member-avatar"
-                  style={{ background: avatarGradient(member.username) }}
-                  aria-hidden="true"
+        {/* Member list */}
+        <div className="settings-member-list">
+          {members.map((member) => {
+            const roleName =
+              roles.find((r) => r.code === member.roleCode)?.name ??
+              member.roleCode;
+            return (
+              <Fragment key={member.id}>
+                <Button
+                  type="button"
+                  variant="unstyled"
+                  size="auto"
+                  className="member-mobile-row workspace-member-mobile-row"
+                  onClick={() => {
+                    setConfirmingRemove(false);
+                    setSelectedMemberId(member.id);
+                  }}
+                  aria-label={`Xem thông tin ${member.username}`}
                 >
-                  {member.username.slice(0, 1)}
-                </span>
-                <span className="member-identity">
-                  <span className="flex items-center gap-2">
-                    <strong>{member.username}</strong>
-                    {member.isSelf && (
-                      <span className="text-[10px] font-semibold text-[var(--primary)] bg-[var(--primary-soft)] px-1.5 py-0.5 rounded-md">
-                        Bạn
+                  <span
+                    className="ws-member-avatar"
+                    style={{ background: avatarGradient(member.username) }}
+                    aria-hidden="true"
+                  >
+                    {member.username.slice(0, 1)}
+                  </span>
+                  <span className="member-identity">
+                    <span className="flex items-center gap-2">
+                      <strong>{member.username}</strong>
+                      {member.isSelf && (
+                        <span className="text-[10px] font-semibold text-[var(--primary)] bg-[var(--primary-soft)] px-1.5 py-0.5 rounded-md">
+                          Bạn
+                        </span>
+                      )}
+                    </span>
+                    <small className="member-mobile-summary">{roleName}</small>
+                  </span>
+                  <ChevronRight size={17} aria-hidden="true" />
+                </Button>
+
+                <article className="settings-member-row workspace-member-desktop-row">
+                  {/* Avatar */}
+                  <div
+                    className="ws-member-avatar"
+                    style={{ background: avatarGradient(member.username) }}
+                    aria-hidden="true"
+                  >
+                    {member.username.slice(0, 1)}
+                  </div>
+
+                  {/* Identity */}
+                  <div className="member-identity">
+                    <div className="flex items-center gap-2">
+                      <strong>{member.username}</strong>
+                      {member.isSelf && (
+                        <span className="text-[10px] font-semibold text-[var(--primary)] bg-[var(--primary-soft)] px-1.5 py-0.5 rounded-md">
+                          Bạn
+                        </span>
+                      )}
+                    </div>
+                    <span>
+                      {member.isSelf
+                        ? "Tài khoản của bạn"
+                        : "Đang có quyền truy cập"}
+                    </span>
+                    <small className="member-mobile-summary">{roleName}</small>
+                  </div>
+
+                  {/* Role */}
+                  <div className="member-role">
+                    {isAdmin && !member.isSelf ? (
+                      <Select
+                        value={member.roleCode}
+                        spotlight
+                        disabled={pending}
+                        onValueChange={(roleCode) =>
+                          changeRole(member.id, roleCode)
+                        }
+                        options={roles.map((role) => ({
+                          value: role.code,
+                          label: role.name,
+                        }))}
+                        className="member-role-select min-w-34"
+                      />
+                    ) : (
+                      <span className={roleBadgeClass(member.roleCode)}>
+                        <ShieldCheck size={13} />
+                        {roleName}
                       </span>
                     )}
-                  </span>
-                  <small className="member-mobile-summary">{roleName}</small>
-                </span>
-                <ChevronRight size={17} aria-hidden="true" />
-              </Button>
+                  </div>
 
-            <article className="settings-member-row workspace-member-desktop-row">
-              {/* Avatar */}
-              <div
-                className="ws-member-avatar"
-                style={{ background: avatarGradient(member.username) }}
-                aria-hidden="true"
-              >
-                {member.username.slice(0, 1)}
-              </div>
-
-              {/* Identity */}
-              <div className="member-identity">
-                <div className="flex items-center gap-2">
-                  <strong>{member.username}</strong>
-                  {member.isSelf && (
-                    <span className="text-[10px] font-semibold text-[var(--primary)] bg-[var(--primary-soft)] px-1.5 py-0.5 rounded-md">
-                      Bạn
-                    </span>
-                  )}
-                </div>
-                <span>
-                  {member.isSelf
-                    ? "Tài khoản của bạn"
-                    : "Đang có quyền truy cập"}
-                </span>
-                <small className="member-mobile-summary">{roleName}</small>
-              </div>
-
-              {/* Role */}
-              <div className="member-role">
-                {isAdmin && !member.isSelf ? (
-                  <Select
-                    value={member.roleCode}
-                    disabled={pending}
-                    onValueChange={(roleCode) =>
-                      changeRole(member.id, roleCode)
-                    }
-                    options={roles.map((role) => ({
-                      value: role.code,
-                      label: role.name,
-                    }))}
-                    className="member-role-select min-w-34"
-                  />
-                ) : (
-                  <span className={roleBadgeClass(member.roleCode)}>
-                    <ShieldCheck size={13} />
-                    {roleName}
-                  </span>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="member-actions">
-                {member.isSelf
-                  ? null
-                  : isAdmin && (
-                      <ConfirmDelete
-                        ariaLabel={`Gỡ ${member.username} khỏi workspace`}
-                        title="Gỡ thành viên?"
-                        description={`${member.username} sẽ mất quyền truy cập vào workspace này.`}
-                        confirmLabel="Gỡ"
-                        onConfirm={() => remove(member.id)}
-                        disabled={pending}
-                        trigger={
+                  {/* Actions */}
+                  <div className="member-actions">
+                    {member.isSelf
+                      ? null
+                      : isAdmin && (
                           <Button
+                            type="button"
                             disabled={pending}
-                            variant="icon"
+                            variant="destructive"
                             size="icon"
-                            className="hover:text-rose-500 hover:border-rose-500/30"
+                            className="rounded-lg"
                             title={`Gỡ ${member.username} khỏi workspace`}
                             aria-label={`Gỡ ${member.username} khỏi workspace`}
+                            onClick={() => {
+                              setSelectedMemberId(member.id);
+                              setConfirmingRemove(true);
+                            }}
                           >
                             <UserRoundX size={16} />
                           </Button>
-                        }
-                      />
-                    )}
-              </div>
-
-            </article>
-            </Fragment>
-          );
-        })}
-        {members.length === 0 && (
-          <Empty
-            variant="compact"
-            icon={UsersRound}
-            title="Workspace chưa có thành viên"
-            description="Thành viên được cấp quyền sẽ xuất hiện tại đây."
-            className="rounded-none border-x-0 border-b-0"
-          />
-        )}
-      </div>
+                        )}
+                  </div>
+                </article>
+              </Fragment>
+            );
+          })}
+          {members.length === 0 && (
+            <Empty
+              variant="compact"
+              icon={UsersRound}
+              title="Workspace chưa có thành viên"
+              description="Thành viên được cấp quyền sẽ xuất hiện tại đây."
+              className="rounded-none border-x-0 border-b-0"
+            />
+          )}
+        </div>
       </Card>
 
       <Sheet
@@ -270,7 +271,7 @@ export function SettingsClient({
       >
         <SheetContent
           side="bottom"
-          className={`ledger-mobile-review-sheet member-management-sheet${confirmingRemove ? " pending-delete" : ""}`}
+          className={`ledger-mobile-review-sheet member-management-sheet w-[min(36rem,calc(100vw-1rem))]! max-w-none! overflow-hidden! border border-[var(--border)]! bg-[var(--surface)]! p-0!${confirmingRemove ? " pending-delete" : ""}`}
         >
           {selectedMember && (
             <>
@@ -301,7 +302,7 @@ export function SettingsClient({
               </SheetHeader>
 
               <div className="ledger-mobile-review-body member-management-sheet-body">
-                <div className="ledger-mobile-review-transaction">
+                <div className="ledger-mobile-review-transaction rounded-2xl">
                   <div>
                     <span>{selectedMember.username}</span>
                     <small>Thành viên workspace</small>
@@ -312,6 +313,7 @@ export function SettingsClient({
                 {!confirmingRemove && canManageSelectedMember && (
                   <Select
                     label="Vai trò"
+                    spotlight
                     value={selectedMember.roleCode}
                     disabled={pending}
                     onValueChange={(roleCode) =>
@@ -342,6 +344,8 @@ export function SettingsClient({
                     <Button
                       type="button"
                       variant="destructive"
+                      className="ledger-mobile-review-approve"
+                      data-delete
                       disabled={pending}
                       onClick={() => remove(selectedMember.id)}
                     >
@@ -359,8 +363,8 @@ export function SettingsClient({
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
-                      className="ledger-mobile-review-reject"
+                      variant="destructive"
+                      className="ledger-mobile-review-approve"
                       data-delete
                       disabled={pending}
                       onClick={() => setConfirmingRemove(true)}

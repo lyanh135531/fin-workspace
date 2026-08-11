@@ -6,7 +6,6 @@ import {
   Eye,
   EyeOff,
   FolderTree,
-  GripVertical,
   Pencil,
   Plus,
   Tag,
@@ -21,6 +20,10 @@ import {
   useTransition,
 } from "react";
 import {
+  CategoryMobileDragHandle,
+  type CategoryDragItem,
+} from "@/app/dashboard/settings/category-mobile-drag-handle";
+import {
   createCategoryAction,
   deleteCategoryAction,
   reorderCategoriesAction,
@@ -28,6 +31,7 @@ import {
   updateCategoryAction,
 } from "@/app/dashboard/settings/category-actions";
 import {
+  CATEGORY_COLOR_PRESETS,
   ICON_MAP,
   slugifyCode,
 } from "@/app/dashboard/settings/global-category-management";
@@ -69,6 +73,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 
 import { toast } from "sonner";
 
@@ -108,17 +113,6 @@ function moveItem<T extends { id: string }>(
     ...remainingItems.slice(targetIndex),
   ];
 }
-
-const COLOR_PRESETS = [
-  "#FF5B3D",
-  "#69B7F3",
-  "#F6B94A",
-  "#41A862",
-  "#7959C8",
-  "#E58EB3",
-  "#008E9B",
-  "#334E8C",
-];
 
 const ICON_LIST = [
   { id: "tag", label: "Nhãn" },
@@ -166,7 +160,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
     const category = {
       name: String(form.get("name") ?? ""),
       code: String(form.get("code") ?? ""),
-      color: String(form.get("color") ?? COLOR_PRESETS[0]),
+      color: String(form.get("color") ?? CATEGORY_COLOR_PRESETS[0]),
       type: String(form.get("type") ?? "expense") as "income" | "expense",
       icon: String(form.get("icon") ?? "tag"),
       parentId:
@@ -267,10 +261,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
     handleReorder([...allOrdered, ...otherTypeItems]);
   }
 
-  function handleDrop(event: DragEvent<HTMLElement>, target: Category) {
-    event.preventDefault();
-    event.stopPropagation();
-    const source = draggedCategory;
+  function reorderCategory(source: DraggedCategory | null, target: Category) {
     setDraggedCategory(null);
     setDropTargetId(null);
     if (
@@ -288,31 +279,45 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
     reorderChildren(source.parentId, source.id, target.id);
   }
 
+  function handleDrop(event: DragEvent<HTMLElement>, target: Category) {
+    event.preventDefault();
+    event.stopPropagation();
+    reorderCategory(draggedCategory, target);
+  }
+
+  function handlePointerDrop(source: CategoryDragItem, targetId: string) {
+    const target = currentCategories.find((category) => category.id === targetId);
+    if (!target) {
+      setDraggedCategory(null);
+      setDropTargetId(null);
+      return;
+    }
+    reorderCategory(source, target);
+  }
+
   return (
     <Card
       as="section"
-      className="workspace-category-section gap-0"
+      className="workspace-category-section gap-0 max-sm:p-4 max-sm:ring-0"
       aria-busy={pending}
     >
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 pb-4 border-b border-[var(--border)]">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="settings-section-icon shrink-0">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-8.5 w-8.5 place-items-center rounded-lg text-[var(--primary)]">
             <FolderTree size={18} />
-          </span>
-          <div className="min-w-0">
+          </div>
+          <div>
             <p className="settings-eyebrow">Danh mục workspace</p>
             <h2 className="mt-0.5 text-base font-bold tracking-tight">
               Quản lý danh mục
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Danh mục thuộc workspace này. Bạn có thể tạo mới hoặc import từ
-              danh mục mẫu cá nhân.
-            </p>
           </div>
         </div>
         <Button
           variant="default"
+          size="default"
+          className="max-sm:hidden"
           onClick={() => {
             setCreating(true);
             setEditing(null);
@@ -320,16 +325,15 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           disabled={pending}
         >
           <Plus size={15} />
-          <span className="max-md:hidden">Thêm danh mục</span>
-          <span className="md:hidden">Thêm</span>
+          <span>Thêm danh mục</span>
         </Button>
       </div>
 
       {/* Tabs: Chi tiêu & Thu nhập */}
-      <div className="flex items-center justify-between gap-3 py-4 mb-1 border-b border-[var(--border)]">
+      <div className="flex items-center justify-between gap-3 py-4">
         <Tabs
           value={filterType}
-          className="category-type-tabs"
+          className="category-type-tabs max-sm:w-full"
           onValueChange={(value) => {
             setFilterType(value as "expense" | "income");
             setCreating(false);
@@ -337,13 +341,13 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           }}
         >
           <TabsList
-            className="category-type-switch"
+            className="category-type-switch max-sm:grid max-sm:w-full max-sm:grid-cols-2"
             aria-label="Loại danh mục"
           >
             <TabsTrigger
               value="expense"
               data-transaction-type="expense"
-              className="data-active:text-red-600 dark:data-active:text-red-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              className="transition-colors data-active:text-red-600 hover:text-red-600 dark:data-active:text-red-400 dark:hover:text-red-400 max-sm:justify-center"
             >
               <ArrowUpRight size={14} strokeWidth={2.5} />
               <span>Chi tiêu</span>
@@ -354,7 +358,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             <TabsTrigger
               value="income"
               data-transaction-type="income"
-              className="data-active:text-emerald-600 dark:data-active:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+              className="transition-colors data-active:text-emerald-600 hover:text-emerald-600 dark:data-active:text-emerald-400 dark:hover:text-emerald-400 max-sm:justify-center"
             >
               <ArrowDownLeft size={14} strokeWidth={2.5} />
               <span>Thu nhập</span>
@@ -370,6 +374,20 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         </p>
       </div>
 
+      <Button
+        variant="default"
+        size="default"
+        className="mb-3 w-full sm:hidden"
+        onClick={() => {
+          setCreating(true);
+          setEditing(null);
+        }}
+        disabled={pending}
+      >
+        <Plus size={15} />
+        Tạo danh mục mới
+      </Button>
+
       <Sheet
         open={creating || editing !== null}
         onOpenChange={(open) => {
@@ -382,13 +400,13 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         <SheetContent
           side={isMobile ? "bottom" : "right"}
           className={cn(
-            "workspace-category-editor-sheet sm:max-w-md w-full flex flex-col h-full p-0 bg-[var(--surface)] text-[var(--foreground)] border-l border-[var(--border)]",
+            "workspace-category-editor-sheet general-category-sheet flex h-full w-full flex-col bg-[var(--surface)] p-0 text-[var(--foreground)] sm:max-w-md",
             isMobile && "quick-transaction-sheet",
           )}
         >
           <SheetHeader
             className={cn(
-              "px-6 pt-6 pb-4 border-b border-[var(--border)]",
+              "border-b border-[var(--border)] px-4 pb-4 pt-5 sm:px-6 sm:pt-6",
               isMobile && "quick-transaction-header",
             )}
           >
@@ -436,35 +454,37 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
 
       {/* Tree list */}
       <div>
-        {rootCategories.map((category, index) => (
-          <CategoryNode
-            key={category.id}
-            category={category}
-            categories={currentCategories}
-            index={index}
-            totalRoots={rootCategories.length}
-            pending={pending}
-            isMobile={isMobile}
-            draggedCategory={draggedCategory}
-            dropTargetId={dropTargetId}
-            onEdit={setEditing}
-            onStatus={setStatus}
-            onDelete={deleteCategory}
-            onDragStart={setDraggedCategory}
-            onDragOver={setDropTargetId}
-            onDragEnd={() => {
-              setDraggedCategory(null);
-              setDropTargetId(null);
-            }}
-            onDrop={handleDrop}
-          />
-        ))}
-        {rootCategories.length === 0 && (
+        {rootCategories.length === 0 ? (
           <Empty
             icon={Tag}
             title={`Chưa có danh mục ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`}
             description="Import từ bộ mẫu cá nhân hoặc tạo danh mục mới cho workspace."
           />
+        ) : (
+          rootCategories.map((category, index) => (
+            <CategoryNode
+              key={category.id}
+              category={category}
+              categories={currentCategories}
+              index={index}
+              totalRoots={rootCategories.length}
+              pending={pending}
+              isMobile={isMobile}
+              draggedCategory={draggedCategory}
+              dropTargetId={dropTargetId}
+              onEdit={setEditing}
+              onStatus={setStatus}
+              onDelete={deleteCategory}
+              onDragStart={setDraggedCategory}
+              onDragOver={setDropTargetId}
+              onDragEnd={() => {
+                setDraggedCategory(null);
+                setDropTargetId(null);
+              }}
+              onDrop={handleDrop}
+              onPointerDrop={handlePointerDrop}
+            />
+          ))
         )}
       </div>
     </Card>
@@ -484,7 +504,7 @@ function WorkspaceCategoryActionsMenu({
   category: Category;
   pending: boolean;
   isMobile: boolean;
-  trigger: ReactElement;
+  trigger: ReactElement<{ className?: string }>;
   children: ReactNode;
   onEdit: (id: string) => void;
   onStatus: (id: string, status: "active" | "deactive") => void;
@@ -507,11 +527,23 @@ function WorkspaceCategoryActionsMenu({
   return (
     <>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger nativeButton={false} render={trigger}>
-          {children}
-        </DropdownMenuTrigger>
+        <SpotlightTrigger
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
+          render={trigger}
+          dismissLabel="Đóng menu thao tác danh mục"
+        >
+          {(spotlightTrigger) => (
+            <DropdownMenuTrigger
+              nativeButton={false}
+              render={spotlightTrigger}
+            >
+              {children}
+            </DropdownMenuTrigger>
+          )}
+        </SpotlightTrigger>
         <DropdownMenuContent
-          align="end"
+          align={isMobile ? "center" : "end"}
           side="bottom"
           sideOffset={4}
           className="!w-52 p-1.5 [&_[data-slot=dropdown-menu-item]]:min-h-10 [&_[data-slot=dropdown-menu-item]]:gap-2 [&_[data-slot=dropdown-menu-item]]:px-2.5"
@@ -653,6 +685,7 @@ function CategoryNode({
   onDragOver,
   onDragEnd,
   onDrop,
+  onPointerDrop,
 }: {
   category: Category;
   categories: Category[];
@@ -669,6 +702,7 @@ function CategoryNode({
   onDragOver: (categoryId: string | null) => void;
   onDragEnd: () => void;
   onDrop: (event: DragEvent<HTMLElement>, category: Category) => void;
+  onPointerDrop: (source: CategoryDragItem, targetId: string) => void;
 }) {
   const IconComponent = ICON_MAP[category.icon ?? "tag"] ?? Tag;
   const children = categories.filter((item) => item.parentId === category.id);
@@ -678,7 +712,7 @@ function CategoryNode({
   // Root category = mini-card
   if (!isChild) {
     return (
-      <div className="rounded-xl bg-[var(--surface)] transition-all duration-200">
+      <div className="mt-1 rounded-xl bg-[var(--surface)] transition-all duration-200">
         <WorkspaceCategoryActionsMenu
           category={category}
           pending={pending}
@@ -689,11 +723,14 @@ function CategoryNode({
           trigger={
             <div
               className={cn(
-                "group flex cursor-pointer items-center justify-between gap-3 rounded-lg py-3 px-1 transition-[opacity,box-shadow]",
+                "group flex cursor-pointer items-center justify-between gap-3 rounded-lg px-1 py-3 transition-[opacity,box-shadow]",
+                category.status === "deactive" && "opacity-50",
                 draggedCategory?.id === category.id && "opacity-50",
                 dropTargetId === category.id && "ring-2 ring-primary/60",
               )}
-              draggable={!pending}
+              data-category-sort-id={category.id}
+              data-category-sort-parent="root"
+              draggable={!pending && !isMobile}
               onDragStart={(event) => {
                 event.stopPropagation();
                 event.dataTransfer.effectAllowed = "move";
@@ -738,29 +775,9 @@ function CategoryNode({
             </span>
 
             <div className="min-w-0">
-              <div className="flex items-center gap-2.5">
-                <strong className="text-sm font-semibold text-[var(--foreground)] truncate">
-                  {category.name}
-                </strong>
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium leading-none",
-                    category.status === "active"
-                      ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
-                      : "bg-slate-100 text-slate-400 dark:bg-slate-800/60 dark:text-slate-500",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "w-1 h-1 rounded-full",
-                      category.status === "active"
-                        ? "bg-emerald-500"
-                        : "bg-slate-300 dark:bg-slate-600",
-                    )}
-                  />
-                  {category.status === "active" ? "Hoạt động" : "Đã tắt"}
-                </span>
-              </div>
+              <strong className="block truncate text-sm font-semibold text-[var(--foreground)]">
+                {category.name}
+              </strong>
               <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
                 {category.transactionCount} giao dịch
                 {hasChildren && (
@@ -772,9 +789,15 @@ function CategoryNode({
             </div>
           </div>
 
-          <GripVertical
+          <CategoryMobileDragHandle
+            category={category}
+            disabled={pending}
+            isMobile={isMobile}
             size={17}
-            className="shrink-0 text-[var(--text-muted)] max-md:hidden"
+            onDragStart={onDragStart}
+            onDragTargetChange={onDragOver}
+            onDrop={onPointerDrop}
+            onDragCancel={onDragEnd}
           />
         </WorkspaceCategoryActionsMenu>
 
@@ -799,6 +822,7 @@ function CategoryNode({
                 onDragOver={onDragOver}
                 onDragEnd={onDragEnd}
                 onDrop={onDrop}
+                onPointerDrop={onPointerDrop}
               />
             ))}
           </div>
@@ -819,11 +843,14 @@ function CategoryNode({
       trigger={
         <article
           className={cn(
-            "group relative flex cursor-pointer items-center justify-between gap-3 rounded-lg py-2 pl-9 pr-1 transition-[background-color,opacity,box-shadow]",
+            "group relative flex cursor-pointer items-center justify-between gap-3 rounded-xl py-2 pl-9 pr-1 transition-[background-color,opacity,box-shadow]",
+            category.status === "deactive" && "opacity-50",
             draggedCategory?.id === category.id && "opacity-50",
             dropTargetId === category.id && "ring-2 ring-primary/60",
           )}
-          draggable={!pending}
+          data-category-sort-id={category.id}
+          data-category-sort-parent={category.parentId ?? "root"}
+          draggable={!pending && !isMobile}
           onDragStart={(event) => {
             event.stopPropagation();
             event.dataTransfer.effectAllowed = "move";
@@ -874,28 +901,25 @@ function CategoryNode({
           <IconComponent size={13} />
         </span>
 
-        <div className="min-w-0 flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="text-[12.5px] font-medium text-[var(--foreground)]/90 truncate">
             {category.name}
           </span>
-          <span
-            className={cn(
-              "w-1.5 h-1.5 rounded-full flex-shrink-0",
-              category.status === "active"
-                ? "bg-emerald-400"
-                : "bg-slate-300 dark:bg-slate-600",
-            )}
-            title={category.status === "active" ? "Hoạt động" : "Đã tắt"}
-          />
           <span className="text-[10px] text-slate-300 dark:text-slate-600 font-medium flex-shrink-0">
             {category.transactionCount} giao dịch
           </span>
         </div>
       </div>
 
-      <GripVertical
+      <CategoryMobileDragHandle
+        category={category}
+        disabled={pending}
+        isMobile={isMobile}
         size={15}
-        className="shrink-0 text-[var(--text-muted)] max-md:hidden"
+        onDragStart={onDragStart}
+        onDragTargetChange={onDragOver}
+        onDrop={onPointerDrop}
+        onDragCancel={onDragEnd}
       />
     </WorkspaceCategoryActionsMenu>
   );
@@ -921,7 +945,7 @@ function CategoryForm({
   const [name, setName] = useState(category?.name ?? "");
   const [code, setCode] = useState(category?.code ?? "");
   const [selectedColor, setSelectedColor] = useState(
-    category?.color ?? COLOR_PRESETS[0],
+    (category?.color ?? CATEGORY_COLOR_PRESETS[0]).toUpperCase(),
   );
   const [selectedIcon, setSelectedIcon] = useState(category?.icon ?? "tag");
 
@@ -948,7 +972,7 @@ function CategoryForm({
 
       <div
         className={cn(
-          "grid flex-1 gap-4 overflow-y-auto px-4 py-4 sm:px-6",
+          "flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6",
           isMobile && "quick-transaction-scroll",
         )}
       >
@@ -970,6 +994,7 @@ function CategoryForm({
             name="parentId"
             defaultValue={category?.parentId ?? "none"}
             label="Danh mục cha"
+            spotlight
             emptyOption={{ value: "none", label: "Không có" }}
             categories={categories.filter(
               (item) =>
@@ -985,7 +1010,7 @@ function CategoryForm({
         <div className="grid gap-1">
           <Label>Màu đại diện</Label>
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            {COLOR_PRESETS.map((color) => (
+            {CATEGORY_COLOR_PRESETS.map((color) => (
               <Button
                 variant="unstyled"
                 size="auto"
@@ -1000,12 +1025,6 @@ function CategoryForm({
                 onClick={() => setSelectedColor(color.toUpperCase())}
               />
             ))}
-            <input
-              type="color"
-              value={selectedColor}
-              onChange={(e) => setSelectedColor(e.target.value.toUpperCase())}
-              className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent"
-            />
           </div>
           <input type="hidden" name="color" value={selectedColor} />
         </div>
@@ -1013,7 +1032,7 @@ function CategoryForm({
         {/* Visual Icon Picker Grid */}
         <div className="grid gap-1">
           <Label>Chọn Biểu tượng</Label>
-          <div className="category-icon-picker grid max-h-48 grid-cols-4 gap-2 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2">
+          <div className="category-icon-picker grid max-h-48 grid-cols-4 gap-2 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
             {ICON_LIST.map((item) => {
               const IconComp = ICON_MAP[item.id] ?? Tag;
               const isSelected = selectedIcon === item.id;
@@ -1024,7 +1043,7 @@ function CategoryForm({
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedIcon(item.id)}
-                  className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all text-xs gap-1 ${
+                  className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all text-xs gap-1 ${
                     isSelected
                       ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] font-bold shadow-sm"
                       : "border-transparent hover:bg-[var(--surface-muted)] text-slate-600 dark:text-slate-400"
@@ -1045,14 +1064,14 @@ function CategoryForm({
 
       <div
         className={cn(
-          "mt-auto flex justify-end gap-2 border-t border-[var(--border)] px-4 py-3 sm:px-6",
+          "mt-auto flex justify-end gap-2 border-t px-4 py-3 sm:px-6",
           isMobile && "quick-transaction-footer",
         )}
       >
         <Button
           type="button"
           variant="outline"
-          className="hover:bg-[var(--surface-secondary)] hover:text-current max-md:hidden"
+          className="hover:text-current max-sm:hidden"
           onClick={onCancel}
         >
           Hủy bỏ

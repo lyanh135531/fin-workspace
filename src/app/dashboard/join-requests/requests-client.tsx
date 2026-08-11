@@ -138,6 +138,7 @@ export function JoinRequestsClient({
               <div className="member-role">
                 <Select
                   value={selectedRoles[r.id] ?? defaultRoleCode}
+                  spotlight
                   onValueChange={(roleCode) =>
                     setSelectedRoles((current) => ({
                       ...current,
@@ -229,6 +230,7 @@ export function JoinRequestsClient({
 
                 <Select
                   label="Vai trò"
+                  spotlight
                   value={selectedRoles[selectedRequest.id] ?? defaultRoleCode}
                   onValueChange={(roleCode) =>
                     setSelectedRoles((current) => ({

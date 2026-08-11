@@ -5,6 +5,7 @@ import { Select as SelectPrimitive } from "@base-ui/react/select";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { Label } from "./label";
 
 export type SelectOption = {
@@ -30,6 +31,7 @@ export type SelectProps = {
   className?: string;
   contentClassName?: string;
   size?: "sm" | "default";
+  spotlight?: boolean;
 };
 
 const SelectRoot = SelectPrimitive.Root;
@@ -229,9 +231,34 @@ function Select({
   className,
   contentClassName,
   size,
+  spotlight,
 }: SelectProps) {
+  const [open, setOpen] = React.useState(false);
   const generatedId = React.useId();
   const selectId = id ?? (label ? generatedId : undefined);
+  const trigger = (
+    <SelectTrigger
+      id={selectId}
+      className={className}
+      size={size}
+      aria-label={ariaLabel ?? label}
+    >
+      <SelectValue placeholder={placeholder ?? label}>
+        {(selectedValue: string | null) => {
+          const selectedOption = options.find(
+            (option) => option.value === selectedValue,
+          );
+          return (
+            selectedOption?.selectedContent ??
+            selectedOption?.content ??
+            selectedOption?.label ??
+            placeholder ??
+            label
+          );
+        }}
+      </SelectValue>
+    </SelectTrigger>
+  );
   const select = (
     <SelectRoot
       id={selectId}
@@ -244,28 +271,21 @@ function Select({
       name={name}
       required={required}
       disabled={disabled}
+      open={spotlight ? open : undefined}
+      onOpenChange={
+        spotlight ? (nextOpen) => setOpen(nextOpen) : undefined
+      }
     >
-      <SelectTrigger
-        id={selectId}
-        className={className}
-        size={size}
-        aria-label={ariaLabel ?? label}
-      >
-        <SelectValue placeholder={placeholder ?? label}>
-          {(selectedValue: string | null) => {
-            const selectedOption = options.find(
-              (option) => option.value === selectedValue,
-            );
-            return (
-              selectedOption?.selectedContent ??
-              selectedOption?.content ??
-              selectedOption?.label ??
-              placeholder ??
-              label
-            );
-          }}
-        </SelectValue>
-      </SelectTrigger>
+      {spotlight ? (
+        <SpotlightTrigger
+          open={open}
+          onOpenChange={setOpen}
+          render={trigger}
+          dismissLabel={`Đóng danh sách ${label ?? ariaLabel ?? "lựa chọn"}`}
+        >
+          {(spotlightTrigger) => spotlightTrigger}
+        </SpotlightTrigger>
+      ) : trigger}
       <SelectContent align="start" className={contentClassName}>
         {options.map((option) => (
           <SelectItem

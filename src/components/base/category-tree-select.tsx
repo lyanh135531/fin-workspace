@@ -5,13 +5,14 @@ import { BriefcaseBusiness, Car, Coffee, Fuel, Heart, House, ShoppingBag, Tag, U
 import { cn } from "@/lib/utils"
 import { SelectContent, SelectGroup, SelectItem, SelectRoot, SelectSeparator, SelectTrigger, SelectValue } from "./select"
 import { Label } from "./label"
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger"
 
 export type CategoryTreeOption = { id: string; name: string; color?: string; icon?: string | null; parentId?: string | null; disabled?: boolean }
 
 export type CategoryTreeSelectProps = {
   id?: string; value?: string; defaultValue?: string; onValueChange?: (value: string) => void; name?: string
   label?: string; ariaLabel?: string; placeholder?: string; categories: CategoryTreeOption[]; emptyOption?: { value: string; label: string }
-  required?: boolean; disabled?: boolean; className?: string
+  required?: boolean; disabled?: boolean; className?: string; spotlight?: boolean
 }
 
 type TreeNode = CategoryTreeOption & { children: TreeNode[] }
@@ -86,30 +87,43 @@ function TreeItems({ nodes, depth = 0 }: { nodes: TreeNode[]; depth?: number }) 
   ))
 }
 
-function CategoryTreeSelect({ id, value, defaultValue, onValueChange, name, label, ariaLabel, placeholder, categories, emptyOption, required, disabled, className }: CategoryTreeSelectProps) {
+function CategoryTreeSelect({ id, value, defaultValue, onValueChange, name, label, ariaLabel, placeholder, categories, emptyOption, required, disabled, className, spotlight }: CategoryTreeSelectProps) {
+  const [open, setOpen] = React.useState(false)
   const tree = React.useMemo(() => makeTree(categories), [categories])
   const items = React.useMemo(() => [...(emptyOption ? [emptyOption] : []), ...categoryPaths(categories)], [categories, emptyOption])
   const generatedId = React.useId()
   const selectId = id ?? (label ? generatedId : undefined)
+  const trigger = (
+    <SelectTrigger id={selectId} className={cn("category-tree-trigger", className)} aria-label={ariaLabel ?? label}>
+      <SelectValue placeholder={placeholder ?? label} className="category-tree-trigger-value">
+        {(selectedValue: string | null) => {
+          const selectedCategory = categories.find((category) => category.id === selectedValue)
+          if (selectedCategory) {
+            return (
+              <>
+                <CategoryIcon category={selectedCategory} size={13} className="category-tree-trigger-icon" />
+                <span className="category-tree-name">{selectedCategory.name}</span>
+              </>
+            )
+          }
+          if (emptyOption?.value === selectedValue) return emptyOption.label
+          return placeholder ?? label
+        }}
+      </SelectValue>
+    </SelectTrigger>
+  )
   const select = (
-    <SelectRoot id={selectId} value={value} defaultValue={defaultValue} onValueChange={(nextValue) => { if (nextValue !== null) onValueChange?.(String(nextValue)) }} items={items} name={name} required={required} disabled={disabled}>
-      <SelectTrigger id={selectId} className={cn("category-tree-trigger", className)} aria-label={ariaLabel ?? label}>
-        <SelectValue placeholder={placeholder ?? label} className="category-tree-trigger-value">
-          {(selectedValue: string | null) => {
-            const selectedCategory = categories.find((category) => category.id === selectedValue)
-            if (selectedCategory) {
-              return (
-                <>
-                  <CategoryIcon category={selectedCategory} size={13} className="category-tree-trigger-icon" />
-                  <span className="category-tree-name">{selectedCategory.name}</span>
-                </>
-              )
-            }
-            if (emptyOption?.value === selectedValue) return emptyOption.label
-            return placeholder ?? label
-          }}
-        </SelectValue>
-      </SelectTrigger>
+    <SelectRoot id={selectId} value={value} defaultValue={defaultValue} onValueChange={(nextValue) => { if (nextValue !== null) onValueChange?.(String(nextValue)) }} items={items} name={name} required={required} disabled={disabled} open={spotlight ? open : undefined} onOpenChange={spotlight ? (nextOpen) => setOpen(nextOpen) : undefined}>
+      {spotlight ? (
+        <SpotlightTrigger
+          open={open}
+          onOpenChange={setOpen}
+          render={trigger}
+          dismissLabel={`Đóng danh sách ${label ?? ariaLabel ?? "lựa chọn"}`}
+        >
+          {(spotlightTrigger) => spotlightTrigger}
+        </SpotlightTrigger>
+      ) : trigger}
       <SelectContent align="start" className="category-tree-content max-w-[calc(100vw-2rem)] max-h-[min(24rem,var(--available-height))] overflow-y-auto">
         <SelectGroup className="category-tree-group">
           {emptyOption && <SelectItem value={emptyOption.value} className="category-tree-empty h-8 p-3 text-sm">{emptyOption.label}</SelectItem>}

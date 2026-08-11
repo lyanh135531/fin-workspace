@@ -20,6 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 
 type Workspace = { id: string; name: string; role: string };
 
@@ -140,7 +141,9 @@ export function WorkspaceSwitcher({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
+      <SpotlightTrigger
+        open={open}
+        onOpenChange={setOpen}
         render={
           <Button
             variant="unstyled"
@@ -151,28 +154,33 @@ export function WorkspaceSwitcher({
             aria-label={`Workspace: ${currentWorkspace?.name}. Click để chuyển đổi.`}
           />
         }
+        dismissLabel="Đóng menu chọn workspace"
       >
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
-          <span>{activeInitial}</span>
-        </div>
-        <div className="min-w-0 flex-1 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="sidebar-ws-title truncate">
-              {currentWorkspace?.name}
-            </span>
-          </div>
-          <span className="sidebar-ws-sub">
-            <span className="sidebar-ws-dot" aria-hidden />
-            {currentWorkspace?.role === "ADMIN"
-              ? "Quản trị viên"
-              : "Thành viên"}
-          </span>
-        </div>
-        <ChevronsUpDown
-          size={15}
-          className="shrink-0 text-[var(--text-muted)] opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0"
-        />
-      </PopoverTrigger>
+        {(spotlightTrigger) => (
+          <PopoverTrigger render={spotlightTrigger}>
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
+              <span>{activeInitial}</span>
+            </div>
+            <div className="min-w-0 flex-1 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="sidebar-ws-title truncate">
+                  {currentWorkspace?.name}
+                </span>
+              </div>
+              <span className="sidebar-ws-sub">
+                <span className="sidebar-ws-dot" aria-hidden />
+                {currentWorkspace?.role === "ADMIN"
+                  ? "Quản trị viên"
+                  : "Thành viên"}
+              </span>
+            </div>
+            <ChevronsUpDown
+              size={15}
+              className="shrink-0 text-[var(--text-muted)] opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0"
+            />
+          </PopoverTrigger>
+        )}
+      </SpotlightTrigger>
 
       <PopoverContent
         side="right"

@@ -2545,8 +2545,7 @@ td {
 }
 
 .settings-textarea {
-  min-height: 5.5rem;
-  resize: vertical;
+  min-height: 4.5rem;
 }
 
 .settings-toggle {
@@ -8051,11 +8050,15 @@ html[data-mode="dark"] .auth-visual-panel::before {
     transition: transform 260ms cubic-bezier(0.32, 0.72, 0, 1);
   }
 
-  .auth-mobile-polished-shell .auth-submit-btn:hover:not(:disabled) .auth-submit-icon {
+  .auth-mobile-polished-shell
+    .auth-submit-btn:hover:not(:disabled)
+    .auth-submit-icon {
     transform: translateX(0.1rem);
   }
 
-  .auth-mobile-polished-shell .auth-submit-btn:active:not(:disabled) .auth-submit-icon {
+  .auth-mobile-polished-shell
+    .auth-submit-btn:active:not(:disabled)
+    .auth-submit-icon {
     transform: scale(0.94);
   }
 
@@ -8489,6 +8492,11 @@ html[data-sidebar-collapsed="true"] .sidebar-nav-section {
   color: var(--text-muted);
   flex: 0 0 auto;
   transition: color 160ms ease;
+}
+
+.sidebar-user-card[data-sidebar-profile-state="expanded"]
+  .sidebar-user-chevron-wrap {
+  margin-inline-end: 0.25rem;
 }
 
 .sidebar-user-chevron {
@@ -11330,6 +11338,48 @@ th {
   background: var(--overlay) !important;
 }
 
+.spotlight-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--overlay);
+  cursor: default;
+  animation: spotlight-menu-backdrop-in 140ms ease-out both;
+  backdrop-filter: blur(3px);
+}
+
+.spotlight-menu-trigger {
+  position: relative;
+}
+
+.spotlight-menu-trigger-active {
+  z-index: 40;
+  opacity: 1 !important;
+  isolation: isolate;
+}
+
+@keyframes spotlight-menu-backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-menu-backdrop {
+    animation: none;
+  }
+}
+
 /* Disable focus ring style for specific input fields like combobox search */
 input.no-focus-style:focus,
 input.no-focus-style:focus-visible {
@@ -11467,10 +11517,6 @@ html[data-sidebar-collapsed="true"] .mobile-navigation-sheet .dashboard-nav {
   box-shadow: 0 0.45rem 1.25rem
     color-mix(in srgb, var(--shadow) 40%, transparent);
   transform: none !important;
-}
-
-.mobile-navigation-sheet .sidebar-workspace-selector-card:active {
-  transform: scale(0.985) !important;
 }
 
 .mobile-navigation-sheet [data-slot="sidebar-group"] {
@@ -11709,6 +11755,7 @@ html[data-sidebar-collapsed="true"]
   flex: 1 1 auto;
   overflow-y: auto;
   overscroll-behavior: contain;
+  padding: 12px;
 }
 
 .quick-field {
@@ -12984,7 +13031,6 @@ html[data-sidebar-collapsed="true"]
   .workspace-access-section {
     overflow: hidden;
     border: 1px solid var(--border);
-    border-radius: 2rem;
     padding: 1rem !important;
     box-shadow: none !important;
   }
@@ -13427,7 +13473,6 @@ html[data-sidebar-collapsed="true"]
   .workspace-mobile-overview {
     padding: 0.65rem 1rem 1rem;
     overflow: hidden;
-    border-radius: var(--radius-xl);
     border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
     background:
       radial-gradient(
@@ -13544,7 +13589,6 @@ html[data-sidebar-collapsed="true"]
     overflow: visible !important;
     padding: 0.3rem !important;
     border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-    border-radius: var(--radius-xl) !important;
     background: color-mix(in srgb, var(--surface) 94%, transparent) !important;
     backdrop-filter: blur(14px);
   }
@@ -13553,7 +13597,6 @@ html[data-sidebar-collapsed="true"]
     width: 100%;
     height: 2rem;
     gap: 0.38rem;
-    border-radius: 0.55rem;
     font-size: 0.72rem;
     font-weight: 650;
   }
@@ -13579,20 +13622,10 @@ html[data-sidebar-collapsed="true"]
     margin-bottom: 0;
   }
 
-  .workspace-config-heading {
-    padding-bottom: 0.9rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  }
-
   .workspace-config-heading-icon {
     display: grid;
-    width: 2.35rem;
-    height: 2.35rem;
-    flex: 0 0 2.35rem;
     place-items: center;
-    border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
     border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--primary-soft) 62%, var(--surface));
     color: var(--primary);
   }
 
@@ -13603,12 +13636,6 @@ html[data-sidebar-collapsed="true"]
   .workspace-config-section form,
   .workspace-config-section form > div {
     gap: 1rem !important;
-  }
-
-  .workspace-config-section input,
-  .workspace-config-section [data-slot="select-trigger"] {
-    min-height: 2rem;
-    border-radius: var(--radius-lg);
   }
 
   .workspace-config-actions {
@@ -14014,20 +14041,6 @@ html[data-sidebar-collapsed="true"]
 
   .member-management-actions-single {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .workspace-delete-overlay {
-    align-items: end !important;
-    padding: 0.5rem !important;
-  }
-
-  .workspace-delete-panel {
-    max-height: calc(100svh - 1rem);
-    overflow-y: auto !important;
-    border-radius: 0.85rem !important;
-    padding: 1rem !important;
-    padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
-    box-shadow: 0 -20px 60px color-mix(in srgb, var(--shadow) 90%, transparent);
   }
 
   .settings-config-card,

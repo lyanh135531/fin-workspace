@@ -6,7 +6,18 @@ import {
   deleteWorkspaceAction,
   updateWorkspaceSettingsAction,
 } from "@/app/dashboard/settings/actions";
-import { Button, Card, Input, Select } from "@/components/base";
+import {
+  Button,
+  Card,
+  Input,
+  Select,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
@@ -64,6 +75,12 @@ export function WorkspaceSettings({
     });
   }
 
+  function handleDeleteSheetOpenChange(open: boolean) {
+    if (!open && pending) return;
+    setDeleteDialog(open);
+    if (!open) setConfirmPassword("");
+  }
+
   if (!isAdmin) {
     return (
       <Card
@@ -100,9 +117,6 @@ export function WorkspaceSettings({
               <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
                 Thông tin chung
               </h2>
-              <p className="text-xs leading-relaxed text-slate-500">
-                Quản lý tên, mô tả và trạng thái hoạt động của workspace.
-              </p>
             </div>
           </div>
         </div>
@@ -164,7 +178,7 @@ export function WorkspaceSettings({
                 rows={3}
                 maxLength={500}
                 defaultValue={workspace.description ?? ""}
-                placeholder="Mục đích hoặc phạm vi sử dụng của workspace..."
+                placeholder="Mục đích hoặc phạm vi sử dụng"
                 className="settings-textarea w-full text-sm resize-none"
               />
             </div>
@@ -191,9 +205,9 @@ export function WorkspaceSettings({
         className="workspace-danger-section p-5 md:p-6 shadow-xs relative overflow-hidden"
       >
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-900/5 mt-1 md:mt-0">
-              <AlertTriangle size={18} strokeWidth={2} />
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/15 dark:text-rose-400">
+              <AlertTriangle size={24} strokeWidth={1.9} />
             </div>
             <div className="space-y-1">
               <h3 className="font-semibold text-sm text-[var(--foreground)]">
@@ -225,38 +239,27 @@ export function WorkspaceSettings({
         </div>
       </Card>
 
-      {/* ── Confirmation Modal ── */}
-      {deleteDialog && (
-        <div
-          className="workspace-delete-overlay fixed inset-0 z-50 grid place-items-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-workspace-title"
+      <Sheet open={deleteDialog} onOpenChange={handleDeleteSheetOpenChange}>
+        <SheetContent
+          side="bottom"
+          className="workspace-delete-sheet ledger-mobile-review-sheet pending-delete w-[min(32rem,calc(100vw-1rem))]! max-w-none! gap-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0"
+          aria-label={`Xác nhận xóa workspace ${workspace.name}`}
         >
-          <Card
-            as="section"
-            className="workspace-delete-panel sunrise-card gap-0 w-full max-w-md p-6 space-y-4 relative overflow-hidden"
-          >
-            {/* Red accent glow */}
-            <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-20 bg-red-500" />
-
-            <div className="flex items-center gap-3 text-rose-600 relative">
-              <div className="ws-danger-icon">
+          <SheetHeader className="ledger-mobile-review-header border-b border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-3">
+            <div className="ledger-mobile-review-heading flex items-center gap-3">
+              <span aria-hidden="true">
                 <AlertTriangle size={20} />
-              </div>
+              </span>
               <div>
-                <h2
-                  id="delete-workspace-title"
-                  className="text-lg font-bold text-[var(--foreground)]"
-                >
-                  Xóa Workspace?
-                </h2>
-                <p className="text-xs text-slate-500">
+                <SheetTitle>Xóa Workspace?</SheetTitle>
+                <SheetDescription>
                   Hành động này cần được xác nhận bằng mật khẩu.
-                </p>
+                </SheetDescription>
               </div>
             </div>
+          </SheetHeader>
 
+          <div className="ledger-mobile-review-body grid gap-4 overflow-y-auto p-4">
             <p className="text-xs leading-relaxed text-slate-500 relative">
               Workspace <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa. Để
               tiếp tục, vui lòng xác nhận bằng mật khẩu tài khoản của bạn.
@@ -281,40 +284,37 @@ export function WorkspaceSettings({
                 }}
               />
             </div>
+          </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border)] relative">
-              <Button
-                type="button"
-                disabled={pending}
-                onClick={() => {
-                  setDeleteDialog(false);
-                  setConfirmPassword("");
-                }}
-                variant="outline"
-                size="default"
-              >
-                Hủy
-              </Button>
-              <Button
-                type="button"
-                disabled={pending || !confirmPassword.trim()}
-                onClick={remove}
-                variant="destructive"
-                size="default"
-              >
-                {pending ? (
-                  <>
-                    <span className="btn-spinner" aria-hidden />
-                    Đang xóa...
-                  </>
-                ) : (
-                  "Xác nhận xóa"
-                )}
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
+          <SheetFooter className="ledger-mobile-review-actions grid! grid-cols-2 gap-2 border-t border-[var(--border)] p-4">
+            <Button
+              type="button"
+              disabled={pending}
+              onClick={() => handleDeleteSheetOpenChange(false)}
+              variant="outline"
+              size="default"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              disabled={pending || !confirmPassword.trim()}
+              onClick={remove}
+              variant="destructive"
+              size="default"
+            >
+              {pending ? (
+                <>
+                  <span className="btn-spinner" aria-hidden />
+                  Đang xóa...
+                </>
+              ) : (
+                "Xác nhận xóa"
+              )}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

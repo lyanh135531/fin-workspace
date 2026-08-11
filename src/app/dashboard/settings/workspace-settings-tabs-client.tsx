@@ -1,6 +1,12 @@
 "use client";
 
-import { Tabs, TabsContent, TabsCount, TabsList, TabsTrigger } from "@/components/base";
+import {
+  Tabs,
+  TabsContent,
+  TabsCount,
+  TabsList,
+  TabsTrigger,
+} from "@/components/base";
 import { useState } from "react";
 import { Sliders, Folders, UsersRound } from "lucide-react";
 import { WorkspaceSettings } from "./workspace-settings";
@@ -20,7 +26,12 @@ type Workspace = {
 };
 
 type Role = { code: string; name: string };
-type Member = { id: string; username: string; roleCode: string; isSelf: boolean };
+type Member = {
+  id: string;
+  username: string;
+  roleCode: string;
+  isSelf: boolean;
+};
 type JoinRequest = { id: string; username: string };
 type TemplateCategory = {
   id: string;
@@ -63,10 +74,25 @@ export function WorkspaceSettingsTabsClient({
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
 
-  const tabs: { key: TabKey; label: string; icon: typeof Sliders; count?: number }[] = [
+  const tabs: {
+    key: TabKey;
+    label: string;
+    icon: typeof Sliders;
+    count?: number;
+  }[] = [
     { key: "general", label: "Cấu hình & Vận hành", icon: Sliders },
-    { key: "categories", label: "Danh mục thu/chi", icon: Folders, count: categories.length },
-    { key: "members", label: "Thành viên", icon: UsersRound, count: members.length },
+    {
+      key: "categories",
+      label: "Danh mục thu/chi",
+      icon: Folders,
+      count: categories.length,
+    },
+    {
+      key: "members",
+      label: "Thành viên",
+      icon: UsersRound,
+      count: members.length,
+    },
   ];
 
   return (
@@ -76,7 +102,7 @@ export function WorkspaceSettingsTabsClient({
       className="workspace-settings-tabs"
     >
       <TabsList
-        className="workspace-settings-tab-list"
+        className="workspace-settings-tab-list rounded-2xl"
         aria-label="Workspace settings tabs"
       >
         {tabs.map((tab) => {
@@ -85,6 +111,7 @@ export function WorkspaceSettingsTabsClient({
             <TabsTrigger
               key={tab.key}
               value={tab.key}
+              className={"rounded-2xl"}
             >
               <Icon />
               <span className="max-md:hidden">{tab.label}</span>
@@ -95,9 +122,6 @@ export function WorkspaceSettingsTabsClient({
                     ? "Danh mục"
                     : "Thành viên"}
               </span>
-              {tab.count !== undefined && (
-                <TabsCount>{tab.count}</TabsCount>
-              )}
             </TabsTrigger>
           );
         })}
@@ -116,7 +140,10 @@ export function WorkspaceSettingsTabsClient({
       </TabsContent>
 
       {/* ── Tab 2: Danh mục thu/chi ── */}
-      <TabsContent value="categories" className="workspace-settings-tab-content">
+      <TabsContent
+        value="categories"
+        className="workspace-settings-tab-content"
+      >
         <div className="grid items-start gap-3 pt-4 sm:gap-6 xl:grid-cols-12">
           <div className="workspace-category-import min-w-0 xl:col-span-5">
             <ImportCategoryPanel

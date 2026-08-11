@@ -18,7 +18,6 @@ import {
   Fuel,
   Gift,
   GraduationCap,
-  GripVertical,
   Heart,
   House,
   Landmark,
@@ -42,6 +41,10 @@ import {
   useState,
   useTransition,
 } from "react";
+import {
+  CategoryMobileDragHandle,
+  type CategoryDragItem,
+} from "@/app/dashboard/settings/category-mobile-drag-handle";
 import {
   createTemplateCategoryAction,
   deleteTemplateCategoryAction,
@@ -86,6 +89,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { cn } from "@/lib/utils";
 
 import { toast } from "sonner";
@@ -127,7 +131,7 @@ function moveItem<T extends { id: string }>(
   ];
 }
 
-const COLOR_PRESETS = [
+export const CATEGORY_COLOR_PRESETS = [
   "#FF5B3D",
   "#69B7F3",
   "#F6B94A",
@@ -136,6 +140,7 @@ const COLOR_PRESETS = [
   "#E58EB3",
   "#008E9B",
   "#334E8C",
+  "#A66A42",
 ];
 
 export const ICON_MAP: Record<
@@ -228,7 +233,7 @@ export function UserCategoryTemplateManagement({
     const category = {
       name: String(form.get("name") ?? ""),
       code: String(form.get("code") ?? ""),
-      color: String(form.get("color") ?? COLOR_PRESETS[0]),
+      color: String(form.get("color") ?? CATEGORY_COLOR_PRESETS[0]),
       type: String(form.get("type") ?? "expense") as "income" | "expense",
       icon: String(form.get("icon") ?? "tag"),
       parentId:
@@ -327,10 +332,7 @@ export function UserCategoryTemplateManagement({
     handleReorder([...allOrdered, ...otherTypeItems]);
   }
 
-  function handleDrop(event: DragEvent<HTMLElement>, target: Category) {
-    event.preventDefault();
-    event.stopPropagation();
-    const source = draggedCategory;
+  function reorderCategory(source: DraggedCategory | null, target: Category) {
     setDraggedCategory(null);
     setDropTargetId(null);
     if (
@@ -346,6 +348,22 @@ export function UserCategoryTemplateManagement({
       return;
     }
     reorderChildren(source.parentId, source.id, target.id);
+  }
+
+  function handleDrop(event: DragEvent<HTMLElement>, target: Category) {
+    event.preventDefault();
+    event.stopPropagation();
+    reorderCategory(draggedCategory, target);
+  }
+
+  function handlePointerDrop(source: CategoryDragItem, targetId: string) {
+    const target = currentCategories.find((category) => category.id === targetId);
+    if (!target) {
+      setDraggedCategory(null);
+      setDropTargetId(null);
+      return;
+    }
+    reorderCategory(source, target);
   }
 
   function startCreating() {
@@ -542,6 +560,7 @@ export function UserCategoryTemplateManagement({
                 setDropTargetId(null);
               }}
               onDrop={handleDrop}
+              onPointerDrop={handlePointerDrop}
               onSubmit={submit}
               onCancel={() => setEditing(null)}
             />
@@ -569,6 +588,7 @@ function Node({
   onDragOver,
   onDragEnd,
   onDrop,
+  onPointerDrop,
   onSubmit,
   onCancel,
 }: {
@@ -588,6 +608,7 @@ function Node({
   onDragOver: (categoryId: string | null) => void;
   onDragEnd: () => void;
   onDrop: (event: DragEvent<HTMLElement>, category: Category) => void;
+  onPointerDrop: (source: CategoryDragItem, targetId: string) => void;
   onSubmit: (form: FormData, id?: string) => void;
   onCancel: () => void;
 }) {
@@ -617,7 +638,9 @@ function Node({
                 draggedCategory?.id === category.id && "opacity-50",
                 dropTargetId === category.id && "ring-2 ring-primary/60",
               )}
-              draggable={!pending}
+              data-category-sort-id={category.id}
+              data-category-sort-parent="root"
+              draggable={!pending && !isMobile}
               onDragStart={(event) => {
                 event.stopPropagation();
                 event.dataTransfer.effectAllowed = "move";
@@ -678,10 +701,15 @@ function Node({
             </div>
           </div>
 
-          <GripVertical
+          <CategoryMobileDragHandle
+            category={category}
+            disabled={pending}
+            isMobile={isMobile}
             size={17}
-            className="shrink-0 text-[var(--text-muted)] max-sm:hidden"
-            aria-label={`Kéo để sắp xếp ${category.name}`}
+            onDragStart={onDragStart}
+            onDragTargetChange={onDragOver}
+            onDrop={onPointerDrop}
+            onDragCancel={onDragEnd}
           />
         </CategoryActionsMenu>
 
@@ -707,6 +735,7 @@ function Node({
                 onDragOver={onDragOver}
                 onDragEnd={onDragEnd}
                 onDrop={onDrop}
+                onPointerDrop={onPointerDrop}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
               />
@@ -735,7 +764,9 @@ function Node({
             draggedCategory?.id === category.id && "opacity-50",
             dropTargetId === category.id && "ring-2 ring-primary/60",
           )}
-          draggable={!pending}
+          data-category-sort-id={category.id}
+          data-category-sort-parent={category.parentId ?? "root"}
+          draggable={!pending && !isMobile}
           onDragStart={(event) => {
             event.stopPropagation();
             event.dataTransfer.effectAllowed = "move";
@@ -793,10 +824,15 @@ function Node({
         </span>
       </div>
 
-      <GripVertical
+      <CategoryMobileDragHandle
+        category={category}
+        disabled={pending}
+        isMobile={isMobile}
         size={15}
-        className="shrink-0 text-[var(--text-muted)] max-sm:hidden"
-        aria-label={`Kéo để sắp xếp ${category.name}`}
+        onDragStart={onDragStart}
+        onDragTargetChange={onDragOver}
+        onDrop={onPointerDrop}
+        onDragCancel={onDragEnd}
       />
     </CategoryActionsMenu>
   );
@@ -817,7 +853,7 @@ function CategoryActionsMenu({
   childCount: number;
   pending: boolean;
   isMobile: boolean;
-  trigger: ReactElement;
+  trigger: ReactElement<{ className?: string }>;
   children: ReactNode;
   onEdit: (id: string) => void;
   onStatus: (id: string, value: "active" | "deactive") => void;
@@ -836,9 +872,21 @@ function CategoryActionsMenu({
   return (
     <>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger nativeButton={false} render={trigger}>
-          {children}
-        </DropdownMenuTrigger>
+        <SpotlightTrigger
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
+          render={trigger}
+          dismissLabel="Đóng menu thao tác danh mục"
+        >
+          {(spotlightTrigger) => (
+            <DropdownMenuTrigger
+              nativeButton={false}
+              render={spotlightTrigger}
+            >
+              {children}
+            </DropdownMenuTrigger>
+          )}
+        </SpotlightTrigger>
         <DropdownMenuContent
           align={isMobile ? "center" : "end"}
           side="bottom"
@@ -1006,7 +1054,7 @@ function TemplateForm({
   const [name, setName] = useState(category?.name ?? "");
   const [code, setCode] = useState(category?.code ?? "");
   const [selectedColor, setSelectedColor] = useState(
-    (category?.color ?? COLOR_PRESETS[0]).toUpperCase(),
+    (category?.color ?? CATEGORY_COLOR_PRESETS[0]).toUpperCase(),
   );
   const [selectedIcon, setSelectedIcon] = useState(category?.icon ?? "tag");
 
@@ -1055,6 +1103,7 @@ function TemplateForm({
             name="parentId"
             defaultValue={category?.parentId ?? "none"}
             label="Danh mục cha"
+            spotlight
             emptyOption={{ value: "none", label: "Không có" }}
             categories={categories.filter(
               (item) =>
@@ -1070,7 +1119,7 @@ function TemplateForm({
         <div className="grid gap-1">
           <Label>Màu đại diện</Label>
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            {COLOR_PRESETS.map((color) => (
+            {CATEGORY_COLOR_PRESETS.map((color) => (
               <Button
                 variant="unstyled"
                 size="auto"
@@ -1085,12 +1134,6 @@ function TemplateForm({
                 onClick={() => setSelectedColor(color.toUpperCase())}
               />
             ))}
-            <input
-              type="color"
-              value={selectedColor}
-              onChange={(e) => setSelectedColor(e.target.value.toUpperCase())}
-              className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent"
-            />
           </div>
           <input type="hidden" name="color" value={selectedColor} />
         </div>

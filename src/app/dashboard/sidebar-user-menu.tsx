@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { AccountSettingsModal } from "@/app/dashboard/account-settings-modal";
 import { useOptionalSidebar } from "@/components/ui/sidebar";
 
@@ -93,7 +94,9 @@ export function SidebarUserMenu({
       aria-label="Tài khoản người dùng"
     >
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-        <PopoverTrigger
+        <SpotlightTrigger
+          open={popoverOpen}
+          onOpenChange={setPopoverOpen}
           render={
             <Button
               variant="unstyled"
@@ -105,29 +108,34 @@ export function SidebarUserMenu({
               aria-expanded={popoverOpen}
             />
           }
+          dismissLabel="Đóng menu tài khoản"
         >
-          <div className="sidebar-user-avatar-wrap">
-            <div className="sidebar-user-avatar rounded-lg" aria-hidden>
-              {avatarText}
-            </div>
-            <span className="sidebar-user-status-dot" aria-hidden />
-          </div>
+          {(spotlightTrigger) => (
+            <PopoverTrigger render={spotlightTrigger}>
+              <div className="sidebar-user-avatar-wrap">
+                <div className="sidebar-user-avatar rounded-lg" aria-hidden>
+                  {avatarText}
+                </div>
+                <span className="sidebar-user-status-dot" aria-hidden />
+              </div>
 
-          <div className="sidebar-user-info max-w-48 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
-            <span className="sidebar-user-name" title={username}>
-              {username}
-            </span>
-            <span className="sidebar-user-role-inline">{roleLabel}</span>
-          </div>
+              <div className="sidebar-user-info max-w-48 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
+                <span className="sidebar-user-name" title={username}>
+                  {username}
+                </span>
+                <span className="sidebar-user-role-inline">{roleLabel}</span>
+              </div>
 
-          <div className="sidebar-user-chevron-wrap shrink-0 opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0">
-            <ChevronUp
-              size={13}
-              strokeWidth={2.2}
-              className={`sidebar-user-chevron ${popoverOpen ? "rotate-180" : ""}`}
-            />
-          </div>
-        </PopoverTrigger>
+              <div className="sidebar-user-chevron-wrap shrink-0 opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0">
+                <ChevronUp
+                  size={13}
+                  strokeWidth={2.2}
+                  className={`sidebar-user-chevron ${popoverOpen ? "rotate-180" : ""}`}
+                />
+              </div>
+            </PopoverTrigger>
+          )}
+        </SpotlightTrigger>
 
         <PopoverContent
           side={collapsed ? "right" : "top"}

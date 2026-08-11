@@ -21,7 +21,15 @@ export default async function SettingsPage({
   if (!session?.user?.id) redirect("/sign-in");
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
   if (!workspaceId) redirect("/overview");
-  const membership = await prisma.workspaceMember.findFirst({ where: { userId: session.user.id, workspaceId, status: "active", deletedAt: null }, include: { workspace: true, role: true } });
+  const membership = await prisma.workspaceMember.findFirst({
+    where: {
+      userId: session.user.id,
+      workspaceId,
+      status: "active",
+      deletedAt: null,
+    },
+    include: { workspace: true, role: true },
+  });
   if (!membership) redirect("/overview");
 
   let inviteCode = membership.workspace.inviteCode;
@@ -39,39 +47,46 @@ export default async function SettingsPage({
 
   if (!isAdmin) redirect("/dashboard");
 
-  const [members, categories, templates, roles, joinRequests] = await Promise.all([
-    prisma.workspaceMember.findMany({
-      where: { workspaceId, status: "active", deletedAt: null },
-      select: {
-        id: true,
-        userId: true,
-        role: { select: { code: true, name: true } },
-        user: { select: { username: true } },
-      },
-    }),
-    prisma.category.findMany({ where: manageableCategoryWhere(workspaceId), include: { _count: { select: { transactions: { where: { deletedAt: null } } } } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-    getUserTemplatesForImport(session.user.id),
-    prisma.role.findMany({
-      where: { code: { in: [...WORKSPACE_ROLE_CODES] } },
-      select: { code: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.workspaceJoinRequest.findMany({
-      where: { workspaceId, status: "pending" },
-      select: {
-        id: true,
-        requester: { select: { username: true } },
-      },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
+  const [members, categories, templates, roles, joinRequests] =
+    await Promise.all([
+      prisma.workspaceMember.findMany({
+        where: { workspaceId, status: "active", deletedAt: null },
+        select: {
+          id: true,
+          userId: true,
+          role: { select: { code: true, name: true } },
+          user: { select: { username: true } },
+        },
+      }),
+      prisma.category.findMany({
+        where: manageableCategoryWhere(workspaceId),
+        include: {
+          _count: { select: { transactions: { where: { deletedAt: null } } } },
+        },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      }),
+      getUserTemplatesForImport(session.user.id),
+      prisma.role.findMany({
+        where: { code: { in: [...WORKSPACE_ROLE_CODES] } },
+        select: { code: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.workspaceJoinRequest.findMany({
+        where: { workspaceId, status: "pending" },
+        select: {
+          id: true,
+          requester: { select: { username: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
 
   const existingCodes = categories.map((c) => c.code);
 
   return (
     <PageContainer className="workspace-settings-page">
       <div className="workspace-settings-container workspace-admin-settings-container space-y-6">
-        <section className="workspace-mobile-overview md:hidden">
+        <section className="workspace-mobile-overview md:hidden rounded-2xl">
           <div className="workspace-mobile-overview-head">
             <div className="workspace-mobile-overview-copy">
               <p>Quản trị workspace</p>
@@ -141,11 +156,13 @@ export default async function SettingsPage({
             id: request.id,
             username: request.requester.username,
           }))}
-          initialTab={params.tab === "members" || params.tab === "joinRequests"
-            ? "members"
-            : params.tab === "categories"
-              ? "categories"
-              : "general"}
+          initialTab={
+            params.tab === "members" || params.tab === "joinRequests"
+              ? "members"
+              : params.tab === "categories"
+                ? "categories"
+                : "general"
+          }
         />
       </div>
     </PageContainer>

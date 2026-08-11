@@ -209,7 +209,7 @@ export function CreateWorkspaceForm() {
                 name="description"
                 maxLength={500}
                 rows={4}
-                placeholder="Mục đích hoặc phạm vi sử dụng của workspace..."
+                placeholder="Mục đích hoặc phạm vi sử dụng"
                 className="workspace-create-textarea"
               />
             </div>
