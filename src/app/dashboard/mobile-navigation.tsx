@@ -47,54 +47,59 @@ function MobileNavigationDrawer({
   return (
     <>
       <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger
-        render={
-          <Button variant="unstyled" size="auto"
-            type="button"
-            className="mobile-navigation-trigger"
-            aria-label="Mở điều hướng"
-          />
-        }
-      >
-        <Menu size={20} strokeWidth={1.9} />
-      </SheetTrigger>
-      <SheetContent
-        side="left"
-        className="mobile-navigation-sheet"
-      >
-        <SheetHeader className="mobile-navigation-header">
-          <div className="mobile-navigation-brand">
-            <FinLogo size={30} />
-            <div>
-              <SheetTitle>Felix</SheetTitle>
-              <SheetDescription>Điều hướng và chọn workspace</SheetDescription>
+        <SheetTrigger
+          render={
+            <Button
+              variant="unstyled"
+              size="auto"
+              type="button"
+              className="mobile-navigation-trigger"
+              aria-label="Mở điều hướng"
+            />
+          }
+        >
+          <Menu size={20} strokeWidth={1.9} />
+        </SheetTrigger>
+        <SheetContent
+          side="left"
+          showCloseButton
+          className="mobile-navigation-sheet"
+        >
+          <SheetHeader className="mobile-navigation-header">
+            <div className="mobile-navigation-brand">
+              <FinLogo size={40} />
+              <div>
+                <SheetTitle>Felix</SheetTitle>
+                <SheetDescription>
+                  Không gian tài chính của bạn
+                </SheetDescription>
+              </div>
             </div>
+          </SheetHeader>
+
+          <div className="mobile-navigation-body">
+            <DashboardNavigation
+              currentId={currentId}
+              workspaces={workspaces}
+              pendingJoinCount={pendingJoinCount}
+              isAdmin={isAdmin}
+              username={username}
+              forceExpandedWorkspaceSwitcher
+            />
           </div>
-        </SheetHeader>
 
-        <div className="mobile-navigation-body">
-          <DashboardNavigation
-            currentId={currentId}
-            workspaces={workspaces}
-            pendingJoinCount={pendingJoinCount}
-            isAdmin={isAdmin}
-            username={username}
-            forceExpandedWorkspaceSwitcher
-          />
-        </div>
-
-        <div className="mobile-navigation-user">
-          <SidebarUserMenu
-            username={username}
-            role={role}
-            forceExpanded
-            onOpenAccountSettings={() => {
-              setOpen(false);
-              setAccountSettingsOpen(true);
-            }}
-          />
-        </div>
-      </SheetContent>
+          <div className="mobile-navigation-user">
+            <SidebarUserMenu
+              username={username}
+              role={role}
+              forceExpanded
+              onOpenAccountSettings={() => {
+                setOpen(false);
+                setAccountSettingsOpen(true);
+              }}
+            />
+          </div>
+        </SheetContent>
       </Sheet>
 
       <AccountSettingsModal

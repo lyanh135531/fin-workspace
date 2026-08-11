@@ -77,60 +77,17 @@ export function AccountSettingsClient({ username }: { username: string }) {
   const initialsText = getInitials(username);
 
   return (
-    <div className="space-y-4 text-[var(--foreground)]">
-      {/* ── Profile Header Card ── */}
-      <section>
-        <div className="flex items-center gap-3.5">
-          <div className="relative shrink-0">
-            <div className="flex h-12 w-12 items-center justify-center bg-[var(--primary-soft)] text-[var(--primary)] text-base font-extrabold border border-orange-500/20 shadow-xs rounded-xl">
-              {initialsText}
-            </div>
-            <span
-              className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[var(--surface)] bg-emerald-500"
-              title="Đang hoạt động"
-            />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold tracking-tight text-[var(--foreground)] truncate">
-                {username}
-              </h2>
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                <BadgeCheck size={12} /> Live
-              </span>
-            </div>
-            <p className="mt-0.5 text-xs text-[var(--text-muted)] truncate">
-              @{username} · Felix Account
-            </p>
-          </div>
-        </div>
-      </section>
-
+    <div className="account-settings-content space-y-4 text-[var(--foreground)]">
       {/* ── Change Password Card ── */}
-      <section className="border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xs space-y-4 rounded-xl">
-        <div className="flex items-center gap-3 border-b border-[var(--border)] pb-3.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-[var(--coral)]">
-            <KeyRound size={18} strokeWidth={2} />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold tracking-tight text-[var(--foreground)]">
-              Bảo mật & Đổi mật khẩu
-            </h3>
-            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-              Cập nhật mật khẩu mới tối thiểu 6 ký tự
-            </p>
-          </div>
-        </div>
-
+      <section className="account-settings-password border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xs space-y-4 rounded-xl">
         <form
           ref={formRef}
           onSubmit={handleSubmit}
-          className="space-y-3.5"
+          className="account-settings-password-form space-y-3.5"
           aria-busy={pending}
         >
           {/* Current Password */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 px-4 pt-4">
             <Input
               label="Mật khẩu hiện tại"
               id="currentPassword"
@@ -158,7 +115,7 @@ export function AccountSettingsClient({ username }: { username: string }) {
           </div>
 
           {/* New Password */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 px-4">
             <Input
               label="Mật khẩu mới"
               id="newPassword"
@@ -208,7 +165,7 @@ export function AccountSettingsClient({ username }: { username: string }) {
           </div>
 
           {/* Confirm New Password */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 px-4">
             <Input
               label="Xác nhận mật khẩu mới"
               id="confirmPassword"
@@ -239,13 +196,13 @@ export function AccountSettingsClient({ username }: { username: string }) {
             />
           </div>
 
-          <div className="pt-2 flex justify-end">
+          <div className="account-settings-password-submit py-3 px-4 flex justify-end">
             <Button
               disabled={pending || !newPassword || !confirmPassword}
               type="submit"
               variant="default"
               size="default"
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto ro"
             >
               <ShieldCheck size={16} />
               {pending ? "Đang cập nhật…" : "Cập nhật mật khẩu"}

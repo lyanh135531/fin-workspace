@@ -33,12 +33,6 @@ export function FinLogo({
           strokeWidth="1.35"
         />
         <path d="M10 9H26V13H14V16H23V20H14V27H10V9Z" fill="#FF765B" />
-        <path
-          d="M25 26H30"
-          stroke="#FFF8ED"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
       </svg>
       {showText && (
         <span className="font-extrabold text-lg tracking-tight text-foreground">

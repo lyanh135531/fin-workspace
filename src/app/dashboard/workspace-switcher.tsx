@@ -56,7 +56,7 @@ function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
   /* ── Expanded: High-end card dropdown ── */
   return (
     <form onSubmit={submit} className="ws-inline-join">
-      <div className="ws-inline-join-row rounded-md">
+      <div className="ws-inline-join-row rounded-xl">
         <KeyRound size={14} className="ws-inline-join-icon" aria-hidden />
         <Input
           ref={inputRef}
@@ -76,7 +76,7 @@ function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
           variant="unstyled"
           size="auto"
           type="submit"
-          className="ws-inline-join-btn"
+          className="ws-inline-join-btn rounded-lg"
           disabled={pending || value.trim().length < 6}
           aria-label="Gửi yêu cầu tham gia"
         >
@@ -146,13 +146,13 @@ export function WorkspaceSwitcher({
             variant="unstyled"
             size="auto"
             type="button"
-            className="flex h-12 w-full min-w-0 items-center gap-2 rounded-xl p-2 text-left outline-none transition-[width,height,padding,gap,background-color,transform] duration-300 ease-in-out hover:bg-[var(--surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:translate-x-2 group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center"
+            className="sidebar-workspace-selector-card flex h-12 w-full min-w-0 items-center gap-2 rounded-2xl px-2.5 py-2 text-left outline-none transition-[width,height,padding,gap,background-color,transform] duration-300 ease-in-out hover:bg-[var(--surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:translate-x-2 group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center"
             aria-expanded={open}
             aria-label={`Workspace: ${currentWorkspace?.name}. Click để chuyển đổi.`}
           />
         }
       >
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
           <span>{activeInitial}</span>
         </div>
         <div className="min-w-0 flex-1 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
@@ -180,9 +180,6 @@ export function WorkspaceSwitcher({
         sideOffset={6}
         className="sidebar-ws-popover"
       >
-        <div className="sidebar-ws-popover-header">
-          <span>DANH SÁCH WORKSPACE ({workspaces.length})</span>
-        </div>
         <div className="sidebar-ws-popover-list">
           {workspaces.map((ws) => {
             const isSelected = ws.id === currentId;
@@ -194,7 +191,7 @@ export function WorkspaceSwitcher({
                 key={ws.id}
                 disabled={pending}
                 onClick={() => choose(ws.id)}
-                className={`sidebar-ws-item rounded-md ${isSelected ? "sidebar-ws-item-active" : ""}`}
+                className={`sidebar-ws-item rounded-xl ${isSelected ? "sidebar-ws-item-active" : ""}`}
               >
                 <div className="sidebar-ws-avatar">
                   {ws.name.charAt(0).toUpperCase()}

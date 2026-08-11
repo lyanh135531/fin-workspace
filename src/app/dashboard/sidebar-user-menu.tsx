@@ -2,9 +2,13 @@
 
 import { Button, Loading } from "@/components/base";
 import { signOut } from "next-auth/react";
-import { LogOut, ChevronUp, User } from "lucide-react";
+import { LogOut, ChevronUp, KeyRound } from "lucide-react";
 import { useState, useTransition } from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { AccountSettingsModal } from "@/app/dashboard/account-settings-modal";
 import { useOptionalSidebar } from "@/components/ui/sidebar";
 
@@ -45,7 +49,9 @@ export function SidebarUserMenu({
   }
 
   const LogoutButton = (
-    <Button variant="unstyled" size="auto"
+    <Button
+      variant="unstyled"
+      size="auto"
       type="button"
       className="sidebar-logout-popover-btn"
       onClick={handleSignOut}
@@ -65,7 +71,9 @@ export function SidebarUserMenu({
   );
 
   const OpenAccountSettingsBtn = (
-    <Button variant="unstyled" size="auto"
+    <Button
+      variant="unstyled"
+      size="auto"
       type="button"
       className="sidebar-user-popover-link"
       onClick={() => {
@@ -74,19 +82,24 @@ export function SidebarUserMenu({
         else setAccountModalOpen(true);
       }}
     >
-      <User size={14} strokeWidth={2} />
-      <span>Cài đặt tài khoản</span>
+      <KeyRound size={14} strokeWidth={2} />
+      <span>Đổi mật khẩu</span>
     </Button>
   );
 
   return (
-    <div className="sidebar-user-section group-data-[collapsible=icon]:m-0! group-data-[collapsible=icon]:p-0!" aria-label="Tài khoản người dùng">
+    <div
+      className="sidebar-user-section group-data-[collapsible=icon]:m-0! group-data-[collapsible=icon]:p-0!"
+      aria-label="Tài khoản người dùng"
+    >
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger
           render={
-            <Button variant="unstyled" size="auto"
+            <Button
+              variant="unstyled"
+              size="auto"
               type="button"
-              className="sidebar-user-row sidebar-user-card transition-[width,height,padding,gap] duration-300 ease-in-out group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0!"
+              className="sidebar-user-row sidebar-user-card rounded-2xl transition-[width,height,padding,gap] duration-300 ease-in-out group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0!"
               data-sidebar-profile-state={collapsed ? "collapsed" : "expanded"}
               aria-label={`Tài khoản: ${username}. Nhấn để xem tùy chọn.`}
               aria-expanded={popoverOpen}
@@ -94,12 +107,17 @@ export function SidebarUserMenu({
           }
         >
           <div className="sidebar-user-avatar-wrap">
-            <div className="sidebar-user-avatar" aria-hidden>{avatarText}</div>
+            <div className="sidebar-user-avatar rounded-lg" aria-hidden>
+              {avatarText}
+            </div>
             <span className="sidebar-user-status-dot" aria-hidden />
           </div>
 
           <div className="sidebar-user-info max-w-48 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
-            <span className="sidebar-user-name" title={username}>{username}</span>
+            <span className="sidebar-user-name" title={username}>
+              {username}
+            </span>
+            <span className="sidebar-user-role-inline">{roleLabel}</span>
           </div>
 
           <div className="sidebar-user-chevron-wrap shrink-0 opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0">
@@ -119,14 +137,19 @@ export function SidebarUserMenu({
         >
           <div className="sidebar-flyout-user-header">
             <div className="sidebar-user-avatar-wrap">
-              <div className="sidebar-user-avatar sidebar-avatar-lg" aria-hidden>
+              <div
+                className="sidebar-user-avatar sidebar-avatar-lg rounded-lg"
+                aria-hidden
+              >
                 {avatarText}
               </div>
               <span className="sidebar-user-status-dot" aria-hidden />
             </div>
             <div className="sidebar-user-flyout-meta">
               <p className="sidebar-flyout-username">{username}</p>
-              <span className={`sidebar-user-role ${roleClass}`}>{roleLabel}</span>
+              <span className={`sidebar-user-role ${roleClass}`}>
+                {roleLabel}
+              </span>
             </div>
           </div>
           <div className="sidebar-flyout-divider" />
@@ -145,4 +168,3 @@ export function SidebarUserMenu({
     </div>
   );
 }
-

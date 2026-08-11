@@ -113,7 +113,8 @@ export function DashboardNavigation({
   return (
     <nav className="flex min-h-0 flex-1 flex-col" aria-label="Điều hướng chính">
       {currentId && (
-        <div className="px-2 pb-1 group-data-[collapsible=icon]:px-2">
+        <div className="mobile-workspace-block px-2 pb-1 group-data-[collapsible=icon]:px-2">
+          <span className="dashboard-nav-section-label">Workspace</span>
           <WorkspaceSwitcher
             currentId={currentId}
             workspaces={workspaces}
@@ -124,14 +125,19 @@ export function DashboardNavigation({
       )}
 
       <SidebarGroup>
+        <span className="dashboard-nav-section-label">Điều hướng</span>
         <SidebarGroupContent>
           <NavigationMenu items={workspaceItems} />
         </SidebarGroupContent>
       </SidebarGroup>
 
-      <div className="mx-4 my-1 h-px bg-[var(--border)] transition-[margin] duration-300 group-data-[collapsible=icon]:mx-3" aria-hidden />
+      <div
+        className="dashboard-navigation-divider mx-4 my-1 h-px bg-[var(--border)] transition-[margin] duration-300 group-data-[collapsible=icon]:mx-3"
+        aria-hidden
+      />
 
       <SidebarGroup>
+        <span className="dashboard-nav-section-label">Cá nhân</span>
         <SidebarGroupContent>
           <NavigationMenu items={generalItems} />
         </SidebarGroupContent>
@@ -149,6 +155,7 @@ function NavigationMenu({ items }: { items: NavigationItem[] }) {
         return (
           <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
+              className="dashboard-primary-nav-link"
               render={
                 <Link
                   href={item.href}

@@ -8,7 +8,7 @@ import {
   SheetDescription,
 } from "@/components/base";
 import { AccountSettingsClient } from "@/app/dashboard/settings/account-settings-client";
-import { UserRound } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function AccountSettingsModal({
@@ -34,22 +34,28 @@ export function AccountSettingsModal({
     <Sheet open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
       <SheetContent
         side={isMobile ? "bottom" : "right"}
-        className="account-settings-sheet w-full sm:max-w-[520px]"
+        className={`account-settings-sheet w-full sm:max-w-[520px] ${isMobile ? "quick-transaction-sheet" : ""}`}
       >
-        <SheetHeader className="account-settings-sheet-header">
-          <div className="account-settings-sheet-heading">
+        <SheetHeader
+          className={`account-settings-sheet-header ${isMobile ? "quick-transaction-header" : ""}`}
+        >
+          <div
+            className={`account-settings-sheet-heading ${isMobile ? "quick-transaction-heading" : ""}`}
+          >
             <span aria-hidden="true">
-              <UserRound size={18} />
+              <KeyRound size={18} />
             </span>
             <div>
-              <SheetTitle>Cài đặt tài khoản</SheetTitle>
+              <SheetTitle>Đổi mật khẩu</SheetTitle>
               <SheetDescription>
                 Hồ sơ cá nhân, mật khẩu và phiên làm việc
               </SheetDescription>
             </div>
           </div>
         </SheetHeader>
-        <div className="account-settings-sheet-body">
+        <div
+          className={`account-settings-sheet-body ${isMobile ? "quick-transaction-scroll" : ""}`}
+        >
           <AccountSettingsClient username={username} />
         </div>
       </SheetContent>

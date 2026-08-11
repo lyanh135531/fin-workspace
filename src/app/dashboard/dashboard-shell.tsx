@@ -1,4 +1,11 @@
-import { BookOpen, LayoutDashboard, Repeat2, Settings, SlidersHorizontal, WalletCards } from "lucide-react";
+import {
+  BookOpen,
+  LayoutDashboard,
+  Repeat2,
+  Settings,
+  SlidersHorizontal,
+  WalletCards,
+} from "lucide-react";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -12,7 +19,6 @@ import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transactio
 import { SidebarToggle } from "@/app/dashboard/sidebar-toggle";
 import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
 import { WorkspaceNotifications } from "@/app/dashboard/workspace-notifications";
-import { ThemeToggle } from "@/app/theme-toggle";
 import { FinLogo } from "@/components/fin-logo";
 import {
   Sidebar,
@@ -77,79 +83,91 @@ export function DashboardShell({ children }: DashboardShellProps) {
 async function loadDashboardShellData() {
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
-  const activeWorkspaceId = userId ? await resolveActiveWorkspaceId(userId) : null;
+  const activeWorkspaceId = userId
+    ? await resolveActiveWorkspaceId(userId)
+    : null;
 
-  if (activeWorkspaceId) await activateDueScheduledTransactionsForRequest(activeWorkspaceId);
+  if (activeWorkspaceId)
+    await activateDueScheduledTransactionsForRequest(activeWorkspaceId);
 
   const [membership, workspaces] = userId
     ? await Promise.all([
-      activeWorkspaceId
-        ? prisma.workspaceMember.findFirst({
+        activeWorkspaceId
+          ? prisma.workspaceMember.findFirst({
+              where: {
+                userId,
+                workspaceId: activeWorkspaceId,
+                status: "active",
+                deletedAt: null,
+                workspace: { status: "active", deletedAt: null },
+              },
+              include: { workspace: true, role: true },
+            })
+          : null,
+        prisma.workspaceMember.findMany({
           where: {
             userId,
-            workspaceId: activeWorkspaceId,
             status: "active",
             deletedAt: null,
             workspace: { status: "active", deletedAt: null },
           },
-          include: { workspace: true, role: true },
-        })
-        : null,
-      prisma.workspaceMember.findMany({
-        where: {
-          userId,
-          status: "active",
-          deletedAt: null,
-          workspace: { status: "active", deletedAt: null },
-        },
-        include: {
-          workspace: { select: { id: true, name: true, baseCurrency: true, timeZone: true } },
-          role: { select: { code: true } },
-        },
-        orderBy: { workspace: { name: "asc" } },
-      }),
-    ])
+          include: {
+            workspace: {
+              select: {
+                id: true,
+                name: true,
+                baseCurrency: true,
+                timeZone: true,
+              },
+            },
+            role: { select: { code: true } },
+          },
+          orderBy: { workspace: { name: "asc" } },
+        }),
+      ])
     : [null, []];
 
   const quickWorkspaceIds = workspaces.map((item) => item.workspaceId);
   const [quickWalletLinks, quickCategories] = quickWorkspaceIds.length
     ? await Promise.all([
-      prisma.workspaceWallet.findMany({
-        where: {
-          workspaceId: { in: quickWorkspaceIds },
-          wallet: { status: "active", deletedAt: null },
-        },
-        select: {
-          workspaceId: true,
-          wallet: { select: { id: true, name: true } },
-        },
-        orderBy: [
-          { workspaceId: "asc" },
-          { sortOrder: "asc" },
-          { wallet: { name: "asc" } },
-        ],
-      }),
-      prisma.category.findMany({
-        where: {
-          status: "active",
-          deletedAt: null,
-          workspaceId: { in: quickWorkspaceIds },
-        },
-        select: {
-          id: true,
-          workspaceId: true,
-          name: true,
-          color: true,
-          icon: true,
-          parentId: true,
-          type: true,
-        },
-        orderBy: { sortOrder: "asc" },
-      }),
-    ])
+        prisma.workspaceWallet.findMany({
+          where: {
+            workspaceId: { in: quickWorkspaceIds },
+            wallet: { status: "active", deletedAt: null },
+          },
+          select: {
+            workspaceId: true,
+            wallet: { select: { id: true, name: true } },
+          },
+          orderBy: [
+            { workspaceId: "asc" },
+            { sortOrder: "asc" },
+            { wallet: { name: "asc" } },
+          ],
+        }),
+        prisma.category.findMany({
+          where: {
+            status: "active",
+            deletedAt: null,
+            workspaceId: { in: quickWorkspaceIds },
+          },
+          select: {
+            id: true,
+            workspaceId: true,
+            name: true,
+            color: true,
+            icon: true,
+            parentId: true,
+            type: true,
+          },
+          orderBy: { sortOrder: "asc" },
+        }),
+      ])
     : [[], []];
 
-  const pendingJoinCount = userId ? await getPendingJoinRequestCount(userId) : 0;
+  const pendingJoinCount = userId
+    ? await getPendingJoinRequestCount(userId)
+    : 0;
   const isAdmin = membership ? isAdminRole(membership.role.code) : false;
   const userRole: "admin" | "member" | "none" = membership
     ? isAdmin
@@ -170,7 +188,14 @@ async function loadDashboardShellData() {
 }
 
 async function DashboardSidebar({ dataPromise }: DashboardShellDataProps) {
-  const { membership, workspaces, pendingJoinCount, isAdmin, userRole, username } = await dataPromise;
+  const {
+    membership,
+    workspaces,
+    pendingJoinCount,
+    isAdmin,
+    userRole,
+    username,
+  } = await dataPromise;
 
   return (
     <Sidebar collapsible="icon">
@@ -200,7 +225,14 @@ async function DashboardSidebar({ dataPromise }: DashboardShellDataProps) {
 }
 
 async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
-  const { membership, workspaces, pendingJoinCount, isAdmin, userRole, username } = await dataPromise;
+  const {
+    membership,
+    workspaces,
+    pendingJoinCount,
+    isAdmin,
+    userRole,
+    username,
+  } = await dataPromise;
 
   return (
     <header className="dashboard-header">
@@ -221,7 +253,9 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
           <SidebarToggle />
         </div>
         <div className="dashboard-header-copy">
-          <DashboardHeaderSubtitle fallback={membership?.workspace.name ?? "Felix"} />
+          <DashboardHeaderSubtitle
+            fallback={membership?.workspace.name ?? "Felix"}
+          />
         </div>
       </div>
 
@@ -234,18 +268,22 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
             isAdmin={isAdmin}
           />
         )}
-        <ThemeToggle />
       </div>
     </header>
   );
 }
 
-async function DashboardQuickTransaction({ dataPromise }: DashboardShellDataProps) {
-  const { membership, workspaces, quickWalletLinks, quickCategories } = await dataPromise;
+async function DashboardQuickTransaction({
+  dataPromise,
+}: DashboardShellDataProps) {
+  const { membership, workspaces, quickWalletLinks, quickCategories } =
+    await dataPromise;
 
   return (
     <QuickTransactionSheet
-      initialWorkspaceId={membership?.workspaceId ?? workspaces[0]?.workspaceId ?? ""}
+      initialWorkspaceId={
+        membership?.workspaceId ?? workspaces[0]?.workspaceId ?? ""
+      }
       workspaces={workspaces.map((item) => ({
         id: item.workspaceId,
         name: item.workspace.name,
@@ -315,9 +353,6 @@ function DashboardHeaderFallback() {
         </div>
         <div className="dashboard-header-copy">Felix</div>
       </div>
-      <div className="header-action-group">
-        <ThemeToggle />
-      </div>
     </header>
   );
 }
@@ -341,7 +376,11 @@ function FallbackNavigation() {
   const workspaceLinks = [
     { href: "/overview", label: "Tổng quan", icon: LayoutDashboard },
     { href: "/dashboard", label: "Sổ giao dịch", icon: BookOpen },
-    { href: "/recurring-transactions", label: "Giao dịch định kỳ", icon: Repeat2 },
+    {
+      href: "/recurring-transactions",
+      label: "Giao dịch định kỳ",
+      icon: Repeat2,
+    },
     { href: "/wallets", label: "Quản lý ví", icon: WalletCards },
     { href: "/settings/workspace", label: "Cài đặt workspace", icon: Settings },
   ];
@@ -352,7 +391,10 @@ function FallbackNavigation() {
   return (
     <nav className="flex min-h-0 flex-1 flex-col" aria-label="Điều hướng chính">
       <FallbackNavigationGroup links={workspaceLinks} />
-      <div className="mx-4 my-1 h-px bg-[var(--border)] group-data-[collapsible=icon]:mx-3" aria-hidden />
+      <div
+        className="mx-4 my-1 h-px bg-[var(--border)] group-data-[collapsible=icon]:mx-3"
+        aria-hidden
+      />
       <FallbackNavigationGroup links={generalLinks} />
     </nav>
   );
@@ -372,7 +414,10 @@ function FallbackNavigationGroup({
 
             return (
               <SidebarMenuItem key={link.href}>
-                <SidebarMenuButton render={<Link href={link.href} />} aria-label={link.label}>
+                <SidebarMenuButton
+                  render={<Link href={link.href} />}
+                  aria-label={link.label}
+                >
                   <Icon strokeWidth={1.8} />
                   <span>{link.label}</span>
                 </SidebarMenuButton>
