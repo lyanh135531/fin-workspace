@@ -11,11 +11,9 @@ import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { cn } from "@/lib/utils";
 import { parseIsoDate, toIsoDate } from "./date-picker";
 
@@ -33,6 +31,7 @@ type DateRangePickerProps = {
   allowClear?: boolean;
   ariaLabel: string;
   className?: string;
+  spotlight?: boolean;
 };
 
 type CompleteDateRange = {
@@ -84,6 +83,7 @@ export function DateRangePicker({
   allowClear = false,
   ariaLabel,
   className,
+  spotlight = false,
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<DateRange | undefined>(() =>
@@ -136,28 +136,46 @@ export function DateRangePicker({
     setOpen(nextOpen);
   }
 
+  const triggerButton = (
+    <Button
+      type="button"
+      variant="outline"
+      aria-label={ariaLabel}
+      aria-expanded={open}
+      disabled={disabled}
+      className={cn(
+        "date-range-picker-trigger border border-input shadow-none transition-colors hover:bg-white outline-none select-none bg-white",
+        className,
+      )}
+    />
+  );
+  const triggerContent = (
+    <>
+      <span className="truncate tabular-nums">
+        {value ? formatRange(value) : "Tất cả thời gian"}
+      </span>
+      <CalendarDays aria-hidden="true" />
+    </>
+  );
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger
-        render={
-          <Button
-            type="button"
-            variant="outline"
-            aria-label={ariaLabel}
-            aria-expanded={open}
-            disabled={disabled}
-            className={cn(
-              "date-range-picker-trigger border border-input shadow-none transition-colors hover:bg-white outline-none select-none bg-white",
-              className,
-            )}
-          />
-        }
-      >
-        <span className="truncate tabular-nums">
-          {value ? formatRange(value) : "Tất cả thời gian"}
-        </span>
-        <CalendarDays aria-hidden="true" />
-      </PopoverTrigger>
+      {spotlight ? (
+        <SpotlightTrigger
+          open={open}
+          onOpenChange={handleOpenChange}
+          render={triggerButton}
+          dismissLabel={`Đóng ${ariaLabel.toLocaleLowerCase("vi")}`}
+        >
+          {(spotlightTrigger) => (
+            <PopoverTrigger render={spotlightTrigger}>
+              {triggerContent}
+            </PopoverTrigger>
+          )}
+        </SpotlightTrigger>
+      ) : (
+        <PopoverTrigger render={triggerButton}>{triggerContent}</PopoverTrigger>
+      )}
       <PopoverContent
         align="end"
         sideOffset={8}
@@ -202,28 +220,17 @@ export function DateRangePicker({
         </div>
         <div className="date-range-picker-actions">
           {allowClear && value && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={clearSelection}
-            >
+            <Button type="button" variant="ghost" onClick={clearSelection}>
               <CalendarX2 aria-hidden="true" />
               Bỏ lọc ngày
             </Button>
           )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={cancelSelection}
-          >
+          <Button type="button" variant="ghost" onClick={cancelSelection}>
             <X aria-hidden="true" />
             Hủy
           </Button>
           <Button
             type="button"
-            size="sm"
             onClick={applyRange}
             disabled={!draft?.from || !draft.to}
           >

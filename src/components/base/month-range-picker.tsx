@@ -13,11 +13,9 @@ import { Button } from "@/components/base/button";
 import {
   Popover,
   PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { cn } from "@/lib/utils";
 import type { DateRangeValue } from "./date-range-picker";
 
@@ -29,6 +27,7 @@ type MonthRangePickerProps = {
   disabled?: boolean;
   ariaLabel: string;
   className?: string;
+  spotlight?: boolean;
 };
 
 const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
@@ -83,6 +82,7 @@ export function MonthRangePicker({
   disabled = false,
   ariaLabel,
   className,
+  spotlight = false,
 }: MonthRangePickerProps) {
   const selectedFrom = toMonth(value.from);
   const selectedTo = toMonth(value.to);
@@ -133,34 +133,51 @@ export function MonthRangePicker({
     setOpen(false);
   }
 
+  const triggerButton = (
+    <Button
+      type="button"
+      variant="outline"
+      aria-label={ariaLabel}
+      aria-expanded={open}
+      disabled={disabled}
+      className={cn(
+        "date-range-picker-trigger group border bg-white px-3 font-normal shadow-none outline-none transition-colors hover:bg-white dark:bg-input/30 dark:hover:bg-input/50",
+        className,
+      )}
+    />
+  );
+
+  const triggerContent = (
+    <>
+      <span className="flex min-w-0 items-center gap-2">
+        <CalendarRange className="size-3.5 text-primary" aria-hidden="true" />
+        <span className="truncate tabular-nums">{formatMonthRange(value)}</span>
+      </span>
+      <ChevronDown
+        className="size-3.5 text-muted-foreground transition-transform duration-200 group-aria-expanded:rotate-180"
+        aria-hidden="true"
+      />
+    </>
+  );
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger
-        render={
-          <Button
-            type="button"
-            variant="outline"
-            aria-label={ariaLabel}
-            aria-expanded={open}
-            disabled={disabled}
-            className={cn(
-              "date-range-picker-trigger group border bg-white px-3 font-normal shadow-none outline-none transition-colors hover:bg-white dark:bg-input/30 dark:hover:bg-input/50",
-              className,
-            )}
-          />
-        }
-      >
-        <span className="flex min-w-0 items-center gap-2">
-          <CalendarRange className="size-3.5 text-primary" aria-hidden="true" />
-          <span className="truncate tabular-nums">
-            {formatMonthRange(value)}
-          </span>
-        </span>
-        <ChevronDown
-          className="size-3.5 text-muted-foreground transition-transform duration-200 group-aria-expanded:rotate-180"
-          aria-hidden="true"
-        />
-      </PopoverTrigger>
+      {spotlight ? (
+        <SpotlightTrigger
+          open={open}
+          onOpenChange={handleOpenChange}
+          render={triggerButton}
+          dismissLabel={`Đóng ${ariaLabel.toLocaleLowerCase("vi")}`}
+        >
+          {(spotlightTrigger) => (
+            <PopoverTrigger render={spotlightTrigger}>
+              {triggerContent}
+            </PopoverTrigger>
+          )}
+        </SpotlightTrigger>
+      ) : (
+        <PopoverTrigger render={triggerButton}>{triggerContent}</PopoverTrigger>
+      )}
 
       <PopoverContent
         align="end"

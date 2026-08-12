@@ -1572,6 +1572,7 @@ export function Ledger({
                   Khoảng thời gian
                 </label>
                 <DateRangePicker
+                  spotlight
                   value={dateRange}
                   ariaLabel="Lọc theo khoảng thời gian"
                   allowClear
@@ -1585,6 +1586,7 @@ export function Ledger({
               <div className="ledger-filter-popover-row">
                 <label className="ledger-filter-popover-label">Danh mục</label>
                 <CategoryTreeSelect
+                  spotlight
                   value={filterCategory}
                   ariaLabel="Lọc danh mục"
                   placeholder="Tất cả danh mục"

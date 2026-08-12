@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, Funnel, RefreshCw } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   Button,
@@ -13,6 +13,7 @@ import {
   PopoverTrigger,
   Select,
 } from "@/components/base";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 
 type FilterValues = {
   walletId: string;
@@ -57,6 +58,7 @@ export function OverviewFilters({
   onDateRangeChange,
   onReset,
 }: OverviewFiltersProps) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const activeFilterCount = Object.values(values).filter(
     (value) => value !== "all",
   ).length;
@@ -68,8 +70,10 @@ export function OverviewFilters({
 
   return (
     <section className="overview-filter-toolbar" aria-label="Bộ lọc báo cáo">
-      <Popover>
-        <PopoverTrigger
+      <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <SpotlightTrigger
+          open={filtersOpen}
+          onOpenChange={setFiltersOpen}
           render={
             <Button
               type="button"
@@ -78,19 +82,27 @@ export function OverviewFilters({
               aria-label="Mở bộ lọc báo cáo"
             />
           }
+          dismissLabel="Đóng bộ lọc báo cáo"
         >
-          <Funnel aria-hidden="true" />
-          <span>Bộ lọc</span>
-          {hasActiveFilters && (
-            <span
-              className="overview-filter-count"
-              aria-label={`${activeFilterCount} bộ lọc đang áp dụng`}
-            >
-              {activeFilterCount}
-            </span>
+          {(spotlightTrigger) => (
+            <PopoverTrigger render={spotlightTrigger}>
+              <Funnel aria-hidden="true" />
+              <span>Bộ lọc</span>
+              {hasActiveFilters && (
+                <span
+                  className="overview-filter-count"
+                  aria-label={`${activeFilterCount} bộ lọc đang áp dụng`}
+                >
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDown
+                className="overview-filter-chevron"
+                aria-hidden="true"
+              />
+            </PopoverTrigger>
           )}
-          <ChevronDown className="overview-filter-chevron" aria-hidden="true" />
-        </PopoverTrigger>
+        </SpotlightTrigger>
         <PopoverContent
           align="start"
           sideOffset={8}
@@ -169,6 +181,7 @@ export function OverviewFilters({
         onValueChange={onDateRangeChange}
         ariaLabel="Chọn khoảng tháng báo cáo"
         className={`overview-date-range-trigger ${hasCustomDateRange ? "is-custom" : ""}`}
+        spotlight
       />
     </section>
   );

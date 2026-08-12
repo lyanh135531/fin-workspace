@@ -12,15 +12,11 @@ import {
 } from "@/components/base";
 import Decimal from "decimal.js";
 import {
-  CalendarClock,
   CircleAlert,
-  Clock3,
-  Repeat2,
   TrendingDown,
   TrendingUp,
   WalletCards,
 } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 import {
   Area,
@@ -29,6 +25,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   Line,
   LineChart,
   Pie,
@@ -72,18 +69,6 @@ type Transaction = {
   memberId: string;
   member: string;
 };
-type UpcomingTransaction = {
-  id: string;
-  source: "scheduled" | "recurring";
-  amount: string;
-  type: "income" | "expense" | "transfer";
-  description: string | null;
-  date: string;
-  walletId: string;
-  wallet: string;
-  categoryId: string | null;
-  memberId: string;
-};
 type Props = {
   workspace: { id: string; name: string; currency: string };
   reportPeriod: string;
@@ -99,16 +84,9 @@ type Props = {
   }[];
   members: { id: string; name: string }[];
   transactions: Transaction[];
-  upcomingTransactions: UpcomingTransaction[];
 };
 const money = (value: Decimal.Value, currency: string) =>
   `${formatAmount(value)} ${currency}`;
-const statusLabel = {
-  approved: "Đã ghi nhận",
-  pending: "Chờ duyệt",
-  scheduled: "Đã lên lịch",
-  rejected: "Đã từ chối",
-};
 const monthlyChartConfig = {
   income: { label: "Thu nhập", color: "var(--income)" },
   expense: { label: "Chi tiêu", color: "var(--expense)" },
@@ -176,7 +154,6 @@ export function OverviewDashboard({
   categories,
   members,
   transactions,
-  upcomingTransactions,
 }: Props) {
   const defaultDateRange = getTrailingMonthDateRange(reportPeriod);
   const [walletId, setWalletId] = useState("all");
@@ -227,18 +204,6 @@ export function OverviewDashboard({
       });
     return [...rows.values()].sort((a, b) => b.amount.comparedTo(a.amount));
   })();
-  const upcoming = upcomingTransactions.filter(
-    (item) =>
-      (walletId === "all" || item.walletId === walletId) &&
-      (categoryId === "all" || item.categoryId === categoryId) &&
-      (memberId === "all" || item.memberId === memberId) &&
-      (type === "all" || item.type === type),
-  );
-  const pendingCount = filtered.filter((item) => item.status === "pending").length;
-  const upcomingExpense = upcoming
-    .filter((item) => item.type === "expense")
-    .reduce((sum, item) => sum.plus(item.amount), new Decimal(0));
-  const topExpenseCategory = expenseByCategory[0];
   const reset = () => {
     setWalletId("all");
     setCategoryId("all");
@@ -247,6 +212,7 @@ export function OverviewDashboard({
     setDateRange(defaultDateRange);
   };
   const chartEndPeriod = dateRange.to.slice(0, 7);
+  const mobilePeriodLabel = `${mobileMonthLabel(dateRange.from.slice(0, 7))} – ${mobileMonthLabel(dateRange.to.slice(0, 7))}`;
 
   return (
     <PageContainer className="overview-shell">
@@ -270,6 +236,13 @@ export function OverviewDashboard({
           onDateRangeChange={setDateRange}
           onReset={reset}
         />
+        <header className="overview-mobile-dashboard-heading">
+          <div>
+            <span>Phân tích theo tháng</span>
+            <h2>Biến động trong khoảng đã chọn</h2>
+          </div>
+          <small>{mobilePeriodLabel}</small>
+        </header>
         <MobileOverviewHome
           balance={Object.entries(totalByCurrency)
             .map(([currency, total]) => money(total, currency))
@@ -278,23 +251,6 @@ export function OverviewDashboard({
           expense={totals.expense}
           currency={workspace.currency}
           walletCount={wallets.length}
-          pendingCount={pendingCount}
-          upcomingCount={upcoming.length}
-          upcomingExpense={upcomingExpense}
-          topExpenseCategory={topExpenseCategory}
-        />
-        <MobileMonthlyDashboards
-          members={members}
-          wallets={wallets}
-          transactions={transactions}
-          currency={workspace.currency}
-          month={chartEndPeriod}
-          range={range}
-          walletId={walletId}
-          categoryId={categoryId}
-          memberId={memberId}
-          transactionType={type}
-          dateRange={dateRange}
         />
         <div className="overview-kpis gap-6">
           <Metric
@@ -416,148 +372,23 @@ export function OverviewDashboard({
                 />
               )}
             </Card>
-            <Card
-              as="section"
-              className="overview-card overview-recent gap-0 py-0"
-            >
-              <header>
-                <div>
-                  <h2>Giao dịch gần đây</h2>
-                  <p>Được sắp xếp theo ngày mới nhất</p>
-                </div>
-                <Link href={`/workspace/${workspace.id}`}>Xem tất cả</Link>
-              </header>
-              <div className="recent-table">
-                {filtered.slice(0, 6).map((item) => (
-                  <article key={item.id}>
-                    <div className="recent-copy">
-                      <strong title={item.description ?? "Không có nội dung"}>
-                        {item.description ?? "Không có nội dung"}
-                      </strong>
-                      <small>
-                        {item.category?.name ?? "Chưa phân loại"} ·{" "}
-                        {item.wallet} · {item.member}
-                      </small>
-                    </div>
-                    <b className={`recent-amount ${item.type}`}>
-                      {item.type === "income"
-                        ? "+"
-                        : item.type === "expense"
-                          ? "−"
-                          : "↔"}
-                      {money(item.amount, workspace.currency)}
-                    </b>
-                    <div className="recent-meta">
-                      <time>
-                        {new Intl.DateTimeFormat("vi-VN", {
-                          day: "2-digit",
-                          month: "2-digit",
-                        }).format(new Date(item.date))}
-                      </time>
-                      <span className={`overview-status ${item.status}`}>
-                        {statusLabel[item.status]}
-                      </span>
-                    </div>
-                  </article>
-                ))}
-                {!filtered.length && (
-                  <Empty
-                    variant="compact"
-                    title="Không có giao dịch phù hợp"
-                    description="Thử thay đổi bộ lọc báo cáo."
-                  />
-                )}
-              </div>
-            </Card>
-            <Card
-              as="section"
-              className="overview-card overview-operations gap-0 py-0"
-            >
-              <section className="overview-operation-section overview-upcoming">
-                <header>
-                  <div>
-                    <h2>Giao dịch sắp tới</h2>
-                    <p>{upcoming.length} giao dịch trong 30 ngày tới</p>
-                  </div>
-                  <span className="overview-card-count">{upcoming.length}</span>
-                </header>
-                <div className="upcoming-list">
-                  {upcoming.length ? (
-                    upcoming.map((item) => (
-                      <UpcomingTransactionRow
-                        key={`${item.source}-${item.id}`}
-                        item={item}
-                        currency={workspace.currency}
-                      />
-                    ))
-                  ) : (
-                    <Empty
-                      variant="compact"
-                      icon={CalendarClock}
-                      title="Không có giao dịch sắp tới"
-                      description="Các khoản đã lên lịch hoặc định kỳ trong 30 ngày tới sẽ xuất hiện tại đây."
-                    />
-                  )}
-                </div>
-              </section>
-            </Card>
           </div>
         </div>
+        <MobileMonthlyDashboards
+          members={members}
+          wallets={wallets}
+          transactions={transactions}
+          currency={workspace.currency}
+          month={chartEndPeriod}
+          range={range}
+          walletId={walletId}
+          categoryId={categoryId}
+          memberId={memberId}
+          transactionType={type}
+          dateRange={dateRange}
+        />
       </div>
     </PageContainer>
-  );
-}
-
-function UpcomingTransactionRow({
-  item,
-  currency,
-}: {
-  item: UpcomingTransaction;
-  currency: string;
-}) {
-  const transactionDate = new Date(item.date);
-  const sourceLabel = item.source === "recurring" ? "Định kỳ" : "Đã lên lịch";
-  const fallbackDescription =
-    item.source === "recurring" ? "Giao dịch định kỳ" : "Giao dịch đã lên lịch";
-  const amountPrefix =
-    item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔";
-
-  return (
-    <article className={item.type}>
-      <time className="upcoming-date" dateTime={item.date.slice(0, 10)}>
-        <strong>
-          {new Intl.DateTimeFormat("vi-VN", { day: "2-digit" }).format(
-            transactionDate,
-          )}
-        </strong>
-        <span>
-          thg{" "}
-          {new Intl.DateTimeFormat("vi-VN", { month: "2-digit" }).format(
-            transactionDate,
-          )}
-        </span>
-      </time>
-      <div className="upcoming-copy">
-        <strong title={item.description ?? undefined}>
-          {item.description ?? fallbackDescription}
-        </strong>
-        <small>
-          <WalletCards size={12} aria-hidden="true" />
-          <span>{item.wallet}</span>
-          <i aria-hidden="true" />
-          {item.source === "recurring" ? (
-            <Repeat2 size={12} aria-hidden="true" />
-          ) : (
-            <CalendarClock size={12} aria-hidden="true" />
-          )}
-          <span>{sourceLabel}</span>
-        </small>
-      </div>
-      <b className="upcoming-amount">
-        {amountPrefix}
-        {money(item.amount, currency)}
-      </b>
-    </article>
   );
 }
 
@@ -1201,27 +1032,14 @@ function MobileOverviewHome({
   expense,
   currency,
   walletCount,
-  pendingCount,
-  upcomingCount,
-  upcomingExpense,
-  topExpenseCategory,
 }: {
   balance: string;
   income: Decimal;
   expense: Decimal;
   currency: string;
   walletCount: number;
-  pendingCount: number;
-  upcomingCount: number;
-  upcomingExpense: Decimal;
-  topExpenseCategory?: { name: string; color: string; amount: Decimal };
 }) {
   const cashflow = income.minus(expense);
-  const hasIncome = income.greaterThan(0);
-  const expenseRatio = hasIncome
-    ? Decimal.min(expense.div(income).times(100), 100)
-    : new Decimal(expense.isZero() ? 0 : 100);
-  const retainedRatio = Decimal.max(new Decimal(100).minus(expenseRatio), 0);
   const positiveCashflow = cashflow.greaterThanOrEqualTo(0);
 
   return (
@@ -1252,46 +1070,6 @@ function MobileOverviewHome({
         </dl>
       </article>
 
-      <section className="overview-mobile-pulse" aria-label="Nhịp tài chính trong kỳ">
-        <header>
-          <div>
-            <span>Nhịp tài chính</span>
-            <strong>{retainedRatio.toFixed(0)}% thu nhập còn lại</strong>
-          </div>
-          <small>{expenseRatio.toFixed(0)}% đã chi</small>
-        </header>
-        <div className="overview-mobile-pulse-track" aria-hidden="true">
-          <span style={{ width: `${expenseRatio.toNumber()}%` }} />
-        </div>
-        <p>{positiveCashflow ? "Thu vẫn cao hơn chi trong khoảng đang xem." : "Chi đang cao hơn thu trong khoảng đang xem."}</p>
-      </section>
-
-      <section className="overview-mobile-insights" aria-label="Các mục cần chú ý">
-        <header>
-          <h2>Cần chú ý</h2>
-          <span>Chạm để xem chi tiết bên dưới</span>
-        </header>
-        <div className="overview-mobile-insight-rail">
-          <article className={pendingCount ? "warning" : "quiet"}>
-            <span><Clock3 size={16} /></span>
-            <small>Chờ duyệt</small>
-            <strong>{pendingCount} giao dịch</strong>
-            <p>{pendingCount ? "Cần được xử lý" : "Không có tồn đọng"}</p>
-          </article>
-          <article>
-            <span><CalendarClock size={16} /></span>
-            <small>30 ngày tới</small>
-            <strong>{upcomingCount} khoản</strong>
-            <p>{money(upcomingExpense, currency)} dự kiến chi</p>
-          </article>
-          <article>
-            <span style={{ color: topExpenseCategory?.color }}><TrendingDown size={16} /></span>
-            <small>Chi nhiều nhất</small>
-            <strong>{topExpenseCategory?.name ?? "Chưa có dữ liệu"}</strong>
-            <p>{topExpenseCategory ? money(topExpenseCategory.amount, currency) : "Chưa phát sinh chi phí"}</p>
-          </article>
-        </div>
-      </section>
     </section>
   );
 }
@@ -1321,18 +1099,23 @@ function MobileMonthlyDashboards({
   transactionType: string;
   dateRange: DateRangeValue;
 }) {
-  const visibleMembers = memberId === "all"
-    ? members
-    : members.filter((member) => member.id === memberId);
+  const showMemberComparison = members.length >= 2;
+  const visibleMembers = showMemberComparison
+    ? memberId === "all"
+      ? members
+      : members.filter((member) => member.id === memberId)
+    : [];
   const memberMetricType: CashflowType = transactionType === "income" ? "income" : "expense";
-  const memberTotals = buildMemberMonthlyTotals(visibleMembers, transactions, {
-    endPeriod: month,
-    range,
-    walletId,
-    categoryId,
-    type: memberMetricType,
-    dateRange,
-  });
+  const memberTotals = showMemberComparison
+    ? buildMemberMonthlyTotals(visibleMembers, transactions, {
+        endPeriod: month,
+        range,
+        walletId,
+        categoryId,
+        type: memberMetricType,
+        dateRange,
+      })
+    : [];
   const memberSeries = visibleMembers.map((member, index) => ({
     ...member,
     key: memberSeriesKey(member.id),
@@ -1379,57 +1162,57 @@ function MobileMonthlyDashboards({
   const expenseRows = monthlyCashflow.map((row) => ({
     label: mobileMonthLabel(row.period),
     fullLabel: fullMonthLabel(row.period),
+    income: new Decimal(row.income).toNumber(),
     expense: new Decimal(row.expense).toNumber(),
   }));
-  const expenseHasData = monthlyCashflow.some((row) => !new Decimal(row.expense).isZero());
-  const periodLabel = `${mobileMonthLabel(dateRange.from.slice(0, 7))} – ${mobileMonthLabel(dateRange.to.slice(0, 7))}`;
+  const cashflowHasData = monthlyCashflow.some(
+    (row) =>
+      !new Decimal(row.income).isZero() ||
+      !new Decimal(row.expense).isZero(),
+  );
   const chartWidth = Math.max(320, memberRows.length * Math.max(54, memberSeries.length * 24));
+  const balanceChartWidth = Math.max(320, balanceRows.length * 54);
+  const expenseChartWidth = Math.max(320, expenseRows.length * 54);
 
   return (
     <section className="overview-mobile-monthly-dashboards" aria-label="Dashboard theo tháng">
-      <header className="overview-mobile-dashboard-heading">
-        <div>
-          <span>Phân tích theo tháng</span>
-          <h2>Biến động trong khoảng đã chọn</h2>
-        </div>
-        <small>{periodLabel}</small>
-      </header>
-
-      <article className="overview-mobile-chart-card overview-mobile-member-chart-card">
-        <header>
-          <div>
-            <h3>So sánh thành viên</h3>
-            <p>{memberMetricType === "income" ? "Thu nhập" : "Chi tiêu"} theo từng tháng</p>
+      {showMemberComparison && (
+        <article className="overview-mobile-chart-card overview-mobile-member-chart-card">
+          <header>
+            <div>
+              <h3>So sánh thành viên</h3>
+              <p>{memberMetricType === "income" ? "Thu nhập" : "Chi tiêu"} theo từng tháng</p>
+            </div>
+            <span>{visibleMembers.length} người</span>
+          </header>
+          {memberHasData ? (
+            <div className="overview-mobile-chart-scroll">
+              <ChartContainer config={memberConfig} className="overview-mobile-monthly-chart" style={{ width: chartWidth, minWidth: "100%" }}>
+                <BarChart data={memberRows} accessibilityLayer barGap={2} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} interval={0} minTickGap={0} />
+                  <YAxis hide />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent labelKey="label" hideIndicator labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? ""} formatter={(value, name) => {
+                      const series = memberSeries.find((member) => member.key === name);
+                      return <div className="flex min-w-44 items-center justify-between gap-4"><span className="text-muted-foreground">{series?.name ?? String(name)}</span><strong className="tabular-nums">{money(String(value), currency)}</strong></div>;
+                    }} />}
+                  />
+                  {memberSeries.map((member) => (
+                    <Bar key={member.id} dataKey={member.key} fill={`var(--color-${member.key})`} radius={[4, 4, 1, 1]} maxBarSize={15} />
+                  ))}
+                </BarChart>
+              </ChartContainer>
+            </div>
+          ) : (
+            <Empty variant="compact" title={transactionType === "transfer" ? "Không áp dụng cho chuyển khoản" : "Chưa có dữ liệu thành viên"} />
+          )}
+          <div className="overview-mobile-member-legend">
+            {memberSeries.map((member) => <span key={member.id}><i style={{ background: member.color }} />{member.name}</span>)}
           </div>
-          <span>{visibleMembers.length} người</span>
-        </header>
-        {memberHasData ? (
-          <div className="overview-mobile-chart-scroll">
-            <ChartContainer config={memberConfig} className="overview-mobile-monthly-chart" style={{ width: chartWidth }}>
-              <BarChart data={memberRows} accessibilityLayer barGap={2} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
-                <YAxis hide />
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent labelKey="label" hideIndicator labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? ""} formatter={(value, name) => {
-                    const series = memberSeries.find((member) => member.key === name);
-                    return <div className="flex min-w-44 items-center justify-between gap-4"><span className="text-muted-foreground">{series?.name ?? String(name)}</span><strong className="tabular-nums">{money(String(value), currency)}</strong></div>;
-                  }} />}
-                />
-                {memberSeries.map((member) => (
-                  <Bar key={member.id} dataKey={member.key} fill={`var(--color-${member.key})`} radius={[4, 4, 1, 1]} maxBarSize={15} />
-                ))}
-              </BarChart>
-            </ChartContainer>
-          </div>
-        ) : (
-          <Empty variant="compact" title={transactionType === "transfer" ? "Không áp dụng cho chuyển khoản" : "Chưa có dữ liệu thành viên"} />
-        )}
-        <div className="overview-mobile-member-legend">
-          {memberSeries.map((member) => <span key={member.id}><i style={{ background: member.color }} />{member.name}</span>)}
-        </div>
-      </article>
+        </article>
+      )}
 
       <article className="overview-mobile-chart-card">
         <header>
@@ -1440,15 +1223,25 @@ function MobileMonthlyDashboards({
           <span>{balances.length} tháng</span>
         </header>
         {balanceHasData ? (
-          <ChartContainer config={balanceChartConfig} className="overview-mobile-monthly-chart">
-            <AreaChart data={balanceRows} accessibilityLayer margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
-              <YAxis hide />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent labelKey="label" indicator="line" labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? ""} formatter={(value) => <div className="flex min-w-44 items-center justify-between gap-4"><span className="text-muted-foreground">Tổng số dư</span><strong className="tabular-nums">{money(String(value), currency)}</strong></div>} />} />
-              <Area dataKey="total" type="monotone" fill="var(--color-total)" fillOpacity={0.12} stroke="var(--color-total)" strokeWidth={2.25} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
-            </AreaChart>
-          </ChartContainer>
+          <div className="overview-mobile-chart-scroll">
+            <ChartContainer config={balanceChartConfig} className="overview-mobile-monthly-chart" style={{ width: balanceChartWidth, minWidth: "100%" }}>
+              <AreaChart data={balanceRows} accessibilityLayer margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  interval={0}
+                  minTickGap={0}
+                  padding={{ left: 18, right: 18 }}
+                />
+                <YAxis hide />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent labelKey="label" indicator="line" labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? ""} formatter={(value) => <div className="flex min-w-44 items-center justify-between gap-4"><span className="text-muted-foreground">Tổng số dư</span><strong className="tabular-nums">{money(String(value), currency)}</strong></div>} />} />
+                <Area dataKey="total" type="monotone" fill="var(--color-total)" fillOpacity={0.12} stroke="var(--color-total)" strokeWidth={2.25} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+              </AreaChart>
+            </ChartContainer>
+          </div>
         ) : (
           <Empty variant="compact" icon={WalletCards} title="Chưa có ví phù hợp" />
         )}
@@ -1457,35 +1250,38 @@ function MobileMonthlyDashboards({
       <article className="overview-mobile-chart-card">
         <header>
           <div>
-            <h3>Chi tiêu theo tháng</h3>
-            <p>Chỉ giao dịch chi đã ghi nhận</p>
+            <h3>Thu nhập &amp; chi tiêu theo tháng</h3>
+            <p>Thu nhập dạng đường, chi tiêu dạng cột</p>
           </div>
           <span>{monthlyCashflow.length} tháng</span>
         </header>
-        {expenseHasData ? (
-          <ChartContainer config={monthlyChartConfig} className="overview-mobile-monthly-chart">
-            <BarChart data={expenseRows} accessibilityLayer margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
-              <YAxis hide />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent labelKey="label" hideIndicator labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? ""} formatter={(value) => <div className="flex min-w-44 items-center justify-between gap-4"><span className="text-muted-foreground">Chi tiêu</span><strong className="tabular-nums">{money(String(value), currency)}</strong></div>} />} />
-              <Bar dataKey="expense" fill="var(--color-expense)" radius={[5, 5, 1, 1]} maxBarSize={28} />
-            </BarChart>
-          </ChartContainer>
+        {cashflowHasData ? (
+          <div className="overview-mobile-chart-scroll">
+            <ChartContainer config={monthlyChartConfig} className="overview-mobile-monthly-chart" style={{ width: expenseChartWidth, minWidth: "100%" }}>
+              <ComposedChart data={expenseRows} accessibilityLayer margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} interval={0} minTickGap={0} />
+                <YAxis hide />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent labelKey="label" hideIndicator labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? ""} formatter={(value, name) => <div className="flex min-w-44 items-center justify-between gap-4"><span className="text-muted-foreground">{name === "income" ? "Thu nhập" : "Chi tiêu"}</span><strong className="tabular-nums">{money(String(value), currency)}</strong></div>} />} />
+                <Bar dataKey="expense" fill="var(--color-expense)" radius={[5, 5, 1, 1]} maxBarSize={28} />
+                <Line dataKey="income" type="monotone" stroke="var(--color-income)" strokeWidth={2.25} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+              </ComposedChart>
+            </ChartContainer>
+          </div>
         ) : (
-          <Empty variant="compact" title="Chưa có chi tiêu phù hợp" description="Thử đổi loại giao dịch hoặc khoảng tháng." />
+          <Empty variant="compact" title="Chưa có thu chi phù hợp" description="Thử đổi loại giao dịch hoặc khoảng tháng." />
         )}
       </article>
     </section>
   );
 }
 
-function mobileMonthLabel(period: string) {
+function mobileMonthLabel(period: string): string {
   const [year, month] = period.split("-");
   return `T${Number(month)}/${year.slice(2)}`;
 }
 
-function fullMonthLabel(period: string) {
+function fullMonthLabel(period: string): string {
   const [year, month] = period.split("-");
   return `Tháng ${Number(month)}/${year}`;
 }

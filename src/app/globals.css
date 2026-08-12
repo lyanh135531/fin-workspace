@@ -16218,7 +16218,8 @@ html[data-sidebar-collapsed="true"]
 
 /* Overview mobile home — a purpose-built financial pulse, not a compressed desktop report. */
 .overview-mobile-home,
-.overview-mobile-monthly-dashboards {
+.overview-mobile-monthly-dashboards,
+.overview-mobile-dashboard-heading {
   display: none;
 }
 
@@ -16301,7 +16302,6 @@ html[data-sidebar-collapsed="true"]
   }
 
   .overview-mobile-member-chart-card {
-    border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
     background: color-mix(in srgb, var(--primary) 3%, var(--surface));
   }
 
@@ -16408,8 +16408,6 @@ html[data-sidebar-collapsed="true"]
     border-radius: 1.35rem;
     background: color-mix(in srgb, var(--primary) 9%, var(--surface));
     padding: 1rem 1.05rem 0;
-    box-shadow: 0 0.8rem 2.2rem
-      color-mix(in srgb, var(--primary) 12%, transparent);
   }
 
   .overview-mobile-balance-hero::before,
@@ -16550,169 +16548,6 @@ html[data-sidebar-collapsed="true"]
     font-variant-numeric: tabular-nums;
   }
 
-  .overview-mobile-pulse {
-    margin: -0.05rem 0.35rem 0;
-    border: 1px solid var(--border);
-    border-radius: 0.95rem;
-    background: var(--surface);
-    padding: 0.8rem 0.85rem;
-    box-shadow: 0 0.4rem 1.3rem
-      color-mix(in srgb, var(--shadow) 50%, transparent);
-  }
-
-  .overview-mobile-pulse > header {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  .overview-mobile-pulse > header span,
-  .overview-mobile-pulse > header strong {
-    display: block;
-  }
-
-  .overview-mobile-pulse > header span {
-    color: var(--text-muted);
-    font-size: 0.57rem;
-    font-weight: 650;
-  }
-
-  .overview-mobile-pulse > header strong {
-    margin-top: 0.16rem;
-    color: var(--text-secondary);
-    font-size: 0.72rem;
-  }
-
-  .overview-mobile-pulse > header small {
-    color: var(--expense);
-    font-size: 0.61rem;
-    font-weight: 690;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .overview-mobile-pulse-track {
-    height: 0.42rem;
-    overflow: hidden;
-    margin-top: 0.65rem;
-    border-radius: 0.16rem;
-    background: color-mix(in srgb, var(--income) 18%, var(--surface-secondary));
-  }
-
-  .overview-mobile-pulse-track > span {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: var(--expense);
-    transition: width 300ms ease;
-  }
-
-  .overview-mobile-pulse > p {
-    margin: 0.45rem 0 0;
-    color: var(--text-muted);
-    font-size: 0.58rem;
-    line-height: 1.4;
-  }
-
-  .overview-mobile-insights {
-    min-width: 0;
-    padding-top: 0.15rem;
-  }
-
-  .overview-mobile-insights > header {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding-inline: 0.1rem;
-  }
-
-  .overview-mobile-insights h2 {
-    margin: 0;
-    color: var(--foreground);
-    font-size: 0.87rem;
-    font-weight: 740;
-    letter-spacing: -0.025em;
-  }
-
-  .overview-mobile-insights > header > span {
-    color: var(--text-muted);
-    font-size: 0.56rem;
-  }
-
-  .overview-mobile-insight-rail {
-    display: flex;
-    gap: 0.6rem;
-    margin: 0.6rem -0.2rem 0;
-    overflow-x: auto;
-    padding: 0.15rem 0.2rem 0.45rem;
-    scrollbar-width: none;
-    scroll-snap-type: x proximity;
-  }
-
-  .overview-mobile-insight-rail::-webkit-scrollbar {
-    display: none;
-  }
-
-  .overview-mobile-insight-rail > article {
-    display: grid;
-    width: min(10.5rem, 43vw);
-    min-height: 7.4rem;
-    flex: 0 0 auto;
-    align-content: start;
-    scroll-snap-align: start;
-    border: 1px solid var(--border);
-    border-radius: 0.95rem;
-    background: var(--surface);
-    padding: 0.75rem;
-    box-shadow: 0 0.3rem 1rem color-mix(in srgb, var(--shadow) 45%, transparent);
-  }
-
-  .overview-mobile-insight-rail > article > span {
-    display: grid;
-    width: 1.9rem;
-    height: 1.9rem;
-    place-items: center;
-    border-radius: 0.58rem;
-    background: var(--primary-soft);
-    color: var(--primary);
-  }
-
-  .overview-mobile-insight-rail > article.warning > span {
-    background: color-mix(in srgb, var(--warning) 12%, var(--surface));
-    color: var(--warning);
-  }
-
-  .overview-mobile-insight-rail > article.quiet > span {
-    color: var(--text-muted);
-  }
-
-  .overview-mobile-insight-rail small {
-    margin-top: 0.65rem;
-    color: var(--text-muted);
-    font-size: 0.57rem;
-  }
-
-  .overview-mobile-insight-rail strong {
-    overflow: hidden;
-    margin-top: 0.12rem;
-    color: var(--foreground);
-    font-size: 0.73rem;
-    font-weight: 710;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .overview-mobile-insight-rail p {
-    overflow: hidden;
-    margin: 0.18rem 0 0;
-    color: var(--text-muted);
-    font-size: 0.56rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .overview-shell .overview-filter-toolbar {
     position: relative;
     order: -1;
@@ -16817,13 +16652,6 @@ html[data-sidebar-collapsed="true"]
 
   .overview-shell .overview-category > header {
     padding-inline: 0.9rem;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .overview-mobile-pulse-track > span,
-  .overview-mobile-insight-rail > article {
-    transition: none;
   }
 }
 

@@ -865,6 +865,194 @@
     gap: 1.25rem;
   }
 
+  .overview-mobile-skeleton {
+    gap: 0.8rem;
+  }
+
+  .overview-mobile-skeleton-page-header {
+    padding: 0.15rem 0 0.45rem;
+  }
+
+  .overview-mobile-skeleton-balance {
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+    border-radius: 1.35rem;
+    background: color-mix(in srgb, var(--primary) 9%, var(--surface));
+    padding: 1rem 1.05rem 0;
+  }
+
+  .overview-mobile-skeleton-cashflow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0.9rem -1.05rem 0;
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 67%, transparent);
+  }
+
+  .overview-mobile-skeleton-cashflow > div {
+    min-width: 0;
+    padding: 0.72rem 1.05rem 0.8rem;
+  }
+
+  .overview-mobile-skeleton-cashflow > div + div {
+    border-left: 1px solid var(--border);
+  }
+
+  .overview-mobile-skeleton-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    gap: 0.55rem;
+  }
+
+  .overview-mobile-skeleton-analysis-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.25rem 0.1rem 0.05rem;
+  }
+
+  .overview-mobile-skeleton-category,
+  .overview-mobile-skeleton-chart {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 1.05rem;
+    background: var(--surface);
+  }
+
+  .overview-mobile-skeleton-category > header,
+  .overview-mobile-skeleton-chart > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    padding: 0.82rem 0.9rem 0.7rem;
+  }
+
+  .overview-mobile-skeleton-category-body {
+    display: grid;
+    grid-template-columns: 8rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.8rem;
+    min-height: 10.5rem;
+    padding: 0.75rem 0.9rem;
+  }
+
+  .overview-mobile-skeleton-category-row {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding-block: 0.55rem;
+  }
+
+  .overview-mobile-skeleton-plot {
+    position: relative;
+    display: grid;
+    min-height: 12.5rem;
+    align-content: space-between;
+    padding: 1.2rem 0.9rem 1.5rem;
+  }
+
+  .overview-mobile-skeleton-plot > div {
+    position: absolute;
+    right: 1.1rem;
+    bottom: 1.5rem;
+    left: 1.1rem;
+    display: flex;
+    height: 8rem;
+    align-items: end;
+    justify-content: space-around;
+  }
+
+  .recurring-mobile-skeleton {
+    gap: 0.8rem;
+  }
+
+  .recurring-mobile-skeleton-header {
+    display: flex;
+    min-height: var(--app-touch-target);
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.15rem;
+  }
+
+  .recurring-mobile-skeleton-control {
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+    padding: 0.85rem 1rem 0;
+  }
+
+  .recurring-mobile-skeleton-control-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 5.15rem;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0 0.9rem;
+  }
+
+  .recurring-mobile-skeleton-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-inline: -1rem;
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface-secondary) 55%, transparent);
+  }
+
+  .recurring-mobile-skeleton-stats > div {
+    display: grid;
+    justify-items: center;
+    padding: 0.65rem 0.35rem 0.72rem;
+  }
+
+  .recurring-mobile-skeleton-stats > div + div {
+    border-left: 1px solid var(--border);
+  }
+
+  .recurring-mobile-skeleton-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+    padding: 0.3rem;
+  }
+
+  .recurring-mobile-skeleton-list {
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .recurring-mobile-skeleton-card {
+    display: grid;
+    grid-template-columns: 3.15rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.7rem;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+    padding: 0.75rem 0.75rem 0;
+  }
+
+  .recurring-mobile-skeleton-card > footer {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.45rem;
+    margin: 0 -0.75rem;
+    margin-top: 0.7rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface-secondary);
+    padding: 0.55rem 0.85rem;
+  }
+
   .wallet-mobile-skeleton-header {
     display: flex;
     min-height: var(--app-touch-target);
@@ -973,16 +1161,37 @@
   }
 
   .personal-settings-mobile-skeleton {
-    gap: 1rem;
+    gap: 0;
   }
 
   .personal-settings-mobile-skeleton > section {
     border-bottom: 1px solid var(--border);
-    padding: 0.5rem 0 1rem;
+    padding: 1rem 0;
   }
 
   .personal-settings-mobile-skeleton > section:last-child {
     border-bottom: 0;
+  }
+
+  .personal-settings-skeleton-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.3rem;
+    margin-top: 1rem;
+    border-radius: 0.75rem;
+    background: var(--surface-secondary);
+    padding: 0.25rem;
+  }
+
+  .personal-settings-skeleton-theme {
+    display: flex;
+    min-height: 4rem;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    border-radius: 1rem;
+    background: var(--surface-secondary);
+    padding: 0.5rem 0.65rem;
   }
 
   .personal-settings-skeleton-list {
@@ -995,7 +1204,7 @@
 
   .personal-settings-skeleton-list > div {
     display: flex;
-    min-height: 3.5rem;
+    min-height: 3.75rem;
     align-items: center;
     gap: 0.65rem;
     border-bottom: 1px solid var(--border);

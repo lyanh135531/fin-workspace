@@ -116,25 +116,112 @@ function DashboardPageSkeleton() {
 
 function OverviewPageSkeleton() {
   return (
-    <div className="space-y-5" aria-busy="true" aria-label="Đang tải tổng quan tài chính">
-      <PageHeaderSkeleton />
-      <div className="flex justify-end gap-2">
-        <Skeleton className="h-10 w-24 rounded-md" />
-        <Skeleton className="h-10 w-52 rounded-md" />
+    <div aria-busy="true" aria-label="Đang tải tổng quan tài chính">
+      <div className="mobile-page-skeleton overview-mobile-skeleton">
+        <header className="overview-mobile-skeleton-page-header">
+          <Skeleton className="h-5 w-44" />
+          <Skeleton className="mt-2 h-2.5 w-64 max-w-[80vw]" />
+        </header>
+
+        <section className="overview-mobile-skeleton-balance">
+          <div className="flex items-center justify-between gap-4">
+            <Skeleton className="h-2.5 w-24" />
+            <Skeleton className="h-2.5 w-16" />
+          </div>
+          <Skeleton className="mt-4 h-8 w-48" />
+          <Skeleton className="mt-3 h-2.5 w-36" />
+          <div className="overview-mobile-skeleton-cashflow">
+            {[0, 1].map((index) => (
+              <div key={index}>
+                <Skeleton className="h-2.5 w-16" />
+                <Skeleton className="mt-2 h-3.5 w-24 max-w-full" />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div className="overview-mobile-skeleton-filters">
+          <Skeleton className="h-11 w-full rounded-xl" />
+          <Skeleton className="h-11 w-full rounded-xl" />
+        </div>
+
+        <div className="overview-mobile-skeleton-analysis-heading">
+          <div>
+            <Skeleton className="h-2 w-24" />
+            <Skeleton className="mt-2 h-4 w-48" />
+          </div>
+          <Skeleton className="h-2.5 w-20" />
+        </div>
+
+        <section className="overview-mobile-skeleton-category">
+          <header>
+            <div>
+              <Skeleton className="h-3.5 w-32" />
+              <Skeleton className="mt-2 h-2 w-40" />
+            </div>
+            <Skeleton className="h-6 w-7 rounded-md" />
+          </header>
+          <div className="overview-mobile-skeleton-category-body">
+            <Skeleton className="size-32 rounded-full" />
+            <div>
+              {[0, 1, 2].map((index) => (
+                <div className="overview-mobile-skeleton-category-row" key={index}>
+                  <Skeleton className="size-2.5 rounded-full" />
+                  <Skeleton className="h-2.5 w-20" />
+                  <Skeleton className="ml-auto h-2.5 w-10" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {[0, 1, 2].map((index) => (
+          <section className="overview-mobile-skeleton-chart" key={index}>
+            <header>
+              <div>
+                <Skeleton className="h-3.5 w-36" />
+                <Skeleton className="mt-2 h-2 w-28" />
+              </div>
+              <Skeleton className="h-6 w-12 rounded-md" />
+            </header>
+            <div className="overview-mobile-skeleton-plot">
+              <Skeleton className="h-px w-full" />
+              <Skeleton className="h-px w-full" />
+              <Skeleton className="h-px w-full" />
+              <div>
+                {[0, 1, 2, 3, 4, 5].map((barIndex) => (
+                  <Skeleton
+                    className="w-5 rounded-t-md"
+                    key={barIndex}
+                    style={{ height: `${24 + ((barIndex * 17 + index * 11) % 64)}px` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        ))}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Skeleton className="h-28 rounded-xl" />
-        <Skeleton className="h-28 rounded-xl" />
-        <Skeleton className="h-28 rounded-xl" />
-        <Skeleton className="h-28 rounded-xl" />
-      </div>
-      <div className="grid gap-5 xl:grid-cols-2">
-        <Skeleton className="h-72 rounded-xl" />
-        <Skeleton className="h-72 rounded-xl" />
-      </div>
-      <div className="grid gap-5 lg:grid-cols-3">
-        <Skeleton className="h-64 rounded-xl lg:col-span-2" />
-        <Skeleton className="h-64 rounded-xl" />
+
+      <div className="desktop-page-skeleton space-y-5">
+        <PageHeaderSkeleton />
+        <div className="flex justify-end gap-2">
+          <Skeleton className="h-10 w-24 rounded-md" />
+          <Skeleton className="h-10 w-52 rounded-md" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+        </div>
+        <div className="grid gap-5 xl:grid-cols-2">
+          <Skeleton className="h-72 rounded-xl" />
+          <Skeleton className="h-72 rounded-xl" />
+        </div>
+        <div className="grid gap-5 lg:grid-cols-3">
+          <Skeleton className="h-64 rounded-xl lg:col-span-2" />
+          <Skeleton className="h-64 rounded-xl" />
+        </div>
       </div>
     </div>
   )
@@ -202,13 +289,72 @@ function WalletsPageSkeleton() {
 
 function RecurringTransactionsPageSkeleton() {
   return (
-    <div className="space-y-5" aria-busy="true" aria-label="Đang tải giao dịch định kỳ">
-      <PageHeaderSkeleton />
-      <div className="flex gap-2">
-        <Skeleton className="h-9 w-32" />
-        <Skeleton className="h-9 w-24" />
+    <div aria-busy="true" aria-label="Đang tải giao dịch định kỳ">
+      <div className="mobile-page-skeleton recurring-mobile-skeleton">
+        <header className="recurring-mobile-skeleton-header">
+          <div>
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="mt-2 h-2.5 w-56 max-w-[70vw]" />
+          </div>
+          <Skeleton className="size-11 rounded-xl" />
+        </header>
+
+        <section className="recurring-mobile-skeleton-control">
+          <Skeleton className="h-2.5 w-24" />
+          <div className="recurring-mobile-skeleton-control-main">
+            <div>
+              <Skeleton className="h-2.5 w-28" />
+              <Skeleton className="mt-2 h-10 w-12" />
+              <Skeleton className="mt-2 h-2.5 w-40" />
+            </div>
+            <Skeleton className="size-[5.15rem] rounded-full" />
+          </div>
+          <div className="recurring-mobile-skeleton-stats">
+            {[0, 1, 2].map((index) => (
+              <div key={index}>
+                <Skeleton className="h-4 w-5" />
+                <Skeleton className="mt-2 h-2 w-14" />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div className="recurring-mobile-skeleton-tabs">
+          {[0, 1, 2, 3].map((index) => (
+            <Skeleton className="h-8 w-full rounded-xl" key={index} />
+          ))}
+        </div>
+
+        <section className="recurring-mobile-skeleton-list">
+          {[0, 1, 2].map((index) => (
+            <div className="recurring-mobile-skeleton-card" key={index}>
+              <Skeleton className="size-[3.15rem] rounded-xl" />
+              <div>
+                <div className="flex items-center justify-between gap-3">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+                <Skeleton className="mt-2 h-3 w-28" />
+                <Skeleton className="mt-2 h-2.5 w-20" />
+              </div>
+              <footer>
+                <Skeleton className="h-2.5 w-24" />
+                <Skeleton className="h-2.5 w-16" />
+                <Skeleton className="ml-auto h-2.5 w-24" />
+              </footer>
+            </div>
+          ))}
+        </section>
       </div>
-      <Skeleton className="h-[30rem] w-full rounded-xl" />
+
+      <div className="desktop-page-skeleton space-y-5">
+        <PageHeaderSkeleton />
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-32" />
+          <Skeleton className="h-9 w-24" />
+        </div>
+        <Skeleton className="h-[30rem] w-full rounded-xl" />
+      </div>
     </div>
   )
 }
@@ -266,7 +412,7 @@ function PersonalSettingsPageSkeleton() {
   return (
     <div aria-busy="true" aria-label="Đang tải cài đặt cá nhân">
       <div className="mobile-page-skeleton personal-settings-mobile-skeleton">
-        <section>
+        <section className="personal-settings-skeleton-card">
           <div className="personal-settings-skeleton-heading">
             <Skeleton className="size-9 rounded-xl" />
             <div>
@@ -274,10 +420,20 @@ function PersonalSettingsPageSkeleton() {
               <Skeleton className="mt-2 h-4 w-44" />
             </div>
           </div>
-          <Skeleton className="mt-4 h-10 w-full rounded-xl" />
-          <Skeleton className="mt-3 h-16 w-full rounded-2xl" />
+          <div className="personal-settings-skeleton-tabs">
+            <Skeleton className="h-8 w-full rounded-lg" />
+            <Skeleton className="h-8 w-full rounded-lg" />
+          </div>
+          <div className="personal-settings-skeleton-theme">
+            <Skeleton className="size-11 rounded-xl" />
+            <div>
+              <Skeleton className="h-2.5 w-16" />
+              <Skeleton className="mt-2 h-3 w-28" />
+            </div>
+            <Skeleton className="ml-auto size-5 rounded-lg" />
+          </div>
         </section>
-        <section>
+        <section className="personal-settings-skeleton-card">
           <div className="personal-settings-skeleton-heading">
             <Skeleton className="size-9 rounded-xl" />
             <div>
@@ -285,13 +441,20 @@ function PersonalSettingsPageSkeleton() {
               <Skeleton className="mt-2 h-4 w-40" />
             </div>
           </div>
-          <Skeleton className="mt-4 h-10 w-full rounded-xl" />
+          <div className="personal-settings-skeleton-tabs">
+            <Skeleton className="h-8 w-full rounded-lg" />
+            <Skeleton className="h-8 w-full rounded-lg" />
+          </div>
+          <Skeleton className="mt-3 h-10 w-full rounded-xl" />
           <div className="personal-settings-skeleton-list">
             {[0, 1, 2, 3].map((index) => (
               <div key={index}>
-                <Skeleton className="size-8 rounded-lg" />
-                <Skeleton className="h-3 w-28" />
-                <Skeleton className="ml-auto h-7 w-7 rounded-lg" />
+                <Skeleton className="size-9 rounded-lg" />
+                <div>
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="mt-2 h-2 w-16" />
+                </div>
+                <Skeleton className="ml-auto h-5 w-10 rounded-lg" />
               </div>
             ))}
           </div>
