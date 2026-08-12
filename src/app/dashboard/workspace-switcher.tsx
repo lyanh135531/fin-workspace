@@ -144,6 +144,7 @@ export function WorkspaceSwitcher({
       <SpotlightTrigger
         open={open}
         onOpenChange={setOpen}
+        mobileOnly
         render={
           <Button
             variant="unstyled"

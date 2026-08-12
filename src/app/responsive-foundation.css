@@ -1820,6 +1820,21 @@
 }
 
 @media (min-width: 761px) {
+  .spotlight-menu-backdrop-mobile-only {
+    display: none;
+  }
+
+  .spotlight-menu-trigger-mobile-only {
+    position: static;
+  }
+
+  .spotlight-menu-trigger-mobile-only.spotlight-menu-trigger-active {
+    z-index: auto;
+    isolation: auto;
+  }
+}
+
+@media (min-width: 761px) {
   .wallet-create-sheet[data-desktop-side="right"],
   .wallet-edit-sheet[data-desktop-side="right"] {
     inset: 0 0 0 auto !important;

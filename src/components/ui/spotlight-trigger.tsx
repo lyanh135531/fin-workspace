@@ -17,6 +17,7 @@ type SpotlightTriggerProps = {
   render: SpotlightTriggerElement;
   children: (trigger: SpotlightTriggerElement) => ReactNode;
   dismissLabel: string;
+  mobileOnly?: boolean;
 };
 
 export function SpotlightTrigger({
@@ -25,6 +26,7 @@ export function SpotlightTrigger({
   render,
   children,
   dismissLabel,
+  mobileOnly = false,
 }: SpotlightTriggerProps) {
   function blockBackdropPointer(event: PointerEvent<HTMLButtonElement>): void {
     event.preventDefault();
@@ -41,6 +43,7 @@ export function SpotlightTrigger({
     className: cn(
       render.props.className,
       "spotlight-menu-trigger",
+      mobileOnly && "spotlight-menu-trigger-mobile-only",
       open && "spotlight-menu-trigger-active",
     ),
   });
@@ -52,7 +55,10 @@ export function SpotlightTrigger({
           type="button"
           tabIndex={-1}
           aria-label={dismissLabel}
-          className="spotlight-menu-backdrop"
+          className={cn(
+            "spotlight-menu-backdrop",
+            mobileOnly && "spotlight-menu-backdrop-mobile-only",
+          )}
           onPointerDown={blockBackdropPointer}
           onClick={dismissFromBackdrop}
           onContextMenu={dismissFromBackdrop}

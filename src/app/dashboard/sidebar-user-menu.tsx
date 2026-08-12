@@ -97,6 +97,7 @@ export function SidebarUserMenu({
         <SpotlightTrigger
           open={popoverOpen}
           onOpenChange={setPopoverOpen}
+          mobileOnly
           render={
             <Button
               variant="unstyled"
