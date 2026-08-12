@@ -701,16 +701,23 @@ function Node({
             </div>
           </div>
 
-          <CategoryMobileDragHandle
-            category={category}
-            disabled={pending}
-            isMobile={isMobile}
-            size={17}
-            onDragStart={onDragStart}
-            onDragTargetChange={onDragOver}
-            onDrop={onPointerDrop}
-            onDragCancel={onDragEnd}
-          />
+          <div className="flex shrink-0 items-center gap-3">
+            {isMobile && (
+              <span className="category-mobile-item-hint">
+                Chạm để quản lý
+              </span>
+            )}
+            <CategoryMobileDragHandle
+              category={category}
+              disabled={pending}
+              isMobile={isMobile}
+              size={17}
+              onDragStart={onDragStart}
+              onDragTargetChange={onDragOver}
+              onDrop={onPointerDrop}
+              onDragCancel={onDragEnd}
+            />
+          </div>
         </CategoryActionsMenu>
 
         {/* Children — tree branch from parent */}
@@ -824,16 +831,21 @@ function Node({
         </span>
       </div>
 
-      <CategoryMobileDragHandle
-        category={category}
-        disabled={pending}
-        isMobile={isMobile}
-        size={15}
-        onDragStart={onDragStart}
-        onDragTargetChange={onDragOver}
-        onDrop={onPointerDrop}
-        onDragCancel={onDragEnd}
-      />
+      <div className="flex shrink-0 items-center gap-3">
+        {isMobile && (
+          <span className="category-mobile-item-hint">Chạm để quản lý</span>
+        )}
+        <CategoryMobileDragHandle
+          category={category}
+          disabled={pending}
+          isMobile={isMobile}
+          size={15}
+          onDragStart={onDragStart}
+          onDragTargetChange={onDragOver}
+          onDrop={onPointerDrop}
+          onDragCancel={onDragEnd}
+        />
+      </div>
     </CategoryActionsMenu>
   );
 }
@@ -1103,7 +1115,6 @@ function TemplateForm({
             name="parentId"
             defaultValue={category?.parentId ?? "none"}
             label="Danh mục cha"
-            spotlight
             emptyOption={{ value: "none", label: "Không có" }}
             categories={categories.filter(
               (item) =>

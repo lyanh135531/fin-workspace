@@ -1750,7 +1750,8 @@
     color: var(--warning);
   }
 
-  .wallet-mobile-item-hint {
+  .wallet-mobile-item-hint,
+  .category-mobile-item-hint {
     flex: 0 0 auto;
     color: var(--primary);
     font-size: 0.62rem;

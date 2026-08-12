@@ -273,7 +273,6 @@ export function QuickTransactionSheet({
               {workspace.wallets.length ? (
                 <div className="quick-transaction-grid">
                   <Select
-                    spotlight
                     label={type === "transfer" ? "Ví gửi" : "Ví"}
                     value={walletId}
                     onValueChange={(nextWalletId) => {
@@ -293,7 +292,6 @@ export function QuickTransactionSheet({
 
                   {type === "transfer" ? (
                     <Select
-                      spotlight
                       label="Ví nhận"
                       value={toWalletId}
                       onValueChange={setToWalletId}
@@ -306,7 +304,6 @@ export function QuickTransactionSheet({
                     />
                   ) : (
                     <CategoryTreeSelect
-                      spotlight
                       label="Danh mục"
                       value={categoryId}
                       onValueChange={setCategoryId}
@@ -343,7 +340,6 @@ export function QuickTransactionSheet({
               {showDetails && (
                 <div className="quick-details">
                   <DatePicker
-                    spotlight
                     label="Ngày giao dịch"
                     value={date}
                     onValueChange={setDate}

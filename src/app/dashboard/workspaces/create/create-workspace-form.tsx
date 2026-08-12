@@ -60,7 +60,7 @@ export function CreateWorkspaceForm() {
         approvalRequired: form.get("approvalRequired") === "on",
       });
       if (result.ok) {
-        toast.success("Tạo workspace thành công! Đang chuyển hướng...");
+        toast.success("Đã tạo workspace. Đang chuyển hướng...");
         setTimeout(() => {
           window.location.assign("/overview");
         }, 800);
@@ -85,9 +85,9 @@ export function CreateWorkspaceForm() {
           </div>
 
           <div className="workspace-create-intro-copy">
-            <span id="create-workspace-title">
+            <h1 id="create-workspace-title">
               Một không gian rõ ràng cho mọi quyết định tài chính.
-            </span>
+            </h1>
             <p>
               Tập hợp ví, giao dịch và những người quan trọng vào một nơi được
               thiết kế để mọi thứ luôn dễ hiểu.
@@ -174,25 +174,6 @@ export function CreateWorkspaceForm() {
                 className="workspace-create-input"
                 autoFocus
               />
-              <div className="workspace-create-suggestion-row">
-                <span>Gợi ý nhanh</span>
-                <div className="workspace-create-suggestion-list">
-                  {NAME_SUGGESTIONS.map((suggestion) => (
-                    <Button
-                      variant="unstyled"
-                      size="auto"
-                      key={suggestion}
-                      type="button"
-                      aria-pressed={name === suggestion}
-                      onClick={() => setName(suggestion)}
-                      className={`workspace-create-suggestion ${name === suggestion ? "is-selected" : ""}`}
-                    >
-                      <Plus size={12} strokeWidth={2.2} />
-                      {suggestion}
-                    </Button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             <div className="workspace-create-field-group">
@@ -215,9 +196,6 @@ export function CreateWorkspaceForm() {
             </div>
 
             <div className="workspace-create-submit-area">
-              <p>
-                Tiền tệ mặc định: <strong>VND</strong>
-              </p>
               <Button
                 type="submit"
                 disabled={pending || !name.trim()}

@@ -313,7 +313,6 @@ export function SettingsClient({
                 {!confirmingRemove && canManageSelectedMember && (
                   <Select
                     label="Vai trò"
-                    spotlight
                     value={selectedMember.roleCode}
                     disabled={pending}
                     onValueChange={(roleCode) =>

@@ -962,7 +962,6 @@ function RecurringEditor({
                 })
               }
               label="Ví thực hiện"
-              spotlight
               options={wallets.map((wallet) => ({
                 value: wallet.id,
                 label: wallet.name,
@@ -975,7 +974,6 @@ function RecurringEditor({
                 value={draft.toWalletId}
                 onValueChange={(toWalletId) => onChange({ toWalletId })}
                 label="Ví nhận"
-                spotlight
                 options={wallets.map((wallet) => ({
                   value: wallet.id,
                   label: wallet.name,
@@ -989,7 +987,6 @@ function RecurringEditor({
                 value={draft.categoryId}
                 onValueChange={(categoryId) => onChange({ categoryId })}
                 label="Danh mục"
-                spotlight
                 categories={categoriesForTransactionType(
                   categories,
                   draft.type,

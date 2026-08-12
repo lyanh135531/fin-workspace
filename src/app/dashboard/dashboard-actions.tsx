@@ -1572,7 +1572,6 @@ export function Ledger({
                   Khoảng thời gian
                 </label>
                 <DateRangePicker
-                  spotlight
                   value={dateRange}
                   ariaLabel="Lọc theo khoảng thời gian"
                   allowClear
@@ -1586,7 +1585,6 @@ export function Ledger({
               <div className="ledger-filter-popover-row">
                 <label className="ledger-filter-popover-label">Danh mục</label>
                 <CategoryTreeSelect
-                  spotlight
                   value={filterCategory}
                   ariaLabel="Lọc danh mục"
                   placeholder="Tất cả danh mục"
@@ -2329,7 +2327,6 @@ function MobileTransactionDraft({
           }
         />
         <Select
-          spotlight
           disabled={locked}
           value={draft.walletId}
           onValueChange={(walletId) =>
@@ -2349,7 +2346,6 @@ function MobileTransactionDraft({
         />
         {draft.type === "transfer" && (
           <Select
-            spotlight
             disabled={locked}
             value={draft.toWalletId}
             onValueChange={(toWalletId) => onChange({ toWalletId })}
@@ -2363,7 +2359,6 @@ function MobileTransactionDraft({
         )}
         {draft.type !== "transfer" && (
           <CategoryTreeSelect
-            spotlight
             disabled={locked}
             value={draft.categoryId}
             onValueChange={(categoryId) => onChange({ categoryId })}
@@ -2401,7 +2396,6 @@ function MobileTransactionDraft({
                 }
               >
                 <DatePicker
-                  spotlight
                   disabled={locked}
                   label="Ngày giao dịch"
                   value={draft.date}
@@ -2422,7 +2416,6 @@ function MobileTransactionDraft({
         ) : (
           <>
             <DatePicker
-              spotlight
               disabled={locked}
               label="Ngày giao dịch"
               value={draft.date}

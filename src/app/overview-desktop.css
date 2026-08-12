@@ -121,15 +121,6 @@
     border-radius: 0.32rem;
   }
 
-  .overview-shell .spotlight-menu-backdrop {
-    display: none;
-  }
-
-  .overview-shell .spotlight-menu-trigger-active {
-    z-index: auto;
-    isolation: auto;
-  }
-
   .overview-shell .overview-kpis {
     display: grid;
     grid-template-columns: minmax(18rem, 1.42fr) repeat(3, minmax(0, 1fr));
