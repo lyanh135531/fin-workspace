@@ -66,6 +66,7 @@ type Option = {
 };
 type CategoryOption = Option & { type: "income" | "expense" };
 type TransactionType = "income" | "expense" | "transfer";
+type ScheduleStatusFilter = "all" | "active" | "deactive" | "completed";
 type Schedule = {
   id: string;
   walletId: string;
@@ -118,6 +119,13 @@ const typeOptions = [
     icon: ArrowLeftRight,
   },
 ];
+
+const statusFilterOptions = [
+  { value: "all", label: "Tất cả lịch", icon: LayoutGrid },
+  { value: "active", label: "Đang hoạt động", icon: CirclePlay },
+  { value: "deactive", label: "Tạm dừng", icon: CirclePause },
+  { value: "completed", label: "Đã kết thúc", icon: CircleCheckBig },
+] as const;
 
 function defaultDestination(wallets: Option[], sourceId: string) {
   return wallets.find((wallet) => wallet.id !== sourceId)?.id ?? sourceId;
@@ -206,7 +214,7 @@ export function RecurringTransactionsManager({
   categories: CategoryOption[];
   schedules: Schedule[];
 }) {
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState<ScheduleStatusFilter>("all");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -238,6 +246,12 @@ export function RecurringTransactionsManager({
     Boolean(item.completedAt),
   ).length;
   const errorCount = schedules.filter((item) => Boolean(item.lastError)).length;
+  const filterCounts: Record<ScheduleStatusFilter, number> = {
+    all: schedules.length,
+    active: activeCount,
+    deactive: pausedCount,
+    completed: completedCount,
+  };
 
   function beginCreate() {
     setEditingId(null);
@@ -375,27 +389,55 @@ export function RecurringTransactionsManager({
             <Repeat2 size={20} />
           </span>
           <div>
-            <p>Đang tự động</p>
-            <strong>{activeCount}</strong>
-            <small>lịch đang hoạt động</small>
+            <div className="recurring-summary-status">
+              <i data-active={activeCount > 0} aria-hidden="true" />
+              <p>Trung tâm tự động</p>
+            </div>
+            <div className="recurring-summary-value">
+              <strong>{activeCount}</strong>
+              <span>lịch đang chạy</span>
+            </div>
+            <small>
+              {activeCount > 0
+                ? "Felix sẽ ghi nhận đúng ngày đã đặt"
+                : "Kích hoạt một lịch để bắt đầu tự động hóa"}
+            </small>
           </div>
         </div>
         <dl className="recurring-summary-details">
-          <div>
-            <dt>Tổng số lịch</dt>
+          <div className="recurring-summary-metric recurring-summary-metric-total">
+            <dt>
+              <LayoutGrid aria-hidden="true" />
+              <span>Tổng số lịch</span>
+            </dt>
             <dd>{schedules.length}</dd>
+            <small>Đã thiết lập</small>
           </div>
-          <div>
-            <dt>Tạm dừng</dt>
+          <div className="recurring-summary-metric recurring-summary-metric-paused">
+            <dt>
+              <CirclePause aria-hidden="true" />
+              <span>Tạm dừng</span>
+            </dt>
             <dd>{pausedCount}</dd>
+            <small>Chờ kích hoạt lại</small>
           </div>
-          <div>
-            <dt>Đã kết thúc</dt>
+          <div className="recurring-summary-metric recurring-summary-metric-completed">
+            <dt>
+              <CircleCheckBig aria-hidden="true" />
+              <span>Đã kết thúc</span>
+            </dt>
             <dd>{completedCount}</dd>
+            <small>Đã hoàn thành</small>
           </div>
-          <div className={errorCount ? "has-error" : ""}>
-            <dt>Cần kiểm tra</dt>
+          <div
+            className={`recurring-summary-metric recurring-summary-metric-error${errorCount ? " has-error" : ""}`}
+          >
+            <dt>
+              <AlertTriangle aria-hidden="true" />
+              <span>Cần kiểm tra</span>
+            </dt>
             <dd>{errorCount}</dd>
+            <small>{errorCount ? "Cần xử lý" : "Không có lỗi"}</small>
           </div>
         </dl>
       </section>
@@ -417,7 +459,7 @@ export function RecurringTransactionsManager({
               className="recurring-mobile-filter"
               data-active={status === filter.value}
               aria-pressed={status === filter.value}
-              onClick={() => setStatus(filter.value)}
+              onClick={() => setStatus(filter.value as ScheduleStatusFilter)}
               key={filter.value}
             >
               <Icon aria-hidden="true" />
@@ -427,236 +469,309 @@ export function RecurringTransactionsManager({
         })}
       </nav>
 
-      <section
-        className="recurring-ledger-card rounded-2xl border"
-        aria-labelledby="recurring-list-title"
-      >
-        <Sheet
-          open={draft !== null}
-          onOpenChange={(open) => {
-            if (!open) closeEditor();
-          }}
-        >
-          <SheetContent
-            side={isMobile ? "bottom" : "right"}
-            className="recurring-sheet-content w-full gap-0 border-l border-[var(--border)] bg-[var(--surface)] p-0 sm:!w-[min(100vw,46rem)] sm:!max-w-none"
-          >
-            <span className="recurring-sheet-handle" aria-hidden="true" />
-            <SheetHeader className="recurring-sheet-header border-b border-border px-6 py-3.5 pr-14">
-              <div className="recurring-sheet-heading">
-                <span aria-hidden="true">
-                  <Repeat2 size={18} />
-                </span>
-                <div>
-                  <SheetTitle className="text-lg font-semibold tracking-tight">
-                    {editingId
-                      ? "Chỉnh sửa lịch tự động"
-                      : "Tạo giao dịch định kỳ"}
-                  </SheetTitle>
-                </div>
-              </div>
-            </SheetHeader>
-            {draft && (
-              <div className="recurring-sheet-body min-h-0 flex-1 overflow-y-auto px-6">
-                <RecurringEditor
-                  mode={editingId ? "edit" : "create"}
-                  draft={draft}
-                  wallets={wallets}
-                  categories={categories}
-                  onChange={(patch) =>
-                    setDraft((current) =>
-                      current ? { ...current, ...patch } : current,
-                    )
-                  }
-                />
-              </div>
-            )}
-            <SheetFooter className="recurring-sheet-footer shrink-0 flex-row justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-6 py-4">
-              <Button variant="outline" disabled={busy} onClick={closeEditor}>
-                Hủy
-              </Button>
-              <Button variant="default" disabled={busy} onClick={save}>
-                {busy ? <Loading label="Đang lưu..." /> : "Lưu đăng ký"}
-              </Button>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
+      <div className="recurring-content-grid">
+        <aside className="recurring-desktop-sidebar" aria-label="Bộ lọc lịch">
+          <div>
+            <span className="recurring-sidebar-kicker">Chế độ xem</span>
+            <h2>Lọc theo trạng thái</h2>
+          </div>
+          <nav aria-label="Lọc danh sách giao dịch định kỳ">
+            {statusFilterOptions.map((filter) => {
+              const Icon = filter.icon;
+              return (
+                <button
+                  type="button"
+                  data-active={status === filter.value}
+                  aria-pressed={status === filter.value}
+                  onClick={() => setStatus(filter.value)}
+                  key={filter.value}
+                >
+                  <Icon aria-hidden="true" />
+                  <span>{filter.label}</span>
+                  <strong>{filterCounts[filter.value]}</strong>
+                </button>
+              );
+            })}
+          </nav>
+          <div className="recurring-sidebar-note">
+            <CalendarClock size={16} aria-hidden="true" />
+            <div>
+              <strong>Ngày làm việc</strong>
+              <span>{dateLabel(workspace.businessDate)}</span>
+            </div>
+          </div>
+        </aside>
 
-        <div
-          className="recurring-schedule-list recurring-desktop-schedule-list"
-          aria-label="Danh sách giao dịch định kỳ"
+        <section
+          className="recurring-ledger-card rounded-2xl"
+          aria-labelledby="recurring-list-title"
         >
-          {visibleSchedules.map((schedule) => (
-            <article className="recurring-schedule-row" key={schedule.id}>
-              <div className="recurring-schedule-main">
-                <div className="recurring-schedule-badges">
-                  <span>
-                    {
-                      typeOptions.find(
-                        (option) => option.value === schedule.type,
-                      )?.label
+          <header className="recurring-list-heading">
+            <div>
+              <span className="recurring-list-kicker">Danh sách lịch</span>
+              <h2 id="recurring-list-title">
+                {status === "all"
+                  ? "Tất cả giao dịch định kỳ"
+                  : statusFilterOptions.find(
+                      (filter) => filter.value === status,
+                    )?.label}
+              </h2>
+              <p>{visibleSchedules.length} lịch trong chế độ xem này</p>
+            </div>
+          </header>
+          <Sheet
+            open={draft !== null}
+            onOpenChange={(open) => {
+              if (!open) closeEditor();
+            }}
+          >
+            <SheetContent
+              side={isMobile ? "bottom" : "right"}
+              className="recurring-sheet-content w-full gap-0 border-l border-[var(--border)] bg-[var(--surface)] p-0 sm:max-w-none"
+            >
+              <span className="recurring-sheet-handle" aria-hidden="true" />
+              <SheetHeader className="recurring-sheet-header border-b border-border px-6 py-3.5 pr-14">
+                <div className="recurring-sheet-heading">
+                  <span aria-hidden="true">
+                    <Repeat2 size={18} />
+                  </span>
+                  <div>
+                    <SheetTitle className="text-lg font-semibold tracking-tight">
+                      {editingId
+                        ? "Chỉnh sửa lịch tự động"
+                        : "Tạo giao dịch định kỳ"}
+                    </SheetTitle>
+                    <SheetDescription className="recurring-desktop-sheet-description">
+                      Thiết lập nội dung, nguồn tiền và thời gian ghi nhận tự động.
+                    </SheetDescription>
+                  </div>
+                </div>
+              </SheetHeader>
+              {draft && (
+                <div className="recurring-sheet-body min-h-0 flex-1 overflow-y-auto px-6">
+                  <RecurringEditor
+                    mode={editingId ? "edit" : "create"}
+                    draft={draft}
+                    wallets={wallets}
+                    categories={categories}
+                    onChange={(patch) =>
+                      setDraft((current) =>
+                        current ? { ...current, ...patch } : current,
+                      )
                     }
-                  </span>
-                  <span
-                    className={`status recurring-status-${schedule.completedAt ? "completed" : schedule.status}`}
-                  >
-                    {schedule.completedAt
-                      ? "Đã kết thúc"
-                      : schedule.status === "active"
-                        ? "Đang hoạt động"
-                        : "Tạm dừng"}
-                  </span>
-                  {schedule.lastError && (
-                    <span
-                      className="recurring-error"
-                      title={schedule.lastError}
-                    >
-                      <AlertTriangle size={12} /> Cần kiểm tra
-                    </span>
-                  )}
-                </div>
-                <h3>{schedule.description || "Không có nội dung"}</h3>
-                <p>
-                  {schedule.wallet}
-                  {schedule.toWallet ? ` → ${schedule.toWallet}` : ""}
-                  <span>·</span>
-                  {schedule.category?.name ?? "Chưa phân loại"}
-                </p>
-              </div>
-              <dl className="recurring-schedule-timing">
-                <div>
-                  <dt>Lặp lại</dt>
-                  <dd>{scheduleDayLabel(schedule.dayOfMonth)}</dd>
-                </div>
-                <div>
-                  <dt>Lần tiếp theo</dt>
-                  <dd>
-                    {schedule.completedAt
-                      ? "Đã hoàn tất"
-                      : dateLabel(schedule.nextExecutionDate)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Hiệu lực</dt>
-                  <dd>
-                    {dateLabel(schedule.startDate)} →{" "}
-                    {schedule.endDate
-                      ? dateLabel(schedule.endDate)
-                      : "Không giới hạn"}
-                  </dd>
-                </div>
-              </dl>
-              <div className="recurring-schedule-end">
-                <strong className={`ledger-amount amount-${schedule.type}`}>
-                  {schedule.type === "income"
-                    ? "+"
-                    : schedule.type === "expense"
-                      ? "−"
-                      : "↔"}
-                  {formatAmount(schedule.amount)}{" "}
-                  <small>{workspace.currency}</small>
-                </strong>
-                <p>{schedule.occurrenceCount} kỳ đã ghi nhận</p>
-                <div className="ledger-row-actions flex items-center gap-3">
-                  {!schedule.completedAt && (
-                    <Button
-                      variant="unstyled"
-                      size="auto"
-                      type="button"
-                      className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                      disabled={busy || Boolean(draft)}
-                      onClick={() => toggleStatus(schedule)}
-                      title={
-                        schedule.status === "active"
-                          ? "Tạm dừng"
-                          : "Kích hoạt lại"
-                      }
-                      aria-label={
-                        schedule.status === "active"
-                          ? "Tạm dừng lịch"
-                          : "Kích hoạt lại lịch"
-                      }
-                    >
-                      {schedule.status === "active" ? (
-                        <Pause size={16} />
-                      ) : (
-                        <Play size={16} />
-                      )}
-                    </Button>
-                  )}
-                  <Button
-                    variant="unstyled"
-                    size="auto"
-                    type="button"
-                    className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                    disabled={busy || Boolean(draft)}
-                    onClick={() => beginEdit(schedule)}
-                    title="Chỉnh sửa"
-                    aria-label="Chỉnh sửa lịch"
-                  >
-                    <Pencil size={16} />
-                  </Button>
-                  <ConfirmDelete
-                    ariaLabel="Xóa lịch"
-                    title="Xóa lịch giao dịch?"
-                    description={`“${schedule.description || "Giao dịch định kỳ"}” sẽ ngừng chạy. Các giao dịch đã ghi nhận vẫn được giữ nguyên.`}
-                    onConfirm={() => remove(schedule.id)}
-                    disabled={busy || Boolean(draft)}
-                    className="!p-0 !w-auto !h-auto !bg-transparent hover:!bg-transparent text-slate-400 hover:!text-rose-500 transition-colors [&_svg]:size-[16px]"
                   />
                 </div>
-              </div>
-            </article>
-          ))}
-          {visibleSchedules.length === 0 && (
-            <Empty
-              icon={Repeat2}
-              title={
-                schedules.length
-                  ? "Không có lịch phù hợp"
-                  : "Chưa có giao dịch định kỳ"
-              }
-              description={
-                schedules.length
-                  ? "Thử thay đổi bộ lọc hoặc từ khóa."
-                  : "Đăng ký khoản lặp lại để hệ thống tự ghi nhận mỗi tháng."
-              }
-            />
-          )}
-        </div>
+              )}
+              <SheetFooter className="recurring-sheet-footer shrink-0 flex-row justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-6 py-4">
+                <Button variant="outline" disabled={busy} onClick={closeEditor}>
+                  Hủy
+                </Button>
+                <Button variant="default" disabled={busy} onClick={save}>
+                  {busy ? <Loading label="Đang lưu..." /> : "Lưu đăng ký"}
+                </Button>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
 
-        <div
-          className="recurring-mobile-schedule-list"
-          aria-label="Danh sách giao dịch định kỳ trên di động"
-        >
-          {visibleSchedules.map((schedule) => (
-            <RecurringMobileScheduleCard
-              key={schedule.id}
-              schedule={schedule}
-              currency={workspace.currency}
-              busy={busy || Boolean(draft)}
-              onToggle={() => toggleStatus(schedule)}
-              onEdit={() => beginEdit(schedule)}
-              onDelete={() => remove(schedule.id)}
-            />
-          ))}
-          {visibleSchedules.length === 0 && (
-            <Empty
-              icon={Repeat2}
-              title={
-                schedules.length
-                  ? "Không có lịch phù hợp"
-                  : "Chưa có giao dịch định kỳ"
-              }
-              description={
-                schedules.length
-                  ? "Chọn trạng thái khác để xem các lịch còn lại."
-                  : "Tạo lịch đầu tiên để Fin tự ghi nhận khoản lặp lại mỗi tháng."
-              }
-            />
-          )}
-        </div>
-      </section>
+          <div
+            className="recurring-schedule-list recurring-desktop-schedule-list"
+            aria-label="Danh sách giao dịch định kỳ"
+          >
+            {visibleSchedules.map((schedule) => {
+              const nextDate = mobileDateParts(schedule.nextExecutionDate);
+              return (
+                <article
+                  className="recurring-schedule-row"
+                  data-type={schedule.type}
+                  data-status={
+                    schedule.completedAt ? "completed" : schedule.status
+                  }
+                  key={schedule.id}
+                >
+                  <time
+                    className="recurring-desktop-date"
+                    dateTime={schedule.nextExecutionDate}
+                  >
+                    {schedule.completedAt ? (
+                      <CircleCheckBig size={20} aria-hidden="true" />
+                    ) : (
+                      <>
+                        <span>{nextDate.month}</span>
+                        <strong>{nextDate.day}</strong>
+                      </>
+                    )}
+                  </time>
+                  <div className="recurring-schedule-main">
+                    <div className="recurring-schedule-badges">
+                      <span>
+                        {
+                          typeOptions.find(
+                            (option) => option.value === schedule.type,
+                          )?.label
+                        }
+                      </span>
+                      <span
+                        className={`status recurring-status-${schedule.completedAt ? "completed" : schedule.status}`}
+                      >
+                        {schedule.completedAt
+                          ? "Đã kết thúc"
+                          : schedule.status === "active"
+                            ? "Đang hoạt động"
+                            : "Tạm dừng"}
+                      </span>
+                      {schedule.lastError && (
+                        <span
+                          className="recurring-error"
+                          title={schedule.lastError}
+                        >
+                          <AlertTriangle size={12} /> Cần kiểm tra
+                        </span>
+                      )}
+                    </div>
+                    <h3>{schedule.description || "Không có nội dung"}</h3>
+                    <p>
+                      {schedule.wallet}
+                      {schedule.toWallet ? ` → ${schedule.toWallet}` : ""}
+                      <span>·</span>
+                      {schedule.category?.name ?? "Chưa phân loại"}
+                    </p>
+                  </div>
+                  <dl className="recurring-schedule-timing">
+                    <div>
+                      <dt>Lặp lại</dt>
+                      <dd>{scheduleDayLabel(schedule.dayOfMonth)}</dd>
+                    </div>
+                    <div>
+                      <dt>Lần tiếp theo</dt>
+                      <dd>
+                        {schedule.completedAt
+                          ? "Đã hoàn tất"
+                          : dateLabel(schedule.nextExecutionDate)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Hiệu lực</dt>
+                      <dd>
+                        {dateLabel(schedule.startDate)} →{" "}
+                        {schedule.endDate
+                          ? dateLabel(schedule.endDate)
+                          : "Không giới hạn"}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="recurring-schedule-end">
+                    <strong className={`ledger-amount amount-${schedule.type}`}>
+                      {schedule.type === "income"
+                        ? "+"
+                        : schedule.type === "expense"
+                          ? "−"
+                          : "↔"}
+                      {formatAmount(schedule.amount)}{" "}
+                      <small>{workspace.currency}</small>
+                    </strong>
+                    <p>{schedule.occurrenceCount} kỳ đã ghi nhận</p>
+                    <div className="ledger-row-actions flex items-center gap-3">
+                      {!schedule.completedAt && (
+                        <Button
+                          variant="unstyled"
+                          size="auto"
+                          type="button"
+                          className="recurring-row-action"
+                          disabled={busy || Boolean(draft)}
+                          onClick={() => toggleStatus(schedule)}
+                          title={
+                            schedule.status === "active"
+                              ? "Tạm dừng"
+                              : "Kích hoạt lại"
+                          }
+                          aria-label={
+                            schedule.status === "active"
+                              ? "Tạm dừng lịch"
+                              : "Kích hoạt lại lịch"
+                          }
+                        >
+                          {schedule.status === "active" ? (
+                            <Pause size={16} />
+                          ) : (
+                            <Play size={16} />
+                          )}
+                        </Button>
+                      )}
+                      <Button
+                        variant="unstyled"
+                        size="auto"
+                        type="button"
+                        className="recurring-row-action"
+                        disabled={busy || Boolean(draft)}
+                        onClick={() => beginEdit(schedule)}
+                        title="Chỉnh sửa"
+                        aria-label="Chỉnh sửa lịch"
+                      >
+                        <Pencil size={16} />
+                      </Button>
+                      <ConfirmDelete
+                        ariaLabel="Xóa lịch"
+                        title="Xóa lịch giao dịch?"
+                        description={`“${schedule.description || "Giao dịch định kỳ"}” sẽ ngừng chạy. Các giao dịch đã ghi nhận vẫn được giữ nguyên.`}
+                        onConfirm={() => remove(schedule.id)}
+                        disabled={busy || Boolean(draft)}
+                        className="recurring-row-action recurring-row-delete"
+                      />
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+            {visibleSchedules.length === 0 && (
+              <Empty
+                icon={Repeat2}
+                title={
+                  schedules.length
+                    ? "Không có lịch phù hợp"
+                    : "Chưa có giao dịch định kỳ"
+                }
+                description={
+                  schedules.length
+                    ? "Thử thay đổi bộ lọc hoặc từ khóa."
+                    : "Đăng ký khoản lặp lại để hệ thống tự ghi nhận mỗi tháng."
+                }
+              />
+            )}
+          </div>
+
+          <div
+            className="recurring-mobile-schedule-list"
+            aria-label="Danh sách giao dịch định kỳ trên di động"
+          >
+            {visibleSchedules.map((schedule) => (
+              <RecurringMobileScheduleCard
+                key={schedule.id}
+                schedule={schedule}
+                currency={workspace.currency}
+                busy={busy || Boolean(draft)}
+                onToggle={() => toggleStatus(schedule)}
+                onEdit={() => beginEdit(schedule)}
+                onDelete={() => remove(schedule.id)}
+              />
+            ))}
+            {visibleSchedules.length === 0 && (
+              <Empty
+                icon={Repeat2}
+                title={
+                  schedules.length
+                    ? "Không có lịch phù hợp"
+                    : "Chưa có giao dịch định kỳ"
+                }
+                description={
+                  schedules.length
+                    ? "Chọn trạng thái khác để xem các lịch còn lại."
+                    : "Tạo lịch đầu tiên để Fin tự ghi nhận khoản lặp lại mỗi tháng."
+                }
+              />
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
@@ -748,7 +863,7 @@ function RecurringMobileScheduleCard({
           onOpenChange={setMenuOpen}
           render={
             <article
-              className="recurring-mobile-card"
+              className="recurring-mobile-card rounded-2xl"
               data-type={schedule.type}
               data-status={schedule.completedAt ? "completed" : schedule.status}
               aria-label={`${schedule.description || "Giao dịch định kỳ"}, ${amountPrefix}${formatAmount(schedule.amount)} ${currency}, ${statusLabel}. Chạm để mở menu thao tác.`}
@@ -889,7 +1004,11 @@ function RecurringEditor({
         </div>
       </div>
 
-      <div className="recurring-editor-section">
+      <div className="recurring-editor-section recurring-transaction-section">
+        <div className="recurring-editor-section-title recurring-desktop-section-title">
+          <ArrowLeftRight size={16} />
+          <span>Thông tin giao dịch</span>
+        </div>
         <Tabs
           value={draft.type}
           onValueChange={(value) =>
@@ -943,7 +1062,7 @@ function RecurringEditor({
         </div>
       </div>
 
-      <div className="recurring-editor-section">
+      <div className="recurring-editor-section recurring-source-section">
         <div className="recurring-editor-section-title">
           <Landmark size={16} />
           <span>Nguồn tiền</span>
@@ -1002,6 +1121,22 @@ function RecurringEditor({
         <div className="recurring-editor-section-title">
           <CalendarClock size={16} />
           <span>Lịch chạy</span>
+        </div>
+        <div
+          className="recurring-desktop-schedule-preview"
+          aria-label="Tóm tắt lịch chạy trên desktop"
+        >
+          <span aria-hidden="true">
+            <CalendarClock size={18} />
+          </span>
+          <div>
+            <small>Ghi nhận tự động</small>
+            <strong>
+              {draft.startDate
+                ? scheduleDayLabel(Number(draft.startDate.slice(-2)))
+                : "Chọn ngày bắt đầu"}
+            </strong>
+          </div>
         </div>
         <div className="recurring-editor-grid recurring-date-grid">
           <div className="recurring-field">
