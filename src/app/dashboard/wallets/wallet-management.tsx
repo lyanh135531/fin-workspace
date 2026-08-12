@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Clock,
   CircleDollarSign,
-  FileText,
   GripVertical,
   Landmark,
   PauseCircle,
@@ -33,10 +32,8 @@ import { cn } from "@/lib/utils";
 import {
   Button,
   Card,
-  CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
   Empty,
@@ -626,9 +623,9 @@ export function WalletManagement({
       </div>
 
       <PageHeader
-        className="wallet-desktop-only"
-        title="Quản lý ví tài chính"
-        description={`Theo dõi số dư và trạng thái các ví trong ${workspace.name}.`}
+        className="wallet-desktop-only wallet-desktop-header"
+        title="Không gian ví"
+        description={`Quản lý dòng tiền và số dư của ${workspace.name} tại một nơi.`}
       >
         {isAdmin && (
           <Button
@@ -643,200 +640,205 @@ export function WalletManagement({
         )}
       </PageHeader>
 
-      <Card
-        as="section"
-        className="wallet-desktop-only"
-        aria-label="Tổng quan tài sản"
-      >
-        <CardHeader className="border-b">
-          <CardTitle>Tổng quan tài sản</CardTitle>
-          <CardDescription>
-            Số liệu từ các ví đang hoạt động trong workspace
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)] lg:items-end">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-[var(--text-secondary)]">
-              Tổng số dư khả dụng
+      <div className="wallet-desktop-only wallet-desktop-workspace">
+        <Card
+          as="aside"
+          className="wallet-desktop-portfolio"
+          aria-label="Tổng quan tài sản"
+        >
+          <CardHeader className="wallet-desktop-portfolio-header">
+            <span aria-hidden>
+              <Landmark size={18} />
+            </span>
+            <div>
+              <CardTitle>Tổng tài sản</CardTitle>
+              <CardDescription>Số dư khả dụng hiện tại</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="wallet-desktop-portfolio-content">
+            <p className="wallet-desktop-portfolio-amount">
+              {formatAmount(totalBalance)}
+              <span>{workspace.currency}</span>
             </p>
-            <p className="mt-2 truncate text-3xl font-semibold tracking-tight text-[var(--foreground)] tabular-nums sm:text-4xl">
-              {formatAmount(totalBalance)}{" "}
-              <span className="text-base font-medium text-[var(--text-secondary)]">
-                {workspace.currency}
-              </span>
+            <p className="wallet-desktop-portfolio-note">
+              <span aria-hidden /> Đồng bộ từ {activeCount} ví hoạt động
             </p>
-            <p className="mt-3 flex items-center gap-2 text-xs text-[var(--text-muted)]">
-              <span
-                className="size-1.5 rounded-full bg-[var(--success)]"
-                aria-hidden
-              />
-              Cập nhật từ {activeCount} ví đang hoạt động
-            </p>
-          </div>
 
-          <dl className="grid grid-cols-2 divide-x divide-[var(--border)] rounded-lg bg-[var(--surface-secondary)] py-4">
-            <div className="px-4">
-              <dt className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
-                <CheckCircle2 size={14} className="text-[var(--success)]" />
-                Trạng thái ví
-              </dt>
-              <dd className="mt-2 text-lg font-semibold text-[var(--foreground)] tabular-nums">
-                {activeCount}
-                <span className="text-sm font-normal text-[var(--text-muted)]">
-                  /{wallets.length}
-                </span>
-              </dd>
-              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                {wallets.length - activeCount === 0
-                  ? "Tất cả đang hoạt động"
-                  : `${wallets.length - activeCount} ví tạm ngưng`}
+            <dl className="wallet-desktop-portfolio-stats">
+              <div>
+                <dt>Ví hoạt động</dt>
+                <dd>
+                  {activeCount}
+                  <span> / {wallets.length}</span>
+                </dd>
+              </div>
+              <div>
+                <dt>Giao dịch</dt>
+                <dd>{transactionCount}</dd>
+              </div>
+            </dl>
+
+            <div className="wallet-desktop-portfolio-caption">
+              <TrendingUp size={15} aria-hidden />
+              <p>
+                Số dư được tổng hợp từ các ví đang hoạt động trong workspace.
               </p>
             </div>
-            <div className="px-4">
-              <dt className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
-                <ArrowLeftRight size={14} className="text-primary" />
-                Giao dịch
-              </dt>
-              <dd className="mt-2 text-lg font-semibold text-[var(--foreground)] tabular-nums">
-                {transactionCount}
-              </dd>
-              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                Lượt ghi nhận qua ví
-              </p>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <section
-        className="wallet-desktop-only space-y-4"
-        aria-labelledby="wallet-list-title"
-      >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2
-              id="wallet-list-title"
-              className="text-base font-semibold text-[var(--foreground)]"
+        <Card
+          as="section"
+          className="wallet-desktop-ledger"
+          aria-labelledby="wallet-list-title"
+        >
+          <CardHeader className="wallet-desktop-ledger-header">
+            <div>
+              <CardTitle>
+                <h2 id="wallet-list-title">Danh mục ví</h2>
+              </CardTitle>
+              <CardDescription>
+                {isAdmin && filterStatus === "all"
+                  ? "Kéo từng dòng để thay đổi thứ tự hiển thị."
+                  : "Theo dõi số dư và hoạt động của từng ví."}
+              </CardDescription>
+            </div>
+            <Tabs
+              className="wallet-desktop-filters"
+              value={filterStatus}
+              onValueChange={(value) =>
+                setFilterStatus(value as "all" | "active" | "deactive")
+              }
             >
-              Danh sách ví
-            </h2>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
-              {isAdmin && filterStatus === "all"
-                ? "Kéo thả các thẻ để đổi thứ tự ví."
-                : "Kiểm tra số dư, hoạt động và lịch sử của từng ví."}
-            </p>
-          </div>
-          <Tabs
-            value={filterStatus}
-            onValueChange={(value) =>
-              setFilterStatus(value as "all" | "active" | "deactive")
-            }
-          >
-            <TabsList>
-              <TabsTrigger value="all">
-                <span>Tất cả</span>
-                <TabsCount>{wallets.length}</TabsCount>
-              </TabsTrigger>
-              <TabsTrigger value="active">
-                <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
-                <span>Đang hoạt động</span>
-                <TabsCount>{activeCount}</TabsCount>
-              </TabsTrigger>
-              {wallets.length - activeCount > 0 && (
-                <TabsTrigger value="deactive">
-                  <span className="inline-block size-1.5 rounded-full bg-amber-500" />
-                  <span>Tạm ngưng</span>
-                  <TabsCount>{wallets.length - activeCount}</TabsCount>
+              <TabsList>
+                <TabsTrigger value="all">
+                  <span>Tất cả</span>
+                  <TabsCount>{wallets.length}</TabsCount>
                 </TabsTrigger>
-              )}
-            </TabsList>
-          </Tabs>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredWallets.map((wallet) => {
-            const isActive = wallet.status === "active";
-            return (
-              <Card
-                as="article"
-                key={wallet.id}
-                draggable={isAdmin && filterStatus === "all" && !pending}
-                onDragStart={(event) => {
-                  setDraggedWalletId(wallet.id);
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData("text/plain", wallet.id);
-                }}
-                onDragEnd={() => {
-                  setDraggedWalletId(null);
-                  setDropTargetWalletId(null);
-                }}
-                onDragOver={(event) => {
-                  if (!draggedWalletId || draggedWalletId === wallet.id) return;
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = "move";
-                  setDropTargetWalletId(wallet.id);
-                }}
-                onDragLeave={(event) => {
-                  if (
-                    !event.currentTarget.contains(event.relatedTarget as Node)
-                  ) {
-                    setDropTargetWalletId((current) =>
-                      current === wallet.id ? null : current,
-                    );
-                  }
-                }}
-                onDrop={(event) => handleWalletDrop(event, wallet.id)}
-                className={cn(
-                  isAdmin &&
-                    filterStatus === "all" &&
-                    !pending &&
-                    "cursor-grab active:cursor-grabbing",
-                  dropTargetWalletId === wallet.id && "ring-2 ring-primary/60",
-                  draggedWalletId === wallet.id && "opacity-60",
+                <TabsTrigger value="active">
+                  <span>Hoạt động</span>
+                  <TabsCount>{activeCount}</TabsCount>
+                </TabsTrigger>
+                {wallets.length - activeCount > 0 && (
+                  <TabsTrigger value="deactive">
+                    <span>Tạm ngưng</span>
+                    <TabsCount>{wallets.length - activeCount}</TabsCount>
+                  </TabsTrigger>
                 )}
-              >
-                <CardHeader className="border-b">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span
-                      className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"
-                      aria-hidden
-                    >
-                      <WalletCards size={20} />
-                    </span>
-                    <div className="min-w-0">
-                      <CardTitle className="truncate">
-                        <h3>{wallet.name}</h3>
-                      </CardTitle>
-                      <CardDescription
-                        className={
-                          isActive
-                            ? "flex items-center gap-1.5 text-[var(--success)]"
-                            : "flex items-center gap-1.5 text-[var(--warning)]"
-                        }
-                      >
+              </TabsList>
+            </Tabs>
+          </CardHeader>
+
+          <CardContent className="wallet-desktop-ledger-content">
+            <div className="wallet-desktop-ledger-labels" aria-hidden>
+              <span>Ví</span>
+              <span>Số dư</span>
+              <span>Hoạt động</span>
+              <span>Cập nhật</span>
+              <span />
+            </div>
+
+            <div className="wallet-desktop-ledger-rows">
+              {filteredWallets.map((wallet) => {
+                const isActive = wallet.status === "active";
+                return (
+                  <article
+                    key={wallet.id}
+                    draggable={isAdmin && filterStatus === "all" && !pending}
+                    onDragStart={(event) => {
+                      setDraggedWalletId(wallet.id);
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", wallet.id);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedWalletId(null);
+                      setDropTargetWalletId(null);
+                    }}
+                    onDragOver={(event) => {
+                      if (!draggedWalletId || draggedWalletId === wallet.id)
+                        return;
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                      setDropTargetWalletId(wallet.id);
+                    }}
+                    onDragLeave={(event) => {
+                      if (
+                        !event.currentTarget.contains(
+                          event.relatedTarget as Node,
+                        )
+                      ) {
+                        setDropTargetWalletId((current) =>
+                          current === wallet.id ? null : current,
+                        );
+                      }
+                    }}
+                    onDrop={(event) => handleWalletDrop(event, wallet.id)}
+                    className={cn(
+                      "wallet-desktop-ledger-row",
+                      isAdmin &&
+                        filterStatus === "all" &&
+                        !pending &&
+                        "is-draggable",
+                      dropTargetWalletId === wallet.id && "is-drop-target",
+                      draggedWalletId === wallet.id && "is-dragging",
+                    )}
+                    data-wallet-status={wallet.status}
+                  >
+                    <div className="wallet-desktop-ledger-identity">
+                      {isAdmin && filterStatus === "all" && (
                         <span
-                          className={
-                            isActive
-                              ? "size-1.5 rounded-full bg-[var(--success)]"
-                              : "size-1.5 rounded-full bg-[var(--warning)]"
-                          }
-                          aria-hidden
-                        />
-                        {isActive ? "Đang hoạt động" : "Tạm ngưng"}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  {isAdmin && (
-                    <CardAction className="wallet-card-actions flex items-center gap-1">
-                      {filterStatus === "all" && (
-                        <span
-                          className="wallet-drag-handle grid min-h-10 cursor-grab place-items-center px-1 text-[var(--text-muted)] active:cursor-grabbing"
+                          className="wallet-drag-handle"
                           title={`Kéo để sắp xếp ${wallet.name}`}
                           aria-label={`Kéo để sắp xếp ${wallet.name}`}
                         >
-                          <GripVertical size={17} />
+                          <GripVertical size={16} />
                         </span>
                       )}
+                      <span className="wallet-desktop-ledger-icon" aria-hidden>
+                        <WalletCards size={18} />
+                      </span>
+                      <div>
+                        <h3>{wallet.name}</h3>
+                        <p>
+                          <span aria-hidden />
+                          {isActive ? "Đang hoạt động" : "Tạm ngưng"}
+                        </p>
+                        <small>
+                          {wallet.description || "Chưa có ghi chú cho ví này."}
+                        </small>
+                      </div>
+                    </div>
+
+                    <div className="wallet-desktop-ledger-balance">
+                      <strong>{formatAmount(wallet.currentBalance)}</strong>
+                      <span>{workspace.currency}</span>
+                      <small>
+                        Đầu kỳ {formatAmount(wallet.openingBalance)}
+                      </small>
+                    </div>
+
+                    <div className="wallet-desktop-ledger-activity">
+                      <strong>{wallet.transactionCount} giao dịch</strong>
+                      {wallet.recurringTransactionCount > 0 ? (
+                        <span>
+                          <Repeat2 size={12} />
+                          {wallet.recurringTransactionCount} định kỳ
+                        </span>
+                      ) : (
+                        <span>Không có lịch định kỳ</span>
+                      )}
+                    </div>
+
+                    <div className="wallet-desktop-ledger-updated">
+                      <Clock size={13} aria-hidden />
+                      <span>
+                        {new Intl.DateTimeFormat("vi-VN", {
+                          dateStyle: "medium",
+                        }).format(new Date(wallet.updatedAt))}
+                      </span>
+                    </div>
+
+                    {isAdmin && (
                       <Button
                         variant="icon"
                         size="auto"
@@ -846,82 +848,43 @@ export function WalletManagement({
                       >
                         <Pencil size={16} />
                       </Button>
-                    </CardAction>
-                  )}
-                </CardHeader>
+                    )}
+                  </article>
+                );
+              })}
 
-                <CardContent className="flex flex-1 flex-col gap-5">
-                  <div>
-                    <p className="text-xs font-medium text-[var(--text-secondary)]">
-                      Số dư hiện tại
-                    </p>
-                    <p className="mt-1 truncate text-2xl font-semibold tracking-tight text-[var(--foreground)] tabular-nums">
-                      {formatAmount(wallet.currentBalance)} {workspace.currency}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--text-muted)] tabular-nums">
-                      Số dư đầu kỳ: {formatAmount(wallet.openingBalance)}{" "}
-                      {workspace.currency}
-                    </p>
-                  </div>
-
-                  <p className="wallet-card-description min-h-10 text-sm leading-relaxed text-[var(--text-secondary)] line-clamp-2">
-                    {wallet.description ||
-                      "Chưa có mô tả. Thêm ghi chú để thành viên dễ nhận diện ví này."}
-                  </p>
-
-                  {wallet.recurringTransactionCount > 0 && (
-                    <p className="flex items-center gap-2 rounded-lg bg-[var(--surface-secondary)] px-3 py-2 text-xs font-medium text-[var(--warning)]">
-                      <Repeat2 size={14} />
-                      {wallet.recurringTransactionCount} giao dịch định kỳ đang
-                      sử dụng
-                    </p>
-                  )}
-                </CardContent>
-
-                <CardFooter className="wallet-card-footer justify-between gap-3 text-xs text-[var(--text-muted)]">
-                  <span className="font-medium tabular-nums">
-                    {wallet.transactionCount} giao dịch
-                  </span>
-                  <span className="wallet-card-updated flex items-center gap-1 text-[11px]">
-                    <Clock size={12} />
-                    {new Intl.DateTimeFormat("vi-VN", {
-                      dateStyle: "medium",
-                    }).format(new Date(wallet.updatedAt))}
-                  </span>
-                </CardFooter>
-              </Card>
-            );
-          })}
-
-          {/* Empty state */}
-          {!filteredWallets.length && (
-            <Empty
-              className="col-span-full"
-              icon={WalletCards}
-              title={
-                filterStatus === "all"
-                  ? "Workspace chưa có ví"
-                  : "Không có ví ở trạng thái này"
-              }
-              description={
-                filterStatus !== "all"
-                  ? "Chọn trạng thái khác để xem các ví còn lại."
-                  : isAdmin
-                    ? "Tạo ví đầu tiên để bắt đầu ghi nhận giao dịch tài chính cho workspace này."
-                    : "Admin chưa khởi tạo ví cho workspace này."
-              }
-              action={
-                filterStatus === "all" && isAdmin ? (
-                  <Button type="button" onClick={() => setCreatingModal(true)}>
-                    <Plus size={16} />
-                    Thêm ví đầu tiên
-                  </Button>
-                ) : undefined
-              }
-            />
-          )}
-        </div>
-      </section>
+              {!filteredWallets.length && (
+                <Empty
+                  icon={WalletCards}
+                  title={
+                    filterStatus === "all"
+                      ? "Workspace chưa có ví"
+                      : "Không có ví ở trạng thái này"
+                  }
+                  description={
+                    filterStatus !== "all"
+                      ? "Chọn trạng thái khác để xem các ví còn lại."
+                      : isAdmin
+                        ? "Tạo ví đầu tiên để bắt đầu ghi nhận giao dịch tài chính."
+                        : "Admin chưa khởi tạo ví cho workspace này."
+                  }
+                  action={
+                    filterStatus === "all" && isAdmin ? (
+                      <Button
+                        type="button"
+                        onClick={() => setCreatingModal(true)}
+                      >
+                        <Plus size={16} />
+                        Thêm ví đầu tiên
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Sheet
         open={creatingModal}
@@ -929,7 +892,11 @@ export function WalletManagement({
           if (!open) closeCreateSheet();
         }}
       >
-        <SheetContent side="bottom" className="wallet-create-sheet">
+        <SheetContent
+          side="bottom"
+          className="wallet-create-sheet"
+          data-desktop-side="right"
+        >
           <form
             onSubmit={handleCreate}
             className="wallet-create-form"
@@ -955,6 +922,13 @@ export function WalletManagement({
                 aria-labelledby="wallet-details-heading"
                 className="wallet-create-section"
               >
+                <div className="wallet-desktop-form-section-heading">
+                  <span aria-hidden>01</span>
+                  <div>
+                    <h3 id="wallet-details-heading">Thông tin ví</h3>
+                    <p>Đặt tên ngắn gọn để mọi người dễ nhận diện.</p>
+                  </div>
+                </div>
                 <div className="wallet-create-fields">
                   <Input
                     label="Tên ví"
@@ -1116,7 +1090,11 @@ export function WalletManagement({
           if (!open) setEditingWallet(null);
         }}
       >
-        <SheetContent side="bottom" className="wallet-edit-sheet">
+        <SheetContent
+          side="bottom"
+          className="wallet-edit-sheet"
+          data-desktop-side="right"
+        >
           <span className="wallet-edit-handle" aria-hidden />
           <SheetHeader className="wallet-edit-header">
             <div className="wallet-edit-heading">

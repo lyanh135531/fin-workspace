@@ -18103,3 +18103,480 @@ html[data-sidebar-collapsed="true"]
     column-gap: 1.25rem;
   }
 }
+
+
+/* Wallet workspace — desktop ledger layout. */
+@media (min-width: 761px) {
+  .wallet-desktop-workspace {
+    display: grid;
+    grid-template-columns: minmax(18rem, 0.36fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 1rem;
+  }
+
+  .wallet-desktop-portfolio {
+    position: sticky;
+    top: calc(var(--app-header-height) + 1rem);
+    min-height: 31rem;
+    gap: 0;
+    padding: 0;
+  }
+
+  .wallet-desktop-portfolio-header {
+    display: flex;
+    grid-template-columns: none;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 1.2rem 1.25rem 0;
+  }
+
+  .wallet-desktop-portfolio-header > span {
+    display: grid;
+    width: 2.35rem;
+    height: 2.35rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 0.72rem;
+    background: color-mix(in srgb, var(--primary) 11%, var(--surface-secondary));
+    color: var(--primary);
+  }
+
+  .wallet-desktop-portfolio-header [data-slot="card-title"] {
+    color: var(--foreground);
+    font-size: 0.8rem;
+    font-weight: 720;
+  }
+
+  .wallet-desktop-portfolio-header [data-slot="card-description"] {
+    margin-top: 0.08rem;
+    color: var(--text-muted);
+    font-size: 0.62rem;
+  }
+
+  .wallet-desktop-portfolio-content {
+    display: flex;
+    min-height: 26.6rem;
+    flex: 1;
+    flex-direction: column;
+    padding: 2.4rem 1.25rem 1.25rem;
+  }
+
+  .wallet-desktop-portfolio-amount {
+    display: grid;
+    min-width: 0;
+    color: var(--foreground);
+    font-size: clamp(2rem, 3vw, 2.85rem);
+    font-weight: 760;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.06em;
+    line-height: 0.98;
+  }
+
+  .wallet-desktop-portfolio-amount span {
+    margin-top: 0.55rem;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 720;
+    letter-spacing: 0.08em;
+  }
+
+  .wallet-desktop-portfolio-note {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.9rem;
+    color: var(--text-muted);
+    font-size: 0.62rem;
+  }
+
+  .wallet-desktop-portfolio-note > span {
+    width: 0.38rem;
+    height: 0.38rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 0 0.2rem
+      color-mix(in srgb, var(--success) 12%, transparent);
+  }
+
+  .wallet-desktop-portfolio-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    margin-top: 2.25rem;
+    border-block: 1px solid var(--border);
+  }
+
+  .wallet-desktop-portfolio-stats > div {
+    min-width: 0;
+    padding: 0.9rem 0;
+  }
+
+  .wallet-desktop-portfolio-stats > div + div {
+    padding-left: 1rem;
+    border-left: 1px solid var(--border);
+  }
+
+  .wallet-desktop-portfolio-stats dt {
+    color: var(--text-muted);
+    font-size: 0.58rem;
+    font-weight: 580;
+  }
+
+  .wallet-desktop-portfolio-stats dd {
+    margin-top: 0.3rem;
+    color: var(--foreground);
+    font-size: 1.12rem;
+    font-weight: 720;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+  }
+
+  .wallet-desktop-portfolio-stats dd span {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 520;
+    letter-spacing: 0;
+  }
+
+  .wallet-desktop-portfolio-caption {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    margin-top: auto;
+    border-radius: 0.75rem;
+    background: var(--surface-secondary);
+    padding: 0.75rem 0.8rem;
+    color: var(--primary);
+  }
+
+  .wallet-desktop-portfolio-caption svg {
+    flex: 0 0 auto;
+    margin-top: 0.08rem;
+  }
+
+  .wallet-desktop-portfolio-caption p {
+    color: var(--text-secondary);
+    font-size: 0.6rem;
+    line-height: 1.5;
+  }
+
+  .wallet-desktop-ledger {
+    min-width: 0;
+    gap: 0;
+    padding: 0;
+  }
+
+  .wallet-desktop-ledger-header {
+    display: flex;
+    min-height: 5rem;
+    grid-template-columns: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.15rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .wallet-desktop-ledger-header [data-slot="card-title"] {
+    color: var(--foreground);
+    font-size: 0.9rem;
+    font-weight: 730;
+    letter-spacing: -0.02em;
+  }
+
+  .wallet-desktop-ledger-header [data-slot="card-description"] {
+    margin-top: 0.15rem;
+    color: var(--text-muted);
+    font-size: 0.62rem;
+  }
+
+  .wallet-desktop-filters [data-slot="tabs-list"] {
+    max-width: none;
+    overflow: hidden;
+    background: var(--surface-secondary);
+    padding: 0.18rem;
+  }
+
+  .wallet-desktop-filters [data-slot="tabs-trigger"] {
+    min-height: 2rem;
+    padding-inline: 0.65rem;
+    font-size: 0.62rem;
+  }
+
+  .wallet-desktop-ledger-content {
+    min-width: 0;
+  }
+
+  .wallet-desktop-ledger-labels,
+  .wallet-desktop-ledger-row {
+    display: grid;
+    grid-template-columns:
+      minmax(13rem, 1.35fr) minmax(8.5rem, 0.75fr)
+      minmax(7rem, 0.62fr) minmax(6.8rem, 0.52fr) 2.25rem;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .wallet-desktop-ledger-labels {
+    min-height: 2.5rem;
+    padding-inline: 1.15rem;
+    color: var(--text-muted);
+    font-size: 0.54rem;
+    font-weight: 650;
+    letter-spacing: 0.025em;
+  }
+
+  .wallet-desktop-ledger-rows {
+    min-width: 0;
+  }
+
+  .wallet-desktop-ledger-row {
+    position: relative;
+    min-height: 6.25rem;
+    padding: 0.85rem 1.15rem;
+    border-top: 1px solid var(--border);
+    outline: none;
+    transition:
+      background-color 160ms ease,
+      opacity 160ms ease,
+      transform 160ms ease;
+  }
+
+  .wallet-desktop-ledger-row:hover {
+    background: var(--surface-hover);
+  }
+
+  .wallet-desktop-ledger-row.is-draggable {
+    cursor: grab;
+  }
+
+  .wallet-desktop-ledger-row.is-draggable:active {
+    cursor: grabbing;
+  }
+
+  .wallet-desktop-ledger-row.is-drop-target {
+    background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+    box-shadow: inset 0 2px 0 var(--primary);
+  }
+
+  .wallet-desktop-ledger-row.is-dragging {
+    opacity: 0.48;
+    transform: scale(0.995);
+  }
+
+  .wallet-desktop-ledger-row[data-wallet-status="deactive"] {
+    background: color-mix(in srgb, var(--surface-secondary) 38%, var(--surface));
+  }
+
+  .wallet-desktop-ledger-identity {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .wallet-desktop-ledger-identity .wallet-drag-handle {
+    display: grid;
+    width: 1.15rem;
+    height: 2.5rem;
+    place-items: center;
+    color: var(--text-muted);
+  }
+
+  .wallet-desktop-ledger-icon {
+    display: grid;
+    width: 2.55rem;
+    height: 2.55rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 0.72rem;
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface-secondary));
+    color: var(--primary);
+  }
+
+  .wallet-desktop-ledger-row[data-wallet-status="deactive"]
+    .wallet-desktop-ledger-icon {
+    background: color-mix(in srgb, var(--warning) 10%, var(--surface-secondary));
+    color: var(--warning);
+  }
+
+  .wallet-desktop-ledger-identity > div {
+    min-width: 0;
+  }
+
+  .wallet-desktop-ledger-identity h3 {
+    overflow: hidden;
+    color: var(--foreground);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wallet-desktop-ledger-identity p {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.12rem;
+    color: var(--success);
+    font-size: 0.56rem;
+    font-weight: 620;
+  }
+
+  .wallet-desktop-ledger-identity p > span {
+    width: 0.32rem;
+    height: 0.32rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .wallet-desktop-ledger-row[data-wallet-status="deactive"]
+    .wallet-desktop-ledger-identity p {
+    color: var(--warning);
+  }
+
+  .wallet-desktop-ledger-identity small {
+    display: block;
+    margin-top: 0.28rem;
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 0.56rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wallet-desktop-ledger-balance {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, auto) auto;
+    align-items: baseline;
+    justify-content: start;
+    gap: 0.3rem;
+  }
+
+  .wallet-desktop-ledger-balance strong {
+    overflow: hidden;
+    color: var(--foreground);
+    font-size: 0.84rem;
+    font-weight: 720;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.025em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wallet-desktop-ledger-balance > span {
+    color: var(--text-muted);
+    font-size: 0.52rem;
+    font-weight: 680;
+  }
+
+  .wallet-desktop-ledger-balance small {
+    grid-column: 1 / -1;
+    margin-top: 0.22rem;
+    color: var(--text-muted);
+    font-size: 0.53rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wallet-desktop-ledger-activity {
+    display: grid;
+    min-width: 0;
+    gap: 0.3rem;
+  }
+
+  .wallet-desktop-ledger-activity strong {
+    color: var(--text-secondary);
+    font-size: 0.62rem;
+    font-weight: 650;
+  }
+
+  .wallet-desktop-ledger-activity span {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--text-muted);
+    font-size: 0.54rem;
+  }
+
+  .wallet-desktop-ledger-activity span:has(svg) {
+    color: var(--warning);
+  }
+
+  .wallet-desktop-ledger-updated {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.55rem;
+    white-space: nowrap;
+  }
+
+  .wallet-desktop-ledger-row > [data-slot="button"] {
+    justify-self: end;
+  }
+
+  .wallet-desktop-ledger-rows > [data-slot="empty"] {
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1180px) {
+  .wallet-desktop-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wallet-desktop-portfolio {
+    position: static;
+    min-height: 0;
+  }
+
+  .wallet-desktop-portfolio-content {
+    display: grid;
+    min-height: 0;
+    grid-template-columns: minmax(13rem, 1fr) minmax(15rem, 0.8fr);
+    align-items: end;
+    gap: 1.25rem 2rem;
+    padding-top: 1.5rem;
+  }
+
+  .wallet-desktop-portfolio-note {
+    grid-column: 1;
+  }
+
+  .wallet-desktop-portfolio-stats {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin-top: 0;
+  }
+
+  .wallet-desktop-portfolio-caption {
+    display: none;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 930px) {
+  .wallet-desktop-ledger-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .wallet-desktop-ledger-labels,
+  .wallet-desktop-ledger-row {
+    grid-template-columns: minmax(13rem, 1.25fr) minmax(8rem, 0.7fr) minmax(
+        7rem,
+        0.6fr
+      ) 2.25rem;
+  }
+
+  .wallet-desktop-ledger-labels > span:nth-child(4),
+  .wallet-desktop-ledger-updated {
+    display: none;
+  }
+}
