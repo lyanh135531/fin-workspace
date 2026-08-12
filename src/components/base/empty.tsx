@@ -1,20 +1,20 @@
-import * as React from "react"
-import { InboxIcon } from "lucide-react"
+import * as React from "react";
+import { InboxIcon } from "lucide-react";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 type EmptyIcon = React.ComponentType<{
-  className?: string
-  "aria-hidden"?: boolean
-}>
+  className?: string;
+  "aria-hidden"?: boolean;
+}>;
 
 export type EmptyProps = React.ComponentProps<"div"> & {
-  icon?: EmptyIcon
-  title: React.ReactNode
-  description?: React.ReactNode
-  action?: React.ReactNode
-  variant?: "default" | "compact" | "inline"
-}
+  icon?: EmptyIcon;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
+  variant?: "default" | "compact" | "inline";
+};
 
 function Empty({
   icon: Icon = InboxIcon,
@@ -73,7 +73,7 @@ function Empty({
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export { Empty }
+export { Empty };

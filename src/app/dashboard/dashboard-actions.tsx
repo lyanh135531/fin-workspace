@@ -1,32 +1,6 @@
 "use client";
 
 import {
-  ArrowDownLeft,
-  ArrowLeftRight,
-  ArrowUpRight,
-  CalendarDays,
-  CalendarClock,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  CircleCheckBig,
-  FilterX,
-  Pencil,
-  Plus,
-  SlidersHorizontal,
-  Trash2,
-  X,
-} from "lucide-react";
-import {
-  Fragment,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useTransition,
-} from "react";
-import {
   addTransactionAction,
   approveTransactionAction,
   deleteTransactionAction,
@@ -43,15 +17,7 @@ import {
   getMobileLedgerActions,
   useLongPress,
 } from "@/app/dashboard/mobile-ledger-interactions";
-import { formatAmount } from "@/lib/format";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import type { DateRangeValue } from "@/components/base";
 import {
   Button,
   CategoryIcon,
@@ -75,8 +41,46 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from "@/components/base";
-import type { DateRangeValue } from "@/components/base";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
+import { Textarea } from "@/components/ui/textarea";
+import { formatAmount } from "@/lib/format";
+import {
+  ArrowDownLeft,
+  ArrowLeftRight,
+  ArrowUpRight,
+  CalendarClock,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheckBig,
+  FilterX,
+  Pencil,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { toast } from "sonner";
 
 type Option = {
@@ -160,9 +164,9 @@ function TransactionTypeLabel({
   );
 }
 const transactionTypeTabs = [
-  { value: "expense", label: "Chi tiêu", icon: ArrowUpRight },
-  { value: "income", label: "Thu nhập", icon: ArrowDownLeft },
-  { value: "transfer", label: "Chuyển khoản", icon: ArrowLeftRight },
+  { value: "expense", label: "Chi", icon: ArrowUpRight },
+  { value: "income", label: "Thu", icon: ArrowDownLeft },
+  { value: "transfer", label: "Chuyển", icon: ArrowLeftRight },
 ] satisfies {
   value: TransactionType;
   label: string;
@@ -617,8 +621,11 @@ function MobileTransactionRow({
           if (!selectionMode) setMenuOpen(open);
         }}
       >
-        <DropdownMenuTrigger
-          nativeButton={false}
+        <SpotlightTrigger
+          open={!selectionMode && menuOpen}
+          onOpenChange={(open) => {
+            if (!selectionMode) setMenuOpen(open);
+          }}
           render={
             <article
               className="ledger-mobile-row"
@@ -629,12 +636,20 @@ function MobileTransactionRow({
               {...rowHandlers}
             />
           }
+          dismissLabel={`Đóng menu thao tác ${categoryName}`}
         >
-          {rowContent}
-        </DropdownMenuTrigger>
+          {(spotlightTrigger) => (
+            <DropdownMenuTrigger
+              nativeButton={false}
+              render={spotlightTrigger}
+            >
+              {rowContent}
+            </DropdownMenuTrigger>
+          )}
+        </SpotlightTrigger>
 
         <DropdownMenuContent
-          align="start"
+          align="center"
           side="bottom"
           sideOffset={4}
           className="ledger-mobile-context-menu"
@@ -1705,9 +1720,7 @@ export function Ledger({
                         <Trash2 size={18} />
                       </span>
                       <div>
-                        <SheetTitle>
-                          Xóa {selected.size} giao dịch?
-                        </SheetTitle>
+                        <SheetTitle>Xóa {selected.size} giao dịch?</SheetTitle>
                         <SheetDescription>
                           Các giao dịch đã ghi nhận sẽ được hoàn tác khỏi số dư
                           ví.
@@ -1857,7 +1870,8 @@ export function Ledger({
       <footer className="ledger-pagination">
         <p className="ledger-record-count">
           <span className="ledger-record-count-desktop">
-            Hiển thị {pageStart}–{pageEnd}/{latestRows.length} giao dịch mới nhất
+            Hiển thị {pageStart}–{pageEnd}/{latestRows.length} giao dịch mới
+            nhất
             {scheduledRows.length
               ? ` · ${scheduledRows.length} giao dịch đã lên lịch`
               : ""}
@@ -1904,7 +1918,7 @@ export function Ledger({
         {mobileEditTarget && mobileEditDraft && (
           <SheetContent
             side="bottom"
-            className="ledger-mobile-edit-sheet"
+            className="quick-transaction-sheet ledger-mobile-edit-sheet"
             aria-label="Chỉnh sửa giao dịch"
           >
             <MobileTransactionDraft
@@ -2211,6 +2225,7 @@ function MobileTransactionDraft({
   onCancel: () => void;
 }) {
   const locked = disabled || busy;
+  const quickSheetEdit = mode === "edit" && progressiveDetails;
   const [showDetails, setShowDetails] = useState(!progressiveDetails);
   function changeType(type: TransactionType) {
     onChange({
@@ -2225,64 +2240,77 @@ function MobileTransactionDraft({
 
   return (
     <section
-      className={`ledger-mobile-draft ${disabled ? "disabled" : ""}`}
+      className={`ledger-mobile-draft ${quickSheetEdit ? "quick-transaction-form" : ""} ${disabled ? "disabled" : ""}`}
       aria-label={
         mode === "create"
           ? "Tạo giao dịch"
           : `Chỉnh sửa ${title ?? "giao dịch"}`
       }
     >
-      <div className="ledger-mobile-draft-heading">
-        <div>
-          <strong>{mode === "create" ? "Giao dịch mới" : title}</strong>
-          <small>
-            {disabled
-              ? "Giao dịch đang có yêu cầu thay đổi chờ duyệt"
-              : mode === "create"
-                ? "Điền các thông tin cần thiết"
-                : "Cập nhật thông tin giao dịch"}
-          </small>
-        </div>
+      <div
+        className={`ledger-mobile-draft-heading ${quickSheetEdit ? "quick-transaction-header" : ""}`}
+      >
+        {quickSheetEdit ? (
+          <div className="quick-transaction-heading">
+            <span aria-hidden="true">
+              <Pencil size={18} />
+            </span>
+            <div>
+              <strong>Chỉnh sửa giao dịch</strong>
+              <small>
+                {disabled
+                  ? "Giao dịch đang có yêu cầu thay đổi chờ duyệt"
+                  : title}
+              </small>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <strong>{mode === "create" ? "Giao dịch mới" : title}</strong>
+            <small>
+              {disabled
+                ? "Giao dịch đang có yêu cầu thay đổi chờ duyệt"
+                : mode === "create"
+                  ? "Điền các thông tin cần thiết"
+                  : "Cập nhật thông tin giao dịch"}
+            </small>
+          </div>
+        )}
         {mode === "edit" ? status : null}
       </div>
       <div
-        className={`ledger-mobile-draft-grid ${
+        className={`ledger-mobile-draft-grid ${quickSheetEdit ? "quick-transaction-scroll" : ""} ${
           progressiveDetails ? "ledger-create-progressive-grid" : ""
         }`}
       >
-        <div
-          className="ledger-transaction-type-tabs"
-          role="group"
-          aria-label="Loại giao dịch"
+        <Tabs
+          value={draft.type}
+          onValueChange={(value) => changeType(value as TransactionType)}
+          className="ledger-transaction-type-tabs quick-type-tabs gap-0"
         >
-          {transactionTypeTabs.map((tab) => {
-            const Icon = tab.icon;
-            const tabDisabled =
-              locked || (tab.value === "transfer" && wallets.length < 2);
-            return (
-              <Button
-                key={tab.value}
-                type="button"
-                variant="unstyled"
-                size="auto"
-                className={draft.type === tab.value ? "active" : ""}
-                data-transaction-type={tab.value}
-                disabled={tabDisabled}
-                aria-pressed={draft.type === tab.value}
-                onClick={() => changeType(tab.value)}
-              >
-                <Icon aria-hidden="true" />
-                {progressiveDetails
-                  ? {
-                      expense: "Chi",
-                      income: "Thu",
-                      transfer: "Chuyển",
-                    }[tab.value]
-                  : tab.label}
-              </Button>
-            );
-          })}
-        </div>
+          <TabsList
+            className="quick-type-switch rounded-2xl"
+            aria-label="Loại giao dịch"
+          >
+            {transactionTypeTabs.map((tab) => {
+              const Icon = tab.icon;
+              const tabDisabled =
+                locked || (tab.value === "transfer" && wallets.length < 2);
+              return (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="rounded-2xl"
+                  data-transaction-type={tab.value}
+                  disabled={tabDisabled}
+                >
+                  <Icon aria-hidden="true" />
+                  {tab.label}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
         <MoneyInput
           autoFocus={mode === "create"}
           disabled={locked}
@@ -2291,10 +2319,15 @@ function MobileTransactionDraft({
           placeholder="0"
           label="Số tiền"
           wrapperClassName={
-            progressiveDetails ? "ledger-create-money-input" : undefined
+            quickSheetEdit
+              ? "quick-amount-field"
+              : progressiveDetails
+                ? "ledger-create-money-input"
+                : undefined
           }
         />
         <Select
+          spotlight
           disabled={locked}
           value={draft.walletId}
           onValueChange={(walletId) =>
@@ -2314,6 +2347,7 @@ function MobileTransactionDraft({
         />
         {draft.type === "transfer" && (
           <Select
+            spotlight
             disabled={locked}
             value={draft.toWalletId}
             onValueChange={(toWalletId) => onChange({ toWalletId })}
@@ -2327,6 +2361,7 @@ function MobileTransactionDraft({
         )}
         {draft.type !== "transfer" && (
           <CategoryTreeSelect
+            spotlight
             disabled={locked}
             value={draft.categoryId}
             onValueChange={(categoryId) => onChange({ categoryId })}
@@ -2341,7 +2376,11 @@ function MobileTransactionDraft({
               type="button"
               variant="unstyled"
               size="auto"
-              className="ledger-create-details-toggle"
+              className={
+                quickSheetEdit
+                  ? "quick-details-toggle"
+                  : "ledger-create-details-toggle"
+              }
               disabled={locked}
               aria-expanded={showDetails}
               onClick={() => setShowDetails((current) => !current)}
@@ -2352,8 +2391,15 @@ function MobileTransactionDraft({
                 : "Thêm nội dung hoặc đổi ngày"}
             </Button>
             {showDetails && (
-              <div className="ledger-create-progressive-details">
+              <div
+                className={
+                  quickSheetEdit
+                    ? "quick-details"
+                    : "ledger-create-progressive-details"
+                }
+              >
                 <DatePicker
+                  spotlight
                   disabled={locked}
                   label="Ngày giao dịch"
                   value={draft.date}
@@ -2374,6 +2420,7 @@ function MobileTransactionDraft({
         ) : (
           <>
             <DatePicker
+              spotlight
               disabled={locked}
               label="Ngày giao dịch"
               value={draft.date}
@@ -2393,14 +2440,19 @@ function MobileTransactionDraft({
         )}
       </div>
       <div
-        className={`ledger-mobile-draft-actions${mode === "edit" && progressiveDetails ? " single-action" : ""}`}
+        className={`ledger-mobile-draft-actions${quickSheetEdit ? " quick-transaction-footer" : ""}${mode === "edit" && progressiveDetails ? " single-action" : ""}`}
       >
         {(mode !== "edit" || !progressiveDetails) && (
           <Button variant="outline" disabled={busy} onClick={onCancel}>
             Hủy
           </Button>
         )}
-        <Button variant="default" disabled={locked} onClick={onSave}>
+        <Button
+          variant="default"
+          className={quickSheetEdit ? "quick-submit" : undefined}
+          disabled={locked}
+          onClick={onSave}
+        >
           {busy
             ? "Đang lưu"
             : mode === "create"

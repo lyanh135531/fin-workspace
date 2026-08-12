@@ -479,7 +479,6 @@ html[data-theme="sunrise"][data-mode="light"] {
   .recurring-mobile-filters {
     display: flex;
     gap: 0.45rem;
-    margin: 0.95rem -0.25rem 0;
     padding: 0.15rem 0.25rem 0.35rem;
     overflow-x: auto;
     scrollbar-width: none;
@@ -545,7 +544,6 @@ html[data-theme="sunrise"][data-mode="light"] {
     margin-top: 0.55rem;
     overflow: visible;
     border: 0;
-    border-radius: 0;
     background: transparent;
   }
 
@@ -706,6 +704,17 @@ html[data-theme="sunrise"][data-mode="light"] {
     transform: none !important;
   }
 
+  .recurring-sheet-handle {
+    display: block;
+    width: 2.5rem;
+    height: 0.24rem;
+    flex: 0 0 auto;
+    align-self: center;
+    margin-top: 0.45rem;
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--text-muted) 42%, transparent);
+  }
+
   .recurring-sheet-content[data-side="bottom"][data-starting-style],
   .recurring-sheet-content[data-side="bottom"][data-ending-style] {
     opacity: 0;
@@ -713,11 +722,43 @@ html[data-theme="sunrise"][data-mode="light"] {
   }
 
   .recurring-sheet-header {
-    padding: 0.9rem 1rem !important;
+    background: color-mix(in srgb, var(--surface) 94%, var(--primary-soft));
+    padding: 0.6rem 1rem 0.8rem !important;
+  }
+
+  .recurring-sheet-heading {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.7rem;
+  }
+
+  .recurring-sheet-heading > span {
+    display: grid;
+    width: 2.35rem;
+    height: 2.35rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 0.72rem;
+    color: var(--primary);
+  }
+
+  .recurring-sheet-heading > div {
+    min-width: 0;
   }
 
   .recurring-sheet-header [data-slot="sheet-title"] {
     font-size: 1rem;
+    font-weight: 740;
+    letter-spacing: -0.02em;
+  }
+
+  .recurring-sheet-header [data-slot="sheet-description"] {
+    max-width: 38ch;
+    margin-top: 0.12rem;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    line-height: 1.4;
   }
 
   .recurring-sheet-body {
@@ -726,25 +767,56 @@ html[data-theme="sunrise"][data-mode="light"] {
   }
 
   .recurring-editor {
-    gap: 1rem;
-    padding-block: 1rem !important;
+    gap: 0.8rem;
+    padding-block: 0.8rem 1rem !important;
   }
 
   .recurring-editor-intro {
-    padding: 0.8rem;
-    border-radius: 0.85rem;
+    align-items: center;
+    flex-direction: row;
+    gap: 0.65rem;
+    padding: 0.65rem 0.7rem;
+    background: color-mix(in srgb, var(--primary) 6%, var(--surface));
   }
 
   .recurring-editor-preview {
+    margin-left: auto;
     white-space: normal;
   }
 
-  .recurring-editor-section {
-    gap: 0.6rem;
+  .recurring-editor-intro p {
+    display: none;
   }
 
-  .recurring-editor [data-slot="tabs-list"] {
-    min-height: 2.8rem;
+  .recurring-editor-section {
+    gap: 0.65rem;
+  }
+
+  .recurring-editor-section-title {
+    font-size: 0.74rem;
+  }
+
+  .recurring-type-tabs {
+    display: block;
+  }
+
+  .recurring-type-switch.quick-type-switch {
+    margin: 0;
+    padding: 0.25rem;
+  }
+
+  .recurring-transaction-grid {
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  .recurring-amount-field {
+    order: -1;
+  }
+
+  .recurring-date-grid .recurring-field > small {
+    margin-top: -0.12rem;
+    font-size: 0.61rem;
   }
 
   .recurring-sheet-footer {
@@ -755,7 +827,6 @@ html[data-theme="sunrise"][data-mode="light"] {
 
   .recurring-sheet-footer [data-slot="button"] {
     width: 100%;
-    min-height: 2.75rem;
   }
 }
 
@@ -2268,12 +2339,6 @@ textarea {
 [data-slot="tabs-trigger"] > svg {
   width: 1rem;
   height: 1rem;
-}
-
-/* Shadcn Select trigger typography must not inherit arbitrary page font sizes. */
-[data-slot="select-trigger"] {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
 }
 
 /* ── Universal Pointer Cursor & Interactive State Alignment ── */
@@ -10523,6 +10588,13 @@ html[data-sidebar-collapsed="true"] .sidebar-user-avatar {
   font-size: 0.74rem;
 }
 
+@media (min-width: 641px) {
+  .recurring-sheet-handle,
+  .recurring-sheet-heading > span {
+    display: none;
+  }
+}
+
 /* Creation sheet — a guided, scannable form rather than one undifferentiated grid. */
 .recurring-editor {
   display: grid;
@@ -10536,7 +10608,6 @@ html[data-sidebar-collapsed="true"] .sidebar-user-avatar {
   gap: 1rem;
   padding: 1rem 1rem 0.9rem;
   border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--border));
-  border-radius: 0.9rem;
   background: linear-gradient(
     135deg,
     color-mix(in srgb, var(--primary) 10%, var(--surface)) 0%,
@@ -10569,7 +10640,6 @@ html[data-sidebar-collapsed="true"] .sidebar-user-avatar {
   flex: none;
   padding: 0.46rem 0.6rem;
   border-radius: 0.55rem;
-  background: color-mix(in srgb, var(--primary) 11%, var(--surface));
   color: var(--primary);
   font-size: 0.67rem;
   font-weight: 680;
@@ -10844,7 +10914,6 @@ html[data-sidebar-collapsed="true"] .sidebar-user-avatar {
   margin-top: 1rem;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 1rem;
   background: var(--surface);
 }
 
@@ -11080,8 +11149,30 @@ html[data-sidebar-collapsed="true"] .sidebar-user-avatar {
   }
 
   .recurring-editor-intro {
-    align-items: start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    border-color: transparent;
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+  }
+
+  .recurring-editor-intro > div:first-child {
+    min-width: 0;
+  }
+
+  .recurring-editor-kicker {
+    font-size: 0.65rem;
+    letter-spacing: 0.025em;
+    white-space: nowrap;
+  }
+
+  .recurring-editor-preview {
+    margin-left: auto;
+    padding: 0.34rem 0.48rem;
+    border-radius: 0.5rem;
+    font-size: 0.64rem;
   }
 
   .recurring-transaction-grid,
@@ -12178,7 +12269,6 @@ html[data-sidebar-collapsed="true"]
   margin: 0.85rem 0;
   padding: 0.25rem;
   border: 1px solid var(--border);
-  border-radius: 0.4rem;
   background: var(--surface-secondary);
 }
 
@@ -12191,7 +12281,6 @@ html[data-sidebar-collapsed="true"]
   justify-content: center;
   gap: 0.4rem;
   border: 0;
-  border-radius: 5.6px;
   background: transparent;
   color: var(--text-secondary);
   font-size: 0.78rem;
@@ -12248,6 +12337,7 @@ html[data-sidebar-collapsed="true"]
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  border: 0;
   border-bottom: 1px solid var(--border-strong);
   transition:
     border-color 150ms ease,
@@ -12270,8 +12360,9 @@ html[data-sidebar-collapsed="true"]
 }
 
 .quick-amount-field [data-slot="money-input-control"]:focus-within {
-  border-bottom-color: var(--primary);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--primary) 30%, transparent);
+  border: 0 !important;
+  border-bottom: 1px solid var(--primary) !important;
+  box-shadow: none !important;
 }
 
 .quick-amount-field [data-slot="money-input-control"]:focus-within::after,
@@ -12290,6 +12381,14 @@ html[data-sidebar-collapsed="true"]
   letter-spacing: -0.045em;
   box-shadow: none !important;
   font-variant-numeric: tabular-nums;
+}
+
+.quick-amount-field input:focus,
+.quick-amount-field input:focus-visible {
+  border: 0 !important;
+  border-left: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
 }
 
 .quick-amount-field [data-slot="money-input-currency"] {
@@ -12662,7 +12761,10 @@ html[data-sidebar-collapsed="true"]
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
-    transition: background-color 120ms ease;
+    transition:
+      background-color 120ms ease,
+      box-shadow 170ms ease,
+      transform 170ms ease;
   }
 
   .ledger-mobile-row:last-child {
@@ -12685,6 +12787,14 @@ html[data-sidebar-collapsed="true"]
 
   .ledger-mobile-row:focus-visible {
     box-shadow: inset 0 0 0 2px var(--focus-ring);
+  }
+
+  .ledger-mobile-row.spotlight-menu-trigger-active {
+    border-radius: 0.75rem;
+    background: var(--surface);
+    box-shadow: none;
+    transform: translateY(-0.1rem);
+    border: 0;
   }
 
   .ledger-mobile-row-category {
@@ -13158,10 +13268,6 @@ html[data-sidebar-collapsed="true"]
     border-top: 1px solid var(--border);
   }
 
-  .ledger-mobile-draft-actions [data-slot="button"] {
-    min-height: 2.75rem;
-  }
-
   .ledger-mobile-draft-actions.single-action {
     width: 100%;
     grid-template-columns: minmax(0, 1fr);
@@ -13212,7 +13318,6 @@ html[data-sidebar-collapsed="true"]
 @media (max-width: 760px) {
   .recurring-ledger-card {
     margin-top: 0.75rem;
-    border-radius: 1rem;
   }
 
   .recurring-toolbar {
@@ -13244,7 +13349,6 @@ html[data-sidebar-collapsed="true"]
 
   .recurring-mobile-card {
     overflow: hidden;
-    border: 1px solid var(--border);
     border-radius: 0.45rem;
     background: var(--surface);
     box-shadow: 0 3px 12px var(--shadow);
@@ -13363,13 +13467,6 @@ html[data-sidebar-collapsed="true"]
 
   .recurring-field-wide {
     grid-column: auto;
-  }
-
-  .recurring-editor input,
-  .recurring-editor .finance-select-trigger,
-  .recurring-editor .category-tree-trigger {
-    min-height: 2.75rem;
-    font-size: 1rem;
   }
 
   .recurring-editor-heading,
@@ -15826,15 +15923,19 @@ html[data-sidebar-collapsed="true"]
 
   .recurring-mobile-card {
     display: grid;
-    grid-template-columns: 3.15rem minmax(0, 1fr) auto;
-    gap: 0.75rem;
+    grid-template-columns: 3.15rem minmax(0, 1fr);
+    column-gap: 0.7rem;
     overflow: hidden;
-    border: 1px solid var(--border);
+    padding: 0.75rem 0.75rem 0;
     border-radius: 1rem;
     background: var(--surface);
-    box-shadow: 0 0.35rem 1.2rem color-mix(in srgb, var(--shadow) 55%, transparent);
+    box-shadow: 0 0.35rem 1.2rem
+      color-mix(in srgb, var(--shadow) 55%, transparent);
     cursor: context-menu;
-    transition: transform 170ms ease, border-color 170ms ease, box-shadow 170ms ease;
+    transition:
+      transform 170ms ease,
+      border-color 170ms ease,
+      box-shadow 170ms ease;
   }
 
   .recurring-mobile-card:active,
@@ -15845,18 +15946,26 @@ html[data-sidebar-collapsed="true"]
 
   .recurring-mobile-card.spotlight-menu-trigger-active {
     transform: translateY(-0.15rem) scale(1.01);
-    box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--foreground) 18%, transparent);
+    box-shadow: 0 1rem 2.5rem
+      color-mix(in srgb, var(--foreground) 18%, transparent);
   }
 
   .recurring-mobile-card .recurring-mobile-date {
     display: grid;
-    margin: 0.85rem 0 0 0.85rem;
+    margin: 0;
   }
 
   .recurring-mobile-card-main {
     min-width: 0;
     align-self: center;
-    padding-top: 0.85rem;
+  }
+
+  .recurring-mobile-card-topline {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem;
   }
 
   .recurring-mobile-card-status {
@@ -15864,7 +15973,7 @@ html[data-sidebar-collapsed="true"]
     align-items: center;
     flex-wrap: wrap;
     gap: 0.35rem;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0;
   }
 
   .recurring-mobile-card-status .status {
@@ -15881,7 +15990,8 @@ html[data-sidebar-collapsed="true"]
     overflow: hidden;
     margin: 0;
     color: var(--foreground);
-    font-size: 0.87rem;
+    margin-top: 0.38rem;
+    font-size: 0.9rem;
     font-weight: 680;
     letter-spacing: -0.015em;
     text-overflow: ellipsis;
@@ -15898,25 +16008,14 @@ html[data-sidebar-collapsed="true"]
   }
 
   .recurring-mobile-card-amount {
-    display: grid;
-    justify-items: end;
-    align-content: center;
-    gap: 0.45rem;
-    padding: 0.85rem 0.85rem 0 0;
-  }
-
-  .recurring-mobile-card-amount strong {
+    flex: 0 0 auto;
     font-size: 0.8rem;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
 
-  .recurring-mobile-card-amount strong small {
+  .recurring-mobile-card-amount small {
     font-size: 0.56rem;
-  }
-
-  .recurring-mobile-card-amount > svg {
-    color: var(--text-muted);
   }
 
   .recurring-mobile-card-footer {
@@ -15926,8 +16025,13 @@ html[data-sidebar-collapsed="true"]
     align-items: center;
     gap: 0.55rem;
     min-height: 2.45rem;
+    margin: 0.7rem -0.75rem 0;
     border-top: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface-secondary) 60%, var(--surface));
+    background: color-mix(
+      in srgb,
+      var(--surface-secondary) 60%,
+      var(--surface)
+    );
     padding: 0.55rem 0.85rem;
     color: var(--text-secondary);
     font-size: 0.61rem;
@@ -15951,13 +16055,19 @@ html[data-sidebar-collapsed="true"]
     font-variant-numeric: tabular-nums;
   }
 
+  .recurring-mobile-card-footer .recurring-mobile-card-hint {
+    color: var(--primary);
+    font-weight: 650;
+  }
+
   .recurring-mobile-context-menu {
     width: min(16rem, calc(100vw - 2rem));
     border: 1px solid var(--border);
     border-radius: 0.9rem !important;
     background: var(--surface);
     padding: 0.35rem !important;
-    box-shadow: 0 0.85rem 2rem color-mix(in srgb, var(--foreground) 16%, transparent);
+    box-shadow: 0 0.85rem 2rem
+      color-mix(in srgb, var(--foreground) 16%, transparent);
   }
 
   .recurring-mobile-context-menu [data-slot="dropdown-menu-item"] {
@@ -15986,7 +16096,8 @@ html[data-sidebar-collapsed="true"]
     border-radius: 1.2rem !important;
     background: var(--surface) !important;
     padding: 0 !important;
-    box-shadow: 0 -1.25rem 3.75rem color-mix(in srgb, var(--shadow) 90%, transparent);
+    box-shadow: 0 -1.25rem 3.75rem
+      color-mix(in srgb, var(--shadow) 90%, transparent);
     transform: translateX(-50%);
   }
 
@@ -16006,7 +16117,6 @@ html[data-sidebar-collapsed="true"]
     flex: 0 0 auto;
     place-items: center;
     border-radius: 0.7rem;
-    background: color-mix(in srgb, var(--danger) 10%, var(--surface));
     color: var(--danger);
   }
 
@@ -16057,7 +16167,6 @@ html[data-sidebar-collapsed="true"]
 
   .recurring-delete-sheet-footer [data-slot="button"] {
     width: 100%;
-    min-height: 2.75rem;
   }
 
   .recurring-page .recurring-summary-details {
@@ -16072,9 +16181,7 @@ html[data-sidebar-collapsed="true"]
   }
 
   .recurring-page .recurring-ledger-card {
-    margin-top: 0.55rem;
-    border: 0;
-    border-radius: 0;
+    margin-top: 1rem;
   }
 
   .recurring-page .recurring-schedule-row {
@@ -16189,7 +16296,8 @@ html[data-sidebar-collapsed="true"]
     border: 1px solid var(--border);
     border-radius: 1.05rem;
     background: var(--surface);
-    box-shadow: 0 0.35rem 1.25rem color-mix(in srgb, var(--shadow) 48%, transparent);
+    box-shadow: 0 0.35rem 1.25rem
+      color-mix(in srgb, var(--shadow) 48%, transparent);
   }
 
   .overview-mobile-member-chart-card {
@@ -16300,7 +16408,8 @@ html[data-sidebar-collapsed="true"]
     border-radius: 1.35rem;
     background: color-mix(in srgb, var(--primary) 9%, var(--surface));
     padding: 1rem 1.05rem 0;
-    box-shadow: 0 0.8rem 2.2rem color-mix(in srgb, var(--primary) 12%, transparent);
+    box-shadow: 0 0.8rem 2.2rem
+      color-mix(in srgb, var(--primary) 12%, transparent);
   }
 
   .overview-mobile-balance-hero::before,
@@ -16447,7 +16556,8 @@ html[data-sidebar-collapsed="true"]
     border-radius: 0.95rem;
     background: var(--surface);
     padding: 0.8rem 0.85rem;
-    box-shadow: 0 0.4rem 1.3rem color-mix(in srgb, var(--shadow) 50%, transparent);
+    box-shadow: 0 0.4rem 1.3rem
+      color-mix(in srgb, var(--shadow) 50%, transparent);
   }
 
   .overview-mobile-pulse > header {
@@ -16654,7 +16764,8 @@ html[data-sidebar-collapsed="true"]
   .overview-shell .overview-card {
     border-color: var(--border);
     border-radius: 1.05rem;
-    box-shadow: 0 0.35rem 1.25rem color-mix(in srgb, var(--shadow) 48%, transparent);
+    box-shadow: 0 0.35rem 1.25rem
+      color-mix(in srgb, var(--shadow) 48%, transparent);
   }
 
   .overview-shell .overview-card > header,
@@ -16732,9 +16843,7 @@ html[data-sidebar-collapsed="true"]
     display: block;
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
-    border-radius: 1.35rem;
     background: color-mix(in srgb, var(--primary) 8%, var(--surface));
-    box-shadow: 0 0.9rem 2.5rem color-mix(in srgb, var(--primary) 13%, transparent);
   }
 
   .recurring-mobile-control::before,
@@ -16788,7 +16897,8 @@ html[data-sidebar-collapsed="true"]
 
   .recurring-mobile-control-state i[data-active="true"] {
     background: var(--success);
-    box-shadow: 0 0 0 0.22rem color-mix(in srgb, var(--success) 13%, transparent);
+    box-shadow: 0 0 0 0.22rem
+      color-mix(in srgb, var(--success) 13%, transparent);
   }
 
   .recurring-mobile-control > header > small {
@@ -16857,7 +16967,8 @@ html[data-sidebar-collapsed="true"]
     border-radius: 0.82rem;
     background: var(--primary);
     color: var(--primary-foreground);
-    box-shadow: 0 0.5rem 1.3rem color-mix(in srgb, var(--primary) 27%, transparent);
+    box-shadow: 0 0.5rem 1.3rem
+      color-mix(in srgb, var(--primary) 27%, transparent);
   }
 
   .recurring-mobile-orbit > i {
@@ -16997,27 +17108,59 @@ html[data-sidebar-collapsed="true"]
   }
 
   .recurring-page .recurring-mobile-filters {
-    gap: 0.35rem;
-    margin-top: 0.8rem;
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    margin-top: 1rem;
     border: 1px solid var(--border);
-    border-radius: 0.9rem;
-    background: var(--surface);
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
     padding: 0.3rem;
-    box-shadow: 0 0.3rem 1rem color-mix(in srgb, var(--shadow) 42%, transparent);
+    overflow: visible;
+    box-shadow: none;
+    backdrop-filter: blur(14px);
   }
 
   .recurring-page .recurring-mobile-filter {
+    width: 100%;
+    min-width: 0;
     min-height: 2.2rem;
-    flex: 1 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.28rem;
     border: 0;
-    border-radius: 0.62rem;
+    border-radius: 0.78rem;
     background: transparent;
-    padding: 0.45rem 0.58rem;
+    padding: 0.45rem 0.2rem;
+    color: var(--text-muted);
+    font-size: 0.63rem;
+    font-weight: 650;
+    white-space: nowrap;
   }
 
   .recurring-page .recurring-mobile-filter[data-active="true"] {
-    background: var(--primary);
-    box-shadow: 0 0.35rem 0.9rem color-mix(in srgb, var(--primary) 20%, transparent);
+    background: var(--background);
+    color: var(--primary);
+    box-shadow: 0 1px 4px var(--shadow);
+  }
+
+  .recurring-page .recurring-mobile-filter > svg {
+    width: 0.78rem;
+    height: 0.78rem;
+    flex: 0 0 auto;
+  }
+
+  .recurring-page .recurring-mobile-filter > span {
+    min-width: 0;
+    overflow: hidden;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .recurring-page .recurring-list-heading {
@@ -17038,18 +17181,8 @@ html[data-sidebar-collapsed="true"]
     position: relative;
     border-color: color-mix(in srgb, var(--border) 90%, transparent);
     background: var(--surface);
-    box-shadow: 0 0.4rem 1.35rem color-mix(in srgb, var(--shadow) 52%, transparent);
-  }
-
-  .recurring-page .recurring-mobile-card::before {
-    position: absolute;
-    top: 0.85rem;
-    bottom: 2.55rem;
-    left: 0;
-    width: 0.2rem;
-    border-radius: 0 0.2rem 0.2rem 0;
-    background: var(--primary);
-    content: "";
+    box-shadow: 0 0.4rem 1.35rem
+      color-mix(in srgb, var(--shadow) 52%, transparent);
   }
 
   .recurring-page .recurring-mobile-card[data-type="expense"]::before {
@@ -17065,7 +17198,11 @@ html[data-sidebar-collapsed="true"]
   }
 
   .recurring-page .recurring-mobile-card-footer {
-    background: color-mix(in srgb, var(--surface-secondary) 52%, var(--surface));
+    background: color-mix(
+      in srgb,
+      var(--surface-secondary) 52%,
+      var(--surface)
+    );
   }
 }
 

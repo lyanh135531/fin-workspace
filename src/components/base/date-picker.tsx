@@ -14,6 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { cn } from "@/lib/utils";
 
 export type DatePickerProps = {
@@ -31,6 +32,7 @@ export type DatePickerProps = {
   minDate?: string;
   maxDate?: string;
   className?: string;
+  spotlight?: boolean;
 };
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -77,6 +79,7 @@ export function DatePicker({
   minDate,
   maxDate,
   className,
+  spotlight = false,
 }: DatePickerProps) {
   const generatedId = useId();
   const datePickerId = id ?? (label ? generatedId : undefined);
@@ -124,37 +127,54 @@ export function DatePicker({
     }
   }
 
+  const triggerButton = (
+    <Button
+      id={datePickerId}
+      type="button"
+      variant="outline"
+      aria-label={ariaLabel ?? label}
+      disabled={disabled}
+      className={cn(
+        "date-picker border border-input shadow-none hover:bg-transparent w-full justify-between px-3 font-normal tabular-nums bg-transparent dark:bg-input/30 dark:hover:bg-input/50",
+        !selectedDate && "text-muted-foreground",
+        className,
+      )}
+    />
+  );
+  const triggerContent = (
+    <>
+      <span className="flex min-w-0 items-center gap-2">
+        <CalendarDays className="size-3.5 text-primary" aria-hidden="true" />
+        <span className="truncate">
+          {selectedDate
+            ? format(selectedDate, "dd/MM/yyyy", { locale: vi })
+            : placeholder}
+        </span>
+      </span>
+      <ChevronDown
+        className="size-3.5 text-muted-foreground"
+        aria-hidden="true"
+      />
+    </>
+  );
   const picker = (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            id={datePickerId}
-            type="button"
-            variant="outline"
-            aria-label={ariaLabel ?? label}
-            disabled={disabled}
-            className={cn(
-              "date-picker border border-input shadow-none hover:bg-transparent w-full justify-between px-3 font-normal tabular-nums bg-transparent dark:bg-input/30 dark:hover:bg-input/50",
-              !selectedDate && "text-muted-foreground",
-              className,
-            )}
-          />
-        }
-      >
-        <span className="flex min-w-0 items-center gap-2">
-          <CalendarDays className="size-3.5 text-primary" aria-hidden="true" />
-          <span className="truncate">
-            {selectedDate
-              ? format(selectedDate, "dd/MM/yyyy", { locale: vi })
-              : placeholder}
-          </span>
-        </span>
-        <ChevronDown
-          className="size-3.5 text-muted-foreground"
-          aria-hidden="true"
-        />
-      </PopoverTrigger>
+      {spotlight ? (
+        <SpotlightTrigger
+          open={open}
+          onOpenChange={setOpen}
+          render={triggerButton}
+          dismissLabel={`Đóng lịch ${label ?? ariaLabel ?? "chọn ngày"}`}
+        >
+          {(spotlightTrigger) => (
+            <PopoverTrigger render={spotlightTrigger}>
+              {triggerContent}
+            </PopoverTrigger>
+          )}
+        </SpotlightTrigger>
+      ) : (
+        <PopoverTrigger render={triggerButton}>{triggerContent}</PopoverTrigger>
+      )}
 
       <PopoverContent
         align="start"

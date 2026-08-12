@@ -1,6 +1,12 @@
 "use client";
 
-import { cloneElement, type ReactElement, type ReactNode } from "react";
+import {
+  cloneElement,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { cn } from "@/lib/utils";
 
 export type SpotlightTriggerElement = ReactElement<{ className?: string }>;
@@ -20,6 +26,17 @@ export function SpotlightTrigger({
   children,
   dismissLabel,
 }: SpotlightTriggerProps) {
+  function blockBackdropPointer(event: PointerEvent<HTMLButtonElement>): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function dismissFromBackdrop(event: MouseEvent<HTMLButtonElement>): void {
+    event.preventDefault();
+    event.stopPropagation();
+    onOpenChange(false);
+  }
+
   const spotlightTrigger = cloneElement(render, {
     className: cn(
       render.props.className,
@@ -36,7 +53,9 @@ export function SpotlightTrigger({
           tabIndex={-1}
           aria-label={dismissLabel}
           className="spotlight-menu-backdrop"
-          onPointerDown={() => onOpenChange(false)}
+          onPointerDown={blockBackdropPointer}
+          onClick={dismissFromBackdrop}
+          onContextMenu={dismissFromBackdrop}
         />
       )}
       {children(spotlightTrigger)}

@@ -51,11 +51,13 @@ export type QuickWorkspace = {
 };
 
 function supportsQuickTransaction(pathname: string) {
-  return pathname === "/overview"
-    || pathname === "/dashboard"
-    || pathname.startsWith("/workspace/")
-    || pathname === "/wallets"
-    || pathname === "/recurring-transactions";
+  return (
+    pathname === "/overview" ||
+    pathname === "/dashboard" ||
+    pathname.startsWith("/workspace/") ||
+    pathname === "/wallets" ||
+    pathname === "/recurring-transactions"
+  );
 }
 
 const transactionTypes: {
@@ -91,9 +93,16 @@ export function QuickTransactionSheet({
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
-  const [walletId, setWalletId] = useState(initialWorkspace?.wallets[0]?.id ?? "");
+  const [walletId, setWalletId] = useState(
+    initialWorkspace?.wallets[0]?.id ?? "",
+  );
   const [toWalletId, setToWalletId] = useState(
-    initialWorkspace ? destinationWallet(initialWorkspace, initialWorkspace.wallets[0]?.id ?? "") : "",
+    initialWorkspace
+      ? destinationWallet(
+          initialWorkspace,
+          initialWorkspace.wallets[0]?.id ?? "",
+        )
+      : "",
   );
   const [categoryId, setCategoryId] = useState("none");
   const [description, setDescription] = useState("");
@@ -106,12 +115,14 @@ export function QuickTransactionSheet({
       setOpen(true);
     }
     window.addEventListener("open-quick-transaction", handleOpenEvent);
-    return () => window.removeEventListener("open-quick-transaction", handleOpenEvent);
+    return () =>
+      window.removeEventListener("open-quick-transaction", handleOpenEvent);
   }, []);
 
   const workspace = initialWorkspace;
   const categories = useMemo(
-    () => workspace?.categories.filter((category) => category.type === type) ?? [],
+    () =>
+      workspace?.categories.filter((category) => category.type === type) ?? [],
     [type, workspace],
   );
 
@@ -157,11 +168,12 @@ export function QuickTransactionSheet({
         toast.error(result.message ?? "Không thể lưu giao dịch.");
         return;
       }
-      const message = result.status === "pending"
-        ? `Đã gửi giao dịch vào ${workspace.name} để Admin duyệt.`
-        : result.status === "scheduled"
-          ? `Đã lên lịch giao dịch trong ${workspace.name}.`
-          : `Đã ghi nhận giao dịch trong ${workspace.name}.`;
+      const message =
+        result.status === "pending"
+          ? `Đã gửi giao dịch vào ${workspace.name} để Admin duyệt.`
+          : result.status === "scheduled"
+            ? `Đã lên lịch giao dịch trong ${workspace.name}.`
+            : `Đã ghi nhận giao dịch trong ${workspace.name}.`;
       toast.success(message);
       resetEntry();
       setOpen(false);
@@ -173,11 +185,12 @@ export function QuickTransactionSheet({
 
   if (!workspace) return null;
 
-  const statusHint = date > workspace.businessDate
-    ? "Giao dịch sẽ được lên lịch."
-    : date < workspace.businessDate && !isAdminRole(workspace.role)
-      ? "Giao dịch quá khứ sẽ chờ Admin duyệt."
-      : null;
+  const statusHint =
+    date > workspace.businessDate
+      ? "Giao dịch sẽ được lên lịch."
+      : date < workspace.businessDate && !isAdminRole(workspace.role)
+        ? "Giao dịch quá khứ sẽ chờ Admin duyệt."
+        : null;
   const transferDisabled = workspace.wallets.length < 2;
 
   return (
@@ -197,13 +210,12 @@ export function QuickTransactionSheet({
       )}
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side="bottom"
-          className="quick-transaction-sheet"
-        >
+        <SheetContent side="bottom" className="quick-transaction-sheet">
           <SheetHeader className="quick-transaction-header">
             <div className="quick-transaction-heading">
-              <span><WalletCards size={18} /></span>
+              <span>
+                <WalletCards size={18} />
+              </span>
               <div>
                 <SheetTitle>Nhập nhanh giao dịch</SheetTitle>
                 <SheetDescription>
@@ -213,7 +225,11 @@ export function QuickTransactionSheet({
             </div>
           </SheetHeader>
 
-          <form className="quick-transaction-form" onSubmit={submit} aria-busy={pending}>
+          <form
+            className="quick-transaction-form"
+            onSubmit={submit}
+            aria-busy={pending}
+          >
             <div className="quick-transaction-scroll">
               <Tabs
                 value={type}
@@ -221,7 +237,7 @@ export function QuickTransactionSheet({
                 className="quick-type-tabs"
               >
                 <TabsList
-                  className="quick-type-switch"
+                  className="quick-type-switch rounded-2xl"
                   aria-label="Loại giao dịch"
                 >
                   {transactionTypes.map((item) => {
@@ -234,6 +250,7 @@ export function QuickTransactionSheet({
                         value={item.value}
                         data-transaction-type={item.value}
                         disabled={disabled}
+                        className={"rounded-2xl"}
                       >
                         <Icon size={17} />
                         {item.label}
@@ -256,12 +273,15 @@ export function QuickTransactionSheet({
               {workspace.wallets.length ? (
                 <div className="quick-transaction-grid">
                   <Select
+                    spotlight
                     label={type === "transfer" ? "Ví gửi" : "Ví"}
                     value={walletId}
                     onValueChange={(nextWalletId) => {
                       setWalletId(nextWalletId);
                       if (nextWalletId === toWalletId) {
-                        setToWalletId(destinationWallet(workspace, nextWalletId));
+                        setToWalletId(
+                          destinationWallet(workspace, nextWalletId),
+                        );
                       }
                     }}
                     placeholder="Chọn ví"
@@ -273,6 +293,7 @@ export function QuickTransactionSheet({
 
                   {type === "transfer" ? (
                     <Select
+                      spotlight
                       label="Ví nhận"
                       value={toWalletId}
                       onValueChange={setToWalletId}
@@ -285,6 +306,7 @@ export function QuickTransactionSheet({
                     />
                   ) : (
                     <CategoryTreeSelect
+                      spotlight
                       label="Danh mục"
                       value={categoryId}
                       onValueChange={setCategoryId}
@@ -304,19 +326,24 @@ export function QuickTransactionSheet({
                 />
               )}
 
-              <Button variant="unstyled" size="auto"
+              <Button
+                variant="unstyled"
+                size="auto"
                 type="button"
                 className="quick-details-toggle"
                 onClick={() => setShowDetails((current) => !current)}
                 aria-expanded={showDetails}
               >
                 <CalendarDays size={16} />
-                {showDetails ? "Ẩn thông tin bổ sung" : "Thêm nội dung hoặc đổi ngày"}
+                {showDetails
+                  ? "Ẩn thông tin bổ sung"
+                  : "Thêm nội dung hoặc đổi ngày"}
               </Button>
 
               {showDetails && (
                 <div className="quick-details">
                   <DatePicker
+                    spotlight
                     label="Ngày giao dịch"
                     value={date}
                     onValueChange={setDate}

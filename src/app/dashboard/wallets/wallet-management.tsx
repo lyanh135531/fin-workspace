@@ -434,18 +434,15 @@ export function WalletManagement({
               <TabsTrigger value="all" className="rounded-2xl">
                 <WalletCards aria-hidden />
                 <span>Tất cả</span>
-                <TabsCount>{wallets.length}</TabsCount>
               </TabsTrigger>
               <TabsTrigger value="active" className="rounded-2xl">
                 <CheckCircle2 aria-hidden />
                 <span>Hoạt động</span>
-                <TabsCount>{activeCount}</TabsCount>
               </TabsTrigger>
               {wallets.length - activeCount > 0 && (
                 <TabsTrigger value="deactive" className="rounded-2xl">
                   <PauseCircle aria-hidden />
                   <span>Tạm ngưng</span>
-                  <TabsCount>{wallets.length - activeCount}</TabsCount>
                 </TabsTrigger>
               )}
             </TabsList>
