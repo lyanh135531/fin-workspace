@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 import "./ledger-page.css";
 import "./responsive-foundation.css";
+import "./overview-desktop.css";
 
 const geist = Geist({
   subsets: ["latin"],
