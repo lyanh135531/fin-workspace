@@ -1827,6 +1827,13 @@
     user-select: none;
   }
 
+  [data-slot="sheet-content"][data-side="bottom"]
+    [data-slot="sheet-header"] {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
   [data-slot="mobile-sheet-drag-handle"] > span {
     width: 2.5rem;
     height: 0.24rem;
@@ -1840,7 +1847,10 @@
   }
 
   [data-slot="sheet-content"][data-mobile-sheet-dragging="true"]
-    [data-slot="mobile-sheet-drag-handle"] {
+    :is(
+      [data-slot="mobile-sheet-drag-handle"],
+      [data-slot="sheet-header"]
+    ) {
     cursor: grabbing;
   }
 

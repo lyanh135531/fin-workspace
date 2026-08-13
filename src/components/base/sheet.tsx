@@ -9,10 +9,13 @@ import { Button } from "./button";
 
 type BottomSheetDragStart = {
   y: number;
+  time: number;
 };
 
 const MOBILE_SHEET_QUERY = "(max-width: 760px)";
 const MOBILE_SHEET_CLOSE_RATIO = 2 / 3;
+const MOBILE_SHEET_FAST_SWIPE_DISTANCE = 24;
+const MOBILE_SHEET_FAST_SWIPE_VELOCITY = 0.65;
 
 function Sheet(props: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />;
@@ -67,9 +70,20 @@ function SheetContent({
   }
 
   function handleDragStart(event: React.PointerEvent<HTMLDivElement>): void {
+    const target = event.target as HTMLElement;
+    const dragSurface = target.closest(
+      '[data-slot="mobile-sheet-drag-handle"], [data-slot="sheet-header"]',
+    );
+    const interactiveTarget = target.closest(
+      "button, a, input, select, textarea, [role='button']",
+    );
+
     if (
+      event.defaultPrevented ||
       !isBottomSheet ||
       event.button !== 0 ||
+      !dragSurface ||
+      interactiveTarget ||
       !window.matchMedia(MOBILE_SHEET_QUERY).matches
     ) {
       return;
@@ -77,7 +91,7 @@ function SheetContent({
 
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    dragStartRef.current = { y: event.clientY };
+    dragStartRef.current = { y: event.clientY, time: performance.now() };
     setDragging(true);
   }
 
@@ -100,11 +114,14 @@ function SheetContent({
 
     event.currentTarget.releasePointerCapture(event.pointerId);
     const distance = Math.max(0, event.clientY - dragStart.y);
-    const sheetHeight = event.currentTarget.parentElement?.getBoundingClientRect()
-      .height;
+    const elapsed = Math.max(performance.now() - dragStart.time, 1);
+    const velocity = distance / elapsed;
+    const sheetHeight = event.currentTarget.getBoundingClientRect().height;
+    const isFastSwipe =
+      distance >= MOBILE_SHEET_FAST_SWIPE_DISTANCE &&
+      velocity >= MOBILE_SHEET_FAST_SWIPE_VELOCITY;
     const shouldClose =
-      sheetHeight !== undefined &&
-      distance >= sheetHeight * MOBILE_SHEET_CLOSE_RATIO;
+      isFastSwipe || distance >= sheetHeight * MOBILE_SHEET_CLOSE_RATIO;
 
     resetDrag();
     if (shouldClose) closeButtonRef.current?.click();
@@ -135,14 +152,14 @@ function SheetContent({
           } as React.CSSProperties
         }
         {...props}
+        onPointerDown={handleDragStart}
+        onPointerMove={handleDragMove}
+        onPointerUp={handleDragEnd}
+        onPointerCancel={handleDragCancel}
       >
         {isBottomSheet && (
           <div
             data-slot="mobile-sheet-drag-handle"
-            onPointerDown={handleDragStart}
-            onPointerMove={handleDragMove}
-            onPointerUp={handleDragEnd}
-            onPointerCancel={handleDragCancel}
             aria-hidden="true"
           >
             <span />
