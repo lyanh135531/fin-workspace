@@ -17,7 +17,7 @@ import {
   TrendingUp,
   WalletCards,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -160,6 +160,7 @@ export function OverviewDashboard({
   const [categoryId, setCategoryId] = useState("all");
   const [memberId, setMemberId] = useState("all");
   const [type, setType] = useState("all");
+  const [isMobile, setIsMobile] = useState(false);
   const range: CashflowRange = 6;
   const [dateRange, setDateRange] = useState<DateRangeValue>(defaultDateRange);
   const filtered = transactions.filter(
@@ -213,6 +214,205 @@ export function OverviewDashboard({
   };
   const chartEndPeriod = dateRange.to.slice(0, 7);
   const mobilePeriodLabel = `${mobileMonthLabel(dateRange.from.slice(0, 7))} – ${mobileMonthLabel(dateRange.to.slice(0, 7))}`;
+  const balanceLabel = Object.entries(totalByCurrency)
+    .map(([currency, total]) => money(total, currency))
+    .join(" · ") || money(0, workspace.currency);
+  const netCashflow = totals.income.minus(totals.expense);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 760px)");
+    const syncViewport = (): void => setIsMobile(mediaQuery.matches);
+    syncViewport();
+    mediaQuery.addEventListener("change", syncViewport);
+    return () => mediaQuery.removeEventListener("change", syncViewport);
+  }, []);
+
+  if (!isMobile) {
+    return (
+      <PageContainer size="standard" className="space-y-5 pb-10 pt-2">
+        <PageHeader
+          title="Tổng quan tài chính"
+          description={`${workspace.name} · Theo dõi dòng tiền và sức khỏe tài chính trong một góc nhìn.`}
+        >
+          <OverviewFilters
+            wallets={wallets.map(({ id, name }) => ({ id, name }))}
+            categories={categories}
+            members={members}
+            values={{ walletId, categoryId, memberId, type }}
+            dateRange={dateRange}
+            defaultDateRange={defaultDateRange}
+            onWalletChange={setWalletId}
+            onCategoryChange={setCategoryId}
+            onMemberChange={setMemberId}
+            onTypeChange={setType}
+            onDateRangeChange={setDateRange}
+            onReset={reset}
+            isMobile={false}
+          />
+        </PageHeader>
+
+        <section
+          className="grid grid-cols-1 gap-5 lg:grid-cols-12"
+          aria-label="Tóm tắt tài chính"
+        >
+          <Card as="article" className="gap-0 lg:col-span-5">
+            <div className="flex items-start justify-between gap-5">
+              <div>
+                <p className="text-xs font-medium text-[var(--text-secondary)]">
+                  Tổng số dư khả dụng
+                </p>
+                <strong className="mt-3 block text-[clamp(1.7rem,3vw,2.45rem)] font-semibold leading-none tracking-[-0.055em] text-[var(--foreground)] tabular-nums">
+                  {balanceLabel}
+                </strong>
+              </div>
+              <span
+                className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] text-[var(--primary)]"
+                aria-hidden="true"
+              >
+                <WalletCards size={20} />
+              </span>
+            </div>
+            <div className="mt-7 flex items-center justify-between gap-4 border-t border-[var(--border)] pt-4 text-xs">
+              <span className="text-[var(--text-muted)]">
+                {wallets.length} ví đang hoạt động
+              </span>
+              <span
+                className={`font-semibold tabular-nums ${netCashflow.isNegative() ? "text-[var(--expense)]" : "text-[var(--income)]"}`}
+              >
+                {netCashflow.isNegative() ? "−" : "+"}
+                {money(netCashflow.abs(), workspace.currency)} trong kỳ
+              </span>
+            </div>
+          </Card>
+
+          <Card as="article" className="gap-0 lg:col-span-7">
+            <header className="flex items-center justify-between gap-4 pb-5">
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--foreground)]">
+                  Dòng tiền trong kỳ
+                </h2>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  Chỉ tính các giao dịch đã ghi nhận
+                </p>
+              </div>
+              <span className="text-xs text-[var(--text-muted)] tabular-nums">
+                {formatDateRangeLabel(dateRange)}
+              </span>
+            </header>
+            <dl className="grid grid-cols-3 border-t border-[var(--border)] pt-5 [&>div+div]:border-l [&>div+div]:border-[var(--border)] [&>div+div]:pl-5">
+              <SummaryStat
+                label="Thu nhập"
+                value={money(totals.income, workspace.currency)}
+                tone="income"
+              />
+              <SummaryStat
+                label="Chi tiêu"
+                value={money(totals.expense, workspace.currency)}
+                tone="expense"
+              />
+              <SummaryStat
+                label="Dòng tiền ròng"
+                value={money(netCashflow, workspace.currency)}
+                tone="primary"
+              />
+            </dl>
+          </Card>
+        </section>
+
+        <CashflowOverviewCharts
+          members={members}
+          transactions={transactions}
+          currency={workspace.currency}
+          month={chartEndPeriod}
+          range={range}
+          walletId={walletId}
+          categoryId={categoryId}
+          memberId={memberId}
+          transactionType={type}
+          categoryType={
+            categories.find((category) => category.id === categoryId)?.type
+          }
+          dateRange={dateRange}
+          isMobile={false}
+        />
+
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
+          <div className="min-w-0 lg:col-span-8">
+            <BalanceHistoryChart
+              wallets={wallets}
+              transactions={transactions}
+              currency={workspace.currency}
+              month={chartEndPeriod}
+              range={range}
+              walletId={walletId}
+              dateRange={dateRange}
+              isMobile={false}
+            />
+          </div>
+          <Card as="section" className="gap-0 lg:col-span-4">
+            <header className="flex items-start justify-between gap-4 pb-5">
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--foreground)]">
+                  Chi tiêu theo danh mục
+                </h2>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  Tỷ trọng trong kỳ đã chọn
+                </p>
+              </div>
+              <span className="text-xs font-medium text-[var(--text-muted)] tabular-nums">
+                {expenseByCategory.length} mục
+              </span>
+            </header>
+            {expenseByCategory.length ? (
+              <div className="space-y-4 border-t border-[var(--border)] pt-5">
+                {expenseByCategory.slice(0, 6).map((item) => {
+                  const percentage = item.amount
+                    .div(totals.expense)
+                    .times(100);
+                  return (
+                    <div key={item.name}>
+                      <div className="flex items-center justify-between gap-4 text-xs">
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <i
+                            className="size-2 shrink-0 rounded-full"
+                            style={{ background: item.color }}
+                          />
+                          <strong className="truncate font-medium text-[var(--foreground)]">
+                            {item.name}
+                          </strong>
+                        </span>
+                        <span className="shrink-0 text-[var(--text-muted)] tabular-nums">
+                          {percentage.toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                        <span
+                          className="block h-full rounded-full"
+                          style={{
+                            width: `${percentage}%`,
+                            background: item.color,
+                          }}
+                        />
+                      </div>
+                      <p className="mt-1.5 text-right text-[0.68rem] text-[var(--text-muted)] tabular-nums">
+                        {money(item.amount, workspace.currency)}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <Empty
+                variant="compact"
+                title="Chưa có chi tiêu"
+                description="Dữ liệu theo danh mục sẽ xuất hiện tại đây."
+              />
+            )}
+          </Card>
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer className="overview-shell">
@@ -235,6 +435,7 @@ export function OverviewDashboard({
           onTypeChange={setType}
           onDateRangeChange={setDateRange}
           onReset={reset}
+          isMobile
         />
         <header className="overview-mobile-dashboard-heading">
           <div>
@@ -302,6 +503,7 @@ export function OverviewDashboard({
               categories.find((category) => category.id === categoryId)?.type
             }
             dateRange={dateRange}
+            isMobile
           />
           <BalanceHistoryChart
             wallets={wallets}
@@ -311,6 +513,7 @@ export function OverviewDashboard({
             range={range}
             walletId={walletId}
             dateRange={dateRange}
+            isMobile
           />
           <div className="overview-detail-grid">
             <Card
@@ -404,6 +607,7 @@ function CashflowOverviewCharts({
   transactionType,
   categoryType,
   dateRange,
+  isMobile,
 }: {
   members: { id: string; name: string }[];
   transactions: Transaction[];
@@ -416,16 +620,50 @@ function CashflowOverviewCharts({
   transactionType: string;
   categoryType?: "income" | "expense";
   dateRange: DateRangeValue;
+  isMobile: boolean;
 }) {
   return (
-    <Card as="section" className="overview-card overview-flow gap-0 py-0">
-      <header>
+    <Card
+      as="section"
+      className={
+        isMobile ? "overview-card overview-flow gap-0 py-0" : "gap-0 p-0"
+      }
+    >
+      <header
+        className={
+          isMobile
+            ? undefined
+            : "flex items-start justify-between gap-5 px-6 pb-4 pt-6"
+        }
+      >
         <div>
-          <h2>Thu nhập và chi tiêu theo tháng</h2>
-          <p>Giao dịch đã ghi nhận · {formatDateRangeLabel(dateRange)}</p>
+          <h2
+            className={
+              isMobile
+                ? undefined
+                : "text-base font-semibold text-[var(--foreground)]"
+            }
+          >
+            Thu nhập và chi tiêu theo tháng
+          </h2>
+          <p
+            className={
+              isMobile
+                ? undefined
+                : "mt-1 text-xs text-[var(--text-muted)]"
+            }
+          >
+            Giao dịch đã ghi nhận · {formatDateRangeLabel(dateRange)}
+          </p>
         </div>
       </header>
-      <div className="overview-flow-layout">
+      <div
+        className={
+          isMobile
+            ? "overview-flow-layout"
+            : "grid grid-cols-1 gap-6 border-t border-[var(--border)] px-6 pb-6 pt-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)]"
+        }
+      >
         <MonthlyFinancialChart
           transactions={transactions}
           currency={currency}
@@ -437,6 +675,7 @@ function CashflowOverviewCharts({
           transactionType={transactionType}
           categoryType={categoryType}
           dateRange={dateRange}
+          isMobile={isMobile}
         />
         <MemberExpenseChart
           members={members}
@@ -449,6 +688,7 @@ function CashflowOverviewCharts({
           transactionType={transactionType}
           categoryType={categoryType}
           dateRange={dateRange}
+          isMobile={isMobile}
         />
       </div>
     </Card>
@@ -462,6 +702,7 @@ function BalanceHistoryChart({
   range,
   walletId,
   dateRange,
+  isMobile,
 }: {
   wallets: { id: string; name: string; balance: string }[];
   transactions: Transaction[];
@@ -470,6 +711,7 @@ function BalanceHistoryChart({
   range: CashflowRange;
   walletId: string;
   dateRange: DateRangeValue;
+  isMobile: boolean;
 }) {
   const [mode, setMode] = useState<"total" | "wallets">("total");
   const visibleWallets =
@@ -513,11 +755,36 @@ function BalanceHistoryChart({
   ) satisfies ChartConfig;
 
   return (
-    <Card as="section" className="overview-card overview-balance gap-0 py-0">
-      <header>
+    <Card
+      as="section"
+      className={
+        isMobile ? "overview-card overview-balance gap-0 py-0" : "gap-0 p-0"
+      }
+    >
+      <header
+        className={
+          isMobile
+            ? undefined
+            : "flex items-start justify-between gap-5 px-6 pb-4 pt-6"
+        }
+      >
         <div>
-          <h2>Số dư cuối tháng</h2>
-          <p>
+          <h2
+            className={
+              isMobile
+                ? undefined
+                : "text-sm font-semibold text-[var(--foreground)]"
+            }
+          >
+            Số dư cuối tháng
+          </h2>
+          <p
+            className={
+              isMobile
+                ? undefined
+                : "mt-1 text-xs leading-5 text-[var(--text-muted)]"
+            }
+          >
             {balances.length} tháng trong khoảng đã chọn · chỉ giao dịch đã ghi
             nhận
           </p>
@@ -533,7 +800,13 @@ function BalanceHistoryChart({
         </Tabs>
       </header>
       {negativeMonthCount > 0 && (
-        <div className="overview-balance-alert">
+        <div
+          className={
+            isMobile
+              ? "overview-balance-alert"
+              : "px-6 pb-2 text-xs text-[var(--danger)]"
+          }
+        >
           <span className="overview-chart-warning">
             <CircleAlert size={13} />
             {negativeMonthCount} tháng có số dư âm
@@ -544,7 +817,11 @@ function BalanceHistoryChart({
         mode === "total" ? (
           <ChartContainer
             config={balanceChartConfig}
-            className="overview-balance-chart"
+            className={
+              isMobile
+                ? "overview-balance-chart"
+                : "h-[19rem] w-full border-t border-[var(--border)] px-4 pb-4 pt-5"
+            }
             aria-label={`Biểu đồ tổng số dư trong ${balances.length} tháng thuộc khoảng đã chọn`}
           >
             <AreaChart
@@ -611,7 +888,11 @@ function BalanceHistoryChart({
         ) : (
           <ChartContainer
             config={walletChartConfig}
-            className="overview-balance-chart"
+            className={
+              isMobile
+                ? "overview-balance-chart"
+                : "h-[19rem] w-full border-t border-[var(--border)] px-4 pb-4 pt-5"
+            }
             aria-label={`Biểu đồ số dư theo ví trong ${balances.length} tháng thuộc khoảng đã chọn`}
           >
             <LineChart
@@ -713,6 +994,7 @@ function MonthlyFinancialChart({
   transactionType,
   categoryType,
   dateRange,
+  isMobile,
 }: {
   transactions: Transaction[];
   currency: string;
@@ -724,6 +1006,7 @@ function MonthlyFinancialChart({
   transactionType: string;
   categoryType?: "income" | "expense";
   dateRange: DateRangeValue;
+  isMobile: boolean;
 }) {
   const visibleTypes = getVisibleCashflowTypes(transactionType, categoryType);
   const cashflow = buildMonthlyCashflow(transactions, {
@@ -762,7 +1045,11 @@ function MonthlyFinancialChart({
 
   return (
     <section
-      className="overview-flow-primary"
+      className={
+        isMobile
+          ? "overview-flow-primary"
+          : "min-w-0 border-b border-[var(--border)] pb-6 xl:border-b-0 xl:border-r xl:pb-0 xl:pr-6"
+      }
       aria-label="Biểu đồ thu nhập và chi tiêu"
     >
       {warningCount > 0 && (
@@ -776,7 +1063,9 @@ function MonthlyFinancialChart({
       {hasData ? (
         <ChartContainer
           config={monthlyChartConfig}
-          className="overview-expense-chart"
+          className={
+            isMobile ? "overview-expense-chart" : "h-[20rem] w-full"
+          }
           aria-label={`Biểu đồ thu nhập và chi tiêu trong ${cashflow.length} tháng thuộc khoảng đã chọn`}
         >
           <LineChart
@@ -862,6 +1151,7 @@ function MemberExpenseChart({
   transactionType,
   categoryType,
   dateRange,
+  isMobile,
 }: {
   members: { id: string; name: string }[];
   transactions: Transaction[];
@@ -873,6 +1163,7 @@ function MemberExpenseChart({
   transactionType: string;
   categoryType?: CashflowType;
   dateRange: DateRangeValue;
+  isMobile: boolean;
 }) {
   const isTransfer = transactionType === "transfer";
   const metricType: CashflowType =
@@ -926,18 +1217,46 @@ function MemberExpenseChart({
   ) satisfies ChartConfig;
 
   return (
-    <section className="overview-flow-member">
-      <header>
+    <section
+      className={isMobile ? "overview-flow-member" : "min-w-0 pt-0.5"}
+    >
+      <header className={isMobile ? undefined : "pb-3"}>
         <div>
-          <h3>{metricLabel} theo thành viên</h3>
-          <p>Theo filter Loại giao dịch · màu đại diện cho từng thành viên</p>
+          <h3
+            className={
+              isMobile
+                ? undefined
+                : "text-sm font-semibold text-[var(--foreground)]"
+            }
+          >
+            {metricLabel} theo thành viên
+          </h3>
+          <p
+            className={
+              isMobile
+                ? undefined
+                : "mt-1 text-[0.68rem] leading-4 text-[var(--text-muted)]"
+            }
+          >
+            {isMobile
+              ? "Theo filter Loại giao dịch · màu đại diện cho từng thành viên"
+              : "So sánh theo từng thành viên"}
+          </p>
         </div>
       </header>
       {hasData ? (
-        <div className="overview-member-chart-scroll">
+        <div
+          className={
+            isMobile
+              ? "overview-member-chart-scroll"
+              : "max-h-[20rem] overflow-y-auto"
+          }
+        >
           <ChartContainer
             config={chartConfig}
-            className="overview-member-expense-chart"
+            className={
+              isMobile ? "overview-member-expense-chart" : "w-full"
+            }
             style={{ height: chartHeight }}
             aria-label={`Biểu đồ ${metricLabel.toLocaleLowerCase("vi")} theo tháng của ${members.length} thành viên trong ${totals.length} tháng`}
           >
@@ -1388,6 +1707,36 @@ function MobileCategoryPie({
           </Button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "income" | "expense" | "primary";
+}) {
+  const toneClasses = {
+    income: "text-[var(--income)]",
+    expense: "text-[var(--expense)]",
+    primary: "text-[var(--foreground)]",
+  } satisfies Record<typeof tone, string>;
+
+  return (
+    <div className="min-w-0">
+      <dt className="text-[0.68rem] font-medium text-[var(--text-muted)]">
+        {label}
+      </dt>
+      <dd
+        className={`mt-2 truncate text-base font-semibold tracking-[-0.025em] tabular-nums ${toneClasses[tone]}`}
+        title={value}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
