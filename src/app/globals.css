@@ -9148,7 +9148,6 @@ html[data-sidebar-collapsed="true"] .sidebar-nav-section {
   align-items: center;
   gap: 0.55rem;
   width: 100%;
-  border-radius: 0.28rem;
   padding: 0.5rem 0.65rem;
   color: var(--text-primary);
   font-size: 0.82rem;
@@ -9161,7 +9160,6 @@ html[data-sidebar-collapsed="true"] .sidebar-nav-section {
 
 .sidebar-user-popover-link:hover {
   background: var(--surface-hover);
-  color: var(--primary);
 }
 
 /* Logout button — reveal on hover */
@@ -9557,7 +9555,6 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
   gap: 0.5rem;
   width: 100%;
   border: 0;
-  border-radius: 0.28rem;
   background: transparent;
   padding: 0.48rem 0.6rem;
   color: var(--text-secondary);
@@ -9742,9 +9739,6 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
 
 /* Popover Dropdown */
 .sidebar-ws-popover {
-  width: var(--anchor-width) !important;
-  min-width: var(--anchor-width) !important;
-  max-width: var(--anchor-width) !important;
   padding: 0.75rem;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -9855,7 +9849,6 @@ html[data-sidebar-collapsed="true"] .sidebar-logout-btn {
 
 .sidebar-ws-footer-link:hover {
   background: var(--surface-hover);
-  color: var(--primary);
 }
 
 /* Nav Links & Sections Polish */

@@ -74,6 +74,154 @@ const themes = [
 type ThemeName = (typeof themes)[number]["value"];
 type Mode = "light" | "dark";
 
+type DesktopAppearanceSettingsProps = {
+  mode: Mode;
+  theme: ThemeName;
+  onSelectMode: (mode: Mode) => void;
+  onSelectTheme: (theme: ThemeName) => void;
+};
+
+const displayModes: ReadonlyArray<{
+  value: Mode;
+  label: string;
+  icon: typeof Sun;
+}> = [
+  {
+    value: "light",
+    label: "Sáng",
+    icon: Sun,
+  },
+  {
+    value: "dark",
+    label: "Tối",
+    icon: Moon,
+  },
+];
+
+function DesktopAppearanceSettings({
+  mode,
+  theme,
+  onSelectMode,
+  onSelectTheme,
+}: DesktopAppearanceSettingsProps) {
+  return (
+    <Card
+      as="section"
+      className="hidden min-[901px]:block"
+    >
+      <header className="flex items-start justify-between gap-8">
+        <div className="flex items-start gap-3">
+          <span
+            className="grid size-9 shrink-0 place-items-center text-[var(--primary)]"
+            aria-hidden="true"
+          >
+            <Palette size={19} />
+          </span>
+          <div>
+            <h2 className="text-base font-semibold tracking-tight text-[var(--foreground)]">
+              Giao diện
+            </h2>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Chọn chế độ hiển thị và màu chủ đạo cho Felix.
+            </p>
+          </div>
+        </div>
+
+        <div
+          className="flex shrink-0 items-center gap-1"
+          role="radiogroup"
+          aria-label="Chế độ hiển thị"
+        >
+          {displayModes.map((item) => {
+            const Icon = item.icon;
+            const isSelected = mode === item.value;
+            return (
+              <div
+                key={item.value}
+                className={cn(
+                  "rounded-lg",
+                  isSelected && "bg-[var(--surface-secondary)]",
+                )}
+              >
+                <Button
+                  variant="ghost"
+                  size="auto"
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  className="gap-2 px-3 py-2"
+                  onClick={() => onSelectMode(item.value)}
+                >
+                  <Icon
+                    className={cn(
+                      "size-4",
+                      isSelected
+                        ? "text-[var(--primary)]"
+                        : "text-[var(--text-muted)]",
+                    )}
+                  />
+                  <span className="text-xs font-medium">{item.label}</span>
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      </header>
+
+      <h3 className="mt-6 text-xs font-medium text-[var(--text-muted)]">
+        Chủ đề màu
+      </h3>
+      <div
+        className="mt-2 grid grid-cols-5 gap-2"
+        role="radiogroup"
+        aria-label="Chọn chủ đề màu"
+      >
+        {themes.map((item) => {
+          const isSelected = theme === item.value;
+          return (
+            <div
+              key={item.value}
+              className={cn(
+                "relative rounded-lg",
+                isSelected && "bg-[var(--surface-secondary)]",
+              )}
+            >
+              <Button
+                variant="ghost"
+                size="auto"
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                className="w-full justify-start gap-3 px-3 py-3 text-left"
+                onClick={() => onSelectTheme(item.value)}
+              >
+                <span className="flex shrink-0 gap-1" aria-hidden="true">
+                  {item.swatches.map((color) => (
+                    <span
+                      key={color}
+                      className="size-2.5 rounded-full"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--foreground)]">
+                  {item.label}
+                </span>
+                {isSelected && (
+                  <Check
+                    className="size-4 shrink-0 text-[var(--primary)]"
+                    aria-hidden="true"
+                  />
+                )}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 function applyAppearance(theme: ThemeName, mode: Mode) {
   document.documentElement.dataset.theme = theme;
   document.documentElement.dataset.mode = mode;
@@ -130,10 +278,11 @@ export function GeneralSettingsClient() {
   }
 
   return (
-    <Card
-      as="section"
-      className="relative gap-0 overflow-hidden max-sm:p-4 max-sm:ring-0"
-    >
+    <>
+      <Card
+        as="section"
+        className="relative gap-0 overflow-hidden max-sm:p-4 max-sm:ring-0 min-[901px]:hidden"
+      >
       {/* Accent background glow */}
       <div
         className="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-20 transition-all duration-500"
@@ -445,6 +594,13 @@ export function GeneralSettingsClient() {
           );
         })}
       </div>
-    </Card>
+      </Card>
+      <DesktopAppearanceSettings
+        mode={mode}
+        theme={theme}
+        onSelectMode={selectMode}
+        onSelectTheme={selectTheme}
+      />
+    </>
   );
 }

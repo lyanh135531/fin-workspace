@@ -54,7 +54,7 @@ export function SidebarUserMenu({
       variant="unstyled"
       size="auto"
       type="button"
-      className="sidebar-logout-popover-btn"
+      className="sidebar-logout-popover-btn rounded-lg"
       onClick={handleSignOut}
       disabled={pending}
       id="sidebar-logout-btn"
@@ -76,7 +76,7 @@ export function SidebarUserMenu({
       variant="unstyled"
       size="auto"
       type="button"
-      className="sidebar-user-popover-link"
+      className="sidebar-user-popover-link rounded-lg"
       onClick={() => {
         setPopoverOpen(false);
         if (onOpenAccountSettings) onOpenAccountSettings();
@@ -90,7 +90,7 @@ export function SidebarUserMenu({
 
   return (
     <div
-      className="sidebar-user-section group-data-[collapsible=icon]:m-0! group-data-[collapsible=icon]:p-0!"
+      className="sidebar-user-section min-[901px]:w-full min-[901px]:border-0! min-[901px]:p-0! group-data-[collapsible=icon]:m-0! group-data-[collapsible=icon]:p-0!"
       aria-label="Tài khoản người dùng"
     >
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -103,7 +103,7 @@ export function SidebarUserMenu({
               variant="unstyled"
               size="auto"
               type="button"
-              className="sidebar-user-row sidebar-user-card rounded-2xl transition-[width,height,padding,gap] duration-300 ease-in-out group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0!"
+              className="sidebar-user-row sidebar-user-card rounded-2xl transition-[width,height,padding,gap,background-color] duration-300 ease-in-out min-[901px]:h-[3.25rem]! min-[901px]:w-full! min-[901px]:justify-start! min-[901px]:gap-3! min-[901px]:rounded-xl! min-[901px]:border-0! min-[901px]:bg-transparent! min-[901px]:px-2.5! min-[901px]:py-2! min-[901px]:shadow-none! min-[901px]:hover:bg-[var(--surface-hover)]! min-[901px]:hover:shadow-none! group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0! min-[901px]:group-data-[collapsible=icon]:mx-auto! min-[901px]:group-data-[collapsible=icon]:size-10! min-[901px]:group-data-[collapsible=icon]:min-h-10! min-[901px]:group-data-[collapsible=icon]:justify-center! min-[901px]:group-data-[collapsible=icon]:bg-transparent!"
               data-sidebar-profile-state={collapsed ? "collapsed" : "expanded"}
               aria-label={`Tài khoản: ${username}. Nhấn để xem tùy chọn.`}
               aria-expanded={popoverOpen}
@@ -113,21 +113,29 @@ export function SidebarUserMenu({
         >
           {(spotlightTrigger) => (
             <PopoverTrigger render={spotlightTrigger}>
-              <div className="sidebar-user-avatar-wrap">
-                <div className="sidebar-user-avatar rounded-lg" aria-hidden>
+              <div className="sidebar-user-avatar-wrap min-[901px]:shrink-0">
+                <div
+                  className="sidebar-user-avatar rounded-lg min-[901px]:grid! min-[901px]:size-8! min-[901px]:place-items-center!"
+                  aria-hidden
+                >
                   {avatarText}
                 </div>
                 <span className="sidebar-user-status-dot" aria-hidden />
               </div>
 
-              <div className="sidebar-user-info max-w-48 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
-                <span className="sidebar-user-name" title={username}>
+              <div className="sidebar-user-info max-w-48 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out min-[901px]:flex! min-[901px]:min-w-0 min-[901px]:flex-1 min-[901px]:flex-col min-[901px]:items-start group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0 min-[901px]:group-data-[collapsible=icon]:hidden!">
+                <span
+                  className="sidebar-user-name min-[901px]:max-w-full min-[901px]:truncate min-[901px]:font-semibold"
+                  title={username}
+                >
                   {username}
                 </span>
-                <span className="sidebar-user-role-inline">{roleLabel}</span>
+                <span className="sidebar-user-role-inline min-[901px]:block! min-[901px]:text-[0.68rem] min-[901px]:text-[var(--text-muted)]">
+                  {roleLabel}
+                </span>
               </div>
 
-              <div className="sidebar-user-chevron-wrap shrink-0 opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0">
+              <div className="sidebar-user-chevron-wrap shrink-0 opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0 min-[901px]:group-data-[collapsible=icon]:hidden!">
                 <ChevronUp
                   size={13}
                   strokeWidth={2.2}

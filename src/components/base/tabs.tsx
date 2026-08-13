@@ -4,6 +4,29 @@ import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 
 import { cn } from "@/lib/utils";
 
+type TabsVariant = "default" | "segmented";
+type TabsTone = "expense" | "income";
+
+const tabsListVariantClasses: Record<TabsVariant, string> = {
+  default: "h-8 w-fit gap-1 rounded-lg bg-muted p-[3px]",
+  segmented:
+    "grid h-auto w-full grid-cols-2 gap-0.5 rounded-full border border-border bg-[var(--surface-secondary)] p-0.5",
+};
+
+const tabsTriggerVariantClasses: Record<TabsVariant, string> = {
+  default:
+    "h-6 flex-none rounded-md px-2 py-1 data-active:bg-background data-active:text-foreground data-active:shadow-sm",
+  segmented:
+    "min-h-7 w-full rounded-full px-2.5 py-1 text-xs data-active:text-foreground",
+};
+
+const tabsTriggerToneClasses: Record<TabsTone, string> = {
+  expense:
+    "text-[var(--expense)] hover:text-[var(--expense)] data-active:bg-[color-mix(in_srgb,var(--expense)_9%,var(--surface))] data-active:text-[var(--expense)]",
+  income:
+    "text-[var(--income)] hover:text-[var(--income)] data-active:bg-[color-mix(in_srgb,var(--income)_9%,var(--surface))] data-active:text-[var(--income)]",
+};
+
 function Tabs({
   className,
   orientation = "horizontal",
@@ -22,12 +45,21 @@ function Tabs({
   );
 }
 
-function TabsList({ className, ...props }: TabsPrimitive.List.Props) {
+type TabsListProps = TabsPrimitive.List.Props & {
+  variant?: TabsVariant;
+};
+
+function TabsList({
+  className,
+  variant = "default",
+  ...props
+}: TabsListProps) {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        "inline-flex h-8 gap-1 w-fit max-w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-[3px] text-muted-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "inline-flex max-w-full items-center justify-start overflow-x-auto text-muted-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        tabsListVariantClasses[variant],
         className,
       )}
       {...props}
@@ -35,14 +67,25 @@ function TabsList({ className, ...props }: TabsPrimitive.List.Props) {
   );
 }
 
-function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
+type TabsTriggerProps = TabsPrimitive.Tab.Props & {
+  variant?: TabsVariant;
+  tone?: TabsTone;
+};
+
+function TabsTrigger({
+  className,
+  tone,
+  variant = "default",
+  ...props
+}: TabsTriggerProps) {
   return (
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        "inline-flex h-6 flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-sm font-medium text-muted-foreground transition-colors",
+        "inline-flex items-center justify-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground transition-colors",
         "hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-        "data-active:bg-background data-active:text-foreground data-active:shadow-sm",
+        tabsTriggerVariantClasses[variant],
+        tone && tabsTriggerToneClasses[tone],
         "disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
         className,

@@ -43,7 +43,6 @@ export function AccountSettingsModal({
         size={isMobile ? "default" : "wide"}
         spacing="flush"
         elevation={isMobile ? "raised" : "flat"}
-        showCloseButton={!isMobile}
         className={isMobile ? "quick-transaction-sheet" : undefined}
       >
         <SheetHeader

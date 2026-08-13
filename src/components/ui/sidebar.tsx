@@ -102,7 +102,7 @@ function SidebarProvider({
         style={
           {
             "--sidebar-width": "15.5rem",
-            "--sidebar-width-icon": "4rem",
+            "--sidebar-width-icon": "4.5rem",
             ...style,
           } as React.CSSProperties
         }
@@ -156,14 +156,14 @@ function Sidebar({
         data-slot="sidebar-container"
         aria-label="Điều hướng"
         className={cn(
-          "fixed inset-y-0 left-0 z-20 hidden h-dvh w-(--sidebar-width) border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-in-out will-change-[width] min-[640px]:flex group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
+          "fixed inset-y-0 left-0 z-20 hidden h-dvh w-(--sidebar-width) border-r border-[var(--border)] bg-[var(--surface-secondary)] transition-[width] duration-300 ease-in-out will-change-[width] min-[640px]:flex group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
           className,
         )}
         {...props}
       >
         <div
           data-slot="sidebar-inner"
-          className="flex size-full min-w-0 flex-col overflow-hidden bg-[var(--surface)] gap-4 px-2"
+          className="flex size-full min-w-0 flex-col gap-2 overflow-hidden bg-[var(--surface-secondary)] px-2 py-2 group-data-[collapsible=icon]:px-2.5"
         >
           {children}
         </div>
@@ -176,7 +176,7 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sidebar-header"
-      className={cn("flex shrink-0 flex-col gap-2 p-2", className)}
+      className={cn("flex shrink-0 flex-col gap-2 px-2 py-2", className)}
       {...props}
     />
   );
@@ -187,7 +187,7 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sidebar-content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-0 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+        "flex min-h-0 flex-1 flex-col gap-1 overflow-auto py-1 group-data-[collapsible=icon]:overflow-hidden",
         className,
       )}
       {...props}
@@ -199,7 +199,7 @@ function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sidebar-footer"
-      className={cn("flex shrink-0 flex-col gap-2 p-2", className)}
+      className={cn("flex shrink-0 flex-col gap-2 px-2 py-2", className)}
       {...props}
     />
   );
@@ -209,7 +209,10 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sidebar-group"
-      className={cn("relative flex w-full min-w-0 flex-col p-2", className)}
+      className={cn(
+        "relative flex w-full min-w-0 flex-col p-2 min-[901px]:px-1 min-[901px]:py-2",
+        className,
+      )}
       {...props}
     />
   );
@@ -232,7 +235,10 @@ function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
   return (
     <ul
       data-slot="sidebar-menu"
-      className={cn("flex w-full min-w-0 flex-col gap-2", className)}
+      className={cn(
+        "flex w-full min-w-0 flex-col gap-2 min-[901px]:gap-1.5",
+        className,
+      )}
       {...props}
     />
   );
@@ -260,7 +266,7 @@ function SidebarMenuButton({
     props: mergeProps<"button">(
       {
         className: cn(
-          "flex h-8 w-full min-w-0 items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm font-medium text-[var(--text-secondary)] outline-none transition-[width,gap,background-color,color] duration-300 ease-in-out hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] data-active:bg-[color-mix(in_srgb,var(--primary)_14%,var(--surface))] data-active:text-[var(--primary)] group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-2! [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
+          "flex h-8 w-full min-w-0 items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm font-medium text-[var(--text-secondary)] outline-none transition-[width,gap,background-color,color] duration-300 ease-in-out hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] data-active:bg-[color-mix(in_srgb,var(--primary)_14%,var(--surface))] data-active:text-[var(--primary)] group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-2! [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate min-[901px]:relative min-[901px]:h-10 min-[901px]:gap-3 min-[901px]:rounded-xl min-[901px]:px-2.5 min-[901px]:py-2 min-[901px]:duration-200 min-[901px]:ease-out min-[901px]:after:absolute min-[901px]:after:left-0 min-[901px]:after:h-5 min-[901px]:after:w-0.5 min-[901px]:after:rounded-full min-[901px]:after:bg-[var(--primary)] min-[901px]:after:opacity-0 min-[901px]:after:transition-opacity min-[901px]:data-active:bg-transparent! min-[901px]:data-active:text-[var(--foreground)] min-[901px]:data-active:after:opacity-100 min-[901px]:group-data-[collapsible=icon]:size-10! min-[901px]:group-data-[collapsible=icon]:p-1!",
           className,
         ),
       },

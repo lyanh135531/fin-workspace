@@ -199,7 +199,7 @@ async function DashboardSidebar({ dataPromise }: DashboardShellDataProps) {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader>
+      <SidebarHeader className="min-[901px]:pb-3">
         <BrandLink />
       </SidebarHeader>
 
@@ -217,7 +217,7 @@ async function DashboardSidebar({ dataPromise }: DashboardShellDataProps) {
         />
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="min-[901px]:pt-3">
         <SidebarUserMenu username={username} role={userRole} />
       </SidebarFooter>
     </Sidebar>
@@ -361,11 +361,11 @@ function BrandLink() {
   return (
     <Link
       href="/overview"
-      className="flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-md px-1 text-[var(--foreground)] outline-none transition-[width,height,padding,color,gap] duration-200 hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:self-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0!"
+      className="flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-md px-1 text-[var(--foreground)] outline-none transition-[width,height,padding,color,gap] duration-200 hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[901px]:h-11 min-[901px]:justify-start min-[901px]:gap-3 min-[901px]:rounded-xl min-[901px]:px-2 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:self-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0! min-[901px]:group-data-[collapsible=icon]:size-10!"
       aria-label="Felix - về trang tổng quan"
     >
       <FinLogo size={36} />
-      <span className="max-w-24 truncate text-base font-semibold transition-[max-width,opacity] duration-200 group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
+      <span className="max-w-24 truncate text-base font-semibold tracking-[-0.02em] transition-[max-width,opacity] duration-200 group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
         Felix
       </span>
     </Link>

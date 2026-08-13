@@ -17,15 +17,25 @@ export default async function GeneralSettingsPage() {
 
   return (
     <div className="workspace-settings-page">
-      <div className="workspace-settings-container">
-        <PageHeader
-          eyebrow="Cài đặt cá nhân"
-          title="Giao diện & Danh mục mẫu"
-          description="Tùy chỉnh phong cách giao diện và quản lý bộ danh mục mẫu cá nhân để import vào workspace."
-          className="max-sm:hidden"
-        />
+      <div className="workspace-settings-container min-[901px]:mx-auto min-[901px]:max-w-[76rem]">
+        <div className="max-sm:hidden min-[901px]:hidden">
+          <PageHeader
+            eyebrow="Cài đặt cá nhân"
+            title="Giao diện & Danh mục mẫu"
+            description="Tùy chỉnh phong cách giao diện và quản lý bộ danh mục mẫu cá nhân để import vào workspace."
+          />
+        </div>
+        <div className="hidden min-[901px]:block">
+          <PageHeader
+            eyebrow="Cài đặt cá nhân"
+            title="Cài đặt chung"
+            description="Thiết lập giao diện và chuẩn hóa danh mục dùng lại cho các workspace của bạn."
+            className="mb-6 pb-0"
+            border={false}
+          />
+        </div>
 
-        <div className="settings-sections-grid space-y-6 sm:mt-6">
+        <div className="settings-sections-grid space-y-6 sm:mt-6 min-[901px]:mt-0 min-[901px]:space-y-5">
           <GeneralSettingsClient />
           <UserCategoryTemplateManagement
             categories={categories.map((category) => ({

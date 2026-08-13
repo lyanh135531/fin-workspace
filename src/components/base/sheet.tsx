@@ -2,10 +2,8 @@
 
 import * as React from "react";
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
-import { XIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Button } from "./button";
 
 type BottomSheetDragStart = {
   y: number;
@@ -59,7 +57,6 @@ function SheetContent({
   size = "default",
   spacing = "default",
   elevation = "raised",
-  showCloseButton = false,
   style,
   ...props
 }: SheetPrimitive.Popup.Props & {
@@ -68,7 +65,6 @@ function SheetContent({
   size?: SheetSize;
   spacing?: SheetSpacing;
   elevation?: SheetElevation;
-  showCloseButton?: boolean;
 }) {
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const dragStartRef = React.useRef<BottomSheetDragStart | null>(null);
@@ -196,23 +192,6 @@ function SheetContent({
             aria-hidden="true"
           >
             Đóng
-          </SheetPrimitive.Close>
-        )}
-        {showCloseButton && (
-          <SheetPrimitive.Close
-            data-slot="sheet-close"
-            render={
-              <Button
-                variant="icon"
-                size="icon"
-                className="absolute top-4 right-4 text-[var(--foreground)] hover:text-rose-600 transition-colors p-1"
-                aria-label="Đóng bảng"
-                title="Đóng"
-              />
-            }
-          >
-            <XIcon size={20} />
-            <span className="sr-only">Đóng</span>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Popup>

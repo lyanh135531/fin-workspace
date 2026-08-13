@@ -150,7 +150,7 @@ export function WorkspaceSwitcher({
             variant="unstyled"
             size="auto"
             type="button"
-            className="sidebar-workspace-selector-card flex h-12 w-full min-w-0 items-center gap-2 rounded-2xl px-2.5 py-2 text-left outline-none transition-[width,height,padding,gap,background-color,transform] duration-300 ease-in-out hover:bg-[var(--surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:translate-x-2 group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center"
+            className="sidebar-workspace-selector-card flex h-12 w-full min-w-0 items-center gap-2 rounded-2xl px-2.5 py-2 text-left outline-none transition-[width,height,padding,gap,background-color,transform] duration-300 ease-in-out hover:bg-[var(--surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[901px]:h-[3.25rem]! min-[901px]:gap-3! min-[901px]:rounded-xl! min-[901px]:border-0! min-[901px]:bg-[var(--surface)]! min-[901px]:px-2.5! min-[901px]:shadow-none! min-[901px]:hover:bg-[var(--surface-hover)]! min-[901px]:hover:shadow-none! group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:translate-x-2 group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center min-[901px]:group-data-[collapsible=icon]:mx-auto! min-[901px]:group-data-[collapsible=icon]:size-10! min-[901px]:group-data-[collapsible=icon]:min-h-10! min-[901px]:group-data-[collapsible=icon]:translate-x-0 min-[901px]:group-data-[collapsible=icon]:bg-transparent!"
             aria-expanded={open}
             aria-label={`Workspace: ${currentWorkspace?.name}. Click để chuyển đổi.`}
           />
@@ -162,7 +162,7 @@ export function WorkspaceSwitcher({
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
               <span>{activeInitial}</span>
             </div>
-            <div className="min-w-0 flex-1 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
+            <div className="min-w-0 flex-1 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0 min-[901px]:group-data-[collapsible=icon]:hidden!">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="sidebar-ws-title truncate">
                   {currentWorkspace?.name}
@@ -177,7 +177,7 @@ export function WorkspaceSwitcher({
             </div>
             <ChevronsUpDown
               size={15}
-              className="shrink-0 text-[var(--text-muted)] opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0"
+              className="shrink-0 text-[var(--text-muted)] opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0 min-[901px]:group-data-[collapsible=icon]:hidden!"
             />
           </PopoverTrigger>
         )}
@@ -187,7 +187,7 @@ export function WorkspaceSwitcher({
         side="right"
         align="start"
         sideOffset={6}
-        className="sidebar-ws-popover"
+        className="sidebar-ws-popover w-[var(--anchor-width)]! min-w-[var(--anchor-width)]! max-w-[var(--anchor-width)]! min-[901px]:w-72! min-[901px]:min-w-72! min-[901px]:max-w-72!"
       >
         <div className="sidebar-ws-popover-list">
           {workspaces.map((ws) => {
