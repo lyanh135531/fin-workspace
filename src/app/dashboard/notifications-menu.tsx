@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState, useTransition } from "react";
+import { type ReactNode, useEffect, useState, useTransition } from "react";
 import {
   Bell,
   CalendarClock,
@@ -19,7 +19,17 @@ import {
   reviewTransactionChangeAction,
 } from "@/app/dashboard/actions";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
-import { Button, Empty, Select } from "@/components/base";
+import {
+  Button,
+  Empty,
+  Select,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/base";
 import {
   Popover,
   PopoverContent,
@@ -134,7 +144,10 @@ function JoinNotificationCard({
   onReview: (approve: boolean) => void;
 }) {
   return (
-    <article role="listitem" className="p-4">
+    <article
+      role="listitem"
+      className="notification-item notification-item-join p-4"
+    >
       <div className="flex items-start gap-3">
         <NotificationTypeIcon className="text-[var(--primary)]">
           <UserPlus size={17} aria-hidden="true" />
@@ -206,7 +219,11 @@ function TransactionNotificationCard({
   const Icon = config.icon;
 
   return (
-    <article role="listitem" className="p-4">
+    <article
+      role="listitem"
+      className="notification-item notification-item-transaction p-4"
+      data-notification-status={item.status}
+    >
       <div className="flex items-start gap-3">
         <NotificationTypeIcon className={config.className}>
           <Icon size={17} aria-hidden="true" />
@@ -284,7 +301,11 @@ function ChangeNotificationCard({
   const Icon = deleting ? Trash2 : FilePenLine;
 
   return (
-    <article role="listitem" className="p-4">
+    <article
+      role="listitem"
+      className="notification-item notification-item-change p-4"
+      data-change-action={item.action}
+    >
       <div className="flex items-start gap-3">
         <NotificationTypeIcon
           className={
@@ -402,11 +423,20 @@ export function NotificationsMenu({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const defaultRoleCode =
     roles.find((role) => role.code === "MEMBER")?.code ??
     roles[0]?.code ??
     "MEMBER";
   const [joinRoles, setJoinRoles] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 760px)");
+    const update = () => setIsMobile(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
 
   function reviewTransaction(id: string, approve: boolean): void {
     if (!canReview) return;
@@ -473,6 +503,120 @@ export function NotificationsMenu({
     });
   }
 
+  const notificationItems = items.map((item) => {
+    if (item.kind === "join") {
+      return (
+        <JoinNotificationCard
+          key={`join-${item.id}`}
+          item={item}
+          roles={roles}
+          selectedRole={joinRoles[item.id] ?? defaultRoleCode}
+          pending={pending}
+          onRoleChange={(roleCode) =>
+            setJoinRoles((current) => ({
+              ...current,
+              [item.id]: roleCode,
+            }))
+          }
+          onReview={(approve) => reviewJoin(item.id, approve)}
+        />
+      );
+    }
+
+    if (item.kind === "transaction") {
+      return (
+        <TransactionNotificationCard
+          key={`transaction-${item.id}`}
+          item={item}
+          currency={currency}
+          canReview={canReview}
+          pending={pending}
+          onReview={(approve) => reviewTransaction(item.id, approve)}
+        />
+      );
+    }
+
+    return (
+      <ChangeNotificationCard
+        key={`change-${item.id}`}
+        item={item}
+        currency={currency}
+        pending={pending}
+        onReview={(approve) => reviewChange(item.id, approve, item.action)}
+      />
+    );
+  });
+
+  const emptyNotification = items.length === 0 && (
+    <Empty
+      variant="compact"
+      icon={Bell}
+      title="Không có thông báo mới"
+      description="Các yêu cầu và cập nhật mới sẽ xuất hiện tại đây."
+      className="notification-empty-state min-h-52"
+    />
+  );
+
+  if (isMobile) {
+    return (
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetTrigger
+          render={
+            <Button
+              variant="icon"
+              size="auto"
+              type="button"
+              className="size-10 min-h-10 min-w-10"
+              aria-label={
+                items.length > 0
+                  ? `Thông báo, ${items.length} mục mới`
+                  : "Thông báo"
+              }
+            />
+          }
+        >
+          <Bell size={17} strokeWidth={2} />
+          {items.length > 0 && (
+            <span className="notification-badge">{items.length}</span>
+          )}
+        </SheetTrigger>
+
+        <SheetContent
+          side="bottom"
+          className="notifications-mobile-sheet"
+          aria-busy={pending}
+          aria-label="Thông báo"
+        >
+          <span className="notifications-mobile-handle" aria-hidden />
+          <SheetHeader className="notifications-mobile-header">
+            <div className="notifications-mobile-heading">
+              <span aria-hidden>
+                <Bell size={18} />
+              </span>
+              <div>
+                <SheetTitle>Thông báo</SheetTitle>
+                <SheetDescription>
+                  {items.length > 0
+                    ? `${items.length} cập nhật mới trong workspace`
+                    : "Bạn đã xem hết thông báo"}
+                </SheetDescription>
+              </div>
+            </div>
+          </SheetHeader>
+
+          <div
+            className="notifications-mobile-list"
+            role="list"
+            aria-label="Danh sách thông báo"
+          >
+            {notificationItems}
+            {emptyNotification}
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
     <Popover>
       <PopoverTrigger
@@ -525,61 +669,8 @@ export function NotificationsMenu({
           role="list"
           aria-label="Danh sách thông báo"
         >
-          {items.map((item) => {
-            if (item.kind === "join") {
-              return (
-                <JoinNotificationCard
-                  key={`join-${item.id}`}
-                  item={item}
-                  roles={roles}
-                  selectedRole={joinRoles[item.id] ?? defaultRoleCode}
-                  pending={pending}
-                  onRoleChange={(roleCode) =>
-                    setJoinRoles((current) => ({
-                      ...current,
-                      [item.id]: roleCode,
-                    }))
-                  }
-                  onReview={(approve) => reviewJoin(item.id, approve)}
-                />
-              );
-            }
-
-            if (item.kind === "transaction") {
-              return (
-                <TransactionNotificationCard
-                  key={`transaction-${item.id}`}
-                  item={item}
-                  currency={currency}
-                  canReview={canReview}
-                  pending={pending}
-                  onReview={(approve) => reviewTransaction(item.id, approve)}
-                />
-              );
-            }
-
-            return (
-              <ChangeNotificationCard
-                key={`change-${item.id}`}
-                item={item}
-                currency={currency}
-                pending={pending}
-                onReview={(approve) =>
-                  reviewChange(item.id, approve, item.action)
-                }
-              />
-            );
-          })}
-
-          {items.length === 0 && (
-            <Empty
-              variant="compact"
-              icon={Bell}
-              title="Không có thông báo mới"
-              description="Các yêu cầu và cập nhật mới sẽ xuất hiện tại đây."
-              className="min-h-52"
-            />
-          )}
+          {notificationItems}
+          {emptyNotification}
         </div>
       </PopoverContent>
     </Popover>

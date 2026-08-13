@@ -903,7 +903,7 @@ function CategoryActionsMenu({
           align={isMobile ? "center" : "end"}
           side="bottom"
           sideOffset={4}
-          className="!w-52 p-1.5 [&_[data-slot=dropdown-menu-item]]:min-h-10 [&_[data-slot=dropdown-menu-item]]:gap-2 [&_[data-slot=dropdown-menu-item]]:px-2.5"
+          className="category-context-menu !w-52 p-1.5 [&_[data-slot=dropdown-menu-item]]:min-h-10 [&_[data-slot=dropdown-menu-item]]:gap-2 [&_[data-slot=dropdown-menu-item]]:px-2.5"
         >
           <DropdownMenuItem
             disabled={pending}

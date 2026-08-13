@@ -1624,7 +1624,7 @@
   .wallet-mobile-item.spotlight-menu-trigger-active {
     border-radius: 0.9rem;
     background: var(--surface);
-    border: 0;
+    border: 1px solid var(--border);
   }
 
   .wallet-mobile-item-main {
@@ -1762,6 +1762,7 @@
     width: min(16rem, calc(100vw - 2rem)) !important;
     border-radius: 0.9rem !important;
     padding: 0.35rem !important;
+    border: 1px solid var(--border);
   }
 
   .wallet-mobile-context-menu [data-slot="dropdown-menu-item"] {
@@ -1806,6 +1807,146 @@
   .wallet-card-actions [data-slot="button"] {
     min-width: var(--app-touch-target);
     min-height: var(--app-touch-target);
+  }
+}
+
+@media (max-width: 760px) {
+  .category-context-menu {
+    border: 1px solid var(--border);
+  }
+
+  .notifications-mobile-sheet {
+    inset-inline: 0 !important;
+    bottom: 0.5rem !important;
+    box-sizing: border-box;
+    width: min(36rem, calc(100vw - 1rem)) !important;
+    max-width: none !important;
+    height: min(44rem, calc(100svh - 1rem)) !important;
+    max-height: calc(100svh - 1rem) !important;
+    margin-inline: auto;
+    gap: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 1.25rem !important;
+    background: var(--surface) !important;
+    padding: 0 !important;
+    box-shadow: 0 -1.5rem 4rem
+      color-mix(in srgb, var(--shadow) 82%, transparent);
+  }
+
+  .notifications-mobile-handle {
+    width: 2.5rem;
+    height: 0.24rem;
+    flex: 0 0 auto;
+    align-self: center;
+    margin-top: 0.5rem;
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--text-muted) 40%, transparent);
+  }
+
+  .notifications-mobile-header {
+    display: flex;
+    min-height: 4.25rem;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 0.6rem 1.25rem 0.85rem !important;
+  }
+
+  .notifications-mobile-heading {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .notifications-mobile-heading > span {
+    display: grid;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex: 0 0 auto;
+    place-items: center;
+    color: var(--primary);
+  }
+
+  .notifications-mobile-heading > div {
+    min-width: 0;
+  }
+
+  .notifications-mobile-header [data-slot="sheet-title"] {
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-weight: 750;
+    letter-spacing: -0.025em;
+  }
+
+  .notifications-mobile-header [data-slot="sheet-description"] {
+    margin-top: 0.12rem;
+    color: var(--text-muted);
+    font-size: 0.63rem;
+    line-height: 1.4;
+  }
+
+  .notifications-mobile-list {
+    display: grid;
+    min-height: 0;
+    flex: 1 1 auto;
+    align-content: start;
+    gap: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 1.25rem max(1rem, env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .notifications-mobile-list .notification-item {
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+    border-radius: 0;
+    background: transparent;
+    padding: 1.05rem 0 !important;
+  }
+
+  .notifications-mobile-list .notification-item > div {
+    gap: 0.7rem;
+  }
+
+  .notifications-mobile-list .notification-item > div > span:first-child {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.62rem;
+    background: color-mix(in srgb, currentColor 9%, var(--surface-secondary));
+  }
+
+  .notifications-mobile-list .notification-item p.text-sm {
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
+  .notifications-mobile-list .notification-item p.text-xs,
+  .notifications-mobile-list .notification-item span.text-xs {
+    font-size: 0.61rem;
+  }
+
+  .notifications-mobile-list .notification-item strong.font-mono,
+  .notifications-mobile-list .notification-item p.font-mono {
+    font-family: inherit;
+    font-size: 0.76rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .notifications-mobile-list .notification-item [data-slot="button"] {
+    min-height: 2.25rem;
+    border-radius: 0.65rem;
+    font-size: 0.65rem;
+  }
+
+  .notifications-mobile-list .notification-empty-state {
+    min-height: 18rem;
+    border: 0;
+    background: transparent;
   }
 }
 
@@ -1893,7 +2034,11 @@
     width: 2.7rem;
     height: 2.7rem;
     border-radius: 0.78rem;
-    background: color-mix(in srgb, var(--primary) 10%, var(--surface-secondary));
+    background: color-mix(
+      in srgb,
+      var(--primary) 10%,
+      var(--surface-secondary)
+    );
     color: var(--primary);
   }
 

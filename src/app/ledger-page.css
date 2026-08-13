@@ -1465,11 +1465,7 @@
   .ledger-mobile-edit-sheet .ledger-mobile-draft-heading {
     padding: 0.85rem 3rem 0.75rem 0.85rem !important;
     border-bottom: 1px solid var(--border);
-    background: color-mix(
-      in srgb,
-      var(--surface) 92%,
-      var(--primary-soft)
-    );
+    background: color-mix(in srgb, var(--surface) 92%, var(--primary-soft));
   }
 
   .ledger-mobile-edit-sheet .quick-transaction-heading {
@@ -1540,8 +1536,6 @@
     padding: 0.35rem;
     border: 1px solid var(--border);
     background: var(--surface);
-    box-shadow: 0 8px 22px
-      color-mix(in srgb, var(--foreground) 10%, transparent);
   }
 
   .ledger-mobile-context-menu [data-slot="dropdown-menu-item"] {

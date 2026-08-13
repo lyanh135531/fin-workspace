@@ -187,36 +187,51 @@ function ScheduledTransactionsToggle({
       type="button"
       variant="unstyled"
       size="auto"
-      className="flex w-full items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] p-1 text-left transition-colors hover:bg-[var(--surface-hover)]"
+      className="ledger-scheduled-toggle"
       aria-expanded={expanded}
       onClick={onToggle}
     >
-      <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-[var(--surface)] text-[var(--warning)]">
-        <CalendarClock size={14} aria-hidden="true" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <strong className="block text-xs font-semibold text-[var(--foreground)]">
-          Giao dịch đã lên lịch
-        </strong>
-      </span>
-      <span className="rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-xs font-semibold tabular-nums text-[var(--text-secondary)]">
-        {count}
-      </span>
-      <ChevronDown
-        className={`shrink-0 text-[var(--text-muted)] transition-transform ${expanded ? "rotate-180" : ""}`}
-        size={16}
-        aria-hidden="true"
-      />
+      <ScheduledTransactionsToggleContent count={count} expanded={expanded} />
     </Button>
   );
 }
 
-function LatestTransactionsLabel() {
+function ScheduledTransactionsToggleContent({
+  count,
+  expanded,
+}: {
+  count: number;
+  expanded: boolean;
+}) {
   return (
-    <div className="flex items-center gap-3 px-1 text-xs font-semibold text-[var(--text-muted)]">
-      <span className="h-px flex-1 bg-[var(--border)]" />
-      <span>Giao dịch mới nhất</span>
-      <span className="h-px flex-1 bg-[var(--border)]" />
+    <>
+      <span className="ledger-scheduled-toggle-icon">
+        <CalendarClock size={14} aria-hidden="true" />
+      </span>
+      <span className="ledger-scheduled-toggle-copy">
+        <strong>Giao dịch đã lên lịch</strong>
+        <small className="ledger-scheduled-toggle-subtitle">
+          Xem các khoản sẽ ghi nhận
+        </small>
+      </span>
+      <span className="ledger-scheduled-toggle-count">{count}</span>
+      <ChevronDown
+        className="ledger-scheduled-toggle-chevron"
+        data-expanded={expanded || undefined}
+        size={16}
+        aria-hidden="true"
+      />
+    </>
+  );
+}
+
+function LatestTransactionsLabel({ mobile = false }: { mobile?: boolean }) {
+  return (
+    <div
+      className="ledger-latest-transactions-label"
+      data-mobile={mobile || undefined}
+    >
+      <span>{mobile ? "Giao dịch gần đây" : "Giao dịch mới nhất"}</span>
     </div>
   );
 }
@@ -563,9 +578,16 @@ function MobileTransactionRow({
           size={14}
           className="ledger-mobile-row-category-icon"
         />
-        <strong style={{ color: item.category?.color ?? "var(--text-muted)" }}>
-          {categoryName}
-        </strong>
+        <span className="ledger-mobile-row-category-copy">
+          <strong style={{ color: item.category?.color ?? "var(--text-muted)" }}>
+            {categoryName}
+          </strong>
+          {item.status === "scheduled" && (
+            <small className="ledger-mobile-scheduled-date">
+              Ghi nhận {formatLedgerDate(item.date)}
+            </small>
+          )}
+        </span>
       </div>
       <b
         className={`ledger-mobile-row-amount amount-${item.type}`}
@@ -967,6 +989,7 @@ export function Ledger({
     useState<TransactionDraft | null>(null);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [mobileBulkDeleteOpen, setMobileBulkDeleteOpen] = useState(false);
+  const [mobileScheduledOpen, setMobileScheduledOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [scheduledExpanded, setScheduledExpanded] = useState(false);
   const mobileFilterRef = useRef<HTMLDivElement>(null);
@@ -1084,15 +1107,28 @@ export function Ledger({
       return next;
     });
   }
-  function toggleScheduledGroup() {
-    if (scheduledExpanded) {
+  function setScheduledGroupOpen(open: boolean) {
+    if (!open) {
       const scheduledIds = new Set(scheduledRows.map((item) => item.id));
       setSelected(
         (current) =>
           new Set([...current].filter((id) => !scheduledIds.has(id))),
       );
     }
-    setScheduledExpanded(!scheduledExpanded);
+    setScheduledExpanded(open);
+  }
+  function setMobileScheduledSheetOpen(open: boolean) {
+    if (!open) {
+      const scheduledIds = new Set(scheduledRows.map((item) => item.id));
+      setSelected(
+        (current) =>
+          new Set([...current].filter((id) => !scheduledIds.has(id))),
+      );
+    }
+    setMobileScheduledOpen(open);
+  }
+  function toggleScheduledGroup() {
+    setScheduledGroupOpen(!scheduledExpanded);
   }
   function removeBulk() {
     const ids = [...selected];
@@ -1765,15 +1801,75 @@ export function Ledger({
             </>
           )}
           {scheduledRows.length > 0 && (
-            <ScheduledTransactionsToggle
-              count={scheduledRows.length}
-              expanded={scheduledExpanded}
-              onToggle={toggleScheduledGroup}
-            />
+            <Sheet
+              open={mobileScheduledOpen}
+              onOpenChange={setMobileScheduledSheetOpen}
+            >
+              <div className="ledger-mobile-scheduled-group">
+                <SheetTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="unstyled"
+                      size="auto"
+                      className="ledger-scheduled-toggle"
+                      aria-label={`Xem ${scheduledRows.length} giao dịch đã lên lịch`}
+                    />
+                  }
+                >
+                  <ScheduledTransactionsToggleContent
+                    count={scheduledRows.length}
+                    expanded={mobileScheduledOpen}
+                  />
+                </SheetTrigger>
+              </div>
+              <SheetContent
+                side="bottom"
+                className="ledger-scheduled-sheet"
+                aria-label="Giao dịch đã lên lịch"
+              >
+                <span className="ledger-scheduled-sheet-handle" aria-hidden />
+                <SheetHeader className="ledger-scheduled-sheet-header">
+                  <div className="ledger-scheduled-sheet-heading">
+                    <span aria-hidden>
+                      <CalendarClock size={18} />
+                    </span>
+                    <div>
+                      <SheetTitle>Giao dịch đã lên lịch</SheetTitle>
+                      <SheetDescription>
+                        Các khoản sẽ tự động ghi nhận đúng ngày
+                      </SheetDescription>
+                    </div>
+                  </div>
+                  <strong className="ledger-scheduled-sheet-count">
+                    {scheduledRows.length}
+                  </strong>
+                </SheetHeader>
+                <div className="ledger-scheduled-sheet-body">
+                  <div className="ledger-scheduled-sheet-summary">
+                    <CalendarDays size={15} aria-hidden />
+                    <span>
+                      {scheduledRows.length} giao dịch đang chờ ngày thực thi
+                    </span>
+                  </div>
+                  <div className="ledger-mobile-scheduled-rows">
+                    {scheduledRows.map(renderMobileTransaction)}
+                  </div>
+                </div>
+                <SheetFooter className="ledger-scheduled-sheet-footer">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setMobileScheduledSheetOpen(false)}
+                  >
+                    Đóng
+                  </Button>
+                </SheetFooter>
+              </SheetContent>
+            </Sheet>
           )}
-          {scheduledExpanded && scheduledRows.map(renderMobileTransaction)}
           {scheduledRows.length > 0 && rows.length > 0 && (
-            <LatestTransactionsLabel />
+            <LatestTransactionsLabel mobile />
           )}
           {groupTransactionsByDate(rows).map(({ dateKey, label, items }) => (
             <section key={dateKey} className="ledger-date-group">
