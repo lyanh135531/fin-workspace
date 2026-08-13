@@ -1,16 +1,9 @@
 "use client";
 
-import {
-  Tabs,
-  TabsContent,
-  TabsCount,
-  TabsList,
-  TabsTrigger,
-} from "@/components/base";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/base";
 import { useState } from "react";
 import { Sliders, Folders, UsersRound } from "lucide-react";
 import { WorkspaceSettings } from "./workspace-settings";
-import { InviteCodeCard } from "./invite-code-card";
 import { ImportCategoryPanel } from "./import-category-panel";
 import { CategoryManagement } from "./category-management";
 import { SettingsClient } from "./settings-client";
@@ -78,20 +71,17 @@ export function WorkspaceSettingsTabsClient({
     key: TabKey;
     label: string;
     icon: typeof Sliders;
-    count?: number;
   }[] = [
     { key: "general", label: "Cấu hình & Vận hành", icon: Sliders },
     {
       key: "categories",
       label: "Danh mục thu/chi",
       icon: Folders,
-      count: categories.length,
     },
     {
       key: "members",
       label: "Thành viên",
       icon: UsersRound,
-      count: members.length,
     },
   ];
 
@@ -99,20 +89,17 @@ export function WorkspaceSettingsTabsClient({
     <Tabs
       value={activeTab}
       onValueChange={(value) => setActiveTab(value as TabKey)}
-      className="workspace-settings-tabs"
+      className="workspace-settings-tabs min-[901px]:gap-5"
     >
       <TabsList
-        className="workspace-settings-tab-list rounded-2xl"
+        variant="navigation"
+        className="workspace-settings-tab-list grid-cols-3 gap-1"
         aria-label="Workspace settings tabs"
       >
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
-            <TabsTrigger
-              key={tab.key}
-              value={tab.key}
-              className={"rounded-2xl"}
-            >
+            <TabsTrigger key={tab.key} value={tab.key} variant="navigation">
               <Icon />
               <span className="max-md:hidden">{tab.label}</span>
               <span className="md:hidden">
@@ -127,39 +114,36 @@ export function WorkspaceSettingsTabsClient({
         })}
       </TabsList>
 
-      {/* ── Tab 1: Cấu hình & Vận hành ── */}
+      {/* General settings */}
       <TabsContent value="general" className="workspace-settings-tab-content">
-        <div className="grid items-start gap-3 pt-4 sm:gap-8 lg:grid-cols-12 xl:gap-12">
-          <div className="workspace-general-main lg:col-span-7 xl:col-span-8">
+        <div className="grid items-start gap-3 pt-4 sm:gap-8 min-[901px]:grid-cols-12 min-[901px]:gap-5 min-[901px]:pt-0">
+          <div className="workspace-general-main min-[901px]:col-span-12">
             <WorkspaceSettings workspace={workspace} isAdmin={isAdmin} />
-          </div>
-          <div className="workspace-general-invite max-md:hidden lg:col-span-5 xl:col-span-4">
-            <InviteCodeCard code={workspace.inviteCode} />
           </div>
         </div>
       </TabsContent>
 
-      {/* ── Tab 2: Danh mục thu/chi ── */}
+      {/* Categories */}
       <TabsContent
         value="categories"
         className="workspace-settings-tab-content"
       >
-        <div className="grid items-start gap-3 pt-4 sm:gap-6 xl:grid-cols-12">
-          <div className="workspace-category-import min-w-0 xl:col-span-5">
+        <div className="grid items-start gap-3 pt-4 sm:gap-6 min-[901px]:gap-5 min-[901px]:pt-0">
+          <div className="workspace-category-import min-w-0 min-[901px]:order-2">
             <ImportCategoryPanel
               templates={templates}
               existingCodes={existingCodes}
             />
           </div>
-          <div className="workspace-category-manager min-w-0 xl:col-span-7">
+          <div className="workspace-category-manager min-w-0 min-[901px]:order-1">
             <CategoryManagement categories={categories} />
           </div>
         </div>
       </TabsContent>
 
-      {/* ── Tab 3: Thành viên ── */}
+      {/* Members */}
       <TabsContent value="members" className="workspace-settings-tab-content">
-        <div className="workspace-members-stack space-y-3 sm:space-y-6 sm:pt-4">
+        <div className="workspace-members-stack space-y-3 sm:space-y-6 sm:pt-4 min-[901px]:space-y-5 min-[901px]:pt-0">
           <SettingsClient roles={roles} members={members} isAdmin={isAdmin} />
           <JoinRequestsClient roles={roles} requests={joinRequests} />
         </div>

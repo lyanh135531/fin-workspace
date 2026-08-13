@@ -4,13 +4,15 @@ import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 
 import { cn } from "@/lib/utils";
 
-type TabsVariant = "default" | "segmented";
+type TabsVariant = "default" | "segmented" | "navigation";
 type TabsTone = "expense" | "income";
 
 const tabsListVariantClasses: Record<TabsVariant, string> = {
   default: "h-8 w-fit gap-1 rounded-lg bg-muted p-[3px]",
   segmented:
     "grid h-auto w-full grid-cols-2 gap-0.5 rounded-full border border-border bg-[var(--surface-secondary)] p-0.5",
+  navigation:
+    "grid h-auto w-full gap-0 rounded-xl bg-[var(--surface-secondary)] p-1",
 };
 
 const tabsTriggerVariantClasses: Record<TabsVariant, string> = {
@@ -18,6 +20,8 @@ const tabsTriggerVariantClasses: Record<TabsVariant, string> = {
     "h-6 flex-none rounded-md px-2 py-1 data-active:bg-background data-active:text-foreground data-active:shadow-sm",
   segmented:
     "min-h-7 w-full rounded-full px-2.5 py-1 text-xs data-active:text-foreground",
+  navigation:
+    "h-8 w-full rounded-lg px-3 py-1.5 text-xs data-active:bg-[var(--surface)] data-active:text-primary",
 };
 
 const tabsTriggerToneClasses: Record<TabsTone, string> = {

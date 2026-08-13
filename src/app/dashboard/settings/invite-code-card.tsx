@@ -6,7 +6,15 @@ import { regenerateInviteCodeAction } from "@/app/dashboard/settings/actions";
 import { Button, Card } from "@/components/base";
 import { toast } from "sonner";
 
-export function InviteCodeCard({ code: initialCode }: { code: string }) {
+type InviteCodeCardProps = {
+  code: string;
+  compact?: boolean;
+};
+
+export function InviteCodeCard({
+  code: initialCode,
+  compact = false,
+}: InviteCodeCardProps) {
   const [code, setCode] = useState(initialCode);
   const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -38,6 +46,43 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
   const formattedDisplay =
     code.length === 7 && code.includes("-") ? code.replace("-", " · ") : code;
 
+  if (compact) {
+    return (
+      <div className="hidden min-[901px]:flex">
+        <Button
+          variant="ghost"
+          size="auto"
+          type="button"
+          className="group gap-2.5 px-2 py-1.5 text-left"
+          onClick={copy}
+          disabled={copied}
+          aria-label={copied ? "Đã sao chép mã mời" : "Sao chép mã mời"}
+        >
+          <KeyRound
+            className="text-[var(--primary)]"
+            aria-hidden="true"
+          />
+          <span className="grid gap-0.5">
+            <span className="text-[10px] font-medium leading-none text-[var(--text-muted)]">
+              Mã mời workspace
+            </span>
+            <code className="font-mono text-sm font-semibold leading-none tracking-[0.14em] text-[var(--foreground)]">
+              {formattedDisplay}
+            </code>
+          </span>
+          {copied ? (
+            <Check className="text-[var(--success)]" aria-hidden="true" />
+          ) : (
+            <Copy
+              className="text-[var(--text-muted)] transition-colors group-hover:text-[var(--primary)]"
+              aria-hidden="true"
+            />
+          )}
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <>
       <Button
@@ -58,16 +103,16 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
 
       <Card
         as="section"
-        className="workspace-invite-card max-md:hidden"
+        className="workspace-invite-card max-md:hidden min-[901px]:grid min-[901px]:grid-cols-[minmax(0,1fr)_minmax(16rem,0.9fr)] min-[901px]:items-center min-[901px]:gap-6"
       >
-      <div className="space-y-3 relative z-10">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-900/10">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <KeyRound size={18} strokeWidth={2} />
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/20 bg-indigo-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-indigo-600">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary">
             <Sparkles size={11} />
-            Mã chia sẻ 6 số
+            Mã chia sẻ
           </span>
         </div>
 
@@ -75,31 +120,29 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
           <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
             Mã mời Workspace
           </h2>
-          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+          <p className="mt-1 max-w-sm text-xs leading-5 text-[var(--text-muted)]">
             Gửi mã này cho thành viên mới để họ có thể gửi yêu cầu tham gia vào
             workspace của bạn.
           </p>
         </div>
       </div>
 
-      <div className="mt-auto space-y-4 relative z-10">
+      <div className="mt-auto space-y-3 min-[901px]:mt-0">
         {/* Inner Code Well */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 pl-6">
-          <code className="font-mono text-xl font-bold tracking-[0.25em] text-[var(--foreground)] truncate select-all">
+        <div className="flex flex-col items-center justify-between gap-4 rounded-xl bg-[var(--surface-secondary)] p-4 sm:flex-row sm:pl-5">
+          <code className="select-all truncate font-mono text-xl font-semibold tracking-[0.22em] text-[var(--foreground)]">
             {formattedDisplay}
           </code>
 
           <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="icon"
-              size="auto"
+              size="icon"
               type="button"
               onClick={copy}
               title={copied ? "Đã sao chép" : "Sao chép mã mời"}
               aria-label={copied ? "Đã sao chép mã mời" : "Sao chép mã mời"}
-              className={`transition-colors p-1 active:scale-[0.9] ${
-                copied && "text-emerald-600"
-              }`}
+              className={copied ? "text-[var(--success)]" : undefined}
               disabled={copied}
             >
               {copied ? (
@@ -111,7 +154,7 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
 
             <Button
               variant="icon"
-              size="auto"
+              size="icon"
               type="button"
               disabled={pending}
               onClick={handleRegenerate}
@@ -120,14 +163,14 @@ export function InviteCodeCard({ code: initialCode }: { code: string }) {
             >
               <RefreshCw
                 size={16}
-                className={pending ? "animate-spin text-indigo-500" : ""}
+                className={pending ? "animate-spin text-primary" : ""}
               />
             </Button>
           </div>
         </div>
 
-        <p className="text-[10px] text-[var(--text-muted)] text-center font-medium">
-          Mã mời gồm 6 chữ số.
+        <p className="text-center text-[10px] font-medium text-[var(--text-muted)]">
+          Có thể tạo mã mới bất kỳ lúc nào.
         </p>
       </div>
       </Card>

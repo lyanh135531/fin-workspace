@@ -140,11 +140,16 @@ export function ImportCategoryPanel({
   return (
     <Card
       as="section"
-      className="workspace-import-section sunrise-card gap-0 p-6"
+      className="workspace-import-section gap-0 p-6"
       aria-busy={pending}
     >
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
+      <div
+        className={cn(
+          "flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] pb-3",
+          allImported && "min-[901px]:hidden",
+        )}
+      >
         <div>
           <p className="settings-eyebrow">Import danh mục</p>
           <h2 className="mt-0.5 text-base font-bold tracking-tight">
@@ -160,6 +165,7 @@ export function ImportCategoryPanel({
               type="button"
               variant="icon"
               size="icon"
+              className="min-[901px]:hidden"
               onClick={toggleAll}
               disabled={pending}
               aria-label={
@@ -173,6 +179,7 @@ export function ImportCategoryPanel({
             <Button
               variant="icon"
               size="icon"
+              className="min-[901px]:hidden"
               onClick={doImport}
               disabled={pending || selected.size === 0}
               aria-label={
@@ -183,11 +190,65 @@ export function ImportCategoryPanel({
             >
               <Download />
             </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="hidden min-[901px]:inline-flex"
+              onClick={toggleAll}
+              disabled={pending}
+            >
+              <CheckCheck />
+              {selected.size === importableTemplates.length
+                ? "Bỏ chọn tất cả"
+                : "Chọn tất cả"}
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className="hidden min-[901px]:inline-flex"
+              onClick={doImport}
+              disabled={pending || selected.size === 0}
+            >
+              <Download />
+              {pending ? "Đang import" : `Import ${selected.size} danh mục`}
+            </Button>
           </div>
         )}
       </div>
+      {allImported && (
+        <div className="hidden items-center justify-between gap-6 min-[901px]:flex">
+          <div className="flex items-center gap-3">
+            <span
+              className="grid size-9 shrink-0 place-items-center text-[var(--success)]"
+              aria-hidden="true"
+            >
+              <CheckCheck size={19} />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold text-[var(--foreground)]">
+                Danh mục mẫu đã được import đầy đủ
+              </h2>
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                {annotated.length} danh mục mẫu hiện đã có trong workspace này.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-medium text-[var(--success)]">
+            Đã đồng bộ
+          </span>
+        </div>
+      )}
       {/* Unified tree — all templates in hierarchy */}
-      <div className="mt-4 space-y-1.5">
+      <div
+        className={cn(
+          "mt-4 space-y-1.5",
+          allImported
+            ? "min-[901px]:hidden"
+            : "min-[901px]:grid min-[901px]:grid-cols-2 min-[901px]:gap-x-8 min-[901px]:space-y-0",
+        )}
+      >
         {roots.map((root) => {
           const children = childrenOf(root.id);
           const RootIcon = ICON_MAP[root.icon ?? "tag"] ?? Tag;
@@ -195,7 +256,14 @@ export function ImportCategoryPanel({
           const isChecked = selected.has(root.id);
 
           return (
-            <div key={root.id}>
+            <div
+              key={root.id}
+              className={cn(
+                root.isImported &&
+                  children.every((child) => child.isImported) &&
+                  "min-[901px]:hidden",
+              )}
+            >
               {/* Root template item */}
               {root.isImported ? (
                 /* Already imported root — non-interactive */

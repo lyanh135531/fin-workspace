@@ -11675,7 +11675,6 @@ html[data-mode="dark"] .mini-card {
   align-items: center;
   gap: 0.3rem;
   padding: 0.3rem 0.65rem;
-  border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 700;
   border: 1px solid transparent;
@@ -11701,7 +11700,6 @@ html[data-mode="dark"] .mini-card {
   align-items: center;
   gap: 0.35rem;
   padding: 0.35rem 0.7rem;
-  border-radius: 0.25rem;
   background: var(--surface-muted);
   border: 1px solid var(--border);
   font-size: 0.75rem;

@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Building2, ShieldCheck, Trash2 } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   deleteWorkspaceAction,
   updateWorkspaceSettingsAction,
@@ -9,6 +9,7 @@ import {
 import {
   Button,
   Card,
+  ConfirmDelete,
   Input,
   Select,
   Sheet,
@@ -38,7 +39,17 @@ export function WorkspaceSettings({
 }) {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [pending, start] = useTransition();
+
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 901px)");
+    const updateViewport = () => setIsDesktop(query.matches);
+    updateViewport();
+    query.addEventListener("change", updateViewport);
+    return () => query.removeEventListener("change", updateViewport);
+  }, []);
 
   function save(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -59,24 +70,28 @@ export function WorkspaceSettings({
     });
   }
 
-  function remove() {
+  async function remove(): Promise<boolean> {
     if (!confirmPassword.trim()) {
       toast.error("Vui lòng nhập mật khẩu tài khoản để xác nhận xóa.");
-      return;
+      return false;
     }
-    start(async () => {
+    setDeleting(true);
+    try {
       const result = await deleteWorkspaceAction(confirmPassword);
-      if (result.ok) {
-        toast.success("Đã xóa workspace. Đang chuyển về tổng quan...");
-        window.location.assign("/overview");
-      } else {
+      if (!result.ok) {
         toast.error(result.message ?? "Không thể xóa workspace.");
+        return false;
       }
-    });
+      toast.success("Đã xóa workspace. Đang chuyển về tổng quan...");
+      window.location.assign("/overview");
+      return true;
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function handleDeleteSheetOpenChange(open: boolean) {
-    if (!open && pending) return;
+    if (!open && deleting) return;
     setDeleteDialog(open);
     if (!open) setConfirmPassword("");
   }
@@ -102,32 +117,35 @@ export function WorkspaceSettings({
   }
 
   return (
-    <div className="workspace-settings-stack space-y-6">
-      {/* ── Main Configuration Card (Single-Bezel) ── */}
+    <div className="workspace-settings-stack space-y-6 min-[901px]:space-y-5">
+      {/* Main configuration */}
       <Card
         as="section"
-        className="workspace-config-section shadow-xs relative overflow-hidden flex flex-col gap-6"
+        className="workspace-config-section relative flex flex-col gap-6 min-[901px]:gap-5"
       >
-        <div className="workspace-config-heading flex flex-col md:flex-row md:items-start gap-4 md:gap-8 justify-between relative z-10">
-          <div className="flex max-w-md items-start gap-3">
+        <div className="workspace-config-heading flex flex-col justify-between gap-4 md:flex-row md:items-start md:gap-8">
+          <div className="flex max-w-xl items-start gap-3">
             <span className="workspace-config-heading-icon" aria-hidden="true">
               <Building2 size={18} strokeWidth={1.8} />
             </span>
             <div className="space-y-1.5">
-              <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+              <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)] min-[901px]:text-base">
                 Thông tin chung
               </h2>
+              <p className="hidden text-xs leading-5 text-[var(--text-muted)] min-[901px]:block">
+                Cập nhật tên, mô tả và trạng thái hoạt động của workspace.
+              </p>
             </div>
           </div>
         </div>
 
         <form
           onSubmit={save}
-          className="relative z-10 space-y-6"
+          className="space-y-6 min-[901px]:space-y-5"
           aria-busy={pending}
         >
-          <div className="grid gap-6">
-            {/* Name — full width, prominent */}
+          <div className="grid gap-6 min-[901px]:grid-cols-2 min-[901px]:gap-x-5 min-[901px]:gap-y-4">
+            {/* Workspace name */}
             <div className="space-y-2">
               <Input
                 label="Tên workspace"
@@ -170,7 +188,7 @@ export function WorkspaceSettings({
             </div>
 
             {/* Description with character hint */}
-            <div className="space-y-2">
+            <div className="space-y-2 min-[901px]:col-span-2">
               <Textarea
                 label="Mô tả"
                 id="ws-desc"
@@ -184,7 +202,7 @@ export function WorkspaceSettings({
             </div>
           </div>
 
-          <div className="workspace-config-actions flex items-center justify-end border-t border-[var(--border)] pt-5">
+          <div className="workspace-config-actions flex items-center justify-end border-t border-[var(--border)] pt-5 min-[901px]:pt-4">
             <Button type="submit" disabled={pending} variant="default">
               {pending ? (
                 <>
@@ -199,12 +217,12 @@ export function WorkspaceSettings({
         </form>
       </Card>
 
-      {/* ── Danger Zone Card (Single-Bezel) ── */}
+      {/* Danger zone */}
       <Card
         as="section"
-        className="workspace-danger-section p-5 md:p-6 shadow-xs relative overflow-hidden"
+        className="workspace-danger-section relative p-5 md:p-6"
       >
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+        <div className="relative z-10 flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/15 dark:text-rose-400">
               <AlertTriangle size={24} strokeWidth={1.9} />
@@ -224,97 +242,149 @@ export function WorkspaceSettings({
             </div>
           </div>
 
-          <Button
-            type="button"
-            disabled={pending}
-            onClick={() => {
-              setConfirmPassword("");
-              setDeleteDialog(true);
-            }}
-            variant="destructive"
-          >
-            <Trash2 size={16} className="mr-2" />
-            Xóa Workspace
-          </Button>
+          <div className="hidden min-[901px]:block">
+            <ConfirmDelete
+              ariaLabel={`Xóa workspace ${workspace.name}`}
+              title="Xóa Workspace?"
+              description={
+                <>
+                  Workspace <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa
+                  và gỡ khỏi danh sách của tất cả thành viên.
+                </>
+              }
+              content={
+                <Input
+                  label="Mật khẩu tài khoản"
+                  id="confirm-password-input-desktop"
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  placeholder="Nhập mật khẩu của bạn..."
+                  autoComplete="current-password"
+                  autoFocus
+                />
+              }
+              confirmLabel="Xác nhận xóa"
+              confirmDisabled={!confirmPassword.trim()}
+              disabled={pending || deleting}
+              onOpenChange={(open) => {
+                if (!open) setConfirmPassword("");
+              }}
+              onConfirm={remove}
+              trigger={
+                <Button
+                  type="button"
+                  disabled={pending || deleting}
+                  variant="destructive"
+                >
+                  <Trash2 size={16} />
+                  Xóa Workspace
+                </Button>
+              }
+            />
+          </div>
+
+          <div className="min-[901px]:hidden">
+            <Button
+              type="button"
+              disabled={pending || deleting}
+              onClick={() => {
+                setConfirmPassword("");
+                setDeleteDialog(true);
+              }}
+              variant="destructive"
+            >
+              <Trash2 size={16} className="mr-2" />
+              Xóa Workspace
+            </Button>
+          </div>
         </div>
       </Card>
 
-      <Sheet open={deleteDialog} onOpenChange={handleDeleteSheetOpenChange}>
-        <SheetContent
-          side="bottom"
-          className="workspace-delete-sheet ledger-mobile-review-sheet pending-delete w-[min(32rem,calc(100vw-1rem))]! max-w-none! gap-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0"
-          aria-label={`Xác nhận xóa workspace ${workspace.name}`}
-        >
-          <SheetHeader className="ledger-mobile-review-header border-b border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-3">
-            <div className="ledger-mobile-review-heading flex items-center gap-3">
-              <span aria-hidden="true">
-                <AlertTriangle size={20} />
-              </span>
-              <div>
-                <SheetTitle>Xóa Workspace?</SheetTitle>
-                <SheetDescription>
-                  Hành động này cần được xác nhận bằng mật khẩu.
-                </SheetDescription>
+      {!isDesktop && (
+        <Sheet open={deleteDialog} onOpenChange={handleDeleteSheetOpenChange}>
+          <SheetContent
+            side="bottom"
+            className="workspace-delete-sheet ledger-mobile-review-sheet pending-delete w-[min(32rem,calc(100vw-1rem))]! max-w-none! gap-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0"
+            aria-label={`Xác nhận xóa workspace ${workspace.name}`}
+          >
+            <SheetHeader className="ledger-mobile-review-header border-b border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-3">
+              <div className="ledger-mobile-review-heading flex items-center gap-3">
+                <span aria-hidden="true">
+                  <AlertTriangle size={20} />
+                </span>
+                <div>
+                  <SheetTitle>Xóa Workspace?</SheetTitle>
+                  <SheetDescription>
+                    Hành động này cần được xác nhận bằng mật khẩu.
+                  </SheetDescription>
+                </div>
+              </div>
+            </SheetHeader>
+
+            <div className="ledger-mobile-review-body grid gap-4 overflow-y-auto p-4">
+              <p className="relative text-xs leading-relaxed text-slate-500">
+                Workspace <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa.
+                Để tiếp tục, vui lòng xác nhận bằng mật khẩu tài khoản của bạn.
+              </p>
+
+              <div className="relative space-y-1.5">
+                <Input
+                  label="Mật khẩu tài khoản"
+                  id="confirm-password-input"
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  placeholder="Nhập mật khẩu của bạn..."
+                  className="field w-full text-sm font-medium"
+                  autoComplete="current-password"
+                  autoFocus
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" &&
+                      confirmPassword.trim() &&
+                      !deleting
+                    ) {
+                      event.preventDefault();
+                      void remove();
+                    }
+                  }}
+                />
               </div>
             </div>
-          </SheetHeader>
 
-          <div className="ledger-mobile-review-body grid gap-4 overflow-y-auto p-4">
-            <p className="text-xs leading-relaxed text-slate-500 relative">
-              Workspace <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa. Để
-              tiếp tục, vui lòng xác nhận bằng mật khẩu tài khoản của bạn.
-            </p>
-
-            <div className="space-y-1.5 relative">
-              <Input
-                label="Mật khẩu tài khoản"
-                id="confirm-password-input"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Nhập mật khẩu của bạn..."
-                className="field w-full text-sm font-medium"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && confirmPassword.trim() && !pending) {
-                    e.preventDefault();
-                    remove();
-                  }
-                }}
-              />
-            </div>
-          </div>
-
-          <SheetFooter className="ledger-mobile-review-actions grid! grid-cols-2 gap-2 border-t border-[var(--border)] p-4">
-            <Button
-              type="button"
-              disabled={pending}
-              onClick={() => handleDeleteSheetOpenChange(false)}
-              variant="outline"
-              size="default"
-            >
-              Hủy
-            </Button>
-            <Button
-              type="button"
-              disabled={pending || !confirmPassword.trim()}
-              onClick={remove}
-              variant="destructive"
-              size="default"
-            >
-              {pending ? (
-                <>
-                  <span className="btn-spinner" aria-hidden />
-                  Đang xóa...
-                </>
-              ) : (
-                "Xác nhận xóa"
-              )}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+            <SheetFooter className="ledger-mobile-review-actions grid! grid-cols-2 gap-2 border-t border-[var(--border)] p-4">
+              <Button
+                type="button"
+                disabled={deleting}
+                onClick={() => handleDeleteSheetOpenChange(false)}
+                variant="outline"
+                size="default"
+              >
+                Hủy
+              </Button>
+              <Button
+                type="button"
+                disabled={deleting || !confirmPassword.trim()}
+                onClick={() => void remove()}
+                variant="destructive"
+                size="default"
+              >
+                {deleting ? (
+                  <>
+                    <span className="btn-spinner" aria-hidden />
+                    Đang xóa...
+                  </>
+                ) : (
+                  "Xác nhận xóa"
+                )}
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   );
 }

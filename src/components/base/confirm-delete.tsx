@@ -18,7 +18,7 @@ type ConfirmDeleteProps = {
   title: string
   description: ReactNode
   content?: ReactNode
-  onConfirm: () => void | Promise<void>
+  onConfirm: () => void | boolean | Promise<void | boolean>
   onOpenChange?: (open: boolean) => void
   cancelLabel?: string
   confirmLabel?: string
@@ -57,7 +57,8 @@ function ConfirmDelete({
     setIsPending(true)
 
     try {
-      await onConfirm()
+      const shouldClose = await onConfirm()
+      if (shouldClose === false) return
       setOpen(false)
       onOpenChange?.(false)
     } finally {

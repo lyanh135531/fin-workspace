@@ -6,7 +6,7 @@ import {
   UserRoundX,
   UsersRound,
 } from "lucide-react";
-import { Fragment, useState, useTransition } from "react";
+import { Fragment, useEffect, useState, useTransition } from "react";
 import {
   changeMemberRoleAction,
   removeMemberAction,
@@ -14,6 +14,7 @@ import {
 import {
   Button,
   Card,
+  ConfirmDelete,
   Empty,
   Select,
   Sheet,
@@ -54,8 +55,8 @@ function avatarGradient(name: string): string {
 }
 
 function roleBadgeClass(code: string): string {
-  if (code === "ADMIN") return "ws-role-badge ws-role-badge-admin";
-  return "ws-role-badge ws-role-badge-member";
+  if (code === "ADMIN") return "ws-role-badge ws-role-badge-admin rounded-2xl";
+  return "ws-role-badge ws-role-badge-member rounded-2xl";
 }
 
 export function SettingsClient({
@@ -68,6 +69,8 @@ export function SettingsClient({
   isAdmin: boolean;
 }) {
   const [pending, start] = useTransition();
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const selectedMember = members.find(
@@ -79,6 +82,14 @@ export function SettingsClient({
     : "";
   const canManageSelectedMember =
     selectedMember !== undefined && isAdmin && !selectedMember.isSelf;
+
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 901px)");
+    const updateViewport = () => setIsDesktop(query.matches);
+    updateViewport();
+    query.addEventListener("change", updateViewport);
+    return () => query.removeEventListener("change", updateViewport);
+  }, []);
 
   function changeRole(id: string, roleCode: string) {
     start(async () => {
@@ -92,40 +103,44 @@ export function SettingsClient({
     });
   }
 
-  function remove(id: string) {
-    start(async () => {
+  async function remove(id: string): Promise<boolean> {
+    setRemovingId(id);
+    try {
       const result = await removeMemberAction(id);
       if (result.ok) {
         toast.success("Đã gỡ thành viên khỏi workspace.");
         setSelectedMemberId(null);
         setConfirmingRemove(false);
-      } else {
-        toast.error(result.message ?? "Không thể gỡ thành viên.");
+        return true;
       }
-    });
+      toast.error(result.message ?? "Không thể gỡ thành viên.");
+      return false;
+    } finally {
+      setRemovingId(null);
+    }
   }
 
   return (
     <>
       <Card
         as="section"
-        className="workspace-members-section gap-4 overflow-hidden"
-        aria-busy={pending}
+        className="workspace-members-section gap-4 overflow-hidden min-[901px]:gap-0"
+        aria-busy={pending || removingId !== null}
       >
         {/* Header */}
-        <header className="member-management-header flex items-center gap-3">
+        <header className="member-management-header flex items-center gap-3 min-[901px]:pb-5">
           <div className="settings-section-icon">
             <UsersRound size={18} />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)] mt-0.5">
+            <h2 className="mt-0.5 text-lg font-bold tracking-tight text-[var(--foreground)] min-[901px]:text-base min-[901px]:font-semibold">
               Thành viên workspace
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">
               Quản lý vai trò và quyền hoạt động của từng tài khoản.
             </p>
           </div>
-          <span className="ws-fixed-pill">
+          <span className="ws-fixed-pill rounded-2xl min-[901px]:text-xs min-[901px]:font-medium min-[901px]:text-[var(--text-muted)]">
             <strong>{members.length}</strong> người
           </span>
         </header>
@@ -170,11 +185,10 @@ export function SettingsClient({
                   <ChevronRight size={17} aria-hidden="true" />
                 </Button>
 
-                <article className="settings-member-row workspace-member-desktop-row">
+                <article className="settings-member-row workspace-member-desktop-row min-[901px]:grid-cols-[2.5rem_minmax(0,1fr)_10rem_2.5rem] min-[901px]:gap-4 min-[901px]:py-3.5">
                   {/* Avatar */}
                   <div
-                    className="ws-member-avatar"
-                    style={{ background: avatarGradient(member.username) }}
+                    className="ws-member-avatar bg-[var(--primary-soft)] text-[var(--primary)]"
                     aria-hidden="true"
                   >
                     {member.username.slice(0, 1)}
@@ -202,8 +216,9 @@ export function SettingsClient({
                   <div className="member-role">
                     {isAdmin && !member.isSelf ? (
                       <Select
+                        key={isDesktop ? "desktop" : "mobile"}
                         value={member.roleCode}
-                        spotlight
+                        spotlight={!isDesktop}
                         disabled={pending}
                         onValueChange={(roleCode) =>
                           changeRole(member.id, roleCode)
@@ -212,10 +227,12 @@ export function SettingsClient({
                           value: role.code,
                           label: role.name,
                         }))}
-                        className="member-role-select min-w-34"
+                        className="member-role-select min-w-34 min-[901px]:w-40"
                       />
                     ) : (
-                      <span className={roleBadgeClass(member.roleCode)}>
+                      <span
+                        className={`${roleBadgeClass(member.roleCode)} min-[901px]:w-40 min-[901px]:justify-center`}
+                      >
                         <ShieldCheck size={13} />
                         {roleName}
                       </span>
@@ -227,21 +244,51 @@ export function SettingsClient({
                     {member.isSelf
                       ? null
                       : isAdmin && (
-                          <Button
-                            type="button"
-                            disabled={pending}
-                            variant="destructive"
-                            size="icon"
-                            className="rounded-lg"
-                            title={`Gỡ ${member.username} khỏi workspace`}
-                            aria-label={`Gỡ ${member.username} khỏi workspace`}
-                            onClick={() => {
-                              setSelectedMemberId(member.id);
-                              setConfirmingRemove(true);
-                            }}
-                          >
-                            <UserRoundX size={16} />
-                          </Button>
+                          <>
+                            <div className="min-[901px]:hidden">
+                              <Button
+                                type="button"
+                                disabled={pending || removingId !== null}
+                                variant="destructive"
+                                size="icon"
+                                title={`Gỡ ${member.username} khỏi workspace`}
+                                aria-label={`Gỡ ${member.username} khỏi workspace`}
+                                onClick={() => {
+                                  setSelectedMemberId(member.id);
+                                  setConfirmingRemove(true);
+                                }}
+                              >
+                                <UserRoundX size={16} />
+                              </Button>
+                            </div>
+                            <div className="hidden min-[901px]:block">
+                              <ConfirmDelete
+                                ariaLabel={`Gỡ ${member.username} khỏi workspace`}
+                                title="Gỡ thành viên?"
+                                description={
+                                  <>
+                                    <strong>{member.username}</strong> sẽ mất
+                                    quyền truy cập workspace này.
+                                  </>
+                                }
+                                confirmLabel="Gỡ thành viên"
+                                disabled={pending || removingId !== null}
+                                onConfirm={() => remove(member.id)}
+                                trigger={
+                                  <Button
+                                    type="button"
+                                    disabled={pending || removingId !== null}
+                                    variant="destructiveIcon"
+                                    size="icon"
+                                    title={`Gỡ ${member.username} khỏi workspace`}
+                                    aria-label={`Gỡ ${member.username} khỏi workspace`}
+                                  >
+                                    <UserRoundX size={16} />
+                                  </Button>
+                                }
+                              />
+                            </div>
+                          </>
                         )}
                   </div>
                 </article>
@@ -335,7 +382,7 @@ export function SettingsClient({
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={pending}
+                      disabled={pending || removingId !== null}
                       onClick={() => setConfirmingRemove(false)}
                     >
                       Quay lại
@@ -345,8 +392,8 @@ export function SettingsClient({
                       variant="destructive"
                       className="ledger-mobile-review-approve"
                       data-delete
-                      disabled={pending}
-                      onClick={() => remove(selectedMember.id)}
+                      disabled={pending || removingId !== null}
+                      onClick={() => void remove(selectedMember.id)}
                     >
                       Gỡ thành viên
                     </Button>
@@ -365,7 +412,7 @@ export function SettingsClient({
                       variant="destructive"
                       className="ledger-mobile-review-approve"
                       data-delete
-                      disabled={pending}
+                      disabled={pending || removingId !== null}
                       onClick={() => setConfirmingRemove(true)}
                     >
                       <UserRoundX size={16} />

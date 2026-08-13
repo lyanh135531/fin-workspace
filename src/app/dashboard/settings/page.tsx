@@ -85,7 +85,7 @@ export default async function SettingsPage({
 
   return (
     <PageContainer className="workspace-settings-page">
-      <div className="workspace-settings-container workspace-admin-settings-container space-y-6">
+      <div className="workspace-settings-container workspace-admin-settings-container space-y-6 min-[901px]:mx-auto min-[901px]:max-w-[76rem] min-[901px]:space-y-0">
         <section className="workspace-mobile-overview md:hidden rounded-2xl">
           <div className="workspace-mobile-overview-head">
             <div className="workspace-mobile-overview-copy">
@@ -119,8 +119,12 @@ export default async function SettingsPage({
         <PageHeader
           title="Cài đặt Workspace"
           description="Cấu hình thông tin chung, quản lý danh mục thu chi và thành viên trong nhóm của bạn."
-          className="max-md:hidden"
-        />
+          eyebrow="Quản trị workspace"
+          className="max-md:hidden min-[901px]:mb-6 min-[901px]:pb-0"
+          border={false}
+        >
+          <InviteCodeCard code={inviteCode} compact />
+        </PageHeader>
 
         <WorkspaceSettingsTabsClient
           workspace={{
