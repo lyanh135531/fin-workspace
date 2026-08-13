@@ -12,6 +12,11 @@ type BottomSheetDragStart = {
   time: number;
 };
 
+type SheetPlacement = "edge" | "inset";
+type SheetSize = "default" | "wide";
+type SheetSpacing = "default" | "flush";
+type SheetElevation = "raised" | "flat";
+
 const MOBILE_SHEET_QUERY = "(max-width: 760px)";
 const MOBILE_SHEET_CLOSE_RATIO = 2 / 3;
 const MOBILE_SHEET_FAST_SWIPE_DISTANCE = 24;
@@ -50,11 +55,19 @@ function SheetContent({
   className,
   children,
   side = "right",
+  placement = "edge",
+  size = "default",
+  spacing = "default",
+  elevation = "raised",
   showCloseButton = false,
   style,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: "top" | "right" | "bottom" | "left";
+  placement?: SheetPlacement;
+  size?: SheetSize;
+  spacing?: SheetSpacing;
+  elevation?: SheetElevation;
   showCloseButton?: boolean;
 }) {
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -140,9 +153,21 @@ function SheetContent({
       <SheetPrimitive.Popup
         data-slot="sheet-content"
         data-side={side}
+        data-placement={placement}
+        data-size={size}
+        data-spacing={spacing}
+        data-elevation={elevation}
         data-mobile-sheet-dragging={dragging || undefined}
         className={cn(
-          "fixed z-50 flex min-h-0 flex-col gap-4 overflow-hidden rounded-3xl bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0 data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem] data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem] data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
+          "fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-3xl bg-popover bg-clip-padding text-sm text-popover-foreground transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0 data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem] data-[side=left]:border-r data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem]",
+          placement === "inset"
+            ? "data-[side=left]:inset-y-2 data-[side=left]:left-2 data-[side=left]:h-auto data-[side=right]:inset-y-2 data-[side=right]:right-2 data-[side=right]:h-auto"
+            : "data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full",
+          size === "wide"
+            ? "data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-[42rem] data-[side=right]:sm:max-w-[42rem]"
+            : "data-[side=left]:w-3/4 data-[side=right]:w-3/4 data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
+          spacing === "flush" ? "gap-0" : "gap-4",
+          elevation === "flat" ? "shadow-none" : "shadow-lg",
           className,
         )}
         style={
@@ -158,10 +183,7 @@ function SheetContent({
         onPointerCancel={handleDragCancel}
       >
         {isBottomSheet && (
-          <div
-            data-slot="mobile-sheet-drag-handle"
-            aria-hidden="true"
-          >
+          <div data-slot="mobile-sheet-drag-handle" aria-hidden="true">
             <span />
           </div>
         )}

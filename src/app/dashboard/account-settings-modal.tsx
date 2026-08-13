@@ -39,27 +39,65 @@ export function AccountSettingsModal({
     >
       <SheetContent
         side={isMobile ? "bottom" : "right"}
-        className={`account-settings-sheet w-full sm:max-w-[520px] ${isMobile ? "quick-transaction-sheet" : ""}`}
+        placement={isMobile ? "edge" : "inset"}
+        size={isMobile ? "default" : "wide"}
+        spacing="flush"
+        elevation={isMobile ? "raised" : "flat"}
+        showCloseButton={!isMobile}
+        className={isMobile ? "quick-transaction-sheet" : undefined}
       >
         <SheetHeader
-          className={`account-settings-sheet-header ${isMobile ? "quick-transaction-header" : ""}`}
+          className={
+            isMobile
+              ? "quick-transaction-header"
+              : "px-8 pt-7 pb-[1.4rem]"
+          }
         >
           <div
-            className={`account-settings-sheet-heading ${isMobile ? "quick-transaction-heading" : ""}`}
+            className={
+              isMobile
+                ? "quick-transaction-heading"
+                : "flex items-center gap-3.5 pr-12"
+            }
           >
-            <span aria-hidden="true">
+            <span
+              className={
+                isMobile
+                  ? undefined
+                  : "grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
+              }
+              aria-hidden="true"
+            >
               <KeyRound size={18} />
             </span>
             <div>
-              <SheetTitle>Đổi mật khẩu</SheetTitle>
-              <SheetDescription>
+              <SheetTitle
+                className={
+                  isMobile
+                    ? undefined
+                    : "text-[1.3rem] font-semibold tracking-[-0.02em]"
+                }
+              >
+                Đổi mật khẩu
+              </SheetTitle>
+              <SheetDescription
+                className={
+                  isMobile
+                    ? undefined
+                    : "mt-1 max-w-[30rem] text-[0.82rem] leading-[1.55]"
+                }
+              >
                 Hồ sơ cá nhân, mật khẩu và phiên làm việc
               </SheetDescription>
             </div>
           </div>
         </SheetHeader>
         <div
-          className={`account-settings-sheet-body ${isMobile ? "quick-transaction-scroll" : ""} !p-0`}
+          className={
+            isMobile
+              ? "quick-transaction-scroll !p-0"
+              : "flex-1 overflow-y-auto overscroll-contain px-8 pt-6 pb-8"
+          }
         >
           <AccountSettingsClient username={username} />
         </div>

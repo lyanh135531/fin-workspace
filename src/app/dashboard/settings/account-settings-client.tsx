@@ -77,17 +77,60 @@ export function AccountSettingsClient({ username }: { username: string }) {
   const initialsText = getInitials(username);
 
   return (
-    <div className="account-settings-content space-y-4 text-[var(--foreground)]">
-      {/* ── Change Password Card ── */}
-      <section className="account-settings-password border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xs space-y-4 rounded-xl">
+    <div className="space-y-3 text-[var(--foreground)] min-[761px]:grid min-[761px]:gap-5 min-[761px]:space-y-0">
+      <section
+        className="hidden min-[761px]:grid min-[761px]:grid-cols-[auto_minmax(0,1fr)_auto] min-[761px]:items-center min-[761px]:gap-4 min-[761px]:rounded-2xl min-[761px]:bg-[var(--surface-secondary)] min-[761px]:px-5 min-[761px]:py-[1.15rem]"
+        aria-label="Tài khoản đang cập nhật"
+      >
+        <div
+          className="grid size-11 place-items-center rounded-xl bg-[var(--primary-soft)] text-[0.82rem] font-bold tracking-[-0.02em] text-[var(--primary)]"
+          aria-hidden="true"
+        >
+          {initialsText}
+        </div>
+        <div className="min-w-0">
+          <span className="mb-0.5 block text-[0.68rem] font-semibold tracking-[0.04em] text-[var(--text-muted)]">
+            Tài khoản
+          </span>
+          <strong className="block truncate text-[0.93rem] font-semibold">
+            {username}
+          </strong>
+          <p className="mt-0.5 text-[0.73rem] leading-[1.45] text-[var(--text-muted)]">
+            Mật khẩu mới sẽ được áp dụng cho lần đăng nhập tiếp theo.
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[var(--surface)] px-2.5 py-2 text-[0.69rem] font-semibold text-[var(--text-secondary)] [&_svg]:text-[var(--primary)]">
+          <BadgeCheck size={15} aria-hidden="true" />
+          Đang hoạt động
+        </span>
+      </section>
+
+      <section className="space-y-3 bg-transparent p-0 min-[761px]:space-y-0 min-[761px]:overflow-hidden min-[761px]:rounded-2xl min-[761px]:bg-[var(--surface-secondary)]">
+        <header className="hidden min-[761px]:flex min-[761px]:items-start min-[761px]:gap-3 min-[761px]:px-6 min-[761px]:pt-6 min-[761px]:pb-1">
+          <span
+            className="grid size-[2.15rem] shrink-0 place-items-center rounded-[0.65rem] bg-[var(--primary-soft)] text-[var(--primary)]"
+            aria-hidden="true"
+          >
+            <KeyRound size={18} />
+          </span>
+          <div>
+            <h2 className="text-[0.94rem] font-semibold leading-[1.35] tracking-[-0.015em]">
+              Thiết lập mật khẩu mới
+            </h2>
+            <p className="mt-0.5 max-w-[28rem] text-xs leading-6 text-[var(--text-muted)]">
+              Xác nhận mật khẩu hiện tại trước khi lưu thay đổi bảo mật.
+            </p>
+          </div>
+        </header>
+
         <form
           ref={formRef}
           onSubmit={handleSubmit}
-          className="account-settings-password-form space-y-3.5"
+          className="space-y-3 min-[761px]:grid min-[761px]:grid-cols-[minmax(0,1fr)_14rem] min-[761px]:gap-x-6 min-[761px]:gap-y-4 min-[761px]:space-y-0 min-[761px]:px-6 min-[761px]:pt-5 min-[761px]:pb-6"
           aria-busy={pending}
         >
           {/* Current Password */}
-          <div className="space-y-1.5 px-4 pt-4">
+          <div className="space-y-1.5 px-4 pt-4 min-[761px]:col-start-1 min-[761px]:p-0">
             <Input
               label="Mật khẩu hiện tại"
               id="currentPassword"
@@ -115,7 +158,7 @@ export function AccountSettingsClient({ username }: { username: string }) {
           </div>
 
           {/* New Password */}
-          <div className="space-y-1.5 px-4">
+          <div className="space-y-1.5 px-4 min-[761px]:col-start-1 min-[761px]:p-0">
             <Input
               label="Mật khẩu mới"
               id="newPassword"
@@ -165,7 +208,7 @@ export function AccountSettingsClient({ username }: { username: string }) {
           </div>
 
           {/* Confirm New Password */}
-          <div className="space-y-1.5 px-4">
+          <div className="space-y-1.5 px-4 min-[761px]:col-start-1 min-[761px]:p-0">
             <Input
               label="Xác nhận mật khẩu mới"
               id="confirmPassword"
@@ -196,13 +239,31 @@ export function AccountSettingsClient({ username }: { username: string }) {
             />
           </div>
 
-          <div className="account-settings-password-submit py-3 px-4 flex justify-end">
+          <aside className="hidden min-[761px]:col-start-2 min-[761px]:row-span-3 min-[761px]:row-start-1 min-[761px]:block min-[761px]:rounded-xl min-[761px]:bg-[var(--surface)] min-[761px]:p-5">
+            <div className="flex items-center gap-2 text-[0.78rem] text-[var(--foreground)] [&_svg]:text-[var(--primary)]">
+              <ShieldCheck size={17} aria-hidden="true" />
+              <strong>Mật khẩu an toàn</strong>
+            </div>
+            <ul className="mt-4 grid list-none gap-3.5 p-0 text-[0.72rem] leading-[1.55] text-[var(--text-muted)]">
+              <li className="relative pl-4 before:absolute before:top-[0.55em] before:left-0 before:size-1 before:rounded-full before:bg-[var(--primary)]">
+                Dùng một cụm từ dài và dễ nhớ với riêng bạn.
+              </li>
+              <li className="relative pl-4 before:absolute before:top-[0.55em] before:left-0 before:size-1 before:rounded-full before:bg-[var(--primary)]">
+                Kết hợp chữ hoa, chữ thường, số và ký tự đặc biệt.
+              </li>
+              <li className="relative pl-4 before:absolute before:top-[0.55em] before:left-0 before:size-1 before:rounded-full before:bg-[var(--primary)]">
+                Không dùng lại mật khẩu của tài khoản khác.
+              </li>
+            </ul>
+          </aside>
+
+          <div className="mt-4 flex justify-end border-t border-[var(--border)] px-4 pt-[0.8rem] pb-3 min-[761px]:col-span-2 min-[761px]:mt-2 min-[761px]:px-0 min-[761px]:pt-5 min-[761px]:pb-0">
             <Button
               disabled={pending || !newPassword || !confirmPassword}
               type="submit"
               variant="default"
               size="default"
-              className="w-full sm:w-auto ro"
+              className="w-full sm:w-auto"
             >
               <ShieldCheck size={16} />
               {pending ? "Đang cập nhật…" : "Cập nhật mật khẩu"}
