@@ -53,11 +53,7 @@ type TabsListProps = TabsPrimitive.List.Props & {
   variant?: TabsVariant;
 };
 
-function TabsList({
-  className,
-  variant = "default",
-  ...props
-}: TabsListProps) {
+function TabsList({ className, variant = "default", ...props }: TabsListProps) {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"

@@ -37,21 +37,39 @@ export default async function WalletsPage() {
     orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
   });
   const totalBalance = links.filter(({ wallet }) => wallet.status === "active").reduce((total, { wallet }) => total.plus(wallet.currentBalance.toString()), new Decimal(0));
-  return <PageContainer className="wallets-page-container"><WalletManagement
-    key={links.map(({ wallet, sortOrder }) => `${wallet.id}:${wallet.updatedAt.toISOString()}:${sortOrder}`).join("|")}
-    workspace={{ name: membership.workspace.name, currency: membership.workspace.baseCurrency }}
-    totalBalance={totalBalance.toString()}
-    isAdmin={isAdminRole(membership.role.code)}
-    wallets={links.map(({ wallet }) => ({
-      id: wallet.id,
-      name: wallet.name,
-      description: wallet.description,
-      openingBalance: wallet.openingBalance.toString(),
-      currentBalance: wallet.currentBalance.toString(),
-      status: wallet.status,
-      transactionCount: wallet._count.sourceTransactions + wallet._count.destinationTransactions,
-      recurringTransactionCount: wallet._count.sourceRecurringTransactions + wallet._count.destinationRecurringTransactions,
-      updatedAt: wallet.updatedAt.toISOString(),
-    }))}
-  /></PageContainer>;
+  return (
+    <PageContainer className="wallets-page-container">
+      <div className="min-[901px]:mx-auto min-[901px]:max-w-[76rem]">
+        <WalletManagement
+          key={links
+            .map(
+              ({ wallet, sortOrder }) =>
+                `${wallet.id}:${wallet.updatedAt.toISOString()}:${sortOrder}`,
+            )
+            .join("|")}
+          workspace={{
+            name: membership.workspace.name,
+            currency: membership.workspace.baseCurrency,
+          }}
+          totalBalance={totalBalance.toString()}
+          isAdmin={isAdminRole(membership.role.code)}
+          wallets={links.map(({ wallet }) => ({
+            id: wallet.id,
+            name: wallet.name,
+            description: wallet.description,
+            openingBalance: wallet.openingBalance.toString(),
+            currentBalance: wallet.currentBalance.toString(),
+            status: wallet.status,
+            transactionCount:
+              wallet._count.sourceTransactions +
+              wallet._count.destinationTransactions,
+            recurringTransactionCount:
+              wallet._count.sourceRecurringTransactions +
+              wallet._count.destinationRecurringTransactions,
+            updatedAt: wallet.updatedAt.toISOString(),
+          }))}
+        />
+      </div>
+    </PageContainer>
+  );
 }
