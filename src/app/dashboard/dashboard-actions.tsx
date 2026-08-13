@@ -31,6 +31,9 @@ import {
   MoneyInput,
   Popover,
   PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
   PopoverTrigger,
   Search,
   Select,
@@ -176,22 +179,44 @@ const transactionTypeTabs = [
 function ScheduledTransactionsToggle({
   count,
   expanded,
+  nearestDate,
   onToggle,
 }: {
   count: number;
   expanded: boolean;
+  nearestDate: string;
   onToggle: () => void;
 }) {
   return (
     <Button
       type="button"
-      variant="unstyled"
+      variant="ghost"
       size="auto"
-      className="ledger-scheduled-toggle"
+      className="w-full justify-between whitespace-normal px-3 py-2.5 text-left"
       aria-expanded={expanded}
       onClick={onToggle}
     >
-      <ScheduledTransactionsToggleContent count={count} expanded={expanded} />
+      <span className="flex min-w-0 items-center gap-3">
+        <CalendarClock
+          className="size-4 text-[var(--primary)]"
+          aria-hidden="true"
+        />
+        <span className="min-w-0">
+          <strong className="block text-sm font-semibold text-[var(--foreground)]">
+            Giao dịch đã lên lịch
+          </strong>
+          <small className="mt-0.5 block text-xs font-normal text-[var(--text-muted)]">
+            {count} khoản đang chờ · Gần nhất {nearestDate}
+          </small>
+        </span>
+      </span>
+      <span className="ml-4 flex shrink-0 items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
+        {expanded ? "Thu gọn" : "Xem danh sách"}
+        <ChevronDown
+          className={`size-4 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </span>
     </Button>
   );
 }
@@ -1018,6 +1043,11 @@ export function Ledger({
   const scheduledRows = filteredRows.filter(
     (item) => item.status === "scheduled",
   );
+  const nearestScheduledDate = scheduledRows.reduce<string | null>(
+    (nearestDate, item) =>
+      nearestDate === null || item.date < nearestDate ? item.date : nearestDate,
+    null,
+  );
   const latestRows = filteredRows.filter((item) => item.status !== "scheduled");
   const pageCount = Math.max(1, Math.ceil(latestRows.length / pageSize));
   const page = Math.min(currentPage, pageCount);
@@ -1368,10 +1398,12 @@ export function Ledger({
       );
     }
 
+    const isScheduledDesktop = isDesktop && item.status === "scheduled";
+
     return (
       <Fragment key={item.id}>
         <tr
-          className="ledger-transaction-row border-b border-[var(--border)]"
+          className={`ledger-transaction-row border-b border-[var(--border)] ${isDesktop ? "transition-colors hover:bg-[var(--surface-hover)]" : ""} ${isScheduledDesktop ? "bg-[color-mix(in_srgb,var(--primary)_3%,transparent)]" : ""}`}
           data-pending-change={
             canApprove && item.pendingChangeRequestId
               ? (item.pendingChangeAction ?? "update")
@@ -1379,7 +1411,7 @@ export function Ledger({
           }
         >
           {canApprove && (
-            <td>
+            <td className={isDesktop ? "py-4 pl-5" : undefined}>
               {!requiresReview(item) && (
                 <Checkbox
                   checked={selected.has(item.id)}
@@ -1389,21 +1421,34 @@ export function Ledger({
               )}
             </td>
           )}
-          <td className="ledger-description-column">
+          <td
+            className={`ledger-description-column ${isDesktop ? "px-5 py-4" : ""}`}
+          >
             <p className="font-medium">
               {item.description || "Không có nội dung"}
             </p>
             <p className="ledger-transaction-meta mt-1 text-xs text-[var(--text-muted)]">
-              <span>
-                {item.member}
-                {item.isRecurring ? " · Tự động" : ""}
-              </span>
+              {isScheduledDesktop ? (
+                <span className="inline-flex items-center gap-1.5 text-[var(--primary)]">
+                  <CalendarClock className="size-3" aria-hidden="true" />
+                  Đang chờ ghi nhận · {item.member}
+                </span>
+              ) : (
+                <span>
+                  {item.member}
+                  {item.isRecurring ? " · Tự động" : ""}
+                </span>
+              )}
             </p>
           </td>
-          <td className="ledger-type-column">
+          <td
+            className={`ledger-type-column ${isDesktop ? "px-4 py-4" : ""}`}
+          >
             <TransactionTypeLabel type={item.type} variant="badge" />
           </td>
-          <td className="ledger-wallet-column">
+          <td
+            className={`ledger-wallet-column ${isDesktop ? "px-4 py-4 text-xs text-[var(--text-secondary)]" : ""}`}
+          >
             {item.wallet}
             {item.toWallet ? (
               <small className="ledger-wallet-destination">
@@ -1411,11 +1456,25 @@ export function Ledger({
               </small>
             ) : null}
           </td>
-          <td className="ledger-date-column">{formatLedgerDate(item.date)}</td>
-          <td className="ledger-category-column">
+          <td
+            className={`ledger-date-column ${isDesktop ? "px-4 py-4 text-xs text-[var(--text-secondary)] tabular-nums" : ""}`}
+          >
+            <span
+              className={
+                isScheduledDesktop
+                  ? "font-semibold text-[var(--foreground)]"
+                  : undefined
+              }
+            >
+              {formatLedgerDate(item.date)}
+            </span>
+          </td>
+          <td
+            className={`ledger-category-column ${isDesktop ? "px-4 py-4" : ""}`}
+          >
             {item.category ? (
               <span
-                className="category-tag"
+                className={`category-tag ${isDesktop ? "inline-flex items-center gap-1.5 text-xs font-medium" : ""}`}
                 style={{
                   backgroundColor: `${item.category.color}22`,
                   color: item.category.color,
@@ -1433,12 +1492,14 @@ export function Ledger({
             )}
           </td>
           <td
-            className={`ledger-amount ledger-amount-column amount-${item.type}`}
+            className={`ledger-amount ledger-amount-column amount-${item.type} ${isDesktop ? "px-4 py-4 text-right text-sm font-semibold tabular-nums" : ""}`}
           >
             {item.type === "income" ? "+" : item.type === "expense" ? "−" : "↔"}
             {formatAmount(item.amount)} {currency}
           </td>
-          <td className="ledger-actions-column">
+          <td
+            className={`ledger-actions-column ${isDesktop ? "py-4 pl-2 pr-5" : ""}`}
+          >
             <div className="ledger-row-actions">
               {canApprove && item.pendingChangeRequestId && (
                 <Button
@@ -1569,17 +1630,126 @@ export function Ledger({
   }
 
   return (
-    <div className="ledger-shell">
-      <div className="ledger-toolbar">
+    <div
+      className={
+        isDesktop ? "flex h-full min-h-0 flex-1 flex-col" : "ledger-shell"
+      }
+    >
+      <div
+        className={
+          isDesktop
+            ? "flex flex-wrap items-center gap-3 border-b border-[var(--border)] px-6 py-4"
+            : "ledger-toolbar"
+        }
+      >
         <Search
-          containerClassName=""
+          containerClassName={isDesktop ? "w-[22rem]" : ""}
           value={query}
           onChange={(event) => changeFilter(() => setQuery(event.target.value))}
           disabled={editMode}
           placeholder="Tìm giao dịch"
           aria-label="Tìm giao dịch hoặc ghi chú"
         />
-        {/* Filter popover (both Desktop and Mobile) */}
+        {isDesktop ? (
+          <Popover
+            open={mobileFilterOpen}
+            onOpenChange={setMobileFilterOpen}
+          >
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="outline"
+                  type="button"
+                  aria-label="Mở bộ lọc giao dịch"
+                />
+              }
+            >
+              <SlidersHorizontal size={16} />
+              Bộ lọc
+              {hasActiveFilters && (
+                <span className="text-[0.68rem] font-semibold text-[var(--primary)]">
+                  Đang áp dụng
+                </span>
+              )}
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              sideOffset={8}
+              elevation="flat"
+              className="w-[30rem] max-w-[calc(100vw-2rem)]"
+            >
+              <PopoverHeader className="border-b border-[var(--border)] px-1 pb-3 pt-1">
+                <PopoverTitle className="font-semibold text-[var(--foreground)]">
+                  Lọc sổ giao dịch
+                </PopoverTitle>
+                <PopoverDescription className="mt-1 text-xs text-[var(--text-muted)]">
+                  Thu hẹp danh sách theo thời gian và danh mục trong {scopeLabel}.
+                </PopoverDescription>
+              </PopoverHeader>
+              <div className="grid grid-cols-2 gap-4 px-1 py-3">
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium text-[var(--text-secondary)]">
+                    Khoảng thời gian
+                  </span>
+                  <DateRangePicker
+                    value={dateRange}
+                    ariaLabel="Lọc theo khoảng thời gian"
+                    allowClear
+                    onValueChange={(value) =>
+                      changeFilter(() => setDateRange(value))
+                    }
+                    disabled={editMode}
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium text-[var(--text-secondary)]">
+                    Danh mục
+                  </span>
+                  <CategoryTreeSelect
+                    value={filterCategory}
+                    ariaLabel="Lọc danh mục"
+                    placeholder="Tất cả danh mục"
+                    categories={categories}
+                    emptyOption={{ value: "", label: "Tất cả danh mục" }}
+                    onValueChange={(value) =>
+                      changeFilter(() => setFilterCategory(value))
+                    }
+                    disabled={editMode}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+              <footer className="flex items-center justify-between gap-4 border-t border-[var(--border)] px-1 pt-3">
+                <span className="text-xs text-[var(--text-muted)]">
+                  {hasActiveFilters
+                    ? `${filteredRows.length} giao dịch phù hợp`
+                    : "Đang hiển thị toàn bộ dữ liệu"}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    disabled={!hasActiveFilters}
+                    onClick={clearFilters}
+                  >
+                    <FilterX size={14} />
+                    Đặt lại
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    type="button"
+                    onClick={() => setMobileFilterOpen(false)}
+                  >
+                    Xong
+                  </Button>
+                </div>
+              </footer>
+            </PopoverContent>
+          </Popover>
+        ) : (
         <div className="ledger-filter-popover" ref={mobileFilterRef}>
           <Button
             variant="icon"
@@ -1649,6 +1819,12 @@ export function Ledger({
             </div>
           )}
         </div>
+        )}
+        {isDesktop && (
+          <span className="mr-auto text-xs text-[var(--text-muted)] tabular-nums">
+            {filteredRows.length} giao dịch
+          </span>
+        )}
         {canApprove && selected.size > 0 && (
           <ConfirmDeletePopover
             ariaLabel={`Xóa ${selected.size} giao dịch đã chọn`}
@@ -1659,6 +1835,53 @@ export function Ledger({
             disabled={editMode || busy}
             onConfirm={removeBulk}
           />
+        )}
+        {isDesktop && !readonly && (
+          <Popover
+            open={Boolean(createDraft)}
+            onOpenChange={(open) => {
+              if (open) beginCreate();
+              else if (!busy) setCreateDraft(null);
+            }}
+          >
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="default"
+                  disabled={busy || editMode || !wallets.length}
+                  aria-label="Tạo giao dịch mới"
+                />
+              }
+            >
+              <Plus size={16} />
+              Giao dịch mới
+            </PopoverTrigger>
+            {createDraft && (
+              <PopoverContent
+                align="end"
+                side="bottom"
+                sideOffset={8}
+                elevation="flat"
+                role="dialog"
+                aria-label="Tạo giao dịch mới"
+                className="w-[42rem] max-w-[calc(100vw-2rem)]"
+              >
+                <DesktopTransactionDraft
+                  draft={createDraft}
+                  wallets={wallets}
+                  categories={categories}
+                  busy={busy}
+                  onChange={(patch) =>
+                    setCreateDraft((current) =>
+                      current ? { ...current, ...patch } : current,
+                    )
+                  }
+                  onSave={saveCreate}
+                  onCancel={() => setCreateDraft(null)}
+                />
+              </PopoverContent>
+            )}
+          </Popover>
         )}
       </div>
       <Sheet
@@ -1869,7 +2092,13 @@ export function Ledger({
           )}
         </div>
 
-      <div className="ledger-scroll-area ledger-desktop-table">
+      <div
+        className={
+          isDesktop
+            ? "min-h-0 flex-1 overflow-auto overscroll-contain"
+            : "ledger-scroll-area ledger-desktop-table"
+        }
+      >
         <table className="ledger-table w-full min-w-[1080px] text-left text-sm">
           <colgroup>
             {canApprove && <col className="ledger-selection-column" />}
@@ -1881,10 +2110,22 @@ export function Ledger({
             <col className="ledger-amount-column" />
             <col className="ledger-actions-column" />
           </colgroup>
-          <thead>
-            <tr className="border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--text-muted)]">
+          <thead
+            className={
+              isDesktop
+                ? "sticky top-0 z-10 bg-[var(--surface)]"
+                : undefined
+            }
+          >
+            <tr
+              className={
+                isDesktop
+                  ? "border-b border-[var(--border)] text-[0.68rem] font-medium text-[var(--text-muted)]"
+                  : "border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--text-muted)]"
+              }
+            >
               {canApprove && (
-                <th className="w-10">
+                <th className={isDesktop ? "w-12 py-3 pl-5" : "w-10"}>
                   <Checkbox
                     checked={allSelected}
                     disabled={editMode || selectableRows.length === 0}
@@ -1893,13 +2134,69 @@ export function Ledger({
                   />
                 </th>
               )}
-              <th className="ledger-description-column">Nội dung</th>
-              <th className="ledger-type-column">Loại</th>
-              <th className="ledger-wallet-column">Ví</th>
-              <th className="ledger-date-column">Ngày</th>
-              <th className="ledger-category-column">Danh mục</th>
-              <th className="ledger-amount-column text-right">Số tiền</th>
-              <th className="ledger-actions-column">Thao tác</th>
+              <th
+                className={
+                  isDesktop
+                    ? "ledger-description-column px-5 py-3"
+                    : "ledger-description-column"
+                }
+              >
+                Nội dung
+              </th>
+              <th
+                className={
+                  isDesktop
+                    ? "ledger-type-column px-4 py-3"
+                    : "ledger-type-column"
+                }
+              >
+                Loại
+              </th>
+              <th
+                className={
+                  isDesktop
+                    ? "ledger-wallet-column px-4 py-3"
+                    : "ledger-wallet-column"
+                }
+              >
+                Ví
+              </th>
+              <th
+                className={
+                  isDesktop
+                    ? "ledger-date-column px-4 py-3"
+                    : "ledger-date-column"
+                }
+              >
+                Ngày
+              </th>
+              <th
+                className={
+                  isDesktop
+                    ? "ledger-category-column px-4 py-3"
+                    : "ledger-category-column"
+                }
+              >
+                Danh mục
+              </th>
+              <th
+                className={
+                  isDesktop
+                    ? "ledger-amount-column px-4 py-3 text-right"
+                    : "ledger-amount-column text-right"
+                }
+              >
+                Số tiền
+              </th>
+              <th
+                className={
+                  isDesktop
+                    ? "ledger-actions-column py-3 pl-2 pr-5"
+                    : "ledger-actions-column"
+                }
+              >
+                Thao tác
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -1909,10 +2206,13 @@ export function Ledger({
               <>
                 {scheduledRows.length > 0 && (
                   <tr>
-                    <td colSpan={columnCount} className="p-2">
+                    <td colSpan={columnCount} className="px-3 py-2">
                       <ScheduledTransactionsToggle
                         count={scheduledRows.length}
                         expanded={scheduledExpanded}
+                        nearestDate={formatLedgerDate(
+                          nearestScheduledDate ?? scheduledRows[0].date,
+                        )}
                         onToggle={toggleScheduledGroup}
                       />
                     </td>
@@ -1921,8 +2221,11 @@ export function Ledger({
                 {scheduledExpanded && scheduledRows.map(renderTableTransaction)}
                 {scheduledRows.length > 0 && rows.length > 0 && (
                   <tr>
-                    <td colSpan={columnCount} className="divider-transaction">
-                      <LatestTransactionsLabel />
+                    <td
+                      colSpan={columnCount}
+                      className="border-y border-[var(--border)] px-5 py-2.5 text-[0.68rem] font-semibold tracking-wide text-[var(--text-muted)]"
+                    >
+                      Giao dịch mới nhất
                     </td>
                   </tr>
                 )}
@@ -1943,21 +2246,52 @@ export function Ledger({
           </tbody>
         </table>
       </div>
-      <footer className="ledger-pagination">
-        <p className="ledger-record-count">
-          <span className="ledger-record-count-desktop">
-            Hiển thị {pageStart}–{pageEnd}/{latestRows.length} giao dịch mới
-            nhất
-            {scheduledRows.length
-              ? ` · ${scheduledRows.length} giao dịch đã lên lịch`
-              : ""}
-          </span>
-          <span className="ledger-record-count-mobile">
-            {pageStart}–{pageEnd} / {latestRows.length}
-          </span>
+      <footer
+        className={
+          isDesktop
+            ? "flex min-h-14 items-center justify-between gap-5 border-t border-[var(--border)] px-6 py-3"
+            : "ledger-pagination"
+        }
+      >
+        <p
+          className={
+            isDesktop
+              ? "text-xs text-[var(--text-muted)]"
+              : "ledger-record-count"
+          }
+        >
+          {isDesktop ? (
+            <span>
+              Hiển thị {pageStart}–{pageEnd}/{latestRows.length} giao dịch mới
+              nhất
+              {scheduledRows.length
+                ? ` · ${scheduledRows.length} giao dịch đã lên lịch`
+                : ""}
+            </span>
+          ) : (
+            <>
+              <span className="ledger-record-count-desktop">
+                Hiển thị {pageStart}–{pageEnd}/{latestRows.length} giao dịch mới
+                nhất
+                {scheduledRows.length
+                  ? ` · ${scheduledRows.length} giao dịch đã lên lịch`
+                  : ""}
+              </span>
+              <span className="ledger-record-count-mobile">
+                {pageStart}–{pageEnd} / {latestRows.length}
+              </span>
+            </>
+          )}
         </p>
         {pageCount > 1 && (
-          <nav aria-label="Phân trang sổ giao dịch">
+          <nav
+            className={
+              isDesktop
+                ? "flex items-center gap-2 text-xs text-[var(--text-secondary)]"
+                : undefined
+            }
+            aria-label="Phân trang sổ giao dịch"
+          >
             <Button
               variant="icon"
               size="icon"
@@ -2030,7 +2364,7 @@ export function Ledger({
       </Sheet>
 
       {/* Floating Create Button for Desktop */}
-      {!readonly && (
+      {!readonly && !isDesktop && (
         <Popover
           open={isDesktop && Boolean(createDraft)}
           onOpenChange={(open) => {
@@ -2061,7 +2395,7 @@ export function Ledger({
               sideOffset={12}
               role="dialog"
               aria-label="Tạo giao dịch mới"
-              className="ledger-create-popover-content"
+                className="w-[38rem] max-w-[calc(100vw-2rem)]"
             >
               <MobileTransactionDraft
                 mode="create"
@@ -2314,6 +2648,223 @@ function TransactionDraftSheetHeader({
     </SheetHeader>
   );
 }
+
+function DesktopTransactionDraft({
+  draft,
+  wallets,
+  categories,
+  busy,
+  onChange,
+  onSave,
+  onCancel,
+}: {
+  draft: TransactionDraft;
+  wallets: Option[];
+  categories: CategoryOption[];
+  busy: boolean;
+  onChange: (patch: Partial<TransactionDraft>) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  function changeType(type: TransactionType): void {
+    onChange({
+      type,
+      categoryId: "none",
+      toWalletId:
+        type === "transfer"
+          ? draft.toWalletId || defaultDestination(wallets, draft.walletId)
+          : draft.toWalletId,
+    });
+  }
+
+  return (
+    <section aria-label="Tạo giao dịch mới">
+      <PopoverHeader className="flex-row items-start gap-3 border-b border-[var(--border)] px-2 pb-4 pt-1">
+        <span
+          className="grid size-10 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] text-[var(--primary)]"
+          aria-hidden="true"
+        >
+          <Plus size={17} />
+        </span>
+        <div className="min-w-0 pt-0.5">
+          <PopoverTitle className="text-sm font-semibold text-[var(--foreground)]">
+            Tạo giao dịch mới
+          </PopoverTitle>
+          <PopoverDescription className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+            Ghi nhận khoản thu, chi hoặc chuyển tiền vào sổ giao dịch.
+          </PopoverDescription>
+        </div>
+      </PopoverHeader>
+
+      <div className="px-2 py-4">
+        <Tabs
+          value={draft.type}
+          onValueChange={(value) => changeType(value as TransactionType)}
+          className="gap-0"
+        >
+          <TabsList
+            variant="navigation"
+            className="grid-cols-3"
+            aria-label="Loại giao dịch"
+          >
+            {transactionTypeTabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  variant="navigation"
+                  tone={
+                    tab.value === "expense"
+                      ? "expense"
+                      : tab.value === "income"
+                        ? "income"
+                        : undefined
+                  }
+                  disabled={
+                    busy || (tab.value === "transfer" && wallets.length < 2)
+                  }
+                >
+                  <Icon aria-hidden="true" />
+                  {tab.label}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
+
+        <div className="mt-6 grid grid-cols-[1.08fr_0.92fr] gap-7">
+          <section className="space-y-4" aria-labelledby="transaction-core-title">
+            <div>
+              <h3
+                id="transaction-core-title"
+                className="flex items-center gap-2 text-xs font-semibold text-[var(--foreground)]"
+              >
+                <ArrowLeftRight
+                  className="text-[var(--primary)]"
+                  size={15}
+                  aria-hidden="true"
+                />
+                Giao dịch
+              </h3>
+              <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">
+                Số tiền và nguồn ví thực hiện.
+              </p>
+            </div>
+            <MoneyInput
+              autoFocus
+              required
+              disabled={busy}
+              value={draft.amount}
+              onValueChange={(amount) => onChange({ amount })}
+              placeholder="0"
+              label="Số tiền"
+            />
+            <Select
+              disabled={busy || !wallets.length}
+              value={draft.walletId}
+              onValueChange={(walletId) =>
+                onChange({
+                  walletId,
+                  toWalletId:
+                    draft.toWalletId === walletId
+                      ? defaultDestination(wallets, walletId)
+                      : draft.toWalletId,
+                })
+              }
+              label="Ví thực hiện"
+              options={wallets.map((item) => ({
+                value: item.id,
+                label: item.name,
+              }))}
+            />
+            {draft.type === "transfer" ? (
+              <Select
+                disabled={busy || !wallets.length}
+                value={draft.toWalletId}
+                onValueChange={(toWalletId) => onChange({ toWalletId })}
+                label="Ví nhận"
+                options={wallets.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                  disabled: item.id === draft.walletId,
+                }))}
+              />
+            ) : (
+              <CategoryTreeSelect
+                disabled={
+                  busy ||
+                  !categoriesForTransactionType(categories, draft.type).length
+                }
+                value={draft.categoryId}
+                onValueChange={(categoryId) => onChange({ categoryId })}
+                label="Danh mục"
+                categories={categoriesForTransactionType(
+                  categories,
+                  draft.type,
+                )}
+                emptyOption={{ value: "none", label: "Không chọn" }}
+              />
+            )}
+          </section>
+
+          <section
+            className="space-y-4 border-l border-[var(--border)] pl-7"
+            aria-labelledby="transaction-detail-title"
+          >
+            <div>
+              <h3
+                id="transaction-detail-title"
+                className="flex items-center gap-2 text-xs font-semibold text-[var(--foreground)]"
+              >
+                <CalendarDays
+                  className="text-[var(--primary)]"
+                  size={15}
+                  aria-hidden="true"
+                />
+                Thông tin ghi nhận
+              </h3>
+              <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">
+                Ngày phát sinh và nội dung nhận diện.
+              </p>
+            </div>
+            <DatePicker
+              disabled={busy}
+              label="Ngày giao dịch"
+              value={draft.date}
+              onValueChange={(date) => onChange({ date })}
+              required
+            />
+            <Input
+              disabled={busy}
+              value={draft.description}
+              onChange={(event) =>
+                onChange({ description: event.target.value })
+              }
+              placeholder="Ăn trưa, nhận lương..."
+              label="Nội dung"
+            />
+          </section>
+        </div>
+      </div>
+
+      <footer className="flex items-center justify-between gap-4 border-t border-[var(--border)] px-2 pt-3">
+        <span className="text-xs text-[var(--text-muted)]">
+          Thay đổi số dư được xử lý theo trạng thái giao dịch.
+        </span>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>
+            Hủy
+          </Button>
+          <Button variant="default" size="sm" disabled={busy} onClick={onSave}>
+            {busy ? "Đang lưu" : "Lưu giao dịch"}
+          </Button>
+        </div>
+      </footer>
+    </section>
+  );
+}
+
 function MobileTransactionDraft({
   mode,
   title,
