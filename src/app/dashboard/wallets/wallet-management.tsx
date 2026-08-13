@@ -902,7 +902,6 @@ export function WalletManagement({
             className="wallet-create-form"
             aria-busy={pending}
           >
-            <span className="wallet-create-handle" aria-hidden />
             <SheetHeader className="wallet-create-header">
               <div className="wallet-create-heading">
                 <span aria-hidden>
@@ -1095,7 +1094,6 @@ export function WalletManagement({
           className="wallet-edit-sheet"
           data-desktop-side="right"
         >
-          <span className="wallet-edit-handle" aria-hidden />
           <SheetHeader className="wallet-edit-header">
             <div className="wallet-edit-heading">
               <span aria-hidden>

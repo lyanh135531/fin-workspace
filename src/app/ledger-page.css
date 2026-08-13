@@ -717,7 +717,6 @@
     flex: 0 0 auto;
     border-bottom: 1px solid var(--border);
     background: color-mix(in srgb, var(--surface) 92%, var(--primary-soft));
-    padding: 1rem 3.25rem 0.85rem 1rem !important;
   }
 
   .ledger-mobile-review-heading {
@@ -1463,7 +1462,6 @@
   }
 
   .ledger-mobile-edit-sheet .ledger-mobile-draft-heading {
-    padding: 0.85rem 3rem 0.75rem 0.85rem !important;
     border-bottom: 1px solid var(--border);
     background: color-mix(in srgb, var(--surface) 92%, var(--primary-soft));
   }

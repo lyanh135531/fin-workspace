@@ -1,6 +1,11 @@
 "use client";
 
-import { type ReactNode, useEffect, useState, useTransition } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useState,
+  useTransition,
+} from "react";
 import {
   Bell,
   CalendarClock,
@@ -587,7 +592,6 @@ export function NotificationsMenu({
           aria-busy={pending}
           aria-label="Thông báo"
         >
-          <span className="notifications-mobile-handle" aria-hidden />
           <SheetHeader className="notifications-mobile-header">
             <div className="notifications-mobile-heading">
               <span aria-hidden>

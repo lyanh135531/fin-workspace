@@ -7,6 +7,13 @@ import { XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 
+type BottomSheetDragStart = {
+  y: number;
+};
+
+const MOBILE_SHEET_QUERY = "(max-width: 760px)";
+const MOBILE_SHEET_CLOSE_RATIO = 2 / 3;
+
 function Sheet(props: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />;
 }
@@ -41,24 +48,117 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = false,
+  style,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: "top" | "right" | "bottom" | "left";
   showCloseButton?: boolean;
 }) {
+  const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const dragStartRef = React.useRef<BottomSheetDragStart | null>(null);
+  const [dragOffset, setDragOffset] = React.useState(0);
+  const [dragging, setDragging] = React.useState(false);
+  const isBottomSheet = side === "bottom";
+
+  function resetDrag(): void {
+    dragStartRef.current = null;
+    setDragging(false);
+    setDragOffset(0);
+  }
+
+  function handleDragStart(event: React.PointerEvent<HTMLDivElement>): void {
+    if (
+      !isBottomSheet ||
+      event.button !== 0 ||
+      !window.matchMedia(MOBILE_SHEET_QUERY).matches
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragStartRef.current = { y: event.clientY };
+    setDragging(true);
+  }
+
+  function handleDragMove(event: React.PointerEvent<HTMLDivElement>): void {
+    const dragStart = dragStartRef.current;
+    if (!dragStart || !event.currentTarget.hasPointerCapture(event.pointerId)) {
+      return;
+    }
+
+    event.preventDefault();
+    setDragOffset(Math.max(0, event.clientY - dragStart.y));
+  }
+
+  function handleDragEnd(event: React.PointerEvent<HTMLDivElement>): void {
+    const dragStart = dragStartRef.current;
+    if (!dragStart || !event.currentTarget.hasPointerCapture(event.pointerId)) {
+      resetDrag();
+      return;
+    }
+
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    const distance = Math.max(0, event.clientY - dragStart.y);
+    const sheetHeight = event.currentTarget.parentElement?.getBoundingClientRect()
+      .height;
+    const shouldClose =
+      sheetHeight !== undefined &&
+      distance >= sheetHeight * MOBILE_SHEET_CLOSE_RATIO;
+
+    resetDrag();
+    if (shouldClose) closeButtonRef.current?.click();
+  }
+
+  function handleDragCancel(event: React.PointerEvent<HTMLDivElement>): void {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    resetDrag();
+  }
+
   return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Popup
         data-slot="sheet-content"
         data-side={side}
+        data-mobile-sheet-dragging={dragging || undefined}
         className={cn(
           "fixed z-50 flex min-h-0 flex-col gap-4 overflow-hidden rounded-3xl bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0 data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem] data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem] data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
           className,
         )}
+        style={
+          {
+            ...style,
+            "--mobile-sheet-drag-offset": `${dragOffset}px`,
+          } as React.CSSProperties
+        }
         {...props}
       >
+        {isBottomSheet && (
+          <div
+            data-slot="mobile-sheet-drag-handle"
+            onPointerDown={handleDragStart}
+            onPointerMove={handleDragMove}
+            onPointerUp={handleDragEnd}
+            onPointerCancel={handleDragCancel}
+            aria-hidden="true"
+          >
+            <span />
+          </div>
+        )}
         {children}
+        {isBottomSheet && (
+          <SheetPrimitive.Close
+            ref={closeButtonRef}
+            hidden
+            tabIndex={-1}
+            aria-hidden="true"
+          >
+            Đóng
+          </SheetPrimitive.Close>
+        )}
         {showCloseButton && (
           <SheetPrimitive.Close
             data-slot="sheet-close"
@@ -85,7 +185,7 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-header"
-      className={cn("shrink-0 p-3", className)}
+      className={cn("shrink-0 p-3 pt-5", className)}
       {...props}
     />
   );

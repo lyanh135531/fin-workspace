@@ -195,7 +195,6 @@ function ScheduledTransactionsToggle({
     </Button>
   );
 }
-
 function ScheduledTransactionsToggleContent({
   count,
   expanded,
@@ -1662,57 +1661,40 @@ export function Ledger({
           />
         )}
       </div>
-      {createDraft && (
-        <div className="ledger-mobile-create-draft">
-          <MobileTransactionDraft
-            mode="create"
-            draft={createDraft}
-            wallets={wallets}
-            categories={categories}
-            busy={busy}
-            onChange={(patch) =>
-              setCreateDraft((current) =>
-                current ? { ...current, ...patch } : current,
-              )
-            }
-            onSave={saveCreate}
-            onCancel={() => setCreateDraft(null)}
-          />
-        </div>
-      )}
+      <Sheet
+        open={!isDesktop && Boolean(createDraft)}
+        onOpenChange={(open) => {
+          if (!open && !busy) setCreateDraft(null);
+        }}
+      >
+        {!isDesktop && createDraft && (
+          <SheetContent
+            side="bottom"
+            className="quick-transaction-sheet ledger-mobile-edit-sheet ledger-transaction-editor-sheet"
+            aria-label="Tạo giao dịch"
+          >
+            <TransactionDraftSheetHeader mode="create" />
+            <MobileTransactionDraft
+              mode="create"
+              showHeader={false}
+              draft={createDraft}
+              wallets={wallets}
+              categories={categories}
+              busy={busy}
+              progressiveDetails
+              onChange={(patch) =>
+                setCreateDraft((current) =>
+                  current ? { ...current, ...patch } : current,
+                )
+              }
+              onSave={saveCreate}
+              onCancel={() => setCreateDraft(null)}
+            />
+          </SheetContent>
+        )}
+      </Sheet>
 
-      {editMode && (
-        <div
-          className="ledger-mobile-edit-list"
-          aria-label="Chỉnh sửa giao dịch"
-        >
-          {visibleRows
-            .filter((item) => !editTargetId || item.id === editTargetId)
-            .map((item) => {
-              const draft =
-                editDrafts[item.id] ?? draftFromTransaction(item, wallets);
-              return (
-                <MobileTransactionDraft
-                  key={item.id}
-                  mode="edit"
-                  title={item.description || "Giao dịch chưa có nội dung"}
-                  status={<Status value={item.status} />}
-                  draft={draft}
-                  wallets={wallets}
-                  categories={categories}
-                  busy={busy}
-                  disabled={!isAdmin && item.hasPendingChange}
-                  onChange={(patch) => updateDraft(item.id, patch)}
-                  onSave={saveEdits}
-                  onCancel={cancelEdit}
-                />
-              );
-            })}
-        </div>
-      )}
-
-      {!createDraft && !editMode && (
-        <div
+      <div
           className="ledger-mobile-list"
           data-selection-mode={selected.size > 0 || undefined}
           aria-label="Danh sách giao dịch"
@@ -1828,7 +1810,6 @@ export function Ledger({
                 className="ledger-scheduled-sheet"
                 aria-label="Giao dịch đã lên lịch"
               >
-                <span className="ledger-scheduled-sheet-handle" aria-hidden />
                 <SheetHeader className="ledger-scheduled-sheet-header">
                   <div className="ledger-scheduled-sheet-heading">
                     <span aria-hidden>
@@ -1887,7 +1868,6 @@ export function Ledger({
             />
           )}
         </div>
-      )}
 
       <div className="ledger-scroll-area ledger-desktop-table">
         <table className="ledger-table w-full min-w-[1080px] text-left text-sm">
@@ -2017,6 +1997,13 @@ export function Ledger({
             className="quick-transaction-sheet ledger-mobile-edit-sheet"
             aria-label="Chỉnh sửa giao dịch"
           >
+            <TransactionDraftSheetHeader
+              mode="edit"
+              title={
+                mobileEditTarget.description || "Giao dịch chưa có nội dung"
+              }
+              disabled={!isAdmin && mobileEditTarget.hasPendingChange}
+            />
             <MobileTransactionDraft
               key={mobileEditTarget.id}
               mode="edit"
@@ -2029,6 +2016,7 @@ export function Ledger({
               categories={categories}
               busy={busy}
               disabled={!isAdmin && mobileEditTarget.hasPendingChange}
+              showHeader={false}
               onChange={(patch) =>
                 setMobileEditDraft((current) =>
                   current ? { ...current, ...patch } : current,
@@ -2293,6 +2281,39 @@ function groupTransactionsByDate<T extends { date: string }>(
   });
 }
 
+function TransactionDraftSheetHeader({
+  mode,
+  title,
+  disabled = false,
+}: {
+  mode: "create" | "edit";
+  title?: string;
+  disabled?: boolean;
+}) {
+  const Icon = mode === "create" ? Plus : Pencil;
+
+  return (
+    <SheetHeader className="wallet-edit-header ledger-transaction-sheet-header">
+      <div className="wallet-edit-heading">
+        <span aria-hidden="true">
+          <Icon size={18} />
+        </span>
+        <div className="min-w-0">
+          <SheetTitle>
+            {mode === "create" ? "Tạo giao dịch" : "Chỉnh sửa giao dịch"}
+          </SheetTitle>
+          <SheetDescription>
+            {disabled
+              ? "Giao dịch đang có yêu cầu thay đổi chờ duyệt"
+              : mode === "create"
+                ? "Nhập số tiền và thông tin giao dịch"
+                : title || "Cập nhật thông tin giao dịch"}
+          </SheetDescription>
+        </div>
+      </div>
+    </SheetHeader>
+  );
+}
 function MobileTransactionDraft({
   mode,
   title,
@@ -2303,6 +2324,7 @@ function MobileTransactionDraft({
   busy,
   disabled = false,
   progressiveDetails = false,
+  showHeader = true,
   onChange,
   onSave,
   onCancel,
@@ -2316,6 +2338,7 @@ function MobileTransactionDraft({
   busy: boolean;
   disabled?: boolean;
   progressiveDetails?: boolean;
+  showHeader?: boolean;
   onChange: (patch: Partial<TransactionDraft>) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -2343,37 +2366,39 @@ function MobileTransactionDraft({
           : `Chỉnh sửa ${title ?? "giao dịch"}`
       }
     >
-      <div
-        className={`ledger-mobile-draft-heading ${quickSheetEdit ? "quick-transaction-header" : ""}`}
-      >
-        {quickSheetEdit ? (
-          <div className="quick-transaction-heading">
-            <span aria-hidden="true">
-              <Pencil size={18} />
-            </span>
+      {showHeader && (
+        <div
+          className={`ledger-mobile-draft-heading ${quickSheetEdit ? "quick-transaction-header" : ""}`}
+        >
+          {quickSheetEdit ? (
+            <div className="quick-transaction-heading">
+              <span aria-hidden="true">
+                <Pencil size={18} />
+              </span>
+              <div>
+                <strong>Chỉnh sửa giao dịch</strong>
+                <small>
+                  {disabled
+                    ? "Giao dịch đang có yêu cầu thay đổi chờ duyệt"
+                    : title}
+                </small>
+              </div>
+            </div>
+          ) : (
             <div>
-              <strong>Chỉnh sửa giao dịch</strong>
+              <strong>{mode === "create" ? "Giao dịch mới" : title}</strong>
               <small>
                 {disabled
                   ? "Giao dịch đang có yêu cầu thay đổi chờ duyệt"
-                  : title}
+                  : mode === "create"
+                    ? "Điền các thông tin cần thiết"
+                    : "Cập nhật thông tin giao dịch"}
               </small>
             </div>
-          </div>
-        ) : (
-          <div>
-            <strong>{mode === "create" ? "Giao dịch mới" : title}</strong>
-            <small>
-              {disabled
-                ? "Giao dịch đang có yêu cầu thay đổi chờ duyệt"
-                : mode === "create"
-                  ? "Điền các thông tin cần thiết"
-                  : "Cập nhật thông tin giao dịch"}
-            </small>
-          </div>
-        )}
-        {mode === "edit" ? status : null}
-      </div>
+          )}
+          {mode === "edit" ? status : null}
+        </div>
+      )}
       <div
         className={`ledger-mobile-draft-grid ${quickSheetEdit ? "quick-transaction-scroll" : ""} ${
           progressiveDetails ? "ledger-create-progressive-grid" : ""
@@ -2553,14 +2578,4 @@ function MobileTransactionDraft({
       </div>
     </section>
   );
-}
-
-function Status({ value }: { value: LedgerItem["status"] }) {
-  const label = {
-    approved: "Đã ghi nhận",
-    pending: "Chờ xác nhận",
-    scheduled: "Đã lên lịch",
-    rejected: "Đã từ chối",
-  }[value];
-  return <span className={`status status-${value}`}>{label}</span>;
 }

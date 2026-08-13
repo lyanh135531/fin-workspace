@@ -529,8 +529,7 @@ export function RecurringTransactionsManager({
               side={isMobile ? "bottom" : "right"}
               className="recurring-sheet-content w-full gap-0 border-l border-[var(--border)] bg-[var(--surface)] p-0 sm:max-w-none"
             >
-              <span className="recurring-sheet-handle" aria-hidden="true" />
-              <SheetHeader className="recurring-sheet-header border-b border-border px-6 py-3.5 pr-14">
+              <SheetHeader className="recurring-sheet-header border-b border-border">
                 <div className="recurring-sheet-heading">
                   <span aria-hidden="true">
                     <Repeat2 size={18} />
@@ -542,7 +541,8 @@ export function RecurringTransactionsManager({
                         : "Tạo giao dịch định kỳ"}
                     </SheetTitle>
                     <SheetDescription className="recurring-desktop-sheet-description">
-                      Thiết lập nội dung, nguồn tiền và thời gian ghi nhận tự động.
+                      Thiết lập nội dung, nguồn tiền và thời gian ghi nhận tự
+                      động.
                     </SheetDescription>
                   </div>
                 </div>
