@@ -8,6 +8,7 @@ import {
 } from "@/app/dashboard/recurring-transactions/actions";
 import {
   Button,
+  Card,
   CategoryTreeSelect,
   DatePicker,
   Empty,
@@ -23,6 +24,7 @@ import {
   SheetHeader,
   SheetTitle,
   Tabs,
+  TabsCount,
   TabsList,
   TabsTrigger,
 } from "@/components/base";
@@ -36,6 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { formatAmount } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   ArrowDownLeft,
@@ -121,10 +124,25 @@ const typeOptions = [
 ];
 
 const statusFilterOptions = [
-  { value: "all", label: "Tất cả lịch", icon: LayoutGrid },
-  { value: "active", label: "Đang hoạt động", icon: CirclePlay },
-  { value: "deactive", label: "Tạm dừng", icon: CirclePause },
-  { value: "completed", label: "Đã kết thúc", icon: CircleCheckBig },
+  { value: "all", label: "Tất cả lịch", tabLabel: "Tất cả", icon: LayoutGrid },
+  {
+    value: "active",
+    label: "Đang hoạt động",
+    tabLabel: "Đang chạy",
+    icon: CirclePlay,
+  },
+  {
+    value: "deactive",
+    label: "Tạm dừng",
+    tabLabel: "Tạm dừng",
+    icon: CirclePause,
+  },
+  {
+    value: "completed",
+    label: "Đã kết thúc",
+    tabLabel: "Đã xong",
+    icon: CircleCheckBig,
+  },
 ] as const;
 
 function defaultDestination(wallets: Option[], sourceId: string) {
@@ -219,6 +237,8 @@ export function RecurringTransactionsManager({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [busy, startTransition] = useTransition();
+  const SummaryContainer = isMobile ? "section" : Card;
+  const ListContainer = isMobile ? "section" : Card;
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 760px)");
@@ -320,9 +340,9 @@ export function RecurringTransactionsManager({
   }
 
   return (
-    <div className="recurring-page">
+    <div className={isMobile ? "recurring-page" : "space-y-5"}>
       <PageHeader
-        className="recurring-page-header"
+        className={isMobile ? "recurring-page-header" : undefined}
         title="Giao dịch định kỳ"
         description="Tự động ghi nhận các khoản thu, chi và chuyển tiền lặp lại mỗi tháng."
       >
@@ -380,32 +400,98 @@ export function RecurringTransactionsManager({
         </dl>
       </section>
 
-      <section
-        className="recurring-summary"
+      <SummaryContainer
+        className={cn(
+          isMobile
+            ? "recurring-summary"
+            : "max-[760px]:hidden grid grid-cols-[minmax(16rem,1.15fr)_minmax(0,1.85fr)] items-stretch gap-0",
+        )}
         aria-label="Tổng quan giao dịch định kỳ"
       >
-        <div className="recurring-summary-primary">
-          <span className="recurring-summary-icon" aria-hidden>
+        <div
+          className={cn(
+            isMobile
+              ? "recurring-summary-primary"
+              : "flex min-w-0 items-center gap-4 pr-6",
+          )}
+        >
+          <span
+            className={cn(
+              isMobile
+                ? "recurring-summary-icon"
+                : "grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]",
+            )}
+            aria-hidden="true"
+          >
             <Repeat2 size={20} />
           </span>
           <div>
-            <div className="recurring-summary-status">
-              <i data-active={activeCount > 0} aria-hidden="true" />
-              <p>Trung tâm tự động</p>
+            <div
+              className={cn(
+                isMobile
+                  ? "recurring-summary-status"
+                  : "flex items-center gap-2 text-xs font-medium text-[var(--text-muted)]",
+              )}
+            >
+              <i
+                className={cn(
+                  !isMobile && "size-1.5 rounded-full bg-[var(--success)]",
+                )}
+                data-active={activeCount > 0}
+                aria-hidden="true"
+              />
+              <p>{isMobile ? "Trung tâm tự động" : "Tự động ghi nhận"}</p>
             </div>
-            <div className="recurring-summary-value">
-              <strong>{activeCount}</strong>
-              <span>lịch đang chạy</span>
+            <div
+              className={cn(
+                isMobile
+                  ? "recurring-summary-value"
+                  : "mt-2 flex items-baseline gap-2",
+              )}
+            >
+              <strong
+                className={cn(
+                  !isMobile &&
+                    "text-[2rem] font-semibold leading-none tracking-[-0.04em] text-[var(--foreground)] tabular-nums",
+                )}
+              >
+                {activeCount}
+              </strong>
+              <span
+                className={cn(
+                  !isMobile &&
+                    "text-sm font-medium text-[var(--text-secondary)]",
+                )}
+              >
+                lịch đang chạy
+              </span>
             </div>
-            <small>
+            <small
+              className={cn(
+                !isMobile &&
+                  "mt-2 block text-xs leading-5 text-[var(--text-muted)]",
+              )}
+            >
               {activeCount > 0
                 ? "Felix sẽ ghi nhận đúng ngày đã đặt"
                 : "Kích hoạt một lịch để bắt đầu tự động hóa"}
             </small>
           </div>
         </div>
-        <dl className="recurring-summary-details">
-          <div className="recurring-summary-metric recurring-summary-metric-total">
+        <dl
+          className={cn(
+            isMobile
+              ? "recurring-summary-details"
+              : "grid grid-cols-4 border-l border-[var(--border)] text-center [&>div]:flex [&>div]:flex-col [&>div]:items-center [&>div]:justify-center [&>div]:px-4 [&_dd]:mt-2 [&_dd]:text-xl [&_dd]:font-semibold [&_dd]:text-[var(--foreground)] [&_dd]:tabular-nums [&_dt]:flex [&_dt]:items-center [&_dt]:justify-center [&_dt]:gap-2 [&_dt]:text-[0.7rem] [&_dt]:font-medium [&_dt]:text-[var(--text-muted)] [&_small]:mt-1 [&_small]:block [&_small]:text-[0.65rem] [&_small]:text-[var(--text-muted)] [&_svg]:size-3.5",
+          )}
+        >
+          <div
+            className={
+              isMobile
+                ? "recurring-summary-metric recurring-summary-metric-total"
+                : undefined
+            }
+          >
             <dt>
               <LayoutGrid aria-hidden="true" />
               <span>Tổng số lịch</span>
@@ -413,7 +499,13 @@ export function RecurringTransactionsManager({
             <dd>{schedules.length}</dd>
             <small>Đã thiết lập</small>
           </div>
-          <div className="recurring-summary-metric recurring-summary-metric-paused">
+          <div
+            className={
+              isMobile
+                ? "recurring-summary-metric recurring-summary-metric-paused"
+                : undefined
+            }
+          >
             <dt>
               <CirclePause aria-hidden="true" />
               <span>Tạm dừng</span>
@@ -421,7 +513,13 @@ export function RecurringTransactionsManager({
             <dd>{pausedCount}</dd>
             <small>Chờ kích hoạt lại</small>
           </div>
-          <div className="recurring-summary-metric recurring-summary-metric-completed">
+          <div
+            className={
+              isMobile
+                ? "recurring-summary-metric recurring-summary-metric-completed"
+                : undefined
+            }
+          >
             <dt>
               <CircleCheckBig aria-hidden="true" />
               <span>Đã kết thúc</span>
@@ -430,7 +528,13 @@ export function RecurringTransactionsManager({
             <small>Đã hoàn thành</small>
           </div>
           <div
-            className={`recurring-summary-metric recurring-summary-metric-error${errorCount ? " has-error" : ""}`}
+            className={
+              isMobile
+                ? `recurring-summary-metric recurring-summary-metric-error${errorCount ? " has-error" : ""}`
+                : errorCount
+                  ? "text-[var(--danger)]"
+                  : undefined
+            }
           >
             <dt>
               <AlertTriangle aria-hidden="true" />
@@ -440,7 +544,7 @@ export function RecurringTransactionsManager({
             <small>{errorCount ? "Cần xử lý" : "Không có lỗi"}</small>
           </div>
         </dl>
-      </section>
+      </SummaryContainer>
 
       <nav
         className="recurring-mobile-filters"
@@ -469,55 +573,81 @@ export function RecurringTransactionsManager({
         })}
       </nav>
 
-      <div className="recurring-content-grid">
-        <aside className="recurring-desktop-sidebar" aria-label="Bộ lọc lịch">
-          <div>
-            <span className="recurring-sidebar-kicker">Chế độ xem</span>
-            <h2>Lọc theo trạng thái</h2>
-          </div>
-          <nav aria-label="Lọc danh sách giao dịch định kỳ">
-            {statusFilterOptions.map((filter) => {
-              const Icon = filter.icon;
-              return (
-                <button
-                  type="button"
-                  data-active={status === filter.value}
-                  aria-pressed={status === filter.value}
-                  onClick={() => setStatus(filter.value)}
-                  key={filter.value}
-                >
-                  <Icon aria-hidden="true" />
-                  <span>{filter.label}</span>
-                  <strong>{filterCounts[filter.value]}</strong>
-                </button>
-              );
-            })}
-          </nav>
-          <div className="recurring-sidebar-note">
-            <CalendarClock size={16} aria-hidden="true" />
-            <div>
-              <strong>Ngày làm việc</strong>
-              <span>{dateLabel(workspace.businessDate)}</span>
-            </div>
-          </div>
-        </aside>
-
-        <section
-          className="recurring-ledger-card rounded-2xl"
+      <div className={cn(isMobile ? "recurring-content-grid" : "space-y-0")}>
+        <ListContainer
+          className={cn(
+            isMobile
+              ? "recurring-ledger-card rounded-2xl"
+              : "max-[760px]:hidden gap-0",
+          )}
           aria-labelledby="recurring-list-title"
         >
-          <header className="recurring-list-heading">
-            <div>
-              <span className="recurring-list-kicker">Danh sách lịch</span>
-              <h2 id="recurring-list-title">
+          <header
+            className={cn(
+              isMobile
+                ? "recurring-list-heading"
+                : "flex items-center justify-between gap-6 pb-5",
+            )}
+          >
+            <div className="min-w-0">
+              <div
+                className={cn(
+                  !isMobile &&
+                    "flex items-center gap-2 text-xs text-[var(--text-muted)]",
+                )}
+              >
+                {!isMobile && <CalendarClock size={14} aria-hidden="true" />}
+                <span
+                  className={isMobile ? "recurring-list-kicker" : undefined}
+                >
+                  {isMobile
+                    ? "Danh sách lịch"
+                    : `Ngày làm việc ${dateLabel(workspace.businessDate)}`}
+                </span>
+              </div>
+              <h2
+                id="recurring-list-title"
+                className={cn(
+                  !isMobile &&
+                    "mt-1.5 text-base font-semibold text-[var(--foreground)]",
+                )}
+              >
                 {status === "all"
                   ? "Tất cả giao dịch định kỳ"
                   : statusFilterOptions.find(
                       (filter) => filter.value === status,
                     )?.label}
               </h2>
-              <p>{visibleSchedules.length} lịch trong chế độ xem này</p>
+              <p
+                className={cn(
+                  !isMobile && "mt-1 text-xs text-[var(--text-muted)]",
+                )}
+              >
+                {visibleSchedules.length} lịch trong chế độ xem này
+              </p>
             </div>
+            {!isMobile && (
+              <Tabs
+                className="w-[34rem] shrink-0 gap-0"
+                value={status}
+                onValueChange={(value) =>
+                  setStatus(value as ScheduleStatusFilter)
+                }
+              >
+                <TabsList variant="navigation" className="grid-cols-4 gap-1">
+                  {statusFilterOptions.map((filter) => (
+                    <TabsTrigger
+                      key={filter.value}
+                      value={filter.value}
+                      variant="navigation"
+                    >
+                      <span>{filter.tabLabel}</span>
+                      <TabsCount>{filterCounts[filter.value]}</TabsCount>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            )}
           </header>
           <Sheet
             open={draft !== null}
@@ -527,20 +657,58 @@ export function RecurringTransactionsManager({
           >
             <SheetContent
               side={isMobile ? "bottom" : "right"}
-              className="recurring-sheet-content w-full gap-0 border-l border-[var(--border)] bg-[var(--surface)] p-0 sm:max-w-none"
+              placement={isMobile ? "edge" : "inset"}
+              size={isMobile ? "default" : "wide"}
+              spacing="flush"
+              elevation="flat"
+              className={
+                isMobile
+                  ? "recurring-sheet-content w-full gap-0 border-l border-[var(--border)] bg-[var(--surface)] p-0 sm:max-w-none"
+                  : undefined
+              }
             >
-              <SheetHeader className="recurring-sheet-header border-b border-border">
-                <div className="recurring-sheet-heading">
-                  <span aria-hidden="true">
+              <SheetHeader
+                className={cn(
+                  isMobile
+                    ? "recurring-sheet-header border-b border-border"
+                    : "border-b border-[var(--border)] px-8 pb-5 pt-7",
+                )}
+              >
+                <div
+                  className={cn(
+                    isMobile
+                      ? "recurring-sheet-heading"
+                      : "flex items-start gap-3.5",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      !isMobile &&
+                        "grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] text-[var(--primary)]",
+                    )}
+                    aria-hidden="true"
+                  >
                     <Repeat2 size={18} />
                   </span>
-                  <div>
-                    <SheetTitle className="text-lg font-semibold tracking-tight">
+                  <div className="min-w-0 pt-0.5">
+                    <SheetTitle
+                      className={cn(
+                        isMobile
+                          ? "text-lg font-semibold tracking-tight"
+                          : "text-xl font-semibold tracking-tight",
+                      )}
+                    >
                       {editingId
                         ? "Chỉnh sửa lịch tự động"
                         : "Tạo giao dịch định kỳ"}
                     </SheetTitle>
-                    <SheetDescription className="recurring-desktop-sheet-description">
+                    <SheetDescription
+                      className={cn(
+                        isMobile
+                          ? "recurring-desktop-sheet-description"
+                          : "mt-1 max-w-[30rem] text-xs leading-5 text-[var(--text-muted)]",
+                      )}
+                    >
                       Thiết lập nội dung, nguồn tiền và thời gian ghi nhận tự
                       động.
                     </SheetDescription>
@@ -548,12 +716,18 @@ export function RecurringTransactionsManager({
                 </div>
               </SheetHeader>
               {draft && (
-                <div className="recurring-sheet-body min-h-0 flex-1 overflow-y-auto px-6">
+                <div
+                  className={cn(
+                    "min-h-0 flex-1 overflow-y-auto",
+                    isMobile ? "recurring-sheet-body px-6" : "px-8",
+                  )}
+                >
                   <RecurringEditor
                     mode={editingId ? "edit" : "create"}
                     draft={draft}
                     wallets={wallets}
                     categories={categories}
+                    isMobile={isMobile}
                     onChange={(patch) =>
                       setDraft((current) =>
                         current ? { ...current, ...patch } : current,
@@ -562,7 +736,14 @@ export function RecurringTransactionsManager({
                   />
                 </div>
               )}
-              <SheetFooter className="recurring-sheet-footer shrink-0 flex-row justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-6 py-4">
+              <SheetFooter
+                className={cn(
+                  "shrink-0 flex-row justify-end gap-2 border-t border-[var(--border)]",
+                  isMobile
+                    ? "recurring-sheet-footer bg-[var(--surface)] px-6 py-4"
+                    : "px-8 py-4",
+                )}
+              >
                 <Button variant="outline" disabled={busy} onClick={closeEditor}>
                   Hủy
                 </Button>
@@ -574,14 +755,14 @@ export function RecurringTransactionsManager({
           </Sheet>
 
           <div
-            className="recurring-schedule-list recurring-desktop-schedule-list"
+            className="hidden border-t border-[var(--border)] min-[761px]:block"
             aria-label="Danh sách giao dịch định kỳ"
           >
             {visibleSchedules.map((schedule) => {
               const nextDate = mobileDateParts(schedule.nextExecutionDate);
               return (
                 <article
-                  className="recurring-schedule-row"
+                  className="grid min-h-[6rem] grid-cols-[3.5rem_minmax(12rem,1fr)_minmax(22rem,1.55fr)_13rem] items-center gap-4 border-b border-[var(--border)] py-4 transition-colors last:border-b-0"
                   data-type={schedule.type}
                   data-status={
                     schedule.completedAt ? "completed" : schedule.status
@@ -589,21 +770,25 @@ export function RecurringTransactionsManager({
                   key={schedule.id}
                 >
                   <time
-                    className="recurring-desktop-date"
+                    className="grid place-items-center text-center text-[var(--text-muted)]"
                     dateTime={schedule.nextExecutionDate}
                   >
                     {schedule.completedAt ? (
                       <CircleCheckBig size={20} aria-hidden="true" />
                     ) : (
                       <>
-                        <span>{nextDate.month}</span>
-                        <strong>{nextDate.day}</strong>
+                        <span className="text-[0.62rem] font-semibold uppercase text-[var(--text-muted)]">
+                          {nextDate.month}
+                        </span>
+                        <strong className="mt-0.5 text-xl font-semibold leading-none text-[var(--foreground)] tabular-nums">
+                          {nextDate.day}
+                        </strong>
                       </>
                     )}
                   </time>
-                  <div className="recurring-schedule-main">
-                    <div className="recurring-schedule-badges">
-                      <span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-[0.68rem]">
+                      <span className="font-medium text-[var(--text-muted)]">
                         {
                           typeOptions.find(
                             (option) => option.value === schedule.type,
@@ -611,8 +796,19 @@ export function RecurringTransactionsManager({
                         }
                       </span>
                       <span
-                        className={`status recurring-status-${schedule.completedAt ? "completed" : schedule.status}`}
+                        className={cn(
+                          "inline-flex items-center gap-1 font-medium",
+                          schedule.completedAt
+                            ? "text-[var(--text-muted)]"
+                            : schedule.status === "active"
+                              ? "text-[var(--success)]"
+                              : "text-[var(--warning)]",
+                        )}
                       >
+                        <span
+                          className="size-1.5 rounded-full bg-current"
+                          aria-hidden="true"
+                        />
                         {schedule.completedAt
                           ? "Đã kết thúc"
                           : schedule.status === "active"
@@ -621,24 +817,26 @@ export function RecurringTransactionsManager({
                       </span>
                       {schedule.lastError && (
                         <span
-                          className="recurring-error"
+                          className="inline-flex items-center gap-1 text-[var(--danger)]"
                           title={schedule.lastError}
                         >
                           <AlertTriangle size={12} /> Cần kiểm tra
                         </span>
                       )}
                     </div>
-                    <h3>{schedule.description || "Không có nội dung"}</h3>
-                    <p>
+                    <h3 className="mt-2 truncate text-sm font-semibold text-[var(--foreground)]">
+                      {schedule.description || "Không có nội dung"}
+                    </h3>
+                    <p className="mt-1 truncate text-xs text-[var(--text-muted)]">
                       {schedule.wallet}
                       {schedule.toWallet ? ` → ${schedule.toWallet}` : ""}
                       <span>·</span>
                       {schedule.category?.name ?? "Chưa phân loại"}
                     </p>
                   </div>
-                  <dl className="recurring-schedule-timing">
+                  <dl className="grid min-w-0 grid-cols-[0.85fr_0.85fr_1.3fr] [&>div]:min-w-0 [&>div]:px-4 [&>div:first-child]:pl-0 [&>div+div]:border-l [&>div+div]:border-[var(--border)] [&_dd]:mt-1.5 [&_dd]:text-xs [&_dd]:font-medium [&_dd]:leading-5 [&_dd]:text-[var(--text-secondary)] [&_dt]:text-[0.65rem] [&_dt]:text-[var(--text-muted)]">
                     <div>
-                      <dt>Lặp lại</dt>
+                      <dt>Chu kỳ</dt>
                       <dd>{scheduleDayLabel(schedule.dayOfMonth)}</dd>
                     </div>
                     <div>
@@ -651,7 +849,7 @@ export function RecurringTransactionsManager({
                     </div>
                     <div>
                       <dt>Hiệu lực</dt>
-                      <dd>
+                      <dd className="whitespace-normal break-words">
                         {dateLabel(schedule.startDate)} →{" "}
                         {schedule.endDate
                           ? dateLabel(schedule.endDate)
@@ -659,24 +857,36 @@ export function RecurringTransactionsManager({
                       </dd>
                     </div>
                   </dl>
-                  <div className="recurring-schedule-end">
-                    <strong className={`ledger-amount amount-${schedule.type}`}>
+                  <div className="min-w-0 text-right">
+                    <strong
+                      className={cn(
+                        "block truncate text-sm font-semibold tabular-nums",
+                        schedule.type === "income"
+                          ? "text-[var(--income)]"
+                          : schedule.type === "expense"
+                            ? "text-[var(--expense)]"
+                            : "text-[var(--transfer)]",
+                      )}
+                    >
                       {schedule.type === "income"
                         ? "+"
                         : schedule.type === "expense"
                           ? "−"
                           : "↔"}
                       {formatAmount(schedule.amount)}{" "}
-                      <small>{workspace.currency}</small>
+                      <small className="ml-1 text-[0.65rem] font-medium">
+                        {workspace.currency}
+                      </small>
                     </strong>
-                    <p>{schedule.occurrenceCount} kỳ đã ghi nhận</p>
-                    <div className="ledger-row-actions flex items-center gap-3">
+                    <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">
+                      {schedule.occurrenceCount} kỳ đã ghi nhận
+                    </p>
+                    <div className="mt-2 flex items-center justify-end gap-1">
                       {!schedule.completedAt && (
                         <Button
-                          variant="unstyled"
-                          size="auto"
+                          variant="icon"
+                          size="icon"
                           type="button"
-                          className="recurring-row-action"
                           disabled={busy || Boolean(draft)}
                           onClick={() => toggleStatus(schedule)}
                           title={
@@ -698,10 +908,9 @@ export function RecurringTransactionsManager({
                         </Button>
                       )}
                       <Button
-                        variant="unstyled"
-                        size="auto"
+                        variant="icon"
+                        size="icon"
                         type="button"
-                        className="recurring-row-action"
                         disabled={busy || Boolean(draft)}
                         onClick={() => beginEdit(schedule)}
                         title="Chỉnh sửa"
@@ -715,7 +924,18 @@ export function RecurringTransactionsManager({
                         description={`“${schedule.description || "Giao dịch định kỳ"}” sẽ ngừng chạy. Các giao dịch đã ghi nhận vẫn được giữ nguyên.`}
                         onConfirm={() => remove(schedule.id)}
                         disabled={busy || Boolean(draft)}
-                        className="recurring-row-action recurring-row-delete"
+                        trigger={
+                          <Button
+                            type="button"
+                            variant="destructiveIcon"
+                            size="icon"
+                            disabled={busy || Boolean(draft)}
+                            aria-label="Xóa lịch"
+                            title="Xóa lịch"
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        }
                       />
                     </div>
                   </div>
@@ -770,7 +990,7 @@ export function RecurringTransactionsManager({
               />
             )}
           </div>
-        </section>
+        </ListContainer>
       </div>
     </div>
   );
@@ -967,36 +1187,73 @@ function RecurringEditor({
   draft,
   wallets,
   categories,
+  isMobile,
   onChange,
 }: {
   mode: "create" | "edit";
   draft: Draft;
   wallets: Option[];
   categories: CategoryOption[];
+  isMobile: boolean;
   onChange: (patch: Partial<Draft>) => void;
 }) {
   return (
     <section
-      className="recurring-editor !m-0 !rounded-none !border-0 !bg-transparent !px-0 !py-5 !shadow-none"
+      className={cn(
+        isMobile
+          ? "recurring-editor !m-0 !rounded-none !border-0 !bg-transparent !px-0 !py-5 !shadow-none"
+          : "grid grid-cols-2 gap-x-8 gap-y-7 py-6",
+      )}
       aria-label={
         mode === "create"
           ? "Tạo giao dịch định kỳ"
           : "Chỉnh sửa giao dịch định kỳ"
       }
     >
-      <div className="recurring-editor-intro">
+      <div
+        className={cn(
+          isMobile
+            ? "recurring-editor-intro"
+            : "col-span-2 flex items-center justify-between gap-5 border-b border-[var(--border)] pb-5",
+        )}
+      >
         <div>
-          <span className="recurring-editor-kicker">
+          <span
+            className={cn(
+              isMobile
+                ? "recurring-editor-kicker"
+                : "inline-flex items-center gap-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--primary)]",
+            )}
+          >
             <Repeat2 size={13} /> Lặp hằng tháng
           </span>
-          <p>Fin tự ghi nhận đúng ngày.</p>
+          <p
+            className={cn(
+              !isMobile && "mt-1.5 text-xs text-[var(--text-muted)]",
+            )}
+          >
+            {isMobile
+              ? "Fin tự ghi nhận đúng ngày."
+              : mode === "edit"
+                ? "Các thay đổi sẽ áp dụng từ kỳ ghi nhận tiếp theo."
+                : "Fin tự ghi nhận giao dịch đúng ngày đã chọn."}
+          </p>
         </div>
         <div
-          className="recurring-editor-preview"
+          className={cn(
+            isMobile
+              ? "recurring-editor-preview"
+              : "flex shrink-0 items-center gap-2.5 text-right text-xs text-[var(--text-muted)]",
+          )}
           aria-label="Tóm tắt lịch chạy"
         >
-          <CalendarClock size={16} />
-          <span>
+          <CalendarClock
+            className={cn(!isMobile && "text-[var(--primary)]")}
+            size={16}
+          />
+          <span
+            className={cn(!isMobile && "font-medium text-[var(--foreground)]")}
+          >
             {draft.startDate
               ? scheduleDayLabel(Number(draft.startDate.slice(-2)))
               : "Chọn ngày bắt đầu"}
@@ -1004,9 +1261,24 @@ function RecurringEditor({
         </div>
       </div>
 
-      <div className="recurring-editor-section recurring-transaction-section">
-        <div className="recurring-editor-section-title recurring-desktop-section-title">
-          <ArrowLeftRight size={16} />
+      <div
+        className={cn(
+          isMobile
+            ? "recurring-editor-section recurring-transaction-section"
+            : "col-span-2 space-y-4",
+        )}
+      >
+        <div
+          className={cn(
+            isMobile
+              ? "recurring-editor-section-title recurring-desktop-section-title"
+              : "flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]",
+          )}
+        >
+          <ArrowLeftRight
+            className={cn(!isMobile && "text-[var(--primary)]")}
+            size={16}
+          />
           <span>Thông tin giao dịch</span>
         </div>
         <Tabs
@@ -1014,10 +1286,17 @@ function RecurringEditor({
           onValueChange={(value) =>
             onChange({ type: value as TransactionType, categoryId: "none" })
           }
-          className="recurring-type-tabs quick-type-tabs gap-0"
+          className={cn(
+            isMobile ? "recurring-type-tabs quick-type-tabs gap-0" : "gap-0",
+          )}
         >
           <TabsList
-            className="recurring-type-switch quick-type-switch w-full rounded-2xl"
+            variant={isMobile ? "default" : "navigation"}
+            className={cn(
+              isMobile
+                ? "recurring-type-switch quick-type-switch w-full rounded-2xl"
+                : "grid-cols-3",
+            )}
             aria-label="Loại giao dịch"
           >
             {typeOptions.map((option) => {
@@ -1026,7 +1305,17 @@ function RecurringEditor({
                 <TabsTrigger
                   value={option.value}
                   data-transaction-type={option.value}
-                  className="flex-1 rounded-2xl"
+                  variant={isMobile ? "default" : "navigation"}
+                  tone={
+                    !isMobile
+                      ? option.value === "expense"
+                        ? "expense"
+                        : option.value === "income"
+                          ? "income"
+                          : undefined
+                      : undefined
+                  }
+                  className={isMobile ? "flex-1 rounded-2xl" : undefined}
                   key={option.value}
                   disabled={option.value === "transfer" && wallets.length < 2}
                 >
@@ -1037,8 +1326,18 @@ function RecurringEditor({
             })}
           </TabsList>
         </Tabs>
-        <div className="recurring-editor-grid recurring-transaction-grid">
-          <div className="recurring-field recurring-field-wide">
+        <div
+          className={cn(
+            isMobile
+              ? "recurring-editor-grid recurring-transaction-grid"
+              : "grid grid-cols-[minmax(0,1fr)_13rem] gap-4",
+          )}
+        >
+          <div
+            className={
+              isMobile ? "recurring-field recurring-field-wide" : undefined
+            }
+          >
             <Input
               label="Nội dung giao dịch"
               value={draft.description}
@@ -1049,10 +1348,14 @@ function RecurringEditor({
               maxLength={2_000}
             />
           </div>
-          <div className="recurring-field recurring-amount-field">
+          <div
+            className={
+              isMobile ? "recurring-field recurring-amount-field" : undefined
+            }
+          >
             <MoneyInput
               label="Số tiền"
-              wrapperClassName="quick-amount-field"
+              wrapperClassName={isMobile ? "quick-amount-field" : undefined}
               value={draft.amount}
               onValueChange={(amount) => onChange({ amount })}
               placeholder="0"
@@ -1062,13 +1365,34 @@ function RecurringEditor({
         </div>
       </div>
 
-      <div className="recurring-editor-section recurring-source-section">
-        <div className="recurring-editor-section-title">
-          <Landmark size={16} />
+      <div
+        className={cn(
+          isMobile
+            ? "recurring-editor-section recurring-source-section"
+            : "space-y-4",
+        )}
+      >
+        <div
+          className={cn(
+            isMobile
+              ? "recurring-editor-section-title"
+              : "flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]",
+          )}
+        >
+          <Landmark
+            className={cn(!isMobile && "text-[var(--primary)]")}
+            size={16}
+          />
           <span>Nguồn tiền</span>
         </div>
-        <div className="recurring-editor-grid recurring-source-grid">
-          <div className="recurring-field">
+        <div
+          className={cn(
+            isMobile
+              ? "recurring-editor-grid recurring-source-grid"
+              : "space-y-4",
+          )}
+        >
+          <div className={isMobile ? "recurring-field" : undefined}>
             <Select
               value={draft.walletId}
               onValueChange={(walletId) =>
@@ -1088,7 +1412,7 @@ function RecurringEditor({
             />
           </div>
           {draft.type === "transfer" ? (
-            <div className="recurring-field">
+            <div className={isMobile ? "recurring-field" : undefined}>
               <Select
                 value={draft.toWalletId}
                 onValueChange={(toWalletId) => onChange({ toWalletId })}
@@ -1101,7 +1425,7 @@ function RecurringEditor({
               />
             </div>
           ) : (
-            <div className="recurring-field">
+            <div className={isMobile ? "recurring-field" : undefined}>
               <CategoryTreeSelect
                 value={draft.categoryId}
                 onValueChange={(categoryId) => onChange({ categoryId })}
@@ -1117,13 +1441,30 @@ function RecurringEditor({
         </div>
       </div>
 
-      <div className="recurring-editor-section recurring-schedule-section">
-        <div className="recurring-editor-section-title">
-          <CalendarClock size={16} />
+      <div
+        className={cn(
+          isMobile
+            ? "recurring-editor-section recurring-schedule-section"
+            : "space-y-4",
+        )}
+      >
+        <div
+          className={cn(
+            isMobile
+              ? "recurring-editor-section-title"
+              : "flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]",
+          )}
+        >
+          <CalendarClock
+            className={cn(!isMobile && "text-[var(--primary)]")}
+            size={16}
+          />
           <span>Lịch chạy</span>
         </div>
         <div
-          className="recurring-desktop-schedule-preview"
+          className={cn(
+            isMobile ? "recurring-desktop-schedule-preview" : "hidden",
+          )}
           aria-label="Tóm tắt lịch chạy trên desktop"
         >
           <span aria-hidden="true">
@@ -1138,8 +1479,14 @@ function RecurringEditor({
             </strong>
           </div>
         </div>
-        <div className="recurring-editor-grid recurring-date-grid">
-          <div className="recurring-field">
+        <div
+          className={cn(
+            isMobile
+              ? "recurring-editor-grid recurring-date-grid"
+              : "space-y-4",
+          )}
+        >
+          <div className={isMobile ? "recurring-field" : undefined}>
             <DatePicker
               label="Ngày bắt đầu"
               value={draft.startDate}
@@ -1154,9 +1501,16 @@ function RecurringEditor({
               }
               required
             />
-            <small>Đây cũng là ngày lặp lại hằng tháng.</small>
+            <small
+              className={cn(
+                !isMobile &&
+                  "mt-1.5 block text-[0.68rem] leading-4 text-[var(--text-muted)]",
+              )}
+            >
+              Đây cũng là ngày lặp lại hằng tháng.
+            </small>
           </div>
-          <div className="recurring-field">
+          <div className={isMobile ? "recurring-field" : undefined}>
             <DatePicker
               label="Kết thúc"
               value={draft.endDate}
@@ -1164,7 +1518,14 @@ function RecurringEditor({
               minDate={draft.startDate}
               allowClear
             />
-            <small>Để trống để lịch chạy liên tục.</small>
+            <small
+              className={cn(
+                !isMobile &&
+                  "mt-1.5 block text-[0.68rem] leading-4 text-[var(--text-muted)]",
+              )}
+            >
+              Để trống để lịch chạy liên tục.
+            </small>
           </div>
         </div>
       </div>

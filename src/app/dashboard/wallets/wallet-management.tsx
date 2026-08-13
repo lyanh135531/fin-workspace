@@ -817,7 +817,7 @@ export function WalletManagement({
                     }}
                     onDrop={(event) => handleWalletDrop(event, wallet.id)}
                     className={cn(
-                      "group/wallet grid min-h-[4.75rem] grid-cols-[1.25rem_2.5rem_minmax(10rem,1fr)_minmax(8rem,0.7fr)_6.5rem] items-center gap-3 border-t border-[var(--border)] py-3.5 transition-colors hover:bg-[var(--surface-hover)] min-[1320px]:grid-cols-[1.25rem_2.5rem_minmax(12rem,1.25fr)_minmax(9rem,0.75fr)_minmax(8rem,0.65fr)_minmax(7rem,0.55fr)_6.5rem]",
+                      "group/wallet grid min-h-[4.75rem] grid-cols-[1.25rem_2.5rem_minmax(10rem,1fr)_minmax(8rem,0.7fr)_6.5rem] items-center gap-3 border-t border-[var(--border)] py-3.5 transition-colors min-[1320px]:grid-cols-[1.25rem_2.5rem_minmax(12rem,1.25fr)_minmax(9rem,0.75fr)_minmax(8rem,0.65fr)_minmax(7rem,0.55fr)_6.5rem]",
                       isAdmin &&
                         filterStatus === "all" &&
                         !pending &&
@@ -1218,7 +1218,9 @@ export function WalletManagement({
                     name="fundingAmount"
                     value={createFundingAmount}
                     onValueChange={setCreateFundingAmount}
-                    className={isDesktop ? undefined : "wallet-create-amount-input"}
+                    className={
+                      isDesktop ? undefined : "wallet-create-amount-input"
+                    }
                   />
                   {isDesktop && !hasInitialFunding && (
                     <div className="rounded-xl bg-[var(--surface-secondary)] p-4">
@@ -1286,10 +1288,20 @@ export function WalletManagement({
                             <TrendingUp size={15} />
                           </span>
                           <span className="min-w-0">
-                            <strong className={cn(isDesktop && "block text-xs font-semibold text-[var(--foreground)]")}>
+                            <strong
+                              className={cn(
+                                isDesktop &&
+                                  "block text-xs font-semibold text-[var(--foreground)]",
+                              )}
+                            >
                               Tiền có sẵn
                             </strong>
-                            <small className={cn(isDesktop && "mt-0.5 block text-[0.68rem] text-[var(--text-muted)]")}>
+                            <small
+                              className={cn(
+                                isDesktop &&
+                                  "mt-0.5 block text-[0.68rem] text-[var(--text-muted)]",
+                              )}
+                            >
                               Ghi nhận là khoản thu
                             </small>
                           </span>
@@ -1332,10 +1344,20 @@ export function WalletManagement({
                             <Landmark size={15} />
                           </span>
                           <span className="min-w-0">
-                            <strong className={cn(isDesktop && "block text-xs font-semibold text-[var(--foreground)]")}>
+                            <strong
+                              className={cn(
+                                isDesktop &&
+                                  "block text-xs font-semibold text-[var(--foreground)]",
+                              )}
+                            >
                               Chuyển từ ví khác
                             </strong>
-                            <small className={cn(isDesktop && "mt-0.5 block text-[0.68rem] text-[var(--text-muted)]")}>
+                            <small
+                              className={cn(
+                                isDesktop &&
+                                  "mt-0.5 block text-[0.68rem] text-[var(--text-muted)]",
+                              )}
+                            >
                               Dịch chuyển số dư nội bộ
                             </small>
                           </span>
@@ -1522,9 +1544,7 @@ export function WalletManagement({
                   )}
                   <div
                     className={cn(
-                      isDesktop
-                        ? "min-w-0"
-                        : "wallet-edit-summary-identity",
+                      isDesktop ? "min-w-0" : "wallet-edit-summary-identity",
                     )}
                   >
                     {!isDesktop && (
@@ -1599,9 +1619,7 @@ export function WalletManagement({
                   aria-labelledby="edit-wallet-details-heading"
                 >
                   <div
-                    className={cn(
-                      !isDesktop && "wallet-edit-section-heading",
-                    )}
+                    className={cn(!isDesktop && "wallet-edit-section-heading")}
                   >
                     <h3
                       id="edit-wallet-details-heading"
