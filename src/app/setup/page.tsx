@@ -11,6 +11,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import { useCallback, useId, useState } from "react";
 
 import { registerAccountAction } from "@/app/setup/actions";
@@ -23,6 +24,21 @@ type Strength = {
   score: 0 | 1 | 2 | 3 | 4;
   label: string;
 };
+
+type CompletionState = "idle" | "authenticating" | "manual-sign-in";
+
+async function authenticateRegisteredAccount(
+  username: string,
+  password: string,
+): Promise<boolean> {
+  const result = await signIn("credentials", {
+    username,
+    password,
+    redirect: false,
+  });
+
+  return result?.ok === true && !result.error;
+}
 
 function getStrength(pw: string): Strength {
   if (!pw) return { score: 0, label: "" };
@@ -50,7 +66,8 @@ export default function SetupPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
+  const [completionState, setCompletionState] =
+    useState<CompletionState>("idle");
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [errorKey, setErrorKey] = useState(0);
@@ -68,14 +85,35 @@ export default function SetupPage() {
     setFieldErrors({});
 
     const formData = new FormData(e.currentTarget);
+    const username = String(formData.get("username"));
+    const submittedPassword = String(formData.get("password"));
+
     try {
       const res = await registerAccountAction({
-        username: String(formData.get("username")),
-        password: String(formData.get("password")),
+        username,
+        password: submittedPassword,
       });
+
       if (res.ok) {
-        setDone(true);
-        setTimeout(() => window.location.assign("/sign-in"), 1800);
+        setCompletionState("authenticating");
+
+        try {
+          const authenticated = await authenticateRegisteredAccount(
+            username,
+            submittedPassword,
+          );
+
+          if (authenticated) {
+            window.location.replace("/overview");
+            return;
+          }
+        } catch {
+          setMessage(
+            "Tài khoản đã tạo nhưng kết nối đăng nhập bị gián đoạn.",
+          );
+        }
+
+        setCompletionState("manual-sign-in");
       } else {
         setErrorKey((k) => k + 1);
         setMessage(res.message || "Không thể tạo tài khoản.");
@@ -117,17 +155,42 @@ export default function SetupPage() {
               </p>
             </div>
 
-            {done && (
-              <div className="auth-success-banner" role="status">
+            {completionState !== "idle" && (
+              <div
+                className="auth-success-banner"
+                role="status"
+                aria-live="polite"
+              >
                 <span><CheckCircle2 size={18} aria-hidden /></span>
                 <p>
                   <strong>Tài khoản đã sẵn sàng.</strong>
-                  <small>Đang chuyển bạn đến trang đăng nhập…</small>
+                  <small>
+                    {completionState === "authenticating"
+                      ? "Đang đăng nhập và mở không gian của bạn…"
+                      : message ??
+                        "Không thể tự đăng nhập. Hãy đăng nhập để tiếp tục."}
+                  </small>
                 </p>
               </div>
             )}
 
-            {!done && (
+            {completionState === "manual-sign-in" && (
+              <div className="auth-form-actions">
+                <Button
+                  size="lg"
+                  nativeButton={false}
+                  render={<Link href="/sign-in" />}
+                  className="auth-submit-btn"
+                >
+                  Đăng nhập để tiếp tục
+                  <span className="auth-submit-icon" aria-hidden="true">
+                    <ArrowRight size={16} />
+                  </span>
+                </Button>
+              </div>
+            )}
+
+            {completionState === "idle" && (
               <form onSubmit={submit} aria-busy={loading}>
                 <div className="auth-fields">
                   <div className="auth-floating-field">

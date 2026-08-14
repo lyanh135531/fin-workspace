@@ -1,4 +1,12 @@
+import { ArrowRight, Lock, User } from "lucide-react";
+
+import { AuthShowcase } from "@/components/auth-showcase";
+import { FinLogo } from "@/components/fin-logo";
+
+import { Button } from "./button";
 import { Card } from "./card";
+import { Input } from "./input";
+import { Loading } from "./loading";
 import { Skeleton } from "./skeleton";
 
 function PageHeaderSkeleton() {
@@ -1135,14 +1143,91 @@ function MemberAccountsPageSkeleton() {
 function AuthPageSkeleton() {
   return (
     <main
-      className="grid min-h-[100dvh] place-items-center p-6"
+      className="auth-split-shell auth-mobile-polished-shell [&_.auth-fields>*]:!animate-none [&_.auth-form-actions]:!animate-none [&_.auth-form-panel]:!animate-none [&_.auth-visual-body]:!animate-none [&_.auth-visual-brand]:!animate-none [&_.auth-visual-footer]:!animate-none [&_.auth-visual-panel]:!animate-none"
       aria-busy="true"
-      aria-label="Đang tải"
+      aria-label="Đang chuẩn bị trang đăng nhập"
     >
-      <div className="w-full max-w-md space-y-5">
-        <Skeleton className="mx-auto size-12 rounded-xl" />
-        <Skeleton className="h-[28rem] w-full rounded-2xl" />
-      </div>
+      <AuthShowcase mode="sign-in" />
+
+      <section className="auth-form-panel" aria-labelledby="auth-loading-title">
+        <div className="auth-form-toolbar">
+          <div className="auth-mobile-brand" aria-hidden>
+            <FinLogo size={28} />
+            <span>Felix</span>
+          </div>
+          <span className="size-10" aria-hidden />
+        </div>
+
+        <Card className="auth-form-card gap-0 py-0">
+          <div className="auth-form-inner">
+            <div className="auth-form-header">
+              <span className="auth-form-eyebrow">Đăng nhập</span>
+              <h2 id="auth-loading-title" className="auth-form-title">
+                Chào mừng bạn trở lại.
+              </h2>
+              <p className="auth-form-subtitle">
+                Tiếp tục đến không gian tài chính của bạn.
+              </p>
+            </div>
+
+            <div className="auth-fields" aria-hidden>
+              <div className="auth-floating-field">
+                <Input
+                  label="Tên đăng nhập"
+                  type="text"
+                  disabled
+                  placeholder="Nhập tên đăng nhập"
+                  className="auth-field-input"
+                  controlClassName="auth-field-wrap has-left-icon"
+                  startAdornment={
+                    <span className="auth-field-left-icon">
+                      <User size={16} strokeWidth={2} />
+                    </span>
+                  }
+                />
+              </div>
+
+              <div className="auth-floating-field">
+                <Input
+                  label="Mật khẩu"
+                  type="password"
+                  disabled
+                  placeholder="Nhập mật khẩu của bạn"
+                  className="auth-field-input has-icon"
+                  controlClassName="auth-field-wrap has-left-icon"
+                  startAdornment={
+                    <span className="auth-field-left-icon">
+                      <Lock size={16} strokeWidth={2} />
+                    </span>
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="auth-form-actions">
+              <Button
+                type="button"
+                size="lg"
+                className="auth-submit-btn is-loading"
+                disabled
+              >
+                <Loading label="Đang chuẩn bị..." />
+                <span className="auth-submit-icon" aria-hidden>
+                  <ArrowRight size={16} />
+                </span>
+              </Button>
+
+              <p className="auth-form-link-row">
+                Chưa có tài khoản? <span>Tạo tài khoản</span>
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <p className="auth-legal">
+          Khi tiếp tục, bạn đồng ý với các quy định bảo mật của Felix.
+        </p>
+      </section>
     </main>
   );
 }
