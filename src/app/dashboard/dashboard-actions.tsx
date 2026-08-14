@@ -58,6 +58,7 @@ import {
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { Textarea } from "@/components/ui/textarea";
 import { formatAmount } from "@/lib/format";
+import Decimal from "decimal.js";
 import {
   ArrowDownLeft,
   ArrowLeftRight,
@@ -130,6 +131,10 @@ type TransactionDraft = {
   toWalletId: string;
   date: string;
   amount: string;
+};
+type LedgerDateTotals = {
+  income: Decimal;
+  expense: Decimal;
 };
 const typeOptions = [
   { value: "expense", label: "Chi tiêu", icon: ArrowUpRight },
@@ -928,6 +933,7 @@ export function Ledger({
   wallets,
   categories,
   currency,
+  isDesktop,
   readonly = false,
   startWithNewTransaction = false,
 }: {
@@ -942,6 +948,7 @@ export function Ledger({
   wallets: Option[];
   categories: CategoryOption[];
   currency: string;
+  isDesktop: boolean;
   readonly?: boolean;
   startWithNewTransaction?: boolean;
 }) {
@@ -965,7 +972,6 @@ export function Ledger({
   const [mobileBulkDeleteOpen, setMobileBulkDeleteOpen] = useState(false);
   const [mobileScheduledOpen, setMobileScheduledOpen] = useState(false);
   const [desktopScheduledOpen, setDesktopScheduledOpen] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
   const mobileFilterRef = useRef<HTMLDivElement>(null);
   const [busy, start] = useTransition();
   const hasActiveFilters =
@@ -1013,21 +1019,6 @@ export function Ledger({
   const columnCount = canApprove ? 8 : 7;
   const pageStart = latestRows.length ? (page - 1) * pageSize + 1 : 0;
   const pageEnd = Math.min(page * pageSize, latestRows.length);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const updateViewport = () => {
-      const desktop = mediaQuery.matches;
-      setIsDesktop(desktop);
-      if (desktop) {
-        setMobileEditTarget(null);
-        setMobileEditDraft(null);
-      }
-    };
-    updateViewport();
-    mediaQuery.addEventListener("change", updateViewport);
-    return () => mediaQuery.removeEventListener("change", updateViewport);
-  }, []);
 
   useEffect(() => {
     if (!mobileFilterOpen) return;
@@ -2176,7 +2167,7 @@ export function Ledger({
           </colgroup>
           <thead
             className={
-              isDesktop ? "sticky top-0 z-10 bg-[var(--surface)]" : undefined
+              isDesktop ? "sticky top-0 z-20 bg-[var(--surface)]" : undefined
             }
           >
             <tr
@@ -2262,7 +2253,51 @@ export function Ledger({
             </tr>
           </thead>
           <tbody>
-            {rows.map(renderTableTransaction)}
+            {isDesktop
+              ? groupTransactionsByDate(rows).map(
+                  ({ dateKey, label, items }) => {
+                    const totals = getLedgerDateTotals(items);
+                    return (
+                      <Fragment key={dateKey}>
+                        <tr>
+                          <td
+                            colSpan={columnCount}
+                            className="sticky top-[2.55rem] z-10 bg-[var(--surface-secondary)] px-5 py-2.5"
+                          >
+                            <div className="flex items-center justify-between gap-6">
+                              <div className="flex min-w-0 items-center gap-2.5">
+                                <CalendarDays
+                                  className="size-3.5 shrink-0 text-[var(--primary)]"
+                                  aria-hidden="true"
+                                />
+                                <strong className="truncate text-xs font-semibold text-[var(--foreground)] tabular-nums">
+                                  {label}
+                                </strong>
+                                <span className="shrink-0 text-[0.68rem] text-[var(--text-muted)]">
+                                  {items.length} giao dịch
+                                </span>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-5 text-[0.68rem] font-medium tabular-nums">
+                                {!totals.income.isZero() && (
+                                  <span className="text-[var(--income)]">
+                                    Thu +{formatAmount(totals.income)} {currency}
+                                  </span>
+                                )}
+                                {!totals.expense.isZero() && (
+                                  <span className="text-[var(--expense)]">
+                                    Chi −{formatAmount(totals.expense)} {currency}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                        {items.map(renderTableTransaction)}
+                      </Fragment>
+                    );
+                  },
+                )
+              : rows.map(renderTableTransaction)}
             {rows.length === 0 && (
               <tr>
                 <td colSpan={columnCount} className="p-4">
@@ -2516,6 +2551,28 @@ function groupTransactionsByDate<T extends { date: string }>(
       items: groupItems,
     };
   });
+}
+
+function getLedgerDateTotals(items: LedgerItem[]): LedgerDateTotals {
+  return items.reduce<LedgerDateTotals>(
+    (totals, item) => {
+      if (item.status !== "approved") return totals;
+      if (item.type === "income") {
+        return {
+          income: totals.income.plus(item.amount),
+          expense: totals.expense,
+        };
+      }
+      if (item.type === "expense") {
+        return {
+          income: totals.income,
+          expense: totals.expense.plus(item.amount),
+        };
+      }
+      return totals;
+    },
+    { income: new Decimal(0), expense: new Decimal(0) },
+  );
 }
 
 function TransactionDraftSheetHeader({

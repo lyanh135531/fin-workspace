@@ -2,13 +2,13 @@
 
 import { Ledger } from "@/app/dashboard/dashboard-actions";
 import type { LedgerPeriodSummary } from "@/app/dashboard/dashboard-summary-data";
-import { Card, PageHeader } from "@/components/base";
+import { Card, DashboardPageSkeleton, PageHeader } from "@/components/base";
 import { formatAmount } from "@/lib/format";
 import Decimal from "decimal.js";
 import { BookOpenText, CalendarDays } from "lucide-react";
 import { useEffect, useMemo, useState, type ComponentProps } from "react";
 
-type LedgerProps = ComponentProps<typeof Ledger>;
+type LedgerProps = Omit<ComponentProps<typeof Ledger>, "isDesktop">;
 
 function periodLabel(period: string) {
   if (period === "all") return "Tất cả thời gian";
@@ -51,7 +51,7 @@ export function DashboardLedgerWorkspace({
 
   if (isDesktop) {
     return (
-      <div className="mx-auto grid h-full min-h-0 w-full max-w-7xl grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden py-2">
+      <div className="mx-auto grid h-full min-h-0 w-full max-w-7xl grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden px-px py-2">
         <PageHeader
           className="mb-0"
           title="Sổ giao dịch"
@@ -111,51 +111,58 @@ export function DashboardLedgerWorkspace({
         </Card>
 
         <Card as="section" className="min-h-0 gap-0 overflow-hidden p-0">
-          <Ledger {...ledgerProps} />
+          <Ledger {...ledgerProps} isDesktop />
         </Card>
       </div>
     );
   }
 
   return (
-    <div className="ledger-page-shell">
-      <header className="ledger-page-hero rounded-xl">
-        <div className="ledger-page-intro">
-          <div className="ledger-page-kicker">
-            <span>
-              <BookOpenText size={15} aria-hidden="true" />
-            </span>
-            Nhật ký dòng tiền
-          </div>
-          <h1>Sổ giao dịch</h1>
-          <p>Theo dõi toàn bộ khoản thu, chi và chuyển khoản.</p>
-        </div>
-        <div
-          className={`ledger-hero-balance ledger-hero-balance-${cashflowTone}`}
-        >
-          <div>
-            <span>Dòng tiền ròng</span>
-            <small>
-              <CalendarDays size={14} aria-hidden="true" />
-              {label}
-            </small>
-          </div>
-          <strong>
-            {cashflow.isPositive() ? "+" : ""}
-            {formatAmount(cashflow)} {ledgerProps.currency}
-          </strong>
-        </div>
-      </header>
-
-      <div className="ledger-table-viewport">
-        <Card
-          as="section"
-          className="dashboard-ledger-card ledger-book gap-0 p-0 overflow-hidden"
-        >
-          <Ledger {...ledgerProps} />
-        </Card>
+    <>
+      <div className="hidden h-full lg:block">
+        <DashboardPageSkeleton />
       </div>
-    </div>
+      <div className="h-full min-h-0 lg:hidden">
+        <div className="ledger-page-shell">
+          <header className="ledger-page-hero rounded-xl">
+            <div className="ledger-page-intro">
+              <div className="ledger-page-kicker">
+                <span>
+                  <BookOpenText size={15} aria-hidden="true" />
+                </span>
+                Nhật ký dòng tiền
+              </div>
+              <h1>Sổ giao dịch</h1>
+              <p>Theo dõi toàn bộ khoản thu, chi và chuyển khoản.</p>
+            </div>
+            <div
+              className={`ledger-hero-balance ledger-hero-balance-${cashflowTone}`}
+            >
+              <div>
+                <span>Dòng tiền ròng</span>
+                <small>
+                  <CalendarDays size={14} aria-hidden="true" />
+                  {label}
+                </small>
+              </div>
+              <strong>
+                {cashflow.isPositive() ? "+" : ""}
+                {formatAmount(cashflow)} {ledgerProps.currency}
+              </strong>
+            </div>
+          </header>
+
+          <div className="ledger-table-viewport">
+            <Card
+              as="section"
+              className="dashboard-ledger-card ledger-book gap-0 p-0 overflow-hidden"
+            >
+              <Ledger {...ledgerProps} isDesktop={false} />
+            </Card>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 

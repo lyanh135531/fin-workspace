@@ -84,7 +84,7 @@ export function OverviewFilters({
           render={
             <Button
               type="button"
-              variant="outline"
+              variant={isMobile ? "outline" : "filter"}
               className={
                 isMobile
                   ? `overview-filter-trigger border border-input shadow-none transition-colors hover:bg-white outline-none select-none bg-white ${hasActiveFilters ? "is-active" : ""}`
@@ -104,10 +104,7 @@ export function OverviewFilters({
               {activeFilterCount}
             </span>
           )}
-          <ChevronDown
-            className="overview-filter-chevron"
-            aria-hidden="true"
-          />
+          <ChevronDown className="overview-filter-chevron" aria-hidden="true" />
         </PopoverTrigger>
         <PopoverContent
           align="start"
@@ -186,7 +183,10 @@ export function OverviewFilters({
               </PopoverHeader>
 
               <div className="grid grid-cols-[1.15fr_0.85fr] px-2 py-3">
-                <section className="space-y-4 pr-5" aria-labelledby="filter-scope-title">
+                <section
+                  className="space-y-4 pr-5"
+                  aria-labelledby="filter-scope-title"
+                >
                   <div>
                     <h3
                       id="filter-scope-title"

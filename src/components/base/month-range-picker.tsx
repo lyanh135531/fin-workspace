@@ -136,12 +136,12 @@ export function MonthRangePicker({
   const triggerButton = (
     <Button
       type="button"
-      variant="outline"
+      variant="filter"
       aria-label={ariaLabel}
       aria-expanded={open}
       disabled={disabled}
       className={cn(
-        "date-range-picker-trigger group border bg-white px-3 font-normal shadow-none outline-none transition-colors hover:bg-white dark:bg-input/30 dark:hover:bg-input/50",
+        "date-range-picker-trigger group",
         className,
       )}
     />
