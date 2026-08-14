@@ -5,12 +5,14 @@ import { cn } from "@/lib/utils";
 type CardProps<T extends ElementType = "div"> = {
   as?: T;
   size?: "default" | "sm";
-} & Omit<ComponentPropsWithRef<T>, "as" | "size">;
+  tone?: "default" | "primarySoft";
+} & Omit<ComponentPropsWithRef<T>, "as" | "size" | "tone">;
 
 function Card<T extends ElementType = "div">({
   as,
   className,
   size = "default",
+  tone = "default",
   ...props
 }: CardProps<T>) {
   const Component = as ?? "div";
@@ -20,7 +22,10 @@ function Card<T extends ElementType = "div">({
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex p-6 flex-col gap-(--card-spacing) overflow-hidden rounded-2xl bg-card text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        "group/card flex p-6 flex-col gap-(--card-spacing) overflow-hidden rounded-2xl text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        tone === "primarySoft"
+          ? "bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))] ring-[color-mix(in_srgb,var(--primary)_24%,var(--border))]"
+          : "bg-card",
         className,
       )}
       {...props}

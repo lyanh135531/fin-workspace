@@ -671,7 +671,7 @@ export function RecurringTransactionsManager({
                 className={cn(
                   isMobile
                     ? "recurring-sheet-header border-b border-border"
-                    : "border-b border-[var(--border)] px-8 pb-5 pt-7",
+                    : "px-8 pb-5 pt-7",
                 )}
               >
                 <div
@@ -1214,7 +1214,7 @@ function RecurringEditor({
         className={cn(
           isMobile
             ? "recurring-editor-intro"
-            : "col-span-2 flex items-center justify-between gap-5 border-b border-[var(--border)] pb-5",
+            : "col-span-2 flex items-center justify-between gap-5 pb-5",
         )}
       >
         <div>

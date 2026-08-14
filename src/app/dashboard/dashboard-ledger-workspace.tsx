@@ -51,14 +51,18 @@ export function DashboardLedgerWorkspace({
 
   if (isDesktop) {
     return (
-      <div className="mx-auto grid h-full min-h-0 w-full max-w-7xl grid-rows-[auto_auto_minmax(0,1fr)] gap-5 overflow-hidden py-2">
+      <div className="mx-auto grid h-full min-h-0 w-full max-w-7xl grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden py-2">
         <PageHeader
           className="mb-0"
           title="Sổ giao dịch"
           description="Theo dõi, tìm kiếm và quản lý toàn bộ khoản thu, chi và chuyển khoản."
         />
 
-        <Card as="section" className="gap-0" aria-label="Tổng hợp giao dịch">
+        <Card
+          as="section"
+          className="gap-0 mb-5"
+          aria-label="Tổng hợp giao dịch"
+        >
           <dl className="grid grid-cols-[1.35fr_repeat(3,minmax(0,1fr))] items-stretch">
             <div className="pr-6">
               <dt className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">

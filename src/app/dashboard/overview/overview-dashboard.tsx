@@ -214,9 +214,10 @@ export function OverviewDashboard({
   };
   const chartEndPeriod = dateRange.to.slice(0, 7);
   const mobilePeriodLabel = `${mobileMonthLabel(dateRange.from.slice(0, 7))} – ${mobileMonthLabel(dateRange.to.slice(0, 7))}`;
-  const balanceLabel = Object.entries(totalByCurrency)
-    .map(([currency, total]) => money(total, currency))
-    .join(" · ") || money(0, workspace.currency);
+  const balanceLabel =
+    Object.entries(totalByCurrency)
+      .map(([currency, total]) => money(total, currency))
+      .join(" · ") || money(0, workspace.currency);
   const netCashflow = totals.income.minus(totals.expense);
 
   useEffect(() => {
@@ -255,7 +256,19 @@ export function OverviewDashboard({
           className="grid grid-cols-1 gap-5 lg:grid-cols-12"
           aria-label="Tóm tắt tài chính"
         >
-          <Card as="article" className="gap-0 lg:col-span-5">
+          <Card
+            as="article"
+            tone="primarySoft"
+            className="relative isolate gap-0 lg:col-span-5"
+          >
+            <span
+              className="pointer-events-none absolute -right-8 -top-24 size-44 rounded-full border border-[color-mix(in_srgb,var(--primary)_17%,transparent)]"
+              aria-hidden="true"
+            />
+            <span
+              className="pointer-events-none absolute right-3 top-[-3.3rem] size-24 rounded-full border border-[color-mix(in_srgb,var(--primary)_17%,transparent)]"
+              aria-hidden="true"
+            />
             <div className="flex items-start justify-between gap-5">
               <div>
                 <p className="text-xs font-medium text-[var(--text-secondary)]">
@@ -265,20 +278,23 @@ export function OverviewDashboard({
                   {balanceLabel}
                 </strong>
               </div>
-              <span
-                className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] text-[var(--primary)]"
-                aria-hidden="true"
-              >
-                <WalletCards size={20} />
-              </span>
             </div>
-            <div className="mt-7 flex items-center justify-between gap-4 border-t border-[var(--border)] pt-4 text-xs">
-              <span className="text-[var(--text-muted)]">
+            <div className="mt-7 flex items-center justify-between gap-4 border-t border-[color-mix(in_srgb,var(--primary)_15%,var(--border))] pt-4 text-xs">
+              <span className="inline-flex items-center gap-2 text-[var(--text-muted)]">
+                <WalletCards
+                  className="size-3.5 text-[var(--info)]"
+                  aria-hidden="true"
+                />
                 {wallets.length} ví đang hoạt động
               </span>
               <span
-                className={`font-semibold tabular-nums ${netCashflow.isNegative() ? "text-[var(--expense)]" : "text-[var(--income)]"}`}
+                className={`inline-flex items-center gap-1.5 font-semibold tabular-nums ${netCashflow.isNegative() ? "text-[var(--expense)]" : "text-[var(--income)]"}`}
               >
+                {netCashflow.isNegative() ? (
+                  <TrendingDown size={14} aria-hidden="true" />
+                ) : (
+                  <TrendingUp size={14} aria-hidden="true" />
+                )}
                 {netCashflow.isNegative() ? "−" : "+"}
                 {money(netCashflow.abs(), workspace.currency)} trong kỳ
               </span>
@@ -366,9 +382,7 @@ export function OverviewDashboard({
             {expenseByCategory.length ? (
               <div className="space-y-4 border-t border-[var(--border)] pt-5">
                 {expenseByCategory.slice(0, 6).map((item) => {
-                  const percentage = item.amount
-                    .div(totals.expense)
-                    .times(100);
+                  const percentage = item.amount.div(totals.expense).times(100);
                   return (
                     <div key={item.name}>
                       <div className="flex items-center justify-between gap-4 text-xs">
@@ -622,6 +636,8 @@ function CashflowOverviewCharts({
   dateRange: DateRangeValue;
   isMobile: boolean;
 }) {
+  const showMemberExpenseChart = members.length > 1;
+
   return (
     <Card
       as="section"
@@ -648,9 +664,7 @@ function CashflowOverviewCharts({
           </h2>
           <p
             className={
-              isMobile
-                ? undefined
-                : "mt-1 text-xs text-[var(--text-muted)]"
+              isMobile ? undefined : "mt-1 text-xs text-[var(--text-muted)]"
             }
           >
             Giao dịch đã ghi nhận · {formatDateRangeLabel(dateRange)}
@@ -661,7 +675,9 @@ function CashflowOverviewCharts({
         className={
           isMobile
             ? "overview-flow-layout"
-            : "grid grid-cols-1 gap-6 border-t border-[var(--border)] px-6 pb-6 pt-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)]"
+            : showMemberExpenseChart
+              ? "grid grid-cols-1 gap-6 border-t border-[var(--border)] px-6 pb-6 pt-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)]"
+              : "grid grid-cols-1 border-t border-[var(--border)] px-6 pb-6 pt-5"
         }
       >
         <MonthlyFinancialChart
@@ -677,19 +693,21 @@ function CashflowOverviewCharts({
           dateRange={dateRange}
           isMobile={isMobile}
         />
-        <MemberExpenseChart
-          members={members}
-          transactions={transactions}
-          currency={currency}
-          period={month}
-          range={range}
-          walletId={walletId}
-          categoryId={categoryId}
-          transactionType={transactionType}
-          categoryType={categoryType}
-          dateRange={dateRange}
-          isMobile={isMobile}
-        />
+        {showMemberExpenseChart && (
+          <MemberExpenseChart
+            members={members}
+            transactions={transactions}
+            currency={currency}
+            period={month}
+            range={range}
+            walletId={walletId}
+            categoryId={categoryId}
+            transactionType={transactionType}
+            categoryType={categoryType}
+            dateRange={dateRange}
+            isMobile={isMobile}
+          />
+        )}
       </div>
     </Card>
   );
@@ -1048,7 +1066,7 @@ function MonthlyFinancialChart({
       className={
         isMobile
           ? "overview-flow-primary"
-          : "min-w-0 border-b border-[var(--border)] pb-6 xl:border-b-0 xl:border-r xl:pb-0 xl:pr-6"
+          : "min-w-0 border-b border-[var(--border)] pb-6 xl:border-b-0 xl:pb-0"
       }
       aria-label="Biểu đồ thu nhập và chi tiêu"
     >
@@ -1063,9 +1081,7 @@ function MonthlyFinancialChart({
       {hasData ? (
         <ChartContainer
           config={monthlyChartConfig}
-          className={
-            isMobile ? "overview-expense-chart" : "h-[20rem] w-full"
-          }
+          className={isMobile ? "overview-expense-chart" : "h-[20rem] w-full"}
           aria-label={`Biểu đồ thu nhập và chi tiêu trong ${cashflow.length} tháng thuộc khoảng đã chọn`}
         >
           <LineChart
@@ -1217,9 +1233,7 @@ function MemberExpenseChart({
   ) satisfies ChartConfig;
 
   return (
-    <section
-      className={isMobile ? "overview-flow-member" : "min-w-0 pt-0.5"}
-    >
+    <section className={isMobile ? "overview-flow-member" : "min-w-0 pt-0.5"}>
       <header className={isMobile ? undefined : "pb-3"}>
         <div>
           <h3
@@ -1254,9 +1268,7 @@ function MemberExpenseChart({
         >
           <ChartContainer
             config={chartConfig}
-            className={
-              isMobile ? "overview-member-expense-chart" : "w-full"
-            }
+            className={isMobile ? "overview-member-expense-chart" : "w-full"}
             style={{ height: chartHeight }}
             aria-label={`Biểu đồ ${metricLabel.toLocaleLowerCase("vi")} theo tháng của ${members.length} thành viên trong ${totals.length} tháng`}
           >
@@ -1369,26 +1381,40 @@ function MobileOverviewHome({
       <article className="overview-mobile-balance-hero">
         <header>
           <span>Tổng tài sản</span>
-          <small><WalletCards size={13} /> {walletCount} ví</small>
+          <small>
+            <WalletCards size={13} /> {walletCount} ví
+          </small>
         </header>
         <strong className="overview-mobile-balance-value">{balance}</strong>
-        <div className={`overview-mobile-net ${positiveCashflow ? "positive" : "negative"}`}>
-          {positiveCashflow ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
-          <span>{positiveCashflow ? "+" : "−"}{money(cashflow.abs(), currency)}</span>
+        <div
+          className={`overview-mobile-net ${positiveCashflow ? "positive" : "negative"}`}
+        >
+          {positiveCashflow ? (
+            <TrendingUp size={15} />
+          ) : (
+            <TrendingDown size={15} />
+          )}
+          <span>
+            {positiveCashflow ? "+" : "−"}
+            {money(cashflow.abs(), currency)}
+          </span>
           <small>dòng tiền trong kỳ</small>
         </div>
         <dl className="overview-mobile-cashflow-pair">
           <div>
-            <dt><i className="income" /> Thu vào</dt>
+            <dt>
+              <i className="income" /> Thu vào
+            </dt>
             <dd>{money(income, currency)}</dd>
           </div>
           <div>
-            <dt><i className="expense" /> Chi ra</dt>
+            <dt>
+              <i className="expense" /> Chi ra
+            </dt>
             <dd>{money(expense, currency)}</dd>
           </div>
         </dl>
       </article>
-
     </section>
   );
 }
@@ -1424,7 +1450,8 @@ function MobileMonthlyDashboards({
       ? members
       : members.filter((member) => member.id === memberId)
     : [];
-  const memberMetricType: CashflowType = transactionType === "income" ? "income" : "expense";
+  const memberMetricType: CashflowType =
+    transactionType === "income" ? "income" : "expense";
   const memberTotals = showMemberComparison
     ? buildMemberMonthlyTotals(visibleMembers, transactions, {
         endPeriod: month,
@@ -1443,18 +1470,24 @@ function MobileMonthlyDashboards({
   const memberRows = memberTotals.map((row) => ({
     label: mobileMonthLabel(row.period),
     fullLabel: fullMonthLabel(row.period),
-    ...Object.fromEntries(memberSeries.map((member) => [
-      member.key,
-      new Decimal(row.totals[member.id] ?? 0).toNumber(),
-    ])),
+    ...Object.fromEntries(
+      memberSeries.map((member) => [
+        member.key,
+        new Decimal(row.totals[member.id] ?? 0).toNumber(),
+      ]),
+    ),
   }));
-  const memberHasData = transactionType !== "transfer" && memberTotals.some((row) =>
-    Object.values(row.totals).some((value) => !new Decimal(value).isZero()),
-  );
-  const memberConfig = Object.fromEntries(memberSeries.map((member) => [
-    member.key,
-    { label: member.name, color: member.color },
-  ])) satisfies ChartConfig;
+  const memberHasData =
+    transactionType !== "transfer" &&
+    memberTotals.some((row) =>
+      Object.values(row.totals).some((value) => !new Decimal(value).isZero()),
+    );
+  const memberConfig = Object.fromEntries(
+    memberSeries.map((member) => [
+      member.key,
+      { label: member.name, color: member.color },
+    ]),
+  ) satisfies ChartConfig;
 
   const balances = buildMonthlyBalances(wallets, transactions, {
     endPeriod: month,
@@ -1467,7 +1500,11 @@ function MobileMonthlyDashboards({
     fullLabel: fullMonthLabel(row.period),
     total: new Decimal(row.total).toNumber(),
   }));
-  const balanceHasData = (walletId === "all" ? wallets : wallets.filter((wallet) => wallet.id === walletId)).length > 0;
+  const balanceHasData =
+    (walletId === "all"
+      ? wallets
+      : wallets.filter((wallet) => wallet.id === walletId)
+    ).length > 0;
 
   const monthlyCashflow = buildMonthlyCashflow(transactions, {
     endPeriod: month,
@@ -1486,49 +1523,111 @@ function MobileMonthlyDashboards({
   }));
   const cashflowHasData = monthlyCashflow.some(
     (row) =>
-      !new Decimal(row.income).isZero() ||
-      !new Decimal(row.expense).isZero(),
+      !new Decimal(row.income).isZero() || !new Decimal(row.expense).isZero(),
   );
-  const chartWidth = Math.max(320, memberRows.length * Math.max(54, memberSeries.length * 24));
+  const chartWidth = Math.max(
+    320,
+    memberRows.length * Math.max(54, memberSeries.length * 24),
+  );
   const balanceChartWidth = Math.max(320, balanceRows.length * 54);
   const expenseChartWidth = Math.max(320, expenseRows.length * 54);
 
   return (
-    <section className="overview-mobile-monthly-dashboards" aria-label="Dashboard theo tháng">
+    <section
+      className="overview-mobile-monthly-dashboards"
+      aria-label="Dashboard theo tháng"
+    >
       {showMemberComparison && (
         <article className="overview-mobile-chart-card overview-mobile-member-chart-card">
           <header>
             <div>
               <h3>So sánh thành viên</h3>
-              <p>{memberMetricType === "income" ? "Thu nhập" : "Chi tiêu"} theo từng tháng</p>
+              <p>
+                {memberMetricType === "income" ? "Thu nhập" : "Chi tiêu"} theo
+                từng tháng
+              </p>
             </div>
             <span>{visibleMembers.length} người</span>
           </header>
           {memberHasData ? (
             <div className="overview-mobile-chart-scroll">
-              <ChartContainer config={memberConfig} className="overview-mobile-monthly-chart" style={{ width: chartWidth, minWidth: "100%" }}>
-                <BarChart data={memberRows} accessibilityLayer barGap={2} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <ChartContainer
+                config={memberConfig}
+                className="overview-mobile-monthly-chart"
+                style={{ width: chartWidth, minWidth: "100%" }}
+              >
+                <BarChart
+                  data={memberRows}
+                  accessibilityLayer
+                  barGap={2}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                >
                   <CartesianGrid vertical={false} />
-                  <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} interval={0} minTickGap={0} />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    interval={0}
+                    minTickGap={0}
+                  />
                   <YAxis hide />
                   <ChartTooltip
                     cursor={false}
-                    content={<ChartTooltipContent labelKey="label" hideIndicator labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? ""} formatter={(value, name) => {
-                      const series = memberSeries.find((member) => member.key === name);
-                      return <div className="flex min-w-44 items-center justify-between gap-4"><span className="text-muted-foreground">{series?.name ?? String(name)}</span><strong className="tabular-nums">{money(String(value), currency)}</strong></div>;
-                    }} />}
+                    content={
+                      <ChartTooltipContent
+                        labelKey="label"
+                        hideIndicator
+                        labelFormatter={(_, payload) =>
+                          payload?.[0]?.payload?.fullLabel ?? ""
+                        }
+                        formatter={(value, name) => {
+                          const series = memberSeries.find(
+                            (member) => member.key === name,
+                          );
+                          return (
+                            <div className="flex min-w-44 items-center justify-between gap-4">
+                              <span className="text-muted-foreground">
+                                {series?.name ?? String(name)}
+                              </span>
+                              <strong className="tabular-nums">
+                                {money(String(value), currency)}
+                              </strong>
+                            </div>
+                          );
+                        }}
+                      />
+                    }
                   />
                   {memberSeries.map((member) => (
-                    <Bar key={member.id} dataKey={member.key} fill={`var(--color-${member.key})`} radius={[4, 4, 1, 1]} maxBarSize={15} />
+                    <Bar
+                      key={member.id}
+                      dataKey={member.key}
+                      fill={`var(--color-${member.key})`}
+                      radius={[4, 4, 1, 1]}
+                      maxBarSize={15}
+                    />
                   ))}
                 </BarChart>
               </ChartContainer>
             </div>
           ) : (
-            <Empty variant="compact" title={transactionType === "transfer" ? "Không áp dụng cho chuyển khoản" : "Chưa có dữ liệu thành viên"} />
+            <Empty
+              variant="compact"
+              title={
+                transactionType === "transfer"
+                  ? "Không áp dụng cho chuyển khoản"
+                  : "Chưa có dữ liệu thành viên"
+              }
+            />
           )}
           <div className="overview-mobile-member-legend">
-            {memberSeries.map((member) => <span key={member.id}><i style={{ background: member.color }} />{member.name}</span>)}
+            {memberSeries.map((member) => (
+              <span key={member.id}>
+                <i style={{ background: member.color }} />
+                {member.name}
+              </span>
+            ))}
           </div>
         </article>
       )}
@@ -1543,8 +1642,16 @@ function MobileMonthlyDashboards({
         </header>
         {balanceHasData ? (
           <div className="overview-mobile-chart-scroll">
-            <ChartContainer config={balanceChartConfig} className="overview-mobile-monthly-chart" style={{ width: balanceChartWidth, minWidth: "100%" }}>
-              <AreaChart data={balanceRows} accessibilityLayer margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+            <ChartContainer
+              config={balanceChartConfig}
+              className="overview-mobile-monthly-chart"
+              style={{ width: balanceChartWidth, minWidth: "100%" }}
+            >
+              <AreaChart
+                data={balanceRows}
+                accessibilityLayer
+                margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
+              >
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="label"
@@ -1556,13 +1663,47 @@ function MobileMonthlyDashboards({
                   padding={{ left: 18, right: 18 }}
                 />
                 <YAxis hide />
-                <ChartTooltip cursor={false} content={<ChartTooltipContent labelKey="label" indicator="line" labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? ""} formatter={(value) => <div className="flex min-w-44 items-center justify-between gap-4"><span className="text-muted-foreground">Tổng số dư</span><strong className="tabular-nums">{money(String(value), currency)}</strong></div>} />} />
-                <Area dataKey="total" type="monotone" fill="var(--color-total)" fillOpacity={0.12} stroke="var(--color-total)" strokeWidth={2.25} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      labelKey="label"
+                      indicator="line"
+                      labelFormatter={(_, payload) =>
+                        payload?.[0]?.payload?.fullLabel ?? ""
+                      }
+                      formatter={(value) => (
+                        <div className="flex min-w-44 items-center justify-between gap-4">
+                          <span className="text-muted-foreground">
+                            Tổng số dư
+                          </span>
+                          <strong className="tabular-nums">
+                            {money(String(value), currency)}
+                          </strong>
+                        </div>
+                      )}
+                    />
+                  }
+                />
+                <Area
+                  dataKey="total"
+                  type="monotone"
+                  fill="var(--color-total)"
+                  fillOpacity={0.12}
+                  stroke="var(--color-total)"
+                  strokeWidth={2.25}
+                  dot={false}
+                  activeDot={{ r: 4, strokeWidth: 0 }}
+                />
               </AreaChart>
             </ChartContainer>
           </div>
         ) : (
-          <Empty variant="compact" icon={WalletCards} title="Chưa có ví phù hợp" />
+          <Empty
+            variant="compact"
+            icon={WalletCards}
+            title="Chưa có ví phù hợp"
+          />
         )}
       </article>
 
@@ -1576,19 +1717,71 @@ function MobileMonthlyDashboards({
         </header>
         {cashflowHasData ? (
           <div className="overview-mobile-chart-scroll">
-            <ChartContainer config={monthlyChartConfig} className="overview-mobile-monthly-chart" style={{ width: expenseChartWidth, minWidth: "100%" }}>
-              <ComposedChart data={expenseRows} accessibilityLayer margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+            <ChartContainer
+              config={monthlyChartConfig}
+              className="overview-mobile-monthly-chart"
+              style={{ width: expenseChartWidth, minWidth: "100%" }}
+            >
+              <ComposedChart
+                data={expenseRows}
+                accessibilityLayer
+                margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
+              >
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} interval={0} minTickGap={0} />
+                <XAxis
+                  dataKey="label"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  interval={0}
+                  minTickGap={0}
+                />
                 <YAxis hide />
-                <ChartTooltip cursor={false} content={<ChartTooltipContent labelKey="label" hideIndicator labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? ""} formatter={(value, name) => <div className="flex min-w-44 items-center justify-between gap-4"><span className="text-muted-foreground">{name === "income" ? "Thu nhập" : "Chi tiêu"}</span><strong className="tabular-nums">{money(String(value), currency)}</strong></div>} />} />
-                <Bar dataKey="expense" fill="var(--color-expense)" radius={[5, 5, 1, 1]} maxBarSize={28} />
-                <Line dataKey="income" type="monotone" stroke="var(--color-income)" strokeWidth={2.25} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      labelKey="label"
+                      hideIndicator
+                      labelFormatter={(_, payload) =>
+                        payload?.[0]?.payload?.fullLabel ?? ""
+                      }
+                      formatter={(value, name) => (
+                        <div className="flex min-w-44 items-center justify-between gap-4">
+                          <span className="text-muted-foreground">
+                            {name === "income" ? "Thu nhập" : "Chi tiêu"}
+                          </span>
+                          <strong className="tabular-nums">
+                            {money(String(value), currency)}
+                          </strong>
+                        </div>
+                      )}
+                    />
+                  }
+                />
+                <Bar
+                  dataKey="expense"
+                  fill="var(--color-expense)"
+                  radius={[5, 5, 1, 1]}
+                  maxBarSize={28}
+                />
+                <Line
+                  dataKey="income"
+                  type="monotone"
+                  stroke="var(--color-income)"
+                  strokeWidth={2.25}
+                  dot={false}
+                  activeDot={{ r: 4, strokeWidth: 0 }}
+                />
               </ComposedChart>
             </ChartContainer>
           </div>
         ) : (
-          <Empty variant="compact" title="Chưa có thu chi phù hợp" description="Thử đổi loại giao dịch hoặc khoảng tháng." />
+          <Empty
+            variant="compact"
+            title="Chưa có thu chi phù hợp"
+            description="Thử đổi loại giao dịch hoặc khoảng tháng."
+          />
         )}
       </article>
     </section>
@@ -1618,15 +1811,15 @@ function MobileCategoryPie({
   const visibleItems =
     items.length > 6
       ? [
-        ...items.slice(0, 5),
-        {
-          name: "Khác",
-          color: "var(--chart-7)",
-          amount: items
-            .slice(5)
-            .reduce((sum, item) => sum.plus(item.amount), new Decimal(0)),
-        },
-      ]
+          ...items.slice(0, 5),
+          {
+            name: "Khác",
+            color: "var(--chart-7)",
+            amount: items
+              .slice(5)
+              .reduce((sum, item) => sum.plus(item.amount), new Decimal(0)),
+          },
+        ]
       : items;
   const data = visibleItems.map((item) => ({
     name: item.name,

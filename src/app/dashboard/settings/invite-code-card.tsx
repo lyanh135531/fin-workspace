@@ -58,10 +58,7 @@ export function InviteCodeCard({
           disabled={copied}
           aria-label={copied ? "Đã sao chép mã mời" : "Sao chép mã mời"}
         >
-          <KeyRound
-            className="text-[var(--primary)]"
-            aria-hidden="true"
-          />
+          <KeyRound className="text-[var(--primary)]" aria-hidden="true" />
           <span className="grid gap-0.5">
             <span className="text-[10px] font-medium leading-none text-[var(--text-muted)]">
               Mã mời workspace
@@ -70,14 +67,6 @@ export function InviteCodeCard({
               {formattedDisplay}
             </code>
           </span>
-          {copied ? (
-            <Check className="text-[var(--success)]" aria-hidden="true" />
-          ) : (
-            <Copy
-              className="text-[var(--text-muted)] transition-colors group-hover:text-[var(--primary)]"
-              aria-hidden="true"
-            />
-          )}
         </Button>
       </div>
     );
@@ -92,7 +81,9 @@ export function InviteCodeCard({
         className="workspace-mobile-invite-code md:hidden"
         onClick={copy}
         disabled={copied}
-        aria-label={copied ? `Đã sao chép mã mời ${code}` : `Sao chép mã mời ${code}`}
+        aria-label={
+          copied ? `Đã sao chép mã mời ${code}` : `Sao chép mã mời ${code}`
+        }
       >
         <span className="workspace-mobile-invite-icon" aria-hidden="true">
           <KeyRound size={16} />
@@ -105,74 +96,74 @@ export function InviteCodeCard({
         as="section"
         className="workspace-invite-card max-md:hidden min-[901px]:grid min-[901px]:grid-cols-[minmax(0,1fr)_minmax(16rem,0.9fr)] min-[901px]:items-center min-[901px]:gap-6"
       >
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <KeyRound size={18} strokeWidth={2} />
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <KeyRound size={18} strokeWidth={2} />
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary">
+              <Sparkles size={11} />
+              Mã chia sẻ
+            </span>
           </div>
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary">
-            <Sparkles size={11} />
-            Mã chia sẻ
-          </span>
+
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
+              Mã mời Workspace
+            </h2>
+            <p className="mt-1 max-w-sm text-xs leading-5 text-[var(--text-muted)]">
+              Gửi mã này cho thành viên mới để họ có thể gửi yêu cầu tham gia
+              vào workspace của bạn.
+            </p>
+          </div>
         </div>
 
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
-            Mã mời Workspace
-          </h2>
-          <p className="mt-1 max-w-sm text-xs leading-5 text-[var(--text-muted)]">
-            Gửi mã này cho thành viên mới để họ có thể gửi yêu cầu tham gia vào
-            workspace của bạn.
+        <div className="mt-auto space-y-3 min-[901px]:mt-0">
+          {/* Inner Code Well */}
+          <div className="flex flex-col items-center justify-between gap-4 rounded-xl bg-[var(--surface-secondary)] p-4 sm:flex-row sm:pl-5">
+            <code className="select-all truncate font-mono text-xl font-semibold tracking-[0.22em] text-[var(--foreground)]">
+              {formattedDisplay}
+            </code>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="icon"
+                size="icon"
+                type="button"
+                onClick={copy}
+                title={copied ? "Đã sao chép" : "Sao chép mã mời"}
+                aria-label={copied ? "Đã sao chép mã mời" : "Sao chép mã mời"}
+                className={copied ? "text-[var(--success)]" : undefined}
+                disabled={copied}
+              >
+                {copied ? (
+                  <Check size={16} strokeWidth={2.5} />
+                ) : (
+                  <Copy size={16} />
+                )}
+              </Button>
+
+              <Button
+                variant="icon"
+                size="icon"
+                type="button"
+                disabled={pending}
+                onClick={handleRegenerate}
+                title="Đổi mã mới"
+                aria-label="Đổi mã mới"
+              >
+                <RefreshCw
+                  size={16}
+                  className={pending ? "animate-spin text-primary" : ""}
+                />
+              </Button>
+            </div>
+          </div>
+
+          <p className="text-center text-[10px] font-medium text-[var(--text-muted)]">
+            Có thể tạo mã mới bất kỳ lúc nào.
           </p>
         </div>
-      </div>
-
-      <div className="mt-auto space-y-3 min-[901px]:mt-0">
-        {/* Inner Code Well */}
-        <div className="flex flex-col items-center justify-between gap-4 rounded-xl bg-[var(--surface-secondary)] p-4 sm:flex-row sm:pl-5">
-          <code className="select-all truncate font-mono text-xl font-semibold tracking-[0.22em] text-[var(--foreground)]">
-            {formattedDisplay}
-          </code>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="icon"
-              size="icon"
-              type="button"
-              onClick={copy}
-              title={copied ? "Đã sao chép" : "Sao chép mã mời"}
-              aria-label={copied ? "Đã sao chép mã mời" : "Sao chép mã mời"}
-              className={copied ? "text-[var(--success)]" : undefined}
-              disabled={copied}
-            >
-              {copied ? (
-                <Check size={16} strokeWidth={2.5} />
-              ) : (
-                <Copy size={16} />
-              )}
-            </Button>
-
-            <Button
-              variant="icon"
-              size="icon"
-              type="button"
-              disabled={pending}
-              onClick={handleRegenerate}
-              title="Đổi mã mới"
-              aria-label="Đổi mã mới"
-            >
-              <RefreshCw
-                size={16}
-                className={pending ? "animate-spin text-primary" : ""}
-              />
-            </Button>
-          </div>
-        </div>
-
-        <p className="text-center text-[10px] font-medium text-[var(--text-muted)]">
-          Có thể tạo mã mới bất kỳ lúc nào.
-        </p>
-      </div>
       </Card>
     </>
   );

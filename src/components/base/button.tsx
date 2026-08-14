@@ -19,8 +19,15 @@ const buttonVariants = cva(
           "bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
         secondary:
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
+        info: "bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)] hover:bg-[color-mix(in_srgb,var(--info)_18%,var(--surface))]",
+        warning:
+          "bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)] hover:bg-[color-mix(in_srgb,var(--warning)_18%,var(--surface))]",
+        success:
+          "bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] text-[var(--success)] hover:bg-[color-mix(in_srgb,var(--success)_18%,var(--surface))] focus-visible:ring-[color-mix(in_srgb,var(--success)_35%,transparent)]",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         icon: "relative min-h-8 border-0 bg-transparent p-1 text-[var(--text-secondary)] shadow-none transition-[color,transform] duration-150 hover:bg-transparent hover:text-[var(--primary)] hover:-translate-y-px active:scale-95",
+        infoIcon:
+          "relative min-h-8 border-0 bg-transparent p-1 text-[var(--info)] shadow-none transition-[color,transform] duration-150 hover:bg-transparent hover:text-[var(--info)] hover:-translate-y-px active:scale-95 focus-visible:ring-[color-mix(in_srgb,var(--info)_35%,transparent)]",
         link: "text-primary underline-offset-4 hover:underline",
         unstyled: "",
       },
