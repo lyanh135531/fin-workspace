@@ -816,7 +816,7 @@ function Node({
 
         {/* Children — tree branch from parent */}
         {hasChildren && (
-          <div className="ml-2 relative">
+          <div className="relative ml-2 min-[901px]:ml-7">
             {children.map((child, childIdx) => (
               <Node
                 key={child.id}

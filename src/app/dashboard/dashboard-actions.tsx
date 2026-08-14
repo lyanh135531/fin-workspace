@@ -2866,7 +2866,7 @@ function DesktopTransactionCreateDraft({
         >
           <TabsList
             variant="navigation"
-            className="grid-cols-3"
+            className="grid-cols-3 gap-1"
             aria-label="Loại giao dịch"
           >
             {transactionTypeTabs.map((tab) => {
@@ -3018,10 +3018,10 @@ function DesktopTransactionCreateDraft({
           Thay đổi số dư được xử lý theo trạng thái giao dịch.
         </span>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>
+          <Button variant="ghost" disabled={busy} onClick={onCancel}>
             Hủy
           </Button>
-          <Button variant="default" size="sm" disabled={busy} onClick={onSave}>
+          <Button variant="default" disabled={busy} onClick={onSave}>
             {busy ? "Đang lưu" : "Lưu giao dịch"}
           </Button>
         </div>

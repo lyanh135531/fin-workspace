@@ -297,7 +297,9 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   }
 
   function handlePointerDrop(source: CategoryDragItem, targetId: string) {
-    const target = currentCategories.find((category) => category.id === targetId);
+    const target = currentCategories.find(
+      (category) => category.id === targetId,
+    );
     if (!target) {
       setDraggedCategory(null);
       setDropTargetId(null);
@@ -619,10 +621,7 @@ function WorkspaceCategoryActionsMenu({
           dismissLabel="Đóng menu thao tác danh mục"
         >
           {(spotlightTrigger) => (
-            <DropdownMenuTrigger
-              nativeButton={false}
-              render={spotlightTrigger}
-            >
+            <DropdownMenuTrigger nativeButton={false} render={spotlightTrigger}>
               {children}
             </DropdownMenuTrigger>
           )}
@@ -793,9 +792,7 @@ function WorkspaceDesktopCategoryActions({
         type="button"
         aria-label={`${isActive ? "Tắt" : "Bật"} danh mục ${category.name}`}
         disabled={pending}
-        onClick={() =>
-          onStatus(category.id, isActive ? "deactive" : "active")
-        }
+        onClick={() => onStatus(category.id, isActive ? "deactive" : "active")}
       >
         {isActive ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
       </Button>
@@ -965,9 +962,7 @@ function CategoryNode({
 
           <div className="flex shrink-0 items-center gap-3 min-[901px]:hidden">
             {isMobile && (
-              <span className="category-mobile-item-hint">
-                Chạm để quản lý
-              </span>
+              <span className="category-mobile-item-hint">Chạm để quản lý</span>
             )}
             <CategoryMobileDragHandle
               category={category}
@@ -984,7 +979,7 @@ function CategoryNode({
 
         {/* Children — tree branch from parent */}
         {hasChildren && (
-          <div className="ml-2 relative">
+          <div className="relative ml-2 min-[901px]:ml-7">
             {children.map((child, childIdx) => (
               <CategoryNode
                 key={child.id}
