@@ -66,7 +66,6 @@ import {
   CalendarClock,
   CalendarDays,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleCheckBig,
@@ -180,35 +179,6 @@ const transactionTypeTabs = [
   label: string;
   icon: typeof ArrowUpRight;
 }[];
-
-function ScheduledTransactionsToggleContent({
-  count,
-  expanded,
-}: {
-  count: number;
-  expanded: boolean;
-}) {
-  return (
-    <>
-      <span className="ledger-scheduled-toggle-icon">
-        <CalendarClock size={14} aria-hidden="true" />
-      </span>
-      <span className="ledger-scheduled-toggle-copy">
-        <strong>Giao dịch đã lên lịch</strong>
-        <small className="ledger-scheduled-toggle-subtitle">
-          Xem các khoản sẽ ghi nhận
-        </small>
-      </span>
-      <span className="ledger-scheduled-toggle-count">{count}</span>
-      <ChevronDown
-        className="ledger-scheduled-toggle-chevron"
-        data-expanded={expanded || undefined}
-        size={16}
-        aria-hidden="true"
-      />
-    </>
-  );
-}
 
 function LatestTransactionsLabel({ mobile = false }: { mobile?: boolean }) {
   return (
@@ -1782,6 +1752,61 @@ export function Ledger({
             )}
           </div>
         )}
+        {!isDesktop && scheduledRows.length > 0 && (
+          <div className="order-1 shrink-0">
+            <Sheet
+              open={mobileScheduledOpen}
+              onOpenChange={setMobileScheduledSheetOpen}
+            >
+              <SheetTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="warning"
+                    size="icon"
+                    className="w-8 bg-transparent"
+                    aria-label={`Xem ${scheduledRows.length} giao dịch đã lên lịch`}
+                  />
+                }
+              >
+                <CalendarClock size={16} aria-hidden="true" />
+              </SheetTrigger>
+              <SheetContent
+                side="bottom"
+                className="ledger-scheduled-sheet"
+                aria-label="Giao dịch đã lên lịch"
+              >
+                <SheetHeader className="ledger-scheduled-sheet-header">
+                  <div className="ledger-scheduled-sheet-heading">
+                    <span aria-hidden>
+                      <CalendarClock size={18} />
+                    </span>
+                    <div>
+                      <SheetTitle>Giao dịch đã lên lịch</SheetTitle>
+                      <SheetDescription>
+                        Các khoản sẽ tự động ghi nhận đúng ngày
+                      </SheetDescription>
+                    </div>
+                  </div>
+                  <strong className="ledger-scheduled-sheet-count">
+                    {scheduledRows.length}
+                  </strong>
+                </SheetHeader>
+                <div className="ledger-scheduled-sheet-body">
+                  <div className="ledger-scheduled-sheet-summary">
+                    <CalendarDays size={15} aria-hidden />
+                    <span>
+                      {scheduledRows.length} giao dịch đang chờ ngày thực thi
+                    </span>
+                  </div>
+                  <div className="ledger-mobile-scheduled-rows">
+                    {orderedScheduledRows.map(renderMobileTransaction)}
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        )}
         {isDesktop && (
           <span className="mr-auto text-xs text-[var(--text-muted)] tabular-nums">
             {filteredRows.length} giao dịch
@@ -2060,84 +2085,24 @@ export function Ledger({
             </Sheet>
           </>
         )}
-        {scheduledRows.length > 0 && (
-          <Sheet
-            open={mobileScheduledOpen}
-            onOpenChange={setMobileScheduledSheetOpen}
-          >
-            <div className="ledger-mobile-scheduled-group">
-              <SheetTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="unstyled"
-                    size="auto"
-                    className="ledger-scheduled-toggle"
-                    aria-label={`Xem ${scheduledRows.length} giao dịch đã lên lịch`}
-                  />
-                }
-              >
-                <ScheduledTransactionsToggleContent
-                  count={scheduledRows.length}
-                  expanded={mobileScheduledOpen}
-                />
-              </SheetTrigger>
-            </div>
-            <SheetContent
-              side="bottom"
-              className="ledger-scheduled-sheet"
-              aria-label="Giao dịch đã lên lịch"
-            >
-              <SheetHeader className="ledger-scheduled-sheet-header">
-                <div className="ledger-scheduled-sheet-heading">
-                  <span aria-hidden>
-                    <CalendarClock size={18} />
-                  </span>
-                  <div>
-                    <SheetTitle>Giao dịch đã lên lịch</SheetTitle>
-                    <SheetDescription>
-                      Các khoản sẽ tự động ghi nhận đúng ngày
-                    </SheetDescription>
-                  </div>
-                </div>
-                <strong className="ledger-scheduled-sheet-count">
-                  {scheduledRows.length}
-                </strong>
-              </SheetHeader>
-              <div className="ledger-scheduled-sheet-body">
-                <div className="ledger-scheduled-sheet-summary">
-                  <CalendarDays size={15} aria-hidden />
-                  <span>
-                    {scheduledRows.length} giao dịch đang chờ ngày thực thi
-                  </span>
-                </div>
-                <div className="ledger-mobile-scheduled-rows">
-                  {scheduledRows.map(renderMobileTransaction)}
-                </div>
-              </div>
-              <SheetFooter className="ledger-scheduled-sheet-footer">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setMobileScheduledSheetOpen(false)}
-                >
-                  Đóng
-                </Button>
-              </SheetFooter>
-            </SheetContent>
-          </Sheet>
-        )}
         {scheduledRows.length > 0 && rows.length > 0 && (
           <LatestTransactionsLabel mobile />
         )}
-        {groupTransactionsByDate(rows).map(({ dateKey, label, items }) => (
-          <section key={dateKey} className="ledger-date-group">
-            <header className="ledger-date-group-header">
-              <span>{label}</span>
-            </header>
-            {items.map(renderMobileTransaction)}
-          </section>
-        ))}
+        {groupTransactionsByDate(rows).map(({ dateKey, label, items }) => {
+          const totals = getLedgerDateTotals(items);
+          return (
+            <section key={dateKey} className="ledger-date-group">
+              <header className="ledger-date-group-header">
+                <span>{label}</span>
+                <strong className="shrink-0 text-[0.68rem] font-semibold tabular-nums text-[var(--expense)]">
+                  Chi {totals.expense.isZero() ? "" : "−"}
+                  {formatAmount(totals.expense)} {currency}
+                </strong>
+              </header>
+              {items.map(renderMobileTransaction)}
+            </section>
+          );
+        })}
         {!filteredRows.length && (
           <Empty
             variant="compact"
@@ -2280,12 +2245,14 @@ export function Ledger({
                               <div className="flex shrink-0 items-center gap-5 text-[0.68rem] font-medium tabular-nums">
                                 {!totals.income.isZero() && (
                                   <span className="text-[var(--income)]">
-                                    Thu +{formatAmount(totals.income)} {currency}
+                                    Thu +{formatAmount(totals.income)}{" "}
+                                    {currency}
                                   </span>
                                 )}
                                 {!totals.expense.isZero() && (
                                   <span className="text-[var(--expense)]">
-                                    Chi −{formatAmount(totals.expense)} {currency}
+                                    Chi −{formatAmount(totals.expense)}{" "}
+                                    {currency}
                                   </span>
                                 )}
                               </div>

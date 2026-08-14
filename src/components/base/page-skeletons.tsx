@@ -134,7 +134,7 @@ function DashboardPageSkeleton() {
             </div>
           </header>
 
-          <div className="ledger-table-viewport">
+          <div className="ledger-table-viewport px-px">
             <section className="dashboard-ledger-card ledger-book ledger-skeleton-book">
               <div className="ledger-skeleton-toolbar">
                 <Skeleton className="ledger-skeleton-search" />

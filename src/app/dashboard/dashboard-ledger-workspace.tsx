@@ -152,7 +152,7 @@ export function DashboardLedgerWorkspace({
             </div>
           </header>
 
-          <div className="ledger-table-viewport">
+          <div className="ledger-table-viewport px-px">
             <Card
               as="section"
               className="dashboard-ledger-card ledger-book gap-0 p-0 overflow-hidden"

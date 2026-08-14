@@ -83,6 +83,222 @@ type DestructiveWalletOperation = {
   kind: "deactivate" | "delete";
 };
 
+function WalletDeactivateSheet({
+  wallet,
+  currency,
+  isDesktop,
+  pending,
+  onCancel,
+  onConfirm,
+  onOpenRecurringTransactions,
+}: {
+  wallet: WalletItem;
+  currency: string;
+  isDesktop: boolean;
+  pending: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onOpenRecurringTransactions: () => void;
+}) {
+  const hasRecurringDependencies = wallet.recurringTransactionCount > 0;
+
+  return (
+    <>
+      <SheetHeader
+        className={cn(
+          isDesktop ? "px-8 pb-5 pt-7" : "px-4 pb-3 pt-5",
+        )}
+      >
+        <div className={cn("flex items-start", isDesktop ? "gap-3.5" : "gap-3")}>
+          <span
+            className={cn(
+              "grid shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)]",
+              isDesktop ? "size-11" : "size-10",
+            )}
+            aria-hidden="true"
+          >
+            <PauseCircle size={isDesktop ? 20 : 19} />
+          </span>
+          <div className="min-w-0 pt-0.5">
+            <SheetTitle
+              className={cn(
+                "font-semibold",
+                isDesktop && "text-[1.3rem] tracking-[-0.02em]",
+              )}
+            >
+              {hasRecurringDependencies
+                ? "Chưa thể tạm ngưng ví"
+                : "Tạm ngưng ví"}
+            </SheetTitle>
+            <SheetDescription
+              className={cn(
+                "mt-1 leading-5",
+                isDesktop ? "max-w-[30rem] text-[0.82rem]" : "text-xs",
+              )}
+            >
+              {hasRecurringDependencies
+                ? "Hãy xử lý các lịch đang sử dụng ví này trước."
+                : "Ví sẽ được chuyển khỏi danh sách đang hoạt động."}
+            </SheetDescription>
+          </div>
+        </div>
+      </SheetHeader>
+
+      <div
+        className={cn(
+          "min-h-0",
+          isDesktop
+            ? "flex-1 overflow-y-auto overscroll-contain px-8 pb-8 pt-6"
+            : "px-4 pb-2",
+        )}
+      >
+        <section
+          className={cn(
+            "rounded-2xl bg-[var(--surface-secondary)]",
+            isDesktop ? "p-5" : "p-4",
+          )}
+          aria-label={`Thông tin ví ${wallet.name}`}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] text-[var(--primary)]"
+                aria-hidden="true"
+              >
+                <WalletCards size={17} />
+              </span>
+              <div className="min-w-0">
+                <strong className="block truncate text-sm font-semibold text-[var(--foreground)]">
+                  {wallet.name}
+                </strong>
+                <span className="mt-1 inline-flex items-center gap-1.5 text-[0.68rem] font-medium text-[var(--success)]">
+                  <span className="size-1.5 rounded-full bg-current" />
+                  Đang hoạt động
+                </span>
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <span className="block text-[0.65rem] text-[var(--text-muted)]">
+                Số dư hiện tại
+              </span>
+              <strong className="mt-1 block text-sm font-semibold tabular-nums text-[var(--foreground)]">
+                {formatAmount(wallet.currentBalance)} {currency}
+              </strong>
+            </div>
+          </div>
+        </section>
+
+        {hasRecurringDependencies ? (
+          <section
+            className={cn(
+              "rounded-2xl bg-[color-mix(in_srgb,var(--warning)_9%,var(--surface))]",
+              isDesktop ? "mt-6 p-5" : "mt-4 p-4",
+            )}
+            aria-labelledby="wallet-pause-dependency-title"
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle
+                className="mt-0.5 size-4 shrink-0 text-[var(--warning)]"
+                aria-hidden="true"
+              />
+              <div>
+                <h3
+                  id="wallet-pause-dependency-title"
+                  className="text-xs font-semibold text-[var(--foreground)]"
+                >
+                  {wallet.recurringTransactionCount} giao dịch định kỳ đang sử
+                  dụng ví
+                </h3>
+                <p className="mt-1.5 text-xs leading-5 text-[var(--text-secondary)]">
+                  Đổi các lịch này sang ví khác hoặc xóa lịch trước khi tạm
+                  ngưng. Giao dịch đã phát sinh vẫn được giữ nguyên.
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section
+            className={isDesktop ? "mt-6" : "mt-4"}
+            aria-labelledby="wallet-pause-impact-title"
+          >
+            <h3
+              id="wallet-pause-impact-title"
+              className="text-xs font-semibold text-[var(--foreground)]"
+            >
+              Sau khi tạm ngưng
+            </h3>
+            <div className="mt-3 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <PauseCircle
+                  className="mt-0.5 size-4 shrink-0 text-[var(--warning)]"
+                  aria-hidden="true"
+                />
+                <p className="text-xs leading-5 text-[var(--text-secondary)]">
+                  Không thể chọn ví này khi tạo giao dịch mới.
+                </p>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <CheckCircle2
+                  className="mt-0.5 size-4 shrink-0 text-[var(--success)]"
+                  aria-hidden="true"
+                />
+                <p className="text-xs leading-5 text-[var(--text-secondary)]">
+                  Số dư và toàn bộ lịch sử giao dịch vẫn được giữ nguyên.
+                </p>
+              </div>
+            </div>
+            <p className="mt-4 text-[0.68rem] leading-5 text-[var(--text-muted)]">
+              Bạn có thể kích hoạt lại ví bất cứ lúc nào.
+            </p>
+          </section>
+        )}
+      </div>
+
+      <SheetFooter
+        className={cn(
+          "flex-row",
+          isDesktop
+            ? "justify-end px-8 pb-7 pt-4"
+            : "px-4 pb-4 pt-2",
+        )}
+      >
+        <Button
+          type="button"
+          variant="outline"
+          className={isDesktop ? undefined : "flex-1"}
+          disabled={pending}
+          onClick={onCancel}
+        >
+          {hasRecurringDependencies ? "Đóng" : "Hủy"}
+        </Button>
+        <Button
+          type="button"
+          variant={hasRecurringDependencies ? "default" : "warning"}
+          className={isDesktop ? undefined : "flex-1"}
+          disabled={pending}
+          onClick={
+            hasRecurringDependencies ? onOpenRecurringTransactions : onConfirm
+          }
+        >
+          {hasRecurringDependencies ? (
+            <>
+              <Repeat2 size={15} />
+              Mở lịch định kỳ
+            </>
+          ) : pending ? (
+            <Loading label="Đang xử lý..." />
+          ) : (
+            <>
+              <PauseCircle size={15} />
+              Tạm ngưng ví
+            </>
+          )}
+        </Button>
+      </SheetFooter>
+    </>
+  );
+}
+
 function moveWallet(
   wallets: WalletItem[],
   draggedWalletId: string,
@@ -167,6 +383,7 @@ export function WalletManagement({
   );
   const requiresSettlement =
     confirmOperation?.kind === "delete" && !confirmedBalance.isZero();
+  const showDeactivateSheet = confirmOperation?.kind === "deactivate";
   const settlementWallets = wallets.filter(
     (wallet) =>
       wallet.status === "active" && wallet.id !== confirmOperation?.wallet.id,
@@ -308,7 +525,7 @@ export function WalletManagement({
     kind: DestructiveWalletOperation["kind"],
   ) {
     const operation = { wallet, kind };
-    if (wallet.recurringTransactionCount > 0) {
+    if (kind === "delete" && wallet.recurringTransactionCount > 0) {
       setBlockedOperation(operation);
       return;
     }
@@ -321,6 +538,12 @@ export function WalletManagement({
         : "",
     );
     setConfirmOperation(operation);
+  }
+
+  function openMobileDeactivateConfirmation(wallet: WalletItem) {
+    setMobileMenuWalletId(null);
+    setSettlementWalletId("");
+    setConfirmOperation({ wallet, kind: "deactivate" });
   }
 
   function activateWallet(wallet: WalletItem) {
@@ -568,10 +791,10 @@ export function WalletManagement({
                       variant={isActive ? "destructive" : "default"}
                       disabled={pending}
                       onClick={() => {
-                        setMobileMenuWalletId(null);
                         if (isActive) {
-                          requestDestructiveOperation(wallet, "deactivate");
+                          openMobileDeactivateConfirmation(wallet);
                         } else {
+                          setMobileMenuWalletId(null);
                           activateWallet(wallet);
                         }
                       }}
@@ -1771,10 +1994,35 @@ export function WalletManagement({
         }}
       >
         <SheetContent
-          side="bottom"
-          className="wallet-operation-sheet ledger-mobile-review-sheet pending-delete"
+          side={showDeactivateSheet && isDesktop ? "right" : "bottom"}
+          placement={showDeactivateSheet && isDesktop ? "inset" : "edge"}
+          size={showDeactivateSheet && isDesktop ? "wide" : "default"}
+          spacing={showDeactivateSheet ? "flush" : "default"}
+          elevation={showDeactivateSheet ? "flat" : "raised"}
+          className={
+            showDeactivateSheet
+              ? undefined
+              : "wallet-operation-sheet ledger-mobile-review-sheet pending-delete"
+          }
         >
-          {confirmOperation && (
+          {confirmOperation && showDeactivateSheet ? (
+            <WalletDeactivateSheet
+              wallet={confirmOperation.wallet}
+              currency={workspace.currency}
+              isDesktop={isDesktop}
+              pending={pending}
+              onCancel={() => {
+                setConfirmOperation(null);
+                setSettlementWalletId("");
+              }}
+              onConfirm={confirmDestructiveOperation}
+              onOpenRecurringTransactions={() => {
+                setConfirmOperation(null);
+                setEditingWallet(null);
+                router.push("/recurring-transactions");
+              }}
+            />
+          ) : confirmOperation ? (
             <>
               <SheetHeader className="ledger-mobile-review-header">
                 <div className="ledger-mobile-review-heading">
@@ -1905,7 +2153,7 @@ export function WalletManagement({
                 </Button>
               </SheetFooter>
             </>
-          )}
+          ) : null}
         </SheetContent>
       </Sheet>
     </div>
