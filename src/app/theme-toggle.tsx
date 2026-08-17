@@ -8,6 +8,7 @@ type Mode = "light" | "dark";
 
 function applyMode(mode: Mode) {
   document.documentElement.dataset.mode = mode;
+  document.documentElement.style.colorScheme = mode;
   localStorage.setItem("fin-workspace-mode", mode);
 }
 

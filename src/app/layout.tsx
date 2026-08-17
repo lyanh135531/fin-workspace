@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
-import Script from "next/script";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 import "./ledger-page.css";
@@ -12,6 +11,34 @@ const geist = Geist({
   variable: "--font-geist",
   display: "swap",
 });
+
+const initializeAppearance = `
+(() => {
+  const root = document.documentElement;
+  const allowedThemes = ["sunrise", "ocean", "forest", "lavender", "midnight"];
+  let theme = "sunrise";
+  let mode;
+
+  try {
+    const savedTheme = localStorage.getItem("fin-workspace-theme");
+    const savedMode = localStorage.getItem("fin-workspace-mode");
+
+    if (allowedThemes.includes(savedTheme)) theme = savedTheme;
+    if (savedMode === "light" || savedMode === "dark") mode = savedMode;
+    if (localStorage.getItem("fin-sidebar-collapsed") === "true") {
+      root.dataset.sidebarCollapsed = "true";
+    }
+  } catch {}
+
+  mode ??= window.matchMedia?.("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+
+  root.dataset.theme = theme;
+  root.dataset.mode = mode;
+  root.style.colorScheme = mode;
+})();
+`;
 
 export const metadata: Metadata = {
   title: "Felix",
@@ -30,7 +57,7 @@ export default function RootLayout({
   return (
     <html lang="vi" suppressHydrationWarning className={geist.variable}>
       <head>
-        <Script src="/initialize-appearance.js" strategy="beforeInteractive" />
+        <script dangerouslySetInnerHTML={{ __html: initializeAppearance }} />
       </head>
       <body>
         <a className="skip-link" href="#main-content">

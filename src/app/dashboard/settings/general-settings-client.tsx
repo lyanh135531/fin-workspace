@@ -225,6 +225,7 @@ function DesktopAppearanceSettings({
 function applyAppearance(theme: ThemeName, mode: Mode) {
   document.documentElement.dataset.theme = theme;
   document.documentElement.dataset.mode = mode;
+  document.documentElement.style.colorScheme = mode;
   localStorage.setItem("fin-workspace-theme", theme);
   localStorage.setItem("fin-workspace-mode", mode);
 }
