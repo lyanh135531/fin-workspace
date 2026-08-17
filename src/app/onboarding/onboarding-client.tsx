@@ -56,7 +56,7 @@ export function OnboardingClient({
         return;
       }
 
-      router.replace("/overview?action=new-transaction");
+      router.replace("/dashboard?action=new-transaction");
       router.refresh();
     });
   }
