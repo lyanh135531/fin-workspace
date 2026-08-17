@@ -3,19 +3,109 @@
 import { AlertCircle, ArrowRight, Eye, EyeOff, Lock, User } from "lucide-react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { ThemeToggle } from "@/app/theme-toggle";
 import { AuthShowcase } from "@/components/auth-showcase";
-import { Button, Card, Input, Loading } from "@/components/base";
+import {
+  Button,
+  Card,
+  Checkbox,
+  Input,
+  Label,
+  Loading,
+} from "@/components/base";
 import { FinLogo } from "@/components/fin-logo";
+
+const rememberedUsernameKey = "felix.remembered-username";
+
+type BrowserPasswordCredential = Credential & {
+  id: string;
+  password: string;
+};
+
+type PasswordCredentialConstructor = new (data: {
+  id: string;
+  name: string;
+  password: string;
+}) => BrowserPasswordCredential;
+
+type PasswordCredentialWindow = Window & {
+  PasswordCredential?: PasswordCredentialConstructor;
+};
+
+function isBrowserPasswordCredential(
+  credential: Credential | null,
+): credential is BrowserPasswordCredential {
+  return Boolean(
+    credential &&
+      "password" in credential &&
+      typeof credential.password === "string",
+  );
+}
+
+async function loadBrowserCredential() {
+  const PasswordCredential = (window as PasswordCredentialWindow)
+    .PasswordCredential;
+  if (!PasswordCredential) return null;
+
+  const credential = await navigator.credentials.get({
+    mediation: "optional",
+    password: true,
+  } as CredentialRequestOptions & { password: true });
+  return isBrowserPasswordCredential(credential) ? credential : null;
+}
+
+async function storeBrowserCredential(username: string, password: string) {
+  const PasswordCredential = (window as PasswordCredentialWindow)
+    .PasswordCredential;
+  if (!PasswordCredential) return;
+
+  await navigator.credentials.store(
+    new PasswordCredential({ id: username, name: username, password }),
+  );
+}
+
+async function loadRememberedSignIn() {
+  const rememberedUsername = window.localStorage.getItem(
+    rememberedUsernameKey,
+  );
+  const credential = await loadBrowserCredential().catch(() => null);
+
+  return {
+    username: credential?.id ?? rememberedUsername ?? "",
+    password: credential?.password ?? "",
+    rememberMe: Boolean(credential || rememberedUsername),
+  };
+}
 
 export default function SignInPage() {
   const id = useId();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [errorKey, setErrorKey] = useState(0); // remount for re-animation
+
+  useEffect(() => {
+    let active = true;
+    void loadRememberedSignIn()
+      .then((remembered) => {
+        if (!active || !remembered.rememberMe) return;
+        setUsername(remembered.username);
+        setPassword(remembered.password);
+        setRememberMe(remembered.rememberMe);
+      })
+      .catch(() => {
+        // Browser password managers remain available through autocomplete.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -23,11 +113,14 @@ export default function SignInPage() {
     setError(null);
 
     const formData = new FormData(event.currentTarget);
+    const submittedUsername = String(formData.get("username"));
+    const submittedPassword = String(formData.get("password"));
 
     try {
       const result = await signIn("credentials", {
-        username: String(formData.get("username")),
-        password: String(formData.get("password")),
+        username: submittedUsername,
+        password: submittedPassword,
+        rememberMe: rememberMe ? "true" : "false",
         redirect: false,
       });
 
@@ -36,6 +129,17 @@ export default function SignInPage() {
         setError("Tên đăng nhập hoặc mật khẩu không đúng.");
         setLoading(false);
         return;
+      }
+
+      if (rememberMe) {
+        window.localStorage.setItem(rememberedUsernameKey, submittedUsername);
+        await storeBrowserCredential(submittedUsername, submittedPassword).catch(
+          () => {
+            // Login still succeeds when the browser declines credential storage.
+          },
+        );
+      } else {
+        window.localStorage.removeItem(rememberedUsernameKey);
       }
 
       window.location.replace("/overview");
@@ -81,6 +185,8 @@ export default function SignInPage() {
                     autoComplete="username"
                     autoFocus
                     placeholder="Nhập tên đăng nhập"
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
                     aria-invalid={error ? true : undefined}
                     aria-describedby={error ? `${id}-auth-error` : undefined}
                     className="auth-field-input"
@@ -100,6 +206,8 @@ export default function SignInPage() {
                     required
                     autoComplete="current-password"
                     placeholder="Nhập mật khẩu của bạn"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
                     aria-invalid={error ? true : undefined}
                     aria-describedby={error ? `${id}-auth-error` : undefined}
                     className="auth-field-input has-icon"
@@ -134,6 +242,16 @@ export default function SignInPage() {
                   {error}
                 </div>
               )}
+
+              <Label className="mt-4 min-h-11 cursor-pointer gap-2.5 text-sm">
+                <Checkbox
+                  checked={rememberMe}
+                  disabled={loading}
+                  onCheckedChange={(checked) => setRememberMe(checked === true)}
+                  aria-label="Ghi nhớ đăng nhập"
+                />
+                <span>Ghi nhớ đăng nhập</span>
+              </Label>
 
               <div className="auth-form-actions">
                 <Button

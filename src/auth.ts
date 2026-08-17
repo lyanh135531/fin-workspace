@@ -3,14 +3,20 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 
+export const REMEMBERED_SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+
 export const authOptions: NextAuthOptions = {
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: REMEMBERED_SESSION_MAX_AGE_SECONDS,
+  },
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
         username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
+        rememberMe: { label: "Remember me", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials.password) return null;
