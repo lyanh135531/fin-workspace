@@ -91,7 +91,7 @@ export function DashboardNavigation({
     },
     {
       href: "/settings/workspace",
-      label: "Cài đặt workspace",
+      label: "Cài đặt nhóm",
       description: "Cơ chế phê duyệt, mã mời và cấu hình",
       icon: Settings,
       active: workspaceSettingsActive,
@@ -118,7 +118,7 @@ export function DashboardNavigation({
       {currentId && (
         <div className="mobile-workspace-block px-2 pb-1 min-[901px]:px-1 min-[901px]:pb-3 group-data-[collapsible=icon]:px-2 min-[901px]:group-data-[collapsible=icon]:px-0">
           <span className="dashboard-nav-section-label min-[901px]:mb-2 min-[901px]:block! min-[901px]:px-2 min-[901px]:text-[0.65rem] min-[901px]:font-semibold min-[901px]:tracking-[0.08em] min-[901px]:text-[var(--text-muted)] min-[901px]:group-data-[collapsible=icon]:hidden!">
-            Workspace
+            Nhóm tài chính
           </span>
           <WorkspaceSwitcher
             currentId={currentId}

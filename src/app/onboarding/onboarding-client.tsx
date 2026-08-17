@@ -190,7 +190,7 @@ export function OnboardingClient({
                   <div className="min-w-0 flex-1">
                     <h2 className="text-lg font-semibold">Tham gia nhóm của tôi</h2>
                     <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                      Dùng mã mời từ quản trị viên để gửi yêu cầu tham gia workspace đã có.
+                      Dùng mã mời từ quản trị viên để gửi yêu cầu tham gia nhóm tài chính đã có.
                     </p>
                   </div>
                 </div>

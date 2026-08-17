@@ -94,7 +94,7 @@ export function WorkspaceSettingsTabsClient({
       <TabsList
         variant="navigation"
         className="workspace-settings-tab-list grid-cols-3 gap-1"
-        aria-label="Workspace settings tabs"
+        aria-label="Các mục cài đặt nhóm tài chính"
       >
         {tabs.map((tab) => {
           const Icon = tab.icon;

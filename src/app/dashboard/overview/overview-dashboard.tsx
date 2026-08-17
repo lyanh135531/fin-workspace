@@ -228,7 +228,7 @@ export function OverviewDashboard({
       <PageContainer size="standard" className="space-y-5 pb-10 pt-2">
         <PageHeader
           title="Tổng quan tài chính"
-          description={`${workspace.name} · Theo dõi dòng tiền và sức khỏe tài chính trong một góc nhìn.`}
+          description={`${workspace.name} · Thu nhập, chi tiêu và số dư hiện tại.`}
         >
           <OverviewFilters
             wallets={wallets.map(({ id, name }) => ({ id, name }))}
@@ -426,9 +426,9 @@ export function OverviewDashboard({
   return (
     <PageContainer className="overview-shell">
       <PageHeader
-        eyebrow={`Workspace · ${workspace.name}`}
+        eyebrow={`Nhóm tài chính · ${workspace.name}`}
         title="Tổng quan tài chính"
-        description="Theo dõi thu nhập, chi tiêu và số dư tài khoản của toàn bộ workspace."
+        description="Theo dõi thu nhập, chi tiêu và số dư tài khoản của cả nhóm."
       />
       <div className="overview-dashboard-stack flex flex-col gap-6">
         <OverviewFilters

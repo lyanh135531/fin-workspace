@@ -13,7 +13,7 @@ async function actor() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) throw new Error("Cần đăng nhập.");
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
-  if (!workspaceId) throw new Error("Không có workspace.");
+  if (!workspaceId) throw new Error("Không có nhóm tài chính.");
   return { userId: session.user.id, workspaceId };
 }
 function fail(error: unknown) { return { ok: false, message: error instanceof Error ? error.message : "Có lỗi xảy ra.", importedCount: 0, skippedCount: 0 }; }

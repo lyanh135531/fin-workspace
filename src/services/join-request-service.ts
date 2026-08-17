@@ -20,8 +20,8 @@ export async function requestWorkspaceJoin(userId: string, inviteCode: string) {
         deletedAt: null,
       },
     });
-    if (!workspace) throw new AppError("NOT_FOUND", "Mã mời không hợp lệ hoặc workspace không hoạt động.");
-    if (await tx.workspaceMember.findFirst({ where: { workspaceId: workspace.id, userId, status: "active", deletedAt: null } })) throw new AppError("CONFLICT", "Bạn đã là thành viên của workspace này.");
+    if (!workspace) throw new AppError("NOT_FOUND", "Mã mời không hợp lệ hoặc nhóm không hoạt động.");
+    if (await tx.workspaceMember.findFirst({ where: { workspaceId: workspace.id, userId, status: "active", deletedAt: null } })) throw new AppError("CONFLICT", "Bạn đã là thành viên của nhóm này.");
     if (await tx.workspaceJoinRequest.findFirst({ where: { workspaceId: workspace.id, requesterId: userId, status: "pending" } })) throw new AppError("CONFLICT", "Bạn đã có yêu cầu đang chờ duyệt.");
     const request = await tx.workspaceJoinRequest.create({ data: { workspaceId: workspace.id, requesterId: userId } });
     await tx.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: userId, action: "workspace.join_requested", entityType: "workspace_join_request", entityId: request.id } });

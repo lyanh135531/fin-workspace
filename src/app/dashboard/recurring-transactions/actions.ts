@@ -22,7 +22,7 @@ async function adminActor() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) throw new AppError("AUTHENTICATION_REQUIRED", "Cần đăng nhập.");
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
-  if (!workspaceId) throw new AppError("FORBIDDEN", "Không có workspace đang hoạt động.");
+  if (!workspaceId) throw new AppError("FORBIDDEN", "Không có nhóm tài chính đang hoạt động.");
   await requireWorkspaceMember(session.user.id, workspaceId, true);
   return { userId: session.user.id, workspaceId };
 }

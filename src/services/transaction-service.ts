@@ -37,11 +37,11 @@ export async function requireTransactionResources(
     select: { walletId: true },
   });
   if (new Set(links.map((link) => link.walletId)).size !== new Set(walletIds).size) {
-    throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Ví không thuộc workspace này hoặc không còn hoạt động.");
+    throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Ví không thuộc nhóm này hoặc không còn hoạt động.");
   }
   if (input.categoryId) {
     const category = await tx.category.findFirst({ where: { id: input.categoryId, ...availableCategoryWhere(workspaceId) }, select: { id: true } });
-    if (!category) throw new AppError("FORBIDDEN", "Danh mục không khả dụng trong workspace này.");
+    if (!category) throw new AppError("FORBIDDEN", "Danh mục không khả dụng trong nhóm này.");
   }
 }
 
@@ -161,7 +161,7 @@ async function findWorkspaceTransaction(tx: TransactionClient, workspaceId: stri
   const record = await tx.transaction.findFirst({
     where: { id: transactionId, deletedAt: null, member: { workspaceId, status: "active", deletedAt: null } },
   });
-  if (!record) throw new AppError("NOT_FOUND", "Không tìm thấy giao dịch trong workspace này.");
+  if (!record) throw new AppError("NOT_FOUND", "Không tìm thấy giao dịch trong nhóm này.");
   return record;
 }
 

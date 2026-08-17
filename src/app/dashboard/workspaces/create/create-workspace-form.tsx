@@ -60,12 +60,12 @@ export function CreateWorkspaceForm() {
         approvalRequired: form.get("approvalRequired") === "on",
       });
       if (result.ok) {
-        toast.success("Đã tạo workspace. Đang chuyển hướng...");
+        toast.success("Đã tạo nhóm tài chính. Đang chuyển hướng...");
         setTimeout(() => {
           window.location.assign("/overview");
         }, 800);
       } else {
-        toast.error(result.message ?? "Không thể tạo workspace.");
+        toast.error(result.message ?? "Không thể tạo nhóm tài chính.");
       }
     });
   }
@@ -81,7 +81,7 @@ export function CreateWorkspaceForm() {
             <span className="workspace-create-eyebrow-mark" aria-hidden="true">
               <Building2 size={15} strokeWidth={2.2} />
             </span>
-            <span>Workspace / Khởi tạo</span>
+            <span>Nhóm tài chính / Khởi tạo</span>
           </div>
 
           <div className="workspace-create-intro-copy">
@@ -98,7 +98,7 @@ export function CreateWorkspaceForm() {
             <div className="workspace-create-visual-orbit workspace-create-visual-orbit-one" />
             <div className="workspace-create-visual-orbit workspace-create-visual-orbit-two" />
             <div className="workspace-create-visual-topline">
-              <span>WORKSPACE OVERVIEW</span>
+              <span>TỔNG QUAN NHÓM</span>
               <span className="workspace-create-live-label">
                 <span className="workspace-create-live-dot" />
                 READY TO SET UP
@@ -109,7 +109,7 @@ export function CreateWorkspaceForm() {
                 <Building2 size={20} strokeWidth={1.8} />
               </span>
               <span>
-                <strong>Your new workspace</strong>
+                <strong>Nhóm tài chính mới</strong>
                 <small>VND · Asia/Ho_Chi_Minh</small>
               </span>
             </div>
@@ -143,7 +143,7 @@ export function CreateWorkspaceForm() {
               <span className="workspace-create-form-kicker">
                 Bắt đầu từ một cái tên
               </span>
-              <h2>Thiết lập workspace</h2>
+              <h2>Thiết lập nhóm tài chính</h2>
             </div>
             <span className="workspace-create-time-label">
               Mất khoảng 1 phút
@@ -162,7 +162,7 @@ export function CreateWorkspaceForm() {
           >
             <div className="workspace-create-field-group">
               <Input
-                label="Tên workspace"
+                label="Tên nhóm"
                 id="workspace-name-input"
                 required
                 name="name"
@@ -205,7 +205,7 @@ export function CreateWorkspaceForm() {
                   <Loading label="Đang khởi tạo..." />
                 ) : (
                   <>
-                    Khởi tạo workspace
+                    Tạo nhóm tài chính
                     <ArrowRight size={15} />
                   </>
                 )}

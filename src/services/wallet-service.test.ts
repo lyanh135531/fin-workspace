@@ -252,7 +252,7 @@ describe("wallet-service lifecycle", () => {
         name: "tiền mặt",
         description: undefined,
       }),
-    ).rejects.toThrow("Tên ví “tiền mặt” đã tồn tại trong workspace.");
+    ).rejects.toThrow("Tên ví “tiền mặt” đã tồn tại trong nhóm.");
 
     expect(tx.wallet.create).not.toHaveBeenCalled();
   });
@@ -278,7 +278,7 @@ describe("wallet-service lifecycle", () => {
         walletId: "wallet-1",
         name: "Ngân hàng",
       }),
-    ).rejects.toThrow("Tên ví “Ngân hàng” đã tồn tại trong workspace.");
+    ).rejects.toThrow("Tên ví “Ngân hàng” đã tồn tại trong nhóm.");
 
     expect(tx.wallet.update).not.toHaveBeenCalled();
   });

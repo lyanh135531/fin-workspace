@@ -71,7 +71,7 @@ describe("bootstrap-service & registerAccountAction", () => {
       });
 
       expect(res.ok).toBe(false);
-      expect(res.message).toBe("Thông tin nhập vào chưa hợp lệ. Vui lòng kiểm tra lại các trường bên dưới.");
+      expect(res.message).toBe("Thông tin chưa đúng. Kiểm tra các mục bên dưới.");
       expect(res.fieldErrors?.username).toBe("Tên đăng nhập phải có ít nhất 3 ký tự.");
       expect(res.fieldErrors?.password).toBe("Mật khẩu phải có ít nhất 8 ký tự.");
     });

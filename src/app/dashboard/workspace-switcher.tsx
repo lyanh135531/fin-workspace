@@ -62,14 +62,14 @@ function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
         <Input
           ref={inputRef}
           className="ws-inline-join-input focus-visible:none"
-          placeholder="Dán mã mời workspace…"
+          placeholder="Dán mã mời của nhóm…"
           value={value}
           onChange={(e) => {
             setValue(e.target.value);
             if (feedback) setFeedback(null);
           }}
           disabled={pending}
-          aria-label="Nhập mã mời workspace"
+          aria-label="Nhập mã mời của nhóm tài chính"
           minLength={6}
           maxLength={36}
         />
@@ -132,7 +132,7 @@ export function WorkspaceSwitcher({
         if (pathname === "/wallets") router.refresh();
         else router.push(`/workspace/${id}`);
       } catch {
-        setError("Không thể chuyển workspace.");
+        setError("Không thể chuyển nhóm tài chính.");
       }
     });
   }
@@ -152,10 +152,10 @@ export function WorkspaceSwitcher({
             type="button"
             className="sidebar-workspace-selector-card flex h-12 w-full min-w-0 items-center gap-2 rounded-2xl px-2.5 py-2 text-left outline-none transition-[width,height,padding,gap,background-color,transform] duration-300 ease-in-out hover:bg-[var(--surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[901px]:h-[3.25rem]! min-[901px]:gap-3! min-[901px]:rounded-xl! min-[901px]:border-0! min-[901px]:bg-[var(--surface)]! min-[901px]:px-2.5! min-[901px]:shadow-none! min-[901px]:hover:bg-[var(--surface-hover)]! min-[901px]:hover:shadow-none! group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:translate-x-2 group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center min-[901px]:group-data-[collapsible=icon]:mx-auto! min-[901px]:group-data-[collapsible=icon]:size-10! min-[901px]:group-data-[collapsible=icon]:min-h-10! min-[901px]:group-data-[collapsible=icon]:translate-x-0 min-[901px]:group-data-[collapsible=icon]:bg-transparent!"
             aria-expanded={open}
-            aria-label={`Workspace: ${currentWorkspace?.name}. Click để chuyển đổi.`}
+            aria-label={`Nhóm tài chính: ${currentWorkspace?.name}. Nhấn để chuyển nhóm.`}
           />
         }
-        dismissLabel="Đóng menu chọn workspace"
+        dismissLabel="Đóng menu chọn nhóm tài chính"
       >
         {(spotlightTrigger) => (
           <PopoverTrigger render={spotlightTrigger}>
@@ -226,7 +226,7 @@ export function WorkspaceSwitcher({
             className="sidebar-ws-footer-link rounded-md"
           >
             <PlusCircle size={14} />
-            <span>Tạo workspace mới</span>
+            <span>Tạo nhóm mới</span>
           </Link>
 
           {/* Pending join requests indicator */}

@@ -57,7 +57,7 @@ async function findManagedRecurringTransaction(
   const record = await tx.recurringTransaction.findFirst({
     where: { id: recurringTransactionId, workspaceId, deletedAt: null },
   });
-  if (!record) throw new AppError("NOT_FOUND", "Không tìm thấy giao dịch định kỳ trong workspace này.");
+  if (!record) throw new AppError("NOT_FOUND", "Không tìm thấy giao dịch định kỳ trong nhóm này.");
   return record;
 }
 

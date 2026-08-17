@@ -308,7 +308,7 @@ export function QuickTransactionSheet({
           <Empty
             variant="compact"
             icon={WalletCards}
-            title="Workspace chưa có ví hoạt động"
+            title="Nhóm chưa có ví hoạt động"
             description="Tạo hoặc kích hoạt ví trước khi nhập giao dịch."
             role="status"
           />

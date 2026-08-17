@@ -382,7 +382,7 @@ function FallbackNavigation() {
       icon: Repeat2,
     },
     { href: "/wallets", label: "Quản lý ví", icon: WalletCards },
-    { href: "/settings/workspace", label: "Cài đặt workspace", icon: Settings },
+    { href: "/settings/workspace", label: "Cài đặt nhóm", icon: Settings },
   ];
   const generalLinks = [
     { href: "/setting", label: "Cài đặt chung", icon: SlidersHorizontal },

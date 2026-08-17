@@ -321,13 +321,13 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             <FolderTree size={18} />
           </div>
           <div>
-            <p className="settings-eyebrow">Danh mục workspace</p>
+            <p className="settings-eyebrow">Danh mục của nhóm</p>
             <h2 className="mt-0.5 text-base font-bold tracking-tight">
               Quản lý danh mục
             </h2>
             <p className="mt-1 hidden text-xs leading-5 text-[var(--text-muted)] min-[901px]:block">
               Tổ chức danh mục thu chi và sắp xếp theo cấu trúc phù hợp với
-              workspace.
+              nhóm tài chính.
             </p>
           </div>
         </div>
@@ -489,8 +489,8 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
                       ? "Cập nhật thông tin, màu sắc và biểu tượng của danh mục."
                       : `Cập nhật thông tin cho “${editingCategory.name}”.`
                     : isDesktop
-                      ? "Tạo danh mục mới để sử dụng trong workspace này."
-                      : "Tạo danh mục mới trong workspace này."}
+                      ? "Tạo danh mục mới để sử dụng trong nhóm này."
+                      : "Tạo danh mục mới trong nhóm này."}
                 </SheetDescription>
               </div>
             </div>
@@ -524,7 +524,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           <Empty
             icon={Tag}
             title={`Chưa có danh mục ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`}
-            description="Import từ bộ mẫu cá nhân hoặc tạo danh mục mới cho workspace."
+            description="Nhập từ bộ mẫu cá nhân hoặc tạo danh mục mới cho nhóm."
           />
         ) : (
           rootCategories.map((category, index) => (

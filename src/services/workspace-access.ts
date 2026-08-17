@@ -15,7 +15,7 @@ export async function requireWorkspaceMember(userId: string, workspaceId: string
     },
     include: { role: true, workspace: true },
   });
-  if (!member) throw new AppError("FORBIDDEN", "You do not have access to this workspace.");
+  if (!member) throw new AppError("FORBIDDEN", "Bạn không có quyền truy cập nhóm tài chính này.");
   return member;
 }
 
@@ -23,6 +23,6 @@ export async function requireWorkspaceWallet(workspaceId: string, walletId: stri
   const link = await prisma.workspaceWallet.findFirst({
     where: { workspaceId, walletId, wallet: { status: "active", deletedAt: null } },
   });
-  if (!link) throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Wallet is not available in this workspace.");
+  if (!link) throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Ví không khả dụng trong nhóm tài chính này.");
   return link;
 }

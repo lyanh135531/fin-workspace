@@ -43,7 +43,7 @@ const initializeAppearance = `
 export const metadata: Metadata = {
   title: "Felix",
   applicationName: "Felix",
-  description: "Felix — Quản lý tài chính workspace",
+  description: "Felix — Quản lý tài chính cho cá nhân và nhóm",
   icons: {
     icon: "/felix-logo.svg",
     shortcut: "/felix-logo.svg",

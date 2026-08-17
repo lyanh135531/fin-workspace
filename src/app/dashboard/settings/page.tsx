@@ -89,7 +89,7 @@ export default async function SettingsPage({
         <section className="workspace-mobile-overview md:hidden rounded-2xl">
           <div className="workspace-mobile-overview-head">
             <div className="workspace-mobile-overview-copy">
-              <p>Quản trị workspace</p>
+              <p>Quản trị nhóm</p>
               <h1>{membership.workspace.name}</h1>
               <span>
                 <i data-active={membership.workspace.status === "active"} />
@@ -117,9 +117,9 @@ export default async function SettingsPage({
         </section>
 
         <PageHeader
-          title="Cài đặt Workspace"
+          title="Cài đặt nhóm tài chính"
           description="Cấu hình thông tin chung, quản lý danh mục thu chi và thành viên trong nhóm của bạn."
-          eyebrow="Quản trị workspace"
+          eyebrow="Quản trị nhóm"
           className="max-md:hidden min-[901px]:mb-6 min-[901px]:pb-0"
           border={false}
         >

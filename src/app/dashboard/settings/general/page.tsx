@@ -22,14 +22,14 @@ export default async function GeneralSettingsPage() {
           <PageHeader
             eyebrow="Cài đặt cá nhân"
             title="Giao diện & Danh mục mẫu"
-            description="Tùy chỉnh phong cách giao diện và quản lý bộ danh mục mẫu cá nhân để import vào workspace."
+            description="Tùy chỉnh giao diện và quản lý bộ danh mục mẫu cá nhân để dùng trong nhóm tài chính."
           />
         </div>
         <div className="hidden min-[901px]:block">
           <PageHeader
             eyebrow="Cài đặt cá nhân"
             title="Cài đặt chung"
-            description="Thiết lập giao diện và chuẩn hóa danh mục dùng lại cho các workspace của bạn."
+            description="Thiết lập giao diện và chuẩn hóa danh mục dùng lại cho các nhóm tài chính của bạn."
             className="mb-6 pb-0"
             border={false}
           />

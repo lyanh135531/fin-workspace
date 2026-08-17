@@ -19,7 +19,7 @@ export async function createWorkspaceUser(actorUserId: string, workspaceId: stri
 }
 
 export async function createMemberAccount(actorUserId: string, workspaceIds: string[], input: { username: string; password: string }) {
-  if (workspaceIds.length === 0) throw new AppError("VALIDATION_ERROR", "Chọn ít nhất một workspace.");
+  if (workspaceIds.length === 0) throw new AppError("VALIDATION_ERROR", "Chọn ít nhất một nhóm tài chính.");
   await Promise.all(workspaceIds.map((workspaceId) => requireWorkspaceMember(actorUserId, workspaceId, true)));
   const passwordHash = await argon2.hash(input.password);
   return prisma.$transaction(async (tx) => {
@@ -37,7 +37,7 @@ export async function changeWorkspaceMemberRole(actorUserId: string, workspaceId
   await requireWorkspaceMember(actorUserId, workspaceId, true);
   if (!isWorkspaceRoleCode(roleCode)) throw new AppError("VALIDATION_ERROR", "Vai trò chỉ có thể là ADMIN hoặc MEMBER.");
   const member = await prisma.workspaceMember.findFirst({ where: { id: memberId, workspaceId, status: "active", deletedAt: null } });
-  if (!member) throw new AppError("NOT_FOUND", "Member was not found in this workspace.");
+  if (!member) throw new AppError("NOT_FOUND", "Không tìm thấy thành viên trong nhóm này.");
   if (member.userId === actorUserId) throw new AppError("FORBIDDEN", "You cannot change your own role.");
   const role = await prisma.role.findUnique({ where: { code: roleCode } });
   if (!role) throw new AppError("NOT_FOUND", "The selected role does not exist.");
@@ -47,8 +47,8 @@ export async function changeWorkspaceMemberRole(actorUserId: string, workspaceId
 export async function deactivateWorkspaceMember(actorUserId: string, workspaceId: string, memberId: string) {
   await requireWorkspaceMember(actorUserId, workspaceId, true);
   const member = await prisma.workspaceMember.findFirst({ where: { id: memberId, workspaceId, status: "active", deletedAt: null } });
-  if (!member) throw new AppError("NOT_FOUND", "Active member was not found in this workspace.");
-  if (member.userId === actorUserId) throw new AppError("FORBIDDEN", "You cannot remove yourself from this workspace.");
+  if (!member) throw new AppError("NOT_FOUND", "Không tìm thấy thành viên đang hoạt động trong nhóm này.");
+  if (member.userId === actorUserId) throw new AppError("FORBIDDEN", "Bạn không thể tự gỡ mình khỏi nhóm.");
   return prisma.$transaction(async (tx) => {
     const updated = await tx.workspaceMember.update({ where: { id: member.id }, data: { status: "deactive" } });
     await tx.auditLog.create({ data: { workspaceId, actorUserId, action: "workspace.member_deactivated", entityType: "workspace_member", entityId: member.id, metadata: { userId: member.userId } } });

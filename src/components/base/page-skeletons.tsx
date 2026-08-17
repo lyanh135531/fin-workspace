@@ -839,7 +839,7 @@ function RecurringTransactionsPageSkeleton() {
 
 function WorkspaceSettingsPageSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Đang tải cài đặt workspace">
+    <div aria-busy="true" aria-label="Đang tải cài đặt nhóm tài chính">
       <div className="mobile-page-skeleton workspace-mobile-skeleton">
         <section className="workspace-mobile-skeleton-overview">
           <div className="workspace-mobile-skeleton-overview-head">
@@ -1090,7 +1090,7 @@ function JoinPageSkeleton() {
     <div
       className="space-y-6"
       aria-busy="true"
-      aria-label="Đang tải trang tham gia workspace"
+      aria-label="Đang tải trang tham gia nhóm tài chính"
     >
       <PageHeaderSkeleton />
       <div className="grid gap-6 lg:grid-cols-12">
@@ -1109,7 +1109,7 @@ function WorkspaceFormPageSkeleton() {
     <div
       className="workspace-create-page workspace-create-skeleton"
       aria-busy="true"
-      aria-label="Đang tải biểu mẫu workspace"
+      aria-label="Đang tải biểu mẫu tạo nhóm tài chính"
     >
       <div className="workspace-create-layout">
         <div className="workspace-create-intro">
@@ -1140,14 +1140,20 @@ function MemberAccountsPageSkeleton() {
   );
 }
 
-function AuthPageSkeleton() {
+function AuthPageSkeleton({
+  mode = "sign-in",
+}: {
+  mode?: "sign-in" | "register";
+}) {
+  const isSignIn = mode === "sign-in";
+
   return (
     <main
       className="auth-split-shell auth-mobile-polished-shell [&_.auth-fields>*]:!animate-none [&_.auth-form-actions]:!animate-none [&_.auth-form-panel]:!animate-none [&_.auth-visual-body]:!animate-none [&_.auth-visual-brand]:!animate-none [&_.auth-visual-footer]:!animate-none [&_.auth-visual-panel]:!animate-none"
       aria-busy="true"
-      aria-label="Đang chuẩn bị trang đăng nhập"
+      aria-label={isSignIn ? "Đang mở trang đăng nhập" : "Đang mở trang đăng ký"}
     >
-      <AuthShowcase mode="sign-in" />
+      <AuthShowcase mode={mode} />
 
       <section className="auth-form-panel" aria-labelledby="auth-loading-title">
         <div className="auth-form-toolbar">
@@ -1161,12 +1167,16 @@ function AuthPageSkeleton() {
         <Card className="auth-form-card gap-0 py-0">
           <div className="auth-form-inner">
             <div className="auth-form-header">
-              <span className="auth-form-eyebrow">Đăng nhập</span>
+              <span className="auth-form-eyebrow">
+                {isSignIn ? "Đăng nhập" : "Đăng ký"}
+              </span>
               <h2 id="auth-loading-title" className="auth-form-title">
-                Chào mừng bạn trở lại.
+                {isSignIn ? "Đăng nhập vào Felix" : "Tạo tài khoản Felix"}
               </h2>
               <p className="auth-form-subtitle">
-                Tiếp tục đến không gian tài chính của bạn.
+                {isSignIn
+                  ? "Xem lại ví, giao dịch và ngân sách của bạn."
+                  : "Chọn tên đăng nhập và mật khẩu để bắt đầu."}
               </p>
             </div>
 
@@ -1176,7 +1186,7 @@ function AuthPageSkeleton() {
                   label="Tên đăng nhập"
                   type="text"
                   disabled
-                  placeholder="Nhập tên đăng nhập"
+                  placeholder="Tên đăng nhập"
                   className="auth-field-input"
                   controlClassName="auth-field-wrap has-left-icon"
                   startAdornment={
@@ -1192,7 +1202,7 @@ function AuthPageSkeleton() {
                   label="Mật khẩu"
                   type="password"
                   disabled
-                  placeholder="Nhập mật khẩu của bạn"
+                  placeholder={isSignIn ? "Mật khẩu" : "Tối thiểu 8 ký tự"}
                   className="auth-field-input has-icon"
                   controlClassName="auth-field-wrap has-left-icon"
                   startAdornment={
@@ -1211,21 +1221,27 @@ function AuthPageSkeleton() {
                 className="auth-submit-btn is-loading"
                 disabled
               >
-                <Loading label="Đang chuẩn bị..." />
+                <Loading label="Đang mở trang..." />
                 <span className="auth-submit-icon" aria-hidden>
                   <ArrowRight size={16} />
                 </span>
               </Button>
 
               <p className="auth-form-link-row">
-                Chưa có tài khoản? <span>Tạo tài khoản</span>
+                {isSignIn ? (
+                  <>Chưa dùng Felix? <span>Đăng ký</span></>
+                ) : (
+                  <>Đã có tài khoản? <span>Đăng nhập</span></>
+                )}
               </p>
             </div>
           </div>
         </Card>
 
         <p className="auth-legal">
-          Khi tiếp tục, bạn đồng ý với các quy định bảo mật của Felix.
+          {isSignIn
+            ? "Dữ liệu của mỗi nhóm tài chính được lưu tách biệt."
+            : "Sau khi đăng ký, bạn sẽ tạo nhóm tài chính đầu tiên."}
         </p>
       </section>
     </main>

@@ -167,7 +167,7 @@ function JoinNotificationCard({
                 <strong className="font-semibold text-[var(--foreground)]">
                   {item.username}
                 </strong>{" "}
-                muốn tham gia workspace.
+                muốn tham gia nhóm tài chính.
               </p>
             </div>
             <span className="shrink-0 text-xs font-semibold text-[var(--warning)]">
@@ -498,7 +498,7 @@ export function NotificationsMenu({
       if (result.ok) {
         toast.success(
           approve
-            ? "Đã duyệt thành viên vào workspace."
+            ? "Đã duyệt thành viên vào nhóm."
             : "Đã từ chối yêu cầu tham gia.",
         );
         router.refresh();
@@ -601,7 +601,7 @@ export function NotificationsMenu({
                 <SheetTitle>Thông báo</SheetTitle>
                 <SheetDescription>
                   {items.length > 0
-                    ? `${items.length} cập nhật mới trong workspace`
+                    ? `${items.length} cập nhật mới trong nhóm`
                     : "Bạn đã xem hết thông báo"}
                 </SheetDescription>
               </div>

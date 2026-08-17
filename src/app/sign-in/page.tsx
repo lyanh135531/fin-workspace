@@ -126,7 +126,7 @@ export default function SignInPage() {
 
       if (result?.error) {
         setErrorKey((key) => key + 1);
-        setError("Tên đăng nhập hoặc mật khẩu không đúng.");
+        setError("Không đăng nhập được. Kiểm tra lại tên đăng nhập và mật khẩu.");
         setLoading(false);
         return;
       }
@@ -145,7 +145,7 @@ export default function SignInPage() {
       window.location.replace("/overview");
     } catch {
       setErrorKey((key) => key + 1);
-      setError("Không thể kết nối tới máy chủ. Vui lòng thử lại.");
+      setError("Không kết nối được với máy chủ. Thử lại sau ít phút.");
       setLoading(false);
     }
   }
@@ -167,9 +167,9 @@ export default function SignInPage() {
           <div className="auth-form-inner">
             <div className="auth-form-header">
               <span className="auth-form-eyebrow">Đăng nhập</span>
-              <h2 id="sign-in-title" className="auth-form-title">Chào mừng bạn trở lại.</h2>
+              <h2 id="sign-in-title" className="auth-form-title">Đăng nhập vào Felix</h2>
               <p className="auth-form-subtitle">
-                Tiếp tục đến không gian tài chính của bạn.
+                Xem lại ví, giao dịch và ngân sách của bạn.
               </p>
             </div>
 
@@ -184,7 +184,7 @@ export default function SignInPage() {
                     required
                     autoComplete="username"
                     autoFocus
-                    placeholder="Nhập tên đăng nhập"
+                    placeholder="Tên đăng nhập"
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
                     aria-invalid={error ? true : undefined}
@@ -205,7 +205,7 @@ export default function SignInPage() {
                     type={showPassword ? "text" : "password"}
                     required
                     autoComplete="current-password"
-                    placeholder="Nhập mật khẩu của bạn"
+                    placeholder="Mật khẩu"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     aria-invalid={error ? true : undefined}
@@ -248,9 +248,9 @@ export default function SignInPage() {
                   checked={rememberMe}
                   disabled={loading}
                   onCheckedChange={(checked) => setRememberMe(checked === true)}
-                  aria-label="Ghi nhớ đăng nhập"
+                  aria-label="Ghi nhớ tôi trên thiết bị này"
                 />
-                <span>Ghi nhớ đăng nhập</span>
+                <span>Ghi nhớ tôi trên thiết bị này</span>
               </Label>
 
               <div className="auth-form-actions">
@@ -262,7 +262,7 @@ export default function SignInPage() {
                   disabled={loading}
                 >
                   {loading ? (
-                    <Loading label="Đang xác thực..." />
+                    <Loading label="Đang đăng nhập..." />
                   ) : (
                     <>
                       Đăng nhập
@@ -274,15 +274,15 @@ export default function SignInPage() {
                 </Button>
 
                 <p className="auth-form-link-row">
-                  Chưa có tài khoản?{" "}
-                  <Link href="/setup" className="auth-form-link">Tạo tài khoản</Link>
+                  Chưa dùng Felix?{" "}
+                  <Link href="/setup" className="auth-form-link">Đăng ký</Link>
                 </p>
               </div>
             </form>
           </div>
         </Card>
         <p className="auth-legal">
-          Khi tiếp tục, bạn đồng ý với các quy định bảo mật của Felix.
+          Dữ liệu của mỗi nhóm tài chính được lưu tách biệt.
         </p>
       </section>
     </main>

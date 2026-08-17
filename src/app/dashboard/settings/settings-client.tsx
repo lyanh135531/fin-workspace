@@ -108,7 +108,7 @@ export function SettingsClient({
     try {
       const result = await removeMemberAction(id);
       if (result.ok) {
-        toast.success("Đã gỡ thành viên khỏi workspace.");
+        toast.success("Đã gỡ thành viên khỏi nhóm.");
         setSelectedMemberId(null);
         setConfirmingRemove(false);
         return true;
@@ -134,7 +134,7 @@ export function SettingsClient({
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="mt-0.5 text-lg font-bold tracking-tight text-[var(--foreground)] min-[901px]:text-base min-[901px]:font-semibold">
-              Thành viên workspace
+              Thành viên của nhóm
             </h2>
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">
               Quản lý vai trò và quyền hoạt động của từng tài khoản.
@@ -251,8 +251,8 @@ export function SettingsClient({
                                 disabled={pending || removingId !== null}
                                 variant="destructive"
                                 size="icon"
-                                title={`Gỡ ${member.username} khỏi workspace`}
-                                aria-label={`Gỡ ${member.username} khỏi workspace`}
+                                title={`Gỡ ${member.username} khỏi nhóm`}
+                                aria-label={`Gỡ ${member.username} khỏi nhóm`}
                                 onClick={() => {
                                   setSelectedMemberId(member.id);
                                   setConfirmingRemove(true);
@@ -263,12 +263,12 @@ export function SettingsClient({
                             </div>
                             <div className="hidden min-[901px]:block">
                               <ConfirmDelete
-                                ariaLabel={`Gỡ ${member.username} khỏi workspace`}
+                                ariaLabel={`Gỡ ${member.username} khỏi nhóm`}
                                 title="Gỡ thành viên?"
                                 description={
                                   <>
                                     <strong>{member.username}</strong> sẽ mất
-                                    quyền truy cập workspace này.
+                                    quyền truy cập nhóm này.
                                   </>
                                 }
                                 confirmLabel="Gỡ thành viên"
@@ -280,8 +280,8 @@ export function SettingsClient({
                                     disabled={pending || removingId !== null}
                                     variant="destructiveIcon"
                                     size="icon"
-                                    title={`Gỡ ${member.username} khỏi workspace`}
-                                    aria-label={`Gỡ ${member.username} khỏi workspace`}
+                                    title={`Gỡ ${member.username} khỏi nhóm`}
+                                    aria-label={`Gỡ ${member.username} khỏi nhóm`}
                                   >
                                     <UserRoundX size={16} />
                                   </Button>
@@ -299,7 +299,7 @@ export function SettingsClient({
             <Empty
               variant="compact"
               icon={UsersRound}
-              title="Workspace chưa có thành viên"
+              title="Nhóm chưa có thành viên"
               description="Thành viên được cấp quyền sẽ xuất hiện tại đây."
               className="rounded-none border-x-0 border-b-0"
             />
@@ -339,10 +339,10 @@ export function SettingsClient({
                     </SheetTitle>
                     <SheetDescription>
                       {confirmingRemove
-                        ? `${selectedMember.username} sẽ mất quyền truy cập workspace.`
+                        ? `${selectedMember.username} sẽ mất quyền truy cập nhóm.`
                         : canManageSelectedMember
-                          ? "Quản lý vai trò và quyền truy cập workspace."
-                          : "Thông tin vai trò trong workspace."}
+                          ? "Quản lý vai trò và quyền truy cập nhóm."
+                          : "Thông tin vai trò trong nhóm."}
                     </SheetDescription>
                   </div>
                 </div>
@@ -352,7 +352,7 @@ export function SettingsClient({
                 <div className="ledger-mobile-review-transaction rounded-2xl">
                   <div>
                     <span>{selectedMember.username}</span>
-                    <small>Thành viên workspace</small>
+                    <small>Thành viên của nhóm</small>
                   </div>
                   <strong>{selectedMemberRoleName}</strong>
                 </div>

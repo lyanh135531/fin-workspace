@@ -63,7 +63,7 @@ export function WorkspaceSettings({
         status: form.get("status"),
       });
       if (result.ok) {
-        toast.success("Đã lưu cấu hình workspace thành công!");
+        toast.success("Đã lưu cài đặt nhóm.");
       } else {
         toast.error(result.message ?? "Không thể lưu cấu hình.");
       }
@@ -79,10 +79,10 @@ export function WorkspaceSettings({
     try {
       const result = await deleteWorkspaceAction(confirmPassword);
       if (!result.ok) {
-        toast.error(result.message ?? "Không thể xóa workspace.");
+        toast.error(result.message ?? "Không thể xóa nhóm tài chính.");
         return false;
       }
-      toast.success("Đã xóa workspace. Đang chuyển về tổng quan...");
+      toast.success("Đã xóa nhóm tài chính. Đang chuyển về tổng quan...");
       window.location.assign("/overview");
       return true;
     } finally {
@@ -133,7 +133,7 @@ export function WorkspaceSettings({
                 Thông tin chung
               </h2>
               <p className="hidden text-xs leading-5 text-[var(--text-muted)] min-[901px]:block">
-                Cập nhật tên, mô tả và trạng thái hoạt động của workspace.
+                Cập nhật tên, mô tả và trạng thái hoạt động của nhóm.
               </p>
             </div>
           </div>
@@ -148,7 +148,7 @@ export function WorkspaceSettings({
             {/* Workspace name */}
             <div className="space-y-2">
               <Input
-                label="Tên workspace"
+                label="Tên nhóm"
                 id="ws-name"
                 required
                 name="name"
@@ -232,11 +232,11 @@ export function WorkspaceSettings({
                 Khu vực nguy hiểm
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed max-w-lg">
-                Vô hiệu hóa workspace{" "}
+                Vô hiệu hóa nhóm tài chính{" "}
                 <strong className="font-semibold text-[var(--text-primary)]">
                   {workspace.name}
                 </strong>
-                . Mọi dữ liệu sẽ bị ẩn và workspace bị gỡ khỏi danh sách của tất
+                . Mọi dữ liệu sẽ bị ẩn và nhóm bị gỡ khỏi danh sách của tất
                 cả thành viên.
               </p>
             </div>
@@ -244,11 +244,11 @@ export function WorkspaceSettings({
 
           <div className="hidden min-[901px]:block">
             <ConfirmDelete
-              ariaLabel={`Xóa workspace ${workspace.name}`}
-              title="Xóa Workspace?"
+              ariaLabel={`Xóa nhóm tài chính ${workspace.name}`}
+              title="Xóa nhóm tài chính?"
               description={
                 <>
-                  Workspace <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa
+                  Nhóm <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa
                   và gỡ khỏi danh sách của tất cả thành viên.
                 </>
               }
@@ -279,7 +279,7 @@ export function WorkspaceSettings({
                   variant="destructive"
                 >
                   <Trash2 size={16} />
-                  Xóa Workspace
+                  Xóa nhóm
                 </Button>
               }
             />
@@ -296,7 +296,7 @@ export function WorkspaceSettings({
               variant="destructive"
             >
               <Trash2 size={16} className="mr-2" />
-              Xóa Workspace
+              Xóa nhóm
             </Button>
           </div>
         </div>
@@ -307,7 +307,7 @@ export function WorkspaceSettings({
           <SheetContent
             side="bottom"
             className="workspace-delete-sheet ledger-mobile-review-sheet pending-delete w-[min(32rem,calc(100vw-1rem))]! max-w-none! gap-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0"
-            aria-label={`Xác nhận xóa workspace ${workspace.name}`}
+            aria-label={`Xác nhận xóa nhóm tài chính ${workspace.name}`}
           >
             <SheetHeader className="ledger-mobile-review-header border-b border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-3">
               <div className="ledger-mobile-review-heading flex items-center gap-3">
@@ -315,7 +315,7 @@ export function WorkspaceSettings({
                   <AlertTriangle size={20} />
                 </span>
                 <div>
-                  <SheetTitle>Xóa Workspace?</SheetTitle>
+                  <SheetTitle>Xóa nhóm tài chính?</SheetTitle>
                   <SheetDescription>
                     Hành động này cần được xác nhận bằng mật khẩu.
                   </SheetDescription>
@@ -325,7 +325,7 @@ export function WorkspaceSettings({
 
             <div className="ledger-mobile-review-body grid gap-4 overflow-y-auto p-4">
               <p className="relative text-xs leading-relaxed text-slate-500">
-                Workspace <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa.
+                Nhóm <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa.
                 Để tiếp tục, vui lòng xác nhận bằng mật khẩu tài khoản của bạn.
               </p>
 

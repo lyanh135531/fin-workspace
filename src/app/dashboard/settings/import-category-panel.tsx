@@ -156,7 +156,7 @@ export function ImportCategoryPanel({
             Import từ danh mục mẫu
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Chọn danh mục mẫu cá nhân để copy vào workspace này.
+            Chọn danh mục mẫu cá nhân để sao chép vào nhóm này.
           </p>
         </div>
         {!allImported && (
@@ -231,7 +231,7 @@ export function ImportCategoryPanel({
                 Danh mục mẫu đã được import đầy đủ
               </h2>
               <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                {annotated.length} danh mục mẫu hiện đã có trong workspace này.
+                {annotated.length} danh mục mẫu hiện đã có trong nhóm này.
               </p>
             </div>
           </div>

@@ -109,21 +109,21 @@ export default function SetupPage() {
           }
         } catch {
           setMessage(
-            "Tài khoản đã tạo nhưng kết nối đăng nhập bị gián đoạn.",
+            "Tài khoản đã tạo, nhưng Felix chưa đăng nhập được.",
           );
         }
 
         setCompletionState("manual-sign-in");
       } else {
         setErrorKey((k) => k + 1);
-        setMessage(res.message || "Không thể tạo tài khoản.");
+        setMessage(res.message || "Chưa tạo được tài khoản. Thử lại.");
         if (res.fieldErrors) {
           setFieldErrors(res.fieldErrors);
         }
       }
     } catch {
       setErrorKey((k) => k + 1);
-      setMessage("Không thể kết nối tới máy chủ. Vui lòng thử lại sau.");
+      setMessage("Không kết nối được với máy chủ. Thử lại sau ít phút.");
     } finally {
       setLoading(false);
     }
@@ -148,10 +148,10 @@ export default function SetupPage() {
         <Card className="auth-form-card gap-0 py-0">
           <div className="auth-form-inner">
             <div className="auth-form-header">
-              <span className="auth-form-eyebrow">Tạo tài khoản</span>
-              <h2 id="register-title" className="auth-form-title">Bắt đầu từ đây.</h2>
+              <span className="auth-form-eyebrow">Đăng ký</span>
+              <h2 id="register-title" className="auth-form-title">Tạo tài khoản Felix</h2>
               <p className="auth-form-subtitle">
-                Hai thông tin để mở không gian tài chính của bạn.
+                Chọn tên đăng nhập và mật khẩu để bắt đầu.
               </p>
             </div>
 
@@ -163,12 +163,12 @@ export default function SetupPage() {
               >
                 <span><CheckCircle2 size={18} aria-hidden /></span>
                 <p>
-                  <strong>Tài khoản đã sẵn sàng.</strong>
+                  <strong>Đã tạo tài khoản.</strong>
                   <small>
                     {completionState === "authenticating"
-                      ? "Đang đăng nhập và mở không gian của bạn…"
+                      ? "Đang chuyển bạn đến bước tạo nhóm tài chính…"
                       : message ??
-                        "Không thể tự đăng nhập. Hãy đăng nhập để tiếp tục."}
+                        "Đăng nhập lại để tiếp tục thiết lập."}
                   </small>
                 </p>
               </div>
@@ -182,7 +182,7 @@ export default function SetupPage() {
                   render={<Link href="/sign-in" />}
                   className="auth-submit-btn"
                 >
-                  Đăng nhập để tiếp tục
+                  Đăng nhập
                   <span className="auth-submit-icon" aria-hidden="true">
                     <ArrowRight size={16} />
                   </span>
@@ -204,7 +204,7 @@ export default function SetupPage() {
                       maxLength={80}
                       autoComplete="username"
                       autoFocus
-                      placeholder="Nhập tên đăng nhập"
+                      placeholder="Tên đăng nhập"
                       aria-invalid={fieldErrors.username ? true : undefined}
                       aria-describedby={fieldErrors.username ? `${id}-username-error` : undefined}
                       className="auth-field-input"
@@ -276,7 +276,7 @@ export default function SetupPage() {
                               {isMinLength ? <Check size={11} aria-hidden /> : <i aria-hidden />} 8+ ký tự
                             </span>
                             <span className={`auth-minimal-rule ${hasLettersAndNumbers ? "is-valid" : ""}`}>
-                              {hasLettersAndNumbers ? <Check size={11} aria-hidden /> : <i aria-hidden />} Chữ & số
+                              {hasLettersAndNumbers ? <Check size={11} aria-hidden /> : <i aria-hidden />} Có chữ và số
                             </span>
                           </div>
 
@@ -313,7 +313,7 @@ export default function SetupPage() {
                     {loading ? (
                       <>
                         <span className="btn-spinner" aria-hidden />
-                        Đang đăng ký…
+                        Đang tạo tài khoản…
                       </>
                     ) : (
                       <>
@@ -337,7 +337,7 @@ export default function SetupPage() {
           </div>
         </Card>
         <p className="auth-legal">
-          Khi tạo tài khoản, bạn đồng ý với các quy định bảo mật của Felix.
+          Sau khi đăng ký, bạn sẽ tạo nhóm tài chính đầu tiên.
         </p>
       </section>
     </main>

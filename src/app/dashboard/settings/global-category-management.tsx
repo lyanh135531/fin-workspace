@@ -428,7 +428,7 @@ export function UserCategoryTemplateManagement({
               Danh mục mẫu
             </h2>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Tạo cấu trúc danh mục cá nhân để dùng lại cho các workspace.
+              Tạo cấu trúc danh mục cá nhân để dùng lại cho các nhóm tài chính.
             </p>
           </div>
         </div>
@@ -572,8 +572,8 @@ export function UserCategoryTemplateManagement({
                         ? "Cập nhật thông tin, màu sắc và biểu tượng của danh mục."
                         : "Cập nhật thông tin cho danh mục mẫu này."
                       : isDesktop
-                        ? "Tạo danh mục cá nhân để dùng lại trong các workspace."
-                        : "Tạo danh mục để dùng lại trong các workspace."}
+                        ? "Tạo danh mục cá nhân để dùng lại trong các nhóm tài chính."
+                        : "Tạo danh mục để dùng lại trong các nhóm tài chính."}
                   </SheetDescription>
                 </div>
               </div>
@@ -614,7 +614,7 @@ export function UserCategoryTemplateManagement({
             <Empty
               icon={Tag}
               title={`Chưa có danh mục mẫu ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`}
-              description="Tạo danh mục mẫu mới để sử dụng và import vào workspace."
+              description="Tạo danh mục mẫu mới để sử dụng trong các nhóm tài chính."
             />
           ) : (
             rootCategories.map((category, index) => (

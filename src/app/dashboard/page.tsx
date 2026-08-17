@@ -156,7 +156,7 @@ export async function WorkspaceDashboard({
         isAdmin,
         canEditTransactions: true,
         canApprove: isAdmin,
-        scopeLabel: "workspace này",
+        scopeLabel: "nhóm này",
         wallets: walletLinks.map(({ wallet }) => ({
           id: wallet.id,
           name: wallet.name,

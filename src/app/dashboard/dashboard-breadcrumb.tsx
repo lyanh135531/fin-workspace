@@ -43,19 +43,19 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
   ],
   "/settings/workspace": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Cài đặt workspace" },
+    { label: "Cài đặt nhóm" },
   ],
   "/workspaces/create": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Tạo Workspace mới" },
+    { label: "Tạo nhóm mới" },
   ],
   "/settings/workspaces/create": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Tạo Workspace mới" },
+    { label: "Tạo nhóm mới" },
   ],
   "/settings/join": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Tham gia workspace" },
+    { label: "Tham gia nhóm" },
   ],
   "/dashboard": [
     { label: "Tổng quan", href: "/overview" },
@@ -72,7 +72,7 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
   ],
   "/dashboard/settings": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Cài đặt workspace" },
+    { label: "Cài đặt nhóm" },
   ],
   "/dashboard/settings/general": [
     { label: "Tổng quan", href: "/overview" },
@@ -85,30 +85,30 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
   ],
   "/dashboard/workspaces/create": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Tạo Workspace mới" },
+    { label: "Tạo nhóm mới" },
   ],
   "/dashboard/join": [
     { label: "Tổng quan", href: "/overview" },
     { label: "Cài đặt chung", href: "/setting" },
-    { label: "Tham gia workspace" },
+    { label: "Tham gia nhóm" },
   ],
   "/dashboard/join-requests": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Cài đặt workspace", href: "/settings/workspace" },
+    { label: "Cài đặt nhóm", href: "/settings/workspace" },
     { label: "Yêu cầu tham gia" },
   ],
 }
 
 const segmentLabels: Record<string, string> = {
   dashboard: "Sổ giao dịch",
-  join: "Tham gia workspace",
+  join: "Tham gia nhóm",
   overview: "Tổng quan",
   setting: "Cài đặt chung",
   settings: "Cài đặt",
   users: "Tài khoản thành viên",
   wallets: "Quản lý ví",
-  workspace: "Workspace",
-  workspaces: "Workspace",
+  workspace: "Nhóm tài chính",
+  workspaces: "Nhóm tài chính",
   create: "Tạo mới",
   general: "Cài đặt chung",
   "join-requests": "Yêu cầu tham gia",
@@ -151,7 +151,7 @@ function getTrail(
       return [
         { label: "Tổng quan", href: "/overview" },
         { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
-        { label: "Cài đặt workspace" },
+        { label: "Cài đặt nhóm" },
       ]
     }
 
@@ -159,7 +159,7 @@ function getTrail(
       return [
         { label: "Tổng quan", href: "/overview" },
         { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
-        { label: "Cài đặt workspace", href: "/settings/workspace" },
+        { label: "Cài đặt nhóm", href: "/settings/workspace" },
         { label: "Yêu cầu tham gia" },
       ]
     }
@@ -176,7 +176,7 @@ function getTrail(
     const workspace = workspaces.find((item) => item.id === workspaceId)
     return [
       { label: "Tổng quan", href: "/overview" },
-      { label: workspace?.name ?? "Workspace" },
+      { label: workspace?.name ?? "Nhóm tài chính" },
     ]
   }
 

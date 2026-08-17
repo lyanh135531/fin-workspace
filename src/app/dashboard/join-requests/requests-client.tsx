@@ -99,7 +99,7 @@ export function JoinRequestsClient({
               Yêu cầu tham gia
             </h2>
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-              Chọn vai trò trước khi cấp quyền truy cập workspace.
+              Chọn vai trò trước khi cấp quyền truy cập nhóm.
             </p>
           </div>
           <span className="ws-fixed-pill rounded-2xl min-[901px]:text-xs min-[901px]:font-medium min-[901px]:text-[var(--text-muted)]">
@@ -202,7 +202,7 @@ export function JoinRequestsClient({
                   variant="compact"
                   icon={UserPlus}
                   title="Không có yêu cầu chờ duyệt"
-                  description="Các yêu cầu tham gia workspace mới sẽ xuất hiện tại đây."
+                  description="Các yêu cầu tham gia nhóm mới sẽ xuất hiện tại đây."
                   className="rounded-none border-x-0 border-b-0"
                 />
               </div>

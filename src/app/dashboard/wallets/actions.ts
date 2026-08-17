@@ -33,12 +33,12 @@ async function walletActor() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) throw new AppError("AUTHENTICATION_REQUIRED", "Vui lòng đăng nhập.");
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
-  if (!workspaceId) throw new AppError("FORBIDDEN", "Không có workspace đang hoạt động.");
+  if (!workspaceId) throw new AppError("FORBIDDEN", "Không có nhóm tài chính đang hoạt động.");
   const membership = await prisma.workspaceMember.findFirst({
     where: { userId: session.user.id, workspaceId, status: "active", deletedAt: null, workspace: { status: "active", deletedAt: null } },
     select: { workspaceId: true },
   });
-  if (!membership) throw new AppError("FORBIDDEN", "Bạn không có quyền truy cập workspace này.");
+  if (!membership) throw new AppError("FORBIDDEN", "Bạn không có quyền truy cập nhóm này.");
   return { userId: session.user.id, workspaceId: membership.workspaceId };
 }
 

@@ -44,7 +44,7 @@ export async function registerAccountAction(input: unknown): Promise<RegisterAct
       const seconds = Math.ceil(rate.retryAfterMs / 1000);
       return {
         ok: false,
-        message: `Bạn đã thử quá nhiều lần. Vui lòng đợi ${seconds} giây rồi thử lại.`,
+        message: `Bạn đã thử quá nhiều lần. Đợi ${seconds} giây rồi thử lại.`,
       };
     }
 
@@ -53,7 +53,7 @@ export async function registerAccountAction(input: unknown): Promise<RegisterAct
       const formatted = parsed.error.format();
       return {
         ok: false,
-        message: "Thông tin nhập vào chưa hợp lệ. Vui lòng kiểm tra lại các trường bên dưới.",
+        message: "Thông tin chưa đúng. Kiểm tra các mục bên dưới.",
         fieldErrors: {
           username: formatted.username?._errors[0],
           password: formatted.password?._errors[0],
@@ -71,6 +71,6 @@ export async function registerAccountAction(input: unknown): Promise<RegisterAct
     if (error instanceof Error) {
       return { ok: false, message: error.message };
     }
-    return { ok: false, message: "Không thể tạo tài khoản. Vui lòng thử lại sau." };
+    return { ok: false, message: "Chưa tạo được tài khoản. Thử lại sau." };
   }
 }

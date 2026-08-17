@@ -27,7 +27,7 @@ export default async function JoinPage() {
   return (
     <PageContainer className="mx-auto max-w-6xl pb-6">
       <PageHeader
-        title="Tham gia workspace"
+        title="Tham gia nhóm tài chính"
         description="Nhập mã mời từ quản trị viên để gửi yêu cầu tham gia nhóm."
       />
 

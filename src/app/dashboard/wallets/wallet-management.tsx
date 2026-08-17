@@ -833,7 +833,7 @@ export function WalletManagement({
                 icon={WalletCards}
                 title={
                   filterStatus === "all"
-                    ? "Workspace chưa có ví"
+                    ? "Nhóm chưa có ví"
                     : "Không có ví ở trạng thái này"
                 }
                 description={
@@ -1209,7 +1209,7 @@ export function WalletManagement({
                   icon={WalletCards}
                   title={
                     filterStatus === "all"
-                      ? "Workspace chưa có ví"
+                      ? "Nhóm chưa có ví"
                       : "Không có ví ở trạng thái này"
                   }
                   description={
@@ -1217,7 +1217,7 @@ export function WalletManagement({
                       ? "Chọn trạng thái khác để xem các ví còn lại."
                       : isAdmin
                         ? "Tạo ví đầu tiên để bắt đầu ghi nhận giao dịch tài chính."
-                        : "Admin chưa khởi tạo ví cho workspace này."
+                        : "Quản trị viên chưa tạo ví cho nhóm này."
                   }
                   action={
                     filterStatus === "all" && isAdmin ? (
@@ -2054,7 +2054,7 @@ export function WalletManagement({
                     <span>{confirmOperation.wallet.name}</span>
                     <small>
                       {confirmOperation.kind === "delete"
-                        ? "Ví sẽ được ẩn khỏi workspace"
+                        ? "Ví sẽ được ẩn khỏi nhóm"
                         : "Ví sẽ ngừng nhận giao dịch mới"}
                     </small>
                   </div>

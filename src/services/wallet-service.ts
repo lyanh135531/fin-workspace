@@ -40,7 +40,7 @@ async function assertWalletNameAvailable(
   if (duplicate) {
     throw new AppError(
       "CONFLICT",
-      `Tên ví “${name}” đã tồn tại trong workspace.`,
+      `Tên ví “${name}” đã tồn tại trong nhóm.`,
     );
   }
 }
@@ -156,7 +156,7 @@ export async function updateWalletForWorkspace(userId: string, workspaceId: stri
       where: { workspaceId, walletId: input.walletId, wallet: { deletedAt: null } },
       select: { walletId: true },
     });
-    if (!link) throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Wallet is not available in this workspace.");
+    if (!link) throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Ví không khả dụng trong nhóm tài chính này.");
     if (input.name !== undefined) {
       await assertWalletNameAvailable(tx, workspaceId, input.name, input.walletId);
     }
@@ -234,7 +234,7 @@ export async function setWalletStatusForWorkspace(
     if (!link) {
       throw new AppError(
         "WORKSPACE_ISOLATION_VIOLATION",
-        "Ví không tồn tại trong workspace này.",
+        "Ví không tồn tại trong nhóm này.",
       );
     }
     if (link.wallet.status === status) return link.wallet;
@@ -281,7 +281,7 @@ export async function softDeleteWalletForWorkspace(
     if (!link) {
       throw new AppError(
         "WORKSPACE_ISOLATION_VIOLATION",
-        "Ví không tồn tại trong workspace này.",
+        "Ví không tồn tại trong nhóm này.",
       );
     }
     if (link.wallet.status !== "deactive") {
@@ -313,7 +313,7 @@ export async function softDeleteWalletForWorkspace(
       if (!settlementLink) {
         throw new AppError(
           "WORKSPACE_ISOLATION_VIOLATION",
-          "Ví đối ứng không thuộc workspace này hoặc không còn hoạt động.",
+          "Ví đối ứng không thuộc nhóm này hoặc không còn hoạt động.",
         );
       }
 

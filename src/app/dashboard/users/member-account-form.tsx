@@ -20,7 +20,7 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
         workspaceIds,
       });
       if (result.ok) {
-        toast.success("Đã tạo tài khoản Member và cấp quyền workspace đã chọn.");
+        toast.success("Đã tạo tài khoản thành viên và cấp quyền vào nhóm đã chọn.");
         (document.getElementById("member-account-form") as HTMLFormElement | null)?.reset();
       } else {
         toast.error(result.message ?? "Không thể tạo tài khoản.");
@@ -36,7 +36,7 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
           <p className="settings-eyebrow">Quản lý tài khoản</p>
           <h1 className="mt-1 text-2xl font-semibold">Tạo tài khoản thành viên</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-500">
-            Tài khoản mới sẽ là Member. Chỉ các workspace bạn đang là Admin mới có thể được cấp quyền.
+            Tài khoản mới sẽ là thành viên. Bạn chỉ có thể cấp quyền vào nhóm mình quản trị.
           </p>
         </div>
       </div>
@@ -48,8 +48,8 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
           <Input id="member-password" label="Mật khẩu ban đầu" required name="password" type="password" minLength={6} maxLength={128} autoComplete="new-password" placeholder="Tối thiểu 6 ký tự"/>
         </div>
         <fieldset className="rounded-xl border border-[var(--border)] p-4 md:col-span-2">
-          <legend className="px-1 text-sm font-medium">Workspace được quyền tham gia</legend>
-          <p className="mt-1 text-sm text-slate-500">Chọn một hoặc nhiều workspace.</p>
+          <legend className="px-1 text-sm font-medium">Nhóm được quyền tham gia</legend>
+          <p className="mt-1 text-sm text-slate-500">Chọn một hoặc nhiều nhóm tài chính.</p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {workspaces.map((workspace) => (
               <Label key={workspace.id} className="min-h-12 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3">

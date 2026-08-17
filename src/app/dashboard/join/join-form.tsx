@@ -15,7 +15,7 @@ export function JoinForm() {
     start(async () => {
       const r = await requestJoinAction({ inviteCode: f.get("inviteCode") });
       if (r.ok) {
-        toast.success("Đã gửi yêu cầu. Hãy chờ quản trị viên workspace duyệt.");
+        toast.success("Đã gửi yêu cầu. Hãy chờ quản trị viên nhóm duyệt.");
         formRef.current?.reset();
       } else {
         toast.error(r.message ?? "Không thể gửi yêu cầu.");
@@ -43,7 +43,7 @@ export function JoinForm() {
             Nhập mã mời
           </h2>
           <p className="mt-1 max-w-lg text-sm leading-relaxed text-[var(--text-secondary)]">
-            Mã mời xác định workspace bạn muốn tham gia. Kiểm tra kỹ mã trước
+            Mã mời xác định nhóm tài chính bạn muốn tham gia. Kiểm tra kỹ mã trước
             khi gửi yêu cầu.
           </p>
         </div>
@@ -51,7 +51,7 @@ export function JoinForm() {
 
       <div className="grid gap-5 p-6">
         <Input
-          label="Mã mời workspace"
+          label="Mã mời của nhóm"
           id="join-invite-code"
           required
           name="inviteCode"

@@ -61,7 +61,7 @@ export function InviteCodeCard({
           <KeyRound className="text-[var(--primary)]" aria-hidden="true" />
           <span className="grid gap-0.5">
             <span className="text-[10px] font-medium leading-none text-[var(--text-muted)]">
-              Mã mời workspace
+              Mã mời của nhóm
             </span>
             <code className="font-mono text-sm font-semibold leading-none tracking-[0.14em] text-[var(--foreground)]">
               {formattedDisplay}
@@ -109,11 +109,11 @@ export function InviteCodeCard({
 
           <div>
             <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
-              Mã mời Workspace
+              Mã mời của nhóm
             </h2>
             <p className="mt-1 max-w-sm text-xs leading-5 text-[var(--text-muted)]">
               Gửi mã này cho thành viên mới để họ có thể gửi yêu cầu tham gia
-              vào workspace của bạn.
+              vào nhóm tài chính của bạn.
             </p>
           </div>
         </div>
