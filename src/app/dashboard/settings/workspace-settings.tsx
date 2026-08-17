@@ -236,8 +236,8 @@ export function WorkspaceSettings({
                 <strong className="font-semibold text-[var(--text-primary)]">
                   {workspace.name}
                 </strong>
-                . Mọi dữ liệu sẽ bị ẩn và nhóm bị gỡ khỏi danh sách của tất
-                cả thành viên.
+                . Mọi dữ liệu sẽ bị ẩn và nhóm bị gỡ khỏi danh sách của tất cả
+                thành viên.
               </p>
             </div>
           </div>
@@ -248,8 +248,8 @@ export function WorkspaceSettings({
               title="Xóa nhóm tài chính?"
               description={
                 <>
-                  Nhóm <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa
-                  và gỡ khỏi danh sách của tất cả thành viên.
+                  Nhóm <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa và gỡ
+                  khỏi danh sách của tất cả thành viên.
                 </>
               }
               content={
@@ -285,7 +285,7 @@ export function WorkspaceSettings({
             />
           </div>
 
-          <div className="min-[901px]:hidden">
+          <div className="w-full min-[901px]:hidden">
             <Button
               type="button"
               disabled={pending || deleting}
@@ -309,7 +309,7 @@ export function WorkspaceSettings({
             className="workspace-delete-sheet ledger-mobile-review-sheet pending-delete w-[min(32rem,calc(100vw-1rem))]! max-w-none! gap-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0"
             aria-label={`Xác nhận xóa nhóm tài chính ${workspace.name}`}
           >
-            <SheetHeader className="ledger-mobile-review-header border-b border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-3">
+            <SheetHeader className="ledger-mobile-review-header border-b border-[var(--border)] bg-[var(--surface-secondary)]">
               <div className="ledger-mobile-review-heading flex items-center gap-3">
                 <span aria-hidden="true">
                   <AlertTriangle size={20} />
@@ -325,8 +325,8 @@ export function WorkspaceSettings({
 
             <div className="ledger-mobile-review-body grid gap-4 overflow-y-auto p-4">
               <p className="relative text-xs leading-relaxed text-slate-500">
-                Nhóm <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa.
-                Để tiếp tục, vui lòng xác nhận bằng mật khẩu tài khoản của bạn.
+                Nhóm <strong>{workspace.name}</strong> sẽ bị vô hiệu hóa. Để
+                tiếp tục, vui lòng xác nhận bằng mật khẩu tài khoản của bạn.
               </p>
 
               <div className="relative space-y-1.5">

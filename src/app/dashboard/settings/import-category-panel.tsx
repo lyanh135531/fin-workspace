@@ -147,7 +147,7 @@ export function ImportCategoryPanel({
       <div
         className={cn(
           "flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] pb-3",
-          allImported && "min-[901px]:hidden",
+          allImported && "hidden",
         )}
       >
         <div>
@@ -218,7 +218,7 @@ export function ImportCategoryPanel({
         )}
       </div>
       {allImported && (
-        <div className="hidden items-center justify-between gap-6 min-[901px]:flex">
+        <div className="flex items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <span
               className="grid size-9 shrink-0 place-items-center text-[var(--success)]"
@@ -245,7 +245,7 @@ export function ImportCategoryPanel({
         className={cn(
           "mt-4 space-y-1.5",
           allImported
-            ? "min-[901px]:hidden"
+            ? "hidden"
             : "min-[901px]:grid min-[901px]:grid-cols-2 min-[901px]:gap-x-8 min-[901px]:space-y-0",
         )}
       >

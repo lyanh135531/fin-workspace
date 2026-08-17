@@ -609,6 +609,11 @@ export function UserCategoryTemplateManagement({
         </Sheet>
 
         {/* Category Tree List */}
+        {rootCategories.length > 0 && (
+          <p className="mb-1 text-center text-[11px] font-medium text-[var(--text-muted)] min-[901px]:hidden">
+            Chạm vào danh mục để quản lý
+          </p>
+        )}
         <div>
           {rootCategories.length === 0 ? (
             <Empty
@@ -617,13 +622,11 @@ export function UserCategoryTemplateManagement({
               description="Tạo danh mục mẫu mới để sử dụng trong các nhóm tài chính."
             />
           ) : (
-            rootCategories.map((category, index) => (
+            rootCategories.map((category) => (
               <Node
                 key={category.id}
                 category={category}
                 categories={categories}
-                index={index}
-                totalRoots={rootCategories.length}
                 editing={editing}
                 pending={pending}
                 isMobile={isMobile}
@@ -655,8 +658,6 @@ export function UserCategoryTemplateManagement({
 function Node({
   category,
   categories,
-  index,
-  totalRoots,
   editing,
   pending,
   isMobile,
@@ -676,8 +677,6 @@ function Node({
 }: {
   category: Category;
   categories: Category[];
-  index: number;
-  totalRoots: number;
   editing: string | null;
   pending: boolean;
   isMobile: boolean;
@@ -760,11 +759,11 @@ function Node({
         >
           {/* Left: icon + info */}
           <div className="flex min-w-0 items-center gap-3">
-            <span className="hidden min-[901px]:inline-flex">
+            <span className="inline-flex">
               <CategoryMobileDragHandle
                 category={category}
                 disabled={pending}
-                isMobile={false}
+                isMobile={isMobile}
                 size={17}
                 onDragStart={onDragStart}
                 onDragTargetChange={onDragOver}
@@ -797,33 +796,16 @@ function Node({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-3 min-[901px]:hidden">
-            {isMobile && (
-              <span className="category-mobile-item-hint">Chạm để quản lý</span>
-            )}
-            <CategoryMobileDragHandle
-              category={category}
-              disabled={pending}
-              isMobile={isMobile}
-              size={17}
-              onDragStart={onDragStart}
-              onDragTargetChange={onDragOver}
-              onDrop={onPointerDrop}
-              onDragCancel={onDragEnd}
-            />
-          </div>
         </CategoryActionsMenu>
 
         {/* Children — tree branch from parent */}
         {hasChildren && (
           <div className="relative ml-2 min-[901px]:ml-7">
-            {children.map((child, childIdx) => (
+            {children.map((child) => (
               <Node
                 key={child.id}
                 category={child}
                 categories={categories}
-                index={childIdx}
-                totalRoots={children.length}
                 editing={editing}
                 pending={pending}
                 isMobile={isMobile}
@@ -901,21 +883,12 @@ function Node({
         />
       }
     >
-      {/* Vertical line: top half (always) */}
-      <div className="absolute left-3.5 top-0 h-1/2 w-px bg-[var(--border)] min-[901px]:hidden" />
-      {/* Vertical line: bottom half (not on last child) */}
-      {index < totalRoots - 1 && (
-        <div className="absolute left-3.5 top-1/2 bottom-0 w-px bg-[var(--border)] min-[901px]:hidden" />
-      )}
-      {/* Horizontal branch line */}
-      <div className="absolute left-3.5 top-1/2 h-px w-5 bg-[var(--border)] min-[901px]:hidden" />
-
       <div className="flex min-w-0 items-center gap-2.5">
-        <span className="hidden min-[901px]:inline-flex">
+        <span className="inline-flex">
           <CategoryMobileDragHandle
             category={category}
             disabled={pending}
-            isMobile={false}
+            isMobile={isMobile}
             size={15}
             onDragStart={onDragStart}
             onDragTargetChange={onDragOver}
@@ -939,21 +912,6 @@ function Node({
         </span>
       </div>
 
-      <div className="flex shrink-0 items-center gap-3 min-[901px]:hidden">
-        {isMobile && (
-          <span className="category-mobile-item-hint">Chạm để quản lý</span>
-        )}
-        <CategoryMobileDragHandle
-          category={category}
-          disabled={pending}
-          isMobile={isMobile}
-          size={15}
-          onDragStart={onDragStart}
-          onDragTargetChange={onDragOver}
-          onDrop={onPointerDrop}
-          onDragCancel={onDragEnd}
-        />
-      </div>
     </CategoryActionsMenu>
   );
 }
