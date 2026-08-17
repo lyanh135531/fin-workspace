@@ -1,6 +1,10 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import {
+  MAX_MONEY_INTEGER_DIGITS,
+  MONEY_INPUT_LIMIT_ERROR_MESSAGE,
+} from "@/lib/money-limits"
 import { Input } from "./input"
 import { Label } from "./label"
 
@@ -16,9 +20,14 @@ function formatVndAmount(value: string) {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
 }
 
-function MoneyInput({ className, id, label, placeholder = "0", wrapperClassName, value, onValueChange, ...props }: MoneyInputProps) {
+function MoneyInput({ className, id, label, placeholder = "0", wrapperClassName, value, onValueChange, "aria-describedby": ariaDescribedBy, "aria-invalid": ariaInvalid, ...props }: MoneyInputProps) {
   const generatedId = React.useId()
   const inputId = id ?? (label ? generatedId : undefined)
+  const limitErrorId = `${inputId ?? generatedId}-limit-error`
+  const exceedsMaximum = value.replace(/\D/g, "").length > MAX_MONEY_INTEGER_DIGITS
+  const describedBy = [ariaDescribedBy, exceedsMaximum ? limitErrorId : undefined]
+    .filter(Boolean)
+    .join(" ") || undefined
   const input = (
     <div className="relative" data-slot="money-input-control">
       <Input
@@ -27,6 +36,8 @@ function MoneyInput({ className, id, label, placeholder = "0", wrapperClassName,
         placeholder={placeholder}
         value={formatVndAmount(value)}
         onChange={(event) => onValueChange(event.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, ""))}
+        aria-describedby={describedBy}
+        aria-invalid={exceedsMaximum || ariaInvalid}
         className={cn("pr-14 text-right font-medium tabular-nums", className)}
         {...props}
       />
@@ -44,8 +55,13 @@ function MoneyInput({ className, id, label, placeholder = "0", wrapperClassName,
 
   return (
     <div data-slot="money-input" className={cn("grid gap-1", wrapperClassName)}>
-      <Label required={props.required}>{label}</Label>
+      <Label htmlFor={inputId} required={props.required}>{label}</Label>
       {input}
+      {exceedsMaximum && (
+        <p id={limitErrorId} className="text-xs text-destructive" role="alert">
+          {MONEY_INPUT_LIMIT_ERROR_MESSAGE}
+        </p>
+      )}
     </div>
   )
 }

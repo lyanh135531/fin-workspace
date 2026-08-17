@@ -1,5 +1,9 @@
 import Decimal from "decimal.js";
 import { z } from "zod";
+import {
+  MAX_DATABASE_MONEY,
+  MONEY_LIMIT_ERROR_MESSAGE,
+} from "@/lib/money-limits";
 
 Decimal.set({ precision: 24, rounding: Decimal.ROUND_HALF_UP });
 
@@ -13,6 +17,14 @@ export const decimalInputSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Amount must be a finite value with at most four decimal places.",
+        });
+        return z.NEVER;
+      }
+
+      if (decimal.abs().gt(MAX_DATABASE_MONEY)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: MONEY_LIMIT_ERROR_MESSAGE,
         });
         return z.NEVER;
       }

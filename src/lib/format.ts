@@ -14,9 +14,13 @@ const defaultAmountFormat: Required<AmountFormatOptions> = {
   maximumFractionDigits: 4,
 };
 
-export function formatAmount(value: Decimal.Value, options: AmountFormatOptions = {}): string {
+const billion = new Decimal("1000000000");
+
+function formatDecimalAmount(
+  amount: Decimal,
+  options: AmountFormatOptions = {},
+): string {
   const settings = { ...defaultAmountFormat, ...options };
-  const amount = new Decimal(value);
   const fixed = amount.toFixed(settings.maximumFractionDigits);
   const [rawInteger, rawFraction] = fixed.replace("-", "").split(".");
   const sign = amount.isNegative() ? "-" : "";
@@ -25,6 +29,19 @@ export function formatAmount(value: Decimal.Value, options: AmountFormatOptions 
   const fraction = trimmedFraction.padEnd(settings.minimumFractionDigits, "0");
 
   return fraction ? `${sign}${groupedInteger}${settings.decimalSeparator}${fraction}` : `${sign}${groupedInteger}`;
+}
+
+export function formatAmount(value: Decimal.Value, options: AmountFormatOptions = {}): string {
+  const amount = new Decimal(value);
+  if (amount.abs().greaterThanOrEqualTo(billion)) {
+    return `${formatDecimalAmount(amount.dividedBy(billion), {
+      ...options,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: Math.min(options.maximumFractionDigits ?? 2, 2),
+    })} tỷ`;
+  }
+
+  return formatDecimalAmount(amount, options);
 }
 
 export function formatCompactAmount(value: Decimal.Value): string {

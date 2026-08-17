@@ -7,6 +7,7 @@ import { authOptions } from "@/auth";
 import { changeReasonSchema, createTransactionSchema, createWalletSchema, deleteRequestReasonSchema } from "@/domain";
 import { debug } from "@/lib/debug";
 import { AppError } from "@/lib/errors";
+import { MONEY_LIMIT_ERROR_MESSAGE } from "@/lib/money-limits";
 import {
   approveTransaction,
   approveTransactionChange,
@@ -21,6 +22,22 @@ import { idSchema } from "@/domain/common/schemas";
 import { createWalletForWorkspace } from "@/services/wallet-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
+function transactionActionErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof z.ZodError) {
+    return error.issues[0]?.message ?? fallback;
+  }
+  if (error instanceof Error) {
+    if (
+      error.message.includes("numeric field overflow") ||
+      error.message.includes("Value out of range for the type")
+    ) {
+      return MONEY_LIMIT_ERROR_MESSAGE;
+    }
+    return error.message;
+  }
+  return fallback;
+}
+
 export async function addWalletAction(workspaceId: string, input: unknown) {
   const requestId = crypto.randomUUID();
   try { const user = await workspaceActor(workspaceId); const wallet = await createWalletForWorkspace(user.userId, user.workspaceId, createWalletSchema.parse(input)); debug("wallet.created", { requestId, walletId: wallet.id, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); return { ok: true }; }
@@ -30,7 +47,7 @@ export async function addWalletAction(workspaceId: string, input: unknown) {
 export async function addTransactionAction(workspaceId: string, input: unknown) {
   const requestId = crypto.randomUUID();
   try { const user = await workspaceActor(workspaceId); const transaction = await createTransaction(user.userId, user.workspaceId, createTransactionSchema.parse(input)); debug("transaction.created", { requestId, transactionId: transaction.id, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); return { ok: true, status: transaction.workflowStatus }; }
-  catch (error) { debug("transaction.failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to create transaction." }; }
+  catch (error) { debug("transaction.failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: transactionActionErrorMessage(error, "Không thể tạo giao dịch.") }; }
 }
 
 export async function addQuickTransactionAction(workspaceId: unknown, input: unknown) {
@@ -58,7 +75,7 @@ export async function addQuickTransactionAction(workspaceId: unknown, input: unk
     });
     return {
       ok: false,
-      message: error instanceof Error ? error.message : "Không thể lưu giao dịch.",
+      message: transactionActionErrorMessage(error, "Không thể lưu giao dịch."),
     };
   }
 }
@@ -87,7 +104,7 @@ export async function updateTransactionAction(workspaceId: string, transactionId
     return { ok: true, kind: result.kind };
   } catch (error) {
     debug("transaction.update_failed", { requestId, message: error instanceof Error ? error.message : "unknown" });
-    return { ok: false, message: error instanceof Error ? error.message : "Unable to update transaction." };
+    return { ok: false, message: transactionActionErrorMessage(error, "Không thể cập nhật giao dịch.") };
   }
 }
 
