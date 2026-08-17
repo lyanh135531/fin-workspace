@@ -1,7 +1,6 @@
 import { DashboardLedgerWorkspace } from "@/app/dashboard/dashboard-ledger-workspace";
 import { buildLedgerPeriodSummaries } from "@/app/dashboard/dashboard-summary-data";
 import { authOptions } from "@/auth";
-import { NoWorkspaceOnboarding } from "@/components/no-workspace-onboarding";
 import { isAdminRole } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
@@ -13,7 +12,6 @@ import {
 } from "@/lib/transaction-change-display";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
-import { getUserJoinRequests } from "@/services/join-request-query";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
@@ -32,15 +30,7 @@ export async function WorkspaceDashboard({
 
   const workspaceId =
     targetWorkspaceId ?? (await resolveActiveWorkspaceId(session.user.id));
-  if (!workspaceId) {
-    const joinRequests = await getUserJoinRequests(session.user.id);
-    return (
-      <NoWorkspaceOnboarding
-        username={session.user.username ?? "User"}
-        joinRequests={joinRequests}
-      />
-    );
-  }
+  if (!workspaceId) redirect("/onboarding");
 
   const membership = await prisma.workspaceMember.findFirst({
     where: {
@@ -52,15 +42,7 @@ export async function WorkspaceDashboard({
     },
     include: { workspace: true, role: true },
   });
-  if (!membership) {
-    const joinRequests = await getUserJoinRequests(session.user.id);
-    return (
-      <NoWorkspaceOnboarding
-        username={session.user.username ?? "User"}
-        joinRequests={joinRequests}
-      />
-    );
-  }
+  if (!membership) redirect("/onboarding");
 
   await activateDueScheduledTransactionsForRequest(workspaceId);
   const businessDate = getBusinessDateInTimeZone(membership.workspace.timeZone);

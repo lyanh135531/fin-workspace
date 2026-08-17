@@ -104,7 +104,7 @@ export default function SetupPage() {
           );
 
           if (authenticated) {
-            window.location.replace("/overview");
+            window.location.replace("/onboarding");
             return;
           }
         } catch {

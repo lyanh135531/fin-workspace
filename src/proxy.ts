@@ -13,6 +13,7 @@ export const proxy = withAuth({
 export const config = {
   matcher: [
     "/dashboard/:path*",
+    "/onboarding/:path*",
     "/overview/:path*",
     "/workspace/:path*",
     "/workspaces/:path*",

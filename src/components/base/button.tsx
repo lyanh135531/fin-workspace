@@ -26,6 +26,7 @@ const buttonVariants = cva(
           "bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)] hover:bg-[color-mix(in_srgb,var(--warning)_18%,var(--surface))]",
         success:
           "bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] text-[var(--success)] hover:bg-[color-mix(in_srgb,var(--success)_18%,var(--surface))] focus-visible:ring-[color-mix(in_srgb,var(--success)_35%,transparent)]",
+        fab: "bg-primary text-primary-foreground transition-transform hover:bg-primary/90 active:scale-95",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         icon: "relative min-h-8 border-0 bg-transparent p-1 text-[var(--text-secondary)] shadow-none transition-[color,transform] duration-150 hover:bg-transparent hover:text-[var(--primary)] hover:-translate-y-px active:scale-95",
         infoIcon:
@@ -38,6 +39,7 @@ const buttonVariants = cva(
         sm: "h-7 rounded-md px-2.5 text-xs",
         lg: "h-10 rounded-md px-4",
         icon: "h-8",
+        fab: "size-12 aspect-square rounded-full p-0",
         auto: "",
       },
     },

@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { DEFAULT_CATEGORY_TEMPLATES } from "@/domain";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
@@ -16,56 +16,110 @@ export async function generateUniqueInviteCode(tx: Prisma.TransactionClient): Pr
   return `${num.toString().slice(0, 3)}-${num.toString().slice(3)}`;
 }
 
-export async function createWorkspaceForUser(userId: string, input: { name: string; description?: string; baseCurrency: string; timeZone: string; }) {
-  const user = await prisma.user.findFirst({ where: { id: userId, status: "active", deletedAt: null } });
-  if (!user) throw new AppError("AUTHENTICATION_REQUIRED", "Active user is required.");
-  return prisma.$transaction(async (tx) => {
-    const role = await tx.role.findUnique({ where: { code: "ADMIN" } });
-    if (!role) throw new AppError("NOT_FOUND", "The ADMIN role is missing.");
-    const inviteCode = await generateUniqueInviteCode(tx);
-    const workspace = await tx.workspace.create({ data: { ...input, inviteCode } });
-    await tx.workspaceMember.create({ data: { workspaceId: workspace.id, userId, roleId: role.id } });
+type CreateWorkspaceInput = {
+  name: string;
+  description?: string;
+  baseCurrency: string;
+  timeZone: string;
+};
 
-    // Create a default wallet with 0 balance for the new workspace
-    const zero = new Decimal(0);
-    const wallet = await tx.wallet.create({
-      data: {
-        name: "Ví chính",
-        description: "Ví mặc định",
-        openingBalance: zero,
-        currentBalance: zero,
-      },
-    });
-    await tx.workspaceWallet.create({
-      data: {
-        workspaceId: workspace.id,
-        walletId: wallet.id,
-      },
-    });
-
-    const templates = await tx.category.findMany({
-      where: { workspaceId: null, userId, deletedAt: null, status: "active" },
-      orderBy: { sortOrder: "asc" },
-    });
-    const categories = templates.length > 0 ? templates : DEFAULT_CATEGORY_TEMPLATES;
-
-    await tx.category.createMany({
-      data: categories.map((category) => ({
-        workspaceId: workspace.id,
-        userId: null,
-        name: category.name,
-        code: category.code,
-        color: category.color,
-        type: category.type,
-        icon: category.icon,
-        parentId: null,
-        sortOrder: category.sortOrder,
-      })),
-    });
-
-    await tx.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: userId, action: "workspace.created", entityType: "workspace", entityId: workspace.id, metadata: { creatorRole: "ADMIN", defaultCategoryCount: categories.length } } });
-    return workspace;
+async function createWorkspaceInTransaction(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  input: CreateWorkspaceInput,
+) {
+  const user = await tx.user.findFirst({
+    where: { id: userId, status: "active", deletedAt: null },
   });
+  if (!user) throw new AppError("AUTHENTICATION_REQUIRED", "Active user is required.");
+  const role = await tx.role.findUnique({ where: { code: "ADMIN" } });
+  if (!role) throw new AppError("NOT_FOUND", "The ADMIN role is missing.");
+  const inviteCode = await generateUniqueInviteCode(tx);
+  const workspace = await tx.workspace.create({ data: { ...input, inviteCode } });
+  await tx.workspaceMember.create({ data: { workspaceId: workspace.id, userId, roleId: role.id } });
+
+  const zero = new Decimal(0);
+  const wallet = await tx.wallet.create({
+    data: {
+      name: "Ví chính",
+      description: "Ví mặc định",
+      openingBalance: zero,
+      currentBalance: zero,
+    },
+  });
+  await tx.workspaceWallet.create({
+    data: {
+      workspaceId: workspace.id,
+      walletId: wallet.id,
+    },
+  });
+
+  const templates = await tx.category.findMany({
+    where: { workspaceId: null, userId, deletedAt: null, status: "active" },
+    orderBy: { sortOrder: "asc" },
+  });
+  const categories = templates.length > 0 ? templates : DEFAULT_CATEGORY_TEMPLATES;
+
+  await tx.category.createMany({
+    data: categories.map((category) => ({
+      workspaceId: workspace.id,
+      userId: null,
+      name: category.name,
+      code: category.code,
+      color: category.color,
+      type: category.type,
+      icon: category.icon,
+      parentId: null,
+      sortOrder: category.sortOrder,
+    })),
+  });
+
+  await tx.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: userId, action: "workspace.created", entityType: "workspace", entityId: workspace.id, metadata: { creatorRole: "ADMIN", defaultCategoryCount: categories.length } } });
+  return workspace;
+}
+
+export async function createWorkspaceForUser(userId: string, input: CreateWorkspaceInput) {
+  return prisma.$transaction((tx) => createWorkspaceInTransaction(tx, userId, input));
+}
+
+export async function createInitialWorkspaceForUser(
+  userId: string,
+  input: CreateWorkspaceInput,
+) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await prisma.$transaction(
+        async (tx) => {
+          const membership = await tx.workspaceMember.findFirst({
+            where: {
+              userId,
+              status: "active",
+              deletedAt: null,
+              workspace: { status: "active", deletedAt: null },
+            },
+            include: { workspace: true },
+            orderBy: { createdAt: "asc" },
+          });
+
+          if (membership) {
+            return { workspace: membership.workspace, created: false } as const;
+          }
+
+          const workspace = await createWorkspaceInTransaction(tx, userId, input);
+          return { workspace, created: true } as const;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      const canRetry =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2034" &&
+        attempt < 2;
+      if (!canRetry) throw error;
+    }
+  }
+
+  throw new AppError("CONFLICT", "Không thể khởi tạo workspace. Vui lòng thử lại.");
 }
 
 export async function regenerateWorkspaceInviteCode(userId: string, workspaceId: string) {

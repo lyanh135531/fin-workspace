@@ -3,31 +3,23 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/auth";
 import { OverviewDashboard } from "@/app/dashboard/overview/overview-dashboard";
-import { NoWorkspaceOnboarding } from "@/components/no-workspace-onboarding";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
-import { getUserJoinRequests } from "@/services/join-request-query";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 
 export default async function OverviewPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/sign-in");
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
-  if (!workspaceId) {
-    const joinRequests = await getUserJoinRequests(session.user.id);
-    return <NoWorkspaceOnboarding username={session.user.username ?? "User"} joinRequests={joinRequests} />;
-  }
+  if (!workspaceId) redirect("/onboarding");
 
   const membership = await prisma.workspaceMember.findFirst({
     where: { userId: session.user.id, workspaceId, status: "active", deletedAt: null, workspace: { status: "active", deletedAt: null } },
     include: { workspace: true },
   });
-  if (!membership) {
-    const joinRequests = await getUserJoinRequests(session.user.id);
-    return <NoWorkspaceOnboarding username={session.user.username ?? "User"} joinRequests={joinRequests} />;
-  }
+  if (!membership) redirect("/onboarding");
 
   await activateDueScheduledTransactionsForRequest(workspaceId);
   const businessDate = getBusinessDateInTimeZone(membership.workspace.timeZone);

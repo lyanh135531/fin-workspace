@@ -4,9 +4,6 @@ import {
   Button,
   Card,
   Empty,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   PageContainer,
   PageHeader,
 } from "@/components/base";
@@ -103,8 +100,6 @@ const memberChartColors = [
 ];
 const memberSeriesKey = (memberId: string) =>
   `member_${memberId.replaceAll("-", "_")}`;
-const walletSeriesKey = (walletId: string) =>
-  `wallet_${walletId.replaceAll("-", "_")}`;
 const memberSeriesColor = (index: number) =>
   memberChartColors[index] ??
   `hsl(${Math.round((index * 137.508) % 360)} 58% 52%)`;
@@ -731,7 +726,6 @@ function BalanceHistoryChart({
   dateRange: DateRangeValue;
   isMobile: boolean;
 }) {
-  const [mode, setMode] = useState<"total" | "wallets">("total");
   const visibleWallets =
     walletId === "all"
       ? wallets
@@ -742,11 +736,6 @@ function BalanceHistoryChart({
     walletId,
     dateRange,
   });
-  const walletSeries = visibleWallets.map((wallet, index) => ({
-    ...wallet,
-    key: walletSeriesKey(wallet.id),
-    color: memberSeriesColor(index),
-  }));
   const rows = balances.map((row) => {
     const [year, rowMonth] = row.period.split("-");
     return {
@@ -754,24 +743,11 @@ function BalanceHistoryChart({
       label: `${rowMonth}/${year.slice(2)}`,
       fullLabel: `Tháng ${rowMonth}/${year}`,
       total: new Decimal(row.total).toNumber(),
-      ...Object.fromEntries(
-        walletSeries.map((wallet) => [
-          wallet.key,
-          new Decimal(row.wallets[wallet.id] ?? 0).toNumber(),
-        ]),
-      ),
     };
   });
   const negativeMonthCount = balances.filter(
     (row) => row.hasNegativeBalance,
   ).length;
-  const walletChartConfig = Object.fromEntries(
-    walletSeries.map((wallet) => [
-      wallet.key,
-      { label: wallet.name, color: wallet.color },
-    ]),
-  ) satisfies ChartConfig;
-
   return (
     <Card
       as="section"
@@ -807,15 +783,6 @@ function BalanceHistoryChart({
             nhận
           </p>
         </div>
-        <Tabs
-          value={mode}
-          onValueChange={(value) => setMode(value as "total" | "wallets")}
-        >
-          <TabsList aria-label="Cách hiển thị số dư">
-            <TabsTrigger value="total">Tổng số dư</TabsTrigger>
-            <TabsTrigger value="wallets">Theo ví</TabsTrigger>
-          </TabsList>
-        </Tabs>
       </header>
       {negativeMonthCount > 0 && (
         <div
@@ -832,164 +799,76 @@ function BalanceHistoryChart({
         </div>
       )}
       {visibleWallets.length ? (
-        mode === "total" ? (
-          <ChartContainer
-            config={balanceChartConfig}
-            className={
-              isMobile
-                ? "overview-balance-chart"
-                : "h-[19rem] w-full border-t border-[var(--border)] px-4 pb-4 pt-5"
-            }
-            aria-label={`Biểu đồ tổng số dư trong ${balances.length} tháng thuộc khoảng đã chọn`}
+        <ChartContainer
+          config={balanceChartConfig}
+          className={
+            isMobile
+              ? "overview-balance-chart"
+              : "h-[19rem] w-full border-t border-[var(--border)] px-4 pb-4 pt-5"
+          }
+          aria-label={`Biểu đồ tổng số dư trong ${balances.length} tháng thuộc khoảng đã chọn`}
+        >
+          <AreaChart
+            data={rows}
+            accessibilityLayer
+            margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
           >
-            <AreaChart
-              data={rows}
-              accessibilityLayer
-              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-            >
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="label"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              tickMargin={10}
+              axisLine={false}
+            />
+            <YAxis
+              width={76}
+              tickLine={false}
+              tickMargin={6}
+              axisLine={false}
+              tickFormatter={formatCompactAmount}
+            />
+            {negativeMonthCount > 0 && (
+              <ReferenceLine
+                y={0}
+                stroke="var(--danger)"
+                strokeDasharray="4 4"
+                strokeOpacity={0.7}
               />
-              <YAxis
-                width={76}
-                tickLine={false}
-                tickMargin={6}
-                axisLine={false}
-                tickFormatter={formatCompactAmount}
-              />
-              {negativeMonthCount > 0 && (
-                <ReferenceLine
-                  y={0}
-                  stroke="var(--danger)"
-                  strokeDasharray="4 4"
-                  strokeOpacity={0.7}
+            )}
+            <ChartTooltip
+              cursor={false}
+              content={
+                <ChartTooltipContent
+                  labelKey="label"
+                  indicator="line"
+                  labelFormatter={(_, payload) =>
+                    payload?.[0]?.payload?.fullLabel ?? ""
+                  }
+                  formatter={(value) => (
+                    <div className="flex min-w-48 items-center justify-between gap-4">
+                      <span className="text-muted-foreground">
+                        Tổng số dư
+                      </span>
+                      <strong className="tabular-nums text-foreground">
+                        {money(String(value), currency)}
+                      </strong>
+                    </div>
+                  )}
                 />
-              )}
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    labelKey="label"
-                    indicator="line"
-                    labelFormatter={(_, payload) =>
-                      payload?.[0]?.payload?.fullLabel ?? ""
-                    }
-                    formatter={(value) => (
-                      <div className="flex min-w-48 items-center justify-between gap-4">
-                        <span className="text-muted-foreground">
-                          Tổng số dư
-                        </span>
-                        <strong className="tabular-nums text-foreground">
-                          {money(String(value), currency)}
-                        </strong>
-                      </div>
-                    )}
-                  />
-                }
-              />
-              <Area
-                dataKey="total"
-                type="linear"
-                fill="var(--color-total)"
-                fillOpacity={0.14}
-                stroke="var(--color-total)"
-                strokeWidth={2.25}
-                dot={false}
-                activeDot={{ r: 4, strokeWidth: 0 }}
-              />
-            </AreaChart>
-          </ChartContainer>
-        ) : (
-          <ChartContainer
-            config={walletChartConfig}
-            className={
-              isMobile
-                ? "overview-balance-chart"
-                : "h-[19rem] w-full border-t border-[var(--border)] px-4 pb-4 pt-5"
-            }
-            aria-label={`Biểu đồ số dư theo ví trong ${balances.length} tháng thuộc khoảng đã chọn`}
-          >
-            <LineChart
-              data={rows}
-              accessibilityLayer
-              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-            >
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="label"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-              />
-              <YAxis
-                width={76}
-                tickLine={false}
-                tickMargin={6}
-                axisLine={false}
-                tickFormatter={formatCompactAmount}
-              />
-              {negativeMonthCount > 0 && (
-                <ReferenceLine
-                  y={0}
-                  stroke="var(--danger)"
-                  strokeDasharray="4 4"
-                  strokeOpacity={0.7}
-                />
-              )}
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    labelKey="label"
-                    indicator="line"
-                    labelFormatter={(_, payload) =>
-                      payload?.[0]?.payload?.fullLabel ?? ""
-                    }
-                    formatter={(value, name) => {
-                      const series = walletSeries.find(
-                        (wallet) => wallet.key === name,
-                      );
-                      return (
-                        <div className="flex min-w-48 items-center justify-between gap-4">
-                          <span className="flex items-center gap-2 text-muted-foreground">
-                            <i
-                              className="size-2 rounded-full"
-                              style={{ background: series?.color }}
-                            />
-                            {series?.name ?? String(name)}
-                          </span>
-                          <strong className="tabular-nums text-foreground">
-                            {money(String(value), currency)}
-                          </strong>
-                        </div>
-                      );
-                    }}
-                  />
-                }
-              />
-              <ChartLegend
-                content={
-                  <ChartLegendContent className="flex-wrap justify-start gap-x-4 gap-y-2 pt-3" />
-                }
-              />
-              {walletSeries.map((wallet) => (
-                <Line
-                  key={wallet.id}
-                  dataKey={wallet.key}
-                  type="linear"
-                  stroke={`var(--color-${wallet.key})`}
-                  strokeWidth={2.1}
-                  dot={false}
-                  activeDot={{ r: 4, strokeWidth: 0 }}
-                />
-              ))}
-            </LineChart>
-          </ChartContainer>
-        )
+              }
+            />
+            <Area
+              dataKey="total"
+              type="linear"
+              fill="var(--color-total)"
+              fillOpacity={0.14}
+              stroke="var(--color-total)"
+              strokeWidth={2.25}
+              dot={false}
+              activeDot={{ r: 4, strokeWidth: 0 }}
+            />
+          </AreaChart>
+        </ChartContainer>
       ) : (
         <Empty
           variant="compact"

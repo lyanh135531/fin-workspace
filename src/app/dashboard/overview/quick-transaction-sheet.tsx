@@ -6,11 +6,16 @@ import {
   ArrowUpRight,
   CalendarDays,
   Check,
-  Plus,
   WalletCards,
 } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from "react";
 import { addQuickTransactionAction } from "@/app/dashboard/actions";
 import {
   Button,
@@ -50,14 +55,18 @@ export type QuickWorkspace = {
   }[];
 };
 
-function supportsQuickTransaction(pathname: string) {
-  return (
-    pathname === "/overview" ||
-    pathname === "/dashboard" ||
-    pathname.startsWith("/workspace/") ||
-    pathname === "/wallets" ||
-    pathname === "/recurring-transactions"
-  );
+function subscribeDesktop(callback: () => void) {
+  const mediaQuery = window.matchMedia("(min-width: 1024px)");
+  mediaQuery.addEventListener("change", callback);
+  return () => mediaQuery.removeEventListener("change", callback);
+}
+
+function getDesktopSnapshot() {
+  return window.matchMedia("(min-width: 1024px)").matches;
+}
+
+function getDesktopServerSnapshot() {
+  return false;
 }
 
 const transactionTypes: {
@@ -87,10 +96,17 @@ export function QuickTransactionSheet({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isDesktop = useSyncExternalStore(
+    subscribeDesktop,
+    getDesktopSnapshot,
+    getDesktopServerSnapshot,
+  );
+  const shouldOpenFromQuery = searchParams.get("action") === "new-transaction";
   const initialWorkspace =
     workspaces.find((workspace) => workspace.id === initialWorkspaceId) ??
     workspaces[0];
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(shouldOpenFromQuery);
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
   const [walletId, setWalletId] = useState(
@@ -118,6 +134,17 @@ export function QuickTransactionSheet({
     return () =>
       window.removeEventListener("open-quick-transaction", handleOpenEvent);
   }, []);
+
+  useEffect(() => {
+    if (!shouldOpenFromQuery) return;
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("action");
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+      scroll: false,
+    });
+  }, [pathname, router, searchParams, shouldOpenFromQuery]);
 
   const workspace = initialWorkspace;
   const categories = useMemo(
@@ -181,8 +208,6 @@ export function QuickTransactionSheet({
     });
   }
 
-  const isSupported = supportsQuickTransaction(pathname);
-
   if (!workspace) return null;
 
   const statusHint =
@@ -193,189 +218,179 @@ export function QuickTransactionSheet({
         : null;
   const transferDisabled = workspace.wallets.length < 2;
 
+  const transactionForm = (
+    <form
+      className="quick-transaction-form"
+      onSubmit={submit}
+      aria-busy={pending}
+    >
+      <div className="quick-transaction-scroll">
+        <Tabs
+          value={type}
+          onValueChange={(value) => chooseType(value as TransactionType)}
+          className="quick-type-tabs"
+        >
+          <TabsList
+            className="quick-type-switch rounded-2xl"
+            aria-label="Loại giao dịch"
+          >
+            {transactionTypes.map((item) => {
+              const Icon = item.icon;
+              const disabled = item.value === "transfer" && transferDisabled;
+              return (
+                <TabsTrigger
+                  key={item.value}
+                  value={item.value}
+                  data-transaction-type={item.value}
+                  disabled={disabled}
+                  className="rounded-2xl"
+                >
+                  <Icon size={17} />
+                  {item.label}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
+
+        <MoneyInput
+          label="Số tiền"
+          wrapperClassName="quick-amount-field"
+          autoFocus
+          value={amount}
+          onValueChange={setAmount}
+          placeholder="0"
+          aria-label="Số tiền giao dịch"
+        />
+
+        {workspace.wallets.length ? (
+          <div className="quick-transaction-grid">
+            <Select
+              label={type === "transfer" ? "Ví gửi" : "Ví"}
+              value={walletId}
+              onValueChange={(nextWalletId) => {
+                setWalletId(nextWalletId);
+                if (nextWalletId === toWalletId) {
+                  setToWalletId(destinationWallet(workspace, nextWalletId));
+                }
+              }}
+              placeholder="Chọn ví"
+              options={workspace.wallets.map((wallet) => ({
+                value: wallet.id,
+                label: wallet.name,
+              }))}
+            />
+
+            {type === "transfer" ? (
+              <Select
+                label="Ví nhận"
+                value={toWalletId}
+                onValueChange={setToWalletId}
+                placeholder="Chọn ví nhận"
+                options={workspace.wallets.map((wallet) => ({
+                  value: wallet.id,
+                  label: wallet.name,
+                  disabled: wallet.id === walletId,
+                }))}
+              />
+            ) : (
+              <CategoryTreeSelect
+                label="Danh mục"
+                value={categoryId}
+                onValueChange={setCategoryId}
+                placeholder="Chọn danh mục"
+                categories={categories}
+                emptyOption={{ value: "none", label: "Không chọn" }}
+              />
+            )}
+          </div>
+        ) : (
+          <Empty
+            variant="compact"
+            icon={WalletCards}
+            title="Workspace chưa có ví hoạt động"
+            description="Tạo hoặc kích hoạt ví trước khi nhập giao dịch."
+            role="status"
+          />
+        )}
+
+        {!isDesktop && (
+          <Button
+            variant="unstyled"
+            size="auto"
+            type="button"
+            className="quick-details-toggle"
+            onClick={() => setShowDetails((current) => !current)}
+            aria-expanded={showDetails}
+          >
+            <CalendarDays size={16} />
+            {showDetails
+              ? "Ẩn thông tin bổ sung"
+              : "Thêm nội dung hoặc đổi ngày"}
+          </Button>
+        )}
+
+        {(isDesktop || showDetails) && (
+          <div className="quick-details">
+            <DatePicker
+              label="Ngày giao dịch"
+              value={date}
+              onValueChange={setDate}
+            />
+            <Textarea
+              label="Nội dung"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Ăn trưa, nhận lương"
+              maxLength={2_000}
+            />
+          </div>
+        )}
+
+        {statusHint && <p className="quick-status-hint">{statusHint}</p>}
+      </div>
+
+      <div className="quick-transaction-footer">
+        <Button
+          type="submit"
+          disabled={pending || !workspace.wallets.length}
+          className="quick-submit"
+        >
+          {pending ? (
+            <Loading label="Đang lưu..." />
+          ) : (
+            <>
+              <Check size={17} />
+              Lưu giao dịch
+            </>
+          )}
+        </Button>
+      </div>
+    </form>
+  );
+
   return (
     <>
-      {isSupported && (
-        <Button
-          variant="unstyled"
-          size="auto"
-          type="button"
-          className="dashboard-quick-entry-floating dashboard-global-quick-entry"
-          onClick={() => setOpen(true)}
-          aria-label="Nhập nhanh giao dịch"
-        >
-          <Plus size={20} />
-          <span>Giao dịch</span>
-        </Button>
-      )}
-
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="bottom" className="quick-transaction-sheet">
-          <SheetHeader className="quick-transaction-header">
-            <div className="quick-transaction-heading">
-              <span>
-                <WalletCards size={18} />
-              </span>
-              <div>
-                <SheetTitle>Nhập nhanh giao dịch</SheetTitle>
-                <SheetDescription>
-                  Ghi nhận nhanh khoản thu, chi hoặc chuyển khoản.
-                </SheetDescription>
+      {!isDesktop && (
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetContent side="bottom" className="quick-transaction-sheet">
+            <SheetHeader className="quick-transaction-header">
+              <div className="quick-transaction-heading">
+                <span>
+                  <WalletCards size={18} />
+                </span>
+                <div>
+                  <SheetTitle>Nhập nhanh giao dịch</SheetTitle>
+                  <SheetDescription>
+                    Ghi nhận nhanh khoản thu, chi hoặc chuyển khoản.
+                  </SheetDescription>
+                </div>
               </div>
-            </div>
-          </SheetHeader>
-
-          <form
-            className="quick-transaction-form"
-            onSubmit={submit}
-            aria-busy={pending}
-          >
-            <div className="quick-transaction-scroll">
-              <Tabs
-                value={type}
-                onValueChange={(value) => chooseType(value as TransactionType)}
-                className="quick-type-tabs"
-              >
-                <TabsList
-                  className="quick-type-switch rounded-2xl"
-                  aria-label="Loại giao dịch"
-                >
-                  {transactionTypes.map((item) => {
-                    const Icon = item.icon;
-                    const disabled =
-                      item.value === "transfer" && transferDisabled;
-                    return (
-                      <TabsTrigger
-                        key={item.value}
-                        value={item.value}
-                        data-transaction-type={item.value}
-                        disabled={disabled}
-                        className={"rounded-2xl"}
-                      >
-                        <Icon size={17} />
-                        {item.label}
-                      </TabsTrigger>
-                    );
-                  })}
-                </TabsList>
-              </Tabs>
-
-              <MoneyInput
-                label="Số tiền"
-                wrapperClassName="quick-amount-field"
-                autoFocus
-                value={amount}
-                onValueChange={setAmount}
-                placeholder="0"
-                aria-label="Số tiền giao dịch"
-              />
-
-              {workspace.wallets.length ? (
-                <div className="quick-transaction-grid">
-                  <Select
-                    label={type === "transfer" ? "Ví gửi" : "Ví"}
-                    value={walletId}
-                    onValueChange={(nextWalletId) => {
-                      setWalletId(nextWalletId);
-                      if (nextWalletId === toWalletId) {
-                        setToWalletId(
-                          destinationWallet(workspace, nextWalletId),
-                        );
-                      }
-                    }}
-                    placeholder="Chọn ví"
-                    options={workspace.wallets.map((wallet) => ({
-                      value: wallet.id,
-                      label: wallet.name,
-                    }))}
-                  />
-
-                  {type === "transfer" ? (
-                    <Select
-                      label="Ví nhận"
-                      value={toWalletId}
-                      onValueChange={setToWalletId}
-                      placeholder="Chọn ví nhận"
-                      options={workspace.wallets.map((wallet) => ({
-                        value: wallet.id,
-                        label: wallet.name,
-                        disabled: wallet.id === walletId,
-                      }))}
-                    />
-                  ) : (
-                    <CategoryTreeSelect
-                      label="Danh mục"
-                      value={categoryId}
-                      onValueChange={setCategoryId}
-                      placeholder="Chọn danh mục"
-                      categories={categories}
-                      emptyOption={{ value: "none", label: "Không chọn" }}
-                    />
-                  )}
-                </div>
-              ) : (
-                <Empty
-                  variant="compact"
-                  icon={WalletCards}
-                  title="Workspace chưa có ví hoạt động"
-                  description="Tạo hoặc kích hoạt ví trước khi nhập giao dịch."
-                  role="status"
-                />
-              )}
-
-              <Button
-                variant="unstyled"
-                size="auto"
-                type="button"
-                className="quick-details-toggle"
-                onClick={() => setShowDetails((current) => !current)}
-                aria-expanded={showDetails}
-              >
-                <CalendarDays size={16} />
-                {showDetails
-                  ? "Ẩn thông tin bổ sung"
-                  : "Thêm nội dung hoặc đổi ngày"}
-              </Button>
-
-              {showDetails && (
-                <div className="quick-details">
-                  <DatePicker
-                    label="Ngày giao dịch"
-                    value={date}
-                    onValueChange={setDate}
-                  />
-                  <Textarea
-                    label="Nội dung"
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    placeholder="Ăn trưa, nhận lương"
-                    maxLength={2_000}
-                  />
-                </div>
-              )}
-
-              {statusHint && <p className="quick-status-hint">{statusHint}</p>}
-            </div>
-
-            <div className="quick-transaction-footer">
-              <Button
-                type="submit"
-                disabled={pending || !workspace.wallets.length}
-                className="quick-submit"
-              >
-                {pending ? (
-                  <Loading label="Đang lưu..." />
-                ) : (
-                  <>
-                    <Check size={17} />
-                    Lưu giao dịch
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-        </SheetContent>
-      </Sheet>
+            </SheetHeader>
+            {transactionForm}
+          </SheetContent>
+        </Sheet>
+      )}
     </>
   );
 }
