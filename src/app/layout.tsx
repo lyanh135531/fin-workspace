@@ -50,7 +50,7 @@ const initializeAppearance = `
 export const metadata: Metadata = {
   metadataBase: new URL("https://felixwise.io.vn"),
   title: {
-    default: "Felix | Quản lý tài chính cá nhân và nhóm",
+    default: "Felix",
     template: "%s | Felix",
   },
   applicationName: "Felix",
