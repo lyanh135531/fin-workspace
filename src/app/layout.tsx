@@ -79,11 +79,6 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
-  icons: {
-    icon: "/felix-logo.png",
-    shortcut: "/felix-logo.png",
-    apple: "/felix-logo.png",
-  },
 };
 
 export default function RootLayout({
