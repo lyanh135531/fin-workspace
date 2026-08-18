@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     description: "Cùng theo dõi tiền đang ở đâu, đã chi vào việc gì.",
     images: [
       {
-        url: "/felix-open-graph.webp",
+        url: "/felix-open-graph.png",
         width: 1200,
         height: 630,
         alt: "Felix — không gian tài chính chung cho gia đình và nhóm",
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Felix | Quản lý tài chính tập trung",
     description: "Cùng theo dõi tiền đang ở đâu, đã chi vào việc gì.",
-    images: ["/felix-open-graph.webp"],
+    images: ["/felix-open-graph.png"],
   },
 };
 
