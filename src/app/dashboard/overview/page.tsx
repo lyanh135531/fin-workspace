@@ -31,7 +31,7 @@ export default async function OverviewPage() {
     prisma.workspaceMember.findMany({ where: { workspaceId, status: "active", deletedAt: null }, select: { id: true, user: { select: { username: true } } }, orderBy: { user: { username: "asc" } } }),
     prisma.transaction.findMany({
       where: { deletedAt: null, member: { workspaceId } },
-      include: { wallet: { select: { name: true } }, category: { select: { name: true, color: true } }, member: { include: { user: { select: { username: true } } } } },
+      include: { wallet: { select: { name: true } }, category: { select: { name: true, color: true, icon: true } }, member: { include: { user: { select: { username: true } } } } },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     }),
   ]);

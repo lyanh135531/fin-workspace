@@ -8,6 +8,17 @@ type DateRangeFilter = {
   to: string;
 } | null;
 
+export function getMonthDateRange(date: string): Exclude<DateRangeFilter, null> {
+  const [year, month] = date.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}`;
+
+  return {
+    from: `${monthPrefix}-01`,
+    to: `${monthPrefix}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
 export function isDateInRange(
   date: string,
   dateRange: DateRangeFilter,

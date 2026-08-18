@@ -11,6 +11,7 @@ import {
 } from "@/app/dashboard/actions";
 import {
   getCategoryFilterIds,
+  getMonthDateRange,
   isDateInRange,
 } from "@/app/dashboard/dashboard-ledger-filters";
 import {
@@ -924,7 +925,9 @@ export function Ledger({
   startWithNewTransaction?: boolean;
 }) {
   const [query, setQuery] = useState("");
-  const [dateRange, setDateRange] = useState<DateRangeValue | null>(null);
+  const [dateRange, setDateRange] = useState<DateRangeValue | null>(() =>
+    getMonthDateRange(businessDate),
+  );
   const [filterCategory, setFilterCategory] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());

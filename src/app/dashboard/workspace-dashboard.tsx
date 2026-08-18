@@ -145,7 +145,7 @@ export async function WorkspaceDashboard({
   }));
   return (
     <DashboardLedgerWorkspace
-      initialMonth="all"
+      initialMonth={currentPeriod}
       summaries={summaries}
       ledgerProps={{
         workspaceId,

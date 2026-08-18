@@ -58,3 +58,38 @@ export function formatCompactAmount(value: Decimal.Value): string {
 
   return `${formatAmount(amount.dividedBy(unit.threshold), { maximumFractionDigits: 1 })} ${unit.label}`;
 }
+
+export type AmountScale = {
+  divisor: Decimal;
+  label: "" | "nghìn" | "triệu" | "tỷ";
+};
+
+export function getAmountScale(values: Decimal.Value[]): AmountScale {
+  const maximum = values.reduce<Decimal>(
+    (largest, value) => Decimal.max(largest, new Decimal(value).abs()),
+    new Decimal(0),
+  );
+  const units: AmountScale[] = [
+    { divisor: new Decimal("1000000000"), label: "tỷ" },
+    { divisor: new Decimal("1000000"), label: "triệu" },
+    { divisor: new Decimal("1000"), label: "nghìn" },
+  ];
+
+  return (
+    units.find((unit) => maximum.greaterThanOrEqualTo(unit.divisor)) ?? {
+      divisor: new Decimal(1),
+      label: "",
+    }
+  );
+}
+
+export function formatScaledAmount(
+  value: Decimal.Value,
+  scale: AmountScale,
+): string {
+  const formatted = formatAmount(new Decimal(value).dividedBy(scale.divisor), {
+    maximumFractionDigits: 2,
+  });
+
+  return formatted.startsWith("-") ? `−${formatted.slice(1)}` : formatted;
+}

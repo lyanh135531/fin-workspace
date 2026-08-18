@@ -3,6 +3,7 @@
 import {
   Button,
   Card,
+  CategoryIcon,
   Empty,
   PageContainer,
   PageHeader,
@@ -24,7 +25,6 @@ import {
   Cell,
   ComposedChart,
   Line,
-  LineChart,
   Pie,
   PieChart,
   ReferenceLine,
@@ -49,7 +49,12 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { formatAmount, formatCompactAmount } from "@/lib/format";
+import {
+  formatAmount,
+  formatScaledAmount,
+  getAmountScale,
+  type AmountScale,
+} from "@/lib/format";
 
 type Transaction = {
   id: string;
@@ -62,7 +67,7 @@ type Transaction = {
   toWalletId: string | null;
   wallet: string;
   categoryId: string | null;
-  category: { name: string; color: string } | null;
+  category: { name: string; color: string; icon: string | null } | null;
   memberId: string;
   member: string;
 };
@@ -84,6 +89,8 @@ type Props = {
 };
 const money = (value: Decimal.Value, currency: string) =>
   `${formatAmount(value)} ${currency}`;
+const axisUnitLabel = (scale: AmountScale, currency: string) =>
+  scale.label ? `${scale.label} ${currency}` : currency;
 const monthlyChartConfig = {
   income: { label: "Thu nhập", color: "var(--income)" },
   expense: { label: "Chi tiêu", color: "var(--expense)" },
@@ -185,7 +192,7 @@ export function OverviewDashboard({
   const expenseByCategory = (() => {
     const rows = new Map<
       string,
-      { name: string; color: string; amount: Decimal }
+      { name: string; color: string; icon: string | null; amount: Decimal }
     >();
     posted
       .filter((item) => item.type === "expense")
@@ -195,6 +202,7 @@ export function OverviewDashboard({
         rows.set(key, {
           name: item.category?.name ?? "Chưa phân loại",
           color: item.category?.color ?? "var(--chart-7)",
+          icon: item.category?.icon ?? "tag",
           amount: (prior?.amount ?? new Decimal(0)).plus(item.amount),
         });
       });
@@ -382,9 +390,9 @@ export function OverviewDashboard({
                     <div key={item.name}>
                       <div className="flex items-center justify-between gap-4 text-xs">
                         <span className="flex min-w-0 items-center gap-2.5">
-                          <i
-                            className="size-2 shrink-0 rounded-full"
-                            style={{ background: item.color }}
+                          <CategoryIcon
+                            category={item}
+                            size={14}
                           />
                           <strong className="truncate font-medium text-[var(--foreground)]">
                             {item.name}
@@ -632,6 +640,26 @@ function CashflowOverviewCharts({
   isMobile: boolean;
 }) {
   const showMemberExpenseChart = members.length > 1;
+  const visibleTypes = getVisibleCashflowTypes(transactionType, categoryType);
+  const cashflow = buildMonthlyCashflow(transactions, {
+    endPeriod: month,
+    range,
+    walletId,
+    categoryId,
+    memberId,
+    transactionType,
+    categoryType,
+    dateRange,
+  });
+  const warningCount =
+    visibleTypes.length === 2
+      ? cashflow.filter((row) => row.hasWarning).length
+      : 0;
+  const axisScale = getAmountScale(
+    cashflow.flatMap((row) =>
+      visibleTypes.map((visibleType) => row[visibleType]),
+    ),
+  );
 
   return (
     <Card
@@ -665,6 +693,17 @@ function CashflowOverviewCharts({
             Giao dịch đã ghi nhận · {formatDateRangeLabel(dateRange)}
           </p>
         </div>
+        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <span className="text-xs text-[var(--text-muted)] tabular-nums">
+            Đơn vị: {axisUnitLabel(axisScale, currency)}
+          </span>
+          {warningCount > 0 && (
+            <span className="overview-chart-warning" role="status">
+              <CircleAlert size={13} aria-hidden="true" />
+              {warningCount} tháng chi vượt thu
+            </span>
+          )}
+        </div>
       </header>
       <div
         className={
@@ -686,6 +725,7 @@ function CashflowOverviewCharts({
           transactionType={transactionType}
           categoryType={categoryType}
           dateRange={dateRange}
+          axisScale={axisScale}
           isMobile={isMobile}
         />
         {showMemberExpenseChart && (
@@ -748,6 +788,7 @@ function BalanceHistoryChart({
   const negativeMonthCount = balances.filter(
     (row) => row.hasNegativeBalance,
   ).length;
+  const axisScale = getAmountScale(balances.map((row) => row.total));
   return (
     <Card
       as="section"
@@ -783,21 +824,18 @@ function BalanceHistoryChart({
             nhận
           </p>
         </div>
-      </header>
-      {negativeMonthCount > 0 && (
-        <div
-          className={
-            isMobile
-              ? "overview-balance-alert"
-              : "px-6 pb-2 text-xs text-[var(--danger)]"
-          }
-        >
-          <span className="overview-chart-warning">
-            <CircleAlert size={13} />
-            {negativeMonthCount} tháng có số dư âm
+        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <span className="text-xs text-[var(--text-muted)] tabular-nums">
+            Đơn vị: {axisUnitLabel(axisScale, currency)}
           </span>
+          {negativeMonthCount > 0 && (
+            <span className="overview-chart-warning" role="status">
+              <CircleAlert size={13} aria-hidden="true" />
+              {negativeMonthCount} tháng có số dư âm
+            </span>
+          )}
         </div>
-      )}
+      </header>
       {visibleWallets.length ? (
         <ChartContainer
           config={balanceChartConfig}
@@ -821,11 +859,12 @@ function BalanceHistoryChart({
               axisLine={false}
             />
             <YAxis
-              width={76}
+              width={56}
               tickLine={false}
               tickMargin={6}
               axisLine={false}
-              tickFormatter={formatCompactAmount}
+              tickCount={5}
+              tickFormatter={(value) => formatScaledAmount(value, axisScale)}
             />
             {negativeMonthCount > 0 && (
               <ReferenceLine
@@ -859,7 +898,7 @@ function BalanceHistoryChart({
             />
             <Area
               dataKey="total"
-              type="linear"
+              type="monotone"
               fill="var(--color-total)"
               fillOpacity={0.14}
               stroke="var(--color-total)"
@@ -891,6 +930,7 @@ function MonthlyFinancialChart({
   transactionType,
   categoryType,
   dateRange,
+  axisScale,
   isMobile,
 }: {
   transactions: Transaction[];
@@ -903,6 +943,7 @@ function MonthlyFinancialChart({
   transactionType: string;
   categoryType?: "income" | "expense";
   dateRange: DateRangeValue;
+  axisScale: AmountScale;
   isMobile: boolean;
 }) {
   const visibleTypes = getVisibleCashflowTypes(transactionType, categoryType);
@@ -916,10 +957,6 @@ function MonthlyFinancialChart({
     categoryType,
     dateRange,
   });
-  const showComparison = visibleTypes.length === 2;
-  const warningCount = showComparison
-    ? cashflow.filter((row) => row.hasWarning).length
-    : 0;
   const hasData = cashflow.some((row) =>
     visibleTypes.some((visibleType) => !new Decimal(row[visibleType]).isZero()),
   );
@@ -949,21 +986,13 @@ function MonthlyFinancialChart({
       }
       aria-label="Biểu đồ thu nhập và chi tiêu"
     >
-      {warningCount > 0 && (
-        <div className="overview-flow-alert">
-          <span className="overview-chart-warning">
-            <CircleAlert size={13} />
-            {warningCount} tháng chi vượt thu
-          </span>
-        </div>
-      )}
       {hasData ? (
         <ChartContainer
           config={monthlyChartConfig}
           className={isMobile ? "overview-expense-chart" : "h-[20rem] w-full"}
           aria-label={`Biểu đồ thu nhập và chi tiêu trong ${cashflow.length} tháng thuộc khoảng đã chọn`}
         >
-          <LineChart
+          <ComposedChart
             data={rows}
             accessibilityLayer
             margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
@@ -976,11 +1005,12 @@ function MonthlyFinancialChart({
               axisLine={false}
             />
             <YAxis
-              width={76}
+              width={56}
               tickLine={false}
               tickMargin={6}
               axisLine={false}
-              tickFormatter={formatCompactAmount}
+              tickCount={5}
+              tickFormatter={(value) => formatScaledAmount(value, axisScale)}
             />
             <ChartTooltip
               cursor={false}
@@ -1010,7 +1040,7 @@ function MonthlyFinancialChart({
             {visibleTypes.includes("income") && (
               <Line
                 dataKey="income"
-                type="linear"
+                type="monotone"
                 stroke="var(--color-income)"
                 strokeWidth={2.25}
                 dot={false}
@@ -1018,16 +1048,14 @@ function MonthlyFinancialChart({
               />
             )}
             {visibleTypes.includes("expense") && (
-              <Line
+              <Bar
                 dataKey="expense"
-                type="linear"
-                stroke="var(--color-expense)"
-                strokeWidth={2.25}
-                dot={false}
-                activeDot={{ r: 4, strokeWidth: 0 }}
+                fill="var(--color-expense)"
+                radius={[5, 5, 1, 1]}
+                maxBarSize={28}
               />
             )}
-          </LineChart>
+          </ComposedChart>
         </ChartContainer>
       ) : (
         <Empty variant="compact" title={emptyText} />

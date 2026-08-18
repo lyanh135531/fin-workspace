@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatAmount, formatCompactAmount } from "@/lib/format";
+import {
+  formatAmount,
+  formatCompactAmount,
+  formatScaledAmount,
+  getAmountScale,
+} from "@/lib/format";
 
 describe("amount formatting", () => {
   it("uses the tỷ unit from one billion", () => {
@@ -24,5 +29,23 @@ describe("compact amount formatting", () => {
   it("keeps small and negative values readable", () => {
     expect(formatCompactAmount("950")).toBe("950");
     expect(formatCompactAmount("-2500000")).toBe("-2,5 triệu");
+  });
+});
+
+describe("shared chart-axis scale", () => {
+  it("uses one unit for every tick in a chart", () => {
+    const scale = getAmountScale(["450000", "-450000", "-1400000"]);
+
+    expect(scale.label).toBe("triệu");
+    expect(formatScaledAmount("450000", scale)).toBe("0,45");
+    expect(formatScaledAmount("-450000", scale)).toBe("−0,45");
+    expect(formatScaledAmount("-1400000", scale)).toBe("−1,4");
+  });
+
+  it("keeps values unscaled when all amounts are below one thousand", () => {
+    const scale = getAmountScale(["950", "-250"]);
+
+    expect(scale.label).toBe("");
+    expect(formatScaledAmount("-250", scale)).toBe("−250");
   });
 });
