@@ -7,6 +7,7 @@ const applicationPathPrefixes = [
   "/members",
   "/onboarding",
   "/overview",
+  "/portal",
   "/recurring-transactions",
   "/setting",
   "/settings",

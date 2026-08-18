@@ -25,6 +25,13 @@ describe("hostname routing", () => {
     ).toBe("https://app.felixwise.io.vn/dashboard/settings/general");
   });
 
+  it("treats the read-only portal as an authenticated application path", () => {
+    expect(isApplicationPath("/portal/users")).toBe(true);
+    expect(
+      getHostnameRedirectTarget("felixwise.io.vn", "/portal/users"),
+    ).toBe("https://app.felixwise.io.vn/portal/users");
+  });
+
   it("does not redirect similarly named marketing paths", () => {
     expect(isApplicationPath("/dashboard-preview")).toBe(false);
     expect(

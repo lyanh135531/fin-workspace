@@ -11,6 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         "/members/",
         "/onboarding/",
         "/overview/",
+        "/portal/",
         "/recurring-transactions/",
         "/setting/",
         "/settings/",

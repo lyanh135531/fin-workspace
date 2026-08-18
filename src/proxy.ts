@@ -57,6 +57,7 @@ export const config = {
     "/dashboard/:path*",
     "/onboarding/:path*",
     "/overview/:path*",
+    "/portal/:path*",
     "/workspace/:path*",
     "/workspaces/:path*",
     "/wallets/:path*",
