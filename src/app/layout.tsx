@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Fraunces, Geist } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 import "./ledger-page.css";
@@ -9,6 +9,13 @@ import "./overview-desktop.css";
 const geist = Geist({
   subsets: ["latin"],
   variable: "--font-geist",
+  display: "swap",
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin", "vietnamese"],
+  weight: "700",
+  variable: "--font-fraunces",
   display: "swap",
 });
 
@@ -41,9 +48,37 @@ const initializeAppearance = `
 `;
 
 export const metadata: Metadata = {
-  title: "Felix",
+  metadataBase: new URL("https://felixwise.io.vn"),
+  title: {
+    default: "Felix | Quản lý tài chính cá nhân và nhóm",
+    template: "%s | Felix",
+  },
   applicationName: "Felix",
-  description: "Felix — Quản lý tài chính cho cá nhân và nhóm",
+  description:
+    "Felix giúp cá nhân, gia đình và nhóm theo dõi thu chi, quản lý ví, giao dịch định kỳ và số dư trong một không gian chung.",
+  keywords: [
+    "quản lý tài chính cá nhân",
+    "quản lý thu chi",
+    "sổ thu chi gia đình",
+    "quản lý tài chính nhóm",
+    "ứng dụng quản lý chi tiêu",
+    "Felix",
+  ],
+  authors: [{ name: "Felix" }],
+  creator: "Felix",
+  publisher: "Felix",
+  category: "finance",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   icons: {
     icon: "/felix-logo.svg",
     shortcut: "/felix-logo.svg",
@@ -55,7 +90,11 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="vi" suppressHydrationWarning className={geist.variable}>
+    <html
+      lang="vi"
+      suppressHydrationWarning
+      className={`${geist.variable} ${fraunces.variable} scroll-smooth scroll-pt-16 sm:scroll-pt-20 motion-reduce:scroll-auto`}
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: initializeAppearance }} />
       </head>

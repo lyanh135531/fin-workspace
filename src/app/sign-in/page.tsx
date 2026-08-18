@@ -39,8 +39,8 @@ function isBrowserPasswordCredential(
 ): credential is BrowserPasswordCredential {
   return Boolean(
     credential &&
-      "password" in credential &&
-      typeof credential.password === "string",
+    "password" in credential &&
+    typeof credential.password === "string",
   );
 }
 
@@ -67,9 +67,7 @@ async function storeBrowserCredential(username: string, password: string) {
 }
 
 async function loadRememberedSignIn() {
-  const rememberedUsername = window.localStorage.getItem(
-    rememberedUsernameKey,
-  );
+  const rememberedUsername = window.localStorage.getItem(rememberedUsernameKey);
   const credential = await loadBrowserCredential().catch(() => null);
 
   return {
@@ -126,18 +124,21 @@ export default function SignInPage() {
 
       if (result?.error) {
         setErrorKey((key) => key + 1);
-        setError("Không đăng nhập được. Kiểm tra lại tên đăng nhập và mật khẩu.");
+        setError(
+          "Không đăng nhập được. Kiểm tra lại tên đăng nhập và mật khẩu.",
+        );
         setLoading(false);
         return;
       }
 
       if (rememberMe) {
         window.localStorage.setItem(rememberedUsernameKey, submittedUsername);
-        await storeBrowserCredential(submittedUsername, submittedPassword).catch(
-          () => {
-            // Login still succeeds when the browser declines credential storage.
-          },
-        );
+        await storeBrowserCredential(
+          submittedUsername,
+          submittedPassword,
+        ).catch(() => {
+          // Login still succeeds when the browser declines credential storage.
+        });
       } else {
         window.localStorage.removeItem(rememberedUsernameKey);
       }
@@ -156,7 +157,11 @@ export default function SignInPage() {
 
       <section className="auth-form-panel" aria-labelledby="sign-in-title">
         <div className="auth-form-toolbar">
-          <Link href="/" className="auth-mobile-brand" aria-label="Felix — Trang chủ">
+          <Link
+            href="/"
+            className="auth-mobile-brand"
+            aria-label="Felix — Trang chủ"
+          >
             <FinLogo size={28} />
             <span>Felix</span>
           </Link>
@@ -166,10 +171,12 @@ export default function SignInPage() {
         <Card className="auth-form-card gap-0 py-0">
           <div className="auth-form-inner">
             <div className="auth-form-header">
-              <span className="auth-form-eyebrow">Đăng nhập</span>
-              <h2 id="sign-in-title" className="auth-form-title">Đăng nhập vào Felix</h2>
+              <span className="auth-form-eyebrow">Chào mừng quay lại</span>
+              <h2 id="sign-in-title" className="auth-form-title">
+                Đăng nhập để tiếp tục
+              </h2>
               <p className="auth-form-subtitle">
-                Xem lại ví, giao dịch và ngân sách của bạn.
+                Tiếp tục quản lý thu chi và cập nhật biến động
               </p>
             </div>
 
@@ -191,9 +198,11 @@ export default function SignInPage() {
                     aria-describedby={error ? `${id}-auth-error` : undefined}
                     className="auth-field-input"
                     controlClassName="auth-field-wrap has-left-icon"
-                    startAdornment={<span className="auth-field-left-icon" aria-hidden>
-                      <User size={16} strokeWidth={2} />
-                    </span>}
+                    startAdornment={
+                      <span className="auth-field-left-icon" aria-hidden>
+                        <User size={16} strokeWidth={2} />
+                      </span>
+                    }
                   />
                 </div>
 
@@ -212,21 +221,29 @@ export default function SignInPage() {
                     aria-describedby={error ? `${id}-auth-error` : undefined}
                     className="auth-field-input has-icon"
                     controlClassName="auth-field-wrap has-left-icon"
-                    startAdornment={<span className="auth-field-left-icon" aria-hidden>
-                      <Lock size={16} strokeWidth={2} />
-                    </span>}
-                    endAdornment={<Button
-                      variant="unstyled"
-                      size="auto"
-                      type="button"
-                      className="auth-password-toggle"
-                      aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                      onClick={() => setShowPassword((v) => !v)}
-                    >
-                      {showPassword
-                        ? <EyeOff size={16} strokeWidth={2} />
-                        : <Eye size={16} strokeWidth={2} />}
-                    </Button>}
+                    startAdornment={
+                      <span className="auth-field-left-icon" aria-hidden>
+                        <Lock size={16} strokeWidth={2} />
+                      </span>
+                    }
+                    endAdornment={
+                      <Button
+                        variant="unstyled"
+                        size="auto"
+                        type="button"
+                        className="auth-password-toggle"
+                        aria-label={
+                          showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"
+                        }
+                        onClick={() => setShowPassword((v) => !v)}
+                      >
+                        {showPassword ? (
+                          <EyeOff size={16} strokeWidth={2} />
+                        ) : (
+                          <Eye size={16} strokeWidth={2} />
+                        )}
+                      </Button>
+                    }
                   />
                 </div>
               </div>
@@ -275,7 +292,9 @@ export default function SignInPage() {
 
                 <p className="auth-form-link-row">
                   Chưa dùng Felix?{" "}
-                  <Link href="/setup" className="auth-form-link">Đăng ký</Link>
+                  <Link href="/setup" className="auth-form-link">
+                    Đăng ký
+                  </Link>
                 </p>
               </div>
             </form>

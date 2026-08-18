@@ -40,7 +40,10 @@ function SignInSnapshot() {
 
       <div className="auth-ledger-chart" aria-hidden>
         {[34, 47, 40, 62, 53, 78, 72, 91].map((height, index) => (
-          <i key={`${height}-${index}`} style={{ "--bar-height": `${height}%` } as CSSProperties} />
+          <i
+            key={`${height}-${index}`}
+            style={{ "--bar-height": `${height}%` } as CSSProperties}
+          />
         ))}
       </div>
 
@@ -78,7 +81,11 @@ function RegisterSteps() {
           <span>{index + 1}</span>
           <p>
             <strong>{step}</strong>
-            <small>{index === 0 ? "Bạn đang ở bước này" : "Thực hiện sau khi đăng ký"}</small>
+            <small>
+              {index === 0
+                ? "Bạn đang ở bước này"
+                : "Thực hiện sau khi đăng ký"}
+            </small>
           </p>
           {index === 0 && <Check size={16} aria-hidden />}
         </li>
@@ -94,40 +101,44 @@ export function AuthShowcase({ mode }: AuthShowcaseProps) {
     <aside className="auth-visual-panel">
       <div className="auth-grid-pattern" aria-hidden />
 
-      <Link className="auth-visual-brand" href="/" aria-label="Felix — Trang chủ">
+      <Link
+        className="auth-visual-brand"
+        href="/"
+        aria-label="Felix — Trang chủ"
+      >
         <span className="auth-brand-mark">
           <FinLogo size={30} />
         </span>
         <span>
           <strong>Felix</strong>
-          <small>Quản lý thu chi cùng nhau.</small>
+          <small>Quản lý tài chính tập trung</small>
         </span>
       </Link>
 
       <div className="auth-visual-body">
         <p className="auth-visual-tagline">
           <Sparkles size={14} aria-hidden />
-          {isSignIn ? "Sổ thu chi của bạn" : "Bắt đầu với hai thông tin"}
+          {isSignIn ? "Giải pháp tài chính" : "Chỉ mất 30 giây"}
         </p>
         <h1 className="auth-visual-headline">
           {isSignIn ? (
             <>
-              Biết hôm nay
+              Rõ ràng thu chi,
               <br />
-              đã <em>chi những gì.</em>
+              minh bạch <em>ngân sách.</em>
             </>
           ) : (
             <>
-              Đăng ký xong,
+              Tạo tài khoản,
               <br />
-              tạo nhóm <em>ngay.</em>
+              bắt đầu <em>ngay.</em>
             </>
           )}
         </h1>
         <p className="auth-visual-desc">
           {isSignIn
-            ? "Số dư, giao dịch và ngân sách của từng nhóm tài chính được cập nhật tại một chỗ."
-            : "Sau khi đăng ký, bạn có thể tạo nhóm tài chính, thêm ví và ghi giao dịch đầu tiên."}
+            ? "Theo dõi số dư, giao dịch thu chi và ngân sách của từng nhóm tài chính được cập nhật real-time tại một nơi."
+            : "Thiết lập không gian tài chính chung, thêm ví và ghi nhận giao dịch đầu tiên chỉ trong vài thao tác."}
         </p>
 
         {isSignIn ? <SignInSnapshot /> : <RegisterSteps />}
@@ -136,7 +147,7 @@ export function AuthShowcase({ mode }: AuthShowcaseProps) {
       <div className="auth-visual-footer">
         <span>
           <ShieldCheck size={14} aria-hidden />
-          Mỗi nhóm có dữ liệu riêng
+          Bảo mật & Tách biệt dữ liệu tuyệt đối
         </span>
         <span>
           <Landmark size={14} aria-hidden />

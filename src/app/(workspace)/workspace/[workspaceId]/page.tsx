@@ -1,4 +1,4 @@
-import { WorkspaceDashboard } from "@/app/dashboard/page";
+import { WorkspaceDashboard } from "@/app/dashboard/workspace-dashboard";
 
 type WorkspacePageProps = {
   params: Promise<{ workspaceId: string }>;

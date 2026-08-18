@@ -28,7 +28,7 @@ export function FinLogo({
           width="34"
           height="34"
           rx="11"
-          fill="##ffe8e4"
+          fill="#ffe8e4"
           stroke="#FF765B"
           strokeWidth="1.35"
         />
