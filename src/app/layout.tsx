@@ -80,9 +80,9 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: "/felix-logo.svg",
-    shortcut: "/felix-logo.svg",
-    apple: "/felix-logo.svg",
+    icon: "/felix-logo.png",
+    shortcut: "/felix-logo.png",
+    apple: "/felix-logo.png",
   },
 };
 

@@ -31,8 +31,7 @@ export const metadata: Metadata = {
     url: siteUrl,
     siteName: "Felix",
     title: "Felix | Quản lý tài chính tập trung",
-    description:
-      "Cùng theo dõi tiền đang ở đâu, đã chi vào việc gì và ai là người ghi nhận.",
+    description: "Cùng theo dõi tiền đang ở đâu, đã chi vào việc gì.",
     images: [
       {
         url: "/felix-open-graph.webp",
@@ -45,8 +44,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Felix | Quản lý tài chính tập trung",
-    description:
-      "Theo dõi ví, thu chi và giao dịch định kỳ cùng gia đình hoặc nhóm của bạn.",
+    description: "Cùng theo dõi tiền đang ở đâu, đã chi vào việc gì.",
     images: ["/felix-open-graph.webp"],
   },
 };
