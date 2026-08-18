@@ -21,7 +21,7 @@ import { FinLogo } from "@/components/fin-logo";
 const siteUrl = "https://felixwise.io.vn";
 
 export const metadata: Metadata = {
-  title: { absolute: "Felix | Quản lý thu chi gia đình rõ ràng" },
+  title: { absolute: "Felix | Quản lý tài chính tập trung" },
   description:
     "Felix giúp gia đình và nhóm cùng theo dõi ví, thu chi, giao dịch định kỳ và lịch sử số dư trong một không gian chung.",
   alternates: { canonical: "/" },
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     locale: "vi_VN",
     url: siteUrl,
     siteName: "Felix",
-    title: "Felix | Quản lý thu chi gia đình rõ ràng",
+    title: "Felix | Quản lý tài chính tập trung",
     description:
       "Cùng theo dõi tiền đang ở đâu, đã chi vào việc gì và ai là người ghi nhận.",
     images: [
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Felix | Quản lý thu chi gia đình rõ ràng",
+    title: "Felix | Quản lý tài chính tập trung",
     description:
       "Theo dõi ví, thu chi và giao dịch định kỳ cùng gia đình hoặc nhóm của bạn.",
     images: ["/felix-open-graph.webp"],
