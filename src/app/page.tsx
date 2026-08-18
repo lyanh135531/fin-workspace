@@ -17,6 +17,7 @@ import {
 import { ThemeToggle } from "@/app/theme-toggle";
 import { Button } from "@/components/base";
 import { FinLogo } from "@/components/fin-logo";
+import { APP_ORIGIN } from "@/lib/host-routing";
 
 const siteUrl = "https://felixwise.io.vn";
 
@@ -331,11 +332,17 @@ export default function HomePage() {
             <span className="hidden sm:inline-flex">
               <ThemeToggle />
             </span>
+            <Link
+              href={`${APP_ORIGIN}/sign-in`}
+              className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:px-3"
+            >
+              Đăng nhập
+            </Link>
             <span className="inline-flex">
               <Button
                 variant="landing"
                 nativeButton={false}
-                render={<Link href="/setup" />}
+                render={<Link href={`${APP_ORIGIN}/setup`} />}
               >
                 <span className="sm:hidden">Bắt đầu</span>
                 <span className="hidden sm:inline">Dùng thử miễn phí</span>
@@ -371,7 +378,7 @@ export default function HomePage() {
                 size="lg"
                 variant="landing"
                 nativeButton={false}
-                render={<Link href="/setup" />}
+                render={<Link href={`${APP_ORIGIN}/setup`} />}
               >
                 Trải nghiệm miễn phí
                 <ArrowRight aria-hidden />
@@ -684,7 +691,7 @@ export default function HomePage() {
                 size="lg"
                 variant="landing"
                 nativeButton={false}
-                render={<Link href="/setup" />}
+                render={<Link href={`${APP_ORIGIN}/setup`} />}
               >
                 Bắt đầu miễn phí ngay
                 <ArrowRight aria-hidden />
