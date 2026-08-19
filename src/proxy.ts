@@ -4,6 +4,7 @@ import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server
 import {
   getHostnameRedirectTarget,
   isApplicationPath,
+  normalizeHostname,
 } from "@/lib/host-routing";
 
 const authenticatedProxy = withAuth({
@@ -17,9 +18,9 @@ export function proxy(request: NextRequest, event: NextFetchEvent) {
     .get("x-forwarded-host")
     ?.split(",")[0]
     ?.trim();
-  const requestHostname =
-    forwardedHostname ?? request.headers.get("host") ?? request.nextUrl.hostname;
-  const hostname = requestHostname.replace(/:\d+$/, "");
+  const hostname = normalizeHostname(
+    forwardedHostname ?? request.headers.get("host") ?? request.nextUrl.hostname,
+  );
   const redirectTarget = getHostnameRedirectTarget(
     hostname,
     request.nextUrl.pathname,

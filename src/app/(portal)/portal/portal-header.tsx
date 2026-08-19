@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { ArrowUpRight, ChevronRight, Menu } from "lucide-react";
+import { ChevronRight, Menu } from "lucide-react";
 
 import { ThemeToggle } from "@/app/theme-toggle";
 import {
@@ -141,14 +141,7 @@ function PortalHeaderInner({
         </nav>
       </div>
 
-      {/* Right section: Top-Right actions ("Về ứng dụng" + Theme toggle) */}
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" render={<Link href="/overview" />}>
-          <ArrowUpRight className="size-4" aria-hidden />
-          <span className="hidden sm:inline">Về ứng dụng</span>
-        </Button>
-        <ThemeToggle />
-      </div>
+      <ThemeToggle />
     </header>
   );
 }
