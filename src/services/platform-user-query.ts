@@ -18,12 +18,13 @@ export type PortalUserRecord = Prisma.UserGetPayload<{
 }>;
 
 function buildPortalUserWhere(
-  filters: Pick<PortalUserSearch, "q">,
+  filters: Pick<PortalUserSearch, "q" | "status">,
 ): Prisma.UserWhereInput {
   return {
     ...(filters.q
       ? { username: { contains: filters.q, mode: "insensitive" } }
       : {}),
+    ...(filters.status === "all" ? {} : { status: filters.status }),
   };
 }
 

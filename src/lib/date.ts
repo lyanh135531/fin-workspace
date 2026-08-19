@@ -11,9 +11,31 @@ export function getBusinessDateInTimeZone(timeZone: string, now = new Date()): s
   return formatInTimeZone(now, timeZone, BUSINESS_DATE_FORMAT);
 }
 
-function nextIsoDate(date: string): string {
+export function shiftIsoDate(date: string, days: number): string {
   const [year, month, day] = date.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+  return new Date(Date.UTC(year, month - 1, day + days))
+    .toISOString()
+    .slice(0, 10);
+}
+
+export function getBusinessDateRange(
+  timeZone: string,
+  dateFrom?: string,
+  dateTo?: string,
+) {
+  return {
+    ...(dateFrom
+      ? { gte: fromZonedTime(`${dateFrom}T00:00:00`, timeZone) }
+      : {}),
+    ...(dateTo
+      ? {
+          lt: fromZonedTime(
+            `${shiftIsoDate(dateTo, 1)}T00:00:00`,
+            timeZone,
+          ),
+        }
+      : {}),
+  };
 }
 
 export function getBusinessNotificationRange(timeZone: string, now = new Date()) {
@@ -23,7 +45,7 @@ export function getBusinessNotificationRange(timeZone: string, now = new Date())
   const nextMonthStart = new Date(Date.UTC(year, month, 1));
   const todayAsDatabaseDate = new Date(`${today}T00:00:00.000Z`);
   const businessDayStart = fromZonedTime(`${today}T00:00:00`, timeZone);
-  const nextBusinessDayStart = fromZonedTime(`${nextIsoDate(today)}T00:00:00`, timeZone);
+  const nextBusinessDayStart = fromZonedTime(`${shiftIsoDate(today, 1)}T00:00:00`, timeZone);
 
   return {
     today,

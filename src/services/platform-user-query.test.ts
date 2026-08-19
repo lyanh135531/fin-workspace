@@ -29,12 +29,14 @@ describe("platform user read-only queries", () => {
 
     const result = await listPortalUsers({
       q: "felix",
+      status: "active",
       page: 2,
     });
 
     expect(prisma.user.findMany).toHaveBeenCalledWith({
       where: {
         username: { contains: "felix", mode: "insensitive" },
+        status: "active",
       },
       select: portalUserSelect,
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],

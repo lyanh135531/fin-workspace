@@ -10,6 +10,11 @@ const queryTextSchema = z.preprocess(
   z.string().trim().max(100).catch(""),
 );
 
+const queryStatusSchema = z.preprocess(
+  firstQueryValue,
+  z.enum(["all", ...statusSchema.options]).catch("all"),
+);
+
 const queryPageSchema = z.preprocess(
   firstQueryValue,
   z.coerce.number().int().min(1).catch(1),
@@ -17,7 +22,12 @@ const queryPageSchema = z.preprocess(
 
 export const portalUserSearchSchema = z.object({
   q: queryTextSchema,
+  status: queryStatusSchema,
   page: queryPageSchema,
+});
+
+export const portalUserActivitySearchSchema = z.object({
+  activityPage: queryPageSchema,
 });
 
 export type PortalUserSearch = z.infer<typeof portalUserSearchSchema>;
@@ -26,6 +36,12 @@ export function parsePortalUserSearchParams(
   input: Record<string, string | string[] | undefined>,
 ): PortalUserSearch {
   return portalUserSearchSchema.parse(input);
+}
+
+export function parsePortalUserActivitySearchParams(
+  input: Record<string, string | string[] | undefined>,
+) {
+  return portalUserActivitySearchSchema.parse(input);
 }
 
 export function parsePlatformAdminUsernames(value: string | undefined) {

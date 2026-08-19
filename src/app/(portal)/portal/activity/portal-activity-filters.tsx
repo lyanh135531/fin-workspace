@@ -27,14 +27,6 @@ export function PortalActivityFilters({
     dateFrom && dateTo ? { from: dateFrom, to: dateTo } : null,
   );
 
-  useEffect(() => {
-    setSearchValue(q);
-  }, [q]);
-
-  useEffect(() => {
-    setDateRange(dateFrom && dateTo ? { from: dateFrom, to: dateTo } : null);
-  }, [dateFrom, dateTo]);
-
   // Debounced search on input change
   useEffect(() => {
     const timer = setTimeout(() => {

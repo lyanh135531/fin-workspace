@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, SearchX, UserRound } from "lucide-react";
+import { ChevronRight, SearchX } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import {
@@ -8,6 +8,7 @@ import {
   PageContainer,
   PageHeader,
 } from "@/components/base";
+import { Badge } from "@/components/ui/badge";
 import {
   parsePortalUserSearchParams,
   type PortalUserSearch,
@@ -15,6 +16,7 @@ import {
 import { env } from "@/lib/env";
 import { requirePlatformAdminSession } from "@/services/platform-access";
 import { listPortalUsers, PORTAL_USER_PAGE_SIZE } from "@/services/platform-user-query";
+import type { PortalUserRecord } from "@/services/platform-user-query";
 import { PortalPagination } from "../portal-pagination";
 import { PortalUserFilters } from "./portal-user-filters";
 
@@ -40,10 +42,19 @@ function buildUsersHref(
   const params = new URLSearchParams();
 
   if (next.q) params.set("q", next.q);
+  if (next.status !== "all") params.set("status", next.status);
   if (next.page > 1) params.set("page", String(next.page));
 
   const query = params.toString();
   return query ? `/portal/users?${query}` : "/portal/users";
+}
+
+function UserStatusBadge({ status }: Pick<PortalUserRecord, "status">) {
+  return (
+    <Badge variant={status === "active" ? "outline" : "destructive"}>
+      {status === "active" ? "Đang hoạt động" : "Đã vô hiệu hóa"}
+    </Badge>
+  );
 }
 
 export default async function PortalUsersPage({ searchParams }: UsersPageProps) {
@@ -66,7 +77,11 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
       <Card className="flex flex-1 min-h-0 flex-col gap-0 p-0 overflow-hidden">
         {/* Search header (Fixed top) */}
         <div className="shrink-0 space-y-4 border-b border-[var(--border)] p-4 sm:p-5">
-          <PortalUserFilters q={filters.q} />
+          <PortalUserFilters
+            key={`${filters.q}:${filters.status}`}
+            q={filters.q}
+            status={filters.status}
+          />
         </div>
 
         {/* Scrollable Table Container */}
@@ -90,6 +105,7 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
                   <thead className="sticky top-0 z-10 bg-[var(--surface-secondary)] text-xs text-[var(--text-muted)] shadow-[0_1px_0_0_var(--border)]">
                     <tr>
                       <th scope="col" className="px-5 py-3 font-medium">Username</th>
+                      <th scope="col" className="px-5 py-3 font-medium">Trạng thái</th>
                       <th scope="col" className="px-5 py-3 font-medium">Ngày tạo</th>
                       <th scope="col" className="px-5 py-3 font-medium">Thao tác lần cuối</th>
                       <th scope="col" className="px-5 py-3 text-right font-medium">Chi tiết</th>
@@ -108,6 +124,9 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
                             </div>
                             <span className="font-medium text-[var(--foreground)]">{user.username}</span>
                           </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <UserStatusBadge status={user.status} />
                         </td>
                         <td className="px-5 py-3.5 tabular-nums text-[var(--text-secondary)]">
                           {formatDateTime(user.createdAt)}
@@ -146,6 +165,7 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
                           Tạo {formatDateTime(user.createdAt)}
                         </p>
                       </div>
+                      <UserStatusBadge status={user.status} />
                     </div>
                     <Button
                       variant="ghost"

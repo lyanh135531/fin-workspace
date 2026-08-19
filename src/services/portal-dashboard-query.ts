@@ -1,4 +1,22 @@
 import { prisma } from "@/lib/prisma";
+import { env } from "@/lib/env";
+import { getCurrentBusinessDate, shiftIsoDate } from "@/lib/date";
+import { fromZonedTime } from "date-fns-tz";
+
+function getBusinessMonthStart(monthsAgo: number) {
+  const currentBusinessDate = getCurrentBusinessDate();
+  const [year, month] = currentBusinessDate.split("-").map(Number);
+  const targetMonth = new Date(Date.UTC(year, month - 1 - monthsAgo, 1))
+    .toISOString()
+    .slice(0, 7);
+
+  return fromZonedTime(`${targetMonth}-01T00:00:00`, env.APP_TIME_ZONE);
+}
+
+function getBusinessDayStart(daysAgo: number) {
+  const date = shiftIsoDate(getCurrentBusinessDate(), -daysAgo);
+  return fromZonedTime(`${date}T00:00:00`, env.APP_TIME_ZONE);
+}
 
 /**
  * Dashboard overview statistics.
@@ -25,15 +43,12 @@ export async function getPortalDashboardStats() {
  * Uses raw query for efficient grouping.
  */
 export async function getUserRegistrationsByMonth() {
-  const twelveMonthsAgo = new Date();
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
-  twelveMonthsAgo.setDate(1);
-  twelveMonthsAgo.setHours(0, 0, 0, 0);
+  const twelveMonthsAgo = getBusinessMonthStart(11);
 
   const rows = await prisma.$queryRaw<
     Array<{ month: string; count: bigint }>
   >`
-    SELECT to_char("created_at", 'YYYY-MM') AS month,
+    SELECT to_char("created_at" AT TIME ZONE ${env.APP_TIME_ZONE}, 'YYYY-MM') AS month,
            COUNT(*)::bigint                  AS count
     FROM "USERS"
     WHERE "created_at" >= ${twelveMonthsAgo}
@@ -51,14 +66,12 @@ export async function getUserRegistrationsByMonth() {
  * System activity (audit log count) grouped by day for the last 30 days.
  */
 export async function getSystemActivityByDay() {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
-  thirtyDaysAgo.setHours(0, 0, 0, 0);
+  const thirtyDaysAgo = getBusinessDayStart(29);
 
   const rows = await prisma.$queryRaw<
     Array<{ day: string; count: bigint }>
   >`
-    SELECT to_char("created_at", 'YYYY-MM-DD') AS day,
+    SELECT to_char("created_at" AT TIME ZONE ${env.APP_TIME_ZONE}, 'YYYY-MM-DD') AS day,
            COUNT(*)::bigint                     AS count
     FROM "AUDIT_LOG"
     WHERE "created_at" >= ${thirtyDaysAgo}
@@ -76,14 +89,12 @@ export async function getSystemActivityByDay() {
  * Daily active users (distinct actors in audit log) for the last 30 days.
  */
 export async function getDailyActiveUsers() {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
-  thirtyDaysAgo.setHours(0, 0, 0, 0);
+  const thirtyDaysAgo = getBusinessDayStart(29);
 
   const rows = await prisma.$queryRaw<
     Array<{ day: string; dau: bigint }>
   >`
-    SELECT to_char("created_at", 'YYYY-MM-DD') AS day,
+    SELECT to_char("created_at" AT TIME ZONE ${env.APP_TIME_ZONE}, 'YYYY-MM-DD') AS day,
            COUNT(DISTINCT "actor_user_id")::bigint AS dau
     FROM "AUDIT_LOG"
     WHERE "created_at" >= ${thirtyDaysAgo}

@@ -1,10 +1,12 @@
 import { Prisma } from "@/generated/prisma/client";
+import { getBusinessDateRange } from "@/lib/date";
+import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import type { PortalActivitySearch } from "@/domain/platform-user/portal-activity-schemas";
 
 export const PORTAL_ACTIVITY_PAGE_SIZE = 30;
 
-function buildPortalActivityWhere(
+export function buildPortalActivityWhere(
   filters: Omit<PortalActivitySearch, "page">,
 ): Prisma.AuditLogWhereInput {
   const where: Prisma.AuditLogWhereInput = {};
@@ -16,13 +18,11 @@ function buildPortalActivityWhere(
   }
 
   if (filters.dateFrom || filters.dateTo) {
-    where.createdAt = {};
-    if (filters.dateFrom) {
-      where.createdAt.gte = new Date(`${filters.dateFrom}T00:00:00Z`);
-    }
-    if (filters.dateTo) {
-      where.createdAt.lte = new Date(`${filters.dateTo}T23:59:59.999Z`);
-    }
+    where.createdAt = getBusinessDateRange(
+      env.APP_TIME_ZONE,
+      filters.dateFrom,
+      filters.dateTo,
+    );
   }
 
   return where;

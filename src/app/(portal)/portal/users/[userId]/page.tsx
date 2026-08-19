@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { Button, Card, PageContainer, PageHeader } from "@/components/base";
 import { Badge } from "@/components/ui/badge";
 import { idSchema } from "@/domain/common/schemas";
+import { parsePortalUserActivitySearchParams } from "@/domain/platform-user/schemas";
 import { env } from "@/lib/env";
 import { requirePlatformAdminSession } from "@/services/platform-access";
 import {
@@ -43,7 +44,7 @@ export default async function PortalUserDetailPage({
 
   if (!idSchema.safeParse(userId).success) notFound();
 
-  const activityPage = Math.max(1, Number(sp.activityPage) || 1);
+  const { activityPage } = parsePortalUserActivitySearchParams(sp);
 
   const [user, workspaces, activityResult, lastActivity] = await Promise.all([
     getPortalUserById(userId),
@@ -53,6 +54,12 @@ export default async function PortalUserDetailPage({
   ]);
 
   if (!user) notFound();
+
+  if (activityPage > activityResult.totalPages) {
+    redirect(
+      `/portal/users/${userId}?activityPage=${activityResult.totalPages}`,
+    );
+  }
 
   const fields = [
     ["Username", user.username],
@@ -80,6 +87,16 @@ export default async function PortalUserDetailPage({
         </div>
 
         <dl className="divide-y divide-[var(--border)]">
+          <div className="grid gap-1 py-4 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-6">
+            <dt className="text-sm font-medium text-[var(--text-muted)]">
+              Trạng thái
+            </dt>
+            <dd className="text-sm sm:text-right">
+              <Badge variant={user.status === "active" ? "outline" : "destructive"}>
+                {user.status === "active" ? "Đang hoạt động" : "Đã vô hiệu hóa"}
+              </Badge>
+            </dd>
+          </div>
           {fields.map(([label, value]) => (
             <div key={label} className="grid gap-1 py-4 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-6">
               <dt className="text-sm font-medium text-[var(--text-muted)]">{label}</dt>

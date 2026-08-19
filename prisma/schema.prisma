@@ -221,6 +221,8 @@ model AuditLog {
   actor       User?            @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([createdAt])
   @@map("AUDIT_LOG")
 }
 

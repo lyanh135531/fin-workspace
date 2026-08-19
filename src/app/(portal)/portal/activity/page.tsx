@@ -1,4 +1,5 @@
 import { SearchX } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import {
   Card,
@@ -52,6 +53,10 @@ export default async function PortalActivityPage({
   const filters = parsePortalActivitySearchParams(await searchParams);
   const result = await listPortalAuditLogs(filters);
 
+  if (filters.page > result.totalPages) {
+    redirect(buildActivityHref(filters, { page: result.totalPages }));
+  }
+
   return (
     <PageContainer className="flex flex-1 min-h-0 flex-col h-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <PageHeader
@@ -64,6 +69,7 @@ export default async function PortalActivityPage({
         {/* Filters Header (Fixed top) */}
         <div className="shrink-0 space-y-4 border-b border-[var(--border)] p-4 sm:p-5">
           <PortalActivityFilters
+            key={`${filters.q}:${filters.dateFrom ?? ""}:${filters.dateTo ?? ""}`}
             q={filters.q}
             dateFrom={filters.dateFrom}
             dateTo={filters.dateTo}

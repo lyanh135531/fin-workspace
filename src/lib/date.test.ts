@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { getBusinessNotificationRange } from "@/lib/date";
+import {
+  getBusinessDateRange,
+  getBusinessNotificationRange,
+  shiftIsoDate,
+} from "@/lib/date";
 
 vi.mock("@/lib/env", () => ({
   env: {
@@ -9,6 +13,22 @@ vi.mock("@/lib/env", () => ({
 }));
 
 describe("business notification range", () => {
+  it("builds inclusive business-date bounds as an exclusive UTC range", () => {
+    const range = getBusinessDateRange(
+      "Asia/Ho_Chi_Minh",
+      "2026-08-19",
+      "2026-08-19",
+    );
+
+    expect(range.gte?.toISOString()).toBe("2026-08-18T17:00:00.000Z");
+    expect(range.lt?.toISOString()).toBe("2026-08-19T17:00:00.000Z");
+  });
+
+  it("shifts ISO dates across month boundaries", () => {
+    expect(shiftIsoDate("2026-08-31", 1)).toBe("2026-09-01");
+    expect(shiftIsoDate("2026-03-01", -1)).toBe("2026-02-28");
+  });
+
   it("uses the workspace month and business day in its configured time zone", () => {
     const range = getBusinessNotificationRange(
       "Asia/Ho_Chi_Minh",
