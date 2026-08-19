@@ -10,11 +10,6 @@ const queryTextSchema = z.preprocess(
   z.string().trim().max(100).catch(""),
 );
 
-const queryStatusSchema = z.preprocess(
-  firstQueryValue,
-  z.enum(["all", ...statusSchema.options]).catch("all"),
-);
-
 const queryPageSchema = z.preprocess(
   firstQueryValue,
   z.coerce.number().int().min(1).catch(1),
@@ -22,7 +17,6 @@ const queryPageSchema = z.preprocess(
 
 export const portalUserSearchSchema = z.object({
   q: queryTextSchema,
-  status: queryStatusSchema,
   page: queryPageSchema,
 });
 

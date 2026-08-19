@@ -11,16 +11,15 @@ describe("portal user schemas", () => {
     expect(
       parsePortalUserSearchParams({
         q: "  felix  ",
-        status: "active",
         page: "2",
       }),
-    ).toEqual({ q: "felix", status: "active", page: 2 });
+    ).toEqual({ q: "felix", page: 2 });
   });
 
   it("falls back to safe defaults for invalid filters", () => {
     expect(
-      parsePortalUserSearchParams({ status: "unknown", page: "-3" }),
-    ).toEqual({ q: "", status: "all", page: 1 });
+      parsePortalUserSearchParams({ page: "-3" }),
+    ).toEqual({ q: "", page: 1 });
   });
 
   it("parses an exact, comma-separated platform admin allowlist", () => {

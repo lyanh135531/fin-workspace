@@ -25,17 +25,16 @@ describe("platform user read-only queries", () => {
   it("uses a fixed safe select and server-side pagination", async () => {
     vi.mocked(prisma.user.findMany).mockResolvedValue([]);
     vi.mocked(prisma.user.count).mockResolvedValue(24);
+    prisma.$queryRaw = vi.fn().mockResolvedValue([]);
 
     const result = await listPortalUsers({
       q: "felix",
-      status: "active",
       page: 2,
     });
 
     expect(prisma.user.findMany).toHaveBeenCalledWith({
       where: {
         username: { contains: "felix", mode: "insensitive" },
-        status: "active",
       },
       select: portalUserSelect,
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],

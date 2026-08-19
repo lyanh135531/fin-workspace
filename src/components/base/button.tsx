@@ -79,6 +79,8 @@ function Button({
   children,
   title,
   "aria-label": ariaLabel,
+  render,
+  nativeButton,
   ...props
 }: ButtonProps) {
   const resolvedTitle =
@@ -92,6 +94,8 @@ function Button({
       data-slot="button"
       aria-label={ariaLabel}
       title={resolvedTitle}
+      render={render}
+      nativeButton={nativeButton ?? (render ? false : undefined)}
       className={
         variant === "unstyled"
           ? className

@@ -179,7 +179,7 @@ function NavigationMenu({ items }: { items: NavigationItem[] }) {
                 className="min-[901px]:hidden!"
                 strokeWidth={1.8}
               />
-              <span className="hidden! min-[901px]:grid! min-[901px]:size-7 min-[901px]:shrink-0 min-[901px]:place-items-center min-[901px]:rounded-lg min-[901px]:text-[var(--text-muted)] min-[901px]:transition-colors min-[901px]:group-hover/nav:text-[var(--foreground)] min-[901px]:group-data-[active]/nav:bg-[var(--primary-soft)] min-[901px]:group-data-[active]/nav:text-[var(--primary)]">
+              <span className="hidden! min-[901px]:flex! min-[901px]:shrink-0 min-[901px]:items-center min-[901px]:justify-center min-[901px]:text-[var(--text-muted)] min-[901px]:transition-colors min-[901px]:group-hover/nav:text-[var(--foreground)] min-[901px]:group-data-[active]/nav:text-[var(--primary)]">
                 <Icon strokeWidth={1.8} />
               </span>
               <span className="min-[901px]:font-medium min-[901px]:group-data-[collapsible=icon]:hidden!">
