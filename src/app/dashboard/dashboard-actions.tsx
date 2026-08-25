@@ -950,6 +950,8 @@ export function Ledger({
   const [busy, start] = useTransition();
   const hasActiveFilters =
     query.trim().length > 0 || dateRange !== null || filterCategory !== "";
+  const activeFilterCount =
+    Number(dateRange !== null) + Number(filterCategory !== "");
   const categoryFilterIds = useMemo(
     () => getCategoryFilterIds(categories, filterCategory),
     [categories, filterCategory],
@@ -990,7 +992,7 @@ export function Ledger({
   const allSelected =
     selectableRows.length > 0 &&
     selectableRows.every((row) => selected.has(row.id));
-  const columnCount = canApprove ? 8 : 7;
+  const columnCount = canApprove ? 7 : 6;
   const pageStart = latestRows.length ? (page - 1) * pageSize + 1 : 0;
   const pageEnd = Math.min(page * pageSize, latestRows.length);
 
@@ -1195,7 +1197,10 @@ export function Ledger({
       } else {
         toast.error(result.message ?? "Không thể lưu thay đổi giao dịch.");
       }
-      if (result.ok || (result.updated ?? 0) + (result.requested ?? 0) > 0) {
+      if (
+        result.ok ||
+        ("updated" in result && result.updated + result.requested > 0)
+      ) {
         setMobileEditTarget(null);
         setMobileEditDraft(null);
       }
@@ -1406,11 +1411,6 @@ export function Ledger({
             ) : null}
           </td>
           <td
-            className={`ledger-date-column ${isDesktop ? "px-4 py-4 text-xs text-[var(--text-secondary)] tabular-nums" : ""}`}
-          >
-            {formatLedgerDate(item.date)}
-          </td>
-          <td
             className={`ledger-category-column ${isDesktop ? "px-4 py-4" : ""}`}
           >
             {item.category ? (
@@ -1597,15 +1597,18 @@ export function Ledger({
                 <Button
                   variant="info"
                   type="button"
-                  aria-label="Mở bộ lọc giao dịch"
+                  aria-label={`Mở bộ lọc giao dịch${activeFilterCount > 0 ? `, ${activeFilterCount} bộ lọc đang áp dụng` : ""}`}
                 />
               }
             >
               <SlidersHorizontal size={16} />
               Bộ lọc
-              {hasActiveFilters && (
-                <span className="text-[0.68rem] font-semibold">
-                  Đang áp dụng
+              {activeFilterCount > 0 && (
+                <span
+                  className="grid size-4 place-items-center rounded-full bg-[var(--info)] text-[0.625rem] font-bold leading-none tabular-nums text-[var(--surface)]"
+                  aria-hidden="true"
+                >
+                  {activeFilterCount}
                 </span>
               )}
             </PopoverTrigger>
@@ -2119,7 +2122,6 @@ export function Ledger({
             <col className="ledger-description-column" />
             <col className="ledger-type-column" />
             <col className="ledger-wallet-column" />
-            <col className="ledger-date-column" />
             <col className="ledger-category-column" />
             <col className="ledger-amount-column" />
             <col className="ledger-actions-column" />
@@ -2172,15 +2174,6 @@ export function Ledger({
                 }
               >
                 Ví
-              </th>
-              <th
-                className={
-                  isDesktop
-                    ? "ledger-date-column px-4 py-3"
-                    : "ledger-date-column"
-                }
-              >
-                Ngày
               </th>
               <th
                 className={

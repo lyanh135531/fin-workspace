@@ -13,6 +13,7 @@ import {
 } from "@/domain";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
+import { toActionFailure } from "@/lib/server-error";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import {
   createWalletForWorkspace,
@@ -49,9 +50,9 @@ export async function createManagedWalletAction(input: unknown) {
     const actor = await walletActor();
     await createWalletForWorkspace(actor.userId, actor.workspaceId, createWalletSchema.parse(input));
     revalidateWalletViews(actor.workspaceId);
-    return { ok: true };
+    return { ok: true as const };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Không thể tạo ví." };
+    return toActionFailure(error, "Không thể tạo ví.", { event: "wallet.managed_create_failed" });
   }
 }
 
@@ -60,9 +61,9 @@ export async function updateManagedWalletAction(input: unknown) {
     const actor = await walletActor();
     await updateWalletForWorkspace(actor.userId, actor.workspaceId, updateWalletSchema.parse(input));
     revalidateWalletViews(actor.workspaceId);
-    return { ok: true };
+    return { ok: true as const };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Không thể cập nhật ví." };
+    return toActionFailure(error, "Không thể cập nhật ví.", { event: "wallet.managed_update_failed" });
   }
 }
 
@@ -75,12 +76,9 @@ export async function reorderManagedWalletsAction(input: unknown) {
       reorderWalletsSchema.parse(input),
     );
     revalidateWalletViews(actor.workspaceId);
-    return { ok: true };
+    return { ok: true as const };
   } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Không thể sắp xếp ví.",
-    };
+    return toActionFailure(error, "Không thể sắp xếp ví.", { event: "wallet.reorder_failed" });
   }
 }
 
@@ -95,9 +93,9 @@ export async function setManagedWalletStatusAction(input: unknown) {
       data.status,
     );
     revalidateWalletViews(actor.workspaceId);
-    return { ok: true };
+    return { ok: true as const };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Không thể đổi trạng thái ví." };
+    return toActionFailure(error, "Không thể đổi trạng thái ví.", { event: "wallet.status_update_failed" });
   }
 }
 
@@ -115,8 +113,8 @@ export async function softDeleteManagedWalletAction(input: unknown) {
       data.settlementWalletId,
     );
     revalidateWalletViews(actor.workspaceId);
-    return { ok: true };
+    return { ok: true as const };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Không thể xóa ví." };
+    return toActionFailure(error, "Không thể xóa ví.", { event: "wallet.delete_failed" });
   }
 }

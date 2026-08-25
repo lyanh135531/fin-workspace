@@ -43,10 +43,12 @@ describe("createPersonalWorkspaceAction", () => {
 
     const result = await createPersonalWorkspaceAction();
 
-    expect(result).toEqual({
+    expect(result).toEqual(expect.objectContaining({
       ok: false,
+      code: "AUTHENTICATION_REQUIRED",
       message: "Bạn cần đăng nhập để tiếp tục.",
-    });
+      requestId: expect.any(String),
+    }));
     expect(createInitialWorkspaceForUser).not.toHaveBeenCalled();
   });
 

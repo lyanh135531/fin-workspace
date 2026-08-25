@@ -427,7 +427,7 @@
 
 .ledger-book .ledger-table {
   table-layout: fixed;
-  min-width: 91rem;
+  min-width: 79rem;
 }
 
 .ledger-book .ledger-table .ledger-selection-column {
@@ -457,11 +457,6 @@
 .ledger-book .ledger-table .ledger-wallet-column {
   width: 8rem;
   min-width: 8rem;
-}
-
-.ledger-book .ledger-table .ledger-date-column {
-  width: 12rem;
-  min-width: 12rem;
 }
 
 .ledger-book .ledger-table .ledger-actions-column {

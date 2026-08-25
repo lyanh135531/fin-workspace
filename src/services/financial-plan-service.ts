@@ -156,11 +156,11 @@ export async function activateFinancialPlan(
     if (plan.status !== "draft") throw new AppError("CONFLICT", "Kế hoạch không còn ở trạng thái nháp.");
     if (databaseDateToMonth(plan.targetMonth) < month) throw new AppError("VALIDATION_ERROR", "Deadline không được trước tháng hiện tại.");
     const active = await tx.financialPlan.findFirst({ where: { workspaceId, status: "active", deletedAt: null }, select: { id: true } });
-    if (active) throw new AppError("CONFLICT", "Workspace đã có một kế hoạch đang hoạt động.");
+    if (active) throw new AppError("CONFLICT", "Nhóm tài chính đã có một kế hoạch đang hoạt động.");
     const balance = await getWorkspaceBalance(tx, workspaceId);
     const existing = new Decimal(plan.existingGoalAmount.toString());
     if (existing.greaterThan(Decimal.max(balance, ZERO))) {
-      throw new AppError("VALIDATION_ERROR", "Tiền đã dành sẵn không được lớn hơn số dư thực tế của workspace.");
+      throw new AppError("VALIDATION_ERROR", "Tiền đã dành sẵn không được lớn hơn số dư thực tế của nhóm tài chính.");
     }
     const draftPercentages = allocationForMonth(plan.allocations, DRAFT_ALLOCATION_MONTH);
     await tx.planJarAllocation.deleteMany({ where: { financialPlanId: plan.id } });

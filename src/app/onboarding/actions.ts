@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 
 import { authOptions } from "@/auth";
 import { AppError } from "@/lib/errors";
+import { toActionFailure, type PublicErrorCode } from "@/lib/server-error";
 import { activeWorkspaceCookie } from "@/services/active-workspace";
 import { createInitialWorkspaceForUser } from "@/services/workspace-service";
 
@@ -13,6 +14,8 @@ export type CreatePersonalWorkspaceResult = {
   ok: boolean;
   message: string | null;
   workspaceId?: string;
+  code?: PublicErrorCode;
+  requestId?: string;
 };
 
 export async function createPersonalWorkspaceAction(): Promise<CreatePersonalWorkspaceResult> {
@@ -47,12 +50,10 @@ export async function createPersonalWorkspaceAction(): Promise<CreatePersonalWor
       workspaceId: result.workspace.id,
     };
   } catch (error) {
-    return {
-      ok: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Không thể tạo không gian cá nhân. Vui lòng thử lại.",
-    };
+    return toActionFailure(
+      error,
+      "Không thể tạo không gian cá nhân. Vui lòng thử lại.",
+      { event: "onboarding.workspace_create_failed" },
+    );
   }
 }

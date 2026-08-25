@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { processAllFinancialPlanMonthClosures } from "@/services/financial-plan-service";
+import { createRequestId, reportServerError } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +23,42 @@ function isAuthorized(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!workerSecret()) return NextResponse.json({ ok: false, message: "Financial plan worker secret is not configured." }, { status: 503 });
-  if (!isAuthorized(request)) return NextResponse.json({ ok: false, message: "Unauthorized." }, { status: 401 });
-  const result = await processAllFinancialPlanMonthClosures();
-  return NextResponse.json({ ok: true, ...result });
+  const requestId = createRequestId();
+  if (!workerSecret()) {
+    reportServerError(
+      "financial_plan_worker.configuration_missing",
+      requestId,
+      new Error("FINANCIAL_PLAN_WORKER_SECRET and a valid NEXTAUTH_SECRET are both unavailable."),
+    );
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "SERVICE_UNAVAILABLE",
+        message: "Dịch vụ tạm thời chưa sẵn sàng.",
+        requestId,
+      },
+      { status: 503 },
+    );
+  }
+  if (!isAuthorized(request)) {
+    return NextResponse.json(
+      { ok: false, code: "UNAUTHORIZED", message: "Không được phép truy cập.", requestId },
+      { status: 401 },
+    );
+  }
+  try {
+    const result = await processAllFinancialPlanMonthClosures();
+    return NextResponse.json({ ok: true, requestId, ...result });
+  } catch (error) {
+    reportServerError("financial_plan_worker.run_failed", requestId, error);
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "INTERNAL_ERROR",
+        message: "Không thể đóng kỳ kế hoạch tài chính.",
+        requestId,
+      },
+      { status: 500 },
+    );
+  }
 }

@@ -58,7 +58,7 @@ export async function reviewWorkspaceJoinRequest(
       });
       if (existing) {
         if (existing.status === "active" && existing.deletedAt === null) {
-          throw new AppError("CONFLICT", "User đã là thành viên.");
+          throw new AppError("CONFLICT", "Người dùng đã là thành viên của nhóm.");
         }
         await tx.workspaceMember.update({
           where: { id: existing.id },

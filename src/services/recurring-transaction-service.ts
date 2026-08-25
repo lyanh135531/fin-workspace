@@ -8,6 +8,7 @@ import {
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
+import { createRequestId, getPublicError, reportServerError } from "@/lib/server-error";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 import {
   createApprovedTransactionInTransaction,
@@ -347,7 +348,15 @@ async function processOneDueOccurrence(workspaceId: string, recurringTransaction
       };
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Không thể tạo giao dịch đến hạn.";
+    const requestId = createRequestId();
+    const publicError = getPublicError(error, "Không thể tạo giao dịch đến hạn.");
+    if (publicError.shouldLog) {
+      reportServerError("recurring_transaction.occurrence_failed", requestId, error, {
+        recurringTransactionId,
+        workspaceId,
+      });
+    }
+    const message = publicError.message;
     await prisma.$transaction(async (tx) => {
       await lockRecurringTransaction(tx, recurringTransactionId);
       const current = await tx.recurringTransaction.findFirst({
@@ -372,6 +381,8 @@ async function processOneDueOccurrence(workspaceId: string, recurringTransaction
           entityId: current.id,
           metadata: {
             dueDate: asBusinessDate(current.nextExecutionDate),
+            errorCode: publicError.code,
+            requestId,
             message: message.slice(0, 500),
           },
         },

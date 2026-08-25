@@ -127,7 +127,11 @@ export function WorkspaceSwitcher({
     setError(null);
     start(async () => {
       try {
-        await selectWorkspaceAction(id);
+        const result = await selectWorkspaceAction(id);
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
         setOpen(false);
         if (pathname === "/wallets") router.refresh();
         else router.push(`/workspace/${id}`);

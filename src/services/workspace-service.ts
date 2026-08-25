@@ -31,9 +31,9 @@ async function createWorkspaceInTransaction(
   const user = await tx.user.findFirst({
     where: { id: userId, status: "active", deletedAt: null },
   });
-  if (!user) throw new AppError("AUTHENTICATION_REQUIRED", "Active user is required.");
+  if (!user) throw new AppError("AUTHENTICATION_REQUIRED", "Không tìm thấy người dùng đang hoạt động.", { expose: false });
   const role = await tx.role.findUnique({ where: { code: "ADMIN" } });
-  if (!role) throw new AppError("NOT_FOUND", "The ADMIN role is missing.");
+  if (!role) throw new AppError("NOT_FOUND", "Thiếu vai trò ADMIN trong dữ liệu hệ thống.", { expose: false });
   const inviteCode = await generateUniqueInviteCode(tx);
   const workspace = await tx.workspace.create({ data: { ...input, inviteCode } });
   await tx.workspaceMember.create({ data: { workspaceId: workspace.id, userId, roleId: role.id } });

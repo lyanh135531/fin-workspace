@@ -3,19 +3,20 @@
 import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/auth";
+import { AppError } from "@/lib/errors";
+import { toActionFailure } from "@/lib/server-error";
 import { changeOwnPassword } from "@/services/user-profile-service";
 
 async function actor() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) throw new Error("Cần đăng nhập.");
+  if (!session?.user?.id) throw new AppError("AUTHENTICATION_REQUIRED", "Cần đăng nhập.");
   return session.user.id;
 }
 
 function failure(error: unknown) {
-  return {
-    ok: false,
-    message: error instanceof Error ? error.message : "Không thể lưu thay đổi.",
-  };
+  return toActionFailure(error, "Không thể đổi mật khẩu.", {
+    event: "account.password_change_failed",
+  });
 }
 
 export async function changePasswordAction(input: unknown) {

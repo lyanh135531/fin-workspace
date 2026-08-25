@@ -9,6 +9,7 @@ import {
 } from "@/domain";
 import { idSchema } from "@/domain/common/schemas";
 import { AppError } from "@/lib/errors";
+import { toActionFailure } from "@/lib/server-error";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import {
   createRecurringTransaction,
@@ -36,8 +37,8 @@ function refreshRecurringPages(workspaceId: string) {
   revalidatePath("/dashboard/financial-plans");
 }
 
-function failure(error: unknown, fallback: string) {
-  return { ok: false as const, message: error instanceof Error ? error.message : fallback };
+function failure(error: unknown, fallback: string, event: string) {
+  return toActionFailure(error, fallback, { event });
 }
 
 export async function createRecurringTransactionAction(input: unknown) {
@@ -51,7 +52,7 @@ export async function createRecurringTransactionAction(input: unknown) {
     refreshRecurringPages(actor.workspaceId);
     return { ok: true as const, id: record.id };
   } catch (error) {
-    return failure(error, "Không thể tạo giao dịch định kỳ.");
+    return failure(error, "Không thể tạo giao dịch định kỳ.", "recurring_transaction.create_failed");
   }
 }
 
@@ -67,7 +68,7 @@ export async function updateRecurringTransactionAction(id: unknown, input: unkno
     refreshRecurringPages(actor.workspaceId);
     return { ok: true as const };
   } catch (error) {
-    return failure(error, "Không thể cập nhật giao dịch định kỳ.");
+    return failure(error, "Không thể cập nhật giao dịch định kỳ.", "recurring_transaction.update_failed");
   }
 }
 
@@ -83,7 +84,7 @@ export async function setRecurringTransactionStatusAction(id: unknown, status: u
     refreshRecurringPages(actor.workspaceId);
     return { ok: true as const };
   } catch (error) {
-    return failure(error, "Không thể thay đổi trạng thái.");
+    return failure(error, "Không thể thay đổi trạng thái.", "recurring_transaction.status_update_failed");
   }
 }
 
@@ -94,6 +95,6 @@ export async function deleteRecurringTransactionAction(id: unknown) {
     refreshRecurringPages(actor.workspaceId);
     return { ok: true as const };
   } catch (error) {
-    return failure(error, "Không thể xóa giao dịch định kỳ.");
+    return failure(error, "Không thể xóa giao dịch định kỳ.", "recurring_transaction.delete_failed");
   }
 }

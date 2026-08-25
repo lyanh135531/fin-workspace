@@ -18,6 +18,7 @@ vi.mock("@/services/financial-plan-service", () => ({
 }));
 
 import { activateFinancialPlanAction, createFinancialPlanDraftAction } from "@/app/dashboard/financial-plans/actions";
+import { AppError } from "@/lib/errors";
 
 const validInput = {
   name: "Quỹ Tết", targetAmount: "100000000", existingGoalAmount: "0", targetMonth: "2027-05",
@@ -51,14 +52,24 @@ describe("financial plan server actions", () => {
   });
 
   it("enforces admin RBAC and returns concurrency conflicts to the client", async () => {
-    mocks.requireWorkspaceMember.mockRejectedValueOnce(new Error("Bạn không có quyền truy cập nhóm tài chính này."));
+    mocks.requireWorkspaceMember.mockRejectedValueOnce(new AppError("FORBIDDEN", "Bạn không có quyền truy cập nhóm tài chính này."));
     const forbidden = await activateFinancialPlanAction("30000000-0000-0000-0000-000000000003");
-    expect(forbidden).toEqual({ ok: false, message: "Bạn không có quyền truy cập nhóm tài chính này." });
+    expect(forbidden).toEqual(expect.objectContaining({
+      ok: false,
+      code: "FORBIDDEN",
+      message: "Bạn không có quyền truy cập nhóm tài chính này.",
+      requestId: expect.any(String),
+    }));
     expect(mocks.activate).not.toHaveBeenCalled();
 
     mocks.requireWorkspaceMember.mockResolvedValueOnce({ role: { code: "ADMIN" } });
-    mocks.activate.mockRejectedValueOnce(new Error("Workspace đã có một kế hoạch đang hoạt động."));
+    mocks.activate.mockRejectedValueOnce(new AppError("CONFLICT", "Nhóm tài chính đã có một kế hoạch đang hoạt động."));
     const conflict = await activateFinancialPlanAction("30000000-0000-0000-0000-000000000003");
-    expect(conflict).toEqual({ ok: false, message: "Workspace đã có một kế hoạch đang hoạt động." });
+    expect(conflict).toEqual(expect.objectContaining({
+      ok: false,
+      code: "CONFLICT",
+      message: "Nhóm tài chính đã có một kế hoạch đang hoạt động.",
+      requestId: expect.any(String),
+    }));
   });
 });
