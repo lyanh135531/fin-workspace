@@ -24,6 +24,8 @@ const buttonVariants = cva(
         secondary:
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         info: "bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)] hover:bg-[color-mix(in_srgb,var(--info)_18%,var(--surface))]",
+        selected:
+          "bg-[color-mix(in_srgb,var(--primary)_12%,var(--surface))] text-[var(--primary)] hover:bg-[color-mix(in_srgb,var(--primary)_18%,var(--surface))] focus-visible:ring-[color-mix(in_srgb,var(--primary)_35%,transparent)]",
         warning:
           "bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)] hover:bg-[color-mix(in_srgb,var(--warning)_18%,var(--surface))]",
         success:
@@ -39,7 +41,7 @@ const buttonVariants = cva(
       size: {
         default: "h-8 px-2.5 rounded-3xl",
         sm: "h-7 rounded-md px-2.5 text-xs",
-        lg: "h-10 rounded-md px-4",
+        lg: "h-10 rounded-xl px-4",
         icon: "h-8",
         fab: "size-12 aspect-square rounded-full p-0",
         auto: "",

@@ -12,7 +12,10 @@ import { Suspense } from "react";
 
 import { authOptions } from "@/auth";
 import { DashboardHeaderSubtitle } from "@/app/dashboard/dashboard-header-subtitle";
-import { AppearanceMenu } from "@/app/dashboard/appearance-controls";
+import {
+  AppearanceMenu,
+  MobileAppearanceSheet,
+} from "@/app/dashboard/appearance-controls";
 import { MobileBottomNavigation } from "@/app/dashboard/mobile-bottom-navigation";
 import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
 import { MobileNavigation } from "@/app/dashboard/mobile-navigation";
@@ -261,6 +264,9 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
       </div>
 
       <div className="header-action-group">
+        <div className="min-[901px]:hidden">
+          <MobileAppearanceSheet />
+        </div>
         <div className="hidden min-[901px]:block">
           <AppearanceMenu />
         </div>

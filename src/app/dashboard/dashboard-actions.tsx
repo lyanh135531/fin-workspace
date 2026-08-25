@@ -2087,13 +2087,26 @@ export function Ledger({
         )}
         {groupTransactionsByDate(rows).map(({ dateKey, label, items }) => {
           const totals = getLedgerDateTotals(items);
+          const totalAmount = totals.income.minus(totals.expense);
           return (
             <section key={dateKey} className="ledger-date-group">
               <header className="ledger-date-group-header">
                 <span>{label}</span>
-                <strong className="shrink-0 text-[0.68rem] font-semibold tabular-nums text-[var(--expense)]">
-                  Chi {totals.expense.isZero() ? "" : "−"}
-                  {formatAmount(totals.expense)} {currency}
+                <strong
+                  className={`shrink-0 text-[0.68rem] font-semibold tabular-nums ${
+                    totalAmount.isPositive()
+                      ? "text-[var(--income)]"
+                      : totalAmount.isNegative()
+                        ? "text-[var(--expense)]"
+                        : "text-[var(--text-secondary)]"
+                  }`}
+                >
+                  {totalAmount.isPositive()
+                    ? "+"
+                    : totalAmount.isNegative()
+                      ? "−"
+                      : ""}
+                  {formatAmount(totalAmount.abs())} {currency}
                 </strong>
               </header>
               {items.map(renderMobileTransaction)}
@@ -2209,6 +2222,7 @@ export function Ledger({
               ? groupTransactionsByDate(rows).map(
                   ({ dateKey, label, items }) => {
                     const totals = getLedgerDateTotals(items);
+                    const totalAmount = totals.income.minus(totals.expense);
                     return (
                       <Fragment key={dateKey}>
                         <tr>
@@ -2229,20 +2243,22 @@ export function Ledger({
                                   {items.length} giao dịch
                                 </span>
                               </div>
-                              <div className="flex shrink-0 items-center gap-5 text-[0.68rem] font-medium tabular-nums">
-                                {!totals.income.isZero() && (
-                                  <span className="text-[var(--income)]">
-                                    Thu +{formatAmount(totals.income)}{" "}
-                                    {currency}
-                                  </span>
-                                )}
-                                {!totals.expense.isZero() && (
-                                  <span className="text-[var(--expense)]">
-                                    Chi −{formatAmount(totals.expense)}{" "}
-                                    {currency}
-                                  </span>
-                                )}
-                              </div>
+                              <strong
+                                className={`shrink-0 text-[0.68rem] font-semibold tabular-nums ${
+                                  totalAmount.isPositive()
+                                    ? "text-[var(--income)]"
+                                    : totalAmount.isNegative()
+                                      ? "text-[var(--expense)]"
+                                      : "text-[var(--text-secondary)]"
+                                }`}
+                              >
+                                {totalAmount.isPositive()
+                                  ? "+"
+                                  : totalAmount.isNegative()
+                                    ? "−"
+                                    : ""}
+                                {formatAmount(totalAmount.abs())} {currency}
+                              </strong>
                             </div>
                           </td>
                         </tr>

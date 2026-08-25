@@ -2,7 +2,15 @@
 
 import { Check, Moon, Palette, Sun } from "lucide-react";
 import { useSyncExternalStore } from "react";
-import { Button } from "@/components/base";
+import {
+  Button,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/base";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,11 +52,10 @@ function subscribeAppearance(callback: () => void) {
 function getAppearance() {
   const rawTheme = document.documentElement.dataset.theme;
   const theme = APPEARANCE_THEMES.some((item) => item.value === rawTheme)
-    ? rawTheme as AppearanceTheme
+    ? (rawTheme as AppearanceTheme)
     : "sunrise";
-  const mode: AppearanceMode = document.documentElement.dataset.mode === "dark"
-    ? "dark"
-    : "light";
+  const mode: AppearanceMode =
+    document.documentElement.dataset.mode === "dark" ? "dark" : "light";
   return `${theme}:${mode}`;
 }
 
@@ -58,11 +65,15 @@ function useAppearance() {
     getAppearance,
     () => "sunrise:light",
   );
-  const [theme, mode] = snapshot.split(":") as [AppearanceTheme, AppearanceMode];
+  const [theme, mode] = snapshot.split(":") as [
+    AppearanceTheme,
+    AppearanceMode,
+  ];
   return {
     theme,
     mode,
-    selectTheme: (nextTheme: AppearanceTheme) => applyAppearance(nextTheme, mode),
+    selectTheme: (nextTheme: AppearanceTheme) =>
+      applyAppearance(nextTheme, mode),
     selectMode: (nextMode: AppearanceMode) => applyAppearance(theme, nextMode),
   };
 }
@@ -85,31 +96,58 @@ export function AppearanceMenu() {
       >
         <Palette aria-hidden="true" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel>Chế độ hiển thị</DropdownMenuLabel>
+      <DropdownMenuContent align="end" sideOffset={8} className="w-72 p-2">
+        <div className="px-2 pb-2 pt-1">
+          <p className="text-sm font-semibold text-[var(--foreground)]">
+            Giao diện
+          </p>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+            Tùy chỉnh chế độ và màu sắc.
+          </p>
+        </div>
+        <DropdownMenuSeparator />
         <DropdownMenuRadioGroup
           value={mode}
           onValueChange={(value) => selectMode(value as AppearanceMode)}
+          className="py-1"
         >
-          <DropdownMenuRadioItem value="light">
-            <Sun aria-hidden="true" />
-            Sáng
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="dark">
-            <Moon aria-hidden="true" />
-            Tối
-          </DropdownMenuRadioItem>
+          <DropdownMenuLabel className="px-2 pb-1.5 pt-1 text-[0.68rem] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Chế độ hiển thị
+          </DropdownMenuLabel>
+          <div className="grid grid-cols-2 gap-1">
+            <DropdownMenuRadioItem
+              value="light"
+              className="min-h-10 justify-center px-3 py-2.5 pr-8 font-medium data-checked:bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] data-checked:text-[var(--primary)]"
+            >
+              <Sun aria-hidden="true" />
+              Sáng
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem
+              value="dark"
+              className="min-h-10 justify-center px-3 py-2.5 pr-8 font-medium data-checked:bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] data-checked:text-[var(--primary)]"
+            >
+              <Moon aria-hidden="true" />
+              Tối
+            </DropdownMenuRadioItem>
+          </div>
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>Chủ đề màu</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={theme}
           onValueChange={(value) => selectTheme(value as AppearanceTheme)}
+          className="py-1 space-y-1"
         >
+          <DropdownMenuLabel className="px-2 pb-1.5 pt-1 text-[0.68rem] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Chủ đề màu
+          </DropdownMenuLabel>
           {APPEARANCE_THEMES.map((item) => (
-            <DropdownMenuRadioItem key={item.value} value={item.value}>
+            <DropdownMenuRadioItem
+              key={item.value}
+              value={item.value}
+              className="min-h-10 gap-2.5 px-2.5 py-2 pr-8 font-medium data-checked:bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] data-checked:text-[var(--foreground)]"
+            >
               <span
-                className="size-3 rounded-full"
+                className="size-4 rounded-full ring-1 ring-inset ring-[var(--border)]"
                 style={{ backgroundColor: item.color }}
                 aria-hidden="true"
               />
@@ -122,65 +160,129 @@ export function AppearanceMenu() {
   );
 }
 
-export function MobileAppearanceControls() {
+export function MobileAppearanceSheet() {
   const { theme, mode, selectTheme, selectMode } = useAppearance();
 
   return (
-    <section className="border-t border-[var(--border)] px-3 py-4" aria-labelledby="mobile-appearance-title">
-      <div className="flex items-center gap-2 px-2">
-        <Palette size={16} className="text-[var(--text-secondary)]" aria-hidden="true" />
-        <h2 id="mobile-appearance-title" className="text-sm font-semibold text-[var(--foreground)]">
-          Giao diện
-        </h2>
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Chế độ hiển thị">
-        {([
-          { value: "light", label: "Sáng", icon: Sun },
-          { value: "dark", label: "Tối", icon: Moon },
-        ] as const).map((item) => {
-          const Icon = item.icon;
-          const selected = mode === item.value;
-          return (
-            <Button
-              key={item.value}
-              variant="ghost"
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              className="w-full justify-start"
-              onClick={() => selectMode(item.value)}
+    <Sheet>
+      <SheetTrigger
+        render={
+          <Button
+            variant="icon"
+            size="icon"
+            type="button"
+            aria-label="Mở cài đặt giao diện"
+            title="Cài đặt giao diện"
+          />
+        }
+      >
+        <Palette aria-hidden="true" />
+      </SheetTrigger>
+      <SheetContent
+        side="bottom"
+        placement="inset"
+        spacing="flush"
+        elevation="flat"
+        className="max-h-[min(85dvh,42rem)]"
+        aria-label="Cài đặt giao diện"
+      >
+        <SheetHeader className="border-b border-[var(--border)] px-4 pb-4 pt-6">
+          <div className="flex items-center gap-3 pr-8">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]">
+              <Palette size={18} aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <SheetTitle>Giao diện</SheetTitle>
+              <SheetDescription className="mt-0.5 text-xs">
+                Tùy chỉnh chế độ và màu sắc.
+              </SheetDescription>
+            </div>
+          </div>
+        </SheetHeader>
+
+        <div className="grid min-h-0 gap-5 overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
+          <section aria-labelledby="mobile-mode-label">
+            <p
+              id="mobile-mode-label"
+              className="text-[0.68rem] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
             >
-              <Icon aria-hidden="true" />
-              {item.label}
-              {selected && <Check className="ml-auto" aria-hidden="true" />}
-            </Button>
-          );
-        })}
-      </div>
-      <div className="mt-3 grid gap-1" role="radiogroup" aria-label="Chủ đề màu">
-        {APPEARANCE_THEMES.map((item) => {
-          const selected = theme === item.value;
-          return (
-            <Button
-              key={item.value}
-              variant="ghost"
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              className="w-full justify-start"
-              onClick={() => selectTheme(item.value)}
+              Chế độ hiển thị
+            </p>
+            <div
+              className="mt-2 grid grid-cols-2 gap-1 rounded-2xl bg-[var(--surface-secondary)] p-1"
+              role="radiogroup"
+              aria-labelledby="mobile-mode-label"
             >
-              <span
-                className="size-3 rounded-full"
-                style={{ backgroundColor: item.color }}
-                aria-hidden="true"
-              />
-              {item.label}
-              {selected && <Check className="ml-auto" aria-hidden="true" />}
-            </Button>
-          );
-        })}
-      </div>
-    </section>
+              {(
+                [
+                  { value: "light", label: "Sáng", icon: Sun },
+                  { value: "dark", label: "Tối", icon: Moon },
+                ] as const
+              ).map((item) => {
+                const Icon = item.icon;
+                const selected = mode === item.value;
+                return (
+                  <Button
+                    key={item.value}
+                    variant={selected ? "selected" : "ghost"}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    className="w-full justify-start"
+                    onClick={() => selectMode(item.value)}
+                  >
+                    <Icon aria-hidden="true" />
+                    {item.label}
+                    {selected && (
+                      <Check className="ml-auto" aria-hidden="true" />
+                    )}
+                  </Button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section aria-labelledby="mobile-theme-label">
+            <p
+              id="mobile-theme-label"
+              className="text-[0.68rem] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
+            >
+              Chủ đề màu
+            </p>
+            <div
+              className="mt-2 grid gap-1 rounded-xl bg-[var(--surface-secondary)] p-1 sm:grid-cols-2"
+              role="radiogroup"
+              aria-labelledby="mobile-theme-label"
+            >
+              {APPEARANCE_THEMES.map((item) => {
+                const selected = theme === item.value;
+                return (
+                  <Button
+                    key={item.value}
+                    variant={selected ? "selected" : "ghost"}
+                    size="lg"
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    className="w-full justify-start"
+                    onClick={() => selectTheme(item.value)}
+                  >
+                    <span
+                      className="size-4 rounded-full ring-1 ring-inset ring-[var(--border)]"
+                      style={{ backgroundColor: item.color }}
+                      aria-hidden="true"
+                    />
+                    {item.label}
+                    {selected && (
+                      <Check className="ml-auto" aria-hidden="true" />
+                    )}
+                  </Button>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

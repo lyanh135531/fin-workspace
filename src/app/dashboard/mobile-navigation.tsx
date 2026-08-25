@@ -16,7 +16,6 @@ import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
 import { AccountSettingsModal } from "@/app/dashboard/account-settings-modal";
 import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
 import { FinLogo } from "@/components/fin-logo";
-import { MobileAppearanceControls } from "@/app/dashboard/appearance-controls";
 
 type Workspace = { id: string; name: string; role: string };
 
@@ -86,7 +85,6 @@ function MobileNavigationDrawer({
               username={username}
               forceExpandedWorkspaceSwitcher
             />
-            <MobileAppearanceControls />
           </div>
 
           <div className="mobile-navigation-user">
