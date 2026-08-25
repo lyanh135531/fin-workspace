@@ -1361,11 +1361,16 @@ function MonthHistory({
   months: PlanMonth[];
   currency: string;
 }) {
+  const [selectedMonth, setSelectedMonth] = useState<PlanMonth | null>(null);
+
   return (
     <Card className="p-4 md:p-6">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <History aria-hidden /> Lịch kế hoạch theo tháng
+        <CardTitle>
+          <span className="md:hidden">Lịch theo tháng</span>
+          <span className="hidden items-center gap-2 md:flex">
+            <History aria-hidden /> Lịch kế hoạch theo tháng
+          </span>
         </CardTitle>
         <CardDescription className="hidden md:block">
           Tháng chưa kết thúc được cập nhật theo dữ liệu hiện tại; tháng đã kết
@@ -1373,22 +1378,80 @@ function MonthHistory({
           giao dịch cũ.
         </CardDescription>
         <CardDescription className="md:hidden">
-          Mở từng tháng để xem ngân sách và số tiền cần để dành.
+          {months.length} tháng · Chạm để xem chi tiết
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-2">
+
+      <CardContent className="md:hidden">
+        {months.map((month) => (
+          <div
+            key={month.month}
+            className="border-b border-[var(--border)] last:border-b-0"
+          >
+            <Button
+              variant="ghost"
+              size="auto"
+              className="w-full justify-between gap-4 py-3.5 text-left"
+              onClick={() => setSelectedMonth(month)}
+              aria-haspopup="dialog"
+            >
+              <span className="min-w-0">
+                <strong className="block text-sm text-[var(--foreground)]">
+                  {monthLabel(month.month)}
+                </strong>
+                <span className="mt-0.5 block text-xs font-normal text-[var(--text-muted)]">
+                  {month.closed ? "Đã chốt" : "Dự kiến"}
+                </span>
+              </span>
+              <span className="flex shrink-0 items-center gap-2">
+                <strong
+                  className={`text-sm font-semibold tabular-nums ${new Decimal(month.availableToSpend).isNegative() ? "text-[var(--destructive)]" : "text-[var(--foreground)]"}`}
+                >
+                  <span className="sr-only">Có thể chi </span>
+                  {money(month.availableToSpend, currency)}
+                </strong>
+                <ChevronDown
+                  className="size-4 -rotate-90 text-[var(--text-muted)]"
+                  aria-hidden
+                />
+              </span>
+            </Button>
+          </div>
+        ))}
+      </CardContent>
+
+      <Sheet
+        open={selectedMonth !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedMonth(null);
+        }}
+      >
+        <SheetContent side="bottom" placement="inset">
+          {selectedMonth && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{monthLabel(selectedMonth.month)}</SheetTitle>
+                <SheetDescription>
+                  {selectedMonth.closed ? "Đã chốt" : "Dự kiến"}
+                </SheetDescription>
+              </SheetHeader>
+              <MonthSheetDetail month={selectedMonth} currency={currency} />
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <CardContent className="hidden gap-2 md:grid">
         {months.map((month) => (
           <details
             key={month.month}
-            className="group border-b border-[var(--border)] py-3 last:border-b-0 md:rounded-xl md:border-b-0 md:bg-[var(--surface-secondary)] md:px-4"
+            className="group rounded-xl bg-[var(--surface-secondary)] px-4 py-3"
           >
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]">
               <span className="min-w-0">
-                <strong className="block md:inline">
-                  {monthLabel(month.month)}
-                </strong>
-                <span className="text-xs text-[var(--text-muted)] md:ml-2">
-                  {month.closed ? "Đã đóng" : "Dự kiến"}
+                <strong>{monthLabel(month.month)}</strong>
+                <span className="ml-2 text-xs text-[var(--text-muted)]">
+                  {month.closed ? "Đã chốt" : "Dự kiến"}
                 </span>
               </span>
               <span className="flex items-center gap-2 text-right text-sm">
@@ -1401,65 +1464,130 @@ function MonthHistory({
                   </strong>
                 </span>
                 <ChevronDown
-                  className="size-4 shrink-0 text-[var(--text-muted)] transition-transform group-open:rotate-180 md:hidden"
+                  className="size-4 shrink-0 text-[var(--text-muted)] transition-transform group-open:rotate-180"
                   aria-hidden
                 />
               </span>
             </summary>
-            <div
-              className={`mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--border)] pt-3 ${new Decimal(month.resourceShortfall).greaterThan(0) ? "md:grid-cols-3" : "md:grid-cols-2"}`}
-            >
-              <Metric
-                label={month.closed ? "Còn lại khi chốt" : "Còn có thể chi"}
-                value={money(month.availableToSpend, currency)}
-                icon={CircleDollarSign}
-                tone={
-                  new Decimal(month.availableToSpend).isNegative()
-                    ? "warning"
-                    : "default"
-                }
-              />
-              {new Decimal(month.resourceShortfall).greaterThan(0) && (
-                <Metric
-                  label="Số tiền còn thiếu"
-                  value={money(month.resourceShortfall, currency)}
-                  icon={AlertTriangle}
-                  tone="warning"
-                />
-              )}
-              <div
-                className={
-                  new Decimal(month.resourceShortfall).greaterThan(0)
-                    ? "col-span-2 md:col-span-1"
-                    : ""
-                }
-              >
-                <Metric
-                  label={
-                    month.closed ? "Thực tế đã để dành" : "Ước tính để dành"
-                  }
-                  value={money(
-                    month.closedActualGoalAmount ??
-                      month.projectedActualGoalAmount ??
-                      "0",
-                    currency,
-                  )}
-                  icon={PiggyBank}
-                />
-              </div>
-              {month.closed &&
-                month.adjustedDelta &&
-                month.adjustedDelta !== "0" && (
-                  <p className="sm:col-span-3 text-sm text-[var(--warning)]">
-                    Điều chỉnh do giao dịch cũ thay đổi:{" "}
-                    {money(month.adjustedDelta, currency)}.
-                  </p>
-                )}
-            </div>
+            <MonthDetailMetrics
+              month={month}
+              currency={currency}
+            />
           </details>
         ))}
       </CardContent>
     </Card>
+  );
+}
+
+function MonthSheetDetail({
+  month,
+  currency,
+}: {
+  month: PlanMonth;
+  currency: string;
+}) {
+  const availableToSpend = new Decimal(month.availableToSpend);
+  const hasShortfall = new Decimal(month.resourceShortfall).greaterThan(0);
+  const savedAmount =
+    month.closedActualGoalAmount ?? month.projectedActualGoalAmount ?? "0";
+
+  return (
+    <div className="grid gap-4 overflow-y-auto px-4 pb-4">
+      <section className="grid gap-1 border-t border-[var(--border)] pt-4">
+        <p className="text-xs text-[var(--text-muted)]">
+          {month.closed ? "Còn lại khi chốt" : "Có thể chi"}
+        </p>
+        <strong
+          className={`text-3xl font-semibold tracking-tight tabular-nums ${availableToSpend.isNegative() ? "text-[var(--destructive)]" : "text-[var(--foreground)]"}`}
+        >
+          {money(month.availableToSpend, currency)}
+        </strong>
+      </section>
+
+      <dl className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
+        <div className="flex items-center justify-between gap-4 py-3">
+          <dt className="text-sm text-[var(--text-secondary)]">Cần để dành</dt>
+          <dd className="font-semibold tabular-nums text-[var(--foreground)]">
+            {money(month.adjustedRequiredAmount, currency)}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-4 py-3">
+          <dt className="text-sm text-[var(--text-secondary)]">
+            {month.closed ? "Thực tế để dành" : "Dự kiến để dành"}
+          </dt>
+          <dd className="font-semibold tabular-nums text-[var(--foreground)]">
+            {money(savedAmount, currency)}
+          </dd>
+        </div>
+        {hasShortfall && (
+          <div className="flex items-center justify-between gap-4 py-3">
+            <dt className="text-sm text-[var(--warning)]">Còn thiếu</dt>
+            <dd className="font-semibold tabular-nums text-[var(--warning)]">
+              {money(month.resourceShortfall, currency)}
+            </dd>
+          </div>
+        )}
+      </dl>
+
+      {month.closed && month.adjustedDelta && month.adjustedDelta !== "0" && (
+        <p className="text-xs leading-5 text-[var(--warning)]">
+          Điều chỉnh từ giao dịch cũ: {money(month.adjustedDelta, currency)}.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MonthDetailMetrics({
+  month,
+  currency,
+}: {
+  month: PlanMonth;
+  currency: string;
+}) {
+  const hasShortfall = new Decimal(month.resourceShortfall).greaterThan(0);
+
+  return (
+    <div
+      className={`mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--border)] pt-3 ${hasShortfall ? "md:grid-cols-3" : "md:grid-cols-2"}`}
+    >
+      <Metric
+        label={month.closed ? "Còn lại khi chốt" : "Còn có thể chi"}
+        value={money(month.availableToSpend, currency)}
+        icon={CircleDollarSign}
+        tone={
+          new Decimal(month.availableToSpend).isNegative()
+            ? "warning"
+            : "default"
+        }
+      />
+      {hasShortfall && (
+        <Metric
+          label="Số tiền còn thiếu"
+          value={money(month.resourceShortfall, currency)}
+          icon={AlertTriangle}
+          tone="warning"
+        />
+      )}
+      <div className={hasShortfall ? "col-span-2 md:col-span-1" : ""}>
+        <Metric
+          label={month.closed ? "Thực tế đã để dành" : "Ước tính để dành"}
+          value={money(
+            month.closedActualGoalAmount ??
+              month.projectedActualGoalAmount ??
+              "0",
+            currency,
+          )}
+          icon={PiggyBank}
+        />
+      </div>
+      {month.closed && month.adjustedDelta && month.adjustedDelta !== "0" && (
+        <p className="col-span-2 text-sm text-[var(--warning)] md:col-span-3">
+          Điều chỉnh do giao dịch cũ thay đổi: {money(month.adjustedDelta, currency)}.
+        </p>
+      )}
+    </div>
   );
 }
 
