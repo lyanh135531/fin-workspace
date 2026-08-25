@@ -404,7 +404,12 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
         month: databaseDateToMonth(month.month), closed: true,
         baseRequiredAmount: month.baseRequiredAmount.toString(), adjustedRequiredAmount: month.adjustedRequiredAmount.toString(),
         rawGrossBudget: month.rawGrossBudget.toString(), allocatableGrossBudget: month.allocatableGrossBudget.toString(),
-        resourceShortfall: month.resourceShortfall.toString(), closedActualGoalAmount: month.closedActualGoalAmount.toString(),
+        resourceShortfall: month.resourceShortfall.toString(),
+        availableToSpend: new Decimal(month.allocatableGrossBudget.toString())
+          .minus(month.closedEligibleExpense.toString())
+          .minus(month.resourceShortfall.toString())
+          .toFixed(0),
+        closedActualGoalAmount: month.closedActualGoalAmount.toString(),
         adjustedActualGoalAmount: adjustedActual.toFixed(0), adjustedDelta: adjustedActual.minus(month.closedActualGoalAmount.toString()).toFixed(0),
         jars: month.jars.map((jar) => ({ jarCode: jar.jarCode, percentage: jar.percentage.toString(), allocatedAmount: jar.allocatedAmount.toString(), closedActualAmount: jar.closedActualAmount.toString() })),
       });
@@ -446,7 +451,8 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
       projectedMonths.push({
         month, closed: false, baseRequiredAmount: baseSchedule[allPlanMonths.indexOf(month)].toFixed(0), adjustedRequiredAmount: required.toFixed(0),
         rawGrossBudget: result.rawGrossBudget.toFixed(0), allocatableGrossBudget: result.allocatableGrossBudget.toFixed(0), resourceShortfall: result.resourceShortfall.toFixed(0),
-        eligibleExpense: result.eligibleExpense.toFixed(0), totalRemaining: result.totalRemaining.toFixed(0), totalOverspend: result.totalOverspend.toFixed(0),
+        availableToSpend: result.budgetVariance.toFixed(0), eligibleExpense: result.eligibleExpense.toFixed(0),
+        totalRemaining: result.totalRemaining.toFixed(0), totalOverspend: result.totalOverspend.toFixed(0),
         projectedActualGoalAmount: result.actualGoalAmountForMonth.toFixed(0), pendingIncome: ledger.pendingIncome.toFixed(0), pendingExpense: ledger.pendingExpense.toFixed(0),
         jars: FINANCIAL_JAR_CODES.map((jarCode) => ({ jarCode, percentage: percentages[jarCode].toString(), allocatedAmount: result.allocatedByJar[jarCode].toFixed(0),
           expenseAmount: result.expenseByJar[jarCode].toFixed(0), remainingAmount: result.remainingByJar[jarCode].toFixed(0), overspendAmount: result.overspendByJar[jarCode].toFixed(0) })),

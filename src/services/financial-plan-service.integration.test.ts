@@ -97,6 +97,7 @@ describe("financial plan service database invariants", () => {
     expect(view.status).toBe("active");
     if (!("months" in view) || !view.months) throw new Error("Active plan view must include its month schedule.");
     expect(view.months[0]?.rawGrossBudget).toBe("10000000");
+    expect(view.months[0]?.availableToSpend).toBe("-2000000");
     expect(view.months[0]?.projectedActualGoalAmount).toBe("8000000");
     expect(view.months[1]?.adjustedRequiredAmount).toBe("11000000");
 

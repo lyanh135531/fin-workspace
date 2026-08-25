@@ -92,6 +92,7 @@ type PlanMonth = {
   rawGrossBudget: string;
   allocatableGrossBudget: string;
   resourceShortfall: string;
+  availableToSpend: string;
   closedActualGoalAmount?: string;
   adjustedActualGoalAmount?: string;
   adjustedDelta?: string;
@@ -226,13 +227,31 @@ function progressWidth(value: string) {
   return Math.min(Math.max(parsed, 0), 100);
 }
 
+function progressTone(percentage: number) {
+  if (percentage >= 90) return "critical";
+  if (percentage >= 70) return "warning";
+  return "safe";
+}
+
+const PROGRESS_BAR_TONES = {
+  safe: "bg-[var(--success)]",
+  warning: "bg-[var(--warning)]",
+  critical: "bg-[var(--destructive)]",
+} as const;
+
+const PROGRESS_TEXT_TONES = {
+  safe: "text-[var(--success)]",
+  warning: "text-[var(--warning)]",
+  critical: "text-[var(--destructive)]",
+} as const;
+
 function jarUsagePercentage(jar: PlanMonthJar) {
   try {
     const allocated = new Decimal(jar.allocatedAmount);
-    if (allocated.lessThanOrEqualTo(0)) return 0;
     const spent = new Decimal(
       jar.expenseAmount ?? jar.closedActualAmount ?? "0",
     );
+    if (allocated.lessThanOrEqualTo(0)) return spent.isPositive() ? 100 : 0;
     return progressWidth(spent.dividedBy(allocated).times(100).toString());
   } catch {
     return 0;
@@ -469,7 +488,7 @@ export function FinancialPlansManager({
                 : "Xóa kế hoạch"
             }
             title="Xóa kế hoạch?"
-            description="Kế hoạch sẽ bị xóa khỏi danh sách. Các snapshot tài chính liên quan vẫn được lưu trong hệ thống."
+            description="Kế hoạch sẽ bị xóa khỏi danh sách. Các số liệu tài chính đã chốt vẫn được lưu trong hệ thống."
             content={
               deleteCandidate ? (
                 <div className="ledger-mobile-review-transaction rounded-2xl">
@@ -525,7 +544,7 @@ export function FinancialPlansManager({
             title="Chưa có kế hoạch tài chính"
             description={
               canManage
-                ? "Tạo mục tiêu, chọn deadline và tỷ lệ sáu hũ. Hệ thống sẽ tự tính khoản phải dành từ số dư và dòng tiền thực tế."
+                ? "Tạo mục tiêu, chọn hạn hoàn thành và tỷ lệ sáu hũ. Hệ thống sẽ tự tính khoản cần để dành từ số dư và dòng tiền thực tế."
                 : "Admin của workspace chưa tạo kế hoạch tài chính."
             }
             action={
@@ -613,7 +632,7 @@ export function FinancialPlansManager({
                       planId: running.id,
                       targetMonth,
                     }),
-                  "Đã cập nhật deadline.",
+                  "Đã cập nhật hạn hoàn thành.",
                   () => setDeadlineOpen(false),
                 )
               }
@@ -701,7 +720,7 @@ function DraftReview({
             icon={PiggyBank}
           />
           <Metric
-            label="Deadline"
+            label="Hạn hoàn thành"
             value={monthLabel(plan.targetMonth)}
             icon={CalendarClock}
           />
@@ -803,6 +822,7 @@ function PlanDetail({
   onComplete: () => void;
 }) {
   const shortfall = currentMonth?.resourceShortfall ?? "0";
+  const hasShortfall = new Decimal(shortfall).greaterThan(0);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [cancelConfirmRequested, setCancelConfirmRequested] = useState(false);
@@ -870,7 +890,7 @@ function PlanDetail({
                   onClick={onEditDeadline}
                   disabled={disabled}
                 >
-                  <CalendarClock aria-hidden /> Deadline
+                  <CalendarClock aria-hidden /> Hạn hoàn thành
                 </Button>
                 <Button
                   variant="outline"
@@ -907,7 +927,7 @@ function PlanDetail({
         </CardHeader>
         <CardContent className="grid gap-5">
           <div className="md:hidden">
-            <p className="text-xs text-[var(--text-muted)]">Đã ghi nhận</p>
+            <p className="text-xs text-[var(--text-muted)]">Đã tích lũy</p>
             <p className="mt-1 truncate text-3xl font-semibold tracking-tight tabular-nums text-[var(--foreground)]">
               {money(plan.realizedProgress, currency)}
             </p>
@@ -915,35 +935,37 @@ function PlanDetail({
               trên mục tiêu {money(plan.targetAmount, currency)}
             </p>
           </div>
-          <div className="hidden gap-4 md:grid md:grid-cols-2 lg:grid-cols-4">
+          <div
+            className={`hidden gap-4 md:grid md:grid-cols-2 ${hasShortfall ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}
+          >
             <Metric
               label="Mục tiêu"
               value={money(plan.targetAmount, currency)}
               icon={Target}
             />
             <Metric
-              label="Đã ghi nhận"
+              label="Đã tích lũy"
               value={money(plan.realizedProgress, currency)}
               icon={PiggyBank}
             />
             <Metric
-              label="Dự kiến cuối tháng"
+              label="Ước tính tích lũy cuối tháng"
               value={money(plan.projectedEndOfCurrentMonthProgress, currency)}
               icon={TrendingUp}
             />
-            <Metric
-              label="Thiếu hụt nguồn lực"
-              value={money(shortfall, currency)}
-              icon={AlertTriangle}
-              tone={
-                new Decimal(shortfall).greaterThan(0) ? "warning" : "default"
-              }
-            />
+            {hasShortfall && (
+              <Metric
+                label="Số tiền còn thiếu"
+                value={money(shortfall, currency)}
+                icon={AlertTriangle}
+                tone="warning"
+              />
+            )}
           </div>
           <div className="grid gap-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-[var(--text-secondary)]">
-                Tiến độ đã ghi nhận
+                Tiến độ đã tích lũy
               </span>
               <strong>{plan.realizedProgressPercentage}%</strong>
             </div>
@@ -963,25 +985,27 @@ function PlanDetail({
               />
             </div>
             <p className="hidden text-xs text-[var(--text-muted)] md:block">
-              Dự kiến cuối tháng: {plan.projectedCurrentProgressPercentage}% ·
-              Dự kiến đến deadline:{" "}
+              Ước tính cuối tháng: {plan.projectedCurrentProgressPercentage}% ·
+              Ước tính khi đến hạn:{" "}
               {money(plan.projectedEndOfPlanProgress, currency)}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-x-4 border-t border-[var(--border)] pt-4 md:hidden">
+          <div
+            className={`grid gap-x-4 border-t border-[var(--border)] pt-4 md:hidden ${hasShortfall ? "grid-cols-2" : "grid-cols-1"}`}
+          >
             <Metric
-              label="Dự kiến cuối tháng"
+              label="Ước tính tích lũy cuối tháng"
               value={money(plan.projectedEndOfCurrentMonthProgress, currency)}
               icon={TrendingUp}
             />
-            <Metric
-              label="Thiếu hụt"
-              value={money(shortfall, currency)}
-              icon={AlertTriangle}
-              tone={
-                new Decimal(shortfall).greaterThan(0) ? "warning" : "default"
-              }
-            />
+            {hasShortfall && (
+              <Metric
+                label="Số tiền còn thiếu"
+                value={money(shortfall, currency)}
+                icon={AlertTriangle}
+                tone="warning"
+              />
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1027,7 +1051,9 @@ function PlanDetail({
                 >
                   <CalendarClock className="size-5" aria-hidden />
                   <span className="grid min-w-0 gap-0.5">
-                    <span className="text-sm font-semibold">Đổi deadline</span>
+                    <span className="text-sm font-semibold">
+                      Đổi hạn hoàn thành
+                    </span>
                     <span className="truncate text-xs font-normal text-[var(--text-muted)]">
                       Điều chỉnh tháng kết thúc kế hoạch
                     </span>
@@ -1126,7 +1152,7 @@ function PlanDetail({
             presentation="sheet"
             ariaLabel="Hủy kế hoạch"
             title="Hủy kế hoạch đang chạy?"
-            description="Kế hoạch sẽ dừng và chuyển sang chế độ chỉ đọc. Dữ liệu các tháng đã đóng vẫn được giữ nguyên."
+            description="Kế hoạch sẽ dừng và chuyển sang chế độ chỉ đọc. Dữ liệu các tháng đã chốt vẫn được giữ nguyên."
             confirmLabel="Hủy kế hoạch"
             onConfirm={onCancel}
             disabled={disabled}
@@ -1149,115 +1175,182 @@ function CurrentMonthBudget({
   month: PlanMonth;
   currency: string;
 }) {
+  const [jarDetailsOpen, setJarDetailsOpen] = useState(false);
+  const availableToSpend = new Decimal(month.availableToSpend);
+  const spentThisMonth = new Decimal(
+    month.eligibleExpense ??
+      month.jars
+        .reduce(
+          (total, jar) =>
+            total.plus(jar.expenseAmount ?? jar.closedActualAmount ?? "0"),
+          new Decimal(0),
+        )
+        .toString(),
+  );
+  const monthlyBudget = Decimal.max(0, month.allocatableGrossBudget);
+  const monthlyUsage = monthlyBudget.isZero()
+    ? spentThisMonth.isPositive()
+      ? new Decimal(100)
+      : new Decimal(0)
+    : spentThisMonth.dividedBy(monthlyBudget).times(100);
+  const monthlyUsageWidth = progressWidth(monthlyUsage.toString());
+  const monthlyUsageTone = progressTone(monthlyUsageWidth);
+
   return (
     <Card className="p-4 md:p-6">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CircleDollarSign aria-hidden />{" "}
-          {month.closed ? "Snapshot" : "Hạn mức"} {monthLabel(month.month)}
+        <CardTitle>
+          <span className="md:hidden">{monthLabel(month.month)}</span>
+          <span className="hidden items-center gap-2 md:flex">
+            <CircleDollarSign aria-hidden />{" "}
+            {month.closed ? "Số liệu đã chốt" : "Ngân sách"}{" "}
+            {monthLabel(month.month)}
+          </span>
         </CardTitle>
         <CardDescription className="hidden md:block">
-          Khoản bắt buộc {money(month.adjustedRequiredAmount, currency)}. Vượt
-          một hũ không đồng nghĩa kế hoạch tổng thể bị thiếu.
-        </CardDescription>
-        <CardDescription className="md:hidden">
-          Cần dành {money(month.adjustedRequiredAmount, currency)} cho mục tiêu
-          tháng này.
+          Cần để dành {money(month.adjustedRequiredAmount, currency)} cho mục
+          tiêu tháng này.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid divide-y divide-[var(--border)] md:hidden">
-        {month.jars.map((jar) => {
-          const remaining =
-            jar.remainingAmount ??
-            new Decimal(jar.allocatedAmount)
-              .minus(jar.closedActualAmount ?? 0)
-              .toFixed(0);
-          const spent = jar.expenseAmount ?? jar.closedActualAmount ?? "0";
-          const overspent = new Decimal(remaining).isNegative();
-          return (
+      <CardContent className="grid gap-3 md:gap-4">
+        <div className="grid gap-1 border-t border-[var(--border)] pt-3 md:flex md:items-end md:justify-between md:gap-4 md:pt-4">
+          <span className="text-xs text-[var(--text-muted)] md:text-sm md:text-[var(--text-secondary)]">
+            {month.closed ? "Còn lại khi chốt" : "Còn có thể chi"}
+          </span>
+          <strong
+            className={`text-2xl font-semibold tracking-tight tabular-nums md:text-xl ${availableToSpend.isNegative() ? "text-[var(--destructive)]" : "text-[var(--foreground)]"}`}
+          >
+            {money(month.availableToSpend, currency)}
+          </strong>
+        </div>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 md:hidden">
+          <div
+            className="h-2 overflow-hidden rounded-full bg-[var(--surface-secondary)]"
+            role="progressbar"
+            aria-label={`Tiến độ chi tiêu ${monthLabel(month.month)}`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(monthlyUsageWidth)}
+            aria-valuetext={`${monthlyUsage.toDecimalPlaces(0).toString()}%, ${money(spentThisMonth.toString(), currency)} trên ${money(monthlyBudget.toString(), currency)}`}
+          >
             <div
-              key={jar.jarCode}
-              className="grid gap-2 py-3 first:pt-0 last:pb-0"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-medium text-[var(--foreground)]">
-                    {FINANCIAL_JAR_LABELS[jar.jarCode]}
-                  </p>
-                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                    Đã chi {money(spent, currency)} · {jar.percentage}%
-                  </p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-[10px] text-[var(--text-muted)]">
-                    Còn lại
-                  </p>
-                  <p
-                    className={`font-semibold tabular-nums ${overspent ? "text-[var(--destructive)]" : "text-[var(--foreground)]"}`}
-                  >
-                    {money(remaining, currency)}
-                  </p>
-                </div>
-              </div>
-              <div
-                className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-secondary)]"
-                aria-hidden="true"
-              >
-                <div
-                  className={`h-full rounded-full ${overspent ? "bg-[var(--destructive)]" : "bg-[var(--primary)]"}`}
-                  style={{ width: `${jarUsagePercentage(jar)}%` }}
-                />
-              </div>
+              className={`h-full rounded-full transition-[width] duration-300 ${PROGRESS_BAR_TONES[monthlyUsageTone]}`}
+              style={{ width: `${monthlyUsageWidth}%` }}
+            />
+          </div>
+          <span
+            className={`min-w-8 text-right text-xs font-medium tabular-nums ${PROGRESS_TEXT_TONES[monthlyUsageTone]}`}
+            aria-hidden="true"
+          >
+            {monthlyUsage.toDecimalPlaces(0).toString()}%
+          </span>
+        </div>
+
+        <div className="border-t border-[var(--border)] md:hidden">
+          <Button
+            variant="ghost"
+            size="auto"
+            className="w-full justify-between py-2.5 text-sm font-medium"
+            onClick={() => setJarDetailsOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={jarDetailsOpen}
+          >
+            <span>Chi tiết 6 hũ</span>
+            <ChevronDown
+              className="size-4 shrink-0 -rotate-90 text-[var(--text-muted)]"
+              aria-hidden
+            />
+          </Button>
+        </div>
+
+        <Sheet open={jarDetailsOpen} onOpenChange={setJarDetailsOpen}>
+          <SheetContent side="bottom" placement="inset">
+            <SheetHeader>
+              <SheetTitle>Chi tiết 6 hũ</SheetTitle>
+              <SheetDescription>{monthLabel(month.month)}</SheetDescription>
+            </SheetHeader>
+            <div className="overflow-y-auto px-4 pb-4">
+              <BudgetJarList month={month} currency={currency} />
             </div>
-          );
-        })}
+          </SheetContent>
+        </Sheet>
+
+        <details className="group hidden border-t border-[var(--border)] md:block">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] md:py-3 md:text-base">
+            <span>Chi tiết 6 hũ</span>
+            <ChevronDown
+              className="size-4 shrink-0 text-[var(--text-muted)] transition-transform group-open:rotate-180"
+              aria-hidden
+            />
+          </summary>
+          <BudgetJarList month={month} currency={currency} />
+        </details>
       </CardContent>
-      <CardContent className="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-3">
-        {month.jars.map((jar) => {
-          const remaining =
-            jar.remainingAmount ??
-            new Decimal(jar.allocatedAmount)
-              .minus(jar.closedActualAmount ?? 0)
-              .toFixed(0);
-          const overspent = new Decimal(remaining).isNegative();
-          return (
-            <div
-              key={jar.jarCode}
-              className="grid gap-2 rounded-xl bg-[var(--surface-secondary)] p-4"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <strong>{FINANCIAL_JAR_LABELS[jar.jarCode]}</strong>
-                <span className="text-xs text-[var(--text-muted)]">
-                  {jar.percentage}%
-                </span>
+    </Card>
+  );
+}
+
+function BudgetJarList({
+  month,
+  currency,
+}: {
+  month: PlanMonth;
+  currency: string;
+}) {
+  return (
+    <div className="grid divide-y divide-[var(--border)] border-t border-[var(--border)]">
+      {month.jars.map((jar) => {
+        const remaining =
+          jar.remainingAmount ??
+          new Decimal(jar.allocatedAmount)
+            .minus(jar.closedActualAmount ?? 0)
+            .toFixed(0);
+        const spent = jar.expenseAmount ?? jar.closedActualAmount ?? "0";
+        const overspent = new Decimal(remaining).isNegative();
+        const jarUsage = jarUsagePercentage(jar);
+        const jarUsageTone = progressTone(jarUsage);
+
+        return (
+          <div key={jar.jarCode} className="grid gap-2 py-2.5 md:py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-[var(--foreground)] md:text-base">
+                  {FINANCIAL_JAR_LABELS[jar.jarCode]}
+                </p>
+                <p className="mt-0.5 text-[11px] leading-4 text-[var(--text-muted)] md:text-xs">
+                  <span className="md:hidden">
+                    {money(spent, currency)} /{" "}
+                    {money(jar.allocatedAmount, currency)}
+                  </span>
+                  <span className="hidden md:inline">
+                    {month.closed ? "Đã chi" : "Đã chi và ước tính sẽ chi"}{" "}
+                    {money(spent, currency)} · {jar.percentage}%
+                  </span>
+                </p>
               </div>
-              <div className="flex items-end justify-between gap-3">
-                <span className="text-xs text-[var(--text-secondary)]">
-                  Còn lại
-                </span>
+              <div className="shrink-0 text-right">
+                <p className="text-[10px] text-[var(--text-muted)]">Còn lại</p>
                 <strong
-                  className={
-                    overspent
-                      ? "text-[var(--destructive)]"
-                      : "text-[var(--foreground)]"
-                  }
+                  className={`text-sm tabular-nums md:text-base ${overspent ? "text-[var(--destructive)]" : "text-[var(--foreground)]"}`}
                 >
                   {money(remaining, currency)}
                 </strong>
               </div>
-              <p className="text-xs text-[var(--text-muted)]">
-                Đã/được dự kiến chi{" "}
-                {money(
-                  jar.expenseAmount ?? jar.closedActualAmount ?? "0",
-                  currency,
-                )}{" "}
-                / {money(jar.allocatedAmount, currency)}
-              </p>
             </div>
-          );
-        })}
-      </CardContent>
-    </Card>
+            <div
+              className="h-1 overflow-hidden rounded-full bg-[var(--surface-secondary)] md:h-1.5"
+              aria-hidden="true"
+            >
+              <div
+                className={`h-full rounded-full ${overspent ? PROGRESS_BAR_TONES.critical : PROGRESS_BAR_TONES[jarUsageTone]}`}
+                style={{ width: `${jarUsage}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1275,11 +1368,12 @@ function MonthHistory({
           <History aria-hidden /> Lịch kế hoạch theo tháng
         </CardTitle>
         <CardDescription className="hidden md:block">
-          Tháng chưa đóng tự tính lại theo dữ liệu hiện tại; tháng đã đóng giữ
-          snapshot và hiển thị delta backdate riêng.
+          Tháng chưa kết thúc được cập nhật theo dữ liệu hiện tại; tháng đã kết
+          thúc giữ nguyên số liệu đã chốt và hiển thị riêng các điều chỉnh từ
+          giao dịch cũ.
         </CardDescription>
         <CardDescription className="md:hidden">
-          Mở từng tháng để xem hạn mức và số tiền cần dành.
+          Mở từng tháng để xem ngân sách và số tiền cần để dành.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-2">
@@ -1300,7 +1394,7 @@ function MonthHistory({
               <span className="flex items-center gap-2 text-right text-sm">
                 <span>
                   <span className="block text-[10px] text-[var(--text-muted)] md:text-xs">
-                    Cần dành
+                    Cần để dành
                   </span>
                   <strong className="tabular-nums">
                     {money(month.adjustedRequiredAmount, currency)}
@@ -1312,21 +1406,37 @@ function MonthHistory({
                 />
               </span>
             </summary>
-            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--border)] pt-3 md:grid-cols-3">
+            <div
+              className={`mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--border)] pt-3 ${new Decimal(month.resourceShortfall).greaterThan(0) ? "md:grid-cols-3" : "md:grid-cols-2"}`}
+            >
               <Metric
-                label="Hạn mức phân bổ"
-                value={money(month.allocatableGrossBudget, currency)}
+                label={month.closed ? "Còn lại khi chốt" : "Còn có thể chi"}
+                value={money(month.availableToSpend, currency)}
                 icon={CircleDollarSign}
+                tone={
+                  new Decimal(month.availableToSpend).isNegative()
+                    ? "warning"
+                    : "default"
+                }
               />
-              <Metric
-                label="Thiếu hụt nguồn lực"
-                value={money(month.resourceShortfall, currency)}
-                icon={AlertTriangle}
-              />
-              <div className="col-span-2 md:col-span-1">
+              {new Decimal(month.resourceShortfall).greaterThan(0) && (
+                <Metric
+                  label="Số tiền còn thiếu"
+                  value={money(month.resourceShortfall, currency)}
+                  icon={AlertTriangle}
+                  tone="warning"
+                />
+              )}
+              <div
+                className={
+                  new Decimal(month.resourceShortfall).greaterThan(0)
+                    ? "col-span-2 md:col-span-1"
+                    : ""
+                }
+              >
                 <Metric
                   label={
-                    month.closed ? "Thực tế lúc đóng" : "Dự kiến dành được"
+                    month.closed ? "Thực tế đã để dành" : "Ước tính để dành"
                   }
                   value={money(
                     month.closedActualGoalAmount ??
@@ -1341,7 +1451,7 @@ function MonthHistory({
                 month.adjustedDelta &&
                 month.adjustedDelta !== "0" && (
                   <p className="sm:col-span-3 text-sm text-[var(--warning)]">
-                    Điều chỉnh do ledger thay đổi:{" "}
+                    Điều chỉnh do giao dịch cũ thay đổi:{" "}
                     {money(month.adjustedDelta, currency)}.
                   </p>
                 )}
@@ -1509,7 +1619,7 @@ function PlanEditorSheet({
           isMobile={isMobile}
           icon={Target}
           title={plan ? "Sửa bản nháp" : "Tạo kế hoạch tài chính"}
-          description="Deadline tính cả tháng hiện tại. Tiền đã dành sẵn phải thực sự nằm trong số dư workspace."
+          description="Hạn hoàn thành tính cả tháng hiện tại. Tiền đã dành sẵn phải thực sự nằm trong số dư của không gian làm việc."
         />
         <div
           className={
@@ -1610,8 +1720,8 @@ function DeadlineSheet({
         <PlanSheetHeader
           isMobile={isMobile}
           icon={CalendarClock}
-          title="Đổi deadline"
-          description="Các tháng đã đóng không đổi. Toàn bộ tháng chưa đóng sẽ được chia lại."
+          title="Đổi hạn hoàn thành"
+          description="Các tháng đã chốt không đổi. Toàn bộ tháng chưa chốt sẽ được tính lại."
         />
         <div className={isMobile ? "quick-transaction-scroll" : "px-4 py-2"}>
           <DatePicker
