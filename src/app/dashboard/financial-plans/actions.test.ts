@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getServerSession: vi.fn(), resolveActiveWorkspaceId: vi.fn(), requireWorkspaceMember: vi.fn(),
-  createDraft: vi.fn(), activate: vi.fn(), revalidatePath: vi.fn(),
+  createDraft: vi.fn(), deletePlan: vi.fn(), activate: vi.fn(), revalidatePath: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: mocks.getServerSession }));
@@ -12,12 +12,12 @@ vi.mock("@/services/active-workspace", () => ({ resolveActiveWorkspaceId: mocks.
 vi.mock("@/services/workspace-access", () => ({ requireWorkspaceMember: mocks.requireWorkspaceMember }));
 vi.mock("@/services/financial-plan-service", () => ({
   createFinancialPlanDraft: mocks.createDraft,
-  updateFinancialPlanDraft: vi.fn(), deleteFinancialPlanDraft: vi.fn(),
+  updateFinancialPlanDraft: vi.fn(), deleteFinancialPlan: mocks.deletePlan,
   activateFinancialPlan: mocks.activate, updateFinancialPlanDeadline: vi.fn(),
   updateFinancialPlanAllocations: vi.fn(), cancelFinancialPlan: vi.fn(), completeFinancialPlan: vi.fn(),
 }));
 
-import { activateFinancialPlanAction, createFinancialPlanDraftAction } from "@/app/dashboard/financial-plans/actions";
+import { activateFinancialPlanAction, createFinancialPlanDraftAction, deleteFinancialPlanAction } from "@/app/dashboard/financial-plans/actions";
 import { AppError } from "@/lib/errors";
 
 const validInput = {
@@ -49,6 +49,21 @@ describe("financial plan server actions", () => {
     const result = await createFinancialPlanDraftAction({ ...validInput, percentages: { ...validInput.percentages, GIVING: "4" } });
     expect(result.ok).toBe(false);
     expect(mocks.createDraft).not.toHaveBeenCalled();
+  });
+
+  it("validates the plan id before requesting deletion", async () => {
+    const invalid = await deleteFinancialPlanAction("not-a-plan-id");
+    expect(invalid.ok).toBe(false);
+    expect(mocks.deletePlan).not.toHaveBeenCalled();
+
+    const planId = "30000000-0000-0000-0000-000000000003";
+    const deleted = await deleteFinancialPlanAction(planId);
+    expect(deleted).toEqual({ ok: true });
+    expect(mocks.deletePlan).toHaveBeenCalledWith(
+      "10000000-0000-0000-0000-000000000001",
+      "20000000-0000-0000-0000-000000000002",
+      planId,
+    );
   });
 
   it("enforces admin RBAC and returns concurrency conflicts to the client", async () => {

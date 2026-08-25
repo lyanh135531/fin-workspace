@@ -131,14 +131,27 @@ export async function updateFinancialPlanDraft(
   });
 }
 
-export async function deleteFinancialPlanDraft(userId: string, workspaceId: string, planId: string) {
+export async function deleteFinancialPlan(userId: string, workspaceId: string, planId: string, now = new Date()) {
   await requireWorkspaceMember(userId, workspaceId, true);
   return prisma.$transaction(async (tx) => {
+    await advisoryWorkspaceLock(tx, workspaceId);
     const plan = await managedPlan(tx, workspaceId, planId);
-    if (plan.status !== "draft") throw new AppError("CONFLICT", "Chỉ kế hoạch nháp mới được xóa vĩnh viễn.");
-    await tx.planJarAllocation.deleteMany({ where: { financialPlanId: plan.id } });
-    await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "financial_plan.draft_deleted", entityType: "financial_plan", entityId: plan.id } });
-    return tx.financialPlan.delete({ where: { id: plan.id } });
+    if (plan.status === "active") throw new AppError("CONFLICT", "Không thể xóa kế hoạch đang chạy.");
+    const deleted = await tx.financialPlan.update({
+      where: { id: plan.id },
+      data: { deletedAt: now },
+    });
+    await tx.auditLog.create({
+      data: {
+        workspaceId,
+        actorUserId: userId,
+        action: "financial_plan.deleted",
+        entityType: "financial_plan",
+        entityId: plan.id,
+        metadata: { previousStatus: plan.status },
+      },
+    });
+    return deleted;
   });
 }
 

@@ -180,27 +180,22 @@ export function MobileAppearanceSheet() {
       </SheetTrigger>
       <SheetContent
         side="bottom"
-        placement="inset"
-        spacing="flush"
-        elevation="flat"
-        className="max-h-[min(85dvh,42rem)]"
+        className="quick-transaction-sheet"
         aria-label="Cài đặt giao diện"
       >
-        <SheetHeader className="border-b border-[var(--border)] px-4 pb-4 pt-6">
-          <div className="flex items-center gap-3 pr-8">
-            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]">
+        <SheetHeader className="quick-transaction-header">
+          <div className="quick-transaction-heading">
+            <span>
               <Palette size={18} aria-hidden="true" />
             </span>
             <div className="min-w-0">
               <SheetTitle>Giao diện</SheetTitle>
-              <SheetDescription className="mt-0.5 text-xs">
-                Tùy chỉnh chế độ và màu sắc.
-              </SheetDescription>
+              <SheetDescription>Tùy chỉnh chế độ và màu sắc.</SheetDescription>
             </div>
           </div>
         </SheetHeader>
 
-        <div className="grid min-h-0 gap-5 overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
+        <div className="quick-transaction-scroll grid gap-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <section aria-labelledby="mobile-mode-label">
             <p
               id="mobile-mode-label"
@@ -250,7 +245,7 @@ export function MobileAppearanceSheet() {
               Chủ đề màu
             </p>
             <div
-              className="mt-2 grid gap-1 rounded-xl bg-[var(--surface-secondary)] p-1 sm:grid-cols-2"
+              className="mt-2 grid gap-1 rounded-2xl bg-[var(--surface-secondary)] p-1 sm:grid-cols-2"
               role="radiogroup"
               aria-labelledby="mobile-theme-label"
             >

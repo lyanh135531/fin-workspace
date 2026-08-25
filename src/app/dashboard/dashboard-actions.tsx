@@ -712,7 +712,7 @@ function MobileTransactionRow({
           </SheetHeader>
 
           <div className="ledger-mobile-review-body">
-            <div className="ledger-mobile-review-transaction">
+            <div className="ledger-mobile-review-transaction rounded-2xl">
               <div>
                 <span>{categoryName}</span>
               </div>
@@ -2746,7 +2746,11 @@ function DesktopTransactionEditDraft({
                   categories,
                   draft.type,
                 )}
-                emptyOption={draft.type === "expense" ? undefined : { value: "none", label: "Không chọn" }}
+                emptyOption={
+                  draft.type === "expense"
+                    ? undefined
+                    : { value: "none", label: "Không chọn" }
+                }
               />
             )}
           </section>
@@ -2987,7 +2991,11 @@ function MobileTransactionDraft({
             label="Danh mục"
             required={draft.type === "expense"}
             categories={categoriesForTransactionType(categories, draft.type)}
-            emptyOption={draft.type === "expense" ? undefined : { value: "none", label: "Không chọn" }}
+            emptyOption={
+              draft.type === "expense"
+                ? undefined
+                : { value: "none", label: "Không chọn" }
+            }
           />
         )}
         {progressiveDetails ? (

@@ -18,7 +18,7 @@ import {
   cancelFinancialPlan,
   completeFinancialPlan,
   createFinancialPlanDraft,
-  deleteFinancialPlanDraft,
+  deleteFinancialPlan,
   updateFinancialPlanAllocations,
   updateFinancialPlanDeadline,
   updateFinancialPlanDraft,
@@ -63,13 +63,13 @@ export async function updateFinancialPlanDraftAction(input: unknown) {
   } catch (error) { return failure(error, "Không thể cập nhật kế hoạch nháp.", "financial_plan.draft_update_failed"); }
 }
 
-export async function deleteFinancialPlanDraftAction(planId: unknown) {
+export async function deleteFinancialPlanAction(planId: unknown) {
   try {
     const actor = await adminActor();
-    await deleteFinancialPlanDraft(actor.userId, actor.workspaceId, financialPlanIdSchema.parse(planId));
+    await deleteFinancialPlan(actor.userId, actor.workspaceId, financialPlanIdSchema.parse(planId));
     refresh();
     return { ok: true as const };
-  } catch (error) { return failure(error, "Không thể xóa kế hoạch nháp.", "financial_plan.draft_delete_failed"); }
+  } catch (error) { return failure(error, "Không thể xóa kế hoạch.", "financial_plan.delete_failed"); }
 }
 
 export async function activateFinancialPlanAction(planId: unknown) {
