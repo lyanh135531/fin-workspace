@@ -48,7 +48,7 @@ readonly checksum_file="${backup_file}.sha256"
 compose exec -T db pg_restore --list < "${backup_file}" >/dev/null
 
 printf 'Stopping application services...\n'
-compose stop app recurring-worker
+compose stop app recurring-worker financial-plan-worker
 
 printf 'Recreating the target database...\n'
 compose exec -T db sh -ec '
@@ -80,7 +80,7 @@ printf 'Applying pending migrations...\n'
 compose run --rm migrate
 
 printf 'Starting application services...\n'
-compose up -d app recurring-worker
+compose up -d app recurring-worker financial-plan-worker
 
 compose exec -T db sh -ec '
   psql \

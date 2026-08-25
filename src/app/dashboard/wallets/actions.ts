@@ -27,6 +27,8 @@ function revalidateWalletViews(workspaceId: string) {
   revalidatePath(`/workspace/${workspaceId}`);
   revalidatePath("/overview");
   revalidatePath("/recurring-transactions");
+  revalidatePath("/financial-plans");
+  revalidatePath("/dashboard/financial-plans");
 }
 
 async function walletActor() {

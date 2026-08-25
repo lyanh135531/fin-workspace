@@ -331,6 +331,7 @@ export async function softDeleteWalletForWorkspace(
           toWalletId: destinationWalletId,
           categoryId: null,
           type: "transfer",
+          jarCode: null,
           amount,
           description: `Tất toán ví “${link.wallet.name}” trước khi xóa`,
           date: new Date(`${businessDate}T00:00:00.000Z`),

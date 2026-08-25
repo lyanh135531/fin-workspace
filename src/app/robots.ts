@@ -13,6 +13,7 @@ export default function robots(): MetadataRoute.Robots {
         "/overview/",
         "/portal/",
         "/recurring-transactions/",
+        "/financial-plans/",
         "/setting/",
         "/settings/",
         "/wallets/",

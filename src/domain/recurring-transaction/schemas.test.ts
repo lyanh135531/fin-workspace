@@ -26,4 +26,10 @@ describe("recurringTransactionSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("requires a category for a recurring expense", () => {
+    const result = recurringTransactionSchema.safeParse({ ...base, type: "expense" });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues).toContainEqual(expect.objectContaining({ path: ["categoryId"] }));
+  });
 });

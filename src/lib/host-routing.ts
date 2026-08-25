@@ -6,6 +6,7 @@ export const PORTAL_ORIGIN = `https://${PORTAL_HOSTNAME}`;
 
 const applicationPathPrefixes = [
   "/dashboard",
+  "/financial-plans",
   "/members",
   "/onboarding",
   "/overview",

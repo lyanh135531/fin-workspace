@@ -4,7 +4,7 @@ import { useState, useTransition, useRef } from "react";
 
 import { KeyRound, ShieldCheck, BadgeCheck, Eye, EyeOff } from "lucide-react";
 
-import { changePasswordAction } from "@/app/dashboard/settings/general-actions";
+import { changePasswordAction } from "@/app/dashboard/settings/account-actions";
 import { Button, Input } from "@/components/base";
 import { toast } from "sonner";
 

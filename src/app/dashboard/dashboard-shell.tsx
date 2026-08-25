@@ -1,9 +1,9 @@
 import {
   BookOpen,
+  CalendarRange,
   LayoutDashboard,
   Repeat2,
   Settings,
-  SlidersHorizontal,
   WalletCards,
 } from "lucide-react";
 import { getServerSession } from "next-auth";
@@ -12,6 +12,7 @@ import { Suspense } from "react";
 
 import { authOptions } from "@/auth";
 import { DashboardHeaderSubtitle } from "@/app/dashboard/dashboard-header-subtitle";
+import { AppearanceMenu } from "@/app/dashboard/appearance-controls";
 import { MobileBottomNavigation } from "@/app/dashboard/mobile-bottom-navigation";
 import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
 import { MobileNavigation } from "@/app/dashboard/mobile-navigation";
@@ -260,6 +261,9 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
       </div>
 
       <div className="header-action-group">
+        <div className="hidden min-[901px]:block">
+          <AppearanceMenu />
+        </div>
         {membership && (
           <WorkspaceNotifications
             workspaceId={membership.workspaceId}
@@ -382,20 +386,12 @@ function FallbackNavigation() {
       icon: Repeat2,
     },
     { href: "/wallets", label: "Quản lý ví", icon: WalletCards },
+    { href: "/financial-plans", label: "Kế hoạch", icon: CalendarRange },
     { href: "/settings/workspace", label: "Cài đặt nhóm", icon: Settings },
   ];
-  const generalLinks = [
-    { href: "/setting", label: "Cài đặt chung", icon: SlidersHorizontal },
-  ];
-
   return (
     <nav className="flex min-h-0 flex-1 flex-col" aria-label="Điều hướng chính">
       <FallbackNavigationGroup links={workspaceLinks} />
-      <div
-        className="mx-4 my-1 h-px bg-[var(--border)] group-data-[collapsible=icon]:mx-3"
-        aria-hidden
-      />
-      <FallbackNavigationGroup links={generalLinks} />
     </nav>
   );
 }

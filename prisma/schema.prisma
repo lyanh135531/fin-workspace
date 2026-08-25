@@ -38,6 +38,26 @@ enum CategoryType {
   @@map("CATEGORY_TYPE")
 }
 
+enum JarCode {
+  ESSENTIAL
+  RESPONSIBILITY
+  DEVELOPMENT
+  ENJOYMENT
+  INVESTMENT
+  GIVING
+
+  @@map("JAR_CODE")
+}
+
+enum FinancialPlanStatus {
+  draft
+  active
+  completed
+  cancelled
+
+  @@map("FINANCIAL_PLAN_STATUS")
+}
+
 enum ChangeRequestStatus {
   pending
   approved
@@ -76,7 +96,6 @@ model User {
   auditLogs    AuditLog[]
   joinRequests WorkspaceJoinRequest[] @relation("JoinRequester")
   reviewedJoinRequests WorkspaceJoinRequest[]
-  categoryTemplates Category[]
 
   @@index([status, deletedAt])
   @@map("USERS")
@@ -100,6 +119,7 @@ model Workspace {
   auditLogs   AuditLog[]
   joinRequests WorkspaceJoinRequest[]
   recurringTransactions RecurringTransaction[]
+  financialPlans FinancialPlan[]
   @@index([status, deletedAt])
   @@map("WORKSPACES")
 }
@@ -133,6 +153,7 @@ model WorkspaceMember {
   requestedChanges TransactionChangeRequest[] @relation("ChangeRequester")
   reviewedChanges  TransactionChangeRequest[] @relation("ChangeReviewer")
   createdRecurringTransactions RecurringTransaction[]
+  createdFinancialPlans FinancialPlan[]
 
   @@unique([workspaceId, userId])
   @@index([workspaceId, status, deletedAt])
@@ -162,29 +183,28 @@ model Wallet {
 
 model Category {
   id           String        @id @default(uuid()) @db.Uuid
-  workspaceId  String?       @map("workspace_id") @db.Uuid
-  userId       String?       @map("user_id") @db.Uuid
+  workspaceId  String        @map("workspace_id") @db.Uuid
   name         String
   code         String
   color        String        @db.VarChar(7)
   type         CategoryType  @default(expense)
   icon         String?
   parentId     String?       @map("parent_id") @db.Uuid
+  jarCode      JarCode?      @map("jar_code")
   sortOrder    Int           @default(0) @map("order")
   status       Status        @default(active)
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
-  workspace    Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  user         User?         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
   children     Category[]    @relation("CategoryHierarchy")
   transactions Transaction[]
   recurringTransactions RecurringTransaction[]
 
-  @@unique([workspaceId, userId, code])
+  @@unique([workspaceId, code])
   @@index([workspaceId, status, deletedAt, sortOrder])
-  @@index([userId, status, deletedAt])
+  @@index([workspaceId, type, jarCode])
   @@map("CATEGORY")
 }
 
@@ -261,6 +281,7 @@ model Transaction {
   deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz(6)
   recurringTransactionId String? @map("recurring_transaction_id") @db.Uuid
   recurringPeriod String?        @map("recurring_period") @db.VarChar(7)
+  jarCode         JarCode?       @map("jar_code")
   member         WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Restrict)
   wallet         Wallet          @relation("TransactionSourceWallet", fields: [walletId], references: [id], onDelete: Restrict)
   toWallet       Wallet?         @relation("TransactionDestinationWallet", fields: [toWalletId], references: [id], onDelete: Restrict)
@@ -272,6 +293,7 @@ model Transaction {
   @@index([walletId, workflowStatus, date])
   @@index([toWalletId, workflowStatus, date])
   @@index([categoryId, date])
+  @@index([jarCode, date])
   @@unique([recurringTransactionId, recurringPeriod])
   @@map("TRANSACTION")
 }
@@ -308,4 +330,81 @@ model RecurringTransaction {
   @@index([toWalletId])
   @@index([categoryId])
   @@map("RECURRING_TRANSACTION")
+}
+
+model FinancialPlan {
+  id                         String              @id @default(uuid()) @db.Uuid
+  workspaceId                String              @map("workspace_id") @db.Uuid
+  name                       String
+  targetAmount               Decimal             @map("target_amount") @db.Decimal(20, 4)
+  existingGoalAmount         Decimal             @default(0) @map("existing_goal_amount") @db.Decimal(20, 4)
+  startMonth                 DateTime?           @map("start_month") @db.Date
+  targetMonth                DateTime            @map("target_month") @db.Date
+  status                     FinancialPlanStatus @default(draft)
+  createdByMemberId          String              @map("created_by_member_id") @db.Uuid
+  activationWorkspaceBalance Decimal?            @map("activation_workspace_balance") @db.Decimal(20, 4)
+  activatedAt                DateTime?           @map("activated_at") @db.Timestamptz(6)
+  completedAt                DateTime?           @map("completed_at") @db.Timestamptz(6)
+  cancelledAt                DateTime?           @map("cancelled_at") @db.Timestamptz(6)
+  createdAt                  DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                  DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  workspace                  Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdBy                  WorkspaceMember     @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  allocations                PlanJarAllocation[]
+  months                     FinancialPlanMonth[]
+
+  @@index([workspaceId, status, deletedAt])
+  @@index([targetMonth])
+  @@map("FINANCIAL_PLAN")
+}
+
+model PlanJarAllocation {
+  id              String        @id @default(uuid()) @db.Uuid
+  financialPlanId String        @map("financial_plan_id") @db.Uuid
+  jarCode         JarCode       @map("jar_code")
+  percentage      Decimal       @db.Decimal(5, 2)
+  effectiveMonth  DateTime      @map("effective_month") @db.Date
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  financialPlan   FinancialPlan @relation(fields: [financialPlanId], references: [id], onDelete: Restrict)
+
+  @@unique([financialPlanId, effectiveMonth, jarCode])
+  @@index([financialPlanId, effectiveMonth])
+  @@map("PLAN_JAR_ALLOCATION")
+}
+
+model FinancialPlanMonth {
+  id                       String                  @id @default(uuid()) @db.Uuid
+  financialPlanId          String                  @map("financial_plan_id") @db.Uuid
+  month                    DateTime                @db.Date
+  baseRequiredAmount       Decimal                 @map("base_required_amount") @db.Decimal(20, 4)
+  adjustedRequiredAmount   Decimal                 @map("adjusted_required_amount") @db.Decimal(20, 4)
+  rawGrossBudget           Decimal                 @map("raw_gross_budget") @db.Decimal(20, 4)
+  allocatableGrossBudget   Decimal                 @map("allocatable_gross_budget") @db.Decimal(20, 4)
+  resourceShortfall        Decimal                 @map("resource_shortfall") @db.Decimal(20, 4)
+  closedEligibleExpense    Decimal                 @map("closed_eligible_expense") @db.Decimal(20, 4)
+  closedActualGoalAmount   Decimal                 @map("closed_actual_goal_amount") @db.Decimal(20, 4)
+  closedAt                 DateTime                @map("closed_at") @db.Timestamptz(6)
+  calculatorVersion        String                  @map("calculator_version") @db.VarChar(32)
+  createdAt                DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  financialPlan            FinancialPlan           @relation(fields: [financialPlanId], references: [id], onDelete: Restrict)
+  jars                     FinancialPlanMonthJar[]
+
+  @@unique([financialPlanId, month])
+  @@index([month])
+  @@map("FINANCIAL_PLAN_MONTH")
+}
+
+model FinancialPlanMonthJar {
+  id                       String             @id @default(uuid()) @db.Uuid
+  financialPlanMonthId     String             @map("financial_plan_month_id") @db.Uuid
+  jarCode                  JarCode            @map("jar_code")
+  percentage               Decimal            @db.Decimal(5, 2)
+  allocatedAmount          Decimal            @map("allocated_amount") @db.Decimal(20, 4)
+  closedActualAmount       Decimal            @map("closed_actual_amount") @db.Decimal(20, 4)
+  financialPlanMonth       FinancialPlanMonth @relation(fields: [financialPlanMonthId], references: [id], onDelete: Restrict)
+
+  @@unique([financialPlanMonthId, jarCode])
+  @@index([jarCode])
+  @@map("FINANCIAL_PLAN_MONTH_JAR")
 }

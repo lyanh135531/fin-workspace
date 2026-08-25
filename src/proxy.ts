@@ -66,5 +66,6 @@ export const config = {
     "/settings/:path*",
     "/setting/:path*",
     "/recurring-transactions/:path*",
+    "/financial-plans/:path*",
   ],
 };

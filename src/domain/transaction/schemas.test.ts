@@ -35,6 +35,12 @@ describe("createTransactionSchema", () => {
     expect(createTransactionSchema.parse({ walletId, categoryId: "00000000-0000-0000-0000-000000000201", type: "expense", amount: "10", date: "2026-07-17" }).categoryId).toBe("00000000-0000-0000-0000-000000000201");
   });
 
+  it("requires a category for an expense", () => {
+    const result = createTransactionSchema.safeParse({ walletId, type: "expense", amount: "10", date: "2026-07-17" });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues).toContainEqual(expect.objectContaining({ path: ["categoryId"] }));
+  });
+
   it("always requires a transaction date", () => {
     expect(() => createTransactionSchema.parse({ walletId, type: "expense", amount: "10" })).toThrow();
   });

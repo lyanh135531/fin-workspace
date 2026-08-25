@@ -38,15 +38,20 @@ function transactionActionErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+function revalidateFinancialPlanViews() {
+  revalidatePath("/financial-plans");
+  revalidatePath("/dashboard/financial-plans");
+}
+
 export async function addWalletAction(workspaceId: string, input: unknown) {
   const requestId = crypto.randomUUID();
-  try { const user = await workspaceActor(workspaceId); const wallet = await createWalletForWorkspace(user.userId, user.workspaceId, createWalletSchema.parse(input)); debug("wallet.created", { requestId, walletId: wallet.id, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); return { ok: true }; }
+  try { const user = await workspaceActor(workspaceId); const wallet = await createWalletForWorkspace(user.userId, user.workspaceId, createWalletSchema.parse(input)); debug("wallet.created", { requestId, walletId: wallet.id, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); revalidateFinancialPlanViews(); return { ok: true }; }
   catch (error) { debug("wallet.failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to create wallet." }; }
 }
 
 export async function addTransactionAction(workspaceId: string, input: unknown) {
   const requestId = crypto.randomUUID();
-  try { const user = await workspaceActor(workspaceId); const transaction = await createTransaction(user.userId, user.workspaceId, createTransactionSchema.parse(input)); debug("transaction.created", { requestId, transactionId: transaction.id, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); return { ok: true, status: transaction.workflowStatus }; }
+  try { const user = await workspaceActor(workspaceId); const transaction = await createTransaction(user.userId, user.workspaceId, createTransactionSchema.parse(input)); debug("transaction.created", { requestId, transactionId: transaction.id, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); revalidateFinancialPlanViews(); return { ok: true, status: transaction.workflowStatus }; }
   catch (error) { debug("transaction.failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: transactionActionErrorMessage(error, "Không thể tạo giao dịch.") }; }
 }
 
@@ -67,6 +72,7 @@ export async function addQuickTransactionAction(workspaceId: unknown, input: unk
     revalidatePath("/dashboard");
     revalidatePath(`/workspace/${user.workspaceId}`);
     revalidatePath("/overview");
+    revalidateFinancialPlanViews();
     return { ok: true, status: transaction.workflowStatus };
   } catch (error) {
     debug("transaction.quick_failed", {
@@ -82,7 +88,7 @@ export async function addQuickTransactionAction(workspaceId: unknown, input: unk
 
 export async function approveTransactionAction(workspaceId: string, transactionId: string) {
   const requestId = crypto.randomUUID();
-  try { const user = await workspaceActor(workspaceId); const transaction = await approveTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId)); debug("transaction.approved", { requestId, transactionId: transaction.id, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); return { ok: true }; }
+  try { const user = await workspaceActor(workspaceId); const transaction = await approveTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId)); debug("transaction.approved", { requestId, transactionId: transaction.id, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); revalidateFinancialPlanViews(); return { ok: true }; }
   catch (error) { debug("transaction.approve_failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to approve transaction." }; }
 }
 
@@ -100,7 +106,7 @@ export async function updateTransactionAction(workspaceId: string, transactionId
     const user = await workspaceActor(workspaceId);
     const result = await updateTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId), createTransactionSchema.parse(input), changeReasonSchema.parse(reason));
     debug("transaction.update_processed", { requestId, transactionId, result: result.kind, workspaceId: user.workspaceId });
-    revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview");
+    revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); revalidateFinancialPlanViews();
     return { ok: true, kind: result.kind };
   } catch (error) {
     debug("transaction.update_failed", { requestId, message: error instanceof Error ? error.message : "unknown" });
@@ -132,7 +138,7 @@ export async function updateTransactionsAction(workspaceId: string, input: unkno
       }
     }
     debug("transactions.update_processed", { requestId, transactionCount: changes.length, updated, requested, errorCount: errors.length, workspaceId: user.workspaceId });
-    revalidatePath("/dashboard"); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview");
+    revalidatePath("/dashboard"); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); revalidateFinancialPlanViews();
     if (errors.length) return { ok: false, message: `Đã xử lý ${updated + requested}/${changes.length} giao dịch. ${errors[0]}`, updated, requested };
     return { ok: true, updated, requested };
   } catch (error) {
@@ -143,13 +149,13 @@ export async function updateTransactionsAction(workspaceId: string, input: unkno
 
 export async function rejectTransactionAction(workspaceId: string, transactionId: string) {
   const requestId = crypto.randomUUID();
-  try { const user = await workspaceActor(workspaceId); await rejectTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId)); debug("transaction.rejected", { requestId, transactionId, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); return { ok: true }; }
+  try { const user = await workspaceActor(workspaceId); await rejectTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId)); debug("transaction.rejected", { requestId, transactionId, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); revalidateFinancialPlanViews(); return { ok: true }; }
   catch (error) { debug("transaction.reject_failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to reject transaction." }; }
 }
 
 export async function deleteTransactionAction(workspaceId: string, transactionId: string, reason?: unknown) {
   const requestId = crypto.randomUUID();
-  try { const user = await workspaceActor(workspaceId); const result = await deleteOrRequestTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId), deleteRequestReasonSchema.parse(reason)); debug("transaction.delete_processed", { requestId, transactionId, result: result.kind, workspaceId: user.workspaceId }); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/dashboard"); revalidatePath("/overview"); return { ok: true, kind: result.kind }; }
+  try { const user = await workspaceActor(workspaceId); const result = await deleteOrRequestTransaction(user.userId, user.workspaceId, idSchema.parse(transactionId), deleteRequestReasonSchema.parse(reason)); debug("transaction.delete_processed", { requestId, transactionId, result: result.kind, workspaceId: user.workspaceId }); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/dashboard"); revalidatePath("/overview"); revalidateFinancialPlanViews(); return { ok: true, kind: result.kind }; }
   catch (error) { debug("transaction.delete_failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to delete transaction." }; }
 }
 
@@ -161,7 +167,7 @@ export async function reviewTransactionChangeAction(workspaceId: string, changeR
     if (approve) await approveTransactionChange(user.userId, user.workspaceId, id);
     else await rejectTransactionChange(user.userId, user.workspaceId, id);
     debug("transaction.change_reviewed", { requestId, changeRequestId: id, approve, workspaceId: user.workspaceId });
-    revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); revalidatePath("/dashboard");
+    revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); revalidatePath("/dashboard"); revalidateFinancialPlanViews();
     return { ok: true };
   } catch (error) {
     debug("transaction.change_review_failed", { requestId, message: error instanceof Error ? error.message : "unknown" });
@@ -171,6 +177,6 @@ export async function reviewTransactionChangeAction(workspaceId: string, changeR
 
 export async function deleteTransactionsAction(workspaceId: string, transactionIds: unknown) {
   const requestId = crypto.randomUUID();
-  try { const user = await workspaceActor(workspaceId); const ids = Array.from(new Set(idSchema.array().min(1).max(100).parse(transactionIds))); for (const id of ids) await deleteTransaction(user.userId, user.workspaceId, id); debug("transactions.deleted", { requestId, transactionCount: ids.length, workspaceId: user.workspaceId }); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); return { ok: true, count: ids.length }; }
+  try { const user = await workspaceActor(workspaceId); const ids = Array.from(new Set(idSchema.array().min(1).max(100).parse(transactionIds))); for (const id of ids) await deleteTransaction(user.userId, user.workspaceId, id); debug("transactions.deleted", { requestId, transactionCount: ids.length, workspaceId: user.workspaceId }); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); revalidateFinancialPlanViews(); return { ok: true, count: ids.length }; }
   catch (error) { debug("transactions.delete_failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return { ok: false, message: error instanceof Error ? error.message : "Unable to delete transactions." }; }
 }

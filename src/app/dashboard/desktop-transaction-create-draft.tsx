@@ -253,11 +253,12 @@ export function DesktopTransactionCreateDraft({
                 value={draft.categoryId}
                 onValueChange={(categoryId) => onChange({ categoryId })}
                 label="Danh mục"
+                required={draft.type === "expense"}
                 categories={categoriesForTransactionType(
                   categories,
                   draft.type,
                 )}
-                emptyOption={{ value: "none", label: "Không chọn" }}
+                emptyOption={draft.type === "expense" ? undefined : { value: "none", label: "Không chọn" }}
               />
             )}
           </section>

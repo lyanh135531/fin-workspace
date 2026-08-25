@@ -32,6 +32,8 @@ function refreshRecurringPages(workspaceId: string) {
   revalidatePath("/dashboard");
   revalidatePath(`/workspace/${workspaceId}`);
   revalidatePath("/overview");
+  revalidatePath("/financial-plans");
+  revalidatePath("/dashboard/financial-plans");
 }
 
 function failure(error: unknown, fallback: string) {

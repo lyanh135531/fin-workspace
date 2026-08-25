@@ -4,10 +4,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/base";
 import { useState } from "react";
 import { Sliders, Folders, UsersRound } from "lucide-react";
 import { WorkspaceSettings } from "./workspace-settings";
-import { ImportCategoryPanel } from "./import-category-panel";
 import { CategoryManagement } from "./category-management";
 import { SettingsClient } from "./settings-client";
 import { JoinRequestsClient } from "@/app/dashboard/join-requests/requests-client";
+import type { FinancialJarCode } from "@/domain";
 
 type Workspace = {
   name: string;
@@ -26,7 +26,7 @@ type Member = {
   isSelf: boolean;
 };
 type JoinRequest = { id: string; username: string };
-type TemplateCategory = {
+type CategoryBase = {
   id: string;
   name: string;
   code: string;
@@ -35,7 +35,8 @@ type TemplateCategory = {
   icon: string | null;
   parentId: string | null;
 };
-type Category = TemplateCategory & {
+type Category = CategoryBase & {
+  jarCode: FinancialJarCode | null;
   status: "active" | "deactive";
   transactionCount: number;
 };
@@ -43,9 +44,7 @@ type Category = TemplateCategory & {
 interface Props {
   workspace: Workspace;
   isAdmin: boolean;
-  templates: TemplateCategory[];
   categories: Category[];
-  existingCodes: string[];
   members: Member[];
   roles: Role[];
   joinRequests: JoinRequest[];
@@ -57,9 +56,7 @@ type TabKey = "general" | "categories" | "members";
 export function WorkspaceSettingsTabsClient({
   workspace,
   isAdmin,
-  templates,
   categories,
-  existingCodes,
   members,
   roles,
   joinRequests,
@@ -129,12 +126,6 @@ export function WorkspaceSettingsTabsClient({
         className="workspace-settings-tab-content"
       >
         <div className="grid items-start gap-3 pt-4 sm:gap-6 min-[901px]:gap-5 min-[901px]:pt-0">
-          <div className="workspace-category-import min-w-0 min-[901px]:order-2">
-            <ImportCategoryPanel
-              templates={templates}
-              existingCodes={existingCodes}
-            />
-          </div>
           <div className="workspace-category-manager min-w-0 min-[901px]:order-1">
             <CategoryManagement categories={categories} />
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, LayoutDashboard, Repeat2, Settings, SlidersHorizontal, WalletCards } from "lucide-react";
+import { BookOpen, CalendarRange, LayoutDashboard, Repeat2, Settings, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -43,19 +43,6 @@ export function DashboardNavigation({
     pathname === "/settings/workspace" ||
     pathname === "/dashboard/settings" ||
     pathname === "/dashboard/join-requests";
-  const accountSettingsActive =
-    pathname === "/settings/account" ||
-    pathname === "/account" ||
-    pathname === "/dashboard/settings/account";
-  const isCreateWorkspace =
-    pathname === "/workspaces/create" ||
-    pathname === "/dashboard/workspaces/create" ||
-    pathname === "/settings/workspaces/create";
-  const generalSettingsActive =
-    (pathname === "/setting" ||
-      (pathname.startsWith("/settings/") && !workspaceSettingsActive && !accountSettingsActive)) &&
-    !isCreateWorkspace;
-
   const workspaceItems: NavigationItem[] = [
     {
       href: "/overview",
@@ -82,6 +69,14 @@ export function DashboardNavigation({
       visible: Boolean(currentId) && isAdmin,
     },
     {
+      href: "/financial-plans",
+      label: "Kế hoạch",
+      description: "Mục tiêu tương lai và hạn mức sáu hũ",
+      icon: CalendarRange,
+      active: pathname === "/financial-plans",
+      visible: Boolean(currentId),
+    },
+    {
       href: "/wallets",
       label: "Quản lý ví",
       description: "Quản lý các tài khoản ví",
@@ -96,17 +91,6 @@ export function DashboardNavigation({
       icon: Settings,
       active: workspaceSettingsActive,
       visible: Boolean(currentId) && isAdmin,
-    },
-  ];
-
-  const generalItems: NavigationItem[] = [
-    {
-      href: "/setting",
-      label: "Cài đặt chung",
-      description: "Giao diện hiển thị và danh mục mẫu cá nhân",
-      icon: SlidersHorizontal,
-      active: generalSettingsActive,
-      visible: true,
     },
   ];
 
@@ -138,19 +122,6 @@ export function DashboardNavigation({
         </SidebarGroupContent>
       </SidebarGroup>
 
-      <div
-        className="dashboard-navigation-divider mx-4 my-1 h-px bg-[var(--border)] transition-[margin] duration-300 min-[901px]:mx-0 min-[901px]:my-0 min-[901px]:h-2 min-[901px]:bg-transparent! group-data-[collapsible=icon]:mx-3"
-        aria-hidden
-      />
-
-      <SidebarGroup className="min-[901px]:pt-1">
-        <span className="dashboard-nav-section-label min-[901px]:mb-2 min-[901px]:block! min-[901px]:px-2 min-[901px]:text-[0.65rem] min-[901px]:font-semibold min-[901px]:tracking-[0.08em] min-[901px]:text-[var(--text-muted)] min-[901px]:group-data-[collapsible=icon]:hidden!">
-          Cá nhân
-        </span>
-        <SidebarGroupContent>
-          <NavigationMenu items={generalItems} />
-        </SidebarGroupContent>
-      </SidebarGroup>
     </nav>
   );
 }

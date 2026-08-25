@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { registerAccount } from "@/services/bootstrap-service";
 import { registerAccountAction } from "@/app/setup/actions";
-import { DEFAULT_CATEGORY_TEMPLATES } from "@/domain";
 import { prisma } from "@/lib/prisma";
 
 vi.mock("@/lib/prisma", () => ({
@@ -49,7 +48,6 @@ describe("bootstrap-service & registerAccountAction", () => {
         data: {
           username: "admin",
           passwordHash: "hashed_password",
-          categoryTemplates: { create: [...DEFAULT_CATEGORY_TEMPLATES] },
         },
       });
     });

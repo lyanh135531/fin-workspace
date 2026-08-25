@@ -19,6 +19,12 @@ Container `recurring-worker` kiểm tra giao dịch định kỳ mỗi phút và
 bằng token được dẫn xuất từ `NEXTAUTH_SECRET`. Có thể cấu hình secret riêng bằng
 `RECURRING_WORKER_SECRET` (`openssl rand -hex 32`).
 
+Container `financial-plan-worker` gọi endpoint đóng tháng mỗi 5 phút. Service dùng
+timezone của từng workspace, advisory lock và lazy catch-up nên chạy lặp lại không
+tạo snapshot trùng. Có thể cấu hình token riêng bằng
+`FINANCIAL_PLAN_WORKER_SECRET`; nếu bỏ trống, token được dẫn xuất từ
+`NEXTAUTH_SECRET`.
+
 ### Backup PostgreSQL lúc 02:00 mỗi ngày
 
 Script backup tạo dump đã kiểm tra, lưu checksum SHA-256 và chỉ giữ lại 2 bản

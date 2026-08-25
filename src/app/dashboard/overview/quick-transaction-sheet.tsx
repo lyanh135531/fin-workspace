@@ -296,11 +296,12 @@ export function QuickTransactionSheet({
             ) : (
               <CategoryTreeSelect
                 label="Danh mục"
+                required={type === "expense"}
                 value={categoryId}
                 onValueChange={setCategoryId}
                 placeholder="Chọn danh mục"
                 categories={categories}
-                emptyOption={{ value: "none", label: "Không chọn" }}
+                emptyOption={type === "expense" ? undefined : { value: "none", label: "Không chọn" }}
               />
             )}
           </div>

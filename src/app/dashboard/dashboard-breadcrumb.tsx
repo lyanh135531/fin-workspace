@@ -29,10 +29,6 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
     { label: "Tổng quan", href: "/overview" },
     { label: "Quản lý ví" },
   ],
-  "/setting": [
-    { label: "Tổng quan", href: "/overview" },
-    { label: "Cài đặt chung" },
-  ],
   "/settings/account": [
     { label: "Tổng quan", href: "/overview" },
     { label: "Đổi mật khẩu" },
@@ -65,6 +61,10 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
     { label: "Tổng quan", href: "/overview" },
     { label: "Giao dịch định kỳ" },
   ],
+  "/financial-plans": [
+    { label: "Tổng quan", href: "/overview" },
+    { label: "Kế hoạch tài chính" },
+  ],
   "/dashboard/overview": [{ label: "Tổng quan" }],
   "/dashboard/wallets": [
     { label: "Tổng quan", href: "/overview" },
@@ -74,13 +74,8 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
     { label: "Tổng quan", href: "/overview" },
     { label: "Cài đặt nhóm" },
   ],
-  "/dashboard/settings/general": [
-    { label: "Tổng quan", href: "/overview" },
-    { label: "Cài đặt chung" },
-  ],
   "/dashboard/users": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Cài đặt chung", href: "/setting" },
     { label: "Tài khoản thành viên" },
   ],
   "/dashboard/workspaces/create": [
@@ -89,7 +84,6 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
   ],
   "/dashboard/join": [
     { label: "Tổng quan", href: "/overview" },
-    { label: "Cài đặt chung", href: "/setting" },
     { label: "Tham gia nhóm" },
   ],
   "/dashboard/join-requests": [
@@ -103,15 +97,14 @@ const segmentLabels: Record<string, string> = {
   dashboard: "Sổ giao dịch",
   join: "Tham gia nhóm",
   overview: "Tổng quan",
-  setting: "Cài đặt chung",
   settings: "Cài đặt",
   users: "Tài khoản thành viên",
   wallets: "Quản lý ví",
   workspace: "Nhóm tài chính",
   workspaces: "Nhóm tài chính",
   create: "Tạo mới",
-  general: "Cài đặt chung",
   "join-requests": "Yêu cầu tham gia",
+  "financial-plans": "Kế hoạch tài chính",
 }
 
 function getTrail(
@@ -144,6 +137,14 @@ function getTrail(
         { label: "Tổng quan", href: "/overview" },
         { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
         { label: "Giao dịch định kỳ" },
+      ];
+    }
+
+    if (normalizedPath === "/financial-plans") {
+      return [
+        { label: "Tổng quan", href: "/overview" },
+        { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
+        { label: "Kế hoạch tài chính" },
       ];
     }
 

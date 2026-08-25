@@ -12,6 +12,9 @@ readonly partial_file="${backup_file}.partial"
 readonly checksum_file="${backup_file}.sha256"
 readonly checksum_partial_file="${checksum_file}.partial"
 readonly retention_count=2
+readonly lock_file="${backup_dir}/.backup.lock"
+readonly lock_dir="${backup_dir}/.backup.lock.d"
+lock_kind=""
 
 compose() {
   docker compose \
@@ -27,6 +30,21 @@ fail() {
 
 cleanup() {
   rm -f -- "${partial_file}" "${checksum_partial_file}"
+  if [[ "${lock_kind}" == "directory" ]]; then
+    rmdir -- "${lock_dir}" >/dev/null 2>&1 || true
+  fi
+}
+
+acquire_lock() {
+  if command -v flock >/dev/null 2>&1; then
+    exec 9>"${lock_file}"
+    flock -n 9 || fail "another backup process is already running"
+    lock_kind="flock"
+    return
+  fi
+
+  mkdir -- "${lock_dir}" 2>/dev/null || fail "another backup process is already running"
+  lock_kind="directory"
 }
 
 prune_old_backups() {
@@ -58,14 +76,12 @@ prune_old_backups() {
 
 command -v docker >/dev/null 2>&1 || fail "docker is not installed or is not in PATH"
 command -v sha256sum >/dev/null 2>&1 || fail "sha256sum is not installed or is not in PATH"
-command -v flock >/dev/null 2>&1 || fail "flock is not installed or is not in PATH"
 umask 077
 mkdir -p -- "${backup_dir}"
 chmod 700 -- "${backup_dir}"
 trap cleanup EXIT HUP INT TERM
 
-exec 9>"${backup_dir}/.backup.lock"
-flock -n 9 || fail "another backup process is already running"
+acquire_lock
 
 [[ ! -e "${backup_file}" ]] || fail "backup file already exists: ${backup_file}"
 
@@ -98,6 +114,7 @@ chmod 600 -- "${checksum_file}"
 # Retention only runs after the new dump and checksum have both been verified.
 prune_old_backups
 
+cleanup
 trap - EXIT HUP INT TERM
 
 printf 'Backup completed successfully.\n'

@@ -63,7 +63,6 @@ describe("createInitialWorkspaceForUser", () => {
         create: vi.fn().mockResolvedValue({}),
       },
       category: {
-        findMany: vi.fn().mockResolvedValue([]),
         createMany: vi.fn().mockResolvedValue({ count: 11 }),
       },
       auditLog: {
@@ -105,6 +104,13 @@ describe("createInitialWorkspaceForUser", () => {
       },
     });
     expect(tx.category.createMany).toHaveBeenCalled();
+    const categoryData = tx.category.createMany.mock.calls[0]?.[0]?.data;
+    expect(categoryData).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "INCOME_SALARY", jarCode: null }),
+      expect.objectContaining({ code: "EXPENSE_EDUCATION", jarCode: "DEVELOPMENT" }),
+      expect.objectContaining({ code: "EXPENSE_SOCIAL_GIFTS", jarCode: "GIVING" }),
+      expect.objectContaining({ code: "EXPENSE_INVESTMENT", jarCode: "INVESTMENT" }),
+    ]));
     expect(tx.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         workspaceId: "workspace-new",

@@ -12,7 +12,14 @@ export const createTransactionSchema = z
     description: optionalTrimmedTextSchema,
     date: businessDateSchema,
   })
-  .superRefine(({ type, walletId, toWalletId }, ctx) => {
+  .superRefine(({ type, walletId, toWalletId, categoryId }, ctx) => {
+    if (type === "expense" && !categoryId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["categoryId"],
+        message: "Cần chọn danh mục cho giao dịch chi tiêu.",
+      });
+    }
     if (type === "transfer" && !toWalletId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -34,6 +41,14 @@ export const createTransactionSchema = z
         code: z.ZodIssueCode.custom,
         path: ["toWalletId"],
         message: "The source and destination wallets must be different.",
+      });
+    }
+
+    if (type === "transfer" && categoryId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["categoryId"],
+        message: "Giao dịch chuyển khoản không sử dụng danh mục.",
       });
     }
 

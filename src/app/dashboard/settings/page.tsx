@@ -8,8 +8,8 @@ import { InviteCodeCard } from "@/app/dashboard/settings/invite-code-card";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { manageableCategoryWhere } from "@/services/category-visibility";
+import { regenerateWorkspaceInviteCode } from "@/services/workspace-service";
 import { isAdminRole, WORKSPACE_ROLE_CODES } from "@/domain/role-policy";
-import { getUserTemplatesForImport } from "@/services/import-category-service";
 
 export default async function SettingsPage({
   searchParams,
@@ -32,22 +32,13 @@ export default async function SettingsPage({
   });
   if (!membership) redirect("/overview");
 
-  let inviteCode = membership.workspace.inviteCode;
-  if (!/^\d{3}-\d{3}$/.test(inviteCode)) {
-    const num = Math.floor(100000 + Math.random() * 900000);
-    inviteCode = `${num.toString().slice(0, 3)}-${num.toString().slice(3)}`;
-    await prisma.workspace.update({
-      where: { id: workspaceId },
-      data: { inviteCode },
-    });
-    membership.workspace.inviteCode = inviteCode;
-  }
-
   const isAdmin = isAdminRole(membership.role.code);
-
   if (!isAdmin) redirect("/dashboard");
+  const inviteCode = /^\d{3}-\d{3}$/.test(membership.workspace.inviteCode)
+    ? membership.workspace.inviteCode
+    : await regenerateWorkspaceInviteCode(session.user.id, workspaceId);
 
-  const [members, categories, templates, roles, joinRequests] =
+  const [members, categories, roles, joinRequests] =
     await Promise.all([
       prisma.workspaceMember.findMany({
         where: { workspaceId, status: "active", deletedAt: null },
@@ -65,7 +56,6 @@ export default async function SettingsPage({
         },
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       }),
-      getUserTemplatesForImport(session.user.id),
       prisma.role.findMany({
         where: { code: { in: [...WORKSPACE_ROLE_CODES] } },
         select: { code: true, name: true },
@@ -80,8 +70,6 @@ export default async function SettingsPage({
         orderBy: { createdAt: "asc" },
       }),
     ]);
-
-  const existingCodes = categories.map((c) => c.code);
 
   return (
     <PageContainer className="workspace-settings-page">
@@ -133,11 +121,9 @@ export default async function SettingsPage({
             baseCurrency: membership.workspace.baseCurrency,
             timeZone: membership.workspace.timeZone,
             status: membership.workspace.status as "active" | "deactive",
-            inviteCode: membership.workspace.inviteCode,
+            inviteCode,
           }}
           isAdmin={isAdmin}
-          templates={templates}
-          existingCodes={existingCodes}
           categories={categories.map((category) => ({
             id: category.id,
             name: category.name,
@@ -146,6 +132,7 @@ export default async function SettingsPage({
             type: category.type,
             icon: category.icon,
             parentId: category.parentId,
+            jarCode: category.jarCode,
             status: category.status,
             transactionCount: category._count.transactions,
           }))}

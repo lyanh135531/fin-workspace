@@ -1,6 +1,6 @@
 import Decimal from "decimal.js";
 import { Prisma } from "@/generated/prisma/client";
-import { DEFAULT_CATEGORY_TEMPLATES } from "@/domain";
+import { DEFAULT_WORKSPACE_CATEGORIES } from "@/domain";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { requireWorkspaceMember } from "@/services/workspace-access";
@@ -54,27 +54,21 @@ async function createWorkspaceInTransaction(
     },
   });
 
-  const templates = await tx.category.findMany({
-    where: { workspaceId: null, userId, deletedAt: null, status: "active" },
-    orderBy: { sortOrder: "asc" },
-  });
-  const categories = templates.length > 0 ? templates : DEFAULT_CATEGORY_TEMPLATES;
-
   await tx.category.createMany({
-    data: categories.map((category) => ({
+    data: DEFAULT_WORKSPACE_CATEGORIES.map((category) => ({
       workspaceId: workspace.id,
-      userId: null,
       name: category.name,
       code: category.code,
       color: category.color,
       type: category.type,
       icon: category.icon,
       parentId: null,
+      jarCode: category.jarCode,
       sortOrder: category.sortOrder,
     })),
   });
 
-  await tx.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: userId, action: "workspace.created", entityType: "workspace", entityId: workspace.id, metadata: { creatorRole: "ADMIN", defaultCategoryCount: categories.length } } });
+  await tx.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: userId, action: "workspace.created", entityType: "workspace", entityId: workspace.id, metadata: { creatorRole: "ADMIN", defaultCategoryCount: DEFAULT_WORKSPACE_CATEGORIES.length } } });
   return workspace;
 }
 

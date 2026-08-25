@@ -31,6 +31,17 @@ const ACTION_LABELS: Record<string, string> = {
   "recurring_transaction.executed": "Thực thi giao dịch định kỳ",
   "recurring_transaction.completed": "Hoàn thành giao dịch định kỳ",
 
+  // Financial plan
+  "financial_plan.draft_created": "Tạo kế hoạch nháp",
+  "financial_plan.draft_updated": "Cập nhật kế hoạch nháp",
+  "financial_plan.draft_deleted": "Xóa kế hoạch nháp",
+  "financial_plan.activated": "Kích hoạt kế hoạch",
+  "financial_plan.deadline_updated": "Cập nhật deadline kế hoạch",
+  "financial_plan.allocation_updated": "Cập nhật tỷ lệ hũ kế hoạch",
+  "financial_plan.month_closed": "Đóng tháng kế hoạch",
+  "financial_plan.completed": "Hoàn thành kế hoạch",
+  "financial_plan.cancelled": "Hủy kế hoạch",
+
   // Category
   "CATEGORY_CREATED": "Tạo danh mục",
   "CATEGORY_UPDATED": "Cập nhật danh mục",

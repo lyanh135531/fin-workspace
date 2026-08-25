@@ -39,6 +39,7 @@ import {
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { formatAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import Decimal from "decimal.js";
 import {
   AlertTriangle,
   ArrowDownLeft,
@@ -259,6 +260,13 @@ export function RecurringTransactionsManager({
   const activeCount = schedules.filter(
     (item) => !item.completedAt && item.status === "active",
   ).length;
+  const activeMonthlyAmount = schedules.reduce(
+    (total, item) =>
+      !item.completedAt && item.status === "active"
+        ? total.plus(item.amount)
+        : total,
+    new Decimal(0),
+  );
   const pausedCount = schedules.filter(
     (item) => !item.completedAt && item.status === "deactive",
   ).length;
@@ -361,15 +369,22 @@ export function RecurringTransactionsManager({
         aria-label="Trung tâm điều khiển lịch tự động"
       >
         <header>
-          <small>{schedules.length} lịch đã thiết lập</small>
+          <small>{activeCount} lịch đang hoạt động</small>
         </header>
         <div className="recurring-mobile-control-main">
           <div>
-            <span>Lịch đang hoạt động</span>
-            <strong>{activeCount}</strong>
+            <span>Tổng giá trị tự động mỗi tháng</span>
+            <div className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-1">
+              <strong className="text-[clamp(1.65rem,8vw,2.35rem)] font-bold leading-none tracking-[-0.06em] tabular-nums text-[var(--foreground)]">
+                {formatAmount(activeMonthlyAmount)}
+              </strong>
+              <span className="text-xs font-semibold text-[var(--text-secondary)]">
+                {workspace.currency}
+              </span>
+            </div>
             <p>
               {activeCount > 0
-                ? "Felix sẽ tự ghi nhận đúng ngày"
+                ? `Từ ${activeCount} lịch đang hoạt động`
                 : "Tạo hoặc kích hoạt một lịch để bắt đầu"}
             </p>
           </div>
@@ -440,7 +455,11 @@ export function RecurringTransactionsManager({
                 data-active={activeCount > 0}
                 aria-hidden="true"
               />
-              <p>{isMobile ? "Trung tâm tự động" : "Tự động ghi nhận"}</p>
+              <p>
+                {isMobile
+                  ? "Trung tâm tự động"
+                  : "Tổng giá trị tự động mỗi tháng"}
+              </p>
             </div>
             <div
               className={cn(
@@ -455,7 +474,7 @@ export function RecurringTransactionsManager({
                     "text-[2rem] font-semibold leading-none tracking-[-0.04em] text-[var(--foreground)] tabular-nums",
                 )}
               >
-                {activeCount}
+                {formatAmount(activeMonthlyAmount)}
               </strong>
               <span
                 className={cn(
@@ -463,7 +482,7 @@ export function RecurringTransactionsManager({
                     "text-sm font-medium text-[var(--text-secondary)]",
                 )}
               >
-                lịch đang chạy
+                {workspace.currency} / tháng
               </span>
             </div>
             <small
@@ -473,7 +492,7 @@ export function RecurringTransactionsManager({
               )}
             >
               {activeCount > 0
-                ? "Felix sẽ ghi nhận đúng ngày đã đặt"
+                ? `Từ ${activeCount} lịch đang hoạt động`
                 : "Kích hoạt một lịch để bắt đầu tự động hóa"}
             </small>
           </div>
@@ -1430,11 +1449,12 @@ function RecurringEditor({
                 value={draft.categoryId}
                 onValueChange={(categoryId) => onChange({ categoryId })}
                 label="Danh mục"
+                required={draft.type === "expense"}
                 categories={categoriesForTransactionType(
                   categories,
                   draft.type,
                 )}
-                emptyOption={{ value: "none", label: "Không chọn" }}
+                emptyOption={draft.type === "expense" ? undefined : { value: "none", label: "Không chọn" }}
               />
             </div>
           )}

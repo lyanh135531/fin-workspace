@@ -7,6 +7,7 @@ import {
   EyeOff,
   FolderTree,
   Pencil,
+  PiggyBank,
   Plus,
   Tag,
   Trash2,
@@ -35,7 +36,7 @@ import {
   CATEGORY_COLOR_PRESETS,
   ICON_MAP,
   slugifyCode,
-} from "@/app/dashboard/settings/global-category-management";
+} from "@/app/dashboard/settings/category-options";
 import {
   Button,
   Card,
@@ -45,6 +46,7 @@ import {
   Input,
   Label,
   Loading,
+  Select,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -57,6 +59,11 @@ import {
   TabsTrigger,
 } from "@/components/base";
 import { cn } from "@/lib/utils";
+import {
+  FINANCIAL_JAR_LABELS,
+  FINANCIAL_JAR_OPTIONS,
+  type FinancialJarCode,
+} from "@/domain";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -87,11 +94,18 @@ type Category = {
   type: "income" | "expense";
   icon: string | null;
   parentId: string | null;
+  jarCode: FinancialJarCode | null;
   status: "active" | "deactive";
   transactionCount: number;
 };
 
 type DraggedCategory = Pick<Category, "id" | "parentId">;
+
+type CategoryGroup = {
+  key: FinancialJarCode | "UNASSIGNED";
+  label: string;
+  categories: Category[];
+};
 
 function moveItem<T extends { id: string }>(
   items: T[],
@@ -178,6 +192,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         form.get("parentId") === "none"
           ? undefined
           : (form.get("parentId") as string) || undefined,
+      jarCode: (form.get("jarCode") as FinancialJarCode) || undefined,
     };
     start(async () => {
       const result = id
@@ -234,6 +249,23 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   const currentCategories = categories.filter((c) => c.type === filterType);
 
   const rootCategories = currentCategories.filter((c) => !c.parentId);
+  const categoryGroups: CategoryGroup[] =
+    filterType === "expense"
+      ? [
+          ...FINANCIAL_JAR_OPTIONS.map(({ value, label }) => ({
+            key: value,
+            label,
+            categories: rootCategories.filter(
+              (category) => category.jarCode === value,
+            ),
+          })),
+          {
+            key: "UNASSIGNED" as const,
+            label: "Chưa gán hũ",
+            categories: rootCategories.filter((category) => !category.jarCode),
+          },
+        ].filter((group) => group.categories.length > 0)
+      : [];
   const editingCategory = editing
     ? categories.find((category) => category.id === editing)
     : undefined;
@@ -399,7 +431,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           </TabsList>
         </Tabs>
 
-        <p className="text-xs text-slate-400 font-medium hidden sm:block">
+        <p className="hidden text-xs font-medium text-[var(--text-muted)] sm:block">
           Kéo thả để thay đổi thứ tự trong cùng một cấp
         </p>
       </div>
@@ -529,8 +561,70 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           <Empty
             icon={Tag}
             title={`Chưa có danh mục ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`}
-            description="Nhập từ bộ mẫu cá nhân hoặc tạo danh mục mới cho nhóm."
+            description="Tạo danh mục mới để sử dụng trong nhóm tài chính này."
           />
+        ) : filterType === "expense" ? (
+          <div className="space-y-5">
+            {categoryGroups.map((group) => {
+              const groupId = `category-jar-${group.key.toLowerCase()}`;
+              const categoryCount = group.categories.reduce(
+                (total, category) =>
+                  total +
+                  1 +
+                  currentCategories.filter(
+                    (item) => item.parentId === category.id,
+                  ).length,
+                0,
+              );
+
+              return (
+                <section key={group.key} aria-labelledby={groupId}>
+                  <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
+                    <PiggyBank
+                      size={16}
+                      className="text-[var(--text-secondary)]"
+                      aria-hidden="true"
+                    />
+                    <h3
+                      id={groupId}
+                      className="text-xs font-semibold text-[var(--foreground)]"
+                    >
+                      {group.label}
+                    </h3>
+                    <span className="ml-auto text-[11px] tabular-nums text-[var(--text-muted)]">
+                      {categoryCount} danh mục
+                    </span>
+                  </div>
+                  <div>
+                    {group.categories.map((category) => (
+                      <CategoryNode
+                        key={category.id}
+                        category={category}
+                        categories={currentCategories}
+                        pending={pending}
+                        isMobile={isMobile}
+                        isDesktop={isDesktop}
+                        showJarLabel={false}
+                        draggedCategory={draggedCategory}
+                        dropTargetId={dropTargetId}
+                        onEdit={setEditing}
+                        onStatus={setStatus}
+                        onDelete={deleteCategory}
+                        onDragStart={setDraggedCategory}
+                        onDragOver={setDropTargetId}
+                        onDragEnd={() => {
+                          setDraggedCategory(null);
+                          setDropTargetId(null);
+                        }}
+                        onDrop={handleDrop}
+                        onPointerDrop={handlePointerDrop}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
         ) : (
           rootCategories.map((category) => (
             <CategoryNode
@@ -540,6 +634,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
               pending={pending}
               isMobile={isMobile}
               isDesktop={isDesktop}
+              showJarLabel
               draggedCategory={draggedCategory}
               dropTargetId={dropTargetId}
               onEdit={setEditing}
@@ -832,6 +927,7 @@ function CategoryNode({
   pending,
   isMobile,
   isDesktop,
+  showJarLabel,
   draggedCategory,
   dropTargetId,
   onEdit,
@@ -848,6 +944,7 @@ function CategoryNode({
   pending: boolean;
   isMobile: boolean;
   isDesktop: boolean;
+  showJarLabel: boolean;
   draggedCategory: DraggedCategory | null;
   dropTargetId: string | null;
   onEdit: (id: string) => void;
@@ -936,9 +1033,6 @@ function CategoryNode({
               style={{
                 backgroundColor: `${category.color}18`,
                 color: category.color,
-                ...(!isDesktop && {
-                  boxShadow: `inset 0 0 0 1px ${category.color}25, 0 2px 8px -2px ${category.color}15`,
-                }),
               }}
             >
               <IconComponent size={20} />
@@ -948,14 +1042,20 @@ function CategoryNode({
               <strong className="block truncate text-sm font-semibold text-[var(--foreground)]">
                 {category.name}
               </strong>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                 {category.transactionCount} giao dịch
                 {hasChildren && (
-                  <span className="ml-1 text-slate-300 dark:text-slate-600">
+                  <span className="ml-1 text-[var(--text-muted)]">
                     · {children.length} danh mục con
                   </span>
                 )}
               </p>
+              {showJarLabel && category.jarCode && (
+                <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--text-secondary)]">
+                  <PiggyBank size={12} aria-hidden="true" />
+                  {FINANCIAL_JAR_LABELS[category.jarCode]}
+                </span>
+              )}
             </div>
           </div>
 
@@ -972,6 +1072,7 @@ function CategoryNode({
                 pending={pending}
                 isMobile={isMobile}
                 isDesktop={isDesktop}
+                showJarLabel={showJarLabel}
                 draggedCategory={draggedCategory}
                 dropTargetId={dropTargetId}
                 onEdit={onEdit}
@@ -1069,9 +1170,15 @@ function CategoryNode({
           <span className="text-[12.5px] font-medium text-[var(--foreground)]/90 truncate">
             {category.name}
           </span>
-          <span className="text-[10px] text-slate-300 dark:text-slate-600 font-medium flex-shrink-0">
+          <span className="flex-shrink-0 text-[10px] font-medium text-[var(--text-muted)]">
             {category.transactionCount} giao dịch
           </span>
+          {showJarLabel && category.jarCode && (
+            <span className="inline-flex flex-shrink-0 items-center gap-1 text-[10px] font-medium text-[var(--text-secondary)]">
+              <PiggyBank size={11} aria-hidden="true" />
+              {FINANCIAL_JAR_LABELS[category.jarCode]}
+            </span>
+          )}
         </div>
       </div>
 
@@ -1104,6 +1211,14 @@ function CategoryForm({
     (category?.color ?? CATEGORY_COLOR_PRESETS[0]).toUpperCase(),
   );
   const [selectedIcon, setSelectedIcon] = useState(category?.icon ?? "tag");
+  const [parentId, setParentId] = useState(category?.parentId ?? "none");
+  const [selectedJarCode, setSelectedJarCode] = useState<FinancialJarCode | "">(
+    category?.jarCode ?? "",
+  );
+  const categoryType = category?.type ?? defaultType;
+  const inheritedJarCode = parentId === "none"
+    ? null
+    : categories.find((item) => item.id === parentId)?.jarCode ?? null;
 
   function handleNameChange(val: string) {
     setName(val);
@@ -1119,7 +1234,7 @@ function CategoryForm({
         onSubmit(new FormData(e.currentTarget));
       }}
       className={cn(
-        "mt-0 flex min-h-0 flex-1 flex-col overflow-hidden border-0 bg-transparent shadow-none",
+        "mt-0 flex min-h-0 flex-1 flex-col overflow-hidden border-0 bg-transparent",
         isMobile && "quick-transaction-form",
       )}
     >
@@ -1158,7 +1273,8 @@ function CategoryForm({
           <div>
             <CategoryTreeSelect
               name="parentId"
-              defaultValue={category?.parentId ?? "none"}
+              value={parentId}
+              onValueChange={setParentId}
               label="Danh mục cha"
               emptyOption={{ value: "none", label: "Không có" }}
               categories={categories.filter(
@@ -1171,6 +1287,41 @@ function CategoryForm({
             />
           </div>
 
+          {categoryType === "expense" && (
+            parentId === "none" ? (
+              <div>
+                <Select
+                  name="jarCode"
+                  value={selectedJarCode || undefined}
+                  onValueChange={(value) => setSelectedJarCode(value as FinancialJarCode)}
+                  label="Hũ tài chính"
+                  placeholder="Chọn hũ tài chính"
+                  options={FINANCIAL_JAR_OPTIONS}
+                  required
+                />
+                <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                  Giao dịch thuộc danh mục này sẽ tiêu hạn mức của hũ đã chọn.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-1">
+                <Label>Hũ tài chính</Label>
+                <div
+                  className="flex min-h-8 items-center gap-2 px-3 text-sm text-[var(--foreground)]"
+                  aria-label={`Kế thừa hũ ${inheritedJarCode ? FINANCIAL_JAR_LABELS[inheritedJarCode] : "chưa xác định"} từ danh mục cha`}
+                >
+                  <PiggyBank size={15} className="text-[var(--text-secondary)]" aria-hidden="true" />
+                  <span>
+                    {inheritedJarCode
+                      ? FINANCIAL_JAR_LABELS[inheritedJarCode]
+                      : "Chưa xác định"}
+                  </span>
+                  <span className="text-xs text-[var(--text-muted)]">Kế thừa từ danh mục cha</span>
+                </div>
+              </div>
+            )
+          )}
+
           <div className="grid gap-1">
             <Label>Màu đại diện</Label>
             <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -1180,9 +1331,9 @@ function CategoryForm({
                   size="auto"
                   key={color}
                   type="button"
-                  className={`h-7 w-7 rounded-full border-2 transition-transform min-[901px]:shadow-none ${
+                  className={`h-7 w-7 rounded-full border-2 transition-transform ${
                     selectedColor === color
-                      ? "scale-110 border-white shadow-md ring-2 ring-[var(--primary)]"
+                      ? "scale-110 border-[var(--surface)] ring-2 ring-[var(--primary)]"
                       : "border-transparent"
                   }`}
                   style={{ backgroundColor: color }}
@@ -1219,8 +1370,8 @@ function CategoryForm({
                     onClick={() => setSelectedIcon(item.id)}
                     className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all text-xs gap-1 ${
                       isSelected
-                        ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] font-bold min-[901px]:shadow-none"
-                        : "border-transparent hover:bg-[var(--surface-muted)] text-slate-600 dark:text-slate-400"
+                        ? "border-[var(--primary)] bg-[var(--primary)]/10 font-bold text-[var(--primary)]"
+                        : "border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
                     }`}
                     title={item.label}
                   >

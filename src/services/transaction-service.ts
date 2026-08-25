@@ -1,7 +1,11 @@
 import Decimal from "decimal.js";
 import { cache } from "react";
 import { Prisma, type Transaction } from "@/generated/prisma/client";
-import { createTransactionSchema, type CreateTransactionInput } from "@/domain";
+import {
+  createTransactionSchema,
+  type CreateTransactionInput,
+  type FinancialJarCode,
+} from "@/domain";
 import { isAdminRole } from "@/domain/role-policy";
 import { transactionTimingForDate, workflowStatusForAppliedDate, workflowStatusForCreation, type TransactionTiming } from "@/domain/transaction/policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
@@ -12,6 +16,12 @@ import { requireWorkspaceMember } from "@/services/workspace-access";
 
 type TransactionClient = Prisma.TransactionClient;
 type ResolvedTransactionInput = CreateTransactionInput & { timing: TransactionTiming };
+type TransactionResourceInput = {
+  walletId: string;
+  toWalletId?: string | null;
+  categoryId?: string | null;
+  type: "income" | "expense" | "transfer";
+};
 
 function asDatabaseDate(date: string) {
   return new Date(`${date}T00:00:00.000Z`);
@@ -29,7 +39,7 @@ function resolveTransactionInput(input: CreateTransactionInput, timeZone: string
 export async function requireTransactionResources(
   tx: TransactionClient,
   workspaceId: string,
-  input: Pick<CreateTransactionInput, "walletId" | "toWalletId" | "categoryId">,
+  input: TransactionResourceInput,
 ) {
   const walletIds = [input.walletId, input.toWalletId].filter((id): id is string => Boolean(id));
   const links = await tx.workspaceWallet.findMany({
@@ -39,10 +49,26 @@ export async function requireTransactionResources(
   if (new Set(links.map((link) => link.walletId)).size !== new Set(walletIds).size) {
     throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Ví không thuộc nhóm này hoặc không còn hoạt động.");
   }
-  if (input.categoryId) {
-    const category = await tx.category.findFirst({ where: { id: input.categoryId, ...availableCategoryWhere(workspaceId) }, select: { id: true } });
-    if (!category) throw new AppError("FORBIDDEN", "Danh mục không khả dụng trong nhóm này.");
+  let category: { id: string; type: "income" | "expense"; jarCode: FinancialJarCode | null } | null = null;
+  if (input.type === "expense" && !input.categoryId) {
+    throw new AppError("VALIDATION_ERROR", "Cần chọn danh mục cho giao dịch chi tiêu.");
   }
+  if (input.categoryId) {
+    category = await tx.category.findFirst({ where: { id: input.categoryId, ...availableCategoryWhere(workspaceId) }, select: { id: true, type: true, jarCode: true } });
+    if (!category) throw new AppError("FORBIDDEN", "Danh mục không khả dụng trong nhóm này.");
+    if (input.type === "transfer" || category.type !== input.type) {
+      throw new AppError("VALIDATION_ERROR", "Loại danh mục không khớp với loại giao dịch.");
+    }
+  }
+  const expenseJarCode = input.type === "expense" ? category?.jarCode : null;
+  if (input.type === "expense" && !expenseJarCode) {
+    throw new AppError("VALIDATION_ERROR", "Danh mục chi tiêu chưa có hũ tài chính hợp lệ.");
+  }
+  return {
+    jarCode: input.type === "expense"
+      ? expenseJarCode
+      : null,
+  };
 }
 
 async function applyBalance(tx: TransactionClient, record: Pick<Transaction, "type" | "amount" | "walletId" | "toWalletId">, reverse = false) {
@@ -67,7 +93,7 @@ export async function createApprovedTransactionInTransaction(
   input: CreateTransactionInput,
   recurring?: { id: string; period: string },
 ) {
-  await requireTransactionResources(tx, workspaceId, input);
+  const resources = await requireTransactionResources(tx, workspaceId, input);
   const record = await tx.transaction.create({
     data: {
       memberId,
@@ -81,6 +107,7 @@ export async function createApprovedTransactionInTransaction(
       workflowStatus: "approved",
       recurringTransactionId: recurring?.id,
       recurringPeriod: recurring?.period,
+      jarCode: resources.jarCode,
     },
   });
   await applyBalance(tx, record);
@@ -101,6 +128,7 @@ function transactionSnapshot(record: Transaction) {
     description: record.description,
     date: asBusinessDate(record.date),
     workflowStatus: record.workflowStatus,
+    jarCode: record.jarCode,
   };
 }
 
@@ -127,7 +155,7 @@ async function applyUpdate(
   await lockTransaction(tx, record.id);
   const current = await tx.transaction.findFirst({ where: { id: record.id, deletedAt: null } });
   if (!current) throw new AppError("NOT_FOUND", "Giao dịch không còn tồn tại.");
-  await requireTransactionResources(tx, workspaceId, input);
+  const resources = await requireTransactionResources(tx, workspaceId, input);
   if (current.workflowStatus === "approved") await applyBalance(tx, current, true);
   const workflowStatus = workflowStatusForAppliedDate(input.date, getBusinessDateInTimeZone(timeZone, now));
   const updated = await tx.transaction.update({
@@ -141,6 +169,7 @@ async function applyUpdate(
       description: input.description ?? null,
       date: asDatabaseDate(input.date),
       workflowStatus,
+      jarCode: resources.jarCode,
     },
   });
   if (workflowStatus === "approved") await applyBalance(tx, updated);
@@ -175,7 +204,7 @@ export async function createTransaction(userId: string, workspaceId: string, inp
   const resolved = resolveTransactionInput(input, member.workspace.timeZone, now);
   const workflowStatus = workflowStatusForCreation(member.role.code, resolved.timing);
   return prisma.$transaction(async (tx) => {
-    await requireTransactionResources(tx, workspaceId, resolved);
+    const resources = await requireTransactionResources(tx, workspaceId, resolved);
     const record = await tx.transaction.create({
       data: {
         memberId: member.id,
@@ -187,11 +216,12 @@ export async function createTransaction(userId: string, workspaceId: string, inp
         description: resolved.description,
         date: asDatabaseDate(resolved.date),
         workflowStatus,
+        jarCode: resources.jarCode,
       },
     });
     if (workflowStatus === "approved") await applyBalance(tx, record);
     await tx.auditLog.create({
-      data: { workspaceId, actorUserId: userId, action: "transaction.created", entityType: "transaction", entityId: record.id, metadata: { timing: resolved.timing, workflowStatus, balanceApplied: workflowStatus === "approved" } },
+      data: { workspaceId, actorUserId: userId, action: "transaction.created", entityType: "transaction", entityId: record.id, metadata: { timing: resolved.timing, workflowStatus, balanceApplied: workflowStatus === "approved", jarCode: resources.jarCode } },
     });
     return record;
   });
@@ -205,13 +235,14 @@ export async function approveTransaction(userId: string, workspaceId: string, tr
       where: { id: transactionId, workflowStatus: { in: ["pending", "scheduled"] }, deletedAt: null, member: { workspaceId, status: "active", deletedAt: null } },
     });
     if (!record) throw new AppError("NOT_FOUND", "Không tìm thấy giao dịch đang chờ hoặc đã lên lịch.");
+    const resources = await requireTransactionResources(tx, workspaceId, record);
     const claimed = await tx.transaction.updateMany({
       where: { id: record.id, workflowStatus: record.workflowStatus, deletedAt: null },
-      data: { workflowStatus: "approved" },
+      data: { workflowStatus: "approved", jarCode: resources.jarCode },
     });
     if (claimed.count !== 1) throw new AppError("CONFLICT", "Giao dịch đã được xử lý.");
     await applyBalance(tx, record);
-    await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.approved", entityType: "transaction", entityId: record.id, metadata: { previousStatus: record.workflowStatus } } });
+    await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.approved", entityType: "transaction", entityId: record.id, metadata: { previousStatus: record.workflowStatus, jarCode: resources.jarCode } } });
     return tx.transaction.findUniqueOrThrow({ where: { id: record.id } });
   });
 }
@@ -244,10 +275,11 @@ export async function activateDueScheduledTransactions(workspaceId: string, now 
       await lockTransaction(tx, record.id);
       const current = await tx.transaction.findFirst({ where: { id: record.id, workflowStatus: "scheduled", deletedAt: null } });
       if (!current) continue;
-      const claimed = await tx.transaction.updateMany({ where: { id: current.id, workflowStatus: "scheduled", deletedAt: null }, data: { workflowStatus: "approved" } });
+      const resources = await requireTransactionResources(tx, workspaceId, current);
+      const claimed = await tx.transaction.updateMany({ where: { id: current.id, workflowStatus: "scheduled", deletedAt: null }, data: { workflowStatus: "approved", jarCode: resources.jarCode } });
       if (claimed.count !== 1) continue;
       await applyBalance(tx, current);
-      await tx.auditLog.create({ data: { workspaceId, action: "transaction.scheduled_activated", entityType: "transaction", entityId: current.id, metadata: { dueDate: asBusinessDate(current.date) } } });
+      await tx.auditLog.create({ data: { workspaceId, action: "transaction.scheduled_activated", entityType: "transaction", entityId: current.id, metadata: { dueDate: asBusinessDate(current.date), jarCode: resources.jarCode } } });
       activated += 1;
     }
     return activated;

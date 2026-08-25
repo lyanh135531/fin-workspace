@@ -53,5 +53,19 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  financial-plan-worker:
+    build:
+      context: .
+      target: worker
+    command: ["node", "financial-plan-worker.mjs"]
+    env_file: .env
+    environment:
+      - FINANCIAL_PLAN_WORKER_URL=http://app:15730/api/internal/financial-plans/close
+      - FINANCIAL_PLAN_WORKER_INTERVAL_MS=300000
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   fin_workspace_postgres_data:

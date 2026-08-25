@@ -21,7 +21,14 @@ export const recurringTransactionSchema = z
       businessDateSchema.optional(),
     ),
   })
-  .superRefine(({ type, walletId, toWalletId, startDate, endDate }, ctx) => {
+  .superRefine(({ type, walletId, toWalletId, categoryId, startDate, endDate }, ctx) => {
+    if (type === "expense" && !categoryId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["categoryId"],
+        message: "Cần chọn danh mục cho giao dịch chi tiêu định kỳ.",
+      });
+    }
     if (type === "transfer" && !toWalletId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -41,6 +48,13 @@ export const recurringTransactionSchema = z
         code: z.ZodIssueCode.custom,
         path: ["toWalletId"],
         message: "Ví gửi và ví nhận phải khác nhau.",
+      });
+    }
+    if (type === "transfer" && categoryId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["categoryId"],
+        message: "Giao dịch chuyển khoản không sử dụng danh mục.",
       });
     }
     if (endDate && endDate < startDate) {

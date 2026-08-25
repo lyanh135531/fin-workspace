@@ -22,7 +22,7 @@ CMD ["pnpm", "prisma:deploy"]
 FROM node:22-alpine AS worker
 WORKDIR /app
 ENV NODE_ENV=production
-COPY scripts/recurring-worker.mjs ./recurring-worker.mjs
+COPY scripts/recurring-worker.mjs scripts/financial-plan-worker.mjs ./
 USER node
 CMD ["node", "recurring-worker.mjs"]
 

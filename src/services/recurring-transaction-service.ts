@@ -195,6 +195,9 @@ export async function setRecurringTransactionStatus(
   const today = getBusinessDateInTimeZone(member.workspace.timeZone, now);
   return prisma.$transaction(async (tx) => {
     const current = await findManagedRecurringTransaction(tx, workspaceId, recurringTransactionId);
+    if (status === "active") {
+      await requireTransactionResources(tx, workspaceId, current);
+    }
     const effectiveStart = asBusinessDate(current.startDate) > today
       ? asBusinessDate(current.startDate)
       : today;
@@ -313,7 +316,7 @@ async function processOneDueOccurrence(workspaceId: string, recurringTransaction
             action: "recurring_transaction.posted",
             entityType: "transaction",
             entityId: transaction.id,
-            metadata: { recurringTransactionId: record.id, period, dueDate },
+            metadata: { recurringTransactionId: record.id, period, dueDate, jarCode: transaction.jarCode },
           },
         });
       }
