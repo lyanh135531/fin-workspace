@@ -7,6 +7,7 @@ import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
+import { calculateActiveRecurringMonthlyNetAmount } from "@/services/recurring-transaction-summary";
 import { PageContainer } from "@/components/base";
 
 export default async function RecurringTransactionsPage() {
@@ -69,6 +70,9 @@ export default async function RecurringTransactionsPage() {
             name: wallet.name,
           }))}
           categories={categories}
+          activeMonthlyNetAmount={calculateActiveRecurringMonthlyNetAmount(
+            recurringTransactions,
+          ).toString()}
           schedules={recurringTransactions.map((item) => ({
             id: item.id,
             walletId: item.walletId,

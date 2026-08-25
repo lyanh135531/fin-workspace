@@ -39,7 +39,6 @@ import {
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { formatAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import Decimal from "decimal.js";
 import {
   AlertTriangle,
   ArrowDownLeft,
@@ -220,6 +219,7 @@ export function RecurringTransactionsManager({
   workspace,
   wallets,
   categories,
+  activeMonthlyNetAmount,
   schedules,
 }: {
   workspace: {
@@ -231,6 +231,7 @@ export function RecurringTransactionsManager({
   };
   wallets: Option[];
   categories: CategoryOption[];
+  activeMonthlyNetAmount: string;
   schedules: Schedule[];
 }) {
   const [status, setStatus] = useState<ScheduleStatusFilter>("all");
@@ -260,13 +261,6 @@ export function RecurringTransactionsManager({
   const activeCount = schedules.filter(
     (item) => !item.completedAt && item.status === "active",
   ).length;
-  const activeMonthlyAmount = schedules.reduce(
-    (total, item) =>
-      !item.completedAt && item.status === "active"
-        ? total.plus(item.amount)
-        : total,
-    new Decimal(0),
-  );
   const pausedCount = schedules.filter(
     (item) => !item.completedAt && item.status === "deactive",
   ).length;
@@ -373,10 +367,10 @@ export function RecurringTransactionsManager({
         </header>
         <div className="recurring-mobile-control-main">
           <div>
-            <span>Tổng giá trị tự động mỗi tháng</span>
+            <span>Dòng tiền ròng tự động mỗi tháng</span>
             <div className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-1">
               <strong className="text-[clamp(1.65rem,8vw,2.35rem)] font-bold leading-none tracking-[-0.06em] tabular-nums text-[var(--foreground)]">
-                {formatAmount(activeMonthlyAmount)}
+                {formatAmount(activeMonthlyNetAmount)}
               </strong>
               <span className="text-xs font-semibold text-[var(--text-secondary)]">
                 {workspace.currency}
@@ -458,7 +452,7 @@ export function RecurringTransactionsManager({
               <p>
                 {isMobile
                   ? "Trung tâm tự động"
-                  : "Tổng giá trị tự động mỗi tháng"}
+                  : "Dòng tiền ròng tự động mỗi tháng"}
               </p>
             </div>
             <div
@@ -474,7 +468,7 @@ export function RecurringTransactionsManager({
                     "text-[2rem] font-semibold leading-none tracking-[-0.04em] text-[var(--foreground)] tabular-nums",
                 )}
               >
-                {formatAmount(activeMonthlyAmount)}
+                {formatAmount(activeMonthlyNetAmount)}
               </strong>
               <span
                 className={cn(
