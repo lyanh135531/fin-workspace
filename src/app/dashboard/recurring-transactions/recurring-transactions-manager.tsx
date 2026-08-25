@@ -1,5 +1,6 @@
 "use client";
 
+import Decimal from "decimal.js";
 import {
   createRecurringTransactionAction,
   deleteRecurringTransactionAction,
@@ -241,6 +242,12 @@ export function RecurringTransactionsManager({
   const [busy, startTransition] = useTransition();
   const SummaryContainer = isMobile ? "section" : Card;
   const ListContainer = isMobile ? "section" : Card;
+  const monthlyNetAmount = new Decimal(activeMonthlyNetAmount);
+  const monthlyNetAmountColor = monthlyNetAmount.isPositive()
+    ? "text-[var(--income)]"
+    : monthlyNetAmount.isNegative()
+      ? "text-[var(--expense)]"
+      : "text-[var(--foreground)]";
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 760px)");
@@ -369,7 +376,12 @@ export function RecurringTransactionsManager({
           <div>
             <span>Dòng tiền ròng tự động mỗi tháng</span>
             <div className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-1">
-              <strong className="text-[clamp(1.65rem,8vw,2.35rem)] font-bold leading-none tracking-[-0.06em] tabular-nums text-[var(--foreground)]">
+              <strong
+                className={cn(
+                  "text-[clamp(1.65rem,8vw,2.35rem)] font-bold leading-none tracking-[-0.06em] tabular-nums",
+                  monthlyNetAmountColor,
+                )}
+              >
                 {formatAmount(activeMonthlyNetAmount)}
               </strong>
               <span className="text-xs font-semibold text-[var(--text-secondary)]">
@@ -464,8 +476,9 @@ export function RecurringTransactionsManager({
             >
               <strong
                 className={cn(
+                  monthlyNetAmountColor,
                   !isMobile &&
-                    "text-[2rem] font-semibold leading-none tracking-[-0.04em] text-[var(--foreground)] tabular-nums",
+                    "text-[2rem] font-semibold leading-none tracking-[-0.04em] tabular-nums",
                 )}
               >
                 {formatAmount(activeMonthlyNetAmount)}
