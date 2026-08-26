@@ -26,6 +26,7 @@ import {
   Empty,
   Input,
   MoneyInput,
+  MonthPicker,
   PageHeader,
   Sheet,
   SheetContent,
@@ -517,89 +518,86 @@ export function FinancialPlansManager({
             }}
           />
 
-          <nav
-            aria-label="Danh sách kế hoạch"
-            className="hidden gap-2 overflow-x-auto pb-1 md:flex"
-          >
-            {plans.map((plan) => (
-              <Button
-                key={plan.id}
-                variant={selectedPlan?.id === plan.id ? "secondary" : "outline"}
-                render={<Link href={`/financial-plans?plan=${plan.id}`} />}
-              >
-                <span className="max-w-44 truncate">{plan.name}</span>
-                <span className="text-xs text-[var(--text-muted)]">
-                  {STATUS_LABELS[plan.status]}
-                </span>
-              </Button>
-            ))}
-          </nav>
         </>
       )}
 
-      {!selectedPlan ? (
-        <Card className="p-4 md:p-6">
-          <Empty
-            icon={Target}
-            title="Chưa có kế hoạch tài chính"
-            description={
-              canManage
-                ? "Tạo mục tiêu, chọn hạn hoàn thành và tỷ lệ sáu hũ. Hệ thống sẽ tự tính khoản cần để dành từ số dư và dòng tiền thực tế."
-                : "Admin của workspace chưa tạo kế hoạch tài chính."
-            }
-            action={
-              canManage ? (
-                <Button size="lg" onClick={() => setEditorOpen(true)}>
-                  <Plus aria-hidden /> Tạo kế hoạch đầu tiên
-                </Button>
-              ) : undefined
-            }
-            className="min-h-64 px-2 py-8 md:min-h-44 md:p-8"
-          />
-        </Card>
-      ) : selectedPlan.status === "draft" ? (
-        <DraftReview
-          plan={selectedPlan}
-          currency={currency}
-          isMobile={isMobile}
-          disabled={isPending}
-          onEdit={() => setEditorOpen(true)}
-          onActivate={() =>
-            runAction(
-              () => activateFinancialPlanAction(selectedPlan.id),
-              "Đã kích hoạt kế hoạch.",
-            )
-          }
-          onDelete={() =>
-            runAction(
-              () => deleteFinancialPlanAction(selectedPlan.id),
-              "Đã xóa kế hoạch.",
-              () => router.replace("/financial-plans"),
-            )
-          }
-        />
-      ) : (
-        <PlanDetail
-          plan={selectedPlan}
-          currency={currency}
-          currentMonth={currentPlanMonth}
-          disabled={isPending}
-          onEditDeadline={() => setDeadlineOpen(true)}
-          onEditAllocation={() => setAllocationOpen(true)}
-          onCancel={() =>
-            runAction(
-              () => cancelFinancialPlanAction(selectedPlan.id),
-              "Đã hủy kế hoạch.",
-            )
-          }
-          onComplete={() =>
-            runAction(
-              () => completeFinancialPlanAction(selectedPlan.id),
-              "Đã hoàn thành kế hoạch.",
-            )
-          }
-        />
-      )}
+      <div
+        className={
+          plans.length > 0
+            ? "md:grid md:grid-cols-[15rem_minmax(0,1fr)] md:items-start md:gap-5 xl:grid-cols-[19rem_minmax(0,1fr)] xl:gap-6"
+            : undefined
+        }
+      >
+        {plans.length > 0 && (
+          <DesktopPlanSidebar plans={plans} selectedPlan={selectedPlan} />
+        )}
+
+        <section className="min-w-0" aria-label="Chi tiết kế hoạch">
+          {!selectedPlan ? (
+            <Card className="p-4 md:p-6">
+              <Empty
+                icon={Target}
+                title="Chưa có kế hoạch tài chính"
+                description={
+                  canManage
+                    ? "Tạo mục tiêu, chọn hạn hoàn thành và tỷ lệ sáu hũ. Hệ thống sẽ tự tính khoản cần để dành từ số dư và dòng tiền thực tế."
+                    : "Admin của workspace chưa tạo kế hoạch tài chính."
+                }
+                action={
+                  canManage ? (
+                    <Button size="lg" onClick={() => setEditorOpen(true)}>
+                      <Plus aria-hidden /> Tạo kế hoạch đầu tiên
+                    </Button>
+                  ) : undefined
+                }
+                className="min-h-64 px-2 py-8 md:min-h-44 md:p-8"
+              />
+            </Card>
+          ) : selectedPlan.status === "draft" ? (
+            <DraftReview
+              plan={selectedPlan}
+              currency={currency}
+              isMobile={isMobile}
+              disabled={isPending}
+              onEdit={() => setEditorOpen(true)}
+              onActivate={() =>
+                runAction(
+                  () => activateFinancialPlanAction(selectedPlan.id),
+                  "Đã kích hoạt kế hoạch.",
+                )
+              }
+              onDelete={() =>
+                runAction(
+                  () => deleteFinancialPlanAction(selectedPlan.id),
+                  "Đã xóa kế hoạch.",
+                  () => router.replace("/financial-plans"),
+                )
+              }
+            />
+          ) : (
+            <PlanDetail
+              plan={selectedPlan}
+              currency={currency}
+              currentMonth={currentPlanMonth}
+              disabled={isPending}
+              onEditDeadline={() => setDeadlineOpen(true)}
+              onEditAllocation={() => setAllocationOpen(true)}
+              onCancel={() =>
+                runAction(
+                  () => cancelFinancialPlanAction(selectedPlan.id),
+                  "Đã hủy kế hoạch.",
+                )
+              }
+              onComplete={() =>
+                runAction(
+                  () => completeFinancialPlanAction(selectedPlan.id),
+                  "Đã hoàn thành kế hoạch.",
+                )
+              }
+            />
+          )}
+        </section>
+      </div>
 
       {canManage && editorOpen && (
         <PlanEditorSheet
@@ -664,6 +662,73 @@ export function FinancialPlansManager({
   );
 }
 
+function DesktopPlanSidebar({
+  plans,
+  selectedPlan,
+}: {
+  plans: PlanListItem[];
+  selectedPlan: SelectedPlan;
+}) {
+  return (
+    <div className="hidden md:block">
+      <Card as="aside" size="sm" className="sticky top-6 p-3">
+        <CardHeader className="px-2 pb-2 pt-1">
+          <CardTitle className="flex items-center justify-between gap-3">
+            <span>Kế hoạch</span>
+            <span className="text-xs font-normal tabular-nums text-[var(--text-muted)]">
+              {plans.length}
+            </span>
+          </CardTitle>
+          <CardDescription>Chọn mục tiêu để xem tiến độ.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <nav
+            aria-label="Danh sách kế hoạch"
+            className="grid max-h-[calc(100dvh-13rem)] gap-1 overflow-y-auto"
+          >
+            {plans.map((plan) => {
+              const StatusIcon = STATUS_ICONS[plan.status];
+              const selected = selectedPlan?.id === plan.id;
+              const statusTone =
+                plan.status === "active"
+                  ? "text-[var(--primary)]"
+                  : plan.status === "completed"
+                    ? "text-[var(--success)]"
+                    : plan.status === "cancelled"
+                      ? "text-[var(--text-muted)]"
+                      : "text-[var(--warning)]";
+
+              return (
+                <Button
+                  key={plan.id}
+                  variant={selected ? "selected" : "ghost"}
+                  size="auto"
+                  className="w-full justify-start gap-3 px-3 py-3 text-left"
+                  render={<Link href={`/financial-plans?plan=${plan.id}`} />}
+                  aria-current={selected ? "page" : undefined}
+                >
+                  <StatusIcon
+                    className={`size-4 shrink-0 ${statusTone}`}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold">
+                      {plan.name}
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs font-normal text-[var(--text-muted)]">
+                      {STATUS_LABELS[plan.status]} · {monthLabel(plan.targetMonth)}
+                    </span>
+                  </span>
+                </Button>
+              );
+            })}
+          </nav>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function DraftReview({
   plan,
   currency,
@@ -697,16 +762,19 @@ function DraftReview({
             </CardDescription>
           </div>
           <div className="hidden md:block">
-            <CardTitle className="flex items-center gap-2">
-              <Target aria-hidden /> {plan.name}
+            <p className="text-xs font-medium text-[var(--warning)]">
+              Bản nháp
+            </p>
+            <CardTitle className="mt-1 text-xl tracking-tight">
+              {plan.name}
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="mt-1">
               Bản nháp chưa ảnh hưởng hạn mức chi tiêu.
             </CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-x-4 gap-y-5 md:grid-cols-3">
-          <div className="col-span-2 md:col-span-1">
+        <CardContent className="grid grid-cols-2 gap-x-4 gap-y-5 md:hidden">
+          <div className="col-span-2">
             <Metric
               label="Mục tiêu"
               value={money(plan.targetAmount, currency)}
@@ -724,6 +792,32 @@ function DraftReview({
             value={monthLabel(plan.targetMonth)}
             icon={CalendarClock}
           />
+        </CardContent>
+        <CardContent className="hidden gap-6 md:grid lg:grid-cols-[minmax(0,1fr)_minmax(15rem,0.75fr)]">
+          <section>
+            <p className="text-xs text-[var(--text-muted)]">Mục tiêu</p>
+            <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums text-[var(--foreground)]">
+              {money(plan.targetAmount, currency)}
+            </p>
+          </section>
+          <dl className="divide-y divide-[var(--border)] border-y border-[var(--border)] lg:border-y-0 lg:border-l lg:pl-6">
+            <div className="flex items-center justify-between gap-4 py-3 lg:pt-0">
+              <dt className="text-sm text-[var(--text-secondary)]">
+                Đã dành sẵn
+              </dt>
+              <dd className="font-semibold tabular-nums text-[var(--foreground)]">
+                {money(plan.existingGoalAmount, currency)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3 lg:pb-0">
+              <dt className="text-sm text-[var(--text-secondary)]">
+                Hạn hoàn thành
+              </dt>
+              <dd className="font-semibold text-[var(--foreground)]">
+                {monthLabel(plan.targetMonth)}
+              </dd>
+            </div>
+          </dl>
         </CardContent>
         {plan.canManage && (
           <>
@@ -874,13 +968,17 @@ function PlanDetail({
           </div>
           <div className="hidden flex-wrap items-center justify-between gap-3 md:flex">
             <div>
-              <CardTitle>{plan.name}</CardTitle>
-              <CardDescription>
+              <p className="text-xs font-medium text-[var(--primary)]">
                 {STATUS_LABELS[plan.status]}
                 {plan.status === "active"
                   ? ` · ${HEALTH_LABELS[plan.health]}`
-                  : ""}{" "}
-                · {monthLabel(plan.startMonth)} → {monthLabel(plan.targetMonth)}
+                  : ""}
+              </p>
+              <CardTitle className="mt-1 text-xl tracking-tight">
+                {plan.name}
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {monthLabel(plan.startMonth)} → {monthLabel(plan.targetMonth)}
               </CardDescription>
             </div>
             {plan.status === "active" && plan.canManage && (
@@ -935,34 +1033,7 @@ function PlanDetail({
               trên mục tiêu {money(plan.targetAmount, currency)}
             </p>
           </div>
-          <div
-            className={`hidden gap-4 md:grid md:grid-cols-2 ${hasShortfall ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}
-          >
-            <Metric
-              label="Mục tiêu"
-              value={money(plan.targetAmount, currency)}
-              icon={Target}
-            />
-            <Metric
-              label="Đã tích lũy"
-              value={money(plan.realizedProgress, currency)}
-              icon={PiggyBank}
-            />
-            <Metric
-              label="Ước tính tích lũy cuối tháng"
-              value={money(plan.projectedEndOfCurrentMonthProgress, currency)}
-              icon={TrendingUp}
-            />
-            {hasShortfall && (
-              <Metric
-                label="Số tiền còn thiếu"
-                value={money(shortfall, currency)}
-                icon={AlertTriangle}
-                tone="warning"
-              />
-            )}
-          </div>
-          <div className="grid gap-2">
+          <div className="grid gap-2 md:hidden">
             <div className="flex items-center justify-between text-sm">
               <span className="text-[var(--text-secondary)]">
                 Tiến độ đã tích lũy
@@ -984,11 +1055,6 @@ function PlanDetail({
                 }}
               />
             </div>
-            <p className="hidden text-xs text-[var(--text-muted)] md:block">
-              Ước tính cuối tháng: {plan.projectedCurrentProgressPercentage}% ·
-              Ước tính khi đến hạn:{" "}
-              {money(plan.projectedEndOfPlanProgress, currency)}
-            </p>
           </div>
           <div
             className={`grid gap-x-4 border-t border-[var(--border)] pt-4 md:hidden ${hasShortfall ? "grid-cols-2" : "grid-cols-1"}`}
@@ -1006,6 +1072,80 @@ function PlanDetail({
                 tone="warning"
               />
             )}
+          </div>
+
+          <div className="hidden gap-6 md:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(16rem,0.8fr)]">
+            <section className="grid content-start gap-4">
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">Đã tích lũy</p>
+                <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums text-[var(--foreground)] xl:text-4xl">
+                  {money(plan.realizedProgress, currency)}
+                </p>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                  trên mục tiêu {money(plan.targetAmount, currency)}
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[var(--text-secondary)]">
+                    Tiến độ thực tế
+                  </span>
+                  <strong className="tabular-nums">
+                    {plan.realizedProgressPercentage}%
+                  </strong>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-label="Tiến độ đã ghi nhận"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Number(plan.realizedProgressPercentage)}
+                  className="h-2 overflow-hidden rounded-full bg-[var(--surface-secondary)]"
+                >
+                  <div
+                    className="h-full bg-[var(--primary)] transition-[width] duration-300"
+                    style={{
+                      width: `${progressWidth(plan.realizedProgressPercentage)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <dl className="divide-y divide-[var(--border)] border-y border-[var(--border)] lg:border-y-0 lg:border-l lg:pl-6">
+              <div className="flex items-center justify-between gap-4 py-3 lg:pt-0">
+                <dt className="text-sm text-[var(--text-secondary)]">
+                  Cuối tháng
+                </dt>
+                <dd className="font-semibold tabular-nums text-[var(--foreground)]">
+                  {money(plan.projectedEndOfCurrentMonthProgress, currency)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 py-3">
+                <dt className="text-sm text-[var(--text-secondary)]">
+                  Khi đến hạn
+                </dt>
+                <dd className="font-semibold tabular-nums text-[var(--foreground)]">
+                  {money(plan.projectedEndOfPlanProgress, currency)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 py-3 lg:pb-0">
+                <dt className="text-sm text-[var(--text-secondary)]">
+                  Tiến độ cuối tháng
+                </dt>
+                <dd className="font-semibold tabular-nums text-[var(--foreground)]">
+                  {plan.projectedCurrentProgressPercentage}%
+                </dd>
+              </div>
+              {hasShortfall && (
+                <div className="flex items-center justify-between gap-4 py-3 lg:pb-0">
+                  <dt className="text-sm text-[var(--warning)]">Còn thiếu</dt>
+                  <dd className="font-semibold tabular-nums text-[var(--warning)]">
+                    {money(shortfall, currency)}
+                  </dd>
+                </div>
+              )}
+            </dl>
           </div>
         </CardContent>
       </Card>
@@ -1160,10 +1300,14 @@ function PlanDetail({
         </>
       )}
 
-      {currentMonth && (
-        <CurrentMonthBudget month={currentMonth} currency={currency} />
+      {currentMonth ? (
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:items-start">
+          <CurrentMonthBudget month={currentMonth} currency={currency} />
+          <MonthHistory months={plan.months} currency={currency} />
+        </div>
+      ) : (
+        <MonthHistory months={plan.months} currency={currency} />
       )}
-      <MonthHistory months={plan.months} currency={currency} />
     </div>
   );
 }
@@ -1213,12 +1357,12 @@ function CurrentMonthBudget({
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3 md:gap-4">
-        <div className="grid gap-1 border-t border-[var(--border)] pt-3 md:flex md:items-end md:justify-between md:gap-4 md:pt-4">
-          <span className="text-xs text-[var(--text-muted)] md:text-sm md:text-[var(--text-secondary)]">
+        <div className="grid gap-1 border-t border-[var(--border)] pt-3 md:hidden">
+          <span className="text-xs text-[var(--text-muted)]">
             {month.closed ? "Còn lại khi chốt" : "Còn có thể chi"}
           </span>
           <strong
-            className={`text-2xl font-semibold tracking-tight tabular-nums md:text-xl ${availableToSpend.isNegative() ? "text-[var(--destructive)]" : "text-[var(--foreground)]"}`}
+            className={`text-2xl font-semibold tracking-tight tabular-nums ${availableToSpend.isNegative() ? "text-[var(--destructive)]" : "text-[var(--foreground)]"}`}
           >
             {money(month.availableToSpend, currency)}
           </strong>
@@ -1264,6 +1408,61 @@ function CurrentMonthBudget({
           </Button>
         </div>
 
+        <div className="hidden gap-5 md:grid">
+          <div className="grid gap-5 border-t border-[var(--border)] pt-4 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,0.8fr)]">
+            <section>
+              <p className="text-xs text-[var(--text-muted)]">
+                {month.closed ? "Còn lại khi chốt" : "Còn có thể chi"}
+              </p>
+              <strong
+                className={`mt-1 block text-3xl font-semibold tracking-tight tabular-nums ${availableToSpend.isNegative() ? "text-[var(--destructive)]" : "text-[var(--foreground)]"}`}
+              >
+                {money(month.availableToSpend, currency)}
+              </strong>
+            </section>
+            <section className="grid content-start gap-2 lg:border-l lg:border-[var(--border)] lg:pl-5">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-[var(--text-secondary)]">Đã dùng</span>
+                <strong
+                  className={`tabular-nums ${PROGRESS_TEXT_TONES[monthlyUsageTone]}`}
+                >
+                  {monthlyUsage.toDecimalPlaces(0).toString()}%
+                </strong>
+              </div>
+              <div
+                className="h-2 overflow-hidden rounded-full bg-[var(--surface-secondary)]"
+                role="progressbar"
+                aria-label={`Tiến độ chi tiêu ${monthLabel(month.month)}`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(monthlyUsageWidth)}
+                aria-valuetext={`${monthlyUsage.toDecimalPlaces(0).toString()}%, ${money(spentThisMonth.toString(), currency)} trên ${money(monthlyBudget.toString(), currency)}`}
+              >
+                <div
+                  className={`h-full rounded-full ${PROGRESS_BAR_TONES[monthlyUsageTone]}`}
+                  style={{ width: `${monthlyUsageWidth}%` }}
+                />
+              </div>
+              <p className="text-xs text-[var(--text-muted)]">
+                {money(spentThisMonth.toString(), currency)} /{" "}
+                {money(monthlyBudget.toString(), currency)}
+              </p>
+            </section>
+          </div>
+
+          <section className="border-t border-[var(--border)] pt-4">
+            <div className="mb-2 flex items-center justify-between gap-4">
+              <h3 className="font-medium text-[var(--foreground)]">
+                Phân bổ sáu hũ
+              </h3>
+              <span className="text-xs text-[var(--text-muted)]">
+                Chi tiêu / hạn mức
+              </span>
+            </div>
+            <BudgetJarList month={month} currency={currency} />
+          </section>
+        </div>
+
         <Sheet open={jarDetailsOpen} onOpenChange={setJarDetailsOpen}>
           <SheetContent side="bottom" placement="inset">
             <SheetHeader>
@@ -1275,17 +1474,6 @@ function CurrentMonthBudget({
             </div>
           </SheetContent>
         </Sheet>
-
-        <details className="group hidden border-t border-[var(--border)] md:block">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] md:py-3 md:text-base">
-            <span>Chi tiết 6 hũ</span>
-            <ChevronDown
-              className="size-4 shrink-0 text-[var(--text-muted)] transition-transform group-open:rotate-180"
-              aria-hidden
-            />
-          </summary>
-          <BudgetJarList month={month} currency={currency} />
-        </details>
       </CardContent>
     </Card>
   );
@@ -1324,8 +1512,8 @@ function BudgetJarList({
                     {money(jar.allocatedAmount, currency)}
                   </span>
                   <span className="hidden md:inline">
-                    {month.closed ? "Đã chi" : "Đã chi và ước tính sẽ chi"}{" "}
-                    {money(spent, currency)} · {jar.percentage}%
+                    {money(spent, currency)} /{" "}
+                    {money(jar.allocatedAmount, currency)} · {jar.percentage}%
                   </span>
                 </p>
               </div>
@@ -1373,9 +1561,7 @@ function MonthHistory({
           </span>
         </CardTitle>
         <CardDescription className="hidden md:block">
-          Tháng chưa kết thúc được cập nhật theo dữ liệu hiện tại; tháng đã kết
-          thúc giữ nguyên số liệu đã chốt và hiển thị riêng các điều chỉnh từ
-          giao dịch cũ.
+          Hạn mức sử dụng và khoản cần dành theo từng tháng.
         </CardDescription>
         <CardDescription className="md:hidden">
           {months.length} tháng · Chạm để xem chi tiết
@@ -1441,28 +1627,34 @@ function MonthHistory({
         </SheetContent>
       </Sheet>
 
-      <CardContent className="hidden gap-2 md:grid">
+      <CardContent className="hidden md:grid">
+        <div className="grid grid-cols-[minmax(7rem,1fr)_7.5rem_7.5rem_1rem] gap-4 border-b border-[var(--border)] pb-2 text-xs text-[var(--text-muted)]">
+          <span>Tháng</span>
+          <span className="text-right">Có thể chi</span>
+          <span className="text-right">Cần dành</span>
+          <span aria-hidden />
+        </div>
         {months.map((month) => (
           <details
             key={month.month}
-            className="group rounded-xl bg-[var(--surface-secondary)] px-4 py-3"
+            className="group border-b border-[var(--border)] last:border-b-0"
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]">
+            <summary className="grid cursor-pointer list-none grid-cols-[minmax(7rem,1fr)_7.5rem_7.5rem_1rem] items-center gap-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]">
               <span className="min-w-0">
-                <strong>{monthLabel(month.month)}</strong>
-                <span className="ml-2 text-xs text-[var(--text-muted)]">
+                <strong className="block truncate">{monthLabel(month.month)}</strong>
+                <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
                   {month.closed ? "Đã chốt" : "Dự kiến"}
                 </span>
               </span>
-              <span className="flex items-center gap-2 text-right text-sm">
-                <span>
-                  <span className="block text-[10px] text-[var(--text-muted)] md:text-xs">
-                    Cần để dành
-                  </span>
-                  <strong className="tabular-nums">
-                    {money(month.adjustedRequiredAmount, currency)}
-                  </strong>
-                </span>
+              <strong
+                className={`whitespace-nowrap text-right text-sm tabular-nums ${new Decimal(month.availableToSpend).isNegative() ? "text-[var(--destructive)]" : "text-[var(--foreground)]"}`}
+              >
+                {money(month.availableToSpend, currency)}
+              </strong>
+              <strong className="whitespace-nowrap text-right text-sm tabular-nums text-[var(--foreground)]">
+                {money(month.adjustedRequiredAmount, currency)}
+              </strong>
+              <span className="flex justify-end">
                 <ChevronDown
                   className="size-4 shrink-0 text-[var(--text-muted)] transition-transform group-open:rotate-180"
                   aria-hidden
@@ -1547,44 +1739,47 @@ function MonthDetailMetrics({
   currency: string;
 }) {
   const hasShortfall = new Decimal(month.resourceShortfall).greaterThan(0);
+  const savedAmount =
+    month.closedActualGoalAmount ?? month.projectedActualGoalAmount ?? "0";
 
   return (
-    <div
-      className={`mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--border)] pt-3 ${hasShortfall ? "md:grid-cols-3" : "md:grid-cols-2"}`}
-    >
-      <Metric
-        label={month.closed ? "Còn lại khi chốt" : "Còn có thể chi"}
-        value={money(month.availableToSpend, currency)}
-        icon={CircleDollarSign}
-        tone={
-          new Decimal(month.availableToSpend).isNegative()
-            ? "warning"
-            : "default"
-        }
-      />
+    <div className="grid gap-3 border-t border-[var(--border)] pb-4 pt-3">
+      <dl
+        className={`grid gap-x-6 gap-y-3 ${hasShortfall ? "grid-cols-3" : "grid-cols-2"}`}
+      >
+        <div>
+          <dt className="text-xs text-[var(--text-muted)]">
+            {month.closed ? "Thực tế để dành" : "Dự kiến để dành"}
+          </dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-[var(--foreground)]">
+            {money(savedAmount, currency)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-[var(--text-muted)]">
+            {month.closed ? "Đã chi" : "Chi + dự kiến"}
+          </dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-[var(--foreground)]">
+            {money(month.eligibleExpense ?? "0", currency)}
+          </dd>
+        </div>
+        {hasShortfall && (
+          <div>
+            <dt className="text-xs text-[var(--warning)]">Còn thiếu</dt>
+            <dd className="mt-0.5 font-semibold tabular-nums text-[var(--warning)]">
+              {money(month.resourceShortfall, currency)}
+            </dd>
+          </div>
+        )}
+      </dl>
       {hasShortfall && (
-        <Metric
-          label="Số tiền còn thiếu"
-          value={money(month.resourceShortfall, currency)}
-          icon={AlertTriangle}
-          tone="warning"
-        />
+        <p className="text-xs text-[var(--warning)]">
+          Hạn mức tháng chưa đủ để đáp ứng kế hoạch.
+        </p>
       )}
-      <div className={hasShortfall ? "col-span-2 md:col-span-1" : ""}>
-        <Metric
-          label={month.closed ? "Thực tế đã để dành" : "Ước tính để dành"}
-          value={money(
-            month.closedActualGoalAmount ??
-              month.projectedActualGoalAmount ??
-              "0",
-            currency,
-          )}
-          icon={PiggyBank}
-        />
-      </div>
       {month.closed && month.adjustedDelta && month.adjustedDelta !== "0" && (
-        <p className="col-span-2 text-sm text-[var(--warning)] md:col-span-3">
-          Điều chỉnh do giao dịch cũ thay đổi: {money(month.adjustedDelta, currency)}.
+        <p className="text-xs text-[var(--warning)]">
+          Điều chỉnh từ giao dịch cũ: {money(month.adjustedDelta, currency)}.
         </p>
       )}
     </div>
@@ -1852,14 +2047,12 @@ function DeadlineSheet({
           description="Các tháng đã chốt không đổi. Toàn bộ tháng chưa chốt sẽ được tính lại."
         />
         <div className={isMobile ? "quick-transaction-scroll" : "px-4 py-2"}>
-          <DatePicker
-            label="Ngày mục tiêu mới"
+          <MonthPicker
+            label="Tháng mục tiêu mới"
             required
-            minDate={`${plan.businessMonth}-01`}
-            value={monthEndDate(targetMonth)}
-            onValueChange={(targetDate) =>
-              setTargetMonth(targetDate.slice(0, 7))
-            }
+            minMonth={plan.businessMonth}
+            value={targetMonth}
+            onValueChange={setTargetMonth}
             disabled={disabled}
           />
         </div>
