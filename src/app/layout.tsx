@@ -37,9 +37,7 @@ const initializeAppearance = `
     }
   } catch {}
 
-  mode ??= window.matchMedia?.("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  mode ??= "dark";
 
   root.dataset.theme = theme;
   root.dataset.mode = mode;
