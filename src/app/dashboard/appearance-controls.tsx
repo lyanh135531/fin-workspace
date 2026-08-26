@@ -2,6 +2,7 @@
 
 import { Check, Moon, Palette, Sun } from "lucide-react";
 import { useSyncExternalStore } from "react";
+import { cn } from "@/lib/utils";
 import {
   Button,
   Sheet,
@@ -195,16 +196,16 @@ export function MobileAppearanceSheet() {
           </div>
         </SheetHeader>
 
-        <div className="quick-transaction-scroll grid gap-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-          <section aria-labelledby="mobile-mode-label">
-            <p
+        <div className="quick-transaction-scroll grid gap-6 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <section aria-labelledby="mobile-mode-label" className="grid gap-2.5">
+            <h3
               id="mobile-mode-label"
-              className="text-[0.68rem] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
+              className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
             >
               Chế độ hiển thị
-            </p>
+            </h3>
             <div
-              className="mt-2 grid grid-cols-2 gap-1 rounded-2xl bg-[var(--surface-secondary)] p-1"
+              className="grid grid-cols-2 gap-2.5"
               role="radiogroup"
               aria-labelledby="mobile-mode-label"
             >
@@ -217,61 +218,72 @@ export function MobileAppearanceSheet() {
                 const Icon = item.icon;
                 const selected = mode === item.value;
                 return (
-                  <Button
+                  <button
                     key={item.value}
-                    variant={selected ? "selected" : "ghost"}
                     type="button"
                     role="radio"
                     aria-checked={selected}
-                    className="w-full justify-start"
                     onClick={() => selectMode(item.value)}
-                  >
-                    <Icon aria-hidden="true" />
-                    {item.label}
-                    {selected && (
-                      <Check className="ml-auto" aria-hidden="true" />
+                    className={cn(
+                      "flex items-center justify-between rounded-xl border p-3.5 text-left transition-all",
+                      selected
+                        ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)] font-semibold"
+                        : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]",
                     )}
-                  </Button>
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Icon size={16} aria-hidden="true" />
+                      <span className="text-sm font-medium">{item.label}</span>
+                    </div>
+                    {selected && (
+                      <Check size={16} className="text-[var(--primary)]" aria-hidden="true" />
+                    )}
+                  </button>
                 );
               })}
             </div>
           </section>
 
-          <section aria-labelledby="mobile-theme-label">
-            <p
+          <section aria-labelledby="mobile-theme-label" className="grid gap-2.5">
+            <h3
               id="mobile-theme-label"
-              className="text-[0.68rem] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
+              className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
             >
               Chủ đề màu
-            </p>
+            </h3>
             <div
-              className="mt-2 grid gap-1 rounded-2xl bg-[var(--surface-secondary)] p-1 sm:grid-cols-2"
+              className="grid gap-2"
               role="radiogroup"
               aria-labelledby="mobile-theme-label"
             >
               {APPEARANCE_THEMES.map((item) => {
                 const selected = theme === item.value;
                 return (
-                  <Button
+                  <button
                     key={item.value}
-                    variant={selected ? "selected" : "ghost"}
-                    size="lg"
                     type="button"
                     role="radio"
                     aria-checked={selected}
-                    className="w-full justify-start"
                     onClick={() => selectTheme(item.value)}
-                  >
-                    <span
-                      className="size-4 rounded-full ring-1 ring-inset ring-[var(--border)]"
-                      style={{ backgroundColor: item.color }}
-                      aria-hidden="true"
-                    />
-                    {item.label}
-                    {selected && (
-                      <Check className="ml-auto" aria-hidden="true" />
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-xl border p-3 text-left transition-all",
+                      selected
+                        ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--foreground)] font-semibold"
+                        : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]",
                     )}
-                  </Button>
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="size-5 rounded-full ring-2 ring-inset ring-black/10 dark:ring-white/10 shrink-0"
+                        style={{ backgroundColor: item.color }}
+                        aria-hidden="true"
+                      />
+                      <span className="text-sm font-medium">{item.label}</span>
+                    </div>
+                    {selected && (
+                      <Check size={16} className="text-[var(--primary)] shrink-0" aria-hidden="true" />
+                    )}
+                  </button>
                 );
               })}
             </div>

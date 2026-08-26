@@ -1689,30 +1689,44 @@ export function Ledger({
             </PopoverContent>
           </Popover>
         ) : (
-          <div className="ledger-filter-popover" ref={mobileFilterRef}>
-            <Button
-              variant="icon"
-              size="icon"
-              type="button"
-              className="ledger-filter-popover-trigger"
-              aria-label={`${mobileFilterOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}${hasActiveFilters ? " (đang lọc)" : ""}`}
-              aria-haspopup="dialog"
-              aria-expanded={mobileFilterOpen}
-              onClick={() => setMobileFilterOpen((o) => !o)}
+          <Sheet open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
+            <SheetTrigger
+              render={
+                <Button
+                  variant="icon"
+                  size="icon"
+                  type="button"
+                  aria-label={`${mobileFilterOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}${hasActiveFilters ? " (đang lọc)" : ""}`}
+                >
+                  <SlidersHorizontal size={16} />
+                  {hasActiveFilters && (
+                    <span className="ledger-filter-badge" aria-hidden="true" />
+                  )}
+                </Button>
+              }
+            />
+            <SheetContent
+              side="bottom"
+              className="quick-transaction-sheet"
+              aria-label="Bộ lọc giao dịch"
             >
-              <SlidersHorizontal size={16} />
-              {hasActiveFilters && (
-                <span className="ledger-filter-badge" aria-hidden="true" />
-              )}
-            </Button>
-            {mobileFilterOpen && (
-              <div
-                className="ledger-filter-popover-panel"
-                role="dialog"
-                aria-label="Bộ lọc giao dịch"
-              >
-                <div className="ledger-filter-popover-row">
-                  <label className="ledger-filter-popover-label">
+              <SheetHeader className="quick-transaction-header">
+                <div className="quick-transaction-heading">
+                  <span aria-hidden="true">
+                    <SlidersHorizontal size={18} />
+                  </span>
+                  <div className="min-w-0">
+                    <SheetTitle>Bộ lọc giao dịch</SheetTitle>
+                    <SheetDescription>
+                      Thu hẹp danh sách theo thời gian và danh mục trong {scopeLabel}.
+                    </SheetDescription>
+                  </div>
+                </div>
+              </SheetHeader>
+
+              <div className="quick-transaction-scroll grid gap-5 p-4">
+                <div className="grid gap-2">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
                     Khoảng thời gian
                   </label>
                   <DateRangePicker
@@ -1722,11 +1736,11 @@ export function Ledger({
                     onValueChange={(value) =>
                       changeFilter(() => setDateRange(value))
                     }
-                    className="ledger-filter-popover-select"
+                    className="w-full justify-between"
                   />
                 </div>
-                <div className="ledger-filter-popover-row">
-                  <label className="ledger-filter-popover-label">
+                <div className="grid gap-2">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
                     Danh mục
                   </label>
                   <CategoryTreeSelect
@@ -1738,26 +1752,39 @@ export function Ledger({
                     onValueChange={(value) =>
                       changeFilter(() => setFilterCategory(value))
                     }
-                    className="ledger-filter-popover-select"
+                    className="w-full"
                   />
                 </div>
-                {hasActiveFilters && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ledger-filter-popover-clear"
-                    onClick={() => {
-                      clearFilters();
-                      setMobileFilterOpen(false);
-                    }}
-                  >
-                    <FilterX size={14} />
-                    Xóa bộ lọc
-                  </Button>
-                )}
               </div>
-            )}
-          </div>
+
+              <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] p-4">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  type="button"
+                  disabled={!hasActiveFilters}
+                  onClick={() => {
+                    clearFilters();
+                    setMobileFilterOpen(false);
+                  }}
+                >
+                  <FilterX size={16} />
+                  Đặt lại
+                </Button>
+                <Button
+                  variant="default"
+                  size="lg"
+                  type="button"
+                  className="flex-1"
+                  onClick={() => setMobileFilterOpen(false)}
+                >
+                  {hasActiveFilters
+                    ? `Xem ${filteredRows.length} giao dịch`
+                    : "Áp dụng"}
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         )}
         {!isDesktop && scheduledRows.length > 0 && (
           <div className="order-1 shrink-0">

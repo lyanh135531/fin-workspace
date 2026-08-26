@@ -753,7 +753,7 @@ export function WalletManagement({
                     render={
                       <article
                         className={cn(
-                          "wallet-mobile-item wallet-mobile-item-interactive",
+                          "wallet-mobile-item wallet-mobile-item-interactive rounded-xl overflow-hidden",
                           !isActive && "is-paused",
                         )}
                         aria-label={`${wallet.name}, số dư ${formatAmount(wallet.currentBalance)} ${workspace.currency}. Chạm để mở menu quản lý.`}
@@ -1249,37 +1249,38 @@ export function WalletManagement({
           size={isDesktop ? "wide" : "default"}
           spacing={isDesktop ? "flush" : "default"}
           elevation={isDesktop ? "flat" : "raised"}
-          className={isDesktop ? undefined : "wallet-create-sheet"}
+          className={isDesktop ? undefined : "quick-transaction-sheet"}
         >
           <form
             onSubmit={handleCreate}
             className={cn(
               isDesktop
                 ? "flex min-h-0 flex-1 flex-col overflow-hidden"
-                : "wallet-create-form",
+                : "quick-transaction-form",
             )}
             aria-busy={pending}
           >
             <SheetHeader
               className={cn(
-                isDesktop ? "px-8 pt-7 pb-[1.4rem]" : "wallet-create-header",
+                isDesktop ? "px-8 pt-7 pb-[1.4rem]" : "quick-transaction-header",
               )}
             >
               <div
                 className={cn(
                   isDesktop
                     ? "flex items-center gap-3.5 pr-12"
-                    : "wallet-create-heading",
+                    : "quick-transaction-heading",
                 )}
               >
                 <span
                   className={cn(
-                    isDesktop &&
-                      "grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]",
+                    isDesktop
+                      ? "grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
+                      : undefined,
                   )}
                   aria-hidden="true"
                 >
-                  <WalletCards size={19} />
+                  <WalletCards size={isDesktop ? 19 : 18} />
                 </span>
                 <div className="min-w-0">
                   <SheetTitle
@@ -1306,63 +1307,44 @@ export function WalletManagement({
               className={cn(
                 isDesktop
                   ? "grid min-h-0 flex-1 grid-cols-2 content-start items-start gap-0 overflow-y-auto px-8 pt-6 pb-8"
-                  : "wallet-create-body",
+                  : "quick-transaction-scroll grid gap-5 p-4",
               )}
             >
               <section
                 aria-labelledby="wallet-details-heading"
                 className={cn(
-                  isDesktop ? "space-y-5 pr-8" : "wallet-create-section",
+                  isDesktop ? "space-y-5 pr-8" : "grid gap-4",
                 )}
               >
-                <div
-                  className={cn(
-                    isDesktop
-                      ? "flex items-start gap-3"
-                      : "wallet-desktop-form-section-heading",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      isDesktop &&
-                        "grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]",
-                    )}
-                    aria-hidden="true"
-                  >
-                    {isDesktop ? <WalletCards size={16} /> : "01"}
-                  </span>
-                  <div>
-                    <h3
-                      id="wallet-details-heading"
-                      className={cn(
-                        isDesktop &&
-                          "text-sm font-semibold text-[var(--foreground)]",
-                      )}
+                {isDesktop && (
+                  <div className="flex items-start gap-3">
+                    <span
+                      className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]"
+                      aria-hidden="true"
                     >
-                      Thông tin ví
-                    </h3>
-                    <p
-                      className={cn(
-                        isDesktop &&
-                          "mt-1 text-xs leading-5 text-[var(--text-muted)]",
-                      )}
-                    >
-                      Đặt tên ngắn gọn để mọi người dễ nhận diện.
-                    </p>
+                      <WalletCards size={16} />
+                    </span>
+                    <div>
+                      <h3
+                        id="wallet-details-heading"
+                        className="text-sm font-semibold text-[var(--foreground)]"
+                      >
+                        Thông tin ví
+                      </h3>
+                      <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                        Đặt tên ngắn gọn để mọi người dễ nhận diện.
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div
-                  className={cn(
-                    isDesktop ? "space-y-4" : "wallet-create-fields",
-                  )}
-                >
+                )}
+                <div className="grid gap-4">
                   <Input
                     label="Tên ví"
                     id="create-name"
                     name="name"
                     required
                     maxLength={120}
-                    placeholder="Tiền mặt, Ngân hàng"
+                    placeholder="Tiền mặt, Ngân hàng, Thẻ tín dụng..."
                     className="w-full"
                   />
                   <Textarea
@@ -1378,7 +1360,7 @@ export function WalletManagement({
                     name="description"
                     rows={2}
                     maxLength={2000}
-                    placeholder="Mục đích sử dụng ví"
+                    placeholder="Mục đích sử dụng ví..."
                     className="w-full resize-none"
                   />
                 </div>
@@ -1389,104 +1371,33 @@ export function WalletManagement({
                 className={cn(
                   isDesktop
                     ? "space-y-5 border-l border-[var(--border)] pl-8"
-                    : "wallet-create-funding",
+                    : "grid gap-4 border-t border-[var(--border)] pt-4",
                 )}
               >
-                <div
-                  className={cn(
-                    isDesktop
-                      ? "flex items-start gap-3"
-                      : "wallet-create-funding-heading",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      isDesktop &&
-                        "grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]",
-                    )}
-                    aria-hidden="true"
-                  >
-                    <CircleDollarSign size={17} />
-                  </span>
-                  <div className="min-w-0">
-                    <h3
-                      id="initial-balance-heading"
-                      className={cn(
-                        isDesktop &&
-                          "text-sm font-semibold text-[var(--foreground)]",
-                      )}
-                    >
-                      Số dư ban đầu
-                    </h3>
-                    <p
-                      className={cn(
-                        isDesktop &&
-                          "mt-1 text-xs leading-5 text-[var(--text-muted)]",
-                      )}
-                    >
-                      {isDesktop
-                        ? "Có thể thêm sau bằng giao dịch."
-                        : "Có thể để trống và cập nhật bằng giao dịch sau."}
-                    </p>
-                  </div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+                  <CircleDollarSign size={18} className="text-[var(--primary)]" aria-hidden />
+                  <span>Số dư ban đầu</span>
                 </div>
-                <div
-                  className={cn(
-                    isDesktop ? "space-y-4" : "wallet-create-funding-body",
-                  )}
-                >
+                <p className="text-xs text-[var(--text-muted)] -mt-2">
+                  Có thể để trống và cập nhật bằng giao dịch sau.
+                </p>
+
+                <div className="grid gap-4">
                   <MoneyInput
                     label={`Số tiền (${workspace.currency})`}
                     id="create-funding-amount"
                     name="fundingAmount"
                     value={createFundingAmount}
                     onValueChange={setCreateFundingAmount}
-                    className={
-                      isDesktop ? undefined : "wallet-create-amount-input"
-                    }
                   />
-                  {isDesktop && !hasInitialFunding && (
-                    <div className="rounded-xl bg-[var(--surface-secondary)] p-4">
-                      <div className="flex items-start gap-3">
-                        <span
-                          className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface)] text-[var(--primary)]"
-                          aria-hidden="true"
-                        >
-                          <ArrowLeftRight size={15} />
-                        </span>
-                        <div>
-                          <p className="text-xs font-semibold text-[var(--foreground)]">
-                            Bắt đầu với số dư 0
-                          </p>
-                          <p className="mt-1 text-[0.68rem] leading-5 text-[var(--text-muted)]">
-                            Bạn có thể nạp tiền hoặc chuyển số dư vào ví sau khi
-                            tạo.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+
                   {hasInitialFunding && (
-                    <div
-                      className={cn(
-                        isDesktop ? "space-y-3" : "wallet-create-source",
-                      )}
-                    >
-                      <p
-                        className={cn(
-                          isDesktop
-                            ? "text-xs font-medium text-[var(--text-secondary)]"
-                            : "wallet-create-source-label",
-                        )}
-                      >
+                    <div className="grid gap-3 border-t border-[var(--border)] pt-3">
+                      <p className="text-xs font-medium text-[var(--text-secondary)]">
                         Nguồn số dư
                       </p>
                       <div
-                        className={cn(
-                          isDesktop
-                            ? "grid gap-2"
-                            : "wallet-create-source-options",
-                        )}
+                        className="grid gap-2"
                         role="radiogroup"
                         aria-label="Nguồn số dư ban đầu"
                       >
@@ -1495,50 +1406,31 @@ export function WalletManagement({
                           role="radio"
                           aria-checked={createFundingType === "income"}
                           onClick={() => setCreateFundingType("income")}
-                          className={cn(
-                            isDesktop
-                              ? "grid w-full grid-cols-[2rem_minmax(0,1fr)_0.9rem] items-center gap-2 rounded-xl border border-[var(--border)] p-2.5 text-left text-[var(--text-secondary)] transition-colors aria-checked:border-[var(--primary)] aria-checked:bg-[var(--primary-soft)]"
-                              : "wallet-create-source-option",
-                          )}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-3 text-left transition-colors aria-checked:border-[var(--primary)] aria-checked:bg-[var(--primary-soft)]"
                         >
-                          <span
-                            className={cn(
-                              isDesktop &&
-                                "grid size-8 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--text-muted)]",
-                            )}
-                            aria-hidden="true"
-                          >
-                            <TrendingUp size={15} />
-                          </span>
-                          <span className="min-w-0">
-                            <strong
-                              className={cn(
-                                isDesktop &&
-                                  "block text-xs font-semibold text-[var(--foreground)]",
-                              )}
-                            >
-                              Tiền có sẵn
-                            </strong>
-                            <small
-                              className={cn(
-                                isDesktop &&
-                                  "mt-0.5 block text-[0.68rem] text-[var(--text-muted)]",
-                              )}
-                            >
-                              Ghi nhận là khoản thu
-                            </small>
-                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]" aria-hidden>
+                              <TrendingUp size={15} />
+                            </span>
+                            <div>
+                              <strong className="block text-xs font-semibold text-[var(--foreground)]">
+                                Tiền có sẵn
+                              </strong>
+                              <small className="mt-0.5 block text-[0.68rem] text-[var(--text-muted)]">
+                                Ghi nhận là khoản thu
+                              </small>
+                            </div>
+                          </div>
                           <i
                             className={cn(
-                              isDesktop &&
-                                "size-3.5 rounded-full border border-[var(--border-strong)]",
-                              isDesktop &&
-                                createFundingType === "income" &&
+                              "size-4 rounded-full border border-[var(--border-strong)]",
+                              createFundingType === "income" &&
                                 "border-[var(--primary)] bg-[var(--primary)]",
                             )}
-                            aria-hidden="true"
+                            aria-hidden
                           />
                         </button>
+
                         <button
                           type="button"
                           role="radio"
@@ -1551,51 +1443,32 @@ export function WalletManagement({
                                 activeWallets[0]?.id ?? "",
                               );
                           }}
-                          className={cn(
-                            isDesktop
-                              ? "grid w-full grid-cols-[2rem_minmax(0,1fr)_0.9rem] items-center gap-2 rounded-xl border border-[var(--border)] p-2.5 text-left text-[var(--text-secondary)] transition-colors aria-checked:border-[var(--primary)] aria-checked:bg-[var(--primary-soft)]"
-                              : "wallet-create-source-option",
-                          )}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-3 text-left transition-colors aria-checked:border-[var(--primary)] aria-checked:bg-[var(--primary-soft)] disabled:opacity-50"
                         >
-                          <span
-                            className={cn(
-                              isDesktop &&
-                                "grid size-8 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--text-muted)]",
-                            )}
-                            aria-hidden="true"
-                          >
-                            <Landmark size={15} />
-                          </span>
-                          <span className="min-w-0">
-                            <strong
-                              className={cn(
-                                isDesktop &&
-                                  "block text-xs font-semibold text-[var(--foreground)]",
-                              )}
-                            >
-                              Chuyển từ ví khác
-                            </strong>
-                            <small
-                              className={cn(
-                                isDesktop &&
-                                  "mt-0.5 block text-[0.68rem] text-[var(--text-muted)]",
-                              )}
-                            >
-                              Dịch chuyển số dư nội bộ
-                            </small>
-                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]" aria-hidden>
+                              <Landmark size={15} />
+                            </span>
+                            <div>
+                              <strong className="block text-xs font-semibold text-[var(--foreground)]">
+                                Chuyển từ ví khác
+                              </strong>
+                              <small className="mt-0.5 block text-[0.68rem] text-[var(--text-muted)]">
+                                Dịch chuyển số dư nội bộ
+                              </small>
+                            </div>
+                          </div>
                           <i
                             className={cn(
-                              isDesktop &&
-                                "size-3.5 rounded-full border border-[var(--border-strong)]",
-                              isDesktop &&
-                                createFundingType === "transfer" &&
+                              "size-4 rounded-full border border-[var(--border-strong)]",
+                              createFundingType === "transfer" &&
                                 "border-[var(--primary)] bg-[var(--primary)]",
                             )}
-                            aria-hidden="true"
+                            aria-hidden
                           />
                         </button>
                       </div>
+
                       {createFundingType === "transfer" && (
                         <Select
                           value={createFundingWalletId}
@@ -1609,14 +1482,8 @@ export function WalletManagement({
                           }))}
                         />
                       )}
-                      <p
-                        className={cn(
-                          isDesktop
-                            ? "flex items-start gap-2 text-[0.68rem] leading-5 text-[var(--text-muted)]"
-                            : "wallet-create-source-note",
-                        )}
-                      >
-                        <ArrowLeftRight size={14} />
+                      <p className="flex items-start gap-2 text-[0.68rem] leading-5 text-[var(--text-muted)]">
+                        <ArrowLeftRight size={14} className="shrink-0 mt-0.5" />
                         {createFundingType === "income"
                           ? "Hệ thống sẽ tạo một giao dịch thu khi tạo ví."
                           : "Hệ thống sẽ tạo một giao dịch chuyển tiền nội bộ."}
@@ -1630,20 +1497,24 @@ export function WalletManagement({
             <CreateActionsContainer
               className={cn(
                 isDesktop
-                  ? "flex-row items-center justify-end border-t border-[var(--border)] px-8 py-5"
-                  : "wallet-create-actions",
+                  ? "flex-row items-center justify-end border-t border-[var(--border)] px-8 py-5 gap-3"
+                  : "quick-transaction-footer",
               )}
             >
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeCreateSheet}
-              >
-                Để sau
-              </Button>
+              {isDesktop && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={closeCreateSheet}
+                >
+                  Để sau
+                </Button>
+              )}
               <Button
                 type="submit"
                 variant="default"
+                size={isDesktop ? "default" : "lg"}
+                className={isDesktop ? undefined : "w-full"}
                 disabled={
                   pending ||
                   !createFundingAmountIsValid ||
