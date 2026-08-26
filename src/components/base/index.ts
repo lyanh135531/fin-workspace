@@ -82,6 +82,7 @@ export {
 export {
   AuthPageSkeleton,
   DashboardPageSkeleton,
+  FinancialPlansPageSkeleton,
   JoinPageSkeleton,
   MemberAccountsPageSkeleton,
   OverviewPageSkeleton,
@@ -91,3 +92,4 @@ export {
   WorkspaceFormPageSkeleton,
   WorkspaceSettingsPageSkeleton,
 } from "./page-skeletons"
+

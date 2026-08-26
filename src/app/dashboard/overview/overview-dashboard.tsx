@@ -233,7 +233,7 @@ export function OverviewDashboard({
 
   if (!isMobile) {
     return (
-      <PageContainer size="standard" className="space-y-5 pb-10 pt-2">
+      <PageContainer className="max-w-[76rem] space-y-5 pb-10 pt-2">
         <PageHeader
           title="Tổng quan tài chính"
           description={`${workspace.name} · Thu nhập, chi tiêu và số dư hiện tại.`}

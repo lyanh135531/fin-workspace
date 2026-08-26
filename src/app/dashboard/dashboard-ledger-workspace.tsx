@@ -51,7 +51,7 @@ export function DashboardLedgerWorkspace({
 
   if (isDesktop) {
     return (
-      <div className="mx-auto grid h-full min-h-0 w-full max-w-7xl grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden px-px py-2">
+      <div className="mx-auto grid h-full min-h-0 w-full max-w-[76rem] grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden px-px py-2">
         <PageHeader
           className="mb-0"
           title="Sổ giao dịch"

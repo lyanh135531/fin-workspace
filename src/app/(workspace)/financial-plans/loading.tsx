@@ -1,12 +1,11 @@
 import { FinancialPlansPageSkeleton, PageContainer } from "@/components/base";
 
-export default function FinancialPlansLoading() {
+export default function Loading() {
   return (
     <PageContainer>
-      <div className="min-[901px]:mx-auto min-[901px]:max-w-[76rem]">
+      <div className="mx-auto w-full max-w-[76rem]">
         <FinancialPlansPageSkeleton />
       </div>
     </PageContainer>
   );
 }
-

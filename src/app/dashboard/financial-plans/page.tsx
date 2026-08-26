@@ -29,7 +29,7 @@ export default async function FinancialPlansPage({
 
   return (
     <PageContainer>
-      <div className="mx-auto w-full max-w-[76rem]">
+      <div className="min-[901px]:mx-auto min-[901px]:max-w-[76rem]">
         <FinancialPlansManager
           workspaceName={member.workspace.name}
           currency={member.workspace.baseCurrency}
