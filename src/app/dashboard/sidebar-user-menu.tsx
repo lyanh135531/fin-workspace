@@ -2,7 +2,7 @@
 
 import { Button, Loading } from "@/components/base";
 import { signOut } from "next-auth/react";
-import { LogOut, ChevronUp, KeyRound } from "lucide-react";
+import { LogOut, ChevronUp, KeyRound, Download } from "lucide-react";
 import { useState, useTransition } from "react";
 import {
   Popover,
@@ -12,6 +12,7 @@ import {
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { AccountSettingsModal } from "@/app/dashboard/account-settings-modal";
 import { useOptionalSidebar } from "@/components/ui/sidebar";
+import { usePwaInstall } from "@/app/pwa-install";
 
 function initials(username: string): string {
   const parts = username.trim().split(/[\s_\-\.]+/);
@@ -36,6 +37,7 @@ export function SidebarUserMenu({
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const sidebar = useOptionalSidebar();
+  const { requestInstall, showAccountAction } = usePwaInstall();
   const collapsed = sidebar?.state === "collapsed" && !forceExpanded;
 
   const roleLabel =
@@ -87,6 +89,22 @@ export function SidebarUserMenu({
       <span>Đổi mật khẩu</span>
     </Button>
   );
+
+  const InstallPwaButton = showAccountAction ? (
+    <Button
+      variant="unstyled"
+      size="auto"
+      type="button"
+      className="sidebar-user-popover-link rounded-lg"
+      onClick={() => {
+        setPopoverOpen(false);
+        void requestInstall();
+      }}
+    >
+      <Download size={14} strokeWidth={2} aria-hidden="true" />
+      <span>Cài đặt Felix</span>
+    </Button>
+  ) : null;
 
   return (
     <div
@@ -171,6 +189,7 @@ export function SidebarUserMenu({
           </div>
           <div className="sidebar-flyout-divider" />
           {OpenAccountSettingsBtn}
+          {InstallPwaButton}
           {LogoutButton}
         </PopoverContent>
       </Popover>

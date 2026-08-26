@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#ff5b3d" />
+    <title>Felix đang ngoại tuyến</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --offline-background: #fff8f0;
+        --offline-surface: #ffffff;
+        --offline-foreground: #271a16;
+        --offline-secondary: #725f58;
+        --offline-border: #eadbd2;
+        --offline-primary: #c93620;
+        --offline-primary-foreground: #ffffff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        min-height: 100dvh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: var(--offline-background);
+        color: var(--offline-foreground);
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      main {
+        width: min(100%, 480px);
+        padding: 32px;
+        border: 1px solid var(--offline-border);
+        border-radius: 24px;
+        background: var(--offline-surface);
+        text-align: center;
+      }
+
+      img {
+        width: 72px;
+        height: 72px;
+      }
+
+      h1 {
+        margin: 20px 0 8px;
+        font-size: clamp(1.5rem, 6vw, 2rem);
+        line-height: 1.2;
+      }
+
+      p {
+        margin: 0;
+        color: var(--offline-secondary);
+        font-size: 1rem;
+        line-height: 1.6;
+      }
+
+      a {
+        min-height: 44px;
+        margin-top: 24px;
+        padding: 11px 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: var(--offline-primary);
+        color: var(--offline-primary-foreground);
+        font-weight: 650;
+        text-decoration: none;
+      }
+
+      a:focus-visible {
+        outline: 3px solid var(--offline-primary);
+        outline-offset: 3px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --offline-background: #101722;
+          --offline-surface: #182231;
+          --offline-foreground: #f8f4f1;
+          --offline-secondary: #c7bab4;
+          --offline-border: #354252;
+          --offline-primary: #ff765f;
+          --offline-primary-foreground: #21110d;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/pwa-icon-192.png" alt="" width="72" height="72" />
+      <h1>Felix đang ngoại tuyến</h1>
+      <p>
+        Không thể kết nối tới máy chủ. Dữ liệu tài chính không được lưu
+        trên trang này.
+      </p>
+      <a href="/overview">Thử kết nối lại</a>
+    </main>
+  </body>
+</html>

@@ -20,6 +20,10 @@ import { MobileBottomNavigation } from "@/app/dashboard/mobile-bottom-navigation
 import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
 import { MobileNavigation } from "@/app/dashboard/mobile-navigation";
 import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transaction-sheet";
+import {
+  PwaInstallBanner,
+  PwaInstallProvider,
+} from "@/app/pwa-install";
 import { SidebarToggle } from "@/app/dashboard/sidebar-toggle";
 import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
 import { WorkspaceNotifications } from "@/app/dashboard/workspace-notifications";
@@ -58,29 +62,33 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const dataPromise = loadDashboardShellData();
 
   return (
-    <SidebarProvider>
-      <Suspense fallback={<DashboardSidebarFallback />}>
-        <DashboardSidebar dataPromise={dataPromise} />
-      </Suspense>
-
-      <SidebarInset>
-        <Suspense fallback={<DashboardHeaderFallback />}>
-          <DashboardHeader dataPromise={dataPromise} />
+    <PwaInstallProvider>
+      <SidebarProvider>
+        <Suspense fallback={<DashboardSidebarFallback />}>
+          <DashboardSidebar dataPromise={dataPromise} />
         </Suspense>
 
-        <main id="main-content" className="dashboard-content" tabIndex={-1}>
-          {children}
-        </main>
+        <SidebarInset>
+          <Suspense fallback={<DashboardHeaderFallback />}>
+            <DashboardHeader dataPromise={dataPromise} />
+          </Suspense>
 
-        <Suspense fallback={null}>
-          <DashboardQuickTransaction dataPromise={dataPromise} />
-        </Suspense>
+          <PwaInstallBanner />
 
-        <Suspense fallback={null}>
-          <DashboardMobileBottomNavigation dataPromise={dataPromise} />
-        </Suspense>
-      </SidebarInset>
-    </SidebarProvider>
+          <main id="main-content" className="dashboard-content" tabIndex={-1}>
+            {children}
+          </main>
+
+          <Suspense fallback={null}>
+            <DashboardQuickTransaction dataPromise={dataPromise} />
+          </Suspense>
+
+          <Suspense fallback={null}>
+            <DashboardMobileBottomNavigation dataPromise={dataPromise} />
+          </Suspense>
+        </SidebarInset>
+      </SidebarProvider>
+    </PwaInstallProvider>
   );
 }
 

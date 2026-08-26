@@ -3,11 +3,14 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
 import { OnboardingClient } from "@/app/onboarding/onboarding-client";
+import { PwaInstallProvider } from "@/app/pwa-install";
 import { authOptions } from "@/auth";
+import { appPwaMetadata } from "@/lib/pwa-metadata";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getUserJoinRequests } from "@/services/join-request-query";
 
 export const metadata: Metadata = {
+  ...appPwaMetadata,
   title: "Bắt đầu với Felix",
   description: "Thiết lập không gian tài chính đầu tiên của bạn.",
 };
@@ -29,9 +32,11 @@ export default async function OnboardingPage() {
     }));
 
   return (
-    <OnboardingClient
-      username={session.user.username ?? "bạn"}
-      pendingRequests={pendingRequests}
-    />
+    <PwaInstallProvider>
+      <OnboardingClient
+        username={session.user.username ?? "bạn"}
+        pendingRequests={pendingRequests}
+      />
+    </PwaInstallProvider>
   );
 }

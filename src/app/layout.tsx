@@ -45,6 +45,24 @@ const initializeAppearance = `
 })();
 `;
 
+const capturePwaInstallPrompt = `
+(() => {
+  const hostname = window.location.hostname.toLowerCase();
+  const eligibleHost =
+    hostname === "app.felixwise.io.vn" ||
+    hostname === "localhost" ||
+    hostname === "127.0.0.1";
+
+  if (!eligibleHost) return;
+
+  window.__felixPwaInstallPrompt = window.__felixPwaInstallPrompt ?? null;
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    window.__felixPwaInstallPrompt = event;
+  });
+})();
+`;
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://felixwise.io.vn"),
   title: {
@@ -90,6 +108,7 @@ export default function RootLayout({
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: initializeAppearance }} />
+        <script dangerouslySetInnerHTML={{ __html: capturePwaInstallPrompt }} />
       </head>
       <body>
         <a className="skip-link" href="#main-content">

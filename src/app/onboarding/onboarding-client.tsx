@@ -19,6 +19,7 @@ import { useRef, useState, useTransition } from "react";
 
 import { requestJoinAction } from "@/app/dashboard/join/actions";
 import { createPersonalWorkspaceAction } from "@/app/onboarding/actions";
+import { PwaInstallBanner } from "@/app/pwa-install";
 import { ThemeToggle } from "@/app/theme-toggle";
 import { Button, Card, Input, Loading } from "@/components/base";
 import { FinLogo } from "@/components/fin-logo";
@@ -104,6 +105,8 @@ export function OnboardingClient({
           </Button>
         </div>
       </header>
+
+      <PwaInstallBanner />
 
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 pb-12 pt-6 sm:px-6 sm:pt-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(32rem,1.2fr)] lg:gap-16 lg:px-8 lg:pb-20 lg:pt-20">
         <section aria-labelledby="onboarding-title" className="lg:pt-5">
