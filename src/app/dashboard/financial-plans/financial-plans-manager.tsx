@@ -907,6 +907,10 @@ function DraftListItem({
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const StatusIcon = STATUS_ICONS[plan.status] ?? Target;
+  const isCancelled = plan.status === "cancelled";
+  const isDraft = plan.status === "draft";
+
   const statusTone =
     plan.status === "active"
       ? "text-[var(--primary)]"
@@ -916,13 +920,17 @@ function DraftListItem({
           ? "text-[var(--text-muted)]"
           : "text-[var(--warning)]";
 
+  const cardTone = isDraft ? "primarySoft" : "default";
+
   const cardContent = (
     <>
       <CardHeader>
         <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${statusTone}`}>
-          <Target className="size-3.5" aria-hidden /> {STATUS_LABELS[plan.status]}
+          <StatusIcon className="size-3.5" aria-hidden /> {STATUS_LABELS[plan.status]}
         </span>
-        <CardTitle className="mt-1.5 text-lg tracking-tight">
+        <CardTitle
+          className={`mt-1.5 text-lg tracking-tight ${isCancelled ? "text-[var(--text-secondary)] line-through decoration-[var(--text-muted)]/40" : "text-[var(--foreground)]"}`}
+        >
           {plan.name}
         </CardTitle>
       </CardHeader>
@@ -930,13 +938,17 @@ function DraftListItem({
         <dl className="grid gap-1.5 text-sm">
           <div className="flex items-center justify-between gap-4">
             <dt className="text-[var(--text-muted)]">Mục tiêu</dt>
-            <dd className="font-semibold tabular-nums text-[var(--foreground)]">
+            <dd
+              className={`font-semibold tabular-nums ${isCancelled ? "text-[var(--text-muted)]" : "text-[var(--foreground)]"}`}
+            >
               {money(plan.targetAmount, currency)}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-4">
             <dt className="text-[var(--text-muted)]">Hạn hoàn thành</dt>
-            <dd className="font-semibold text-[var(--foreground)]">
+            <dd
+              className={`font-semibold ${isCancelled ? "text-[var(--text-muted)]" : "text-[var(--foreground)]"}`}
+            >
               {monthLabel(plan.targetMonth)}
             </dd>
           </div>
@@ -947,7 +959,7 @@ function DraftListItem({
 
   if (!canManage) {
     return (
-      <Card tone="primarySoft" className="p-4">
+      <Card tone={cardTone} className={cn("p-4", isCancelled && "opacity-75")}>
         {cardContent}
       </Card>
     );
@@ -961,8 +973,8 @@ function DraftListItem({
           onOpenChange={setMenuOpen}
           render={
             <Card
-              tone="primarySoft"
-              className="p-4"
+              tone={cardTone}
+              className={cn("p-4", isCancelled && "opacity-75")}
               aria-label={`${plan.name}. Chạm để quản lý.`}
             />
           }
