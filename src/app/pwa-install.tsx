@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   createContext,
   useCallback,
@@ -306,24 +307,55 @@ export function PwaInstallBanner() {
         spacing="flush"
         elevation="flat"
       >
-        <SheetHeader className="px-6 pb-2 pt-6">
-          <SheetTitle className="text-lg font-semibold">
-            Cài Felix trên thiết bị này
-          </SheetTitle>
-          <SheetDescription className="mt-2 leading-6">
-            Cài đặt ngay để truy cập nhanh, quản lý tài chính tiện lợi mọi lúc
-            mọi nơi.
+        <SheetHeader className="px-6 pb-0 pt-6">
+          <div className="flex items-start gap-4">
+            <Image
+              src="/pwa-icon-192.png"
+              width={56}
+              height={56}
+              alt=""
+              aria-hidden="true"
+              className="size-14 shrink-0"
+            />
+            <div className="min-w-0 pt-0.5">
+              <p className="mb-1 text-xs font-semibold tracking-[0.12em] text-[var(--primary)] uppercase">
+                Ứng dụng Felix
+              </p>
+              <SheetTitle className="text-xl leading-7 font-semibold tracking-tight text-balance">
+                Cài Felix trên thiết bị này
+              </SheetTitle>
+            </div>
+          </div>
+          <SheetDescription className="mt-4 leading-6 text-pretty">
+            Quản lý tài chính nhanh chóng và gọn gàng hơn ngay trên thiết bị.
           </SheetDescription>
         </SheetHeader>
-        <SheetFooter className="flex-row px-6 pb-6 pt-4">
+        <div className="mx-6 mt-5 flex items-center gap-3 rounded-2xl bg-[color-mix(in_srgb,var(--primary)_7%,var(--surface))] px-4 py-3.5">
+          <span
+            className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface)] text-[var(--primary)]"
+            aria-hidden="true"
+          >
+            <Smartphone size={18} strokeWidth={2} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-[var(--foreground)]">
+              Mở nhanh từ màn hình chính
+            </p>
+            <p className="mt-0.5 text-xs leading-5 text-[var(--text-secondary)]">
+              Truy cập 1 chạm, không cần tìm kiếm.
+            </p>
+          </div>
+        </div>
+        <SheetFooter className="flex-row px-6 pb-6 pt-5">
           <Button
             type="button"
             variant="landing"
             size="lg"
+            className="flex-1"
             onClick={() => void requestInstall()}
           >
             <Download aria-hidden="true" />
-            Cài đặt
+            Cài đặt ngay
           </Button>
           <Button
             type="button"
