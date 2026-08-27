@@ -9,8 +9,10 @@ import {
   Eye,
   EyeOff,
   KeyRound,
-  Link2,
+  Mail,
+  ShieldAlert,
   ShieldCheck,
+  Unlink,
 } from "lucide-react";
 
 import {
@@ -32,6 +34,29 @@ import {
   Skeleton,
 } from "@/components/base";
 import { toast } from "sonner";
+
+function GoogleMark({ className = "size-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.41Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 22c2.7 0 4.98-.9 6.63-2.36l-3.24-2.54c-.9.6-2.05.96-3.39.96-2.61 0-4.83-1.77-5.62-4.14H3.03v2.62A10 10 0 0 0 12 22Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M6.38 13.92A6.02 6.02 0 0 1 6.06 12c0-.67.12-1.32.32-1.92V7.46H3.03A10 10 0 0 0 2 12c0 1.62.39 3.15 1.03 4.54l3.35-2.62Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.94c1.47 0 2.79.5 3.82 1.49l2.87-2.87A9.63 9.63 0 0 0 12 2a10 10 0 0 0-8.97 5.46l3.35 2.62C7.17 7.71 9.39 5.94 12 5.94Z"
+      />
+    </svg>
+  );
+}
 
 function getInitials(username: string): string {
   const parts = username.trim().split(/[\s_\-\.]+/);
@@ -164,10 +189,10 @@ export function AccountSettingsClient({
           >
             <div className="flex items-center gap-3 min-w-0">
               <span
-                className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
+                className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)] ring-1 ring-[var(--border)]"
                 aria-hidden="true"
               >
-                <Link2 size={17} />
+                <GoogleMark className="size-4.5" />
               </span>
               <div className="min-w-0">
                 <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
@@ -190,7 +215,7 @@ export function AccountSettingsClient({
             ) : (
               <div className="flex shrink-0 items-center gap-2">
                 {security.googleAccount && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] px-2 py-1 text-[10px] font-semibold text-[var(--success)]">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] px-2 py-0.5 text-[10px] font-semibold text-[var(--success)]">
                     <BadgeCheck size={11} aria-hidden="true" />
                     Đã liên kết
                   </span>
@@ -463,6 +488,7 @@ export function GoogleConfirmSheet({
   const [pending, start] = useTransition();
   const [googlePassword, setGooglePassword] = useState("");
   const [confirmingUnlink, setConfirmingUnlink] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   function connectGoogle(connectMode: "link" | "replace") {
     start(async () => {
@@ -472,6 +498,7 @@ export function GoogleConfirmSheet({
         return;
       }
       setGooglePassword("");
+      setShowPassword(false);
       onClose();
       await signIn("google", {
         callbackUrl: "/auth/google/complete?returnTo=account",
@@ -487,6 +514,7 @@ export function GoogleConfirmSheet({
         return;
       }
       setGooglePassword("");
+      setShowPassword(false);
       toast.success("Đã gỡ liên kết Google.");
       onClose();
     });
@@ -499,6 +527,7 @@ export function GoogleConfirmSheet({
         if (!isOpen) {
           setGooglePassword("");
           setConfirmingUnlink(false);
+          setShowPassword(false);
           onClose();
         }
       }}
@@ -516,16 +545,20 @@ export function GoogleConfirmSheet({
               <SheetBackButton
                 onBack={
                   mode === "unlink" && confirmingUnlink
-                    ? () => setConfirmingUnlink(false)
+                    ? () => {
+                        setConfirmingUnlink(false);
+                        setGooglePassword("");
+                        setShowPassword(false);
+                      }
                     : onBack
                 }
               />
             )}
             <span
-              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
+              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)] ring-1 ring-[var(--border)]"
               aria-hidden="true"
             >
-              <Link2 size={18} />
+              <GoogleMark className="size-4.5" />
             </span>
             <div className="min-w-0">
               <SheetTitle>
@@ -547,69 +580,117 @@ export function GoogleConfirmSheet({
         </SheetHeader>
 
         {mode === "unlink" && !confirmingUnlink ? (
-          <div className="space-y-5 p-5">
-            <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
-              <span
-                className="grid size-10 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
-                aria-hidden="true"
-              >
-                <Link2 size={18} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">
-                    Google
-                  </p>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] px-2 py-1 text-[10px] font-semibold text-[var(--success)]">
-                    <BadgeCheck size={11} aria-hidden="true" />
-                    Đã liên kết
-                  </span>
+          <div className="space-y-4 p-5">
+            {/* Account Card */}
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)] ring-1 ring-[var(--border)]"
+                    aria-hidden="true"
+                  >
+                    <GoogleMark className="size-5.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                      Google
+                    </h3>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      Phương thức đăng nhập
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">
-                  {googleEmail ?? "Tài khoản Google"}
-                </p>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] px-2.5 py-1 text-[10px] font-semibold text-[var(--success)] shrink-0">
+                  <span className="size-1.5 rounded-full bg-[var(--success)]" aria-hidden="true" />
+                  Đã liên kết
+                </span>
+              </div>
+
+              {/* Email Pill */}
+              <div className="flex items-center gap-2.5 rounded-xl bg-[var(--surface-secondary)] px-3 py-2 text-xs text-[var(--foreground)]">
+                <Mail size={14} className="text-[var(--text-muted)] shrink-0" aria-hidden="true" />
+                <span className="font-medium truncate select-all">{googleEmail ?? "Tài khoản Google"}</span>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-[var(--foreground)]">
-                Phương thức đăng nhập
-              </p>
-              <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-                Tài khoản Google này đang được dùng để đăng nhập vào Felix.
-              </p>
+            {/* Information Card */}
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+              <div className="flex items-start gap-3">
+                <span
+                  className="grid size-8 shrink-0 place-items-center rounded-lg bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] text-[var(--primary)]"
+                  aria-hidden="true"
+                >
+                  <ShieldCheck size={16} />
+                </span>
+                <div className="min-w-0 space-y-0.5">
+                  <p className="text-xs font-semibold text-[var(--foreground)]">
+                    Đăng nhập một chạm
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
+                    Tài khoản Google này đang được dùng để đăng nhập nhanh chóng và bảo mật vào Felix.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={pending}
-              onClick={() => setConfirmingUnlink(true)}
-              className="w-full text-xs"
-            >
-              Ngắt liên kết
-            </Button>
+            {/* Action */}
+            <div className="pt-2">
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={pending}
+                onClick={() => setConfirmingUnlink(true)}
+                className="w-full text-xs"
+              >
+                <Unlink size={14} aria-hidden="true" />
+                Ngắt liên kết
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4 p-5">
             {mode === "unlink" && (
-              <div className="rounded-xl border border-[color-mix(in_srgb,var(--destructive)_35%,var(--border))] bg-[color-mix(in_srgb,var(--destructive)_8%,var(--surface))] p-3">
-                <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
-                  Bạn sẽ không thể đăng nhập bằng Google nữa. Bạn vẫn có thể
-                  đăng nhập bằng mật khẩu đã thiết lập.
-                </p>
+              <div className="flex items-start gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--destructive)_25%,var(--border))] bg-[color-mix(in_srgb,var(--destructive)_8%,var(--surface))] p-4">
+                <span
+                  className="grid size-8 shrink-0 place-items-center rounded-lg bg-[color-mix(in_srgb,var(--destructive)_15%,var(--surface))] text-[var(--destructive)]"
+                  aria-hidden="true"
+                >
+                  <ShieldAlert size={16} />
+                </span>
+                <div className="min-w-0 space-y-0.5">
+                  <p className="text-xs font-semibold text-[var(--destructive)]">
+                    Lưu ý khi ngắt liên kết
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-[var(--text-secondary)]">
+                    Bạn sẽ không thể đăng nhập bằng Google nữa. Sau khi ngắt, bạn sẽ sử dụng mật khẩu tài khoản Felix để đăng nhập.
+                  </p>
+                </div>
               </div>
             )}
 
             <Input
               name="googlePassword"
-              type="password"
+              type={showPassword ? "text" : "password"}
               label="Mật khẩu hiện tại *"
               autoComplete="current-password"
               value={googlePassword}
               onChange={(event) => setGooglePassword(event.target.value)}
               placeholder="Nhập mật khẩu hiện tại"
               autoFocus
+              className="pr-10"
+              endAdornment={
+                <Button
+                  variant="icon"
+                  size="icon"
+                  type="button"
+                  className="absolute inset-y-0 right-0"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                </Button>
+              }
             />
 
             <div
@@ -626,6 +707,7 @@ export function GoogleConfirmSheet({
                   disabled={pending}
                   onClick={() => {
                     setGooglePassword("");
+                    setShowPassword(false);
                     setConfirmingUnlink(false);
                   }}
                   className="w-full text-xs"
