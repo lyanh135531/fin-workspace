@@ -5,14 +5,12 @@ import { signIn } from "next-auth/react";
 
 import {
   BadgeCheck,
-  Check,
+  ChevronRight,
   Eye,
   EyeOff,
   KeyRound,
   Link2,
-  RefreshCw,
   ShieldCheck,
-  Unlink,
 } from "lucide-react";
 
 import {
@@ -24,13 +22,13 @@ import {
 } from "@/app/dashboard/settings/account-actions";
 import {
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
   Input,
+  Sheet,
+  SheetBackButton,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
   Skeleton,
 } from "@/components/base";
 import { toast } from "sonner";
@@ -57,29 +55,20 @@ function getPasswordStrength(pw: string) {
   return { score: 3, label: "Mạnh", color: "bg-[var(--success)]" };
 }
 
-export function AccountSettingsClient({ username }: { username: string }) {
+export function AccountSettingsClient({
+  username,
+  onOpenPasswordChange,
+  onOpenGoogleAction,
+}: {
+  username: string;
+  onOpenPasswordChange?: () => void;
+  onOpenGoogleAction?: (mode: "link" | "replace" | "unlink") => void;
+}) {
   const [pending, start] = useTransition();
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [googlePassword, setGooglePassword] = useState("");
   const [security, setSecurity] = useState<{
     hasPassword: boolean;
     googleAccount: { email: string; displayName: string | null; imageUrl: string | null } | null;
   } | null>(null);
-
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-
-  const formRef = useRef<HTMLFormElement>(null);
-
-  const strength = getPasswordStrength(newPassword);
-
-  async function refreshSecurity() {
-    const result = await getAccountSecurityStateAction();
-    if (result.ok) setSecurity(result.data);
-    else toast.error(result.message);
-  }
 
   useEffect(() => {
     let active = true;
@@ -93,32 +82,6 @@ export function AccountSettingsClient({ username }: { username: string }) {
     };
   }, []);
 
-  function connectGoogle(mode: "link" | "replace") {
-    start(async () => {
-      const result = await startGoogleLinkAction({ password: googlePassword, mode });
-      if (!result.ok) {
-        toast.error(result.message);
-        return;
-      }
-      await signIn("google", {
-        callbackUrl: "/auth/google/complete?returnTo=account",
-      });
-    });
-  }
-
-  function unlinkGoogle() {
-    start(async () => {
-      const result = await unlinkGoogleAction({ password: googlePassword });
-      if (!result.ok) {
-        toast.error(result.message);
-        return;
-      }
-      setGooglePassword("");
-      toast.success("Đã gỡ liên kết Google.");
-      await refreshSecurity();
-    });
-  }
-
   function createPasswordWithGoogle() {
     start(async () => {
       const result = await startGooglePasswordSetupAction();
@@ -131,6 +94,149 @@ export function AccountSettingsClient({ username }: { username: string }) {
       });
     });
   }
+
+  const initialsText = getInitials(username);
+
+  return (
+    <div className="space-y-5 text-[var(--foreground)]">
+      {/* ── Profile Hero ────────────────────────────── */}
+      <div className="flex flex-col items-center gap-3 pb-1 pt-1">
+        {/* Avatar with status indicator */}
+        <div className="relative">
+          <div
+            className="grid size-[4.5rem] place-items-center rounded-full bg-[var(--primary-soft)] text-lg font-bold tracking-wide text-[var(--primary)]"
+            aria-hidden="true"
+          >
+            {initialsText}
+          </div>
+          <span
+            className="absolute bottom-0.5 right-0.5 size-3.5 rounded-full border-2 border-[var(--surface)] bg-[var(--success)]"
+            aria-label="Đang hoạt động"
+          />
+        </div>
+
+        {/* Name + badge */}
+        <div className="flex flex-col items-center gap-1.5 text-center">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold tracking-tight text-[var(--foreground)]">
+              {username}
+            </h2>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--success)]">
+              <BadgeCheck size={11} />
+              Active
+            </span>
+          </div>
+          <p className="text-xs text-[var(--text-muted)]">
+            Tài khoản hệ thống Felix
+          </p>
+        </div>
+      </div>
+
+      {/* ── Security Settings Section ───────────────── */}
+      <div className="space-y-2">
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-widest text-[var(--text-muted)]">
+          Bảo mật
+        </p>
+
+        <div className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl ring-1 ring-[var(--border)] bg-[var(--surface)]">
+          {/* ── Google Auth Row ────────────────────── */}
+          <button
+            type="button"
+            disabled={pending || security === null}
+            onClick={() => {
+              if (!security?.hasPassword) {
+                createPasswordWithGoogle();
+              } else {
+                onOpenGoogleAction?.(security?.googleAccount ? "replace" : "link");
+              }
+            }}
+            className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-[var(--surface-hover)] transition-colors cursor-pointer outline-none disabled:pointer-events-none disabled:opacity-60"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span
+                className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
+                aria-hidden="true"
+              >
+                <Link2 size={17} />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
+                  Google Auth
+                </h3>
+                <p className="text-[11px] text-[var(--text-muted)] truncate leading-relaxed">
+                  {security === null ? (
+                    "Đang tải…"
+                  ) : security.googleAccount ? (
+                    security.googleAccount.email
+                  ) : (
+                    "Chưa liên kết tài khoản"
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {security === null ? (
+              <Skeleton className="h-5 w-5 rounded-full" />
+            ) : (
+              <ChevronRight size={16} className="text-[var(--text-muted)] shrink-0" />
+            )}
+          </button>
+
+          {/* ── Password Row ──────────────────────── */}
+          {security?.hasPassword !== false && (
+            <button
+              type="button"
+              disabled={pending || security === null}
+              onClick={() => onOpenPasswordChange?.()}
+              className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-[var(--surface-hover)] transition-colors cursor-pointer outline-none disabled:pointer-events-none disabled:opacity-60"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span
+                  className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)]"
+                  aria-hidden="true"
+                >
+                  <KeyRound size={17} />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
+                    Mật khẩu
+                  </h3>
+                  <p className="text-[11px] text-[var(--text-muted)] truncate leading-relaxed">
+                    Đã thiết lập
+                  </p>
+                </div>
+              </div>
+
+              <ChevronRight size={16} className="text-[var(--text-muted)] shrink-0" />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Standalone Action Sheet 1: Change Password ─────────────── */
+export function ChangePasswordSheet({
+  open,
+  isMobile = false,
+  onBack,
+  onClose,
+}: {
+  open: boolean;
+  isMobile?: boolean;
+  onBack?: () => void;
+  onClose: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const formRef = useRef<HTMLFormElement>(null);
+  const strength = getPasswordStrength(newPassword);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -158,13 +264,12 @@ export function AccountSettingsClient({ username }: { username: string }) {
         formRef.current?.reset();
         setNewPassword("");
         setConfirmPassword("");
+        onClose();
       } else {
         toast.error(result.message ?? "Không thể đổi mật khẩu.");
       }
     });
   }
-
-  const initialsText = getInitials(username);
 
   const passwordToggle = (
     visible: boolean,
@@ -185,272 +290,255 @@ export function AccountSettingsClient({ username }: { username: string }) {
   );
 
   return (
-    <div className="space-y-3 p-3 text-[var(--foreground)] min-[761px]:space-y-4 min-[761px]:p-0">
-      <Card
-        size="sm"
-        tone="primarySoft"
-        className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 max-[760px]:p-4 min-[761px]:grid-cols-[auto_minmax(0,1fr)_auto] min-[761px]:gap-4"
-        aria-label="Tài khoản đang cập nhật"
+    <Sheet
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          formRef.current?.reset();
+          setNewPassword("");
+          setConfirmPassword("");
+          onClose();
+        }
+      }}
+    >
+      <SheetContent
+        side={isMobile ? "bottom" : "right"}
+        placement="inset"
+        size={isMobile ? "default" : "wide"}
+        spacing="flush"
+        elevation={isMobile ? "raised" : "flat"}
       >
-        <div
-          className="grid size-11 place-items-center rounded-xl bg-[var(--primary-soft)] text-sm font-bold tracking-[-0.02em] text-[var(--primary)]"
-          aria-hidden="true"
-        >
-          {initialsText}
-        </div>
-        <div className="min-w-0">
-          <span className="block text-xs font-medium text-[var(--text-muted)]">
-            Hồ sơ Felix
-          </span>
-          <strong className="mt-0.5 block truncate text-base font-semibold tracking-[-0.01em]">
-            {username}
-          </strong>
-          <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
-            Quản lý danh tính và các phương thức đăng nhập.
-          </p>
-        </div>
-        <span className="col-span-2 inline-flex items-center gap-1.5 justify-self-start whitespace-nowrap text-xs font-semibold text-[var(--success)] min-[761px]:col-span-1 min-[761px]:justify-self-end">
-          <BadgeCheck size={16} aria-hidden="true" />
-          Đang hoạt động
-        </span>
-      </Card>
-
-      <Card
-        size="sm"
-        className="max-[760px]:p-4"
-        aria-busy={pending || security === null}
-      >
-        <CardHeader>
-          <div className="flex items-start gap-3">
+        <SheetHeader className="border-b border-[var(--border)] px-5 py-4">
+          <div className="flex items-center gap-3">
+            {onBack && <SheetBackButton onBack={onBack} />}
             <span
-              className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]"
+              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)]"
               aria-hidden="true"
             >
-              <Link2 size={17} />
+              <KeyRound size={18} />
             </span>
-            <div className="min-w-0 flex-1">
-              <CardTitle>Đăng nhập bằng Google</CardTitle>
-              <CardDescription className="mt-1 leading-5">
-                {security?.googleAccount
-                  ? `Đang liên kết với ${security.googleAccount.email}`
-                  : "Thêm Google làm phương thức đăng nhập dự phòng."}
-              </CardDescription>
+            <div className="min-w-0">
+              <SheetTitle>Đổi mật khẩu</SheetTitle>
+              <SheetDescription className="text-xs text-[var(--text-muted)]">
+                Nhập mật khẩu hiện tại và mật khẩu mới của bạn
+              </SheetDescription>
             </div>
           </div>
-        </CardHeader>
+        </SheetHeader>
 
-        <CardContent>
-          {security === null ? (
-            <div className="grid gap-3" aria-label="Đang tải trạng thái bảo mật">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-8 w-36" />
-            </div>
-          ) : security.hasPassword ? (
-            <div className="grid gap-4">
-              {security.googleAccount && (
-                <div className="flex items-center gap-3 rounded-xl bg-[var(--surface-secondary)] p-3">
-                  <span
-                    className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--surface)] text-base font-bold text-[var(--primary)]"
-                    aria-hidden="true"
-                  >
-                    G
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    {security.googleAccount.displayName && (
-                      <p className="truncate text-sm font-semibold text-[var(--foreground)]">
-                        {security.googleAccount.displayName}
-                      </p>
-                    )}
-                    <p className="truncate text-xs text-[var(--text-secondary)]">
-                      {security.googleAccount.email}
-                    </p>
-                  </div>
-                  <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[var(--success)]">
-                    <Check size={15} aria-hidden="true" />
-                    Đã liên kết
-                  </span>
-                </div>
+        <form
+          ref={formRef}
+          onSubmit={handleSubmit}
+          aria-busy={pending}
+          className="p-5 space-y-3.5"
+        >
+          <Input
+            label="Mật khẩu hiện tại *"
+            id="currentPassword"
+            required
+            name="currentPassword"
+            type={showCurrent ? "text" : "password"}
+            autoComplete="current-password"
+            placeholder="Nhập mật khẩu hiện tại"
+            className="pr-10"
+            autoFocus
+          />
+
+          <div className="space-y-1.5">
+            <Input
+              label="Mật khẩu mới *"
+              id="newPassword"
+              required
+              name="newPassword"
+              type={showNew ? "text" : "password"}
+              minLength={8}
+              maxLength={128}
+              autoComplete="new-password"
+              placeholder="Tối thiểu 8 ký tự"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="pr-10"
+              endAdornment={passwordToggle(
+                showNew,
+                () => setShowNew((value) => !value),
+                "mật khẩu mới",
               )}
+            />
 
-              <div className="grid gap-3 min-[761px]:grid-cols-[minmax(0,1fr)_auto] min-[761px]:items-end">
-                <Input
-                  label="Mật khẩu Felix để xác nhận"
-                  name="googlePassword"
-                  type="password"
-                  autoComplete="current-password"
-                  value={googlePassword}
-                  onChange={(event) => setGooglePassword(event.target.value)}
-                  placeholder="Nhập mật khẩu hiện tại"
-                />
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={pending || !googlePassword}
-                    onClick={() =>
-                      connectGoogle(security.googleAccount ? "replace" : "link")
-                    }
-                  >
-                    {security.googleAccount ? (
-                      <RefreshCw aria-hidden="true" />
-                    ) : (
-                      <Link2 aria-hidden="true" />
-                    )}
-                    {security.googleAccount ? "Đổi Google" : "Liên kết Google"}
-                  </Button>
-                  {security.googleAccount && (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      disabled={pending || !googlePassword}
-                      onClick={unlinkGoogle}
-                    >
-                      <Unlink aria-hidden="true" />
-                      Gỡ liên kết
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              <p className="text-sm leading-6 text-[var(--text-secondary)]">
-                Google đang là phương thức đăng nhập duy nhất. Hãy xác minh lại
-                để tạo mật khẩu Felix.
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={pending}
-                onClick={createPasswordWithGoogle}
-                className="justify-self-start"
+            {newPassword && (
+              <div
+                className="flex items-center justify-between gap-2 pt-0.5 text-[11px]"
+                aria-live="polite"
               >
-                <ShieldCheck aria-hidden="true" />
-                Xác minh Google và tạo mật khẩu
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {security?.hasPassword !== false && (
-        <form ref={formRef} onSubmit={handleSubmit} aria-busy={pending}>
-          <Card size="sm" className="max-[760px]:p-4">
-            <CardHeader>
-              <div className="flex items-start gap-3">
-                <span
-                  className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]"
-                  aria-hidden="true"
-                >
-                  <KeyRound size={17} />
-                </span>
-                <div className="min-w-0">
-                  <CardTitle>Mật khẩu Felix</CardTitle>
-                  <CardDescription className="mt-1 max-w-[32rem] leading-5">
-                    Dùng mật khẩu riêng, dài và khó đoán để bảo vệ tài khoản.
-                  </CardDescription>
+                <div className="flex h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                  <div
+                    className={`h-full transition-all duration-300 ease-out rounded-full ${strength.color}`}
+                    style={{ width: `${(strength.score / 3) * 100}%` }}
+                  />
                 </div>
+                {strength.label && (
+                  <span className="font-semibold text-[var(--text-secondary)]">
+                    {strength.label}
+                  </span>
+                )}
               </div>
-            </CardHeader>
+            )}
+          </div>
 
-            <CardContent className="grid gap-4 min-[761px]:grid-cols-2">
-              <div className="min-[761px]:col-span-2">
-                <Input
-                  label="Mật khẩu hiện tại"
-                  id="currentPassword"
-                  required
-                  name="currentPassword"
-                  type={showCurrent ? "text" : "password"}
-                  autoComplete="current-password"
-                  placeholder="Nhập mật khẩu hiện tại"
-                  className="pr-10"
-                  endAdornment={passwordToggle(
-                    showCurrent,
-                    () => setShowCurrent((value) => !value),
-                    "mật khẩu hiện tại",
-                  )}
-                />
-              </div>
+          <Input
+            label="Xác nhận mật khẩu mới *"
+            id="confirmPassword"
+            required
+            name="confirmPassword"
+            type={showConfirm ? "text" : "password"}
+            minLength={8}
+            maxLength={128}
+            autoComplete="new-password"
+            placeholder="Nhập lại mật khẩu mới"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="pr-10"
+            endAdornment={passwordToggle(
+              showConfirm,
+              () => setShowConfirm((value) => !value),
+              "mật khẩu xác nhận",
+            )}
+          />
 
-              <div className="min-w-0">
-                <Input
-                  label="Mật khẩu mới"
-                  id="newPassword"
-                  required
-                  name="newPassword"
-                  type={showNew ? "text" : "password"}
-                  minLength={8}
-                  maxLength={128}
-                  autoComplete="new-password"
-                  placeholder="Tối thiểu 8 ký tự"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="pr-10"
-                  endAdornment={passwordToggle(
-                    showNew,
-                    () => setShowNew((value) => !value),
-                    "mật khẩu mới",
-                  )}
-                />
-
-                <div className="mt-2 space-y-1.5" aria-live="polite">
-                  <div className="flex h-1 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
-                    <div
-                      className={`h-full transition-[width] duration-200 motion-reduce:transition-none ${strength.color}`}
-                      style={{ width: `${(strength.score / 3) * 100}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-                    <span>Ít nhất 8 ký tự</span>
-                    {strength.label && (
-                      <span className="font-medium text-[var(--text-secondary)]">
-                        {strength.label}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="min-w-0">
-                <Input
-                  label="Xác nhận mật khẩu mới"
-                  id="confirmPassword"
-                  required
-                  name="confirmPassword"
-                  type={showConfirm ? "text" : "password"}
-                  minLength={8}
-                  maxLength={128}
-                  autoComplete="new-password"
-                  placeholder="Nhập lại mật khẩu mới"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="pr-10"
-                  endAdornment={passwordToggle(
-                    showConfirm,
-                    () => setShowConfirm((value) => !value),
-                    "mật khẩu xác nhận",
-                  )}
-                />
-                <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                  Không dùng lại mật khẩu của tài khoản khác.
-                </p>
-              </div>
-            </CardContent>
-
-            <CardFooter className="justify-end">
-              <Button
-                disabled={pending || !newPassword || !confirmPassword}
-                type="submit"
-                variant="default"
-                className="w-full min-[761px]:w-auto"
-              >
-                <ShieldCheck aria-hidden="true" />
-                {pending ? "Đang cập nhật…" : "Cập nhật mật khẩu"}
-              </Button>
-            </CardFooter>
-          </Card>
+          <div className="pt-2">
+            <Button
+              disabled={pending || !newPassword || !confirmPassword}
+              type="submit"
+              variant="default"
+              className="w-full text-xs"
+            >
+              <ShieldCheck aria-hidden="true" size={15} />
+              {pending ? "Đang cập nhật…" : "Cập nhật mật khẩu"}
+            </Button>
+          </div>
         </form>
-      )}
-    </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/* ── Standalone Action Sheet 2: Google Action Confirm ────────── */
+export function GoogleConfirmSheet({
+  open,
+  mode,
+  isMobile = false,
+  onBack,
+  onClose,
+}: {
+  open: boolean;
+  mode: "link" | "replace" | "unlink";
+  isMobile?: boolean;
+  onBack?: () => void;
+  onClose: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [googlePassword, setGooglePassword] = useState("");
+
+  function connectGoogle(connectMode: "link" | "replace") {
+    start(async () => {
+      const result = await startGoogleLinkAction({ password: googlePassword, mode: connectMode });
+      if (!result.ok) {
+        toast.error(result.message);
+        return;
+      }
+      setGooglePassword("");
+      onClose();
+      await signIn("google", {
+        callbackUrl: "/auth/google/complete?returnTo=account",
+      });
+    });
+  }
+
+  function unlinkGoogle() {
+    start(async () => {
+      const result = await unlinkGoogleAction({ password: googlePassword });
+      if (!result.ok) {
+        toast.error(result.message);
+        return;
+      }
+      setGooglePassword("");
+      toast.success("Đã gỡ liên kết Google.");
+      onClose();
+    });
+  }
+
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          setGooglePassword("");
+          onClose();
+        }
+      }}
+    >
+      <SheetContent
+        side={isMobile ? "bottom" : "right"}
+        placement="inset"
+        size={isMobile ? "default" : "wide"}
+        spacing="flush"
+        elevation={isMobile ? "raised" : "flat"}
+      >
+        <SheetHeader className="border-b border-[var(--border)] px-5 py-4">
+          <div className="flex items-center gap-3">
+            {onBack && <SheetBackButton onBack={onBack} />}
+            <span
+              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
+              aria-hidden="true"
+            >
+              <Link2 size={18} />
+            </span>
+            <div className="min-w-0">
+              <SheetTitle>
+                {mode === "unlink"
+                  ? "Gỡ liên kết Google"
+                  : mode === "replace"
+                  ? "Đổi tài khoản Google"
+                  : "Liên kết tài khoản Google"}
+              </SheetTitle>
+              <SheetDescription className="text-xs text-[var(--text-muted)]">
+                Nhập mật khẩu hiện tại để xác nhận thao tác
+              </SheetDescription>
+            </div>
+          </div>
+        </SheetHeader>
+
+        <div className="p-5 space-y-4">
+          <Input
+            name="googlePassword"
+            type="password"
+            label="Mật khẩu hiện tại *"
+            autoComplete="current-password"
+            value={googlePassword}
+            onChange={(event) => setGooglePassword(event.target.value)}
+            placeholder="Nhập mật khẩu hiện tại"
+            autoFocus
+          />
+
+          <div className="pt-1">
+            <Button
+              type="button"
+              variant={mode === "unlink" ? "destructive" : "default"}
+              disabled={pending || !googlePassword}
+              onClick={() => {
+                if (mode === "unlink") {
+                  unlinkGoogle();
+                } else {
+                  connectGoogle(mode);
+                }
+              }}
+              className="w-full text-xs"
+            >
+              {pending ? "Đang xử lý…" : "Xác nhận"}
+            </Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

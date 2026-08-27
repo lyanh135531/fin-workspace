@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ArrowLeft } from "lucide-react";
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
 
 import { cn } from "@/lib/utils";
@@ -246,8 +247,37 @@ function SheetDescription({
   );
 }
 
+type SheetBackButtonProps = {
+  onBack: () => void;
+  label?: string;
+} & Omit<React.ComponentProps<"button">, "onClick" | "children">;
+
+function SheetBackButton({
+  onBack,
+  label = "Quay lại",
+  className,
+  ...props
+}: SheetBackButtonProps) {
+  return (
+    <button
+      type="button"
+      data-slot="sheet-back-button"
+      onClick={onBack}
+      aria-label={label}
+      className={cn(
+        "grid size-8 shrink-0 place-items-center rounded-lg text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] cursor-pointer",
+        className,
+      )}
+      {...props}
+    >
+      <ArrowLeft size={16} aria-hidden="true" />
+    </button>
+  );
+}
+
 export {
   Sheet,
+  SheetBackButton,
   SheetClose,
   SheetContent,
   SheetDescription,
