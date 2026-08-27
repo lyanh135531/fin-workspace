@@ -93,7 +93,7 @@ export default async function RecurringTransactionsPage() {
             wallet: item.wallet.name,
             toWallet: item.toWallet?.name ?? null,
             category: item.category,
-            createdBy: item.createdBy.user.username,
+            createdBy: item.createdBy.user.username ?? "Người dùng",
             occurrenceCount: item._count.transactions,
           }))}
         />

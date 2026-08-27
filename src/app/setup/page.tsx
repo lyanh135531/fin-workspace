@@ -19,6 +19,7 @@ import { ThemeToggle } from "@/app/theme-toggle";
 import { AuthShowcase } from "@/components/auth-showcase";
 import { Button, Card, Input } from "@/components/base";
 import { FinLogo } from "@/components/fin-logo";
+import { GoogleAuthButton } from "@/components/google-auth-button";
 
 type Strength = {
   score: 0 | 1 | 2 | 3 | 4;
@@ -154,6 +155,12 @@ export default function SetupPage() {
                 Chọn tên đăng nhập và mật khẩu để bắt đầu.
               </p>
             </div>
+
+            {completionState === "idle" && (
+              <div className="mb-5">
+                <GoogleAuthButton label="Đăng ký bằng Google" dividerLabel="hoặc tạo bằng mật khẩu" />
+              </div>
+            )}
 
             {completionState !== "idle" && (
               <div

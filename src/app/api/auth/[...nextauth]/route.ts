@@ -11,6 +11,7 @@ import {
   stripAuthSessionCookiePersistence,
   type RememberSessionPolicy,
 } from "@/lib/auth-session-cookie";
+import { GOOGLE_INTENT_COOKIE } from "@/services/google-auth-service";
 
 const handler = NextAuth(authOptions);
 
@@ -33,11 +34,17 @@ function clearRememberCookie() {
   return `${REMEMBER_SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`;
 }
 
+function clearGoogleIntentCookie() {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${GOOGLE_INTENT_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`;
+}
+
 function withCookiePolicy(
   response: Response,
   policy: RememberSessionPolicy,
   setPolicyCookie = false,
   clearPolicyCookie = false,
+  clearOAuthIntentCookie = false,
 ) {
   const setCookies = response.headers.getSetCookie();
   response.headers.delete("set-cookie");
@@ -56,6 +63,9 @@ function withCookiePolicy(
   }
   if (clearPolicyCookie) {
     response.headers.append("set-cookie", clearRememberCookie());
+  }
+  if (clearOAuthIntentCookie) {
+    response.headers.append("set-cookie", clearGoogleIntentCookie());
   }
 
   return response;
@@ -89,6 +99,7 @@ export async function POST(request: NextRequest, context: AuthRouteContext) {
     response,
     isSignOut ? null : policy,
     isCredentialsCallback,
+    isSignOut,
     isSignOut,
   );
 }

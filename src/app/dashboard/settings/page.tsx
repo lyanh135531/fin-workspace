@@ -138,14 +138,14 @@ export default async function SettingsPage({
           }))}
           members={members.map((m) => ({
             id: m.id,
-            username: m.user.username,
+            username: m.user.username ?? "Người dùng",
             roleCode: m.role.code,
             isSelf: m.userId === session.user.id,
           }))}
           roles={roles.map((r) => ({ code: r.code, name: r.name }))}
           joinRequests={joinRequests.map((request) => ({
             id: request.id,
-            username: request.requester.username,
+            username: request.requester.username ?? "Người dùng",
           }))}
           initialTab={
             params.tab === "members" || params.tab === "joinRequests"

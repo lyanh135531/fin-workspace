@@ -16,6 +16,7 @@ import {
   Loading,
 } from "@/components/base";
 import { FinLogo } from "@/components/fin-logo";
+import { GoogleAuthButton } from "@/components/google-auth-button";
 import { getPostSignInPath } from "@/lib/host-routing";
 
 const rememberedUsernameKey = "felix.remembered-username";
@@ -81,11 +82,15 @@ async function loadRememberedSignIn() {
 type SignInClientProps = {
   callbackUrl?: string;
   portalMode: boolean;
+  googleEnabled: boolean;
+  googleError: boolean;
 };
 
-export function SignInClient({ callbackUrl, portalMode }: SignInClientProps) {
+export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleError }: SignInClientProps) {
   const id = useId();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    googleError ? "Không đăng nhập được bằng Google. Kiểm tra tài khoản và thử lại." : null,
+  );
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -193,6 +198,16 @@ export function SignInClient({ callbackUrl, portalMode }: SignInClientProps) {
                   : "Tiếp tục quản lý thu chi và cập nhật biến động"}
               </p>
             </div>
+
+            {googleEnabled && (
+              <div className="mb-5">
+                <GoogleAuthButton
+                  enabled
+                  label={portalMode ? "Đăng nhập Portal bằng Google" : "Tiếp tục với Google"}
+                  dividerLabel="hoặc dùng mật khẩu"
+                />
+              </div>
+            )}
 
             <form onSubmit={submit} aria-busy={loading}>
               <div className="auth-fields">

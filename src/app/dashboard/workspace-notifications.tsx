@@ -194,7 +194,7 @@ export async function WorkspaceNotifications({
   ): NotificationItem => ({
     kind: "transaction",
     id: item.id,
-    username: item.member.user.username,
+    username: item.member.user.username ?? "Người dùng",
     description: item.description,
     category: item.category?.name ?? null,
     wallet: item.wallet.name,
@@ -208,14 +208,14 @@ export async function WorkspaceNotifications({
     ...joinRequests.map((item) => ({
       kind: "join" as const,
       id: item.id,
-      username: item.requester.username,
+      username: item.requester.username ?? "Người dùng",
     })),
     ...transactions.map((item) => transactionItem(item, item.workflowStatus as "pending" | "scheduled")),
     ...executedTransactions.map((item) => transactionItem(item, "executed")),
     ...changes.map((item) => ({
       kind: "change" as const,
       id: item.id,
-      username: item.requester.user.username,
+      username: item.requester.user.username ?? "Người dùng",
       description: item.transaction.description,
       amount: item.transaction.amount.toString(),
       type: item.transaction.type,

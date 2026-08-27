@@ -116,7 +116,7 @@ export async function WorkspaceDashboard({
           icon: item.category.icon,
         }
       : null,
-    member: item.member.user.username,
+    member: item.member.user.username ?? "Người dùng",
     canRequestDelete: isAdmin || item.memberId === membership.id,
     hasPendingChange: item.changeRequests.length > 0,
     pendingChangeRequestId: item.changeRequests[0]?.id ?? null,

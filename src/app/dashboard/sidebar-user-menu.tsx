@@ -2,7 +2,7 @@
 
 import { Button, Loading } from "@/components/base";
 import { signOut } from "next-auth/react";
-import { LogOut, ChevronUp, KeyRound, Download } from "lucide-react";
+import { LogOut, ChevronUp, UserRound, Download } from "lucide-react";
 import { useState, useTransition } from "react";
 import {
   Popover,
@@ -85,8 +85,8 @@ export function SidebarUserMenu({
         else setAccountModalOpen(true);
       }}
     >
-      <KeyRound size={14} strokeWidth={2} />
-      <span>Đổi mật khẩu</span>
+      <UserRound size={14} strokeWidth={2} />
+      <span>Thông tin tài khoản</span>
     </Button>
   );
 

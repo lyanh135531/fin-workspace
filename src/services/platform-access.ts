@@ -15,5 +15,5 @@ export async function requirePlatformAdminSession() {
     notFound();
   }
 
-  return session.user;
+  return { ...session.user, username: session.user.username };
 }

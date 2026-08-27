@@ -57,7 +57,7 @@ export async function deleteWorkspaceAction(password: string) {
       throw new AppError("VALIDATION_ERROR", "Vui lòng nhập mật khẩu xác nhận.");
     }
     const user = await prisma.user.findFirst({ where: { id: actor.userId, status: "active", deletedAt: null } });
-    if (!user || !(await argon2.verify(user.passwordHash, password))) {
+    if (!user?.passwordHash || !(await argon2.verify(user.passwordHash, password))) {
       throw new AppError("FORBIDDEN", "Mật khẩu xác nhận không chính xác.");
     }
     await deleteWorkspaceForUser(actor.userId, actor.workspaceId);

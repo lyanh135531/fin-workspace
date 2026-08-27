@@ -1,14 +1,16 @@
 "use client";
 
 import {
+  Button,
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
 } from "@/components/base";
 import { AccountSettingsClient } from "@/app/dashboard/settings/account-settings-client";
-import { KeyRound } from "lucide-react";
+import { UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function AccountSettingsModal({
@@ -48,54 +50,70 @@ export function AccountSettingsModal({
         <SheetHeader
           className={
             isMobile
-              ? "quick-transaction-header"
-              : "px-8 pt-7 pb-[1.4rem]"
+              ? "quick-transaction-header relative"
+              : "relative border-b border-[var(--border)] px-7 py-5"
           }
         >
           <div
             className={
               isMobile
                 ? "quick-transaction-heading"
-                : "flex items-center gap-3.5 pr-12"
+                : "flex items-center gap-3 pr-12"
             }
           >
             <span
               className={
                 isMobile
                   ? undefined
-                  : "grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
+                  : "grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
               }
               aria-hidden="true"
             >
-              <KeyRound size={18} />
+              <UserRound size={18} />
             </span>
             <div>
               <SheetTitle
                 className={
                   isMobile
                     ? undefined
-                    : "text-[1.3rem] font-semibold tracking-[-0.02em]"
+                    : "text-xl font-semibold tracking-[-0.025em]"
                 }
               >
-                Đổi mật khẩu
+                Thông tin tài khoản
               </SheetTitle>
               <SheetDescription
                 className={
                   isMobile
                     ? undefined
-                    : "mt-1 max-w-[30rem] text-[0.82rem] leading-[1.55]"
+                    : "mt-1 max-w-[30rem] text-xs leading-5"
                 }
               >
-                Hồ sơ cá nhân, mật khẩu và phiên làm việc
+                Hồ sơ cá nhân và phương thức đăng nhập
               </SheetDescription>
             </div>
           </div>
+          <SheetClose
+            render={
+              <Button
+                variant="icon"
+                size="icon"
+                className={
+                  isMobile
+                    ? "absolute right-3 top-4"
+                    : "absolute right-5 top-5"
+                }
+                aria-label="Đóng thông tin tài khoản"
+              />
+            }
+          >
+            <X aria-hidden="true" />
+          </SheetClose>
         </SheetHeader>
         <div
           className={
             isMobile
               ? "quick-transaction-scroll !p-0"
-              : "flex-1 overflow-y-auto overscroll-contain px-8 pt-6 pb-8"
+              : "flex-1 overflow-y-auto overscroll-contain px-7 py-5"
           }
         >
           <AccountSettingsClient username={username} />

@@ -120,9 +120,9 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2.5">
                             <div className="grid size-7 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--primary)_15%,var(--surface))] text-xs font-bold text-[var(--primary)] border border-[color-mix(in_srgb,var(--primary)_25%,transparent)]">
-                              {user.username.slice(0, 1).toUpperCase()}
+                              {(user.username ?? "?").slice(0, 1).toUpperCase()}
                             </div>
-                            <span className="font-medium text-[var(--foreground)]">{user.username}</span>
+                            <span className="font-medium text-[var(--foreground)]">{user.username ?? "Chưa hoàn tất"}</span>
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
@@ -157,9 +157,9 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <div className="grid size-6 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--primary)_15%,var(--surface))] text-[0.65rem] font-bold text-[var(--primary)]">
-                            {user.username.slice(0, 1).toUpperCase()}
+                            {(user.username ?? "?").slice(0, 1).toUpperCase()}
                           </div>
-                          <p className="truncate font-semibold text-[var(--foreground)]" title={user.username}>{user.username}</p>
+                          <p className="truncate font-semibold text-[var(--foreground)]" title={user.username ?? undefined}>{user.username ?? "Chưa hoàn tất"}</p>
                         </div>
                         <p className="mt-2 text-xs tabular-nums text-[var(--text-muted)]">
                           Tạo {formatDateTime(user.createdAt)}

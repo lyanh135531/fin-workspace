@@ -11,6 +11,15 @@ const authenticatedProxy = withAuth({
   pages: {
     signIn: "/sign-in",
   },
+  callbacks: {
+    authorized({ token, req }) {
+      if (!token) return false;
+      if (token.profileCompleted === false) {
+        return req.nextUrl.pathname === "/setup/google";
+      }
+      return true;
+    },
+  },
 });
 
 export function proxy(request: NextRequest, event: NextFetchEvent) {
@@ -55,6 +64,7 @@ export const config = {
     "/",
     "/sign-in",
     "/setup/:path*",
+    "/account/:path*",
     "/dashboard/:path*",
     "/onboarding/:path*",
     "/overview/:path*",

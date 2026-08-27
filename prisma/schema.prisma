@@ -74,6 +74,15 @@ enum WorkspaceJoinRequestStatus {
   @@map("WORKSPACE_JOIN_REQUEST_STATUS")
 }
 
+enum OAuthIntentKind {
+  link
+  replace
+  set_password
+  complete_profile
+
+  @@map("OAUTH_INTENT_KIND")
+}
+
 model Role {
   id      String            @id @default(uuid()) @db.Uuid
   name    String
@@ -86,8 +95,9 @@ model Role {
 
 model User {
   id           String            @id @default(uuid()) @db.Uuid
-  username     String            @unique
-  passwordHash String            @map("password_hash")
+  username     String?           @unique
+  passwordHash String?           @map("password_hash")
+  profileCompletedAt DateTime?   @default(now()) @map("profile_completed_at") @db.Timestamptz(6)
   status       Status            @default(active)
   createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -96,6 +106,8 @@ model User {
   auditLogs    AuditLog[]
   joinRequests WorkspaceJoinRequest[] @relation("JoinRequester")
   reviewedJoinRequests WorkspaceJoinRequest[]
+  oauthAccounts OAuthAccount[]
+  oauthLinkIntents OAuthLinkIntent[]
 
   @@index([status, deletedAt])
   @@map("USERS")
@@ -244,6 +256,39 @@ model AuditLog {
   @@index([actorUserId, createdAt])
   @@index([createdAt])
   @@map("AUDIT_LOG")
+}
+
+model OAuthAccount {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  provider          String   @db.VarChar(32)
+  providerAccountId String   @map("provider_account_id")
+  email             String
+  displayName       String?  @map("display_name")
+  imageUrl          String?  @map("image_url")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@unique([userId, provider])
+  @@index([userId])
+  @@map("OAUTH_ACCOUNTS")
+}
+
+model OAuthLinkIntent {
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String          @map("user_id") @db.Uuid
+  kind       OAuthIntentKind
+  tokenHash  String          @unique @map("token_hash")
+  expiresAt  DateTime        @map("expires_at") @db.Timestamptz(6)
+  verifiedAt DateTime?       @map("verified_at") @db.Timestamptz(6)
+  consumedAt DateTime?       @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, expiresAt])
+  @@map("OAUTH_LINK_INTENTS")
 }
 
 model WorkspaceJoinRequest {
