@@ -62,7 +62,10 @@ export function AccountSettingsClient({
 }: {
   username: string;
   onOpenPasswordChange?: () => void;
-  onOpenGoogleAction?: (mode: "link" | "replace" | "unlink") => void;
+  onOpenGoogleAction?: (
+    mode: "link" | "replace" | "unlink",
+    email?: string,
+  ) => void;
 }) {
   const [pending, start] = useTransition();
   const [security, setSecurity] = useState<{
@@ -146,11 +149,18 @@ export function AccountSettingsClient({
             onClick={() => {
               if (!security?.hasPassword) {
                 createPasswordWithGoogle();
+              } else if (security.googleAccount) {
+                onOpenGoogleAction?.("unlink", security.googleAccount.email);
               } else {
-                onOpenGoogleAction?.(security?.googleAccount ? "replace" : "link");
+                onOpenGoogleAction?.("link");
               }
             }}
-            className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-[var(--surface-hover)] transition-colors cursor-pointer outline-none disabled:pointer-events-none disabled:opacity-60"
+            aria-label={
+              security?.googleAccount
+                ? `Quản lý tài khoản Google ${security.googleAccount.email}`
+                : "Liên kết tài khoản Google"
+            }
+            className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-[var(--surface-hover)] transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ring)] disabled:pointer-events-none disabled:opacity-60"
           >
             <div className="flex items-center gap-3 min-w-0">
               <span
@@ -161,7 +171,7 @@ export function AccountSettingsClient({
               </span>
               <div className="min-w-0">
                 <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
-                  Google Auth
+                  Google
                 </h3>
                 <p className="text-[11px] text-[var(--text-muted)] truncate leading-relaxed">
                   {security === null ? (
@@ -178,7 +188,19 @@ export function AccountSettingsClient({
             {security === null ? (
               <Skeleton className="h-5 w-5 rounded-full" />
             ) : (
-              <ChevronRight size={16} className="text-[var(--text-muted)] shrink-0" />
+              <div className="flex shrink-0 items-center gap-2">
+                {security.googleAccount && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] px-2 py-1 text-[10px] font-semibold text-[var(--success)]">
+                    <BadgeCheck size={11} aria-hidden="true" />
+                    Đã liên kết
+                  </span>
+                )}
+                <ChevronRight
+                  size={16}
+                  className="text-[var(--text-muted)]"
+                  aria-hidden="true"
+                />
+              </div>
             )}
           </button>
 
@@ -426,18 +448,21 @@ export function ChangePasswordSheet({
 export function GoogleConfirmSheet({
   open,
   mode,
+  googleEmail,
   isMobile = false,
   onBack,
   onClose,
 }: {
   open: boolean;
   mode: "link" | "replace" | "unlink";
+  googleEmail?: string | null;
   isMobile?: boolean;
   onBack?: () => void;
   onClose: () => void;
 }) {
   const [pending, start] = useTransition();
   const [googlePassword, setGooglePassword] = useState("");
+  const [confirmingUnlink, setConfirmingUnlink] = useState(false);
 
   function connectGoogle(connectMode: "link" | "replace") {
     start(async () => {
@@ -473,6 +498,7 @@ export function GoogleConfirmSheet({
       onOpenChange={(isOpen) => {
         if (!isOpen) {
           setGooglePassword("");
+          setConfirmingUnlink(false);
           onClose();
         }
       }}
@@ -486,7 +512,15 @@ export function GoogleConfirmSheet({
       >
         <SheetHeader className="border-b border-[var(--border)] px-5 py-4">
           <div className="flex items-center gap-3">
-            {onBack && <SheetBackButton onBack={onBack} />}
+            {onBack && (
+              <SheetBackButton
+                onBack={
+                  mode === "unlink" && confirmingUnlink
+                    ? () => setConfirmingUnlink(false)
+                    : onBack
+                }
+              />
+            )}
             <span
               className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
               aria-hidden="true"
@@ -495,49 +529,132 @@ export function GoogleConfirmSheet({
             </span>
             <div className="min-w-0">
               <SheetTitle>
-                {mode === "unlink"
-                  ? "Gỡ liên kết Google"
+                {mode === "unlink" && !confirmingUnlink
+                  ? "Tài khoản Google"
+                  : mode === "unlink"
+                  ? "Xác nhận ngắt liên kết"
                   : mode === "replace"
                   ? "Đổi tài khoản Google"
                   : "Liên kết tài khoản Google"}
               </SheetTitle>
               <SheetDescription className="text-xs text-[var(--text-muted)]">
-                Nhập mật khẩu hiện tại để xác nhận thao tác
+                {mode === "unlink" && !confirmingUnlink
+                  ? "Quản lý phương thức đăng nhập đã liên kết"
+                  : "Nhập mật khẩu hiện tại để xác nhận thao tác"}
               </SheetDescription>
             </div>
           </div>
         </SheetHeader>
 
-        <div className="p-5 space-y-4">
-          <Input
-            name="googlePassword"
-            type="password"
-            label="Mật khẩu hiện tại *"
-            autoComplete="current-password"
-            value={googlePassword}
-            onChange={(event) => setGooglePassword(event.target.value)}
-            placeholder="Nhập mật khẩu hiện tại"
-            autoFocus
-          />
+        {mode === "unlink" && !confirmingUnlink ? (
+          <div className="space-y-5 p-5">
+            <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+              <span
+                className="grid size-10 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
+                aria-hidden="true"
+              >
+                <Link2 size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-[var(--foreground)]">
+                    Google
+                  </p>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] px-2 py-1 text-[10px] font-semibold text-[var(--success)]">
+                    <BadgeCheck size={11} aria-hidden="true" />
+                    Đã liên kết
+                  </span>
+                </div>
+                <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">
+                  {googleEmail ?? "Tài khoản Google"}
+                </p>
+              </div>
+            </div>
 
-          <div className="pt-1">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-[var(--foreground)]">
+                Phương thức đăng nhập
+              </p>
+              <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                Tài khoản Google này đang được dùng để đăng nhập vào Felix.
+              </p>
+            </div>
+
             <Button
               type="button"
-              variant={mode === "unlink" ? "destructive" : "default"}
-              disabled={pending || !googlePassword}
-              onClick={() => {
-                if (mode === "unlink") {
-                  unlinkGoogle();
-                } else {
-                  connectGoogle(mode);
-                }
-              }}
+              variant="destructive"
+              disabled={pending}
+              onClick={() => setConfirmingUnlink(true)}
               className="w-full text-xs"
             >
-              {pending ? "Đang xử lý…" : "Xác nhận"}
+              Ngắt liên kết
             </Button>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-4 p-5">
+            {mode === "unlink" && (
+              <div className="rounded-xl border border-[color-mix(in_srgb,var(--destructive)_35%,var(--border))] bg-[color-mix(in_srgb,var(--destructive)_8%,var(--surface))] p-3">
+                <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
+                  Bạn sẽ không thể đăng nhập bằng Google nữa. Bạn vẫn có thể
+                  đăng nhập bằng mật khẩu đã thiết lập.
+                </p>
+              </div>
+            )}
+
+            <Input
+              name="googlePassword"
+              type="password"
+              label="Mật khẩu hiện tại *"
+              autoComplete="current-password"
+              value={googlePassword}
+              onChange={(event) => setGooglePassword(event.target.value)}
+              placeholder="Nhập mật khẩu hiện tại"
+              autoFocus
+            />
+
+            <div
+              className={
+                mode === "unlink"
+                  ? "grid grid-cols-2 gap-2 pt-1"
+                  : "pt-1"
+              }
+            >
+              {mode === "unlink" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => {
+                    setGooglePassword("");
+                    setConfirmingUnlink(false);
+                  }}
+                  className="w-full text-xs"
+                >
+                  Hủy
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant={mode === "unlink" ? "destructive" : "default"}
+                disabled={pending || !googlePassword}
+                onClick={() => {
+                  if (mode === "unlink") {
+                    unlinkGoogle();
+                  } else {
+                    connectGoogle(mode);
+                  }
+                }}
+                className="w-full text-xs"
+              >
+                {pending
+                  ? "Đang xử lý…"
+                  : mode === "unlink"
+                  ? "Xác nhận ngắt liên kết"
+                  : "Xác nhận"}
+              </Button>
+            </div>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );

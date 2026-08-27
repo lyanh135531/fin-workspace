@@ -36,6 +36,7 @@ export function AccountSettingsModal({
 }) {
   const [isMobile, setIsMobile] = useState(false);
   const [activeView, setActiveView] = useState<AccountSettingsView>("main");
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -130,7 +131,10 @@ export function AccountSettingsModal({
             <AccountSettingsClient
               username={username}
               onOpenPasswordChange={() => setActiveView("password")}
-              onOpenGoogleAction={(mode) => setActiveView(`google_${mode}`)}
+              onOpenGoogleAction={(mode, email) => {
+                setGoogleEmail(email ?? null);
+                setActiveView(`google_${mode}`);
+              }}
             />
           </div>
         </SheetContent>
@@ -147,6 +151,7 @@ export function AccountSettingsModal({
         <GoogleConfirmSheet
           open={isGoogleOpen}
           mode={googleMode}
+          googleEmail={googleEmail}
           isMobile={isMobile}
           onBack={handleBackToMain}
           onClose={onClose}
