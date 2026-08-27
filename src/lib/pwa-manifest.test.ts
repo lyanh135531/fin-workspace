@@ -44,7 +44,7 @@ describe("Felix web app manifest", () => {
       scope: "/",
       display: "standalone",
       background_color: "#fff8f0",
-      theme_color: "#ff5b3d",
+      theme_color: "#e97f6d",
       lang: "vi",
     });
     expect(manifest.categories).toEqual(["finance", "productivity"]);

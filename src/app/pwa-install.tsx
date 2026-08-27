@@ -116,6 +116,44 @@ export function PwaInstallProvider({
     useState<PwaInstallMethod>("unsupported");
 
   useEffect(() => {
+    const root = document.documentElement;
+    let themeColorMeta = document.querySelector<HTMLMetaElement>(
+      'meta[name="theme-color"]',
+    );
+
+    if (!themeColorMeta) {
+      themeColorMeta = document.createElement("meta");
+      themeColorMeta.name = "theme-color";
+      document.head.append(themeColorMeta);
+    }
+
+    let animationFrame = 0;
+
+    function syncThemeColor(): void {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        const color = getComputedStyle(root)
+          .getPropertyValue("--primary-soft")
+          .trim();
+
+        if (color && themeColorMeta) themeColorMeta.content = color;
+      });
+    }
+
+    const observer = new MutationObserver(syncThemeColor);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ["data-theme", "data-mode"],
+    });
+    syncThemeColor();
+
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(animationFrame);
+    };
+  }, []);
+
+  useEffect(() => {
     const hostIsEligible = isPwaHostname(window.location.hostname);
 
     if (!hostIsEligible) {
