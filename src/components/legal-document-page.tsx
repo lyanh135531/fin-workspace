@@ -98,10 +98,10 @@ export function LegalDocumentPage({
                   <Lock className="size-3.5" aria-hidden="true" />
                 </div>
                 <h2 className="text-xs font-semibold text-[var(--foreground)] sm:text-sm">
-                  Phân lập dữ liệu
+                  Phân lập theo nhóm
                 </h2>
                 <p className="text-[11px] leading-4 text-[var(--text-muted)] sm:text-xs">
-                  Mỗi Workspace được bảo mật độc lập, không rò rỉ.
+                  Mỗi nhóm được bảo mật độc lập, không rò rỉ.
                 </p>
               </div>
 

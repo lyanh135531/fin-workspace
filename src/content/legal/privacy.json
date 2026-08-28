@@ -17,21 +17,21 @@
       "bullets": [
         "Thông tin tài khoản: Tên đăng nhập, mật khẩu được băm một chiều và trạng thái tài khoản.",
         "Đăng nhập qua Google: Email đã xác minh, mã định danh tài khoản Google, tên hiển thị và ảnh đại diện (nếu có).",
-        "Dữ liệu sổ thu chi: Tên workspace, thành viên, phân quyền, ví tiền, số dư, giao dịch, danh mục và lịch định kỳ.",
+        "Dữ liệu sổ thu chi: Tên nhóm, thành viên, phân quyền, ví tiền, số dư, giao dịch, danh mục và lịch định kỳ.",
         "Dữ liệu kỹ thuật: Cookie bảo mật phiên đăng nhập và nhật ký kỹ thuật tối thiểu để phát hiện và ngăn chặn lỗi."
       ]
     },
     {
       "title": "3. Mục đích sử dụng & Cam kết không bán dữ liệu",
       "paragraphs": [
-        "Dữ liệu chỉ được dùng để xác thực tài khoản, thực hiện các tính năng quản lý tài chính, phân quyền workspace và bảo vệ an toàn cho hệ thống.",
+        "Dữ liệu chỉ được dùng để xác thực tài khoản, thực hiện các tính năng quản lý tài chính, phân quyền nhóm và bảo vệ an toàn cho hệ thống.",
         "Felix tuyệt đối không bán, cho thuê hoặc thương mại hóa dữ liệu cá nhân cũng như dữ liệu tài chính của bạn cho bất kỳ bên thứ ba nào."
       ]
     },
     {
       "title": "4. Phạm vi hiển thị & Đối tác hạ tầng",
       "paragraphs": [
-        "Trong nhóm Workspace: Dữ liệu thu chi chỉ hiển thị cho các thành viên trong workspace theo đúng vai trò và quyền hạn do Quản trị viên chỉ định.",
+        "Trong nội bộ nhóm: Dữ liệu thu chi chỉ hiển thị cho các thành viên trong nhóm theo đúng vai trò và quyền hạn do Quản trị viên chỉ định.",
         "Đối tác cung cấp hạ tầng: Felix sử dụng các nhà cung cấp hạ tầng máy chủ uy tín ({{INFRASTRUCTURE_PROVIDERS}}) với tiêu chuẩn mã hóa và bảo mật nghiêm ngặt. Google chỉ tham gia khi bạn chủ động dùng tính năng đăng nhập Google."
       ]
     },
@@ -45,7 +45,7 @@
     {
       "title": "6. Biện pháp bảo vệ an toàn",
       "paragraphs": [
-        "Chúng tôi áp dụng các tiêu chuẩn an toàn hàng đầu: phân lập dữ liệu triệt để giữa các Workspace, mã hóa mật khẩu một chiều, giới hạn quyền truy cập quản trị và truyền tải toàn bộ dữ liệu qua giao thức mã hóa an toàn HTTPS (TLS/SSL)."
+        "Chúng tôi áp dụng các tiêu chuẩn an toàn hàng đầu: phân lập dữ liệu triệt để giữa các nhóm, mã hóa mật khẩu một chiều, giới hạn quyền truy cập quản trị và truyền tải toàn bộ dữ liệu qua giao thức mã hóa an toàn HTTPS (TLS/SSL)."
       ]
     },
     {
