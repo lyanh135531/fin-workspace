@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { WorkspaceSwitcher } from "@/app/dashboard/workspace-switcher";
+import { useOptimisticNavigation } from "@/app/dashboard/use-optimistic-navigation";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -39,6 +40,7 @@ export function DashboardNavigation({
   forceExpandedWorkspaceSwitcher?: boolean;
 }) {
   const pathname = usePathname();
+  const { pendingHref, beginNavigation } = useOptimisticNavigation();
   const workspaceSettingsActive =
     pathname === "/settings/workspace" ||
     pathname === "/dashboard/settings" ||
@@ -118,7 +120,11 @@ export function DashboardNavigation({
           Điều hướng
         </span>
         <SidebarGroupContent>
-          <NavigationMenu items={workspaceItems} />
+          <NavigationMenu
+            items={workspaceItems}
+            pendingHref={pendingHref}
+            onNavigate={beginNavigation}
+          />
         </SidebarGroupContent>
       </SidebarGroup>
 
@@ -126,11 +132,23 @@ export function DashboardNavigation({
   );
 }
 
-function NavigationMenu({ items }: { items: NavigationItem[] }) {
+function NavigationMenu({
+  items,
+  pendingHref,
+  onNavigate,
+}: {
+  items: NavigationItem[];
+  pendingHref: string | null;
+  onNavigate: (href: string) => void;
+}) {
   return (
     <SidebarMenu>
       {items.filter((item) => item.visible).map((item) => {
         const Icon = item.icon;
+        const isPending = pendingHref === item.href;
+        const isVisuallyActive = pendingHref
+          ? isPending
+          : item.active;
 
         return (
           <SidebarMenuItem key={item.href}>
@@ -140,11 +158,16 @@ function NavigationMenu({ items }: { items: NavigationItem[] }) {
                 <Link
                   href={item.href}
                   aria-current={item.active ? "page" : undefined}
+                  aria-busy={isPending || undefined}
                   aria-label={item.description}
                   title={item.description}
+                  onNavigate={(event) => {
+                    event.preventDefault();
+                    onNavigate(item.href);
+                  }}
                 />
               }
-              isActive={item.active}
+              isActive={isVisuallyActive}
             >
               <Icon
                 className="min-[901px]:hidden!"

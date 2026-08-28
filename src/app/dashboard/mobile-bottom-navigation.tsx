@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useOptimisticNavigation } from "@/app/dashboard/use-optimistic-navigation";
 import { cn } from "@/lib/utils";
 
 type MobileNavigationItem = {
@@ -72,6 +73,7 @@ export function MobileBottomNavigation({
   currentWorkspaceId?: string;
 }) {
   const pathname = usePathname();
+  const { pendingHref, beginNavigation } = useOptimisticNavigation();
   const { left, right } = navigationItems(currentWorkspaceId);
 
   function handleFabClick() {
@@ -84,15 +86,22 @@ export function MobileBottomNavigation({
         {left.map((item) => {
           const Icon = item.icon;
           const isActive = item.active(pathname);
+          const isPending = pendingHref === item.href;
+          const isVisuallyActive = pendingHref ? isPending : isActive;
 
           return (
             <Link
               key={item.href}
               href={item.href}
               aria-current={isActive ? "page" : undefined}
+              aria-busy={isPending || undefined}
+              onNavigate={(event) => {
+                event.preventDefault();
+                beginNavigation(item.href);
+              }}
               className={cn(
                 "mobile-bottom-navigation-item",
-                isActive && "is-active",
+                isVisuallyActive && "is-active",
               )}
             >
               <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
@@ -117,15 +126,22 @@ export function MobileBottomNavigation({
         {right.map((item) => {
           const Icon = item.icon;
           const isActive = item.active(pathname);
+          const isPending = pendingHref === item.href;
+          const isVisuallyActive = pendingHref ? isPending : isActive;
 
           return (
             <Link
               key={item.href}
               href={item.href}
               aria-current={isActive ? "page" : undefined}
+              aria-busy={isPending || undefined}
+              onNavigate={(event) => {
+                event.preventDefault();
+                beginNavigation(item.href);
+              }}
               className={cn(
                 "mobile-bottom-navigation-item",
-                isActive && "is-active",
+                isVisuallyActive && "is-active",
               )}
             >
               <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
