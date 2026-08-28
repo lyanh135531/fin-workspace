@@ -108,9 +108,25 @@ model User {
   reviewedJoinRequests WorkspaceJoinRequest[]
   oauthAccounts OAuthAccount[]
   oauthLinkIntents OAuthLinkIntent[]
+  legalAcceptances LegalAcceptance[]
 
   @@index([status, deletedAt])
   @@map("USERS")
+}
+
+model LegalAcceptance {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  privacyVersion     String   @map("privacy_version") @db.VarChar(32)
+  privacyContentHash String   @map("privacy_content_hash") @db.VarChar(64)
+  termsVersion       String   @map("terms_version") @db.VarChar(32)
+  termsContentHash   String   @map("terms_content_hash") @db.VarChar(64)
+  acceptedAt         DateTime @default(now()) @map("accepted_at") @db.Timestamptz(6)
+  user               User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, privacyVersion, termsVersion])
+  @@index([userId, acceptedAt])
+  @@map("LEGAL_ACCEPTANCE")
 }
 
 model Workspace {

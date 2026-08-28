@@ -1,7 +1,6 @@
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
-import { authOptions } from "@/auth";
+import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { PageContainer, PageHeader } from "@/components/base";
 import { WorkspaceSettingsTabsClient } from "@/app/dashboard/settings/workspace-settings-tabs-client";
 import { InviteCodeCard } from "@/app/dashboard/settings/invite-code-card";
@@ -17,8 +16,7 @@ export default async function SettingsPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const params = await searchParams;
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect("/sign-in");
+  const session = await requireAcceptedLegalPageSession();
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
   if (!workspaceId) redirect("/overview");
   const membership = await prisma.workspaceMember.findFirst({

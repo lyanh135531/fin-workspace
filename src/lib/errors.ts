@@ -1,5 +1,6 @@
 export type AppErrorCode =
   | "AUTHENTICATION_REQUIRED"
+  | "LEGAL_CONSENT_REQUIRED"
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "VALIDATION_ERROR"

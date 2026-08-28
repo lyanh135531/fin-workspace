@@ -1,14 +1,13 @@
 "use server";
 
-import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { authOptions } from "@/auth";
 import { changeReasonSchema, createTransactionSchema, createWalletSchema, deleteRequestReasonSchema } from "@/domain";
 import { debug } from "@/lib/debug";
 import { AppError } from "@/lib/errors";
 import { MONEY_LIMIT_ERROR_MESSAGE } from "@/lib/money-limits";
 import { toActionFailure } from "@/lib/server-error";
+import { requireAcceptedLegalSession } from "@/lib/legal-access";
 import {
   approveTransaction,
   approveTransactionChange,
@@ -91,8 +90,7 @@ export async function approveTransactionAction(workspaceId: string, transactionI
 }
 
 async function workspaceActor(workspaceIdInput: unknown) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) throw new AppError("AUTHENTICATION_REQUIRED", "Vui lòng đăng nhập.");
+  const session = await requireAcceptedLegalSession();
   const workspaceId = idSchema.parse(workspaceIdInput);
   await requireWorkspaceMember(session.user.id, workspaceId);
   return { userId: session.user.id, workspaceId };

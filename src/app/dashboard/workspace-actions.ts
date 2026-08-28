@@ -1,22 +1,18 @@
 "use server";
 
-import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
-import { authOptions } from "@/auth";
 import { idSchema } from "@/domain/common/schemas";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { toActionFailure } from "@/lib/server-error";
+import { requireAcceptedLegalSession } from "@/lib/legal-access";
 import { activeWorkspaceCookie } from "@/services/active-workspace";
 
 export async function selectWorkspaceAction(workspaceId: string) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      throw new AppError("AUTHENTICATION_REQUIRED", "Vui lòng đăng nhập.");
-    }
+    const session = await requireAcceptedLegalSession();
 
     const id = idSchema.parse(workspaceId);
     const member = await prisma.workspaceMember.findFirst({

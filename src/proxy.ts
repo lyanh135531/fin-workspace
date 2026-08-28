@@ -6,21 +6,34 @@ import {
   isApplicationPath,
   normalizeHostname,
 } from "@/lib/host-routing";
+import { isLegalConsentEnforced } from "@/domain/legal-policy/policy-versions";
+import { getAuthenticatedPrerequisiteRedirect } from "@/lib/legal-routing";
 
-const authenticatedProxy = withAuth({
-  pages: {
-    signIn: "/sign-in",
+const authenticatedProxy = withAuth(
+  function enforceAuthenticatedPrerequisites(request) {
+    const token = request.nextauth.token!;
+    const pathname = request.nextUrl.pathname;
+
+    const prerequisiteRedirect = getAuthenticatedPrerequisiteRedirect({
+      pathname,
+      search: request.nextUrl.search,
+      hostname: request.nextUrl.hostname,
+      profileCompleted: token.profileCompleted,
+      acceptedPrivacyVersion: token.acceptedPrivacyVersion,
+      acceptedTermsVersion: token.acceptedTermsVersion,
+      consentEnforced: isLegalConsentEnforced(),
+    });
+    if (prerequisiteRedirect) {
+      return NextResponse.redirect(new URL(prerequisiteRedirect, request.url));
+    }
+
+    return NextResponse.next();
   },
-  callbacks: {
-    authorized({ token, req }) {
-      if (!token) return false;
-      if (token.profileCompleted === false) {
-        return req.nextUrl.pathname === "/setup/google";
-      }
-      return true;
-    },
+  {
+    pages: { signIn: "/sign-in" },
+    callbacks: { authorized: ({ token }) => Boolean(token) },
   },
-});
+);
 
 export function proxy(request: NextRequest, event: NextFetchEvent) {
   const forwardedHostname = request.headers
@@ -65,6 +78,7 @@ export const config = {
     "/sign-in",
     "/setup/:path*",
     "/account/:path*",
+    "/consent",
     "/dashboard/:path*",
     "/onboarding/:path*",
     "/overview/:path*",

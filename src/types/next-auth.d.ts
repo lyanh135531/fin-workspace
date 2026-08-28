@@ -2,7 +2,12 @@ import "next-auth";
 
 declare module "next-auth" {
   interface Session {
-    user: { id: string; username: string | null; profileCompleted: boolean };
+    user: {
+      id: string;
+      username: string | null;
+      profileCompleted: boolean;
+      legalConsentSatisfied: boolean;
+    };
   }
 
   interface User {
@@ -15,5 +20,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     username?: string | null;
     profileCompleted?: boolean;
+    acceptedPrivacyVersion?: string | null;
+    acceptedTermsVersion?: string | null;
   }
 }

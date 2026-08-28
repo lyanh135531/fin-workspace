@@ -1,8 +1,8 @@
 import { DashboardLedgerWorkspace } from "@/app/dashboard/dashboard-ledger-workspace";
 import { buildLedgerPeriodSummaries } from "@/app/dashboard/dashboard-summary-data";
-import { authOptions } from "@/auth";
 import { isAdminRole } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
+import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { prisma } from "@/lib/prisma";
 import {
   getTransactionChangeAction,
@@ -13,7 +13,6 @@ import {
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
 const LEDGER_PAGE_SIZE = 20;
@@ -25,8 +24,7 @@ export async function WorkspaceDashboard({
   targetWorkspaceId?: string;
   startWithNewTransaction?: boolean;
 } = {}) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect("/sign-in");
+  const session = await requireAcceptedLegalPageSession();
 
   const workspaceId =
     targetWorkspaceId ?? (await resolveActiveWorkspaceId(session.user.id));

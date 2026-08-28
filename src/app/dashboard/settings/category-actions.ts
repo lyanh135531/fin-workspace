@@ -1,18 +1,16 @@
 "use server";
 
-import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { authOptions } from "@/auth";
 import { createCategorySchema, idSchema, updateCategorySchema } from "@/domain";
 import { createWorkspaceCategory, deleteWorkspaceCategory, reorderWorkspaceCategories, setWorkspaceCategoryStatus, updateWorkspaceCategory } from "@/services/category-service";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { AppError } from "@/lib/errors";
 import { toActionFailure } from "@/lib/server-error";
+import { requireAcceptedLegalSession } from "@/lib/legal-access";
 
 async function actor() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) throw new AppError("AUTHENTICATION_REQUIRED", "Cần đăng nhập.");
+  const session = await requireAcceptedLegalSession();
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
   if (!workspaceId) throw new AppError("FORBIDDEN", "Không có nhóm tài chính đang hoạt động.");
   return { userId: session.user.id, workspaceId };

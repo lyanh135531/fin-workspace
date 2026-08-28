@@ -1,0 +1,65 @@
+{
+  "title": "Chính sách bảo mật",
+  "summary": "Tài liệu này giải thích cách Felix thu thập, sử dụng, lưu trữ và bảo vệ dữ liệu cá nhân khi bạn sử dụng dịch vụ.",
+  "sections": [
+    {
+      "title": "1. Bên xử lý dữ liệu và liên hệ",
+      "paragraphs": [
+        "Felix do {{OPERATOR_NAME}} vận hành tại {{OPERATOR_ADDRESS}}.",
+        "Các yêu cầu về dữ liệu cá nhân được tiếp nhận qua {{CONTACT_EMAIL}}."
+      ]
+    },
+    {
+      "title": "2. Dữ liệu Felix xử lý",
+      "paragraphs": [
+        "Felix xử lý dữ liệu tài khoản, thông tin đăng nhập và dữ liệu bạn hoặc thành viên cùng workspace cung cấp để sử dụng dịch vụ."
+      ],
+      "bullets": [
+        "Tên đăng nhập, mật khẩu đã băm và trạng thái tài khoản.",
+        "Khi dùng Google: mã định danh tài khoản Google, email đã xác minh, tên hiển thị và ảnh đại diện nếu Google cung cấp.",
+        "Tên workspace, thành viên, vai trò, ví, số dư, giao dịch, danh mục, kế hoạch tài chính và lịch giao dịch định kỳ.",
+        "Cookie phiên đăng nhập, lựa chọn ghi nhớ phiên và dữ liệu kỹ thuật tối thiểu cần cho bảo mật, khắc phục lỗi và vận hành dịch vụ."
+      ]
+    },
+    {
+      "title": "3. Mục đích xử lý",
+      "paragraphs": [
+        "Dữ liệu được dùng để xác thực tài khoản, cung cấp chức năng quản lý tài chính, duy trì phân quyền workspace, bảo vệ hệ thống, hỗ trợ người dùng và tuân thủ nghĩa vụ pháp luật.",
+        "Felix không bán dữ liệu tài chính hoặc dữ liệu cá nhân của bạn."
+      ]
+    },
+    {
+      "title": "4. Chia sẻ và phạm vi hiển thị",
+      "paragraphs": [
+        "Dữ liệu trong workspace có thể được nhìn thấy hoặc xử lý bởi các thành viên khác theo vai trò và quyền được cấp. Quản trị viên workspace chịu trách nhiệm quản lý thành viên phù hợp.",
+        "Felix có thể dùng nhà cung cấp hạ tầng để vận hành dịch vụ. Danh sách hiện hành: {{INFRASTRUCTURE_PROVIDERS}}. Google chỉ tham gia khi bạn chủ động dùng tính năng đăng nhập hoặc liên kết Google."
+      ]
+    },
+    {
+      "title": "5. Nơi lưu trữ và thời hạn lưu",
+      "paragraphs": [
+        "Khu vực lưu trữ dữ liệu hiện hành: {{DATA_STORAGE_LOCATION}}.",
+        "Nguyên tắc và thời hạn lưu dữ liệu đã được bên vận hành rà soát: {{DATA_RETENTION_SUMMARY}}. Một số dữ liệu có thể cần được giữ lâu hơn khi pháp luật yêu cầu hoặc để giải quyết tranh chấp hợp lệ."
+      ]
+    },
+    {
+      "title": "6. Bảo vệ dữ liệu",
+      "paragraphs": [
+        "Felix áp dụng kiểm soát truy cập theo tài khoản và workspace, cô lập dữ liệu theo workspace, băm mật khẩu và giới hạn quyền quản trị. Không có biện pháp kỹ thuật nào loại bỏ hoàn toàn mọi rủi ro."
+      ]
+    },
+    {
+      "title": "7. Quyền và yêu cầu của bạn",
+      "paragraphs": [
+        "Tùy quy định pháp luật áp dụng, bạn có thể yêu cầu biết, truy cập, chỉnh sửa, hạn chế xử lý hoặc xóa dữ liệu cá nhân. Felix hiện tiếp nhận và xác minh các yêu cầu này thủ công qua {{CONTACT_EMAIL}}; việc xử lý có thể bị giới hạn bởi nghĩa vụ lưu giữ hợp pháp hoặc quyền của thành viên khác trong workspace."
+      ]
+    },
+    {
+      "title": "8. Sự cố và thay đổi chính sách",
+      "paragraphs": [
+        "Khi phát hiện sự cố ảnh hưởng đáng kể đến dữ liệu cá nhân, bên vận hành sẽ đánh giá, khắc phục và thông báo theo phạm vi, thời hạn pháp luật yêu cầu.",
+        "Thay đổi trọng yếu về mục đích xử lý, bên nhận dữ liệu hoặc quyền của người dùng sẽ được phát hành thành phiên bản mới và yêu cầu xác nhận lại."
+      ]
+    }
+  ]
+}

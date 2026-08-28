@@ -334,7 +334,9 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
         <p className="auth-legal">
           {portalMode
             ? "Phiên Portal được tách biệt với phiên đăng nhập ứng dụng."
-            : "Dữ liệu của mỗi nhóm tài chính được lưu tách biệt."}
+            : "Dữ liệu của mỗi nhóm tài chính được lưu tách biệt."}{" "}
+          <Link href="/privacy">Chính sách bảo mật</Link>{" · "}
+          <Link href="/terms">Điều khoản sử dụng</Link>
         </p>
       </section>
     </main>

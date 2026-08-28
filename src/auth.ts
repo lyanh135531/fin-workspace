@@ -8,11 +8,16 @@ import { isPortalHostname } from "@/lib/host-routing";
 import { isSignInAllowedOnHostname } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
 import {
+  hasCurrentLegalConsent,
+  isLegalConsentEnforced,
+} from "@/domain/legal-policy/policy-versions";
+import {
   consumeProfileCompletionGrant,
   GOOGLE_INTENT_COOKIE,
   resolveGoogleSignIn,
   type VerifiedGoogleProfile,
 } from "@/services/google-auth-service";
+import { getLegalConsentStatus } from "@/services/legal-consent-service";
 
 export const REMEMBERED_SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 export const googleAuthEnabled = Boolean(
@@ -129,10 +134,15 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    jwt: ({ token, user }) => {
+    jwt: async ({ token, user, trigger }) => {
       if (user) {
         token.username = user.username;
         token.profileCompleted = user.profileCompleted;
+      }
+      if (token.sub && (user || trigger === "update")) {
+        const consent = await getLegalConsentStatus(token.sub);
+        token.acceptedPrivacyVersion = consent.acceptedPrivacyVersion;
+        token.acceptedTermsVersion = consent.acceptedTermsVersion;
       }
       return token;
     },
@@ -142,6 +152,12 @@ export const authOptions: NextAuthOptions = {
           id: token.sub,
           username: token.username ?? null,
           profileCompleted: token.profileCompleted === true,
+          legalConsentSatisfied:
+            !isLegalConsentEnforced() ||
+            hasCurrentLegalConsent(
+              token.acceptedPrivacyVersion,
+              token.acceptedTermsVersion,
+            ),
         };
       }
       return session;

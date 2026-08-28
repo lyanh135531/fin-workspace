@@ -1,10 +1,8 @@
 "use server";
 
-import { getServerSession } from "next-auth";
 import { cookies } from "next/headers";
 import { z } from "zod";
-import { authOptions } from "@/auth";
-import { AppError } from "@/lib/errors";
+import { requireAcceptedLegalSession } from "@/lib/legal-access";
 import { toActionFailure } from "@/lib/server-error";
 import { changeOwnPassword } from "@/services/user-profile-service";
 import {
@@ -16,8 +14,7 @@ import {
 } from "@/services/google-auth-service";
 
 async function actor() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) throw new AppError("AUTHENTICATION_REQUIRED", "Cần đăng nhập.");
+  const session = await requireAcceptedLegalSession();
   return session.user.id;
 }
 

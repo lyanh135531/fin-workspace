@@ -1,8 +1,6 @@
 "use server";
 
-import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
-import { authOptions } from "@/auth";
 import {
   createFinancialPlanSchema,
   financialPlanIdSchema,
@@ -12,6 +10,7 @@ import {
 } from "@/domain";
 import { AppError } from "@/lib/errors";
 import { toActionFailure } from "@/lib/server-error";
+import { requireAcceptedLegalSession } from "@/lib/legal-access";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import {
   activateFinancialPlan,
@@ -26,8 +25,7 @@ import {
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
 async function adminActor() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) throw new AppError("AUTHENTICATION_REQUIRED", "Cần đăng nhập.");
+  const session = await requireAcceptedLegalSession();
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
   if (!workspaceId) throw new AppError("FORBIDDEN", "Không có nhóm tài chính đang hoạt động.");
   await requireWorkspaceMember(session.user.id, workspaceId, true);

@@ -327,6 +327,18 @@ export default function HomePage() {
             >
               Bảo mật
             </Link>
+            <Link
+              href="/privacy"
+              className="transition-colors hover:text-[var(--foreground)]"
+            >
+              Chính sách bảo mật
+            </Link>
+            <Link
+              href="/terms"
+              className="transition-colors hover:text-[var(--foreground)]"
+            >
+              Điều khoản
+            </Link>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
             <span className="hidden sm:inline-flex">

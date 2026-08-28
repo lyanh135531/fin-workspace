@@ -1,11 +1,9 @@
 "use server";
 
-import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
-import { authOptions } from "@/auth";
-import { AppError } from "@/lib/errors";
+import { requireAcceptedLegalSession } from "@/lib/legal-access";
 import { toActionFailure, type PublicErrorCode } from "@/lib/server-error";
 import { activeWorkspaceCookie } from "@/services/active-workspace";
 import { createInitialWorkspaceForUser } from "@/services/workspace-service";
@@ -20,10 +18,9 @@ export type CreatePersonalWorkspaceResult = {
 
 export async function createPersonalWorkspaceAction(): Promise<CreatePersonalWorkspaceResult> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      throw new AppError("AUTHENTICATION_REQUIRED", "Bạn cần đăng nhập để tiếp tục.");
-    }
+    const session = await requireAcceptedLegalSession({
+      authMessage: "Bạn cần đăng nhập để tiếp tục.",
+    });
 
     const result = await createInitialWorkspaceForUser(session.user.id, {
       name: "Tài chính cá nhân",

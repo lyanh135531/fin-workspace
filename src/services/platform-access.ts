@@ -1,11 +1,10 @@
-import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
 
-import { authOptions } from "@/auth";
 import { isPlatformAdminUsername } from "@/domain/platform-user/schemas";
+import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 
 export async function requirePlatformAdminSession() {
-  const session = await getServerSession(authOptions);
+  const session = await requireAcceptedLegalPageSession();
 
   if (!session?.user?.id || !session.user.username) {
     redirect("/sign-in");

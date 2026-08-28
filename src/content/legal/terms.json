@@ -1,0 +1,59 @@
+{
+  "title": "Điều khoản sử dụng",
+  "summary": "Điều khoản này quy định quyền và trách nhiệm khi bạn tạo tài khoản hoặc sử dụng Felix.",
+  "sections": [
+    {
+      "title": "1. Dịch vụ Felix",
+      "paragraphs": [
+        "Felix cung cấp công cụ ghi nhận, tổng hợp và cộng tác về dữ liệu tài chính do người dùng nhập. Felix không phải ngân hàng, tổ chức trung gian thanh toán, đơn vị lưu ký tài sản hoặc dịch vụ tư vấn tài chính."
+      ]
+    },
+    {
+      "title": "2. Tài khoản và bảo mật",
+      "paragraphs": [
+        "Bạn chịu trách nhiệm cung cấp thông tin phù hợp, bảo vệ thông tin đăng nhập và thông báo qua {{CONTACT_EMAIL}} khi nghi ngờ tài khoản bị truy cập trái phép. Không được chia sẻ tài khoản theo cách làm sai lệch danh tính người thực hiện giao dịch."
+      ]
+    },
+    {
+      "title": "3. Workspace và dữ liệu chung",
+      "paragraphs": [
+        "Khi tham gia workspace, dữ liệu bạn nhập có thể được chia sẻ với thành viên khác theo phân quyền. Quản trị viên có thể duyệt giao dịch, quản lý thành viên và thực hiện các thao tác nhạy cảm trong phạm vi workspace.",
+        "Bạn chỉ được nhập hoặc chia sẻ dữ liệu mà mình có quyền sử dụng và phải kiểm tra tính chính xác trước khi dựa vào kết quả tổng hợp."
+      ]
+    },
+    {
+      "title": "4. Hành vi không được phép",
+      "bullets": [
+        "Truy cập trái phép tài khoản, workspace hoặc dữ liệu của người khác.",
+        "Lạm dụng dịch vụ để gian lận, che giấu hành vi trái pháp luật hoặc phát tán mã độc.",
+        "Can thiệp vào bảo mật, tính toàn vẹn, khả năng vận hành hoặc giới hạn kỹ thuật của Felix.",
+        "Thu thập hoặc công bố dữ liệu cá nhân của người khác khi không có quyền hợp lệ."
+      ]
+    },
+    {
+      "title": "5. Tính sẵn có và thay đổi dịch vụ",
+      "paragraphs": [
+        "Felix có thể bảo trì, sửa lỗi hoặc thay đổi tính năng. Bên vận hành sẽ cố gắng hạn chế gián đoạn nhưng không cam kết dịch vụ luôn không có lỗi hoặc luôn sẵn sàng."
+      ]
+    },
+    {
+      "title": "6. Tạm ngừng và chấm dứt",
+      "paragraphs": [
+        "Tài khoản có thể bị hạn chế hoặc tạm ngừng khi có dấu hiệu xâm nhập, vi phạm điều khoản, gây rủi ro cho người khác hoặc khi pháp luật yêu cầu. Bạn có thể yêu cầu chấm dứt tài khoản qua {{CONTACT_EMAIL}}; dữ liệu liên quan được xử lý theo Chính sách bảo mật."
+      ]
+    },
+    {
+      "title": "7. Giới hạn trách nhiệm",
+      "paragraphs": [
+        "Các báo cáo và số dư trong Felix phụ thuộc vào dữ liệu người dùng nhập và quy tắc của hệ thống. Bạn phải tự kiểm tra trước khi đưa ra quyết định tài chính. Trách nhiệm của các bên được xác định trong phạm vi pháp luật Việt Nam cho phép."
+      ]
+    },
+    {
+      "title": "8. Điều khoản chung",
+      "paragraphs": [
+        "Điều khoản này được điều chỉnh bởi pháp luật Việt Nam. Thay đổi trọng yếu sẽ được phát hành thành phiên bản mới và yêu cầu người dùng xác nhận lại trước khi tiếp tục sử dụng Felix.",
+        "Bên vận hành: {{OPERATOR_NAME}}, địa chỉ {{OPERATOR_ADDRESS}}, liên hệ {{CONTACT_EMAIL}}."
+      ]
+    }
+  ]
+}

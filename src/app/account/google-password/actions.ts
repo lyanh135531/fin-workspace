@@ -1,12 +1,11 @@
 "use server";
 
-import { getServerSession } from "next-auth";
 import { cookies } from "next/headers";
 import { z } from "zod";
 
-import { authOptions } from "@/auth";
 import { AppError } from "@/lib/errors";
 import { toActionFailure } from "@/lib/server-error";
+import { requireAcceptedLegalSession } from "@/lib/legal-access";
 import {
   GOOGLE_INTENT_COOKIE,
   setPasswordAfterGoogleVerification,
@@ -14,8 +13,7 @@ import {
 
 export async function setGoogleVerifiedPasswordAction(input: unknown) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) throw new AppError("AUTHENTICATION_REQUIRED", "Cần đăng nhập.");
+    const session = await requireAcceptedLegalSession();
     const { password } = z.object({
       password: z.string().min(8, "Mật khẩu phải có tối thiểu 8 ký tự.").max(128),
     }).parse(input);

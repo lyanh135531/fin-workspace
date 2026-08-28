@@ -7,6 +7,7 @@ export const PORTAL_ORIGIN = `https://${PORTAL_HOSTNAME}`;
 const applicationPathPrefixes = [
   "/dashboard",
   "/account",
+  "/consent",
   "/financial-plans",
   "/members",
   "/onboarding",
@@ -60,6 +61,28 @@ export function getPostSignInPath(
   }
 }
 
+export function getPostConsentPath(
+  hostname: string,
+  callbackUrl: string | undefined,
+  currentOrigin: string,
+) {
+  const fallback = isPortalHostname(hostname) ? "/portal" : "/overview";
+  if (!callbackUrl) return fallback;
+
+  try {
+    const target = new URL(callbackUrl, currentOrigin);
+    if (target.origin !== currentOrigin) return fallback;
+    if (isPathWithin(target.pathname, "/consent")) return fallback;
+
+    const portalPath = isPathWithin(target.pathname, "/portal");
+    if (isPortalHostname(hostname) !== portalPath) return fallback;
+
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return fallback;
+  }
+}
+
 export function isApplicationPath(pathname: string) {
   return applicationPathPrefixes.some((prefix) =>
     isPathWithin(pathname, prefix),
@@ -75,7 +98,7 @@ export function getHostnameRedirectTarget(
 
   if (normalizedHostname === PORTAL_HOSTNAME) {
     if (pathname === "/") return `${PORTAL_ORIGIN}/portal`;
-    if (portalPath || pathname === "/sign-in") return null;
+    if (portalPath || pathname === "/sign-in" || pathname === "/consent") return null;
     if (isApplicationPath(pathname)) return `${PORTAL_ORIGIN}/portal`;
   }
 

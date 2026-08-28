@@ -1,16 +1,13 @@
-import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
 import { CircleHelp, History, ShieldCheck, UserRoundCheck } from "lucide-react";
 
-import { authOptions } from "@/auth";
+import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { JoinForm } from "@/app/dashboard/join/join-form";
 import { JoinRequestHistory } from "@/app/dashboard/join/join-request-history";
 import { Card, PageContainer, PageHeader } from "@/components/base";
 import { getUserJoinRequests } from "@/services/join-request-query";
 
 export default async function JoinPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect("/sign-in");
+  const session = await requireAcceptedLegalPageSession();
 
   const requests = await getUserJoinRequests(session.user.id);
 

@@ -15,10 +15,18 @@ export default async function GoogleAuthCompletePage({
   if (!session.user.profileCompleted) redirect("/setup/google");
 
   const { returnTo } = await searchParams;
-  if (returnTo === "password") redirect("/account/google-password");
-  if (returnTo === "account") redirect("/overview?google=linked");
-
   const headerStore = await headers();
   const hostname = normalizeHostname(headerStore.get("x-forwarded-host") ?? headerStore.get("host"));
-  redirect(isPortalHostname(hostname) ? "/portal" : "/overview");
+  const destination =
+    returnTo === "password"
+      ? "/account/google-password"
+      : returnTo === "account"
+        ? "/overview?google=linked"
+        : isPortalHostname(hostname)
+          ? "/portal"
+          : "/overview";
+  if (!session.user.legalConsentSatisfied) {
+    redirect(`/consent?callbackUrl=${encodeURIComponent(destination)}`);
+  }
+  redirect(destination);
 }

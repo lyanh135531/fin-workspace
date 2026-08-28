@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/auth";
+import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { RecurringTransactionsManager } from "@/app/dashboard/recurring-transactions/recurring-transactions-manager";
 import { isAdminRole } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
@@ -11,8 +10,7 @@ import { calculateActiveRecurringMonthlyNetAmount } from "@/services/recurring-t
 import { PageContainer } from "@/components/base";
 
 export default async function RecurringTransactionsPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect("/sign-in");
+  const session = await requireAcceptedLegalPageSession();
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
   if (!workspaceId) redirect("/dashboard");
 

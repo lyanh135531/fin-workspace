@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
 import { OnboardingClient } from "@/app/onboarding/onboarding-client";
 import { PwaInstallProvider } from "@/app/pwa-install";
-import { authOptions } from "@/auth";
+import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { appPwaMetadata } from "@/lib/pwa-metadata";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getUserJoinRequests } from "@/services/join-request-query";
@@ -16,8 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default async function OnboardingPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect("/sign-in");
+  const session = await requireAcceptedLegalPageSession();
 
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
   if (workspaceId) redirect("/overview");

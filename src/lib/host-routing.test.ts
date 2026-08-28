@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getPostSignInPath,
+  getPostConsentPath,
   getHostnameRedirectTarget,
   isApplicationPath,
   normalizeHostname,
@@ -48,8 +49,42 @@ describe("hostname routing", () => {
       getHostnameRedirectTarget("portal.felixwise.io.vn", "/sign-in"),
     ).toBeNull();
     expect(
+      getHostnameRedirectTarget("portal.felixwise.io.vn", "/consent"),
+    ).toBeNull();
+    expect(
       getHostnameRedirectTarget("portal.felixwise.io.vn", "/overview"),
     ).toBe("https://portal.felixwise.io.vn/portal");
+  });
+
+  it("preserves only safe same-host destinations after legal consent", () => {
+    expect(
+      getPostConsentPath(
+        "app.felixwise.io.vn",
+        "/wallets?status=active",
+        "https://app.felixwise.io.vn",
+      ),
+    ).toBe("/wallets?status=active");
+    expect(
+      getPostConsentPath(
+        "app.felixwise.io.vn",
+        "https://attacker.example/steal",
+        "https://app.felixwise.io.vn",
+      ),
+    ).toBe("/overview");
+    expect(
+      getPostConsentPath(
+        "portal.felixwise.io.vn",
+        "/overview",
+        "https://portal.felixwise.io.vn",
+      ),
+    ).toBe("/portal");
+    expect(
+      getPostConsentPath(
+        "portal.felixwise.io.vn",
+        "/consent?callbackUrl=/portal",
+        "https://portal.felixwise.io.vn",
+      ),
+    ).toBe("/portal");
   });
 
   it("preserves safe same-host deep links after sign-in", () => {

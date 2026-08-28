@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/auth";
+import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { FinancialPlansManager } from "@/app/dashboard/financial-plans/financial-plans-manager";
 import { PageContainer } from "@/components/base";
 import { getBusinessDateInTimeZone } from "@/lib/date";
@@ -14,8 +13,7 @@ export default async function FinancialPlansPage({
 }: {
   searchParams: Promise<{ plan?: string }>;
 }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect("/sign-in");
+  const session = await requireAcceptedLegalPageSession();
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
   if (!workspaceId) redirect("/overview");
   const member = await requireWorkspaceMember(session.user.id, workspaceId);

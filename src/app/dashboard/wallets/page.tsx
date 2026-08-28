@@ -1,7 +1,6 @@
 import Decimal from "decimal.js";
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/auth";
+import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { WalletManagement } from "@/app/dashboard/wallets/wallet-management";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
@@ -9,8 +8,7 @@ import { isAdminRole } from "@/domain/role-policy";
 import { PageContainer } from "@/components/base";
 
 export default async function WalletsPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect("/sign-in");
+  const session = await requireAcceptedLegalPageSession();
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
   if (!workspaceId) redirect("/overview");
   const membership = await prisma.workspaceMember.findFirst({

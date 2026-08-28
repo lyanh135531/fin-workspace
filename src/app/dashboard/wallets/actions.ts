@@ -1,9 +1,7 @@
 "use server";
 
-import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { authOptions } from "@/auth";
 import {
   createWalletSchema,
   idSchema,
@@ -14,6 +12,7 @@ import {
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { toActionFailure } from "@/lib/server-error";
+import { requireAcceptedLegalSession } from "@/lib/legal-access";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import {
   createWalletForWorkspace,
@@ -33,8 +32,7 @@ function revalidateWalletViews(workspaceId: string) {
 }
 
 async function walletActor() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) throw new AppError("AUTHENTICATION_REQUIRED", "Vui lòng đăng nhập.");
+  const session = await requireAcceptedLegalSession();
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
   if (!workspaceId) throw new AppError("FORBIDDEN", "Không có nhóm tài chính đang hoạt động.");
   const membership = await prisma.workspaceMember.findFirst({

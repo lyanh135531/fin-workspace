@@ -6,11 +6,9 @@ import {
   Settings,
   WalletCards,
 } from "lucide-react";
-import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { authOptions } from "@/auth";
 import { DashboardHeaderSubtitle } from "@/app/dashboard/dashboard-header-subtitle";
 import {
   AppearanceMenu,
@@ -44,6 +42,7 @@ import {
 import { isAdminRole } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
+import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getPendingJoinRequestCount } from "@/services/join-request-query";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
@@ -93,17 +92,14 @@ export function DashboardShell({ children }: DashboardShellProps) {
 }
 
 async function loadDashboardShellData() {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-  const activeWorkspaceId = userId
-    ? await resolveActiveWorkspaceId(userId)
-    : null;
+  const session = await requireAcceptedLegalPageSession();
+  const userId = session.user.id;
+  const activeWorkspaceId = await resolveActiveWorkspaceId(userId);
 
   if (activeWorkspaceId)
     await activateDueScheduledTransactionsForRequest(activeWorkspaceId);
 
-  const [membership, workspaces] = userId
-    ? await Promise.all([
+  const [membership, workspaces] = await Promise.all([
         activeWorkspaceId
           ? prisma.workspaceMember.findFirst({
               where: {
@@ -136,8 +132,7 @@ async function loadDashboardShellData() {
           },
           orderBy: { workspace: { name: "asc" } },
         }),
-      ])
-    : [null, []];
+      ]);
 
   const quickWorkspaceIds = workspaces.map((item) => item.workspaceId);
   const [quickWalletLinks, quickCategories] = quickWorkspaceIds.length
@@ -177,9 +172,7 @@ async function loadDashboardShellData() {
       ])
     : [[], []];
 
-  const pendingJoinCount = userId
-    ? await getPendingJoinRequestCount(userId)
-    : 0;
+  const pendingJoinCount = await getPendingJoinRequestCount(userId);
   const isAdmin = membership ? isAdminRole(membership.role.code) : false;
   const userRole: "admin" | "member" | "none" = membership
     ? isAdmin
@@ -195,7 +188,7 @@ async function loadDashboardShellData() {
     pendingJoinCount,
     isAdmin,
     userRole,
-    username: session?.user?.username ?? "User",
+    username: session.user.username ?? "User",
   };
 }
 
