@@ -11,22 +11,30 @@ import {
 import Link from "next/link";
 
 import { ThemeToggle } from "@/app/theme-toggle";
-import { Button, Card } from "@/components/base";
+import { Card } from "@/components/base";
 import { FinLogo } from "@/components/fin-logo";
 import type { LegalDocument } from "@/domain/legal-policy/policy";
 
 type LegalDocumentPageProps = {
   document: LegalDocument;
   contactEmail: string;
+  returnHref?: string;
 };
 
 export function LegalDocumentPage({
   document,
   contactEmail,
+  returnHref = "/",
 }: LegalDocumentPageProps) {
   const isPrivacy =
     document.title.toLowerCase().includes("bảo mật") ||
     document.title.toLowerCase().includes("privacy");
+  const returnsToApplication = returnHref !== "/";
+  const returnLabel = returnsToApplication ? "Quay lại Felix" : "Trang chủ";
+  const otherDocumentPath = isPrivacy ? "/terms" : "/privacy";
+  const otherDocumentHref = returnsToApplication
+    ? `${otherDocumentPath}?callbackUrl=${encodeURIComponent(returnHref)}`
+    : otherDocumentPath;
 
   return (
     <main
@@ -39,12 +47,12 @@ export function LegalDocumentPage({
         <div className="mx-auto flex min-h-14 max-w-4xl items-center justify-between gap-4 px-4 sm:min-h-16 sm:px-6">
           <div className="flex items-center gap-3">
             <Link
-              href="/"
+              href={returnHref}
               className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--primary)]"
-              aria-label="Về trang chủ Felix"
+              aria-label={returnLabel}
             >
               <ArrowLeft className="size-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Trang chủ</span>
+              <span className="hidden sm:inline">{returnLabel}</span>
             </Link>
             <span className="text-[var(--border-strong)]">/</span>
             <Link href="/" aria-label="Felix, trang chủ">
@@ -258,14 +266,14 @@ export function LegalDocumentPage({
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-4 text-xs text-[var(--text-muted)]">
             <Link
-              href={isPrivacy ? "/terms" : "/privacy"}
+              href={otherDocumentHref}
               className="inline-flex items-center gap-1 font-medium text-[var(--primary)] hover:underline"
             >
               <span>{isPrivacy ? "Xem Điều khoản sử dụng" : "Xem Chính sách bảo mật"}</span>
               <ArrowRight className="size-3.5" aria-hidden="true" />
             </Link>
-            <Link href="/" className="hover:text-[var(--foreground)]">
-              Về trang chủ Felix
+            <Link href={returnHref} className="hover:text-[var(--foreground)]">
+              {returnsToApplication ? "Quay lại Felix" : "Về trang chủ Felix"}
             </Link>
           </div>
         </section>

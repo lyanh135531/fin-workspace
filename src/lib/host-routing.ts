@@ -89,6 +89,23 @@ export function isApplicationPath(pathname: string) {
   );
 }
 
+export function getLegalDocumentReturnPath(callbackUrl: string | undefined) {
+  if (!callbackUrl || !callbackUrl.startsWith("/") || callbackUrl.startsWith("//")) {
+    return "/";
+  }
+
+  try {
+    const target = new URL(callbackUrl, "https://felix.local");
+    if (target.origin !== "https://felix.local") return "/";
+    if (!isApplicationPath(target.pathname)) return "/";
+    if (target.pathname === "/consent") return "/";
+
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return "/";
+  }
+}
+
 export function getHostnameRedirectTarget(
   hostname: string,
   pathname: string,

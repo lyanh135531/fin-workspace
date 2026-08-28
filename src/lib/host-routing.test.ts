@@ -4,6 +4,7 @@ import {
   getPostSignInPath,
   getPostConsentPath,
   getHostnameRedirectTarget,
+  getLegalDocumentReturnPath,
   isApplicationPath,
   normalizeHostname,
 } from "@/lib/host-routing";
@@ -102,6 +103,19 @@ describe("hostname routing", () => {
         "https://portal.felixwise.io.vn",
       ),
     ).toBe("/portal");
+  });
+
+  it("returns from legal documents only to safe application paths", () => {
+    expect(getLegalDocumentReturnPath("/overview")).toBe("/overview");
+    expect(
+      getLegalDocumentReturnPath("/dashboard/wallets?status=active#recent"),
+    ).toBe("/dashboard/wallets?status=active#recent");
+    expect(getLegalDocumentReturnPath("https://attacker.example/steal")).toBe(
+      "/",
+    );
+    expect(getLegalDocumentReturnPath("//attacker.example/steal")).toBe("/");
+    expect(getLegalDocumentReturnPath("/privacy")).toBe("/");
+    expect(getLegalDocumentReturnPath("/consent")).toBe("/");
   });
 
   it("normalizes forwarded hosts without sharing subdomain identity", () => {

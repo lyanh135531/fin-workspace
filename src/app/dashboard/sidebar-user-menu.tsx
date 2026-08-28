@@ -2,7 +2,17 @@
 
 import { Button, Loading } from "@/components/base";
 import { signOut } from "next-auth/react";
-import { LogOut, ChevronUp, UserRound, Download } from "lucide-react";
+import {
+  ChevronRight,
+  ChevronUp,
+  Download,
+  FileText,
+  LogOut,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   Popover,
@@ -33,6 +43,7 @@ export function SidebarUserMenu({
   forceExpanded = false,
   onOpenAccountSettings,
 }: Props) {
+  const pathname = usePathname();
   const [pending, start] = useTransition();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
@@ -42,7 +53,6 @@ export function SidebarUserMenu({
 
   const roleLabel =
     role === "admin" ? "Admin" : role === "member" ? "Member" : "Chưa có ws";
-  const roleClass = role === "admin" ? "role-admin" : "role-member";
   const avatarText = initials(username);
 
   function handleSignOut() {
@@ -56,18 +66,22 @@ export function SidebarUserMenu({
       variant="unstyled"
       size="auto"
       type="button"
-      className="sidebar-logout-popover-btn rounded-lg"
+      className="group flex w-full items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20 transition-colors cursor-pointer text-left disabled:opacity-50 disabled:cursor-not-allowed"
       onClick={handleSignOut}
       disabled={pending}
       id="sidebar-logout-btn"
       aria-label="Đăng xuất khỏi hệ thống"
     >
       {pending ? (
-        <Loading label="Đang đăng xuất..." />
+        <div className="py-0.5">
+          <Loading label="Đang đăng xuất..." />
+        </div>
       ) : (
         <>
-          <LogOut size={14} strokeWidth={2} />
-          Đăng xuất
+          <div className="flex size-7 items-center justify-center rounded-lg bg-destructive/10 text-destructive group-hover:bg-destructive/20 transition-colors shrink-0">
+            <LogOut size={14} strokeWidth={2} />
+          </div>
+          <span className="flex-1 font-medium">Đăng xuất</span>
         </>
       )}
     </Button>
@@ -78,15 +92,21 @@ export function SidebarUserMenu({
       variant="unstyled"
       size="auto"
       type="button"
-      className="sidebar-user-popover-link rounded-lg"
+      className="group flex w-full items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer text-left"
       onClick={() => {
         setPopoverOpen(false);
         if (onOpenAccountSettings) onOpenAccountSettings();
         else setAccountModalOpen(true);
       }}
     >
-      <UserRound size={14} strokeWidth={2} />
-      <span>Thông tin tài khoản</span>
+      <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-[var(--text-secondary)] group-hover:bg-[var(--primary)]/15 group-hover:text-[var(--primary)] transition-colors shrink-0">
+        <UserRound size={14} strokeWidth={2} />
+      </div>
+      <span className="flex-1 font-medium">Thông tin tài khoản</span>
+      <ChevronRight
+        size={14}
+        className="text-[var(--text-muted)] opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"
+      />
     </Button>
   );
 
@@ -95,16 +115,46 @@ export function SidebarUserMenu({
       variant="unstyled"
       size="auto"
       type="button"
-      className="sidebar-user-popover-link rounded-lg"
+      className="group flex w-full items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer text-left"
       onClick={() => {
         setPopoverOpen(false);
         void requestInstall();
       }}
     >
-      <Download size={14} strokeWidth={2} aria-hidden="true" />
-      <span>Cài đặt Felix</span>
+      <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-[var(--text-secondary)] group-hover:bg-[var(--primary)]/15 group-hover:text-[var(--primary)] transition-colors shrink-0">
+        <Download size={14} strokeWidth={2} aria-hidden="true" />
+      </div>
+      <span className="flex-1 font-medium">Cài đặt Felix</span>
+      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--surface-secondary)] text-[var(--text-muted)] border border-[var(--border)]/60">
+        PWA
+      </span>
     </Button>
   ) : null;
+
+  const LegalDocumentLinks = (
+    <>
+      <Link
+        href={`/privacy?callbackUrl=${encodeURIComponent(pathname)}`}
+        className="group flex w-full items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
+        onClick={() => setPopoverOpen(false)}
+      >
+        <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-[var(--text-secondary)] group-hover:bg-[var(--surface-hover)] group-hover:text-[var(--foreground)] transition-colors shrink-0">
+          <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
+        </div>
+        <span className="flex-1 font-medium">Chính sách bảo mật</span>
+      </Link>
+      <Link
+        href={`/terms?callbackUrl=${encodeURIComponent(pathname)}`}
+        className="group flex w-full items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
+        onClick={() => setPopoverOpen(false)}
+      >
+        <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-[var(--text-secondary)] group-hover:bg-[var(--surface-hover)] group-hover:text-[var(--foreground)] transition-colors shrink-0">
+          <FileText size={14} strokeWidth={2} aria-hidden="true" />
+        </div>
+        <span className="flex-1 font-medium">Điều khoản sử dụng</span>
+      </Link>
+    </>
+  );
 
   return (
     <div
@@ -168,28 +218,25 @@ export function SidebarUserMenu({
           side={collapsed ? "right" : "top"}
           align={collapsed ? "end" : "start"}
           sideOffset={collapsed ? 10 : 8}
-          className="sidebar-flyout-popover sidebar-user-popover-content"
+          elevation="flat"
+          className="w-60 p-1 rounded-xl bg-[var(--surface)] border border-[var(--border)] shadow-none ring-0 flex flex-col gap-0.5 text-[var(--foreground)]"
         >
-          <div className="sidebar-flyout-user-header">
-            <div className="sidebar-user-avatar-wrap">
-              <div
-                className="sidebar-user-avatar sidebar-avatar-lg rounded-lg"
-                aria-hidden
-              >
-                {avatarText}
-              </div>
-              <span className="sidebar-user-status-dot" aria-hidden />
-            </div>
-            <div className="sidebar-user-flyout-meta">
-              <p className="sidebar-flyout-username">{username}</p>
-              <span className={`sidebar-user-role ${roleClass}`}>
-                {roleLabel}
-              </span>
-            </div>
+          {/* Account Actions */}
+          <div className="flex flex-col gap-0.5">
+            {OpenAccountSettingsBtn}
+            {InstallPwaButton}
           </div>
-          <div className="sidebar-flyout-divider" />
-          {OpenAccountSettingsBtn}
-          {InstallPwaButton}
+
+          {/* Divider */}
+          <div className="my-0.5 h-px bg-[var(--border)]" />
+
+          {/* Legal / Policy Links */}
+          <div className="flex flex-col gap-0.5">{LegalDocumentLinks}</div>
+
+          {/* Divider */}
+          <div className="my-0.5 h-px bg-[var(--border)]" />
+
+          {/* Logout Action */}
           {LogoutButton}
         </PopoverContent>
       </Popover>
