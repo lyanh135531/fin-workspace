@@ -1,64 +1,63 @@
 {
   "title": "Chính sách bảo mật",
-  "summary": "Tài liệu này giải thích cách Felix thu thập, sử dụng, lưu trữ và bảo vệ dữ liệu cá nhân khi bạn sử dụng dịch vụ.",
+  "summary": "Felix cam kết tôn trọng và bảo vệ quyền riêng tư cùng dữ liệu tài chính của bạn. Tài liệu này giải thích minh bạch cách chúng tôi thu thập, sử dụng và bảo vệ thông tin.",
   "sections": [
     {
-      "title": "1. Bên xử lý dữ liệu và liên hệ",
+      "title": "1. Đơn vị vận hành & Liên hệ",
       "paragraphs": [
-        "Felix do {{OPERATOR_NAME}} vận hành tại {{OPERATOR_ADDRESS}}.",
-        "Các yêu cầu về dữ liệu cá nhân được tiếp nhận qua {{CONTACT_EMAIL}}."
+        "Dịch vụ Felix được vận hành bởi {{OPERATOR_NAME}} (Địa chỉ: {{OPERATOR_ADDRESS}}).",
+        "Mọi thắc mắc, phản hồi hoặc yêu cầu liên quan đến quyền riêng tư và dữ liệu cá nhân, vui lòng liên hệ qua email: {{CONTACT_EMAIL}}."
       ]
     },
     {
-      "title": "2. Dữ liệu Felix xử lý",
+      "title": "2. Dữ liệu chúng tôi xử lý",
       "paragraphs": [
-        "Felix xử lý dữ liệu tài khoản, thông tin đăng nhập và dữ liệu bạn hoặc thành viên cùng workspace cung cấp để sử dụng dịch vụ."
+        "Chúng tôi chỉ xử lý các thông tin cần thiết tối thiểu nhằm phục vụ việc quản lý thu chi và vận hành an toàn hệ thống:"
       ],
       "bullets": [
-        "Tên đăng nhập, mật khẩu đã băm và trạng thái tài khoản.",
-        "Khi dùng Google: mã định danh tài khoản Google, email đã xác minh, tên hiển thị và ảnh đại diện nếu Google cung cấp.",
-        "Tên workspace, thành viên, vai trò, ví, số dư, giao dịch, danh mục, kế hoạch tài chính và lịch giao dịch định kỳ.",
-        "Cookie phiên đăng nhập, lựa chọn ghi nhớ phiên và dữ liệu kỹ thuật tối thiểu cần cho bảo mật, khắc phục lỗi và vận hành dịch vụ."
+        "Thông tin tài khoản: Tên đăng nhập, mật khẩu được băm một chiều và trạng thái tài khoản.",
+        "Đăng nhập qua Google: Email đã xác minh, mã định danh tài khoản Google, tên hiển thị và ảnh đại diện (nếu có).",
+        "Dữ liệu sổ thu chi: Tên workspace, thành viên, phân quyền, ví tiền, số dư, giao dịch, danh mục và lịch định kỳ.",
+        "Dữ liệu kỹ thuật: Cookie bảo mật phiên đăng nhập và nhật ký kỹ thuật tối thiểu để phát hiện và ngăn chặn lỗi."
       ]
     },
     {
-      "title": "3. Mục đích xử lý",
+      "title": "3. Mục đích sử dụng & Cam kết không bán dữ liệu",
       "paragraphs": [
-        "Dữ liệu được dùng để xác thực tài khoản, cung cấp chức năng quản lý tài chính, duy trì phân quyền workspace, bảo vệ hệ thống, hỗ trợ người dùng và tuân thủ nghĩa vụ pháp luật.",
-        "Felix không bán dữ liệu tài chính hoặc dữ liệu cá nhân của bạn."
+        "Dữ liệu chỉ được dùng để xác thực tài khoản, thực hiện các tính năng quản lý tài chính, phân quyền workspace và bảo vệ an toàn cho hệ thống.",
+        "Felix tuyệt đối không bán, cho thuê hoặc thương mại hóa dữ liệu cá nhân cũng như dữ liệu tài chính của bạn cho bất kỳ bên thứ ba nào."
       ]
     },
     {
-      "title": "4. Chia sẻ và phạm vi hiển thị",
+      "title": "4. Phạm vi hiển thị & Đối tác hạ tầng",
       "paragraphs": [
-        "Dữ liệu trong workspace có thể được nhìn thấy hoặc xử lý bởi các thành viên khác theo vai trò và quyền được cấp. Quản trị viên workspace chịu trách nhiệm quản lý thành viên phù hợp.",
-        "Felix có thể dùng nhà cung cấp hạ tầng để vận hành dịch vụ. Danh sách hiện hành: {{INFRASTRUCTURE_PROVIDERS}}. Google chỉ tham gia khi bạn chủ động dùng tính năng đăng nhập hoặc liên kết Google."
+        "Trong nhóm Workspace: Dữ liệu thu chi chỉ hiển thị cho các thành viên trong workspace theo đúng vai trò và quyền hạn do Quản trị viên chỉ định.",
+        "Đối tác cung cấp hạ tầng: Felix sử dụng các nhà cung cấp hạ tầng máy chủ uy tín ({{INFRASTRUCTURE_PROVIDERS}}) với tiêu chuẩn mã hóa và bảo mật nghiêm ngặt. Google chỉ tham gia khi bạn chủ động dùng tính năng đăng nhập Google."
       ]
     },
     {
-      "title": "5. Nơi lưu trữ và thời hạn lưu",
+      "title": "5. Nơi lưu trữ & Thời hạn lưu giữ",
       "paragraphs": [
-        "Khu vực lưu trữ dữ liệu hiện hành: {{DATA_STORAGE_LOCATION}}.",
-        "Nguyên tắc và thời hạn lưu dữ liệu đã được bên vận hành rà soát: {{DATA_RETENTION_SUMMARY}}. Một số dữ liệu có thể cần được giữ lâu hơn khi pháp luật yêu cầu hoặc để giải quyết tranh chấp hợp lệ."
+        "Khu vực lưu trữ dữ liệu an toàn: {{DATA_STORAGE_LOCATION}}.",
+        "Nguyên tắc lưu giữ: {{DATA_RETENTION_SUMMARY}}. Dữ liệu được lưu trữ trong suốt thời gian bạn duy trì tài khoản hoặc theo thời hạn quy định của pháp luật."
       ]
     },
     {
-      "title": "6. Bảo vệ dữ liệu",
+      "title": "6. Biện pháp bảo vệ an toàn",
       "paragraphs": [
-        "Felix áp dụng kiểm soát truy cập theo tài khoản và workspace, cô lập dữ liệu theo workspace, băm mật khẩu và giới hạn quyền quản trị. Không có biện pháp kỹ thuật nào loại bỏ hoàn toàn mọi rủi ro."
+        "Chúng tôi áp dụng các tiêu chuẩn an toàn hàng đầu: phân lập dữ liệu triệt để giữa các Workspace, mã hóa mật khẩu một chiều, giới hạn quyền truy cập quản trị và truyền tải toàn bộ dữ liệu qua giao thức mã hóa an toàn HTTPS (TLS/SSL)."
       ]
     },
     {
-      "title": "7. Quyền và yêu cầu của bạn",
+      "title": "7. Quyền kiểm soát & Xóa dữ liệu của bạn",
       "paragraphs": [
-        "Tùy quy định pháp luật áp dụng, bạn có thể yêu cầu biết, truy cập, chỉnh sửa, hạn chế xử lý hoặc xóa dữ liệu cá nhân. Felix hiện tiếp nhận và xác minh các yêu cầu này thủ công qua {{CONTACT_EMAIL}}; việc xử lý có thể bị giới hạn bởi nghĩa vụ lưu giữ hợp pháp hoặc quyền của thành viên khác trong workspace."
+        "Bạn có toàn quyền yêu cầu xem lại, chỉnh sửa, trích xuất hoặc xóa vĩnh viễn dữ liệu tài khoản của mình. Các yêu cầu này được tiếp nhận và xử lý nhanh chóng qua email {{CONTACT_EMAIL}}."
       ]
     },
     {
-      "title": "8. Sự cố và thay đổi chính sách",
+      "title": "8. Cập nhật chính sách & Thông báo",
       "paragraphs": [
-        "Khi phát hiện sự cố ảnh hưởng đáng kể đến dữ liệu cá nhân, bên vận hành sẽ đánh giá, khắc phục và thông báo theo phạm vi, thời hạn pháp luật yêu cầu.",
-        "Thay đổi trọng yếu về mục đích xử lý, bên nhận dữ liệu hoặc quyền của người dùng sẽ được phát hành thành phiên bản mới và yêu cầu xác nhận lại."
+        "Khi có sự thay đổi quan trọng về chính sách hoặc mục đích xử lý dữ liệu, Felix sẽ thông báo trực tiếp trong ứng dụng và hiển thị màn hình xác nhận để bạn xem xét trước khi tiếp tục."
       ]
     }
   ]

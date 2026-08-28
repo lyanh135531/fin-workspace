@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
-import { SessionProvider } from "next-auth/react";
 import { redirect } from "next/navigation";
 
 import { ConsentClient } from "@/app/consent/consent-client";
@@ -32,23 +31,28 @@ export default async function ConsentPage({
   return (
     <main
       id="main-content"
-      className="min-h-dvh bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8 lg:py-12"
+      className="flex min-h-dvh flex-col justify-between bg-[var(--background)] px-4 py-4 sm:px-6 sm:py-8 lg:py-10"
       tabIndex={-1}
     >
-      <div className="mx-auto mb-6 flex w-full max-w-2xl items-center justify-between">
-        <FinLogo size={32} showText />
+      <header className="mx-auto flex w-full max-w-lg items-center justify-between">
+        <FinLogo size={30} showText />
         <ThemeToggle />
+      </header>
+
+      <div className="my-auto flex w-full justify-center py-4 sm:py-6">
+        <ConsentClient
+          session={session}
+          privacyVersion={documents.privacy.version}
+          termsVersion={documents.terms.version}
+          effectiveDate={documents.privacy.effectiveDate}
+          callbackUrl={callbackUrl}
+        />
       </div>
-      <div className="mx-auto flex w-full max-w-2xl items-start justify-center">
-        <SessionProvider session={session}>
-          <ConsentClient
-            privacyVersion={documents.privacy.version}
-            termsVersion={documents.terms.version}
-            effectiveDate={documents.privacy.effectiveDate}
-            callbackUrl={callbackUrl}
-          />
-        </SessionProvider>
-      </div>
+
+      <footer className="mx-auto w-full max-w-lg text-center text-xs text-[var(--text-muted)]">
+        <p>Felix · Quản lý tài chính an toàn và minh bạch</p>
+      </footer>
     </main>
   );
 }
+
