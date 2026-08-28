@@ -52,26 +52,17 @@ export const metadata: Metadata = {
   },
 };
 
-const transactions = [
-  {
-    name: "Lương tháng 8",
-    meta: "Thu nhập · hôm nay",
-    amount: "+32.500.000 ₫",
-    type: "income",
-  },
-  {
-    name: "Tiền nhà tháng 8",
-    meta: "Nhà cửa · hôm qua",
-    amount: "−8.200.000 ₫",
-    type: "expense",
-  },
-  {
-    name: "Đi chợ cuối tuần",
-    meta: "Ăn uống · 16/08",
-    amount: "−684.000 ₫",
-    type: "expense",
-  },
-] as const;
+/** Returns the Vietnamese short month name, e.g. "Tháng 8" */
+function viMonth(date: Date): string {
+  return `Tháng ${date.getMonth() + 1}`;
+}
+
+/** Formats DD/MM from a Date */
+function ddMM(date: Date): string {
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}`;
+}
 
 const principles = [
   {
@@ -120,7 +111,19 @@ const structuredData = {
   ],
 };
 
-function ProductCanvas() {
+interface ProductCanvasProps {
+  currentMonthLabel: string;
+  startMonthLabel: string;
+  transactions: { name: string; meta: string; amount: string; type: "income" | "expense" }[];
+  billDueDateLabel: string;
+}
+
+function ProductCanvas({
+  currentMonthLabel,
+  startMonthLabel,
+  transactions,
+  billDueDateLabel,
+}: ProductCanvasProps) {
   return (
     <figure
       className="relative mx-auto w-full max-w-sm sm:max-w-xl lg:max-w-none"
@@ -186,8 +189,8 @@ function ProductCanvas() {
             )}
           </div>
           <div className="mt-2 flex justify-between text-[10px] font-medium text-[var(--text-muted)] sm:text-xs">
-            <span>Tháng 3</span>
-            <span>Tháng 8 (Hiện tại)</span>
+            <span>{startMonthLabel}</span>
+            <span>{currentMonthLabel} (Hiện tại)</span>
           </div>
         </div>
         <div className="border-t border-[var(--border)] bg-[var(--surface-secondary)]/40 p-3 sm:px-6 sm:py-3.5">
@@ -261,7 +264,7 @@ function ProductCanvas() {
             <Repeat2 className="size-4 shrink-0 text-[var(--primary)]" aria-hidden />
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-[var(--foreground)]">
-                Tiền điện sắp tới hạn · 20/08
+                Tiền điện sắp tới hạn · {billDueDateLabel}
               </p>
             </div>
             <span className="shrink-0 text-xs font-semibold text-[var(--foreground)] tabular-nums">
@@ -275,6 +278,46 @@ function ProductCanvas() {
 }
 
 export default function HomePage() {
+  // Compute all dynamic date values once at render time (server)
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthLabel = viMonth(now);
+
+  // Chart start label: 5 months before current
+  const startDate = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const startMonthLabel = viMonth(startDate);
+
+  // Bill due date: always the upcoming 20th (next month if today >= 20th)
+  const billDue =
+    now.getDate() < 20
+      ? new Date(now.getFullYear(), now.getMonth(), 20)
+      : new Date(now.getFullYear(), now.getMonth() + 1, 20);
+  const billDueDateLabel = ddMM(billDue);
+
+  // A date ~10 days ago to use as the 3rd transaction date
+  const agoDate = new Date(now.getFullYear(), now.getMonth(), Math.max(1, now.getDate() - 10));
+
+  const transactions = [
+    {
+      name: `Lương ${currentMonthLabel.toLowerCase()}`,
+      meta: "Thu nhập · hôm nay",
+      amount: "+32.500.000 ₫",
+      type: "income" as const,
+    },
+    {
+      name: `Tiền nhà ${currentMonthLabel.toLowerCase()}`,
+      meta: "Nhà cửa · hôm qua",
+      amount: "−8.200.000 ₫",
+      type: "expense" as const,
+    },
+    {
+      name: "Đi chợ cuối tuần",
+      meta: `Ăn uống · ${ddMM(agoDate)}`,
+      amount: "−684.000 ₫",
+      type: "expense" as const,
+    },
+  ];
+
   return (
     <main
       id="main-content"
@@ -407,7 +450,12 @@ export default function HomePage() {
           </div>
 
           <div className="mt-2 lg:mt-0">
-            <ProductCanvas />
+            <ProductCanvas
+              currentMonthLabel={currentMonthLabel}
+              startMonthLabel={startMonthLabel}
+              transactions={transactions}
+              billDueDateLabel={billDueDateLabel}
+            />
           </div>
         </div>
       </section>
@@ -718,7 +766,7 @@ export default function HomePage() {
         </div>
 
         <div className="mx-auto mt-6 max-w-7xl border-t border-[var(--border)] px-4 pt-6 sm:px-6 lg:px-8">
-          <p>© 2026 Felix. All rights reserved.</p>
+          <p>© {currentYear} Felix. All rights reserved.</p>
         </div>
       </footer>
     </main>
