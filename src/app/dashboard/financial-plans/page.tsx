@@ -6,7 +6,7 @@ import { getBusinessDateInTimeZone } from "@/lib/date";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getFinancialPlanView, getWorkspaceFinancialPlans } from "@/services/financial-plan-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
-import { isAdminRole } from "@/domain/role-policy";
+import { workspaceCapabilities } from "@/domain/role-policy";
 
 export default async function FinancialPlansPage({
   searchParams,
@@ -32,7 +32,7 @@ export default async function FinancialPlansPage({
           workspaceName={member.workspace.name}
           currency={member.workspace.baseCurrency}
           businessMonth={getBusinessDateInTimeZone(member.workspace.timeZone).slice(0, 7)}
-          canManage={isAdminRole(member.role.code)}
+          canManage={workspaceCapabilities(member.role.code).canManagePlans}
           plans={plans.map((plan) => ({
             id: plan.id,
             name: plan.name,

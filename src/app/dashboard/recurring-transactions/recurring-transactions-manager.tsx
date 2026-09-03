@@ -4,6 +4,7 @@ import Decimal from "decimal.js";
 import {
   createRecurringTransactionAction,
   deleteRecurringTransactionAction,
+  reviewRecurringTransactionAction,
   setRecurringTransactionStatusAction,
   updateRecurringTransactionAction,
 } from "@/app/dashboard/recurring-transactions/actions";
@@ -30,6 +31,7 @@ import {
   TabsTrigger,
 } from "@/components/base";
 import { ConfirmDelete } from "@/components/base/confirm-delete";
+import { ApprovalActionIcon } from "@/components/approval-action-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,6 +75,9 @@ type TransactionType = "income" | "expense" | "transfer";
 type ScheduleStatusFilter = "all" | "active" | "deactive" | "completed";
 type Schedule = {
   id: string;
+  createdByMemberId: string;
+  approvalStatus: "pending" | "approved" | "rejected";
+  approvedAt: string | null;
   walletId: string;
   toWalletId: string | null;
   categoryId: string | null;
@@ -217,12 +222,18 @@ function mobileDateParts(date: string) {
 }
 
 export function RecurringTransactionsManager({
+  currentMemberId,
+  canCreate,
+  canApprove,
   workspace,
   wallets,
   categories,
   activeMonthlyNetAmount,
   schedules,
 }: {
+  currentMemberId: string;
+  canCreate: boolean;
+  canApprove: boolean;
   workspace: {
     id: string;
     name: string;
@@ -260,21 +271,25 @@ export function RecurringTransactionsManager({
   const visibleSchedules = useMemo(
     () =>
       schedules.filter((item) => {
-        const displayStatus = item.completedAt ? "completed" : item.status;
+        const displayStatus = item.approvalStatus === "approved"
+          ? (item.completedAt ? "completed" : item.status)
+          : item.approvalStatus;
         return status === "all" || displayStatus === status;
       }),
     [schedules, status],
   );
   const activeCount = schedules.filter(
-    (item) => !item.completedAt && item.status === "active",
+    (item) => item.approvalStatus === "approved" && !item.completedAt && item.status === "active",
   ).length;
   const pausedCount = schedules.filter(
-    (item) => !item.completedAt && item.status === "deactive",
+    (item) => item.approvalStatus === "approved" && !item.completedAt && item.status === "deactive",
   ).length;
   const completedCount = schedules.filter((item) =>
-    Boolean(item.completedAt),
+    item.approvalStatus === "approved" && Boolean(item.completedAt),
   ).length;
   const errorCount = schedules.filter((item) => Boolean(item.lastError)).length;
+  const pendingApprovalCount = schedules.filter((item) => item.approvalStatus === "pending").length;
+  const attentionCount = errorCount + pendingApprovalCount;
   const filterCounts: Record<ScheduleStatusFilter, number> = {
     all: schedules.length,
     active: activeCount,
@@ -306,8 +321,12 @@ export function RecurringTransactionsManager({
       if (result.ok) {
         toast.success(
           editingId
-            ? "Đã cập nhật giao dịch định kỳ."
-            : "Đã đăng ký giao dịch định kỳ.",
+            ? canApprove
+              ? "Đã cập nhật giao dịch định kỳ."
+              : "Đã gửi thay đổi để Admin duyệt."
+            : canApprove
+              ? "Đã đăng ký giao dịch định kỳ."
+              : "Đã gửi lịch để Admin duyệt.",
         );
         closeEditor();
       } else {
@@ -325,7 +344,9 @@ export function RecurringTransactionsManager({
       );
       if (result.ok) {
         toast.success(
-          nextStatus === "active"
+          result.approvalStatus === "pending"
+            ? "Đã gửi yêu cầu kích hoạt lại."
+            : nextStatus === "active"
             ? "Đã kích hoạt lại lịch."
             : "Đã tạm dừng lịch.",
         );
@@ -348,6 +369,46 @@ export function RecurringTransactionsManager({
     });
   }
 
+  function review(id: string, approve: boolean) {
+    startTransition(async () => {
+      const result = await reviewRecurringTransactionAction(id, approve);
+      if (result.ok) {
+        toast.success(approve ? "Đã duyệt và kích hoạt lịch." : "Đã từ chối lịch.");
+      } else {
+        toast.error(result.message);
+      }
+    });
+  }
+
+  function permissions(schedule: Schedule) {
+    const isOwner = schedule.createdByMemberId === currentMemberId;
+    const canManageOwnApprovedSchedule = canApprove || isOwner;
+    return {
+      canApprove: canApprove && schedule.approvalStatus === "pending",
+      canPause:
+        !schedule.completedAt &&
+        schedule.approvalStatus === "approved" &&
+        schedule.status === "active" &&
+        canManageOwnApprovedSchedule,
+      canReactivate:
+        !schedule.completedAt &&
+        schedule.approvalStatus === "approved" &&
+        schedule.status === "deactive" &&
+        canManageOwnApprovedSchedule,
+      canEdit:
+        canApprove ||
+        (isOwner &&
+          !schedule.completedAt &&
+          !(schedule.approvalStatus === "approved" && schedule.status === "active")),
+      canDelete:
+        canApprove ||
+        (isOwner &&
+          !schedule.approvedAt &&
+          (schedule.approvalStatus === "pending" ||
+            schedule.approvalStatus === "rejected")),
+    };
+  }
+
   return (
     <div className={isMobile ? "recurring-page" : "space-y-5"}>
       <PageHeader
@@ -355,14 +416,16 @@ export function RecurringTransactionsManager({
         title="Giao dịch định kỳ"
         description="Tự động ghi nhận các khoản thu, chi và chuyển tiền lặp lại mỗi tháng."
       >
-        <Button
-          variant="default"
-          disabled={busy || Boolean(draft) || wallets.length === 0}
-          onClick={beginCreate}
-        >
-          <Plus size={16} />
-          <span className="recurring-create-label-desktop">Tạo lịch mới</span>
-        </Button>
+        {canCreate && (
+          <Button
+            variant="default"
+            disabled={busy || Boolean(draft) || wallets.length === 0}
+            onClick={beginCreate}
+          >
+            <Plus size={16} />
+            <span className="recurring-create-label-desktop">Tạo lịch mới</span>
+          </Button>
+        )}
       </PageHeader>
 
       <section
@@ -414,9 +477,9 @@ export function RecurringTransactionsManager({
             <dt>Đã hoàn tất</dt>
             <dd>{completedCount}</dd>
           </div>
-          <div data-alert={errorCount > 0}>
-            <dt>Cần kiểm tra</dt>
-            <dd>{errorCount}</dd>
+          <div data-alert={attentionCount > 0}>
+            <dt>Cần xử lý</dt>
+            <dd>{attentionCount}</dd>
           </div>
         </dl>
       </section>
@@ -557,7 +620,7 @@ export function RecurringTransactionsManager({
             className={
               isMobile
                 ? `recurring-summary-metric recurring-summary-metric-error${errorCount ? " has-error" : ""}`
-                : errorCount
+              : attentionCount
                   ? "text-[var(--danger)]"
                   : undefined
             }
@@ -566,8 +629,8 @@ export function RecurringTransactionsManager({
               <AlertTriangle aria-hidden="true" />
               <span>Cần kiểm tra</span>
             </dt>
-            <dd>{errorCount}</dd>
-            <small>{errorCount ? "Cần xử lý" : "Không có lỗi"}</small>
+            <dd>{attentionCount}</dd>
+            <small>{pendingApprovalCount ? `${pendingApprovalCount} chờ duyệt` : errorCount ? "Cần kiểm tra" : "Không có lỗi"}</small>
           </div>
         </dl>
       </SummaryContainer>
@@ -786,6 +849,7 @@ export function RecurringTransactionsManager({
           >
             {visibleSchedules.map((schedule) => {
               const nextDate = mobileDateParts(schedule.nextExecutionDate);
+              const access = permissions(schedule);
               return (
                 <article
                   className="grid min-h-[6rem] grid-cols-[3.5rem_minmax(12rem,1fr)_minmax(22rem,1.55fr)_13rem] items-center gap-4 border-b border-[var(--border)] py-4 transition-colors last:border-b-0"
@@ -824,7 +888,11 @@ export function RecurringTransactionsManager({
                       <span
                         className={cn(
                           "inline-flex items-center gap-1 font-medium",
-                          schedule.completedAt
+                          schedule.approvalStatus === "pending"
+                            ? "text-[var(--warning)]"
+                            : schedule.approvalStatus === "rejected"
+                              ? "text-[var(--danger)]"
+                              : schedule.completedAt
                             ? "text-[var(--text-muted)]"
                             : schedule.status === "active"
                               ? "text-[var(--success)]"
@@ -835,7 +903,11 @@ export function RecurringTransactionsManager({
                           className="size-1.5 rounded-full bg-current"
                           aria-hidden="true"
                         />
-                        {schedule.completedAt
+                        {schedule.approvalStatus === "pending"
+                          ? "Chờ duyệt"
+                          : schedule.approvalStatus === "rejected"
+                            ? "Đã từ chối"
+                            : schedule.completedAt
                           ? "Đã kết thúc"
                           : schedule.status === "active"
                             ? "Đang hoạt động"
@@ -908,7 +980,33 @@ export function RecurringTransactionsManager({
                       {schedule.occurrenceCount} kỳ đã ghi nhận
                     </p>
                     <div className="mt-2 flex items-center justify-end gap-1">
-                      {!schedule.completedAt && (
+                      {access.canApprove && (
+                        <>
+                          <Button
+                            variant="icon"
+                            size="icon"
+                            type="button"
+                            disabled={busy || Boolean(draft)}
+                            onClick={() => review(schedule.id, false)}
+                            title="Từ chối lịch"
+                            aria-label="Từ chối lịch định kỳ"
+                          >
+                            <ApprovalActionIcon decision="reject" />
+                          </Button>
+                          <Button
+                            variant="icon"
+                            size="icon"
+                            type="button"
+                            disabled={busy || Boolean(draft)}
+                            onClick={() => review(schedule.id, true)}
+                            title="Duyệt lịch"
+                            aria-label="Duyệt lịch định kỳ"
+                          >
+                            <ApprovalActionIcon decision="approve" />
+                          </Button>
+                        </>
+                      )}
+                      {(access.canPause || access.canReactivate) && (
                         <Button
                           variant="icon"
                           size="icon"
@@ -933,7 +1031,7 @@ export function RecurringTransactionsManager({
                           )}
                         </Button>
                       )}
-                      <Button
+                      {access.canEdit && <Button
                         variant="icon"
                         size="icon"
                         type="button"
@@ -943,8 +1041,8 @@ export function RecurringTransactionsManager({
                         aria-label="Chỉnh sửa lịch"
                       >
                         <Pencil size={16} />
-                      </Button>
-                      <ConfirmDelete
+                      </Button>}
+                      {access.canDelete && <ConfirmDelete
                         ariaLabel="Xóa lịch"
                         title="Xóa lịch giao dịch?"
                         description={`“${schedule.description || "Giao dịch định kỳ"}” sẽ ngừng chạy. Các giao dịch đã ghi nhận vẫn được giữ nguyên.`}
@@ -962,7 +1060,7 @@ export function RecurringTransactionsManager({
                             <Trash2 size={16} />
                           </Button>
                         }
-                      />
+                      />}
                     </div>
                   </div>
                 </article>
@@ -995,9 +1093,11 @@ export function RecurringTransactionsManager({
                 schedule={schedule}
                 currency={workspace.currency}
                 busy={busy || Boolean(draft)}
+                permissions={permissions(schedule)}
                 onToggle={() => toggleStatus(schedule)}
                 onEdit={() => beginEdit(schedule)}
                 onDelete={() => remove(schedule.id)}
+                onReview={(approve) => review(schedule.id, approve)}
               />
             ))}
             {visibleSchedules.length === 0 && (
@@ -1026,27 +1126,47 @@ function RecurringMobileScheduleCard({
   schedule,
   currency,
   busy,
+  permissions,
   onToggle,
   onEdit,
   onDelete,
+  onReview,
 }: {
   schedule: Schedule;
   currency: string;
   busy: boolean;
+  permissions: {
+    canApprove: boolean;
+    canPause: boolean;
+    canReactivate: boolean;
+    canEdit: boolean;
+    canDelete: boolean;
+  };
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onReview: (approve: boolean) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const nextDate = mobileDateParts(schedule.nextExecutionDate);
   const amountPrefix =
     schedule.type === "income" ? "+" : schedule.type === "expense" ? "−" : "↔";
-  const statusLabel = schedule.completedAt
+  const statusLabel = schedule.approvalStatus === "pending"
+    ? "Chờ duyệt"
+    : schedule.approvalStatus === "rejected"
+      ? "Đã từ chối"
+      : schedule.completedAt
     ? "Đã kết thúc"
     : schedule.status === "active"
       ? "Đang hoạt động"
       : "Tạm dừng";
+  const hasActions =
+    permissions.canApprove ||
+    permissions.canPause ||
+    permissions.canReactivate ||
+    permissions.canEdit ||
+    permissions.canDelete;
 
   function run(action: () => void) {
     setMenuOpen(false);
@@ -1069,7 +1189,14 @@ function RecurringMobileScheduleCard({
         <div className="recurring-mobile-card-topline">
           <div className="recurring-mobile-card-status">
             <span
-              className={`status recurring-status-${schedule.completedAt ? "completed" : schedule.status}`}
+              className={cn(
+                "status",
+                schedule.approvalStatus === "pending"
+                  ? "bg-[var(--surface-secondary)] text-[var(--warning)]"
+                  : schedule.approvalStatus === "rejected"
+                    ? "bg-[var(--surface-secondary)] text-[var(--danger)]"
+                    : `recurring-status-${schedule.completedAt ? "completed" : schedule.status}`,
+              )}
             >
               {statusLabel}
             </span>
@@ -1096,10 +1223,23 @@ function RecurringMobileScheduleCard({
       <footer className="recurring-mobile-card-footer">
         <span>{scheduleDayLabel(schedule.dayOfMonth)}</span>
         <span>{schedule.category?.name ?? "Chưa phân loại"}</span>
-        <small className="recurring-mobile-card-hint">Chạm để quản lý</small>
+        {hasActions && <small className="recurring-mobile-card-hint">Chạm để quản lý</small>}
       </footer>
     </>
   );
+
+  if (!hasActions) {
+    return (
+      <article
+        className="recurring-mobile-card rounded-2xl"
+        data-type={schedule.type}
+        data-status={schedule.approvalStatus === "approved" ? (schedule.completedAt ? "completed" : schedule.status) : schedule.approvalStatus}
+        aria-label={`${schedule.description || "Giao dịch định kỳ"}, ${amountPrefix}${formatAmount(schedule.amount)} ${currency}, ${statusLabel}.`}
+      >
+        {cardContent}
+      </article>
+    );
+  }
 
   return (
     <>
@@ -1111,7 +1251,7 @@ function RecurringMobileScheduleCard({
             <article
               className="recurring-mobile-card rounded-2xl"
               data-type={schedule.type}
-              data-status={schedule.completedAt ? "completed" : schedule.status}
+              data-status={schedule.approvalStatus === "approved" ? (schedule.completedAt ? "completed" : schedule.status) : schedule.approvalStatus}
               aria-label={`${schedule.description || "Giao dịch định kỳ"}, ${amountPrefix}${formatAmount(schedule.amount)} ${currency}, ${statusLabel}. Chạm để mở menu thao tác.`}
             />
           }
@@ -1130,7 +1270,19 @@ function RecurringMobileScheduleCard({
           sideOffset={6}
           className="recurring-mobile-context-menu"
         >
-          {!schedule.completedAt && (
+          {permissions.canApprove && (
+            <>
+              <DropdownMenuItem disabled={busy} onClick={() => run(() => onReview(true))}>
+                <ApprovalActionIcon decision="approve" />
+                Duyệt và kích hoạt
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={busy} onClick={() => run(() => onReview(false))}>
+                <ApprovalActionIcon decision="reject" />
+                Từ chối lịch
+              </DropdownMenuItem>
+            </>
+          )}
+          {(permissions.canPause || permissions.canReactivate) && (
             <DropdownMenuItem disabled={busy} onClick={() => run(onToggle)}>
               {schedule.status === "active" ? (
                 <Pause aria-hidden="true" />
@@ -1140,12 +1292,12 @@ function RecurringMobileScheduleCard({
               {schedule.status === "active" ? "Tạm dừng lịch" : "Kích hoạt lại"}
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem disabled={busy} onClick={() => run(onEdit)}>
+          {permissions.canEdit && <DropdownMenuItem disabled={busy} onClick={() => run(onEdit)}>
             <Pencil aria-hidden="true" />
             Chỉnh sửa lịch
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
+          </DropdownMenuItem>}
+          {permissions.canDelete && <DropdownMenuSeparator />}
+          {permissions.canDelete && <DropdownMenuItem
             variant="destructive"
             disabled={busy}
             onClick={() => {
@@ -1155,7 +1307,7 @@ function RecurringMobileScheduleCard({
           >
             <Trash2 aria-hidden="true" />
             Xóa lịch
-          </DropdownMenuItem>
+          </DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
 

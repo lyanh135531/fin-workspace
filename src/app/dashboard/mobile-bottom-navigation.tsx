@@ -2,8 +2,10 @@
 
 import {
   BookOpen,
+  CalendarRange,
   LayoutDashboard,
   Plus,
+  Repeat2,
   Settings,
   WalletCards,
 } from "lucide-react";
@@ -11,6 +13,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { useOptimisticNavigation } from "@/app/dashboard/use-optimistic-navigation";
+import {
+  isWorkspaceNavigationActive,
+  workspaceNavigationItems,
+  type WorkspaceNavigationKey,
+} from "@/app/dashboard/workspace-navigation";
 import { cn } from "@/lib/utils";
 
 type MobileNavigationItem = {
@@ -24,47 +31,23 @@ function navigationItems(currentWorkspaceId?: string): {
   left: MobileNavigationItem[];
   right: MobileNavigationItem[];
 } {
-  const left: MobileNavigationItem[] = [
-    {
-      href: "/overview",
-      label: "Tổng quan",
-      icon: LayoutDashboard,
-      active: (pathname: string): boolean => pathname === "/overview",
-    },
-  ];
-
-  if (currentWorkspaceId) {
-    left.push({
-      href: `/workspace/${currentWorkspaceId}`,
-      label: "Giao dịch",
-      icon: BookOpen,
-      active: (pathname: string): boolean =>
-        pathname === "/dashboard" || pathname.startsWith("/workspace/"),
-    });
-  }
-
-  const right: MobileNavigationItem[] = [];
-
-  if (currentWorkspaceId) {
-    right.push({
-      href: "/wallets",
-      label: "Ví",
-      icon: WalletCards,
-      active: (pathname: string): boolean => pathname === "/wallets",
-    });
-  }
-
-  right.push({
-    href: "/settings/workspace",
-    label: "Cài đặt",
-    icon: Settings,
-    active: (pathname: string): boolean =>
-      pathname === "/settings/workspace" ||
-      pathname === "/dashboard/settings" ||
-      pathname === "/dashboard/join-requests",
-  });
-
-  return { left, right };
+  const icons: Record<WorkspaceNavigationKey, typeof LayoutDashboard> = {
+    overview: LayoutDashboard,
+    ledger: BookOpen,
+    recurring: Repeat2,
+    plans: CalendarRange,
+    wallets: WalletCards,
+    settings: Settings,
+  };
+  const primary = workspaceNavigationItems(currentWorkspaceId)
+    .filter((item) => item.mobilePrimary && (!item.requiresWorkspace || Boolean(currentWorkspaceId)))
+    .map((item) => ({
+      href: item.href,
+      label: item.key === "ledger" ? "Giao dịch" : item.label,
+      icon: icons[item.key],
+      active: (pathname: string) => isWorkspaceNavigationActive(item.key, pathname),
+    }));
+  return { left: primary.slice(0, 2), right: primary.slice(2) };
 }
 
 export function MobileBottomNavigation({

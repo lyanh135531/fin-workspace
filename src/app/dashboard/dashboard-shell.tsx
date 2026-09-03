@@ -3,7 +3,6 @@ import {
   CalendarRange,
   LayoutDashboard,
   Repeat2,
-  Settings,
   WalletCards,
 } from "lucide-react";
 import Link from "next/link";
@@ -39,7 +38,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from "@/components/ui/sidebar";
-import { isAdminRole } from "@/domain/role-policy";
+import { workspaceCapabilities } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
@@ -173,7 +172,8 @@ async function loadDashboardShellData() {
     : [[], []];
 
   const pendingJoinCount = await getPendingJoinRequestCount(userId);
-  const isAdmin = membership ? isAdminRole(membership.role.code) : false;
+  const capabilities = workspaceCapabilities(membership?.role.code ?? "");
+  const isAdmin = capabilities.canManageWorkspace;
   const userRole: "admin" | "member" | "none" = membership
     ? isAdmin
       ? "admin"
@@ -274,6 +274,7 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
         {membership && (
           <WorkspaceNotifications
             workspaceId={membership.workspaceId}
+            memberId={membership.id}
             currency={membership.workspace.baseCurrency}
             timeZone={membership.workspace.timeZone}
             isAdmin={isAdmin}
@@ -392,9 +393,8 @@ function FallbackNavigation() {
       label: "Giao dịch định kỳ",
       icon: Repeat2,
     },
-    { href: "/wallets", label: "Quản lý ví", icon: WalletCards },
+    { href: "/wallets", label: "Ví", icon: WalletCards },
     { href: "/financial-plans", label: "Kế hoạch", icon: CalendarRange },
-    { href: "/settings/workspace", label: "Cài đặt nhóm", icon: Settings },
   ];
   return (
     <nav className="flex min-h-0 flex-1 flex-col" aria-label="Điều hướng chính">

@@ -3,6 +3,7 @@ import type { DateRangeValue } from "@/components/base/date-range-picker";
 
 export type CashflowType = "income" | "expense";
 export type CashflowRange = 3 | 6 | 12;
+export type DashboardPeriod = "month" | "quarter" | "year";
 
 type ChartTransaction = {
   amount: string;
@@ -61,6 +62,38 @@ export type MemberTransactionFilters = {
   type: CashflowType;
   dateRange?: DateRangeValue;
 };
+
+export function getDashboardPeriodDateRange(
+  reportPeriod: string,
+  period: DashboardPeriod,
+): DateRangeValue {
+  const match = /^(\d{4})-(\d{2})$/.exec(reportPeriod);
+  if (!match) {
+    throw new RangeError(
+      `Invalid report period "${reportPeriod}". Expected yyyy-MM.`,
+    );
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) {
+    throw new RangeError(
+      `Invalid report period "${reportPeriod}". Month must be between 01 and 12.`,
+    );
+  }
+  const startMonth =
+    period === "month"
+      ? month
+      : period === "quarter"
+        ? Math.floor((month - 1) / 3) * 3 + 1
+        : 1;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+  return {
+    from: `${year}-${String(startMonth).padStart(2, "0")}-01`,
+    to: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
 
 export function getVisibleCashflowTypes(
   transactionType: string,

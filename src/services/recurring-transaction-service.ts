@@ -1,6 +1,7 @@
 import Decimal from "decimal.js";
 import { Prisma } from "@/generated/prisma/client";
 import type { RecurringTransactionInput } from "@/domain";
+import { isAdminRole } from "@/domain/role-policy";
 import {
   firstExecutionOnOrAfter,
   nextMonthlyExecution,
@@ -86,9 +87,11 @@ export async function createRecurringTransaction(
   workspaceId: string,
   input: RecurringTransactionInput,
 ) {
-  const member = await requireWorkspaceMember(userId, workspaceId, true);
+  const member = await requireWorkspaceMember(userId, workspaceId);
+  const isAdmin = isAdminRole(member.role.code);
   const nextExecutionDate = firstExecutionInRange(input);
   const dayOfMonth = dayOfMonthFromStartDate(input.startDate);
+  const now = new Date();
 
   return prisma.$transaction(async (tx) => {
     await requireTransactionResources(tx, workspaceId, input);
@@ -106,6 +109,11 @@ export async function createRecurringTransaction(
         startDate: asDatabaseDate(input.startDate),
         endDate: input.endDate ? asDatabaseDate(input.endDate) : null,
         nextExecutionDate: asDatabaseDate(nextExecutionDate),
+        status: isAdmin ? "active" : "deactive",
+        approvalStatus: isAdmin ? "approved" : "pending",
+        reviewedByMemberId: isAdmin ? member.id : null,
+        reviewedAt: isAdmin ? now : null,
+        approvedAt: isAdmin ? now : null,
       },
     });
     await tx.auditLog.create({
@@ -120,6 +128,7 @@ export async function createRecurringTransaction(
           startDate: input.startDate,
           endDate: input.endDate ?? null,
           nextExecutionDate,
+          approvalStatus: isAdmin ? "approved" : "pending",
         },
       },
     });
@@ -134,11 +143,23 @@ export async function updateRecurringTransaction(
   input: RecurringTransactionInput,
   now = new Date(),
 ) {
-  const member = await requireWorkspaceMember(userId, workspaceId, true);
+  const member = await requireWorkspaceMember(userId, workspaceId);
+  const isAdmin = isAdminRole(member.role.code);
   const today = getBusinessDateInTimeZone(member.workspace.timeZone, now);
 
   return prisma.$transaction(async (tx) => {
     const current = await findManagedRecurringTransaction(tx, workspaceId, recurringTransactionId);
+    if (!isAdmin) {
+      if (current.createdByMemberId !== member.id) {
+        throw new AppError("FORBIDDEN", "Bạn chỉ có thể chỉnh sửa lịch do mình tạo.");
+      }
+      if (current.completedAt) {
+        throw new AppError("CONFLICT", "Lịch đã kết thúc và không thể chỉnh sửa.");
+      }
+      if (current.approvalStatus === "approved" && current.status === "active") {
+        throw new AppError("CONFLICT", "Hãy tạm dừng lịch trước khi chỉnh sửa.");
+      }
+    }
     await requireTransactionResources(tx, workspaceId, input);
     const dayOfMonth = dayOfMonthFromStartDate(input.startDate);
     const timingChanged = current.dayOfMonth !== dayOfMonth
@@ -162,6 +183,14 @@ export async function updateRecurringTransaction(
         nextExecutionDate,
         completedAt: timingChanged ? null : current.completedAt,
         lastError: null,
+        ...(!isAdmin
+          ? {
+              status: "deactive" as const,
+              approvalStatus: "pending" as const,
+              reviewedByMemberId: null,
+              reviewedAt: null,
+            }
+          : {}),
       },
     });
     await tx.auditLog.create({
@@ -192,10 +221,43 @@ export async function setRecurringTransactionStatus(
   status: "active" | "deactive",
   now = new Date(),
 ) {
-  const member = await requireWorkspaceMember(userId, workspaceId, true);
+  const member = await requireWorkspaceMember(userId, workspaceId);
+  const isAdmin = isAdminRole(member.role.code);
   const today = getBusinessDateInTimeZone(member.workspace.timeZone, now);
   return prisma.$transaction(async (tx) => {
     const current = await findManagedRecurringTransaction(tx, workspaceId, recurringTransactionId);
+    if (!isAdmin && current.createdByMemberId !== member.id) {
+      throw new AppError("FORBIDDEN", "Bạn chỉ có thể thay đổi lịch do mình tạo.");
+    }
+    if (!isAdmin && status === "deactive") {
+      if (current.status !== "active" || current.approvalStatus !== "approved") {
+        throw new AppError("CONFLICT", "Lịch này hiện không hoạt động.");
+      }
+      const record = await tx.recurringTransaction.update({
+        where: { id: current.id },
+        data: { status: "deactive" },
+      });
+      await tx.auditLog.create({
+        data: { workspaceId, actorUserId: userId, action: "recurring_transaction.paused", entityType: "recurring_transaction", entityId: current.id },
+      });
+      return record;
+    }
+    if (!isAdmin && status === "active") {
+      if (current.status !== "deactive" || current.approvalStatus !== "approved") {
+        throw new AppError("CONFLICT", "Lịch chưa sẵn sàng để gửi yêu cầu kích hoạt lại.");
+      }
+      const record = await tx.recurringTransaction.update({
+        where: { id: current.id },
+        data: { approvalStatus: "pending", reviewedByMemberId: null, reviewedAt: null },
+      });
+      await tx.auditLog.create({
+        data: { workspaceId, actorUserId: userId, action: "recurring_transaction.reactivation_requested", entityType: "recurring_transaction", entityId: current.id },
+      });
+      return record;
+    }
+    if (status === "active" && current.approvalStatus !== "approved") {
+      throw new AppError("CONFLICT", "Lịch phải được duyệt trước khi kích hoạt.");
+    }
     if (status === "active") {
       await requireTransactionResources(tx, workspaceId, current);
     }
@@ -240,9 +302,18 @@ export async function deleteRecurringTransaction(
   workspaceId: string,
   recurringTransactionId: string,
 ) {
-  await requireWorkspaceMember(userId, workspaceId, true);
+  const member = await requireWorkspaceMember(userId, workspaceId);
+  const isAdmin = isAdminRole(member.role.code);
   return prisma.$transaction(async (tx) => {
     const current = await findManagedRecurringTransaction(tx, workspaceId, recurringTransactionId);
+    if (!isAdmin) {
+      if (current.createdByMemberId !== member.id) {
+        throw new AppError("FORBIDDEN", "Bạn chỉ có thể xóa lịch do mình tạo.");
+      }
+      if (current.approvedAt || !["pending", "rejected"].includes(current.approvalStatus)) {
+        throw new AppError("FORBIDDEN", "Lịch đã từng được duyệt chỉ có thể tạm dừng.");
+      }
+    }
     const record = await tx.recurringTransaction.update({
       where: { id: current.id },
       data: { status: "deactive", deletedAt: new Date() },
@@ -260,6 +331,74 @@ export async function deleteRecurringTransaction(
   });
 }
 
+export async function reviewRecurringTransaction(
+  userId: string,
+  workspaceId: string,
+  recurringTransactionId: string,
+  approve: boolean,
+  now = new Date(),
+) {
+  const reviewer = await requireWorkspaceMember(userId, workspaceId, true);
+  const today = getBusinessDateInTimeZone(reviewer.workspace.timeZone, now);
+  return prisma.$transaction(async (tx) => {
+    const current = await findManagedRecurringTransaction(tx, workspaceId, recurringTransactionId);
+    if (current.approvalStatus !== "pending") {
+      throw new AppError("CONFLICT", "Yêu cầu lịch định kỳ đã được xử lý.");
+    }
+    if (!approve) {
+      const record = await tx.recurringTransaction.update({
+        where: { id: current.id },
+        data: {
+          approvalStatus: "rejected",
+          status: "deactive",
+          reviewedByMemberId: reviewer.id,
+          reviewedAt: now,
+        },
+      });
+      await tx.auditLog.create({
+        data: { workspaceId, actorUserId: userId, action: "recurring_transaction.rejected", entityType: "recurring_transaction", entityId: current.id },
+      });
+      return record;
+    }
+
+    await requireTransactionResources(tx, workspaceId, current);
+    const effectiveStart = asBusinessDate(current.startDate) > today
+      ? asBusinessDate(current.startDate)
+      : today;
+    const nextExecutionDate = firstExecutionOnOrAfter(effectiveStart, current.dayOfMonth);
+    if (current.endDate && nextExecutionDate > asBusinessDate(current.endDate)) {
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Khoảng hiệu lực đã kết thúc. Thành viên cần cập nhật lịch trước khi duyệt.",
+      );
+    }
+    const record = await tx.recurringTransaction.update({
+      where: { id: current.id },
+      data: {
+        approvalStatus: "approved",
+        status: "active",
+        nextExecutionDate: asDatabaseDate(nextExecutionDate),
+        reviewedByMemberId: reviewer.id,
+        reviewedAt: now,
+        approvedAt: current.approvedAt ?? now,
+        completedAt: null,
+        lastError: null,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        workspaceId,
+        actorUserId: userId,
+        action: "recurring_transaction.approved",
+        entityType: "recurring_transaction",
+        entityId: current.id,
+        metadata: { nextExecutionDate },
+      },
+    });
+    return record;
+  });
+}
+
 async function processOneDueOccurrence(workspaceId: string, recurringTransactionId: string, today: string) {
   try {
     return await prisma.$transaction(async (tx) => {
@@ -269,6 +408,7 @@ async function processOneDueOccurrence(workspaceId: string, recurringTransaction
           id: recurringTransactionId,
           workspaceId,
           status: "active",
+          approvalStatus: "approved",
           deletedAt: null,
           nextExecutionDate: { lte: asDatabaseDate(today) },
         },
@@ -364,6 +504,7 @@ async function processOneDueOccurrence(workspaceId: string, recurringTransaction
           id: recurringTransactionId,
           workspaceId,
           status: "active",
+          approvalStatus: "approved",
           deletedAt: null,
           nextExecutionDate: { lte: asDatabaseDate(today) },
         },
@@ -421,6 +562,7 @@ export async function processDueRecurringTransactions(
       where: {
         workspaceId,
         status: "active",
+        approvalStatus: "approved",
         deletedAt: null,
         nextExecutionDate: { lte: asDatabaseDate(today) },
       },

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { WorkspaceSwitcher } from "@/app/dashboard/workspace-switcher";
 import { useOptimisticNavigation } from "@/app/dashboard/use-optimistic-navigation";
+import { isWorkspaceNavigationActive, workspaceNavigationItems, type WorkspaceNavigationKey } from "@/app/dashboard/workspace-navigation";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -31,6 +32,7 @@ export function DashboardNavigation({
   pendingJoinCount = 0,
   isAdmin = false,
   forceExpandedWorkspaceSwitcher = false,
+  variant = "all",
 }: {
   currentId?: string;
   workspaces: Workspace[];
@@ -38,63 +40,24 @@ export function DashboardNavigation({
   isAdmin?: boolean;
   username?: string;
   forceExpandedWorkspaceSwitcher?: boolean;
+  variant?: "all" | "secondary";
 }) {
   const pathname = usePathname();
   const { pendingHref, beginNavigation } = useOptimisticNavigation();
-  const workspaceSettingsActive =
-    pathname === "/settings/workspace" ||
-    pathname === "/dashboard/settings" ||
-    pathname === "/dashboard/join-requests";
-  const workspaceItems: NavigationItem[] = [
-    {
-      href: "/overview",
-      label: "Tổng quan",
-      description: "Tổng quan tài chính",
-      icon: LayoutDashboard,
-      active: pathname === "/overview",
-      visible: true,
-    },
-    {
-      href: currentId ? `/workspace/${currentId}` : "/dashboard",
-      label: "Sổ giao dịch",
-      description: "Sổ thu chi và lịch sử giao dịch",
-      icon: BookOpen,
-      active: pathname === "/dashboard" || pathname.startsWith("/workspace/"),
-      visible: Boolean(currentId),
-    },
-    {
-      href: "/recurring-transactions",
-      label: "Giao dịch định kỳ",
-      description: "Đăng ký giao dịch tự động hằng tháng",
-      icon: Repeat2,
-      active: pathname === "/recurring-transactions",
-      visible: Boolean(currentId) && isAdmin,
-    },
-    {
-      href: "/financial-plans",
-      label: "Kế hoạch",
-      description: "Mục tiêu tương lai và hạn mức sáu hũ",
-      icon: CalendarRange,
-      active: pathname === "/financial-plans",
-      visible: Boolean(currentId),
-    },
-    {
-      href: "/wallets",
-      label: "Quản lý ví",
-      description: "Quản lý các tài khoản ví",
-      icon: WalletCards,
-      active: pathname === "/wallets",
-      visible: Boolean(currentId),
-    },
-    {
-      href: "/settings/workspace",
-      label: "Cài đặt nhóm",
-      description: "Cơ chế phê duyệt, mã mời và cấu hình",
-      icon: Settings,
-      active: workspaceSettingsActive,
-      visible: Boolean(currentId) && isAdmin,
-    },
-  ];
+  const icons: Record<WorkspaceNavigationKey, typeof LayoutDashboard> = {
+    overview: LayoutDashboard, ledger: BookOpen, recurring: Repeat2,
+    plans: CalendarRange, wallets: WalletCards, settings: Settings,
+  };
+  const workspaceItems: NavigationItem[] = workspaceNavigationItems(currentId).map((item) => ({
+    href: item.href,
+    label: item.label,
+    description: item.description,
+    icon: icons[item.key],
+    active: isWorkspaceNavigationActive(item.key, pathname),
+    visible: (!item.requiresWorkspace || Boolean(currentId))
+      && (!item.adminOnly || isAdmin)
+      && (variant === "all" || !item.mobilePrimary),
+  }));
 
   return (
     <nav

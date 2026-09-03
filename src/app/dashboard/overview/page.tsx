@@ -5,7 +5,6 @@ import { OverviewDashboard } from "@/app/dashboard/overview/overview-dashboard";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
-import { availableCategoryWhere } from "@/services/category-visibility";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 
 export default async function OverviewPage() {
@@ -23,9 +22,8 @@ export default async function OverviewPage() {
   const businessDate = getBusinessDateInTimeZone(membership.workspace.timeZone);
   const reportPeriod = businessDate.slice(0, 7);
 
-  const [walletLinks, categories, members, transactions] = await Promise.all([
+  const [walletLinks, members, transactions] = await Promise.all([
     prisma.workspaceWallet.findMany({ where: { workspaceId, wallet: { status: "active", deletedAt: null } }, include: { wallet: true }, orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }] }),
-    prisma.category.findMany({ where: availableCategoryWhere(workspaceId), select: { id: true, name: true, color: true, icon: true, parentId: true, type: true }, orderBy: { sortOrder: "asc" } }),
     prisma.workspaceMember.findMany({ where: { workspaceId, status: "active", deletedAt: null }, select: { id: true, user: { select: { username: true } } }, orderBy: { user: { username: "asc" } } }),
     prisma.transaction.findMany({
       where: { deletedAt: null, member: { workspaceId } },
@@ -45,7 +43,6 @@ export default async function OverviewPage() {
     reportPeriod={reportPeriod}
     wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString(), updatedAt: wallet.updatedAt.toISOString() }))}
     totalByCurrency={totalByCurrency}
-    categories={categories.map((category) => ({ ...category, type: category.type as "income" | "expense" }))}
     members={members.map((member) => ({ id: member.id, name: member.user.username ?? "Người dùng" }))}
     transactions={transactions.map((transaction) => ({ id: transaction.id, amount: transaction.amount.toString(), type: transaction.type, status: transaction.workflowStatus, description: transaction.description, date: transaction.date.toISOString(), walletId: transaction.walletId, toWalletId: transaction.toWalletId, wallet: transaction.wallet.name, categoryId: transaction.categoryId, category: transaction.category, memberId: transaction.memberId, member: transaction.member.user.username ?? "Người dùng" }))}
   />;

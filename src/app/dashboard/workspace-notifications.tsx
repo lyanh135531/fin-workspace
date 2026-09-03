@@ -22,11 +22,13 @@ function changeDetails(value: unknown) {
 
 export async function WorkspaceNotifications({
   workspaceId,
+  memberId,
   currency,
   timeZone,
   isAdmin,
 }: {
   workspaceId: string;
+  memberId: string;
   currency: string;
   timeZone: string;
   isAdmin: boolean;
@@ -60,6 +62,22 @@ export async function WorkspaceNotifications({
     },
     orderBy: [{ date: "asc" }, { createdAt: "desc" }],
     take: 20,
+  });
+  const recurringTransactionsPromise = prisma.recurringTransaction.findMany({
+    where: {
+      workspaceId,
+      deletedAt: null,
+      ...(isAdmin
+        ? { approvalStatus: "pending" as const }
+        : {
+            createdByMemberId: memberId,
+            approvalStatus: { in: ["approved" as const, "rejected" as const] },
+            reviewedAt: { gte: range.businessDayStart, lt: range.nextBusinessDayStart },
+          }),
+    },
+    include: { createdBy: { include: { user: { select: { username: true } } } } },
+    orderBy: { updatedAt: "desc" },
+    take: 10,
   });
   const activationLogsPromise = prisma.auditLog.findMany({
     where: {
@@ -133,6 +151,7 @@ export async function WorkspaceNotifications({
     roles,
     changeWallets,
     changeCategories,
+    recurringTransactions,
   ] = await Promise.all([
     transactionsPromise,
     activationLogsPromise,
@@ -141,6 +160,7 @@ export async function WorkspaceNotifications({
     rolesPromise,
     changeWalletsPromise,
     changeCategoriesPromise,
+    recurringTransactionsPromise,
   ]);
   const walletNames = new Map(
     changeWallets.map((item) => [item.walletId, item.wallet.name] as const),
@@ -234,6 +254,15 @@ export async function WorkspaceNotifications({
         changeLookups,
       ),
       ...changeDetails(item.proposedData),
+    })),
+    ...recurringTransactions.map((item) => ({
+      kind: "recurring" as const,
+      id: item.id,
+      username: item.createdBy.user.username ?? "Người dùng",
+      description: item.description,
+      amount: item.amount.toString(),
+      type: item.type,
+      approvalStatus: item.approvalStatus,
     })),
   ];
 

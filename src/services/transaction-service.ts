@@ -228,7 +228,7 @@ export async function createTransaction(userId: string, workspaceId: string, inp
 }
 
 export async function approveTransaction(userId: string, workspaceId: string, transactionId: string) {
-  await requireWorkspaceMember(userId, workspaceId, true);
+  const member = await requireWorkspaceMember(userId, workspaceId, true);
   return prisma.$transaction(async (tx) => {
     await lockTransaction(tx, transactionId);
     const record = await tx.transaction.findFirst({
@@ -236,13 +236,17 @@ export async function approveTransaction(userId: string, workspaceId: string, tr
     });
     if (!record) throw new AppError("NOT_FOUND", "Không tìm thấy giao dịch đang chờ hoặc đã lên lịch.");
     const resources = await requireTransactionResources(tx, workspaceId, record);
+    const today = getBusinessDateInTimeZone(member.workspace.timeZone);
+    const nextStatus = record.workflowStatus === "scheduled"
+      ? "approved"
+      : workflowStatusForAppliedDate(asBusinessDate(record.date), today);
     const claimed = await tx.transaction.updateMany({
       where: { id: record.id, workflowStatus: record.workflowStatus, deletedAt: null },
-      data: { workflowStatus: "approved", jarCode: resources.jarCode },
+      data: { workflowStatus: nextStatus, jarCode: resources.jarCode },
     });
     if (claimed.count !== 1) throw new AppError("CONFLICT", "Giao dịch đã được xử lý.");
-    await applyBalance(tx, record);
-    await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.approved", entityType: "transaction", entityId: record.id, metadata: { previousStatus: record.workflowStatus, jarCode: resources.jarCode } } });
+    if (nextStatus === "approved") await applyBalance(tx, record);
+    await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.approved", entityType: "transaction", entityId: record.id, metadata: { previousStatus: record.workflowStatus, workflowStatus: nextStatus, balanceApplied: nextStatus === "approved", jarCode: resources.jarCode } } });
     return tx.transaction.findUniqueOrThrow({ where: { id: record.id } });
   });
 }
@@ -302,6 +306,9 @@ export async function updateTransaction(
   const member = await requireWorkspaceMember(userId, workspaceId);
   return prisma.$transaction(async (tx) => {
     const record = await findWorkspaceTransaction(tx, workspaceId, transactionId);
+    if (!isAdminRole(member.role.code) && record.memberId !== member.id) {
+      throw new AppError("FORBIDDEN", "Bạn chỉ có thể gửi yêu cầu sửa giao dịch do mình tạo.");
+    }
     const resolved = resolveTransactionInput(input, member.workspace.timeZone, now);
     await requireTransactionResources(tx, workspaceId, resolved);
     if (isAdminRole(member.role.code)) {

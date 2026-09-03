@@ -10,8 +10,10 @@ import {
   Bell,
   CalendarClock,
   CircleCheckBig,
+  CircleX,
   FilePenLine,
   ReceiptText,
+  Repeat2,
   Trash2,
   UserPlus,
 } from "lucide-react";
@@ -24,6 +26,8 @@ import {
   reviewTransactionChangeAction,
 } from "@/app/dashboard/actions";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
+import { reviewRecurringTransactionAction } from "@/app/dashboard/recurring-transactions/actions";
+import { ApprovalActionButton } from "@/components/approval-action-icon";
 import {
   Button,
   Empty,
@@ -70,7 +74,16 @@ export type NotificationItem =
       reason: string;
       details: TransactionChangeDetail[];
     }
-  | { kind: "join"; id: string; username: string };
+  | { kind: "join"; id: string; username: string }
+  | {
+      kind: "recurring";
+      id: string;
+      username: string;
+      description: string | null;
+      type: "income" | "expense" | "transfer";
+      amount: string;
+      approvalStatus: "pending" | "approved" | "rejected";
+    };
 
 type TransactionNotification = Extract<
   NotificationItem,
@@ -78,6 +91,7 @@ type TransactionNotification = Extract<
 >;
 type ChangeNotification = Extract<NotificationItem, { kind: "change" }>;
 type JoinNotification = Extract<NotificationItem, { kind: "join" }>;
+type RecurringNotification = Extract<NotificationItem, { kind: "recurring" }>;
 type Role = { code: string; name: string };
 
 const transactionTypeLabel: Record<TransactionNotification["type"], string> = {
@@ -189,17 +203,16 @@ function JoinNotificationCard({
           </div>
 
           <div className="mt-3 flex justify-end gap-2">
-            <Button
-              size="sm"
-              variant="outline"
+            <ApprovalActionButton
+              decision="reject"
               disabled={pending}
               onClick={() => onReview(false)}
-            >
-              Từ chối
-            </Button>
-            <Button size="sm" disabled={pending} onClick={() => onReview(true)}>
-              Duyệt thành viên
-            </Button>
+            />
+            <ApprovalActionButton
+              decision="approve"
+              disabled={pending}
+              onClick={() => onReview(true)}
+            />
           </div>
         </div>
       </div>
@@ -267,22 +280,28 @@ function TransactionNotificationCard({
           {canReview && item.status !== "executed" && (
             <div className="mt-3 flex justify-end gap-2">
               {item.status === "pending" && (
-                <Button
-                  size="sm"
-                  variant="outline"
+                <ApprovalActionButton
+                  decision="reject"
                   disabled={pending}
                   onClick={() => onReview(false)}
+                />
+              )}
+              {item.status === "pending" ? (
+                <ApprovalActionButton
+                  decision="approve"
+                  disabled={pending}
+                  onClick={() => onReview(true)}
+                />
+              ) : (
+                <Button
+                  size="sm"
+                  variant="success"
+                  disabled={pending}
+                  onClick={() => onReview(true)}
                 >
-                  Từ chối
+                  Ghi nhận sớm
                 </Button>
               )}
-              <Button
-                size="sm"
-                disabled={pending}
-                onClick={() => onReview(true)}
-              >
-                {item.status === "scheduled" ? "Duyệt sớm" : "Duyệt"}
-              </Button>
             </div>
           )}
         </div>
@@ -388,25 +407,74 @@ function ChangeNotificationCard({
           )}
 
           <div className="mt-3 flex justify-end gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className={deleting ? undefined : "notification-review-reject"}
+            <ApprovalActionButton
+              decision="reject"
               disabled={pending}
               onClick={() => onReview(false)}
-            >
-              Từ chối
-            </Button>
-            <Button
-              size="sm"
-              variant={deleting ? "destructive" : "outline"}
-              className={deleting ? undefined : "notification-review-approve"}
+            />
+            <ApprovalActionButton
+              decision="approve"
               disabled={pending}
               onClick={() => onReview(true)}
-            >
-              {deleting ? "Duyệt xóa" : "Duyệt sửa"}
-            </Button>
+            />
           </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function RecurringNotificationCard({
+  item,
+  currency,
+  pending,
+  canReview,
+  onReview,
+}: {
+  item: RecurringNotification;
+  currency: string;
+  pending: boolean;
+  canReview: boolean;
+  onReview: (approve: boolean) => void;
+}) {
+  const approved = item.approvalStatus === "approved";
+  const rejected = item.approvalStatus === "rejected";
+  const Icon = approved ? CircleCheckBig : rejected ? CircleX : Repeat2;
+  const label = approved ? "Đã duyệt" : rejected ? "Đã từ chối" : "Chờ duyệt";
+  const color = approved ? "text-[var(--success)]" : rejected ? "text-[var(--danger)]" : "text-[var(--warning)]";
+  return (
+    <article role="listitem" className="notification-item p-4">
+      <div className="flex items-start gap-3">
+        <NotificationTypeIcon className={color}>
+          <Icon size={17} aria-hidden="true" />
+        </NotificationTypeIcon>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <p className="truncate text-sm font-semibold text-[var(--foreground)]">
+              {item.description || "Giao dịch định kỳ"}
+            </p>
+            <span className={`shrink-0 text-xs font-semibold ${color}`}>{label}</span>
+          </div>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
+            {item.username} · {transactionTypeLabel[item.type]}
+          </p>
+          <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-[var(--foreground)]">
+            {money(item.amount, currency)}
+          </p>
+          {canReview && item.approvalStatus === "pending" && (
+            <div className="mt-3 flex justify-end gap-2">
+              <ApprovalActionButton
+                decision="reject"
+                disabled={pending}
+                onClick={() => onReview(false)}
+              />
+              <ApprovalActionButton
+                decision="approve"
+                disabled={pending}
+                onClick={() => onReview(true)}
+              />
+            </div>
+          )}
         </div>
       </div>
     </article>
@@ -508,6 +576,19 @@ export function NotificationsMenu({
     });
   }
 
+  function reviewRecurring(id: string, approve: boolean): void {
+    if (!canReview) return;
+    start(async () => {
+      const result = await reviewRecurringTransactionAction(id, approve);
+      if (result.ok) {
+        toast.success(approve ? "Đã duyệt và kích hoạt lịch." : "Đã từ chối lịch.");
+        router.refresh();
+      } else {
+        toast.error(result.message ?? "Không thể xử lý lịch định kỳ.");
+      }
+    });
+  }
+
   const notificationItems = items.map((item) => {
     if (item.kind === "join") {
       return (
@@ -537,6 +618,19 @@ export function NotificationsMenu({
           canReview={canReview}
           pending={pending}
           onReview={(approve) => reviewTransaction(item.id, approve)}
+        />
+      );
+    }
+
+    if (item.kind === "recurring") {
+      return (
+        <RecurringNotificationCard
+          key={`recurring-${item.id}`}
+          item={item}
+          currency={currency}
+          pending={pending}
+          canReview={canReview}
+          onReview={(approve) => reviewRecurring(item.id, approve)}
         />
       );
     }

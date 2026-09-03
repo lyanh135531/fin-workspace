@@ -59,6 +59,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { Textarea } from "@/components/ui/textarea";
+import { ApprovalActionIcon } from "@/components/approval-action-icon";
 import { formatAmount } from "@/lib/format";
 import Decimal from "decimal.js";
 import {
@@ -111,6 +112,7 @@ type LedgerItem = {
   wallet: string;
   category: { name: string; color: string; icon: string | null } | null;
   member: string;
+  canRequestEdit: boolean;
   canRequestDelete: boolean;
   hasPendingChange: boolean;
   pendingChangeRequestId: string | null;
@@ -482,7 +484,7 @@ function MobileTransactionRow({
   );
   const actions = getMobileLedgerActions({
     canApprove,
-    canEdit: canEditTransactions,
+    canEdit: canEditTransactions && item.canRequestEdit,
     canDelete: !readonly && item.canRequestDelete,
     hasPendingChange: item.hasPendingChange,
     status: item.status,
@@ -640,13 +642,13 @@ function MobileTransactionRow({
           )}
           {actions.includes("approve") && (
             <DropdownMenuItem onClick={() => run(onApprove)} disabled={busy}>
-              <CircleCheckBig aria-hidden="true" />
+              <ApprovalActionIcon decision="approve" />
               Duyệt giao dịch
             </DropdownMenuItem>
           )}
           {actions.includes("reject") && (
             <DropdownMenuItem onClick={() => run(onReject)} disabled={busy}>
-              <X aria-hidden="true" />
+              <ApprovalActionIcon decision="reject" />
               Từ chối giao dịch
             </DropdownMenuItem>
           )}
@@ -1303,7 +1305,7 @@ export function Ledger({
                 Ghi nhận
               </Button>
             )}
-            {canEditTransactions && !item.hasPendingChange && (
+            {canEditTransactions && item.canRequestEdit && !item.hasPendingChange && (
               <Button
                 variant="icon"
                 size="icon"
@@ -1446,26 +1448,24 @@ export function Ledger({
                 <Button
                   variant="icon"
                   size="icon"
-                  className="ledger-review-reject-button"
                   disabled={busy}
                   onClick={() => reviewChange(item, false)}
                   title={`Từ chối yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
                   aria-label={`Từ chối yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
                 >
-                  <X size={16} />
+                  <ApprovalActionIcon decision="reject" />
                 </Button>
               )}
               {canApprove && item.pendingChangeRequestId && (
                 <Button
                   variant="icon"
                   size="icon"
-                  className="ledger-review-approve-button"
                   disabled={busy}
                   onClick={() => reviewChange(item, true)}
                   title={`Duyệt yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
                   aria-label={`Duyệt yêu cầu ${item.pendingChangeAction === "delete" ? "xóa" : "sửa"}`}
                 >
-                  <Check size={16} />
+                  <ApprovalActionIcon decision="approve" />
                 </Button>
               )}
               {canApprove &&
@@ -1474,13 +1474,12 @@ export function Ledger({
                   <Button
                     variant="icon"
                     size="icon"
-                    className="ledger-review-reject-button"
                     disabled={busy}
                     onClick={() => rejectOne(item)}
                     title="Từ chối giao dịch"
                     aria-label={`Từ chối ${item.description || "giao dịch"}`}
                   >
-                    <X size={16} />
+                    <ApprovalActionIcon decision="reject" />
                   </Button>
                 )}
               {canApprove &&
@@ -1489,13 +1488,12 @@ export function Ledger({
                   <Button
                     variant="icon"
                     size="icon"
-                    className="ledger-review-approve-button"
                     disabled={busy}
                     onClick={() => approveOne(item)}
                     title="Duyệt giao dịch"
                     aria-label={`Duyệt ${item.description || "giao dịch"}`}
                   >
-                    <Check size={16} />
+                    <ApprovalActionIcon decision="approve" />
                   </Button>
                 )}
               {canApprove && item.status === "scheduled" && (
@@ -1510,7 +1508,7 @@ export function Ledger({
                   <CircleCheckBig size={16} />
                 </Button>
               )}
-              {canEditTransactions && !item.hasPendingChange && (
+              {canEditTransactions && item.canRequestEdit && !item.hasPendingChange && (
                 <Button
                   variant="icon"
                   size="icon"

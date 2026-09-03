@@ -379,6 +379,9 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
   await catchUpFinancialPlan(planId, now);
   return prisma.$transaction(async (tx) => {
     const plan = await managedPlan(tx, workspaceId, planId);
+    if (plan.status === "draft" && !isAdminRole(member.role.code)) {
+      throw new AppError("NOT_FOUND", "Không tìm thấy kế hoạch trong nhóm này.");
+    }
     if (plan.status === "draft" || !plan.startMonth) {
       const percentages = allocationForMonth(plan.allocations, DRAFT_ALLOCATION_MONTH);
       return {
@@ -482,10 +485,10 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
 }
 
 export async function getWorkspaceFinancialPlans(userId: string, workspaceId: string, now = new Date()) {
-  await requireWorkspaceMember(userId, workspaceId);
+  const member = await requireWorkspaceMember(userId, workspaceId);
   const active = await prisma.financialPlan.findFirst({ where: { workspaceId, status: "active", deletedAt: null }, select: { id: true } });
   if (active) await catchUpFinancialPlan(active.id, now);
-  return prisma.financialPlan.findMany({ where: { workspaceId, deletedAt: null }, orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+  return prisma.financialPlan.findMany({ where: { workspaceId, deletedAt: null, ...(!isAdminRole(member.role.code) ? { status: { not: "draft" as const } } : {}) }, orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
     select: { id: true, name: true, status: true, targetAmount: true, existingGoalAmount: true, startMonth: true, targetMonth: true, updatedAt: true } });
 }
 

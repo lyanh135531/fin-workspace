@@ -14,6 +14,7 @@ describe("transaction time policy", () => {
     expect(workflowStatusForCreation("ADMIN", "past")).toBe("approved");
     expect(workflowStatusForCreation("MEMBER", "past")).toBe("pending");
     expect(workflowStatusForCreation("MEMBER", "now")).toBe("approved");
+    expect(workflowStatusForCreation("MEMBER", "future")).toBe("scheduled");
     expect(workflowStatusForCreation("ADMIN", "future")).toBe("scheduled");
     expect(workflowStatusForAppliedDate("2026-07-22", today)).toBe("scheduled");
     expect(workflowStatusForAppliedDate(today, today)).toBe("approved");

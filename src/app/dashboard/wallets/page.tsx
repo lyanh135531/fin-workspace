@@ -4,7 +4,7 @@ import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { WalletManagement } from "@/app/dashboard/wallets/wallet-management";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
-import { isAdminRole } from "@/domain/role-policy";
+import { workspaceCapabilities } from "@/domain/role-policy";
 import { PageContainer } from "@/components/base";
 
 export default async function WalletsPage() {
@@ -50,7 +50,7 @@ export default async function WalletsPage() {
             currency: membership.workspace.baseCurrency,
           }}
           totalBalance={totalBalance.toString()}
-          isAdmin={isAdminRole(membership.role.code)}
+          isAdmin={workspaceCapabilities(membership.role.code).canManageWallets}
           wallets={links.map(({ wallet }) => ({
             id: wallet.id,
             name: wallet.name,

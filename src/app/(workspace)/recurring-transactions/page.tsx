@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { RecurringTransactionsManager } from "@/app/dashboard/recurring-transactions/recurring-transactions-manager";
-import { isAdminRole } from "@/domain/role-policy";
+import { workspaceCapabilities } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
@@ -24,7 +24,8 @@ export default async function RecurringTransactionsPage() {
     },
     include: { role: true, workspace: true },
   });
-  if (!membership || !isAdminRole(membership.role.code)) redirect("/dashboard");
+  if (!membership) redirect("/dashboard");
+  const capabilities = workspaceCapabilities(membership.role.code);
 
   const [walletLinks, categories, recurringTransactions] = await Promise.all([
     prisma.workspaceWallet.findMany({
@@ -54,6 +55,9 @@ export default async function RecurringTransactionsPage() {
     <PageContainer className="recurring-transactions-page">
       <div className="min-[901px]:mx-auto min-[901px]:max-w-[76rem]">
         <RecurringTransactionsManager
+          currentMemberId={membership.id}
+          canCreate={capabilities.canCreateRecurringTransactions}
+          canApprove={capabilities.canApproveRecurringTransactions}
           workspace={{
             id: workspaceId,
             name: membership.workspace.name,
@@ -73,6 +77,9 @@ export default async function RecurringTransactionsPage() {
           ).toString()}
           schedules={recurringTransactions.map((item) => ({
             id: item.id,
+            createdByMemberId: item.createdByMemberId,
+            approvalStatus: item.approvalStatus,
+            approvedAt: item.approvedAt?.toISOString() ?? null,
             walletId: item.walletId,
             toWalletId: item.toWalletId,
             categoryId: item.categoryId,

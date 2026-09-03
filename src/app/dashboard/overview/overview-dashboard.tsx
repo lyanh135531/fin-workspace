@@ -4,9 +4,11 @@ import {
   Button,
   Card,
   CategoryIcon,
+  DashboardPeriodFilter,
   Empty,
   PageContainer,
   PageHeader,
+  type DashboardPeriod,
 } from "@/components/base";
 import Decimal from "decimal.js";
 import {
@@ -35,11 +37,11 @@ import {
   buildMonthlyBalances,
   buildMemberMonthlyTotals,
   buildMonthlyCashflow,
+  getDashboardPeriodDateRange,
   getVisibleCashflowTypes,
   type CashflowRange,
   type CashflowType,
 } from "@/app/dashboard/overview/overview-chart-data";
-import { OverviewFilters } from "@/app/dashboard/overview/overview-filters";
 import type { DateRangeValue } from "@/components/base";
 import {
   ChartContainer,
@@ -76,14 +78,6 @@ type Props = {
   reportPeriod: string;
   wallets: { id: string; name: string; balance: string; updatedAt: string }[];
   totalByCurrency: Record<string, string>;
-  categories: {
-    id: string;
-    name: string;
-    color: string;
-    icon: string | null;
-    parentId: string | null;
-    type: "income" | "expense";
-  }[];
   members: { id: string; name: string }[];
   transactions: Transaction[];
 };
@@ -114,27 +108,6 @@ const balanceChartConfig = {
   total: { label: "Tổng số dư", color: "var(--primary)" },
 } satisfies ChartConfig;
 
-function getTrailingMonthDateRange(
-  reportPeriod: string,
-  monthCount: CashflowRange = 6,
-): DateRangeValue {
-  const match = /^(\d{4})-(\d{2})$/.exec(reportPeriod);
-  if (!match)
-    throw new RangeError(
-      `Invalid report period "${reportPeriod}". Expected yyyy-MM.`,
-    );
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const firstMonth = new Date(Date.UTC(year, month - monthCount, 1));
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const monthText = String(month).padStart(2, "0");
-  return {
-    from: `${firstMonth.getUTCFullYear()}-${String(firstMonth.getUTCMonth() + 1).padStart(2, "0")}-01`,
-    to: `${year}-${monthText}-${String(lastDay).padStart(2, "0")}`,
-  };
-}
-
 function isInDateRange(date: string, range: DateRangeValue): boolean {
   const transactionDate = date.slice(0, 10);
   return transactionDate >= range.from && transactionDate <= range.to;
@@ -148,32 +121,42 @@ function formatDateRangeLabel(dateRange: DateRangeValue): string {
   return `${formatDate(dateRange.from)} – ${formatDate(dateRange.to)}`;
 }
 
+function summarizeTransactions(
+  transactions: Transaction[],
+  dateRange: DateRangeValue,
+): { income: Decimal; expense: Decimal } {
+  return transactions.reduce(
+    (result, item) => {
+      if (item.status !== "approved" || !isInDateRange(item.date, dateRange)) {
+        return result;
+      }
+
+      if (item.type === "income") result.income = result.income.plus(item.amount);
+      if (item.type === "expense") result.expense = result.expense.plus(item.amount);
+      return result;
+    },
+    { income: new Decimal(0), expense: new Decimal(0) },
+  );
+}
+
 export function OverviewDashboard({
   workspace,
   reportPeriod,
   wallets,
   totalByCurrency,
-  categories,
   members,
   transactions,
 }: Props) {
-  const defaultDateRange = getTrailingMonthDateRange(reportPeriod);
-  const [walletId, setWalletId] = useState("all");
-  const [categoryId, setCategoryId] = useState("all");
-  const [memberId, setMemberId] = useState("all");
-  const [type, setType] = useState("all");
   const [isMobile, setIsMobile] = useState(false);
-  const range: CashflowRange = 6;
-  const [dateRange, setDateRange] = useState<DateRangeValue>(defaultDateRange);
+  const [balancePeriod, setBalancePeriod] = useState<DashboardPeriod>("month");
+  const [summaryPeriod, setSummaryPeriod] = useState<DashboardPeriod>("month");
+  const [categoryPeriod, setCategoryPeriod] = useState<DashboardPeriod>("month");
+  const dateRange = getDashboardPeriodDateRange(reportPeriod, "month");
+  const balanceDateRange = getDashboardPeriodDateRange(reportPeriod, balancePeriod);
+  const summaryDateRange = getDashboardPeriodDateRange(reportPeriod, summaryPeriod);
+  const categoryDateRange = getDashboardPeriodDateRange(reportPeriod, categoryPeriod);
   const filtered = transactions.filter(
-    (item) =>
-      isInDateRange(item.date, dateRange) &&
-      (walletId === "all" ||
-        item.walletId === walletId ||
-        item.toWalletId === walletId) &&
-      (categoryId === "all" || item.categoryId === categoryId) &&
-      (memberId === "all" || item.memberId === memberId) &&
-      (type === "all" || item.type === type),
+    (item) => isInDateRange(item.date, dateRange),
   );
   const posted = filtered.filter((item) => item.status === "approved");
   const totals = posted.reduce(
@@ -189,12 +172,20 @@ export function OverviewDashboard({
     }),
     { income: new Decimal(0), expense: new Decimal(0) },
   );
+  const balanceTotals = summarizeTransactions(transactions, balanceDateRange);
+  const summaryTotals = summarizeTransactions(transactions, summaryDateRange);
+  const categoryTotals = summarizeTransactions(transactions, categoryDateRange);
   const expenseByCategory = (() => {
     const rows = new Map<
       string,
       { name: string; color: string; icon: string | null; amount: Decimal }
     >();
-    posted
+    transactions
+      .filter(
+        (item) =>
+          item.status === "approved" &&
+          isInDateRange(item.date, categoryDateRange),
+      )
       .filter((item) => item.type === "expense")
       .forEach((item) => {
         const key = item.categoryId ?? "uncategorized";
@@ -208,20 +199,12 @@ export function OverviewDashboard({
       });
     return [...rows.values()].sort((a, b) => b.amount.comparedTo(a.amount));
   })();
-  const reset = () => {
-    setWalletId("all");
-    setCategoryId("all");
-    setMemberId("all");
-    setType("all");
-    setDateRange(defaultDateRange);
-  };
-  const chartEndPeriod = dateRange.to.slice(0, 7);
-  const mobilePeriodLabel = `${mobileMonthLabel(dateRange.from.slice(0, 7))} – ${mobileMonthLabel(dateRange.to.slice(0, 7))}`;
   const balanceLabel =
     Object.entries(totalByCurrency)
       .map(([currency, total]) => money(total, currency))
       .join(" · ") || money(0, workspace.currency);
-  const netCashflow = totals.income.minus(totals.expense);
+  const netCashflow = balanceTotals.income.minus(balanceTotals.expense);
+  const summaryNetCashflow = summaryTotals.income.minus(summaryTotals.expense);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 760px)");
@@ -237,23 +220,7 @@ export function OverviewDashboard({
         <PageHeader
           title="Tổng quan tài chính"
           description={`${workspace.name} · Thu nhập, chi tiêu và số dư hiện tại.`}
-        >
-          <OverviewFilters
-            wallets={wallets.map(({ id, name }) => ({ id, name }))}
-            categories={categories}
-            members={members}
-            values={{ walletId, categoryId, memberId, type }}
-            dateRange={dateRange}
-            defaultDateRange={defaultDateRange}
-            onWalletChange={setWalletId}
-            onCategoryChange={setCategoryId}
-            onMemberChange={setMemberId}
-            onTypeChange={setType}
-            onDateRangeChange={setDateRange}
-            onReset={reset}
-            isMobile={false}
-          />
-        </PageHeader>
+        />
 
         <section
           className="grid grid-cols-1 gap-5 lg:grid-cols-12"
@@ -281,6 +248,11 @@ export function OverviewDashboard({
                   {balanceLabel}
                 </strong>
               </div>
+              <DashboardPeriodFilter
+                value={balancePeriod}
+                onValueChange={setBalancePeriod}
+                ariaLabel="Chọn kỳ dòng tiền của thẻ tổng số dư"
+              />
             </div>
             <div className="mt-7 flex items-center justify-between gap-4 border-t border-[color-mix(in_srgb,var(--primary)_15%,var(--border))] pt-4 text-xs">
               <span className="inline-flex items-center gap-2 text-[var(--text-muted)]">
@@ -314,24 +286,26 @@ export function OverviewDashboard({
                   Chỉ tính các giao dịch đã ghi nhận
                 </p>
               </div>
-              <span className="text-xs text-[var(--text-muted)] tabular-nums">
-                {formatDateRangeLabel(dateRange)}
-              </span>
+              <DashboardPeriodFilter
+                value={summaryPeriod}
+                onValueChange={setSummaryPeriod}
+                ariaLabel="Chọn kỳ tóm tắt dòng tiền"
+              />
             </header>
             <dl className="grid grid-cols-3 border-t border-[var(--border)] pt-5 [&>div+div]:border-l [&>div+div]:border-[var(--border)] [&>div+div]:pl-5">
               <SummaryStat
                 label="Thu nhập"
-                value={money(totals.income, workspace.currency)}
+                value={money(summaryTotals.income, workspace.currency)}
                 tone="income"
               />
               <SummaryStat
                 label="Chi tiêu"
-                value={money(totals.expense, workspace.currency)}
+                value={money(summaryTotals.expense, workspace.currency)}
                 tone="expense"
               />
               <SummaryStat
                 label="Dòng tiền ròng"
-                value={money(netCashflow, workspace.currency)}
+                value={money(summaryNetCashflow, workspace.currency)}
                 tone="primary"
               />
             </dl>
@@ -342,16 +316,7 @@ export function OverviewDashboard({
           members={members}
           transactions={transactions}
           currency={workspace.currency}
-          month={chartEndPeriod}
-          range={range}
-          walletId={walletId}
-          categoryId={categoryId}
-          memberId={memberId}
-          transactionType={type}
-          categoryType={
-            categories.find((category) => category.id === categoryId)?.type
-          }
-          dateRange={dateRange}
+          reportPeriod={reportPeriod}
           isMobile={false}
         />
 
@@ -361,10 +326,7 @@ export function OverviewDashboard({
               wallets={wallets}
               transactions={transactions}
               currency={workspace.currency}
-              month={chartEndPeriod}
-              range={range}
-              walletId={walletId}
-              dateRange={dateRange}
+              reportPeriod={reportPeriod}
               isMobile={false}
             />
           </div>
@@ -378,14 +340,16 @@ export function OverviewDashboard({
                   Tỷ trọng trong kỳ đã chọn
                 </p>
               </div>
-              <span className="text-xs font-medium text-[var(--text-muted)] tabular-nums">
-                {expenseByCategory.length} mục
-              </span>
+              <DashboardPeriodFilter
+                value={categoryPeriod}
+                onValueChange={setCategoryPeriod}
+                ariaLabel="Chọn kỳ chi tiêu theo danh mục"
+              />
             </header>
             {expenseByCategory.length ? (
               <div className="space-y-4 border-t border-[var(--border)] pt-5">
                 {expenseByCategory.slice(0, 6).map((item) => {
-                  const percentage = item.amount.div(totals.expense).times(100);
+                  const percentage = item.amount.div(categoryTotals.expense).times(100);
                   return (
                     <div key={item.name}>
                       <div className="flex items-center justify-between gap-4 text-xs">
@@ -439,34 +403,19 @@ export function OverviewDashboard({
         description="Theo dõi thu nhập, chi tiêu và số dư tài khoản của cả nhóm."
       />
       <div className="overview-dashboard-stack flex flex-col gap-6">
-        <OverviewFilters
-          wallets={wallets.map(({ id, name }) => ({ id, name }))}
-          categories={categories}
-          members={members}
-          values={{ walletId, categoryId, memberId, type }}
-          dateRange={dateRange}
-          defaultDateRange={defaultDateRange}
-          onWalletChange={setWalletId}
-          onCategoryChange={setCategoryId}
-          onMemberChange={setMemberId}
-          onTypeChange={setType}
-          onDateRangeChange={setDateRange}
-          onReset={reset}
-          isMobile
-        />
         <header className="overview-mobile-dashboard-heading">
           <div>
-            <span>Phân tích theo tháng</span>
-            <h2>Biến động trong khoảng đã chọn</h2>
+            <span>Phân tích linh hoạt</span>
+            <h2>Mỗi thẻ có kỳ xem riêng</h2>
           </div>
-          <small>{mobilePeriodLabel}</small>
+          <small>Tháng · Quý · Năm</small>
         </header>
         <MobileOverviewHome
           balance={Object.entries(totalByCurrency)
             .map(([currency, total]) => money(total, currency))
             .join(" · ")}
-          income={totals.income}
-          expense={totals.expense}
+          transactions={transactions}
+          reportPeriod={reportPeriod}
           currency={workspace.currency}
           walletCount={wallets.length}
         />
@@ -486,6 +435,12 @@ export function OverviewDashboard({
             note="Chỉ giao dịch đã ghi nhận"
             icon={<TrendingUp size={18} />}
             tone="income"
+            periodData={{
+              metric: "income",
+              transactions,
+              reportPeriod,
+              currency: workspace.currency,
+            }}
           />
           <Metric
             title="Chi phí trong kỳ"
@@ -493,6 +448,12 @@ export function OverviewDashboard({
             note="Chỉ giao dịch đã ghi nhận"
             icon={<TrendingDown size={18} />}
             tone="expense"
+            periodData={{
+              metric: "expense",
+              transactions,
+              reportPeriod,
+              currency: workspace.currency,
+            }}
           />
           <Metric
             title="Dòng tiền ròng"
@@ -503,6 +464,12 @@ export function OverviewDashboard({
             note="Thu nhập trừ chi phí"
             icon={<TrendingUp size={18} />}
             tone="primary"
+            periodData={{
+              metric: "net",
+              transactions,
+              reportPeriod,
+              currency: workspace.currency,
+            }}
           />
         </div>
         <div className="overview-grid">
@@ -510,26 +477,14 @@ export function OverviewDashboard({
             members={members}
             transactions={transactions}
             currency={workspace.currency}
-            month={chartEndPeriod}
-            range={range}
-            walletId={walletId}
-            categoryId={categoryId}
-            memberId={memberId}
-            transactionType={type}
-            categoryType={
-              categories.find((category) => category.id === categoryId)?.type
-            }
-            dateRange={dateRange}
+            reportPeriod={reportPeriod}
             isMobile
           />
           <BalanceHistoryChart
             wallets={wallets}
             transactions={transactions}
             currency={workspace.currency}
-            month={chartEndPeriod}
-            range={range}
-            walletId={walletId}
-            dateRange={dateRange}
+            reportPeriod={reportPeriod}
             isMobile
           />
           <div className="overview-detail-grid">
@@ -542,13 +497,15 @@ export function OverviewDashboard({
                   <h2>Chi phí theo hạng mục</h2>
                   <p>Phân bổ chi phí đã ghi nhận</p>
                 </div>
-                <span className="overview-card-count">
-                  {expenseByCategory.length}
-                </span>
+                <DashboardPeriodFilter
+                  value={categoryPeriod}
+                  onValueChange={setCategoryPeriod}
+                  ariaLabel="Chọn kỳ chi phí theo hạng mục"
+                />
               </header>
               <MobileCategoryPie
                 items={expenseByCategory}
-                total={totals.expense}
+                total={categoryTotals.expense}
                 currency={workspace.currency}
               />
               {expenseByCategory.length ? (
@@ -599,13 +556,7 @@ export function OverviewDashboard({
           wallets={wallets}
           transactions={transactions}
           currency={workspace.currency}
-          month={chartEndPeriod}
-          range={range}
-          walletId={walletId}
-          categoryId={categoryId}
-          memberId={memberId}
-          transactionType={type}
-          dateRange={dateRange}
+          reportPeriod={reportPeriod}
         />
       </div>
     </PageContainer>
@@ -616,39 +567,27 @@ function CashflowOverviewCharts({
   members,
   transactions,
   currency,
-  month,
-  range,
-  walletId,
-  categoryId,
-  memberId,
-  transactionType,
-  categoryType,
-  dateRange,
+  reportPeriod,
   isMobile,
 }: {
   members: { id: string; name: string }[];
   transactions: Transaction[];
   currency: string;
-  month: string;
-  range: CashflowRange;
-  walletId: string;
-  categoryId: string;
-  memberId: string;
-  transactionType: string;
-  categoryType?: "income" | "expense";
-  dateRange: DateRangeValue;
+  reportPeriod: string;
   isMobile: boolean;
 }) {
+  const [period, setPeriod] = useState<DashboardPeriod>("month");
+  const dateRange = getDashboardPeriodDateRange(reportPeriod, period);
+  const range: CashflowRange = 12;
   const showMemberExpenseChart = members.length > 1;
-  const visibleTypes = getVisibleCashflowTypes(transactionType, categoryType);
+  const visibleTypes = getVisibleCashflowTypes("all");
   const cashflow = buildMonthlyCashflow(transactions, {
-    endPeriod: month,
+    endPeriod: reportPeriod,
     range,
-    walletId,
-    categoryId,
-    memberId,
-    transactionType,
-    categoryType,
+    walletId: "all",
+    categoryId: "all",
+    memberId: "all",
+    transactionType: "all",
     dateRange,
   });
   const warningCount =
@@ -694,11 +633,21 @@ function CashflowOverviewCharts({
           </p>
         </div>
         <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
-          <span className="text-xs text-[var(--text-muted)] tabular-nums">
+          <DashboardPeriodFilter
+            value={period}
+            onValueChange={setPeriod}
+            ariaLabel="Chọn kỳ biểu đồ thu nhập và chi tiêu"
+          />
+          <span
+            className={`text-xs text-[var(--text-muted)] tabular-nums ${isMobile ? "hidden" : ""}`}
+          >
             Đơn vị: {axisUnitLabel(axisScale, currency)}
           </span>
           {warningCount > 0 && (
-            <span className="overview-chart-warning" role="status">
+            <span
+              className={`overview-chart-warning ${isMobile ? "hidden" : ""}`}
+              role="status"
+            >
               <CircleAlert size={13} aria-hidden="true" />
               {warningCount} tháng chi vượt thu
             </span>
@@ -717,13 +666,12 @@ function CashflowOverviewCharts({
         <MonthlyFinancialChart
           transactions={transactions}
           currency={currency}
-          month={month}
+          month={reportPeriod}
           range={range}
-          walletId={walletId}
-          categoryId={categoryId}
-          memberId={memberId}
-          transactionType={transactionType}
-          categoryType={categoryType}
+          walletId="all"
+          categoryId="all"
+          memberId="all"
+          transactionType="all"
           dateRange={dateRange}
           axisScale={axisScale}
           isMobile={isMobile}
@@ -733,12 +681,11 @@ function CashflowOverviewCharts({
             members={members}
             transactions={transactions}
             currency={currency}
-            period={month}
+            period={reportPeriod}
             range={range}
-            walletId={walletId}
-            categoryId={categoryId}
-            transactionType={transactionType}
-            categoryType={categoryType}
+            walletId="all"
+            categoryId="all"
+            transactionType="all"
             dateRange={dateRange}
             isMobile={isMobile}
           />
@@ -751,29 +698,22 @@ function BalanceHistoryChart({
   wallets,
   transactions,
   currency,
-  month,
-  range,
-  walletId,
-  dateRange,
+  reportPeriod,
   isMobile,
 }: {
   wallets: { id: string; name: string; balance: string }[];
   transactions: Transaction[];
   currency: string;
-  month: string;
-  range: CashflowRange;
-  walletId: string;
-  dateRange: DateRangeValue;
+  reportPeriod: string;
   isMobile: boolean;
 }) {
-  const visibleWallets =
-    walletId === "all"
-      ? wallets
-      : wallets.filter((wallet) => wallet.id === walletId);
+  const [period, setPeriod] = useState<DashboardPeriod>("month");
+  const dateRange = getDashboardPeriodDateRange(reportPeriod, period);
+  const visibleWallets = wallets;
   const balances = buildMonthlyBalances(wallets, transactions, {
-    endPeriod: month,
-    range,
-    walletId,
+    endPeriod: reportPeriod,
+    range: 12,
+    walletId: "all",
     dateRange,
   });
   const rows = balances.map((row) => {
@@ -825,11 +765,21 @@ function BalanceHistoryChart({
           </p>
         </div>
         <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
-          <span className="text-xs text-[var(--text-muted)] tabular-nums">
+          <DashboardPeriodFilter
+            value={period}
+            onValueChange={setPeriod}
+            ariaLabel="Chọn kỳ lịch sử số dư"
+          />
+          <span
+            className={`text-xs text-[var(--text-muted)] tabular-nums ${isMobile ? "hidden" : ""}`}
+          >
             Đơn vị: {axisUnitLabel(axisScale, currency)}
           </span>
           {negativeMonthCount > 0 && (
-            <span className="overview-chart-warning" role="status">
+            <span
+              className={`overview-chart-warning ${isMobile ? "hidden" : ""}`}
+              role="status"
+            >
               <CircleAlert size={13} aria-hidden="true" />
               {negativeMonthCount} tháng có số dư âm
             </span>
@@ -1266,17 +1216,23 @@ function MemberExpenseChart({
 
 function MobileOverviewHome({
   balance,
-  income,
-  expense,
+  transactions,
+  reportPeriod,
   currency,
   walletCount,
 }: {
   balance: string;
-  income: Decimal;
-  expense: Decimal;
+  transactions: Transaction[];
+  reportPeriod: string;
   currency: string;
   walletCount: number;
 }) {
+  const [period, setPeriod] = useState<DashboardPeriod>("month");
+  const totals = summarizeTransactions(
+    transactions,
+    getDashboardPeriodDateRange(reportPeriod, period),
+  );
+  const { income, expense } = totals;
   const cashflow = income.minus(expense);
   const positiveCashflow = cashflow.greaterThanOrEqualTo(0);
 
@@ -1288,11 +1244,16 @@ function MobileOverviewHome({
       <article className="overview-mobile-balance-hero">
         <header>
           <span>Tổng tài sản</span>
-          <small>
-            <WalletCards size={13} /> {walletCount} ví
-          </small>
+          <DashboardPeriodFilter
+            value={period}
+            onValueChange={setPeriod}
+            ariaLabel="Chọn kỳ tổng quan tài chính"
+          />
         </header>
         <strong className="overview-mobile-balance-value">{balance}</strong>
+        <small className="inline-flex items-center gap-1 text-[var(--text-muted)]">
+          <WalletCards size={13} aria-hidden="true" /> {walletCount} ví
+        </small>
         <div
           className={`overview-mobile-net ${positiveCashflow ? "positive" : "negative"}`}
         >
@@ -1331,42 +1292,28 @@ function MobileMonthlyDashboards({
   wallets,
   transactions,
   currency,
-  month,
-  range,
-  walletId,
-  categoryId,
-  memberId,
-  transactionType,
-  dateRange,
+  reportPeriod,
 }: {
   members: { id: string; name: string }[];
   wallets: { id: string; name: string; balance: string }[];
   transactions: Transaction[];
   currency: string;
-  month: string;
-  range: CashflowRange;
-  walletId: string;
-  categoryId: string;
-  memberId: string;
-  transactionType: string;
-  dateRange: DateRangeValue;
+  reportPeriod: string;
 }) {
+  const [memberPeriod, setMemberPeriod] = useState<DashboardPeriod>("month");
+  const [balancePeriod, setBalancePeriod] = useState<DashboardPeriod>("month");
+  const [cashflowPeriod, setCashflowPeriod] = useState<DashboardPeriod>("month");
   const showMemberComparison = members.length >= 2;
-  const visibleMembers = showMemberComparison
-    ? memberId === "all"
-      ? members
-      : members.filter((member) => member.id === memberId)
-    : [];
-  const memberMetricType: CashflowType =
-    transactionType === "income" ? "income" : "expense";
+  const visibleMembers = showMemberComparison ? members : [];
+  const memberMetricType: CashflowType = "expense";
   const memberTotals = showMemberComparison
     ? buildMemberMonthlyTotals(visibleMembers, transactions, {
-        endPeriod: month,
-        range,
-        walletId,
-        categoryId,
+        endPeriod: reportPeriod,
+        range: 12,
+        walletId: "all",
+        categoryId: "all",
         type: memberMetricType,
-        dateRange,
+        dateRange: getDashboardPeriodDateRange(reportPeriod, memberPeriod),
       })
     : [];
   const memberSeries = visibleMembers.map((member, index) => ({
@@ -1385,7 +1332,6 @@ function MobileMonthlyDashboards({
     ),
   }));
   const memberHasData =
-    transactionType !== "transfer" &&
     memberTotals.some((row) =>
       Object.values(row.totals).some((value) => !new Decimal(value).isZero()),
     );
@@ -1397,30 +1343,26 @@ function MobileMonthlyDashboards({
   ) satisfies ChartConfig;
 
   const balances = buildMonthlyBalances(wallets, transactions, {
-    endPeriod: month,
-    range,
-    walletId,
-    dateRange,
+    endPeriod: reportPeriod,
+    range: 12,
+    walletId: "all",
+    dateRange: getDashboardPeriodDateRange(reportPeriod, balancePeriod),
   });
   const balanceRows = balances.map((row) => ({
     label: mobileMonthLabel(row.period),
     fullLabel: fullMonthLabel(row.period),
     total: new Decimal(row.total).toNumber(),
   }));
-  const balanceHasData =
-    (walletId === "all"
-      ? wallets
-      : wallets.filter((wallet) => wallet.id === walletId)
-    ).length > 0;
+  const balanceHasData = wallets.length > 0;
 
   const monthlyCashflow = buildMonthlyCashflow(transactions, {
-    endPeriod: month,
-    range,
-    walletId,
-    categoryId,
-    memberId,
-    transactionType,
-    dateRange,
+    endPeriod: reportPeriod,
+    range: 12,
+    walletId: "all",
+    categoryId: "all",
+    memberId: "all",
+    transactionType: "all",
+    dateRange: getDashboardPeriodDateRange(reportPeriod, cashflowPeriod),
   });
   const expenseRows = monthlyCashflow.map((row) => ({
     label: mobileMonthLabel(row.period),
@@ -1450,11 +1392,14 @@ function MobileMonthlyDashboards({
             <div>
               <h3>So sánh thành viên</h3>
               <p>
-                {memberMetricType === "income" ? "Thu nhập" : "Chi tiêu"} theo
-                từng tháng
+                Chi tiêu theo từng tháng
               </p>
             </div>
-            <span>{visibleMembers.length} người</span>
+            <DashboardPeriodFilter
+              value={memberPeriod}
+              onValueChange={setMemberPeriod}
+              ariaLabel="Chọn kỳ so sánh thành viên"
+            />
           </header>
           {memberHasData ? (
             <div className="overview-mobile-chart-scroll">
@@ -1522,9 +1467,7 @@ function MobileMonthlyDashboards({
             <Empty
               variant="compact"
               title={
-                transactionType === "transfer"
-                  ? "Không áp dụng cho chuyển khoản"
-                  : "Chưa có dữ liệu thành viên"
+                "Chưa có dữ liệu thành viên"
               }
             />
           )}
@@ -1545,7 +1488,11 @@ function MobileMonthlyDashboards({
             <h3>Tổng số dư theo tháng</h3>
             <p>Số dư cuối mỗi tháng trong khoảng lọc</p>
           </div>
-          <span>{balances.length} tháng</span>
+          <DashboardPeriodFilter
+            value={balancePeriod}
+            onValueChange={setBalancePeriod}
+            ariaLabel="Chọn kỳ tổng số dư theo tháng"
+          />
         </header>
         {balanceHasData ? (
           <div className="overview-mobile-chart-scroll">
@@ -1620,7 +1567,11 @@ function MobileMonthlyDashboards({
             <h3>Thu nhập &amp; chi tiêu theo tháng</h3>
             <p>Thu nhập dạng đường, chi tiêu dạng cột</p>
           </div>
-          <span>{monthlyCashflow.length} tháng</span>
+          <DashboardPeriodFilter
+            value={cashflowPeriod}
+            onValueChange={setCashflowPeriod}
+            ariaLabel="Chọn kỳ thu nhập và chi tiêu"
+          />
         </header>
         {cashflowHasData ? (
           <div className="overview-mobile-chart-scroll">
@@ -1847,18 +1798,56 @@ function Metric({
   note,
   icon,
   tone,
+  periodData,
 }: {
   title: string;
   value: string;
   note: string;
   icon: React.ReactNode;
   tone: string;
+  periodData?: {
+    metric: "income" | "expense" | "net";
+    transactions: Transaction[];
+    reportPeriod: string;
+    currency: string;
+  };
 }) {
+  const [period, setPeriod] = useState<DashboardPeriod>("month");
+  const totals = periodData
+    ? summarizeTransactions(
+        periodData.transactions,
+        getDashboardPeriodDateRange(periodData.reportPeriod, period),
+      )
+    : null;
+  const resolvedValue =
+    !periodData || !totals
+      ? value
+      : money(
+          periodData.metric === "income"
+            ? totals.income
+            : periodData.metric === "expense"
+              ? totals.expense
+              : totals.income.minus(totals.expense),
+          periodData.currency,
+        );
+
   return (
-    <Card as="section" className={`overview-metric ${tone} gap-0 py-0`}>
+    <Card
+      as="section"
+      className={`overview-metric ${tone} relative gap-0 py-0`}
+    >
       <span>{icon}</span>
+      {periodData && (
+        <div className="absolute right-4 top-4">
+          <DashboardPeriodFilter
+            value={period}
+            onValueChange={setPeriod}
+            ariaLabel={`Chọn kỳ ${title.toLocaleLowerCase("vi")}`}
+          />
+        </div>
+      )}
       <p>{title}</p>
-      <strong>{value}</strong>
+      <strong>{resolvedValue}</strong>
       <small>{note}</small>
     </Card>
   );

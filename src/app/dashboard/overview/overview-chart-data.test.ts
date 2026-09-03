@@ -3,6 +3,7 @@ import {
   buildMemberMonthlyTotals,
   buildMonthlyBalances,
   buildMonthlyCashflow,
+  getDashboardPeriodDateRange,
   getVisibleCashflowTypes,
   type CashflowFilters,
 } from "@/app/dashboard/overview/overview-chart-data";
@@ -60,6 +61,21 @@ const transactions = [
 ];
 
 describe("overview monthly cashflow", () => {
+  it("builds month, quarter-to-date, and year-to-date ranges", () => {
+    expect(getDashboardPeriodDateRange("2026-08", "month")).toEqual({
+      from: "2026-08-01",
+      to: "2026-08-31",
+    });
+    expect(getDashboardPeriodDateRange("2026-08", "quarter")).toEqual({
+      from: "2026-07-01",
+      to: "2026-08-31",
+    });
+    expect(getDashboardPeriodDateRange("2026-08", "year")).toEqual({
+      from: "2026-01-01",
+      to: "2026-08-31",
+    });
+  });
+
   it("aggregates approved income and expense with Decimal precision", () => {
     const rows = buildMonthlyCashflow(transactions, filters);
     expect(rows.map((row) => row.period)).toEqual(["2026-05", "2026-06", "2026-07"]);

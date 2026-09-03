@@ -31,6 +31,14 @@ enum WorkflowStatus {
   @@map("WORKFLOW_STATUS")
 }
 
+enum RecurringApprovalStatus {
+  pending
+  approved
+  rejected
+
+  @@map("RECURRING_APPROVAL_STATUS")
+}
+
 enum CategoryType {
   income
   expense
@@ -181,6 +189,7 @@ model WorkspaceMember {
   requestedChanges TransactionChangeRequest[] @relation("ChangeRequester")
   reviewedChanges  TransactionChangeRequest[] @relation("ChangeReviewer")
   createdRecurringTransactions RecurringTransaction[]
+  reviewedRecurringTransactions RecurringTransaction[] @relation("RecurringReviewer")
   createdFinancialPlans FinancialPlan[]
 
   @@unique([workspaceId, userId])
@@ -363,6 +372,7 @@ model RecurringTransaction {
   id                String          @id @default(uuid()) @db.Uuid
   workspaceId       String          @map("workspace_id") @db.Uuid
   createdByMemberId String          @map("created_by_member_id") @db.Uuid
+  reviewedByMemberId String?        @map("reviewed_by_member_id") @db.Uuid
   walletId          String          @map("wallet_id") @db.Uuid
   toWalletId        String?         @map("to_wallet_id") @db.Uuid
   categoryId        String?         @map("category_id") @db.Uuid
@@ -374,6 +384,9 @@ model RecurringTransaction {
   endDate           DateTime?       @map("end_date") @db.Date
   nextExecutionDate DateTime        @map("next_execution_date") @db.Date
   status            Status          @default(active)
+  approvalStatus    RecurringApprovalStatus @default(pending) @map("approval_status")
+  reviewedAt        DateTime?       @map("reviewed_at") @db.Timestamptz(6)
+  approvedAt        DateTime?       @map("approved_at") @db.Timestamptz(6)
   completedAt       DateTime?       @map("completed_at") @db.Timestamptz(6)
   lastError         String?         @map("last_error")
   createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -381,12 +394,14 @@ model RecurringTransaction {
   deletedAt         DateTime?       @map("deleted_at") @db.Timestamptz(6)
   workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   createdBy         WorkspaceMember @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  reviewedBy        WorkspaceMember? @relation("RecurringReviewer", fields: [reviewedByMemberId], references: [id], onDelete: Restrict)
   wallet            Wallet          @relation("RecurringTransactionSourceWallet", fields: [walletId], references: [id], onDelete: Restrict)
   toWallet          Wallet?         @relation("RecurringTransactionDestinationWallet", fields: [toWalletId], references: [id], onDelete: Restrict)
   category          Category?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   transactions      Transaction[]
 
   @@index([workspaceId, status, nextExecutionDate])
+  @@index([workspaceId, approvalStatus, status, nextExecutionDate])
   @@index([walletId])
   @@index([toWalletId])
   @@index([categoryId])

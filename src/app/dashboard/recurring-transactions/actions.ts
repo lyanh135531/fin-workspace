@@ -13,16 +13,15 @@ import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import {
   createRecurringTransaction,
   deleteRecurringTransaction,
+  reviewRecurringTransaction,
   setRecurringTransactionStatus,
   updateRecurringTransaction,
 } from "@/services/recurring-transaction-service";
-import { requireWorkspaceMember } from "@/services/workspace-access";
 
-async function adminActor() {
+async function workspaceActor() {
   const session = await requireAcceptedLegalSession();
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
   if (!workspaceId) throw new AppError("FORBIDDEN", "Không có nhóm tài chính đang hoạt động.");
-  await requireWorkspaceMember(session.user.id, workspaceId, true);
   return { userId: session.user.id, workspaceId };
 }
 
@@ -41,7 +40,7 @@ function failure(error: unknown, fallback: string, event: string) {
 
 export async function createRecurringTransactionAction(input: unknown) {
   try {
-    const actor = await adminActor();
+    const actor = await workspaceActor();
     const record = await createRecurringTransaction(
       actor.userId,
       actor.workspaceId,
@@ -56,7 +55,7 @@ export async function createRecurringTransactionAction(input: unknown) {
 
 export async function updateRecurringTransactionAction(id: unknown, input: unknown) {
   try {
-    const actor = await adminActor();
+    const actor = await workspaceActor();
     await updateRecurringTransaction(
       actor.userId,
       actor.workspaceId,
@@ -72,15 +71,19 @@ export async function updateRecurringTransactionAction(id: unknown, input: unkno
 
 export async function setRecurringTransactionStatusAction(id: unknown, status: unknown) {
   try {
-    const actor = await adminActor();
-    await setRecurringTransactionStatus(
+    const actor = await workspaceActor();
+    const record = await setRecurringTransactionStatus(
       actor.userId,
       actor.workspaceId,
       idSchema.parse(id),
       recurringTransactionStatusSchema.parse(status),
     );
     refreshRecurringPages(actor.workspaceId);
-    return { ok: true as const };
+    return {
+      ok: true as const,
+      status: record.status,
+      approvalStatus: record.approvalStatus,
+    };
   } catch (error) {
     return failure(error, "Không thể thay đổi trạng thái.", "recurring_transaction.status_update_failed");
   }
@@ -88,11 +91,27 @@ export async function setRecurringTransactionStatusAction(id: unknown, status: u
 
 export async function deleteRecurringTransactionAction(id: unknown) {
   try {
-    const actor = await adminActor();
+    const actor = await workspaceActor();
     await deleteRecurringTransaction(actor.userId, actor.workspaceId, idSchema.parse(id));
     refreshRecurringPages(actor.workspaceId);
     return { ok: true as const };
   } catch (error) {
     return failure(error, "Không thể xóa giao dịch định kỳ.", "recurring_transaction.delete_failed");
+  }
+}
+
+export async function reviewRecurringTransactionAction(id: unknown, approve: boolean) {
+  try {
+    const actor = await workspaceActor();
+    await reviewRecurringTransaction(
+      actor.userId,
+      actor.workspaceId,
+      idSchema.parse(id),
+      approve,
+    );
+    refreshRecurringPages(actor.workspaceId);
+    return { ok: true as const };
+  } catch (error) {
+    return failure(error, "Không thể xử lý lịch định kỳ.", "recurring_transaction.review_failed");
   }
 }

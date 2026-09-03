@@ -84,6 +84,7 @@ function MobileNavigationDrawer({
               isAdmin={isAdmin}
               username={username}
               forceExpandedWorkspaceSwitcher
+              variant="secondary"
             />
           </div>
 
