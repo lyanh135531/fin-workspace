@@ -8,10 +8,15 @@ import {
   Empty,
   PageContainer,
   PageHeader,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   type DashboardPeriod,
 } from "@/components/base";
 import Decimal from "decimal.js";
 import {
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   TrendingDown,
   TrendingUp,
@@ -57,6 +62,7 @@ import {
   getAmountScale,
   type AmountScale,
 } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 type Transaction = {
   id: string;
@@ -121,6 +127,41 @@ function formatDateRangeLabel(dateRange: DateRangeValue): string {
   return `${formatDate(dateRange.from)} – ${formatDate(dateRange.to)}`;
 }
 
+function shiftReportPeriod(
+  periodStr: string,
+  step: number,
+  period: DashboardPeriod,
+): string {
+  const [year, month] = periodStr.split("-").map(Number);
+  if (period === "month") {
+    const date = new Date(Date.UTC(year, month - 1 + step, 1));
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
+  if (period === "quarter") {
+    const currentQuarter = Math.floor((month - 1) / 3) + 1;
+    const targetQuarter = currentQuarter + step;
+    const date = new Date(Date.UTC(year, targetQuarter * 3 - 1, 1));
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
+  const nextYear = year + step;
+  return `${nextYear}-${String(month).padStart(2, "0")}`;
+}
+
+function formatPeriodLabel(
+  periodStr: string,
+  period: DashboardPeriod,
+): string {
+  const [year, month] = periodStr.split("-").map(Number);
+  if (period === "month") {
+    return `Tháng ${String(month).padStart(2, "0")}/${year}`;
+  }
+  if (period === "quarter") {
+    const quarter = Math.floor((month - 1) / 3) + 1;
+    return `Quý ${quarter}/${year}`;
+  }
+  return `Năm ${year}`;
+}
+
 function summarizeTransactions(
   transactions: Transaction[],
   dateRange: DateRangeValue,
@@ -148,6 +189,42 @@ export function OverviewDashboard({
   transactions,
 }: Props) {
   const [isMobile, setIsMobile] = useState(false);
+
+  // Desktop global period states
+  const [globalPeriod, setGlobalPeriod] = useState<DashboardPeriod>("month");
+  const [activeReportPeriod, setActiveReportPeriod] = useState<string>(reportPeriod);
+  const activeDateRange = getDashboardPeriodDateRange(
+    activeReportPeriod,
+    globalPeriod,
+  );
+  const activeTotals = summarizeTransactions(transactions, activeDateRange);
+  const activeNetCashflow = activeTotals.income.minus(activeTotals.expense);
+  const desktopExpenseByCategory = (() => {
+    const rows = new Map<
+      string,
+      { name: string; color: string; icon: string | null; amount: Decimal }
+    >();
+    transactions
+      .filter(
+        (item) =>
+          item.status === "approved" &&
+          isInDateRange(item.date, activeDateRange),
+      )
+      .filter((item) => item.type === "expense")
+      .forEach((item) => {
+        const key = item.categoryId ?? "uncategorized";
+        const prior = rows.get(key);
+        rows.set(key, {
+          name: item.category?.name ?? "Chưa phân loại",
+          color: item.category?.color ?? "var(--chart-7)",
+          icon: item.category?.icon ?? "tag",
+          amount: (prior?.amount ?? new Decimal(0)).plus(item.amount),
+        });
+      });
+    return [...rows.values()].sort((a, b) => b.amount.comparedTo(a.amount));
+  })();
+
+  // Mobile local period states (preserved for mobile-specific cards)
   const [balancePeriod, setBalancePeriod] = useState<DashboardPeriod>("month");
   const [summaryPeriod, setSummaryPeriod] = useState<DashboardPeriod>("month");
   const [categoryPeriod, setCategoryPeriod] = useState<DashboardPeriod>("month");
@@ -220,7 +297,91 @@ export function OverviewDashboard({
         <PageHeader
           title="Tổng quan tài chính"
           description={`${workspace.name} · Thu nhập, chi tiêu và số dư hiện tại.`}
-        />
+        >
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5 select-none">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="size-7 p-0 rounded-md text-[var(--text-secondary)] hover:text-[var(--foreground)] touch-manipulation"
+                onClick={() =>
+                  setActiveReportPeriod((prev) =>
+                    shiftReportPeriod(prev, -1, globalPeriod),
+                  )
+                }
+                aria-label="Kỳ trước"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span
+                onClick={() =>
+                  activeReportPeriod !== reportPeriod &&
+                  setActiveReportPeriod(reportPeriod)
+                }
+                title={
+                  activeReportPeriod !== reportPeriod
+                    ? "Bấm để về kỳ hiện tại"
+                    : undefined
+                }
+                className={cn(
+                  "min-w-[6.5rem] px-2 text-center text-xs font-medium tabular-nums select-none transition-colors",
+                  activeReportPeriod !== reportPeriod
+                    ? "cursor-pointer text-[var(--foreground)] hover:text-[var(--primary)]"
+                    : "cursor-default text-[var(--foreground)]",
+                )}
+              >
+                {formatPeriodLabel(activeReportPeriod, globalPeriod)}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="size-7 p-0 rounded-md text-[var(--text-secondary)] hover:text-[var(--foreground)] touch-manipulation"
+                onClick={() =>
+                  setActiveReportPeriod((prev) =>
+                    shiftReportPeriod(prev, 1, globalPeriod),
+                  )
+                }
+                aria-label="Kỳ sau"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+
+            <Tabs
+              value={globalPeriod}
+              onValueChange={(val) => setGlobalPeriod(val as DashboardPeriod)}
+              className="gap-0"
+            >
+              <TabsList
+                variant="navigation"
+                className="inline-grid w-auto grid-cols-3 gap-0.5"
+                aria-label="Chọn kỳ xem dữ liệu"
+              >
+                <TabsTrigger
+                  value="month"
+                  variant="navigation"
+                  className="h-7 px-3 text-xs"
+                >
+                  Tháng
+                </TabsTrigger>
+                <TabsTrigger
+                  value="quarter"
+                  variant="navigation"
+                  className="h-7 px-3 text-xs"
+                >
+                  Quý
+                </TabsTrigger>
+                <TabsTrigger
+                  value="year"
+                  variant="navigation"
+                  className="h-7 px-3 text-xs"
+                >
+                  Năm
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </PageHeader>
 
         <section
           className="grid grid-cols-1 gap-5 lg:grid-cols-12"
@@ -248,11 +409,6 @@ export function OverviewDashboard({
                   {balanceLabel}
                 </strong>
               </div>
-              <DashboardPeriodFilter
-                value={balancePeriod}
-                onValueChange={setBalancePeriod}
-                ariaLabel="Chọn kỳ dòng tiền của thẻ tổng số dư"
-              />
             </div>
             <div className="mt-7 flex items-center justify-between gap-4 border-t border-[color-mix(in_srgb,var(--primary)_15%,var(--border))] pt-4 text-xs">
               <span className="inline-flex items-center gap-2 text-[var(--text-muted)]">
@@ -263,15 +419,15 @@ export function OverviewDashboard({
                 {wallets.length} ví đang hoạt động
               </span>
               <span
-                className={`inline-flex items-center gap-1.5 font-semibold tabular-nums ${netCashflow.isNegative() ? "text-[var(--expense)]" : "text-[var(--income)]"}`}
+                className={`inline-flex items-center gap-1.5 font-semibold tabular-nums ${activeNetCashflow.isNegative() ? "text-[var(--expense)]" : "text-[var(--income)]"}`}
               >
-                {netCashflow.isNegative() ? (
+                {activeNetCashflow.isNegative() ? (
                   <TrendingDown size={14} aria-hidden="true" />
                 ) : (
                   <TrendingUp size={14} aria-hidden="true" />
                 )}
-                {netCashflow.isNegative() ? "−" : "+"}
-                {money(netCashflow.abs(), workspace.currency)} trong kỳ
+                {activeNetCashflow.isNegative() ? "−" : "+"}
+                {money(activeNetCashflow.abs(), workspace.currency)} trong kỳ
               </span>
             </div>
           </Card>
@@ -283,29 +439,24 @@ export function OverviewDashboard({
                   Dòng tiền trong kỳ
                 </h2>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Chỉ tính các giao dịch đã ghi nhận
+                  Chỉ tính các giao dịch đã ghi nhận · {formatDateRangeLabel(activeDateRange)}
                 </p>
               </div>
-              <DashboardPeriodFilter
-                value={summaryPeriod}
-                onValueChange={setSummaryPeriod}
-                ariaLabel="Chọn kỳ tóm tắt dòng tiền"
-              />
             </header>
             <dl className="grid grid-cols-3 border-t border-[var(--border)] pt-5 [&>div+div]:border-l [&>div+div]:border-[var(--border)] [&>div+div]:pl-5">
               <SummaryStat
                 label="Thu nhập"
-                value={money(summaryTotals.income, workspace.currency)}
+                value={money(activeTotals.income, workspace.currency)}
                 tone="income"
               />
               <SummaryStat
                 label="Chi tiêu"
-                value={money(summaryTotals.expense, workspace.currency)}
+                value={money(activeTotals.expense, workspace.currency)}
                 tone="expense"
               />
               <SummaryStat
                 label="Dòng tiền ròng"
-                value={money(summaryNetCashflow, workspace.currency)}
+                value={money(activeNetCashflow, workspace.currency)}
                 tone="primary"
               />
             </dl>
@@ -316,7 +467,8 @@ export function OverviewDashboard({
           members={members}
           transactions={transactions}
           currency={workspace.currency}
-          reportPeriod={reportPeriod}
+          reportPeriod={activeReportPeriod}
+          periodOverride={globalPeriod}
           isMobile={false}
         />
 
@@ -326,7 +478,8 @@ export function OverviewDashboard({
               wallets={wallets}
               transactions={transactions}
               currency={workspace.currency}
-              reportPeriod={reportPeriod}
+              reportPeriod={activeReportPeriod}
+              periodOverride={globalPeriod}
               isMobile={false}
             />
           </div>
@@ -340,16 +493,13 @@ export function OverviewDashboard({
                   Tỷ trọng trong kỳ đã chọn
                 </p>
               </div>
-              <DashboardPeriodFilter
-                value={categoryPeriod}
-                onValueChange={setCategoryPeriod}
-                ariaLabel="Chọn kỳ chi tiêu theo danh mục"
-              />
             </header>
-            {expenseByCategory.length ? (
+            {desktopExpenseByCategory.length ? (
               <div className="space-y-4 border-t border-[var(--border)] pt-5">
-                {expenseByCategory.slice(0, 6).map((item) => {
-                  const percentage = item.amount.div(categoryTotals.expense).times(100);
+                {desktopExpenseByCategory.slice(0, 6).map((item) => {
+                  const percentage = activeTotals.expense.isZero()
+                    ? new Decimal(0)
+                    : item.amount.div(activeTotals.expense).times(100);
                   return (
                     <div key={item.name}>
                       <div className="flex items-center justify-between gap-4 text-xs">
@@ -569,14 +719,17 @@ function CashflowOverviewCharts({
   currency,
   reportPeriod,
   isMobile,
+  periodOverride,
 }: {
   members: { id: string; name: string }[];
   transactions: Transaction[];
   currency: string;
   reportPeriod: string;
   isMobile: boolean;
+  periodOverride?: DashboardPeriod;
 }) {
-  const [period, setPeriod] = useState<DashboardPeriod>("month");
+  const [internalPeriod, setInternalPeriod] = useState<DashboardPeriod>("month");
+  const period = periodOverride ?? internalPeriod;
   const dateRange = getDashboardPeriodDateRange(reportPeriod, period);
   const range: CashflowRange = 12;
   const showMemberExpenseChart = members.length > 1;
@@ -633,11 +786,13 @@ function CashflowOverviewCharts({
           </p>
         </div>
         <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
-          <DashboardPeriodFilter
-            value={period}
-            onValueChange={setPeriod}
-            ariaLabel="Chọn kỳ biểu đồ thu nhập và chi tiêu"
-          />
+          {(!periodOverride || isMobile) && (
+            <DashboardPeriodFilter
+              value={period}
+              onValueChange={setInternalPeriod}
+              ariaLabel="Chọn kỳ biểu đồ thu nhập và chi tiêu"
+            />
+          )}
           <span
             className={`text-xs text-[var(--text-muted)] tabular-nums ${isMobile ? "hidden" : ""}`}
           >
@@ -700,14 +855,17 @@ function BalanceHistoryChart({
   currency,
   reportPeriod,
   isMobile,
+  periodOverride,
 }: {
   wallets: { id: string; name: string; balance: string }[];
   transactions: Transaction[];
   currency: string;
   reportPeriod: string;
   isMobile: boolean;
+  periodOverride?: DashboardPeriod;
 }) {
-  const [period, setPeriod] = useState<DashboardPeriod>("month");
+  const [internalPeriod, setInternalPeriod] = useState<DashboardPeriod>("month");
+  const period = periodOverride ?? internalPeriod;
   const dateRange = getDashboardPeriodDateRange(reportPeriod, period);
   const visibleWallets = wallets;
   const balances = buildMonthlyBalances(wallets, transactions, {
@@ -765,11 +923,13 @@ function BalanceHistoryChart({
           </p>
         </div>
         <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
-          <DashboardPeriodFilter
-            value={period}
-            onValueChange={setPeriod}
-            ariaLabel="Chọn kỳ lịch sử số dư"
-          />
+          {(!periodOverride || isMobile) && (
+            <DashboardPeriodFilter
+              value={period}
+              onValueChange={setInternalPeriod}
+              ariaLabel="Chọn kỳ lịch sử số dư"
+            />
+          )}
           <span
             className={`text-xs text-[var(--text-muted)] tabular-nums ${isMobile ? "hidden" : ""}`}
           >
