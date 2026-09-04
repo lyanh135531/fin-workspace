@@ -461,58 +461,18 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           }
         >
           <SheetHeader
-            className={cn(
-              !isDesktop &&
-                "border-b border-[var(--border)] px-4 pb-4 pt-5 sm:px-6 sm:pt-6",
-              isMobile && "quick-transaction-header",
-              isDesktop && "px-8 pt-7 pb-[1.4rem]",
-            )}
-          >
-            <div
-              className={cn(
-                isMobile && "quick-transaction-heading",
-                isDesktop && "flex items-center gap-3.5 pr-12",
-              )}
-            >
-              {(isMobile || isDesktop) && (
-                <span
-                  className={cn(
-                    isDesktop &&
-                      "grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]",
-                  )}
-                  aria-hidden="true"
-                >
-                  <FolderTree size={18} />
-                </span>
-              )}
-              <div>
-                <SheetTitle
-                  className={cn(
-                    isDesktop &&
-                      "text-[1.3rem] font-semibold tracking-[-0.02em]",
-                  )}
-                >
-                  {editingCategory
-                    ? "Chỉnh sửa danh mục"
-                    : `Thêm danh mục ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`}
-                </SheetTitle>
-                <SheetDescription
-                  className={cn(
-                    isDesktop &&
-                      "mt-1 max-w-[30rem] text-[0.82rem] leading-[1.55]",
-                  )}
-                >
-                  {editingCategory
-                    ? isDesktop
-                      ? "Cập nhật thông tin, màu sắc và biểu tượng của danh mục."
-                      : `Cập nhật thông tin cho “${editingCategory.name}”.`
-                    : isDesktop
-                      ? "Tạo danh mục mới để sử dụng trong nhóm này."
-                      : "Tạo danh mục mới trong nhóm này."}
-                </SheetDescription>
-              </div>
-            </div>
-          </SheetHeader>
+            icon={FolderTree}
+            title={
+              editingCategory
+                ? "Chỉnh sửa danh mục"
+                : `Thêm danh mục ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`
+            }
+            description={
+              editingCategory
+                ? "Cập nhật thông tin, màu sắc và biểu tượng của danh mục."
+                : "Tạo danh mục mới để sử dụng trong nhóm này."
+            }
+          />
           {(creating || editingCategory) && (
             <CategoryForm
               key={editingCategory?.id ?? `create-${filterType}`}
@@ -1374,30 +1334,14 @@ function CategoryForm({
         </div>
       </div>
 
-      <div
-        className={cn(
-          "mt-auto flex justify-end gap-2 border-t px-4 py-3 sm:px-6",
-          isMobile && "quick-transaction-footer",
-          isDesktop && "px-8 py-5",
-        )}
-      >
-        <Button
-          type="button"
-          variant="outline"
-          className="hover:text-current max-sm:hidden"
-          onClick={onCancel}
-        >
-          Hủy bỏ
-        </Button>
-        <Button
-          type="submit"
-          variant="default"
-          disabled={pending}
-          className={cn(isMobile && "quick-submit flex-1")}
-        >
-          {pending ? <Loading label="Đang xử lý..." /> : "Lưu danh mục"}
-        </Button>
-      </div>
+      <SheetFooter
+        onCancel={onCancel}
+        cancelLabel="Hủy"
+        submitLabel="Lưu danh mục"
+        isSubmitting={pending}
+        submittingLabel="Đang xử lý..."
+        submitType="submit"
+      />
     </form>
   );
 }

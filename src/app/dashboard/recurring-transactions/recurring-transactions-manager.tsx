@@ -757,53 +757,10 @@ export function RecurringTransactionsManager({
               }
             >
               <SheetHeader
-                className={cn(
-                  isMobile
-                    ? "recurring-sheet-header border-b border-border"
-                    : "px-8 pb-5 pt-7",
-                )}
-              >
-                <div
-                  className={cn(
-                    isMobile
-                      ? "recurring-sheet-heading"
-                      : "flex items-start gap-3.5",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      !isMobile &&
-                      "grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] text-[var(--primary)]",
-                    )}
-                    aria-hidden="true"
-                  >
-                    <Repeat2 size={18} />
-                  </span>
-                  <div className="min-w-0 pt-0.5">
-                    <SheetTitle
-                      className={cn(
-                        isMobile
-                          ? "text-lg font-semibold tracking-tight"
-                          : "text-xl font-semibold tracking-tight",
-                      )}
-                    >
-                      {editingId
-                        ? "Chỉnh sửa lịch tự động"
-                        : "Tạo giao dịch định kỳ"}
-                    </SheetTitle>
-                    <SheetDescription
-                      className={cn(
-                        isMobile
-                          ? "recurring-desktop-sheet-description"
-                          : "mt-1 max-w-[30rem] text-xs leading-5 text-[var(--text-muted)]",
-                      )}
-                    >
-                      Thiết lập nội dung, nguồn tiền và thời gian ghi nhận tự
-                      động.
-                    </SheetDescription>
-                  </div>
-                </div>
-              </SheetHeader>
+                icon={Repeat2}
+                title={editingId ? "Chỉnh sửa lịch tự động" : "Tạo giao dịch định kỳ"}
+                description="Thiết lập nội dung, nguồn tiền và thời gian ghi nhận tự động."
+              />
               {draft && (
                 <div
                   className={cn(
@@ -826,20 +783,14 @@ export function RecurringTransactionsManager({
                 </div>
               )}
               <SheetFooter
-                className={cn(
-                  "shrink-0 flex-row justify-end gap-2 border-t border-[var(--border)]",
-                  isMobile
-                    ? "recurring-sheet-footer bg-[var(--surface)] px-6 py-4"
-                    : "px-8 py-4",
-                )}
-              >
-                <Button variant="outline" disabled={busy} onClick={closeEditor}>
-                  Hủy
-                </Button>
-                <Button variant="default" disabled={busy} onClick={save}>
-                  {busy ? <Loading label="Đang lưu..." /> : "Lưu đăng ký"}
-                </Button>
-              </SheetFooter>
+                onCancel={closeEditor}
+                cancelLabel="Hủy"
+                submitLabel={editingId ? "Lưu thay đổi" : "Lưu đăng ký"}
+                isSubmitting={busy}
+                submittingLabel="Đang lưu..."
+                onSubmit={save}
+                submitType="button"
+              />
             </SheetContent>
           </Sheet>
 
@@ -1489,7 +1440,7 @@ function RecurringEditor({
                   disabled={option.value === "transfer" && wallets.length < 2}
                 >
                   <Icon className="transition-colors" />
-                  <span>{option.tabLabel}</span>
+                  <span>{isMobile ? option.tabLabel : option.label}</span>
                 </TabsTrigger>
               );
             })}

@@ -2478,61 +2478,21 @@ function RatioList({ ratios }: { ratios: RatioDraft }) {
 }
 
 function PlanSheetHeader({
-  isMobile,
   icon: Icon,
   title,
   description,
 }: {
-  isMobile: boolean;
+  isMobile?: boolean;
   icon: typeof Target;
   title: string;
   description: string;
 }) {
   return (
     <SheetHeader
-      className={cn(
-        !isMobile
-          ? "px-8 pt-7 pb-[1.4rem] border-b border-[var(--border)]"
-          : "quick-transaction-header",
-      )}
-    >
-      <div
-        className={cn(
-          !isMobile
-            ? "flex items-center gap-3.5 pr-12"
-            : "quick-transaction-heading",
-        )}
-      >
-        <span
-          className={cn(
-            !isMobile
-              ? "grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
-              : undefined,
-          )}
-          aria-hidden="true"
-        >
-          <Icon size={!isMobile ? 19 : 18} />
-        </span>
-        <div className="min-w-0">
-          <SheetTitle
-            className={cn(
-              !isMobile &&
-              "text-[1.3rem] font-semibold tracking-[-0.02em]",
-            )}
-          >
-            {title}
-          </SheetTitle>
-          <SheetDescription
-            className={cn(
-              !isMobile &&
-              "mt-0.5 text-xs text-[var(--text-muted)]",
-            )}
-          >
-            {description}
-          </SheetDescription>
-        </div>
-      </div>
-    </SheetHeader>
+      icon={Icon}
+      title={title}
+      description={description}
+    />
   );
 }
 
@@ -2760,21 +2720,15 @@ function PlanEditorSheet({
           )}
         </div>
         <SheetFooter
-          className={cn(
-            isMobile
-              ? "quick-transaction-footer"
-              : "px-8 py-4 border-t border-[var(--border)] flex justify-end gap-3",
-          )}
-        >
-          <Button
-            onClick={submit}
-            disabled={disabled || isPending || !valid}
-            aria-busy={isPending}
-          >
-            {isPending && <LoaderCircle className="animate-spin" aria-hidden />}
-            {plan ? "Lưu bản nháp" : "Tạo bản nháp"}
-          </Button>
-        </SheetFooter>
+          onCancel={() => onOpenChange(false)}
+          cancelLabel="Hủy"
+          submitLabel={plan ? "Lưu bản nháp" : "Tạo bản nháp"}
+          isSubmitting={isPending}
+          submittingLabel={plan ? "Đang lưu..." : "Đang tạo..."}
+          submitDisabled={disabled || isPending || !valid}
+          onSubmit={submit}
+          submitType="button"
+        />
       </SheetContent>
     </Sheet>
   );
@@ -2833,21 +2787,13 @@ function DeadlineSheet({
           />
         </div>
         <SheetFooter
-          className={cn(
-            isMobile
-              ? "quick-transaction-footer"
-              : "px-8 py-4 border-t border-[var(--border)] flex justify-end",
-          )}
-        >
-          <Button
-            size={isMobile ? "lg" : "default"}
-            className={isMobile ? "w-full" : undefined}
-            onClick={() => onSave(targetMonth)}
-            disabled={disabled || targetMonth < plan.businessMonth}
-          >
-            Áp dụng
-          </Button>
-        </SheetFooter>
+          onCancel={() => onOpenChange(false)}
+          cancelLabel="Hủy"
+          submitLabel="Áp dụng"
+          submitDisabled={disabled || targetMonth < plan.businessMonth}
+          onSubmit={() => onSave(targetMonth)}
+          submitType="button"
+        />
       </SheetContent>
     </Sheet>
   );
@@ -2900,21 +2846,13 @@ function AllocationSheet({
           <RatioEditor ratios={ratios} onChange={setRatios} />
         </div>
         <SheetFooter
-          className={cn(
-            isMobile
-              ? "quick-transaction-footer"
-              : "px-8 py-4 border-t border-[var(--border)] flex justify-end",
-          )}
-        >
-          <Button
-            size={isMobile ? "lg" : "default"}
-            className={isMobile ? "w-full" : undefined}
-            onClick={() => onSave(ratios)}
-            disabled={disabled || !total.equals(100)}
-          >
-            Áp dụng từ tháng sau
-          </Button>
-        </SheetFooter>
+          onCancel={() => onOpenChange(false)}
+          cancelLabel="Hủy"
+          submitLabel="Áp dụng từ tháng sau"
+          submitDisabled={disabled || !total.equals(100)}
+          onSubmit={() => onSave(ratios)}
+          submitType="button"
+        />
       </SheetContent>
     </Sheet>
   );

@@ -359,8 +359,6 @@ export function WalletManagement({
   );
   const [isDesktop, setIsDesktop] = useState(false);
   const [pending, startTransition] = useTransition();
-  const CreateActionsContainer = isDesktop ? SheetFooter : "div";
-  const EditActionsContainer = isDesktop ? SheetFooter : "div";
 
   useEffect(() => {
     const query = window.matchMedia("(min-width: 901px)");
@@ -1263,47 +1261,10 @@ export function WalletManagement({
             aria-busy={pending}
           >
             <SheetHeader
-              className={cn(
-                isDesktop ? "px-8 pt-7 pb-[1.4rem]" : "quick-transaction-header",
-              )}
-            >
-              <div
-                className={cn(
-                  isDesktop
-                    ? "flex items-center gap-3.5 pr-12"
-                    : "quick-transaction-heading",
-                )}
-              >
-                <span
-                  className={cn(
-                    isDesktop
-                      ? "grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
-                      : undefined,
-                  )}
-                  aria-hidden="true"
-                >
-                  <WalletCards size={isDesktop ? 19 : 18} />
-                </span>
-                <div className="min-w-0">
-                  <SheetTitle
-                    className={cn(
-                      isDesktop &&
-                      "text-[1.3rem] font-semibold tracking-[-0.02em]",
-                    )}
-                  >
-                    Tạo ví mới
-                  </SheetTitle>
-                  <SheetDescription
-                    className={cn(
-                      isDesktop &&
-                      "mt-1 max-w-[30rem] text-[0.82rem] leading-[1.55]",
-                    )}
-                  >
-                    Tạo nơi theo dõi tiền mặt, tài khoản hoặc quỹ riêng.
-                  </SheetDescription>
-                </div>
-              </div>
-            </SheetHeader>
+              icon={WalletCards}
+              title="Tạo ví mới"
+              description="Tạo nơi theo dõi tiền mặt, tài khoản hoặc quỹ riêng."
+            />
 
             <div
               className={cn(
@@ -1496,43 +1457,19 @@ export function WalletManagement({
               </section>
             </div>
 
-            <CreateActionsContainer
-              className={cn(
-                isDesktop
-                  ? "flex-row items-center justify-end border-t border-[var(--border)] px-8 py-5 gap-3"
-                  : "quick-transaction-footer",
-              )}
-            >
-              {isDesktop && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={closeCreateSheet}
-                >
-                  Để sau
-                </Button>
-              )}
-              <Button
-                type="submit"
-                variant="default"
-                size={isDesktop ? "default" : "lg"}
-                className={isDesktop ? undefined : "w-full"}
-                disabled={
-                  pending ||
-                  !createFundingAmountIsValid ||
-                  (createFundingType === "transfer" && !createFundingWalletId)
-                }
-              >
-                {pending ? (
-                  <Loading label="Đang tạo..." />
-                ) : (
-                  <>
-                    <Plus size={16} />
-                    Tạo ví
-                  </>
-                )}
-              </Button>
-            </CreateActionsContainer>
+            <SheetFooter
+              onCancel={closeCreateSheet}
+              cancelLabel="Hủy"
+              submitLabel="Tạo ví"
+              isSubmitting={pending}
+              submittingLabel="Đang tạo..."
+              submitDisabled={
+                pending ||
+                !createFundingAmountIsValid ||
+                (createFundingType === "transfer" && !createFundingWalletId)
+              }
+              submitType="submit"
+            />
           </form>
         </SheetContent>
       </Sheet>
@@ -1552,48 +1489,14 @@ export function WalletManagement({
           className={isDesktop ? undefined : "wallet-edit-sheet"}
         >
           <SheetHeader
-            className={cn(
-              isDesktop ? "px-8 pt-7 pb-[1.4rem]" : "wallet-edit-header",
-            )}
-          >
-            <div
-              className={cn(
-                isDesktop
-                  ? "flex items-center gap-3.5 pr-12"
-                  : "wallet-edit-heading",
-              )}
-            >
-              <span
-                className={cn(
-                  isDesktop &&
-                  "grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]",
-                )}
-                aria-hidden="true"
-              >
-                <Pencil size={17} />
-              </span>
-              <div className="min-w-0">
-                <SheetTitle
-                  className={cn(
-                    isDesktop &&
-                    "text-[1.3rem] font-semibold tracking-[-0.02em]",
-                  )}
-                >
-                  Chỉnh sửa ví
-                </SheetTitle>
-                <SheetDescription
-                  className={cn(
-                    isDesktop &&
-                    "mt-1 max-w-[30rem] text-[0.82rem] leading-[1.55]",
-                  )}
-                >
-                  {isDesktop
-                    ? "Cập nhật tên và ghi chú giúp thành viên nhận diện đúng ví."
-                    : (editingWallet?.name ?? "Cập nhật thông tin ví")}
-                </SheetDescription>
-              </div>
-            </div>
-          </SheetHeader>
+            icon={Pencil}
+            title="Chỉnh sửa ví"
+            description={
+              isDesktop
+                ? "Cập nhật tên và ghi chú giúp thành viên nhận diện đúng ví."
+                : (editingWallet?.name ?? "Cập nhật thông tin ví")
+            }
+          />
 
           {editingWallet && (
             <form
@@ -1770,24 +1673,14 @@ export function WalletManagement({
                 </section>
               </div>
 
-              <EditActionsContainer
-                className={cn(
-                  isDesktop
-                    ? "flex-row items-center justify-end border-t border-[var(--border)] px-8 py-5"
-                    : "wallet-edit-actions",
-                )}
-              >
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEditingWallet(null)}
-                >
-                  Hủy
-                </Button>
-                <Button type="submit" variant="default" disabled={pending}>
-                  {pending ? <Loading label="Đang lưu..." /> : "Lưu thay đổi"}
-                </Button>
-              </EditActionsContainer>
+              <SheetFooter
+                onCancel={() => setEditingWallet(null)}
+                cancelLabel="Hủy"
+                submitLabel="Lưu thay đổi"
+                isSubmitting={pending}
+                submittingLabel="Đang lưu..."
+                submitType="submit"
+              />
             </form>
           )}
         </SheetContent>
