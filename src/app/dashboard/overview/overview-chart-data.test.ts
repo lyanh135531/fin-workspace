@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDailyBalances,
+  buildDailyCashflow,
   buildMemberMonthlyTotals,
   buildMonthlyBalances,
   buildMonthlyCashflow,
+  daysInDateRange,
   getDashboardPeriodDateRange,
   getVisibleCashflowTypes,
   type CashflowFilters,
@@ -227,5 +230,114 @@ describe("overview monthly cashflow", () => {
       hasNegativeBalance: true,
     });
     expect(Object.keys(rows[0].wallets)).toEqual(["wallet-a"]);
+  });
+
+  it("generates continuous list of days in date range", () => {
+    const days = daysInDateRange({
+      from: "2026-07-01",
+      to: "2026-07-05",
+    });
+    expect(days).toEqual([
+      "2026-07-01",
+      "2026-07-02",
+      "2026-07-03",
+      "2026-07-04",
+      "2026-07-05",
+    ]);
+  });
+
+  it("builds daily cashflow across a month with approved transactions", () => {
+    const dailyRows = buildDailyCashflow(transactions, {
+      ...filters,
+      dateRange: {
+        from: "2026-07-01",
+        to: "2026-07-05",
+      },
+    });
+
+    expect(dailyRows).toHaveLength(5);
+    expect(dailyRows.map((r) => r.period)).toEqual([
+      "2026-07-01",
+      "2026-07-02",
+      "2026-07-03",
+      "2026-07-04",
+      "2026-07-05",
+    ]);
+
+    // 2026-07-03 had approved income of 1250.25
+    expect(dailyRows[2]).toEqual({
+      period: "2026-07-03",
+      income: "1250.25",
+      expense: "0",
+      warningFrom: "0",
+      warningTo: "0",
+      hasWarning: false,
+    });
+
+    // 2026-07-01 had 0
+    expect(dailyRows[0].income).toBe("0");
+    expect(dailyRows[0].expense).toBe("0");
+  });
+
+  it("builds daily balances across a date range by rolling back daily transactions", () => {
+    const dailyRows = buildDailyBalances(
+      [
+        { id: "wallet-a", name: "Ví chính", balance: "1000" },
+      ],
+      [
+        {
+          amount: "200",
+          type: "income",
+          status: "approved",
+          date: "2026-07-03T10:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: null,
+          categoryId: "cat-1",
+          memberId: "m-1",
+        },
+        {
+          amount: "50",
+          type: "expense",
+          status: "approved",
+          date: "2026-07-02T10:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: null,
+          categoryId: "cat-2",
+          memberId: "m-1",
+        },
+      ],
+      {
+        walletId: "all",
+        dateRange: {
+          from: "2026-07-01",
+          to: "2026-07-03",
+        },
+      },
+    );
+
+    // Current balance at end of 07-03 is 1000.
+    // Day 07-03 closing: 1000
+    // Reversing 07-03 income of 200 -> Day 07-02 closing: 800
+    // Reversing 07-02 expense of 50 -> Day 07-01 closing: 850
+    expect(dailyRows).toEqual([
+      {
+        period: "2026-07-01",
+        total: "850",
+        wallets: { "wallet-a": "850" },
+        hasNegativeBalance: false,
+      },
+      {
+        period: "2026-07-02",
+        total: "800",
+        wallets: { "wallet-a": "800" },
+        hasNegativeBalance: false,
+      },
+      {
+        period: "2026-07-03",
+        total: "1000",
+        wallets: { "wallet-a": "1000" },
+        hasNegativeBalance: false,
+      },
+    ]);
   });
 });

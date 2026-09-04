@@ -1,5 +1,11 @@
-import { OverviewPageSkeleton } from "@/components/base"
+import { OverviewPageSkeleton, PageContainer } from "@/components/base";
 
 export default function Loading() {
-  return <OverviewPageSkeleton />
+  return (
+    <PageContainer>
+      <div className="min-[901px]:mx-auto min-[901px]:max-w-[76rem]">
+        <OverviewPageSkeleton />
+      </div>
+    </PageContainer>
+  );
 }

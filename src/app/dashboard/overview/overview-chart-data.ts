@@ -294,6 +294,145 @@ export function buildMonthlyBalances(
   });
 }
 
+export function daysInDateRange(dateRange: DateRangeValue): string[] {
+  if (dateRange.from > dateRange.to) {
+    throw new RangeError(`Invalid date range "${dateRange.from}"–"${dateRange.to}".`);
+  }
+
+  const [fromYear, fromMonth, fromDay] = dateRange.from.split("-").map(Number);
+  const [toYear, toMonth, toDay] = dateRange.to.split("-").map(Number);
+  const cursor = new Date(Date.UTC(fromYear, fromMonth - 1, fromDay));
+  const end = new Date(Date.UTC(toYear, toMonth - 1, toDay));
+  const days: string[] = [];
+
+  while (cursor <= end) {
+    days.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return days;
+}
+
+export function buildDailyCashflow(
+  transactions: ChartTransaction[],
+  filters: Omit<CashflowFilters, "range"> & { dateRange: DateRangeValue },
+): MonthlyCashflow[] {
+  const days = daysInDateRange(filters.dateRange);
+  const daySet = new Set(days);
+  const totals = new Map(
+    days.map((day) => [
+      day,
+      { income: new Decimal(0), expense: new Decimal(0) },
+    ]),
+  );
+
+  for (const transaction of transactions) {
+    const txDay = transaction.date.slice(0, 10);
+    if (
+      transaction.status !== "approved"
+      || transaction.type === "transfer"
+      || !daySet.has(txDay)
+      || (filters.walletId !== "all"
+        && transaction.walletId !== filters.walletId
+        && transaction.toWalletId !== filters.walletId)
+      || (filters.categoryId !== "all" && transaction.categoryId !== filters.categoryId)
+      || (filters.memberId !== "all" && transaction.memberId !== filters.memberId)
+      || (filters.transactionType !== "all" && transaction.type !== filters.transactionType)
+    ) {
+      continue;
+    }
+
+    const dayTotals = totals.get(txDay);
+    if (!dayTotals) continue;
+    dayTotals[transaction.type] = dayTotals[transaction.type].plus(transaction.amount);
+  }
+
+  return days.map((day) => {
+    const dayTotals = totals.get(day);
+    const income = dayTotals?.income ?? new Decimal(0);
+    const expense = dayTotals?.expense ?? new Decimal(0);
+    const hasWarning = expense.greaterThan(income);
+
+    return {
+      period: day,
+      income: income.toString(),
+      expense: expense.toString(),
+      warningFrom: (hasWarning ? income : expense).toString(),
+      warningTo: expense.toString(),
+      hasWarning,
+    };
+  });
+}
+
+export function buildDailyBalances(
+  wallets: BalanceWallet[],
+  transactions: ChartTransaction[],
+  filters: {
+    walletId: string;
+    dateRange: DateRangeValue;
+  },
+): MonthlyBalance[] {
+  const days = daysInDateRange(filters.dateRange);
+  const visibleWallets = filters.walletId === "all"
+    ? wallets
+    : wallets.filter((wallet) => wallet.id === filters.walletId);
+  const balances = new Map(
+    visibleWallets.map((wallet) => [wallet.id, new Decimal(wallet.balance)]),
+  );
+  const rows = new Map<string, MonthlyBalance>();
+
+  for (const transaction of transactions) {
+    if (
+      transaction.status === "approved"
+      && transaction.date.slice(0, 10) > filters.dateRange.to
+    ) {
+      reverseBalanceTransaction(balances, transaction);
+    }
+  }
+
+  for (let index = days.length - 1; index >= 0; index -= 1) {
+    const day = days[index];
+    const walletBalances = Object.fromEntries(
+      visibleWallets.map((wallet) => [
+        wallet.id,
+        (balances.get(wallet.id) ?? new Decimal(0)).toString(),
+      ]),
+    );
+    const total = visibleWallets.reduce(
+      (sum, wallet) => sum.plus(balances.get(wallet.id) ?? 0),
+      new Decimal(0),
+    );
+
+    rows.set(day, {
+      period: day,
+      total: total.toString(),
+      wallets: walletBalances,
+      hasNegativeBalance: visibleWallets.some((wallet) =>
+        (balances.get(wallet.id) ?? new Decimal(0)).isNegative()),
+    });
+
+    if (index === 0) continue;
+
+    for (const transaction of transactions) {
+      if (
+        transaction.status !== "approved"
+        || transaction.date.slice(0, 10) !== day
+      ) {
+        continue;
+      }
+
+      reverseBalanceTransaction(balances, transaction);
+    }
+  }
+
+  return days.map((day) => rows.get(day) ?? {
+    period: day,
+    total: "0",
+    wallets: {},
+    hasNegativeBalance: false,
+  });
+}
+
 function periodsInDateRange(dateRange: DateRangeValue): string[] {
   if (dateRange.from > dateRange.to) {
     throw new RangeError(`Invalid date range "${dateRange.from}"–"${dateRange.to}".`);

@@ -1,5 +1,2 @@
-import { OverviewPageSkeleton } from "@/components/base"
+export { default } from "@/app/dashboard/overview/loading";
 
-export default function Loading() {
-  return <OverviewPageSkeleton />
-}

@@ -8,6 +8,8 @@ import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 
+import { PageContainer } from "@/components/base";
+
 export default async function OverviewPage() {
   const session = await requireAcceptedLegalPageSession();
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
@@ -66,31 +68,37 @@ export default async function OverviewPage() {
     return totals;
   }, {});
 
-  return <OverviewDashboard
-    workspace={{ id: workspaceId, name: membership.workspace.name, currency: membership.workspace.baseCurrency }}
-    reportPeriod={reportPeriod}
-    businessDate={businessDate}
-    wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString(), updatedAt: wallet.updatedAt.toISOString() }))}
-    totalByCurrency={totalByCurrency}
-    members={members.map((member) => ({ id: member.id, name: member.user.username ?? "Người dùng" }))}
-    categories={categories.map((cat) => ({
-      id: cat.id,
-      name: cat.name,
-      color: cat.color,
-      icon: cat.icon,
-      parentId: cat.parentId,
-      type: cat.type as "income" | "expense",
-    }))}
-    transactions={transactions.map((transaction) => ({ id: transaction.id, amount: transaction.amount.toString(), type: transaction.type, status: transaction.workflowStatus, description: transaction.description, date: transaction.date.toISOString(), walletId: transaction.walletId, toWalletId: transaction.toWalletId, wallet: transaction.wallet.name, categoryId: transaction.categoryId, category: transaction.category, memberId: transaction.memberId, member: transaction.member.user.username ?? "Người dùng" }))}
-    userRole={membership.role.name}
-    upcomingRecurring={recurringRows.map((item) => ({
-      id: item.id,
-      amount: item.amount.toString(),
-      type: item.type,
-      description: item.description,
-      nextExecutionDate: item.nextExecutionDate.toISOString(),
-      wallet: item.wallet.name,
-      category: item.category,
-    }))}
-  />;
+  return (
+    <PageContainer>
+      <div className="min-[901px]:mx-auto min-[901px]:max-w-[76rem]">
+        <OverviewDashboard
+          workspace={{ id: workspaceId, name: membership.workspace.name, currency: membership.workspace.baseCurrency }}
+          reportPeriod={reportPeriod}
+          businessDate={businessDate}
+          wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString(), updatedAt: wallet.updatedAt.toISOString() }))}
+          totalByCurrency={totalByCurrency}
+          members={members.map((member) => ({ id: member.id, name: member.user.username ?? "Người dùng" }))}
+          categories={categories.map((cat) => ({
+            id: cat.id,
+            name: cat.name,
+            color: cat.color,
+            icon: cat.icon,
+            parentId: cat.parentId,
+            type: cat.type as "income" | "expense",
+          }))}
+          transactions={transactions.map((transaction) => ({ id: transaction.id, amount: transaction.amount.toString(), type: transaction.type, status: transaction.workflowStatus, description: transaction.description, date: transaction.date.toISOString(), walletId: transaction.walletId, toWalletId: transaction.toWalletId, wallet: transaction.wallet.name, categoryId: transaction.categoryId, category: transaction.category, memberId: transaction.memberId, member: transaction.member.user.username ?? "Người dùng" }))}
+          userRole={membership.role.name}
+          upcomingRecurring={recurringRows.map((item) => ({
+            id: item.id,
+            amount: item.amount.toString(),
+            type: item.type,
+            description: item.description,
+            nextExecutionDate: item.nextExecutionDate.toISOString(),
+            wallet: item.wallet.name,
+            category: item.category,
+          }))}
+        />
+      </div>
+    </PageContainer>
+  );
 }
