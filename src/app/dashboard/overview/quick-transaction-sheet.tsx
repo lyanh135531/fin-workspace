@@ -76,9 +76,9 @@ const transactionTypes: {
   label: string;
   icon: typeof ArrowDownLeft;
 }[] = [
-  { value: "expense", label: "Chi", icon: ArrowUpRight },
-  { value: "income", label: "Thu", icon: ArrowDownLeft },
-  { value: "transfer", label: "Chuyển", icon: ArrowLeftRight },
+  { value: "expense", label: "Chi tiêu", icon: ArrowUpRight },
+  { value: "income", label: "Thu nhập", icon: ArrowDownLeft },
+  { value: "transfer", label: "Chuyển tiền", icon: ArrowLeftRight },
 ];
 
 function destinationWallet(workspace: QuickWorkspace, walletId: string) {
@@ -241,7 +241,8 @@ export function QuickTransactionSheet({
           className="quick-type-tabs"
         >
           <TabsList
-            className="quick-type-switch rounded-2xl"
+            variant="navigation"
+            className="grid-cols-3"
             aria-label="Loại giao dịch"
           >
             {transactionTypes.map((item) => {
@@ -251,12 +252,17 @@ export function QuickTransactionSheet({
                 <TabsTrigger
                   key={item.value}
                   value={item.value}
-                  data-transaction-type={item.value}
+                  tone={
+                    item.value === "expense"
+                      ? "expense"
+                      : item.value === "income"
+                        ? "income"
+                        : undefined
+                  }
                   disabled={disabled}
-                  className="rounded-2xl"
                 >
-                  <Icon size={17} />
-                  {item.label}
+                  <Icon size={16} />
+                  <span>{item.label}</span>
                 </TabsTrigger>
               );
             })}
@@ -364,8 +370,9 @@ export function QuickTransactionSheet({
       <div className="quick-transaction-footer">
         <Button
           type="submit"
+          size="lg"
           disabled={pending || !workspace.wallets.length}
-          className="quick-submit"
+          className="quick-submit w-full md:w-auto"
         >
           {pending ? (
             <Loading label="Đang lưu..." />

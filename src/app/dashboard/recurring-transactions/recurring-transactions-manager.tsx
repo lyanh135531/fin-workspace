@@ -1469,12 +1469,8 @@ function RecurringEditor({
           )}
         >
           <TabsList
-            variant={isMobile ? "default" : "navigation"}
-            className={cn(
-              isMobile
-                ? "recurring-type-switch quick-type-switch w-full rounded-2xl"
-                : "grid-cols-3",
-            )}
+            variant="navigation"
+            className="w-full grid-cols-3"
             aria-label="Loại giao dịch"
           >
             {typeOptions.map((option) => {
@@ -1482,18 +1478,13 @@ function RecurringEditor({
               return (
                 <TabsTrigger
                   value={option.value}
-                  data-transaction-type={option.value}
-                  variant={isMobile ? "default" : "navigation"}
                   tone={
-                    !isMobile
-                      ? option.value === "expense"
-                        ? "expense"
-                        : option.value === "income"
-                          ? "income"
-                          : undefined
-                      : undefined
+                    option.value === "expense"
+                      ? "expense"
+                      : option.value === "income"
+                        ? "income"
+                        : undefined
                   }
-                  className={isMobile ? "flex-1 rounded-2xl" : undefined}
                   key={option.value}
                   disabled={option.value === "transfer" && wallets.length < 2}
                 >

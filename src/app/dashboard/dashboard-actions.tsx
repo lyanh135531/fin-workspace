@@ -2940,7 +2940,8 @@ function MobileTransactionDraft({
           className="ledger-transaction-type-tabs quick-type-tabs gap-0"
         >
           <TabsList
-            className="quick-type-switch rounded-2xl"
+            variant="navigation"
+            className="grid-cols-3"
             aria-label="Loại giao dịch"
           >
             {transactionTypeTabs.map((tab) => {
@@ -2951,8 +2952,13 @@ function MobileTransactionDraft({
                 <TabsTrigger
                   key={tab.value}
                   value={tab.value}
-                  className="rounded-2xl"
-                  data-transaction-type={tab.value}
+                  tone={
+                    tab.value === "expense"
+                      ? "expense"
+                      : tab.value === "income"
+                        ? "income"
+                        : undefined
+                  }
                   disabled={tabDisabled}
                 >
                   <Icon aria-hidden="true" />

@@ -659,21 +659,24 @@ export function WalletManagement({
             }
           >
             <TabsList
+              variant="navigation"
               className={cn(
-                "wallet-mobile-tab-list workspace-settings-tab-list rounded-2xl",
-                wallets.length - activeCount > 0 && "has-paused",
+                "w-full",
+                wallets.length - activeCount > 0
+                  ? "grid-cols-3"
+                  : "grid-cols-2",
               )}
             >
-              <TabsTrigger value="all" className="rounded-2xl">
+              <TabsTrigger value="all">
                 <WalletCards aria-hidden />
                 <span>Tất cả</span>
               </TabsTrigger>
-              <TabsTrigger value="active" className="rounded-2xl">
+              <TabsTrigger value="active">
                 <CheckCircle2 aria-hidden />
                 <span>Hoạt động</span>
               </TabsTrigger>
               {wallets.length - activeCount > 0 && (
-                <TabsTrigger value="deactive" className="rounded-2xl">
+                <TabsTrigger value="deactive">
                   <PauseCircle aria-hidden />
                   <span>Tạm ngưng</span>
                 </TabsTrigger>

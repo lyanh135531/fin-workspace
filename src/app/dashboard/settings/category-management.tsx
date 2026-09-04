@@ -390,20 +390,13 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           }}
         >
           <TabsList
-            variant={isDesktop ? "segmented" : "default"}
-            className="category-type-switch max-sm:grid max-sm:w-full max-sm:grid-cols-2"
+            variant="segmented"
+            className="w-full"
             aria-label="Loại danh mục"
           >
             <TabsTrigger
-              variant={isDesktop ? "segmented" : "default"}
-              tone={isDesktop ? "expense" : undefined}
+              tone="expense"
               value="expense"
-              data-transaction-type="expense"
-              className={cn(
-                "max-sm:justify-center",
-                !isDesktop &&
-                  "transition-colors data-active:text-red-600 hover:text-red-600 dark:data-active:text-red-400 dark:hover:text-red-400",
-              )}
             >
               <ArrowUpRight size={14} strokeWidth={2.5} />
               <span>Chi tiêu</span>
@@ -412,15 +405,8 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
               </TabsCount>
             </TabsTrigger>
             <TabsTrigger
-              variant={isDesktop ? "segmented" : "default"}
-              tone={isDesktop ? "income" : undefined}
+              tone="income"
               value="income"
-              data-transaction-type="income"
-              className={cn(
-                "max-sm:justify-center",
-                !isDesktop &&
-                  "transition-colors data-active:text-emerald-600 hover:text-emerald-600 dark:data-active:text-emerald-400 dark:hover:text-emerald-400",
-              )}
             >
               <ArrowDownLeft size={14} strokeWidth={2.5} />
               <span>Thu nhập</span>
