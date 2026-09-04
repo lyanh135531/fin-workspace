@@ -1,27 +1,37 @@
 "use client";
 
+import * as React from "react";
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 
 import { cn } from "@/lib/utils";
 
-type TabsVariant = "default" | "segmented" | "navigation";
+type TabsVariant = "default" | "segmented" | "navigation" | "underline";
 type TabsTone = "expense" | "income";
 
+const TabsListContext = React.createContext<{ variant: TabsVariant }>({
+  variant: "default",
+});
+
 const tabsListVariantClasses: Record<TabsVariant, string> = {
-  default: "h-8 w-fit gap-1 rounded-lg bg-muted p-[3px]",
+  default:
+    "h-10 md:h-8 w-fit gap-0.5 rounded-xl md:rounded-lg bg-[var(--surface-secondary)] p-0.5",
   segmented:
-    "grid h-auto w-full grid-cols-2 gap-0.5 rounded-full border border-border bg-[var(--surface-secondary)] p-0.5",
+    "grid h-10 md:h-8 w-full grid-cols-2 gap-0.5 rounded-xl md:rounded-lg bg-[var(--surface-secondary)] p-0.5",
   navigation:
-    "grid h-auto w-full gap-0 rounded-xl bg-[var(--surface-secondary)] p-1",
+    "grid h-10 md:h-8 w-full gap-0.5 rounded-xl md:rounded-lg bg-[var(--surface-secondary)] p-0.5",
+  underline:
+    "h-10 w-full gap-6 border-b border-[var(--border)] bg-transparent p-0",
 };
 
 const tabsTriggerVariantClasses: Record<TabsVariant, string> = {
   default:
-    "h-6 flex-none rounded-md px-2 py-1 data-active:bg-background data-active:text-foreground data-active:shadow-sm",
+    "h-full flex-none rounded-lg md:rounded-md px-3 md:px-2.5 py-1 text-xs md:text-sm font-medium data-active:bg-[var(--surface)] data-active:text-[var(--foreground)]",
   segmented:
-    "min-h-7 w-full rounded-full px-2.5 py-1 text-xs data-active:text-foreground",
+    "h-full w-full rounded-lg md:rounded-md px-3 md:px-2.5 py-1 text-xs md:text-sm font-medium data-active:bg-[var(--surface)] data-active:text-[var(--foreground)]",
   navigation:
-    "h-8 w-full rounded-lg px-3 py-1.5 text-xs data-active:bg-[var(--surface)] data-active:text-primary",
+    "h-full w-full rounded-lg md:rounded-md px-3 md:px-2.5 py-1 text-xs md:text-sm font-medium data-active:bg-[var(--surface)] data-active:text-primary",
+  underline:
+    "h-10 rounded-none border-b-2 border-transparent px-1 pb-3 pt-2 text-sm font-medium text-[var(--text-secondary)] data-active:border-[var(--primary)] data-active:text-[var(--foreground)] data-active:font-semibold hover:text-[var(--foreground)]",
 };
 
 const tabsTriggerToneClasses: Record<TabsTone, string> = {
@@ -53,17 +63,21 @@ type TabsListProps = TabsPrimitive.List.Props & {
   variant?: TabsVariant;
 };
 
-function TabsList({ className, variant = "default", ...props }: TabsListProps) {
+function TabsList({ className, variant = "default", children, ...props }: TabsListProps) {
   return (
-    <TabsPrimitive.List
-      data-slot="tabs-list"
-      className={cn(
-        "inline-flex max-w-full items-center justify-start overflow-x-auto text-muted-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-        tabsListVariantClasses[variant],
-        className,
-      )}
-      {...props}
-    />
+    <TabsListContext.Provider value={{ variant }}>
+      <TabsPrimitive.List
+        data-slot="tabs-list"
+        className={cn(
+          "inline-flex max-w-full items-center justify-start overflow-x-auto overflow-y-hidden text-muted-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          tabsListVariantClasses[variant],
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </TabsPrimitive.List>
+    </TabsListContext.Provider>
   );
 }
 
@@ -75,14 +89,17 @@ type TabsTriggerProps = TabsPrimitive.Tab.Props & {
 function TabsTrigger({
   className,
   tone,
-  variant = "default",
+  variant: explicitVariant,
   ...props
 }: TabsTriggerProps) {
+  const context = React.useContext(TabsListContext);
+  const variant = explicitVariant ?? context.variant;
+
   return (
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground transition-colors",
+        "inline-flex items-center justify-center gap-1.5 whitespace-nowrap text-xs md:text-sm font-medium text-muted-foreground transition-colors touch-manipulation select-none",
         "hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         tabsTriggerVariantClasses[variant],
         tone && tabsTriggerToneClasses[tone],

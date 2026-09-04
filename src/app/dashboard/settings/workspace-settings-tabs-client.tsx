@@ -69,18 +69,18 @@ export function WorkspaceSettingsTabsClient({
     label: string;
     icon: typeof Sliders;
   }[] = [
-    { key: "general", label: "Cấu hình & Vận hành", icon: Sliders },
-    {
-      key: "categories",
-      label: "Danh mục thu/chi",
-      icon: Folders,
-    },
-    {
-      key: "members",
-      label: "Thành viên",
-      icon: UsersRound,
-    },
-  ];
+      { key: "general", label: "Cấu hình & Vận hành", icon: Sliders },
+      {
+        key: "categories",
+        label: "Danh mục thu/chi",
+        icon: Folders,
+      },
+      {
+        key: "members",
+        label: "Thành viên",
+        icon: UsersRound,
+      },
+    ];
 
   return (
     <Tabs
@@ -90,7 +90,7 @@ export function WorkspaceSettingsTabsClient({
     >
       <TabsList
         variant="navigation"
-        className="workspace-settings-tab-list grid-cols-3 gap-1"
+        className="workspace-settings-tab-list grid-cols-3"
         aria-label="Các mục cài đặt nhóm tài chính"
       >
         {tabs.map((tab) => {

@@ -562,25 +562,13 @@ export function OverviewDashboard({
                 className="inline-grid w-auto grid-cols-3 gap-0.5"
                 aria-label="Chọn kỳ xem dữ liệu"
               >
-                <TabsTrigger
-                  value="month"
-                  variant="navigation"
-                  className="h-7 px-2.5 text-[0.72rem]"
-                >
+                <TabsTrigger value="month">
                   Tháng
                 </TabsTrigger>
-                <TabsTrigger
-                  value="quarter"
-                  variant="navigation"
-                  className="h-7 px-2.5 text-[0.72rem]"
-                >
+                <TabsTrigger value="quarter">
                   Quý
                 </TabsTrigger>
-                <TabsTrigger
-                  value="year"
-                  variant="navigation"
-                  className="h-7 px-2.5 text-[0.72rem]"
-                >
+                <TabsTrigger value="year">
                   Năm
                 </TabsTrigger>
               </TabsList>
@@ -703,18 +691,10 @@ export function OverviewDashboard({
                 variant="navigation"
                 className="inline-grid w-auto grid-cols-2 gap-0.5"
               >
-                <TabsTrigger
-                  value="cashflow"
-                  variant="navigation"
-                  className="h-6 px-2 text-[0.7rem]"
-                >
+                <TabsTrigger value="cashflow">
                   Thu & Chi
                 </TabsTrigger>
-                <TabsTrigger
-                  value="balance"
-                  variant="navigation"
-                  className="h-6 px-2 text-[0.7rem]"
-                >
+                <TabsTrigger value="balance">
                   Số dư
                 </TabsTrigger>
               </TabsList>
@@ -894,10 +874,10 @@ export function OverviewDashboard({
               className="w-full gap-0"
             >
               <TabsList variant="navigation" className="grid w-full grid-cols-2">
-                <TabsTrigger value="category" variant="navigation" className="h-7 text-xs">
+                <TabsTrigger value="category">
                   Theo hạng mục
                 </TabsTrigger>
-                <TabsTrigger value="member" variant="navigation" className="h-7 text-xs">
+                <TabsTrigger value="member">
                   Theo thành viên
                 </TabsTrigger>
               </TabsList>
@@ -1025,10 +1005,10 @@ export function OverviewDashboard({
               className="w-full gap-0"
             >
               <TabsList variant="navigation" className="grid w-full grid-cols-2">
-                <TabsTrigger value="recent" variant="navigation" className="h-7 text-xs">
+                <TabsTrigger value="recent">
                   Gần đây ({recentTransactions.length})
                 </TabsTrigger>
-                <TabsTrigger value="recurring" variant="navigation" className="h-7 text-xs">
+                <TabsTrigger value="recurring">
                   Định kỳ sắp tới
                 </TabsTrigger>
               </TabsList>
@@ -1241,28 +1221,16 @@ export function OverviewDashboard({
             >
               <TabsList
                 variant="navigation"
-                className="h-8 inline-grid w-auto grid-cols-3 gap-0.5 p-0.5 rounded-lg"
+                className="inline-grid w-auto grid-cols-3 gap-0.5"
                 aria-label="Chọn kỳ xem dữ liệu"
               >
-                <TabsTrigger
-                  value="month"
-                  variant="navigation"
-                  className="h-7 px-2.5 sm:px-3 text-xs rounded-md"
-                >
+                <TabsTrigger value="month">
                   Tháng
                 </TabsTrigger>
-                <TabsTrigger
-                  value="quarter"
-                  variant="navigation"
-                  className="h-7 px-2.5 sm:px-3 text-xs rounded-md"
-                >
+                <TabsTrigger value="quarter">
                   Quý
                 </TabsTrigger>
-                <TabsTrigger
-                  value="year"
-                  variant="navigation"
-                  className="h-7 px-2.5 sm:px-3 text-xs rounded-md"
-                >
+                <TabsTrigger value="year">
                   Năm
                 </TabsTrigger>
               </TabsList>
@@ -1479,18 +1447,10 @@ export function OverviewDashboard({
                     className="inline-grid w-auto grid-cols-2 gap-0.5"
                     aria-label="Chọn chế độ biểu đồ"
                   >
-                    <TabsTrigger
-                      value="cashflow"
-                      variant="navigation"
-                      className="h-7 px-2.5 sm:px-3 text-xs"
-                    >
+                    <TabsTrigger value="cashflow">
                       Thu & Chi
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="balance"
-                      variant="navigation"
-                      className="h-7 px-2.5 sm:px-3 text-xs"
-                    >
+                    <TabsTrigger value="balance">
                       Số dư lũy kế
                     </TabsTrigger>
                   </TabsList>

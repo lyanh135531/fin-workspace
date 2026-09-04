@@ -347,8 +347,8 @@ export function RecurringTransactionsManager({
           result.approvalStatus === "pending"
             ? "Đã gửi yêu cầu kích hoạt lại."
             : nextStatus === "active"
-            ? "Đã kích hoạt lại lịch."
-            : "Đã tạm dừng lịch.",
+              ? "Đã kích hoạt lại lịch."
+              : "Đã tạm dừng lịch.",
         );
       } else {
         toast.error(result.message);
@@ -541,7 +541,7 @@ export function RecurringTransactionsManager({
                 className={cn(
                   monthlyNetAmountColor,
                   !isMobile &&
-                    "text-[2rem] font-semibold leading-none tracking-[-0.04em] tabular-nums",
+                  "text-[2rem] font-semibold leading-none tracking-[-0.04em] tabular-nums",
                 )}
               >
                 {formatAmount(activeMonthlyNetAmount)}
@@ -549,7 +549,7 @@ export function RecurringTransactionsManager({
               <span
                 className={cn(
                   !isMobile &&
-                    "text-sm font-medium text-[var(--text-secondary)]",
+                  "text-sm font-medium text-[var(--text-secondary)]",
                 )}
               >
                 {workspace.currency} / tháng
@@ -558,7 +558,7 @@ export function RecurringTransactionsManager({
             <small
               className={cn(
                 !isMobile &&
-                  "mt-2 block text-xs leading-5 text-[var(--text-muted)]",
+                "mt-2 block text-xs leading-5 text-[var(--text-muted)]",
               )}
             >
               {activeCount > 0
@@ -620,7 +620,7 @@ export function RecurringTransactionsManager({
             className={
               isMobile
                 ? `recurring-summary-metric recurring-summary-metric-error${errorCount ? " has-error" : ""}`
-              : attentionCount
+                : attentionCount
                   ? "text-[var(--danger)]"
                   : undefined
             }
@@ -682,7 +682,7 @@ export function RecurringTransactionsManager({
               <div
                 className={cn(
                   !isMobile &&
-                    "flex items-center gap-2 text-xs text-[var(--text-muted)]",
+                  "flex items-center gap-2 text-xs text-[var(--text-muted)]",
                 )}
               >
                 {!isMobile && <CalendarClock size={14} aria-hidden="true" />}
@@ -698,14 +698,14 @@ export function RecurringTransactionsManager({
                 id="recurring-list-title"
                 className={cn(
                   !isMobile &&
-                    "mt-1.5 text-base font-semibold text-[var(--foreground)]",
+                  "mt-1.5 text-base font-semibold text-[var(--foreground)]",
                 )}
               >
                 {status === "all"
                   ? "Tất cả giao dịch định kỳ"
                   : statusFilterOptions.find(
-                      (filter) => filter.value === status,
-                    )?.label}
+                    (filter) => filter.value === status,
+                  )?.label}
               </h2>
               <p
                 className={cn(
@@ -723,7 +723,7 @@ export function RecurringTransactionsManager({
                   setStatus(value as ScheduleStatusFilter)
                 }
               >
-                <TabsList variant="navigation" className="grid-cols-4 gap-1">
+                <TabsList variant="navigation" className="grid-cols-4">
                   {statusFilterOptions.map((filter) => (
                     <TabsTrigger
                       key={filter.value}
@@ -773,7 +773,7 @@ export function RecurringTransactionsManager({
                   <span
                     className={cn(
                       !isMobile &&
-                        "grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] text-[var(--primary)]",
+                      "grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] text-[var(--primary)]",
                     )}
                     aria-hidden="true"
                   >
@@ -893,10 +893,10 @@ export function RecurringTransactionsManager({
                             : schedule.approvalStatus === "rejected"
                               ? "text-[var(--danger)]"
                               : schedule.completedAt
-                            ? "text-[var(--text-muted)]"
-                            : schedule.status === "active"
-                              ? "text-[var(--success)]"
-                              : "text-[var(--warning)]",
+                                ? "text-[var(--text-muted)]"
+                                : schedule.status === "active"
+                                  ? "text-[var(--success)]"
+                                  : "text-[var(--warning)]",
                         )}
                       >
                         <span
@@ -908,10 +908,10 @@ export function RecurringTransactionsManager({
                           : schedule.approvalStatus === "rejected"
                             ? "Đã từ chối"
                             : schedule.completedAt
-                          ? "Đã kết thúc"
-                          : schedule.status === "active"
-                            ? "Đang hoạt động"
-                            : "Tạm dừng"}
+                              ? "Đã kết thúc"
+                              : schedule.status === "active"
+                                ? "Đang hoạt động"
+                                : "Tạm dừng"}
                       </span>
                       {schedule.lastError && (
                         <span
@@ -1157,10 +1157,10 @@ function RecurringMobileScheduleCard({
     : schedule.approvalStatus === "rejected"
       ? "Đã từ chối"
       : schedule.completedAt
-    ? "Đã kết thúc"
-    : schedule.status === "active"
-      ? "Đang hoạt động"
-      : "Tạm dừng";
+        ? "Đã kết thúc"
+        : schedule.status === "active"
+          ? "Đang hoạt động"
+          : "Tạm dừng";
   const hasActions =
     permissions.canApprove ||
     permissions.canPause ||
@@ -1683,7 +1683,7 @@ function RecurringEditor({
             <small
               className={cn(
                 !isMobile &&
-                  "mt-1.5 block text-[0.68rem] leading-4 text-[var(--text-muted)]",
+                "mt-1.5 block text-[0.68rem] leading-4 text-[var(--text-muted)]",
               )}
             >
               Đây cũng là ngày lặp lại hằng tháng.
@@ -1700,7 +1700,7 @@ function RecurringEditor({
             <small
               className={cn(
                 !isMobile &&
-                  "mt-1.5 block text-[0.68rem] leading-4 text-[var(--text-muted)]",
+                "mt-1.5 block text-[0.68rem] leading-4 text-[var(--text-muted)]",
               )}
             >
               Để trống để lịch chạy liên tục.

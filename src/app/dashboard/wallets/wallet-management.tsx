@@ -481,10 +481,10 @@ export function WalletManagement({
           : createFundingType === "income"
             ? { type: "income", amount: createFundingAmount }
             : {
-                type: "transfer",
-                amount: createFundingAmount,
-                sourceWalletId: createFundingWalletId,
-              },
+              type: "transfer",
+              amount: createFundingAmount,
+              sourceWalletId: createFundingWalletId,
+            },
       });
       if (result.ok) {
         toast.success("Đã tạo ví mới.");
@@ -532,9 +532,9 @@ export function WalletManagement({
     setSettlementWalletId(
       kind === "delete"
         ? (wallets.find(
-            (candidate) =>
-              candidate.status === "active" && candidate.id !== wallet.id,
-          )?.id ?? "")
+          (candidate) =>
+            candidate.status === "active" && candidate.id !== wallet.id,
+        )?.id ?? "")
         : "",
     );
     setConfirmOperation(operation);
@@ -569,15 +569,15 @@ export function WalletManagement({
       const result =
         kind === "deactivate"
           ? await setManagedWalletStatusAction({
-              walletId: wallet.id,
-              status: "deactive",
-            })
+            walletId: wallet.id,
+            status: "deactive",
+          })
           : await softDeleteManagedWalletAction({
-              walletId: wallet.id,
-              settlementWalletId: requiresSettlement
-                ? settlementWalletId
-                : undefined,
-            });
+            walletId: wallet.id,
+            settlementWalletId: requiresSettlement
+              ? settlementWalletId
+              : undefined,
+          });
       if (result.ok) {
         toast.success(
           kind === "deactivate"
@@ -966,7 +966,6 @@ export function WalletManagement({
               <TabsList
                 variant="navigation"
                 className={cn(
-                  "gap-1",
                   wallets.length - activeCount > 0
                     ? "grid-cols-3"
                     : "grid-cols-2",
@@ -1042,11 +1041,11 @@ export function WalletManagement({
                     className={cn(
                       "group/wallet grid min-h-[4.75rem] grid-cols-[1.25rem_2.5rem_minmax(10rem,1fr)_minmax(8rem,0.7fr)_6.5rem] items-center gap-3 border-t border-[var(--border)] py-3.5 transition-colors min-[1320px]:grid-cols-[1.25rem_2.5rem_minmax(12rem,1.25fr)_minmax(9rem,0.75fr)_minmax(8rem,0.65fr)_minmax(7rem,0.55fr)_6.5rem]",
                       isAdmin &&
-                        filterStatus === "all" &&
-                        !pending &&
-                        "cursor-grab active:cursor-grabbing",
+                      filterStatus === "all" &&
+                      !pending &&
+                      "cursor-grab active:cursor-grabbing",
                       dropTargetWalletId === wallet.id &&
-                        "border-t-2 border-t-[var(--primary)] bg-[var(--primary-soft)]",
+                      "border-t-2 border-t-[var(--primary)] bg-[var(--primary-soft)]",
                       draggedWalletId === wallet.id && "opacity-50",
                       !isActive && "opacity-75",
                     )}
@@ -1070,7 +1069,7 @@ export function WalletManagement({
                       className={cn(
                         "grid size-10 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]",
                         !isActive &&
-                          "bg-[var(--surface-secondary)] text-[var(--warning)]",
+                        "bg-[var(--surface-secondary)] text-[var(--warning)]",
                       )}
                       aria-hidden="true"
                     >
@@ -1286,7 +1285,7 @@ export function WalletManagement({
                   <SheetTitle
                     className={cn(
                       isDesktop &&
-                        "text-[1.3rem] font-semibold tracking-[-0.02em]",
+                      "text-[1.3rem] font-semibold tracking-[-0.02em]",
                     )}
                   >
                     Tạo ví mới
@@ -1294,7 +1293,7 @@ export function WalletManagement({
                   <SheetDescription
                     className={cn(
                       isDesktop &&
-                        "mt-1 max-w-[30rem] text-[0.82rem] leading-[1.55]",
+                      "mt-1 max-w-[30rem] text-[0.82rem] leading-[1.55]",
                     )}
                   >
                     Tạo nơi theo dõi tiền mặt, tài khoản hoặc quỹ riêng.
@@ -1425,7 +1424,7 @@ export function WalletManagement({
                             className={cn(
                               "size-4 rounded-full border border-[var(--border-strong)]",
                               createFundingType === "income" &&
-                                "border-[var(--primary)] bg-[var(--primary)]",
+                              "border-[var(--primary)] bg-[var(--primary)]",
                             )}
                             aria-hidden
                           />
@@ -1462,7 +1461,7 @@ export function WalletManagement({
                             className={cn(
                               "size-4 rounded-full border border-[var(--border-strong)]",
                               createFundingType === "transfer" &&
-                                "border-[var(--primary)] bg-[var(--primary)]",
+                              "border-[var(--primary)] bg-[var(--primary)]",
                             )}
                             aria-hidden
                           />
@@ -1564,7 +1563,7 @@ export function WalletManagement({
               <span
                 className={cn(
                   isDesktop &&
-                    "grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]",
+                  "grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]",
                 )}
                 aria-hidden="true"
               >
@@ -1574,7 +1573,7 @@ export function WalletManagement({
                 <SheetTitle
                   className={cn(
                     isDesktop &&
-                      "text-[1.3rem] font-semibold tracking-[-0.02em]",
+                    "text-[1.3rem] font-semibold tracking-[-0.02em]",
                   )}
                 >
                   Chỉnh sửa ví
@@ -1582,7 +1581,7 @@ export function WalletManagement({
                 <SheetDescription
                   className={cn(
                     isDesktop &&
-                      "mt-1 max-w-[30rem] text-[0.82rem] leading-[1.55]",
+                    "mt-1 max-w-[30rem] text-[0.82rem] leading-[1.55]",
                   )}
                 >
                   {isDesktop
@@ -1655,7 +1654,7 @@ export function WalletManagement({
                       <p
                         className={cn(
                           isDesktop &&
-                            "mt-1 truncate text-sm font-semibold text-[var(--foreground)]",
+                          "mt-1 truncate text-sm font-semibold text-[var(--foreground)]",
                         )}
                       >
                         {editingWallet.name}
@@ -1663,7 +1662,7 @@ export function WalletManagement({
                       <small
                         className={cn(
                           isDesktop &&
-                            "mt-2 block text-[0.68rem] text-[var(--text-muted)]",
+                          "mt-2 block text-[0.68rem] text-[var(--text-muted)]",
                         )}
                       >
                         {editingWallet.transactionCount} giao dịch đã ghi nhận
@@ -1680,7 +1679,7 @@ export function WalletManagement({
                     <span
                       className={cn(
                         isDesktop &&
-                          "text-[0.68rem] font-medium text-[var(--text-muted)]",
+                        "text-[0.68rem] font-medium text-[var(--text-muted)]",
                       )}
                     >
                       Số dư hiện tại
@@ -1688,14 +1687,14 @@ export function WalletManagement({
                     <strong
                       className={cn(
                         isDesktop &&
-                          "mt-2 flex items-baseline gap-1.5 text-[1.6rem] font-semibold leading-none tracking-[-0.035em] text-[var(--foreground)] tabular-nums",
+                        "mt-2 flex items-baseline gap-1.5 text-[1.6rem] font-semibold leading-none tracking-[-0.035em] text-[var(--foreground)] tabular-nums",
                       )}
                     >
                       {formatAmount(editingWallet.currentBalance)}
                       <small
                         className={cn(
                           isDesktop &&
-                            "text-[0.65rem] font-medium text-[var(--text-muted)]",
+                          "text-[0.65rem] font-medium text-[var(--text-muted)]",
                         )}
                       >
                         {workspace.currency}
@@ -1719,7 +1718,7 @@ export function WalletManagement({
                       id="edit-wallet-details-heading"
                       className={cn(
                         isDesktop &&
-                          "text-sm font-semibold text-[var(--foreground)]",
+                        "text-sm font-semibold text-[var(--foreground)]",
                       )}
                     >
                       Thông tin cơ bản
@@ -1727,7 +1726,7 @@ export function WalletManagement({
                     <p
                       className={cn(
                         isDesktop &&
-                          "mt-1 text-xs leading-5 text-[var(--text-muted)]",
+                        "mt-1 text-xs leading-5 text-[var(--text-muted)]",
                       )}
                     >
                       Tên và ghi chú giúp thành viên nhận diện đúng ví.

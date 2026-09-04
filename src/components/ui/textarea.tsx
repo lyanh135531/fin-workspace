@@ -22,8 +22,7 @@ function Textarea({
       data-slot="textarea"
       id={textareaId}
       className={cn(
-        "flex field-sizing-content min-h-16 w-full rounded-2xl border border-input bg-transparent px-2.5 py-2 text-base transition-colors outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
-
+        "flex field-sizing-content min-h-20 w-full rounded-xl border border-[var(--border)] bg-transparent p-3 text-base leading-relaxed transition-colors outline-none placeholder:text-[var(--text-muted)] focus-visible:border-[var(--primary)] focus-visible:ring-1 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:bg-[var(--surface-secondary)] disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20 md:min-h-[5rem] md:p-2.5 md:text-sm md:rounded-lg dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
         className,
       )}
       {...props}
