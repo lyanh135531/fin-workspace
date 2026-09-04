@@ -1280,13 +1280,12 @@ export function OverviewDashboard({
                   <Button
                     size="sm"
                     disabled={busy || !wallets.length}
-                    className="h-8 gap-1.5 px-3 text-xs font-medium rounded-lg cursor-pointer"
                     aria-label="Tạo giao dịch mới"
                   />
                 }
               >
                 <Plus className="size-3.5" />
-                <span>Giao dịch</span>
+                <span className="text-sm">Giao dịch</span>
               </PopoverTrigger>
               {createDraft && (
                 <DesktopTransactionCreatePopoverContent
@@ -1888,7 +1887,7 @@ export function OverviewDashboard({
                         <Button
                           size="sm"
                           disabled={busy || !wallets.length}
-                          className="mt-3 h-7 gap-1.5 px-3 text-xs cursor-pointer"
+                          className="mt-3 cursor-pointer"
                           aria-label="Tạo giao dịch đầu tiên"
                         />
                       }
