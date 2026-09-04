@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Check,
   WalletCards,
+  X,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -26,6 +27,7 @@ import {
   MoneyInput,
   Select,
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -127,17 +129,25 @@ export function QuickTransactionSheet({
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    function handleOpenEvent() {
+    function handleOpenEvent(event: Event) {
+      if (event instanceof CustomEvent && event.detail?.type) {
+        const nextType = event.detail.type as TransactionType;
+        setType(nextType);
+        if (nextType === "transfer" && initialWorkspace) {
+          setToWalletId(destinationWallet(initialWorkspace, walletId));
+        }
+      }
       setOpen(true);
     }
     window.addEventListener("open-quick-transaction", handleOpenEvent);
     return () =>
       window.removeEventListener("open-quick-transaction", handleOpenEvent);
-  }, []);
+  }, [initialWorkspace, walletId]);
 
   useEffect(() => {
     if (!shouldOpenFromQuery) return;
 
+    setOpen(true);
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("action");
     const nextQuery = nextParams.toString();
@@ -371,27 +381,36 @@ export function QuickTransactionSheet({
   );
 
   return (
-    <>
-      {!isDesktop && (
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetContent side="bottom" className="quick-transaction-sheet">
-            <SheetHeader className="quick-transaction-header">
-              <div className="quick-transaction-heading">
-                <span>
-                  <WalletCards size={18} />
-                </span>
-                <div>
-                  <SheetTitle>Nhập nhanh giao dịch</SheetTitle>
-                  <SheetDescription>
-                    Ghi nhận nhanh khoản thu, chi hoặc chuyển khoản.
-                  </SheetDescription>
-                </div>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetContent
+        side="bottom"
+        elevation="flat"
+        className="quick-transaction-sheet"
+      >
+        <SheetHeader className="quick-transaction-header">
+          <div className="flex items-center justify-between">
+            <div className="quick-transaction-heading">
+              <span>
+                <WalletCards size={18} />
+              </span>
+              <div>
+                <SheetTitle>Nhập nhanh giao dịch</SheetTitle>
+                <SheetDescription>
+                  Ghi nhận nhanh khoản thu, chi hoặc chuyển khoản.
+                </SheetDescription>
               </div>
-            </SheetHeader>
-            {transactionForm}
-          </SheetContent>
-        </Sheet>
-      )}
-    </>
+            </div>
+            <SheetClose
+              type="button"
+              className="grid size-8 shrink-0 place-items-center rounded-lg text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] cursor-pointer"
+              aria-label="Đóng"
+            >
+              <X size={18} />
+            </SheetClose>
+          </div>
+        </SheetHeader>
+        {transactionForm}
+      </SheetContent>
+    </Sheet>
   );
 }

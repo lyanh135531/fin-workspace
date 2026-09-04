@@ -2,27 +2,51 @@
 
 import {
   Button,
+  buttonVariants,
   Card,
   CategoryIcon,
   DashboardPeriodFilter,
   Empty,
   PageContainer,
   PageHeader,
+  Popover,
+  PopoverTrigger,
   Tabs,
   TabsList,
   TabsTrigger,
   type DashboardPeriod,
 } from "@/components/base";
 import Decimal from "decimal.js";
+import Link from "next/link";
 import {
+  ArrowDownLeft,
+  ArrowLeftRight,
+  ArrowUpRight,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
+  Clock,
+  PiggyBank,
+  Plus,
   TrendingDown,
   TrendingUp,
+  Wallet,
   WalletCards,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import {
+  DesktopTransactionCreatePopoverContent,
+  createTransactionDraft,
+  transactionDraftInput,
+  type TransactionCategoryOption,
+  type TransactionDraft,
+  type TransactionWalletOption,
+} from "@/app/dashboard/desktop-transaction-create-draft";
+import { addTransactionAction } from "@/app/dashboard/actions";
+import { useOptimisticNavigation } from "@/app/dashboard/use-optimistic-navigation";
 import {
   Area,
   AreaChart,
@@ -79,6 +103,16 @@ type Transaction = {
   memberId: string;
   member: string;
 };
+type UpcomingRecurring = {
+  id: string;
+  amount: string;
+  type: "income" | "expense" | "transfer";
+  description: string | null;
+  nextExecutionDate: string;
+  wallet: string;
+  category: { name: string; color: string; icon: string | null } | null;
+};
+
 type Props = {
   workspace: { id: string; name: string; currency: string };
   reportPeriod: string;
@@ -86,6 +120,10 @@ type Props = {
   totalByCurrency: Record<string, string>;
   members: { id: string; name: string }[];
   transactions: Transaction[];
+  userRole?: string;
+  upcomingRecurring?: UpcomingRecurring[];
+  categories?: TransactionCategoryOption[];
+  businessDate?: string;
 };
 const money = (value: Decimal.Value, currency: string) =>
   `${formatAmount(value)} ${currency}`;
@@ -180,6 +218,57 @@ function summarizeTransactions(
   );
 }
 
+function calculatePeriodProgress(
+  periodStr: string,
+  period: DashboardPeriod,
+): { elapsed: number; total: number } {
+  const [year, month] = periodStr.split("-").map(Number);
+  const now = new Date();
+  const currentYear = now.getUTCFullYear();
+  const currentMonth = now.getUTCMonth() + 1;
+  const currentDay = now.getUTCDate();
+
+  if (period === "month") {
+    const totalDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    if (year < currentYear || (year === currentYear && month < currentMonth)) {
+      return { elapsed: totalDays, total: totalDays };
+    }
+    if (year > currentYear || (year === currentYear && month > currentMonth)) {
+      return { elapsed: 1, total: totalDays };
+    }
+    return {
+      elapsed: Math.max(1, Math.min(currentDay, totalDays)),
+      total: totalDays,
+    };
+  }
+
+  if (period === "quarter") {
+    const quarter = Math.floor((month - 1) / 3) + 1;
+    const currentQuarter = Math.floor((currentMonth - 1) / 3) + 1;
+    const totalDays = 90;
+    if (year < currentYear || (year === currentYear && quarter < currentQuarter)) {
+      return { elapsed: totalDays, total: totalDays };
+    }
+    if (year > currentYear || (year === currentYear && quarter > currentQuarter)) {
+      return { elapsed: 1, total: totalDays };
+    }
+    const quarterStartMonth = (quarter - 1) * 3 + 1;
+    const monthsPassed = currentMonth - quarterStartMonth;
+    const elapsed = Math.max(1, monthsPassed * 30 + currentDay);
+    return { elapsed: Math.min(elapsed, totalDays), total: totalDays };
+  }
+
+  const totalDays = 365;
+  if (year < currentYear) return { elapsed: 365, total: 365 };
+  if (year > currentYear) return { elapsed: 1, total: 365 };
+  const startOfYear = new Date(Date.UTC(year, 0, 1));
+  const diffDays = Math.max(
+    1,
+    Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)),
+  );
+  return { elapsed: Math.min(diffDays, 365), total: 365 };
+}
+
 export function OverviewDashboard({
   workspace,
   reportPeriod,
@@ -187,18 +276,159 @@ export function OverviewDashboard({
   totalByCurrency,
   members,
   transactions,
+  userRole,
+  upcomingRecurring,
+  categories,
+  businessDate,
 }: Props) {
+  const router = useRouter();
+  const { beginNavigation } = useOptimisticNavigation();
+  const ledgerHref = workspace.id ? `/workspace/${workspace.id}` : "/dashboard";
   const [isMobile, setIsMobile] = useState(false);
+  const [createDraft, setCreateDraft] = useState<TransactionDraft | null>(null);
+  const [transferDraft, setTransferDraft] = useState<TransactionDraft | null>(null);
+  const [emptyCreateDraft, setEmptyCreateDraft] = useState<TransactionDraft | null>(null);
+  const [busy, startTransition] = useTransition();
+
+  const walletOptions = useMemo<TransactionWalletOption[]>(
+    () => wallets.map((w) => ({ id: w.id, name: w.name })),
+    [wallets],
+  );
+
+  const categoryOptions = useMemo<TransactionCategoryOption[]>(
+    () => categories ?? [],
+    [categories],
+  );
+
+  const defaultDate = businessDate ?? reportPeriod + "-01";
+
+  function beginCreate() {
+    setCreateDraft(createTransactionDraft(walletOptions, categoryOptions, defaultDate));
+  }
+
+  function saveCreate() {
+    if (!createDraft) return;
+    startTransition(async () => {
+      const result = await addTransactionAction(
+        workspace.id,
+        transactionDraftInput(createDraft),
+      );
+      if (result.ok) {
+        toast.success(
+          result.status === "pending"
+            ? "Đã gửi giao dịch quá khứ để Admin duyệt."
+            : result.status === "scheduled"
+              ? "Đã lên lịch giao dịch tương lai."
+              : "Đã ghi nhận giao dịch và cập nhật số dư ví.",
+        );
+        setCreateDraft(null);
+        router.refresh();
+      } else {
+        toast.error(result.message ?? "Không thể lưu giao dịch.");
+      }
+    });
+  }
+
+  function beginTransfer() {
+    const draft = createTransactionDraft(walletOptions, categoryOptions, defaultDate);
+    draft.type = "transfer";
+    setTransferDraft(draft);
+  }
+
+  function saveTransfer() {
+    if (!transferDraft) return;
+    startTransition(async () => {
+      const result = await addTransactionAction(
+        workspace.id,
+        transactionDraftInput(transferDraft),
+      );
+      if (result.ok) {
+        toast.success(
+          result.status === "pending"
+            ? "Đã gửi giao dịch quá khứ để Admin duyệt."
+            : result.status === "scheduled"
+              ? "Đã lên lịch giao dịch tương lai."
+              : "Đã ghi nhận giao dịch chuyển tiền.",
+        );
+        setTransferDraft(null);
+        router.refresh();
+      } else {
+        toast.error(result.message ?? "Không thể chuyển tiền.");
+      }
+    });
+  }
+
+  function beginEmptyCreate() {
+    setEmptyCreateDraft(createTransactionDraft(walletOptions, categoryOptions, defaultDate));
+  }
+
+  function saveEmptyCreate() {
+    if (!emptyCreateDraft) return;
+    startTransition(async () => {
+      const result = await addTransactionAction(
+        workspace.id,
+        transactionDraftInput(emptyCreateDraft),
+      );
+      if (result.ok) {
+        toast.success(
+          result.status === "pending"
+            ? "Đã gửi giao dịch quá khứ để Admin duyệt."
+            : result.status === "scheduled"
+              ? "Đã lên lịch giao dịch tương lai."
+              : "Đã ghi nhận giao dịch và cập nhật số dư ví.",
+        );
+        setEmptyCreateDraft(null);
+        router.refresh();
+      } else {
+        toast.error(result.message ?? "Không thể lưu giao dịch.");
+      }
+    });
+  }
 
   // Desktop global period states
   const [globalPeriod, setGlobalPeriod] = useState<DashboardPeriod>("month");
   const [activeReportPeriod, setActiveReportPeriod] = useState<string>(reportPeriod);
+  const [chartTab, setChartTab] = useState<"cashflow" | "balance">("cashflow");
   const activeDateRange = getDashboardPeriodDateRange(
     activeReportPeriod,
     globalPeriod,
   );
   const activeTotals = summarizeTransactions(transactions, activeDateRange);
   const activeNetCashflow = activeTotals.income.minus(activeTotals.expense);
+  const periodProgress = calculatePeriodProgress(activeReportPeriod, globalPeriod);
+  const dailyBurnRate = activeTotals.expense.div(periodProgress.elapsed);
+  const totalBalanceDecimal = wallets.reduce(
+    (sum, w) => sum.plus(new Decimal(w.balance)),
+    new Decimal(0),
+  );
+  const savingsRate = activeTotals.income.gt(0)
+    ? activeNetCashflow.div(activeTotals.income).times(100).toNumber()
+    : activeTotals.expense.gt(0)
+      ? -100
+      : 0;
+  const pendingTransactions = transactions.filter((t) => t.status === "pending");
+  const recentTransactions = transactions.slice(0, 5);
+  const memberExpenses = members
+    .map((m) => {
+      const memberSpent = transactions
+        .filter(
+          (t) =>
+            t.memberId === m.id &&
+            t.type === "expense" &&
+            t.status === "approved" &&
+            isInDateRange(t.date, activeDateRange),
+        )
+        .reduce((sum, t) => sum.plus(new Decimal(t.amount)), new Decimal(0));
+      const percent = activeTotals.expense.isZero()
+        ? 0
+        : memberSpent.div(activeTotals.expense).times(100).toNumber();
+      return {
+        ...m,
+        spent: memberSpent,
+        percent,
+      };
+    })
+    .sort((a, b) => b.spent.comparedTo(a.spent));
   const desktopExpenseByCategory = (() => {
     const rows = new Map<
       string,
@@ -293,10 +523,10 @@ export function OverviewDashboard({
 
   if (!isMobile) {
     return (
-      <PageContainer className="max-w-[76rem] space-y-5 pb-10 pt-2">
+      <PageContainer className="max-w-[76rem] space-y-6 pb-12 pt-2">
         <PageHeader
           title="Tổng quan tài chính"
-          description={`${workspace.name} · Thu nhập, chi tiêu và số dư hiện tại.`}
+          description={`${workspace.name} · Thu nhập, chi tiêu, dòng tiền và vận hành.`}
         >
           <div className="flex flex-wrap items-center gap-2.5">
             <div className="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5 select-none">
@@ -380,51 +610,76 @@ export function OverviewDashboard({
                 </TabsTrigger>
               </TabsList>
             </Tabs>
+
+            <Popover
+              open={Boolean(createDraft)}
+              onOpenChange={(open) => {
+                if (open) beginCreate();
+                else if (!busy) setCreateDraft(null);
+              }}
+            >
+              <PopoverTrigger
+                render={
+                  <Button
+                    size="sm"
+                    disabled={busy || !wallets.length}
+                    className="h-7 gap-1.5 px-3 text-xs font-medium cursor-pointer"
+                    aria-label="Tạo giao dịch mới"
+                  />
+                }
+              >
+                <Plus className="size-3.5" />
+                <span>Giao dịch</span>
+              </PopoverTrigger>
+              {createDraft && (
+                <DesktopTransactionCreatePopoverContent
+                  draft={createDraft}
+                  wallets={walletOptions}
+                  categories={categoryOptions}
+                  busy={busy}
+                  onChange={(patch) =>
+                    setCreateDraft((current) =>
+                      current ? { ...current, ...patch } : current,
+                    )
+                  }
+                  onSave={saveCreate}
+                  onCancel={() => setCreateDraft(null)}
+                />
+              )}
+            </Popover>
           </div>
         </PageHeader>
 
+        {/* TẦNG 1: 4 KPI CARDS */}
         <section
-          className="grid grid-cols-1 gap-5 lg:grid-cols-12"
-          aria-label="Tóm tắt tài chính"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+          aria-label="Chỉ số tài chính chính"
         >
-          <Card
-            as="article"
-            tone="primarySoft"
-            className="relative isolate gap-0 lg:col-span-5"
-          >
-            <span
-              className="pointer-events-none absolute -right-8 -top-24 size-44 rounded-full border border-[color-mix(in_srgb,var(--primary)_17%,transparent)]"
-              aria-hidden="true"
-            />
-            <span
-              className="pointer-events-none absolute right-3 top-[-3.3rem] size-24 rounded-full border border-[color-mix(in_srgb,var(--primary)_17%,transparent)]"
-              aria-hidden="true"
-            />
-            <div className="flex items-start justify-between gap-5">
-              <div>
-                <p className="text-xs font-medium text-[var(--text-secondary)]">
-                  Tổng số dư khả dụng
-                </p>
-                <strong className="mt-3 block text-[clamp(1.7rem,3vw,2.45rem)] font-semibold leading-none tracking-[-0.055em] text-[var(--foreground)] tabular-nums">
-                  {balanceLabel}
-                </strong>
-              </div>
+          {/* Card 1: Tổng số dư khả dụng */}
+          <Card as="article" className="gap-0 p-5">
+            <div className="flex items-center justify-between text-xs font-medium text-[var(--text-secondary)]">
+              <span>Tổng số dư khả dụng</span>
+              <WalletCards className="size-4 text-[var(--primary)]" aria-hidden="true" />
             </div>
-            <div className="mt-7 flex items-center justify-between gap-4 border-t border-[color-mix(in_srgb,var(--primary)_15%,var(--border))] pt-4 text-xs">
-              <span className="inline-flex items-center gap-2 text-[var(--text-muted)]">
-                <WalletCards
-                  className="size-3.5 text-[var(--info)]"
-                  aria-hidden="true"
-                />
-                {wallets.length} ví đang hoạt động
+            <strong className="mt-2.5 block text-2xl font-semibold tracking-tight text-[var(--foreground)] tabular-nums">
+              {balanceLabel}
+            </strong>
+            <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs">
+              <span className="text-[var(--text-muted)]">
+                {wallets.length} ví hoạt động
               </span>
               <span
-                className={`inline-flex items-center gap-1.5 font-semibold tabular-nums ${activeNetCashflow.isNegative() ? "text-[var(--expense)]" : "text-[var(--income)]"}`}
+                className={cn(
+                  "inline-flex items-center gap-1 font-medium tabular-nums",
+                  activeNetCashflow.isNegative()
+                    ? "text-[var(--expense)]"
+                    : "text-[var(--income)]",
+                )}
               >
                 {activeNetCashflow.isNegative() ? (
-                  <TrendingDown size={14} aria-hidden="true" />
+                  <TrendingDown size={13} aria-hidden="true" />
                 ) : (
-                  <TrendingUp size={14} aria-hidden="true" />
+                  <TrendingUp size={13} aria-hidden="true" />
                 )}
                 {activeNetCashflow.isNegative() ? "−" : "+"}
                 {money(activeNetCashflow.abs(), workspace.currency)} trong kỳ
@@ -432,115 +687,659 @@ export function OverviewDashboard({
             </div>
           </Card>
 
-          <Card as="article" className="gap-0 lg:col-span-7">
-            <header className="flex items-center justify-between gap-4 pb-5">
-              <div>
-                <h2 className="text-sm font-semibold text-[var(--foreground)]">
-                  Dòng tiền trong kỳ
-                </h2>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Chỉ tính các giao dịch đã ghi nhận · {formatDateRangeLabel(activeDateRange)}
-                </p>
-              </div>
-            </header>
-            <dl className="grid grid-cols-3 border-t border-[var(--border)] pt-5 [&>div+div]:border-l [&>div+div]:border-[var(--border)] [&>div+div]:pl-5">
-              <SummaryStat
-                label="Thu nhập"
-                value={money(activeTotals.income, workspace.currency)}
-                tone="income"
-              />
-              <SummaryStat
-                label="Chi tiêu"
-                value={money(activeTotals.expense, workspace.currency)}
-                tone="expense"
-              />
-              <SummaryStat
-                label="Dòng tiền ròng"
-                value={money(activeNetCashflow, workspace.currency)}
-                tone="primary"
-              />
-            </dl>
+          {/* Card 2: Dòng tiền trong kỳ */}
+          <Card as="article" className="gap-0 p-5">
+            <div className="flex items-center justify-between text-xs font-medium text-[var(--text-secondary)]">
+              <span>Dòng tiền ròng trong kỳ</span>
+              <TrendingUp className="size-4 text-[var(--income)]" aria-hidden="true" />
+            </div>
+            <strong
+              className={cn(
+                "mt-2.5 block text-2xl font-semibold tracking-tight tabular-nums",
+                activeNetCashflow.isNegative()
+                  ? "text-[var(--expense)]"
+                  : "text-[var(--income)]",
+              )}
+            >
+              {activeNetCashflow.isNegative() ? "−" : "+"}
+              {money(activeNetCashflow.abs(), workspace.currency)}
+            </strong>
+            <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs text-[var(--text-muted)]">
+              <span>
+                Thu:{" "}
+                <span className="font-medium text-[var(--income)] tabular-nums">
+                  +{money(activeTotals.income, workspace.currency)}
+                </span>
+              </span>
+              <span>
+                Chi:{" "}
+                <span className="font-medium text-[var(--expense)] tabular-nums">
+                  −{money(activeTotals.expense, workspace.currency)}
+                </span>
+              </span>
+            </div>
+          </Card>
+
+          {/* Card 3: Nhịp chi tiêu / ngày */}
+          <Card as="article" className="gap-0 p-5">
+            <div className="flex items-center justify-between text-xs font-medium text-[var(--text-secondary)]">
+              <span>Tốc độ chi tiêu</span>
+              <Clock className="size-4 text-[var(--text-secondary)]" aria-hidden="true" />
+            </div>
+            <strong className="mt-2.5 block text-2xl font-semibold tracking-tight text-[var(--foreground)] tabular-nums">
+              ~{money(dailyBurnRate.round(), workspace.currency)}
+              <span className="text-xs font-normal text-[var(--text-muted)]"> / ngày</span>
+            </strong>
+            <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs text-[var(--text-muted)]">
+              <span>Tiến độ kỳ</span>
+              <span className="font-medium text-[var(--foreground)] tabular-nums">
+                {periodProgress.elapsed}/{periodProgress.total} ngày ({Math.round((periodProgress.elapsed / periodProgress.total) * 100)}%)
+              </span>
+            </div>
+          </Card>
+
+          {/* Card 4: Tỷ lệ tích lũy / Tiết kiệm */}
+          <Card as="article" className="gap-0 p-5">
+            <div className="flex items-center justify-between text-xs font-medium text-[var(--text-secondary)]">
+              <span>Tỷ lệ tích lũy</span>
+              <PiggyBank className="size-4 text-[var(--primary)]" aria-hidden="true" />
+            </div>
+            <strong
+              className={cn(
+                "mt-2.5 block text-2xl font-semibold tracking-tight tabular-nums",
+                savingsRate > 0 && "text-[var(--income)]",
+                savingsRate < 0 && "text-[var(--expense)]",
+                savingsRate === 0 && "text-[var(--foreground)]",
+              )}
+            >
+              {savingsRate > 0 ? "+" : ""}
+              {savingsRate.toFixed(1)}%
+            </strong>
+            <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs">
+              <span className="text-[var(--text-muted)]">
+                {savingsRate >= 0 ? "Thặng dư" : "Bội chi"}:{" "}
+                <span
+                  className={cn(
+                    "font-medium tabular-nums",
+                    savingsRate >= 0 ? "text-[var(--income)]" : "text-[var(--expense)]",
+                  )}
+                >
+                  {savingsRate >= 0 ? "+" : "−"}
+                  {money(activeNetCashflow.abs(), workspace.currency)}
+                </span>
+              </span>
+              {pendingTransactions.length > 0 ? (
+                <Link
+                  href={`${ledgerHref}?status=pending`}
+                  onClick={(event) => {
+                    if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                      event.preventDefault();
+                      beginNavigation(`${ledgerHref}?status=pending`);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 font-medium text-[var(--warning)] hover:underline cursor-pointer"
+                >
+                  <CircleAlert className="size-3.5" aria-hidden="true" />
+                  <span>{pendingTransactions.length} chờ duyệt</span>
+                </Link>
+              ) : (
+                <span className="text-[var(--text-muted)]">
+                  {savingsRate >= 20
+                    ? "Tích lũy tốt"
+                    : savingsRate > 0
+                      ? "Cần tối ưu thêm"
+                      : savingsRate < 0
+                        ? "Vượt thu nhập"
+                        : "Chưa phát sinh"}
+                </span>
+              )}
+            </div>
           </Card>
         </section>
 
-        <CashflowOverviewCharts
-          members={members}
-          transactions={transactions}
-          currency={workspace.currency}
-          reportPeriod={activeReportPeriod}
-          periodOverride={globalPeriod}
-          isMobile={false}
-        />
+        {/* TẦNG 2: BIỂU ĐỒ DÒNG TIỀN (8 cols) & DANH SÁCH VÍ TÀI KHOẢN (4 cols) */}
+        <section className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
+          {/* Card Biểu đồ Phân tích */}
+          <Card as="section" className="gap-0 p-0 lg:col-span-8">
+            <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] px-6 py-4">
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--foreground)]">
+                  {chartTab === "cashflow"
+                    ? "Thu nhập và chi tiêu theo tháng"
+                    : "Biến động tổng số dư"}
+                </h2>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                  Giao dịch đã ghi nhận · {formatDateRangeLabel(activeDateRange)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Tabs
+                  value={chartTab}
+                  onValueChange={(val) => setChartTab(val as "cashflow" | "balance")}
+                  className="gap-0"
+                >
+                  <TabsList
+                    variant="navigation"
+                    className="inline-grid w-auto grid-cols-2 gap-0.5"
+                    aria-label="Chọn chế độ biểu đồ"
+                  >
+                    <TabsTrigger
+                      value="cashflow"
+                      variant="navigation"
+                      className="h-7 px-3 text-xs"
+                    >
+                      Thu & Chi
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="balance"
+                      variant="navigation"
+                      className="h-7 px-3 text-xs"
+                    >
+                      Số dư lũy kế
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            </header>
+            <div className="p-5">
+              {chartTab === "cashflow" ? (
+                <MonthlyFinancialChart
+                  transactions={transactions}
+                  currency={workspace.currency}
+                  month={activeReportPeriod}
+                  range={12}
+                  walletId="all"
+                  categoryId="all"
+                  memberId="all"
+                  transactionType="all"
+                  dateRange={activeDateRange}
+                  axisScale={getAmountScale(
+                    buildMonthlyCashflow(transactions, {
+                      endPeriod: activeReportPeriod,
+                      range: 12,
+                      walletId: "all",
+                      categoryId: "all",
+                      memberId: "all",
+                      transactionType: "all",
+                      dateRange: activeDateRange,
+                    }).flatMap((row) => [row.income, row.expense]),
+                  )}
+                  isMobile={false}
+                />
+              ) : (
+                <BalanceHistoryChart
+                  wallets={wallets}
+                  transactions={transactions}
+                  currency={workspace.currency}
+                  reportPeriod={activeReportPeriod}
+                  periodOverride={globalPeriod}
+                  isMobile={false}
+                  hideCard
+                />
+              )}
+            </div>
+          </Card>
 
-        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
-          <div className="min-w-0 lg:col-span-8">
-            <BalanceHistoryChart
-              wallets={wallets}
-              transactions={transactions}
-              currency={workspace.currency}
-              reportPeriod={activeReportPeriod}
-              periodOverride={globalPeriod}
-              isMobile={false}
-            />
-          </div>
-          <Card as="section" className="gap-0 lg:col-span-4">
-            <header className="flex items-start justify-between gap-4 pb-5">
+          {/* Card Danh sách Ví */}
+          <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-4">
+            <header className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--foreground)]">
+                  Ví tài khoản
+                </h2>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                  {wallets.length} tài khoản đang hoạt động
+                </p>
+              </div>
+              <Link
+                href="/wallets"
+                onClick={(event) => {
+                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                    event.preventDefault();
+                    beginNavigation("/wallets");
+                  }
+                }}
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 px-2 text-xs text-[var(--primary)] hover:text-[var(--primary)] cursor-pointer")}
+              >
+                Xem ví →
+              </Link>
+            </header>
+            <div className="space-y-3 p-5">
+              {wallets.length ? (
+                wallets.map((wallet) => {
+                  const balanceDec = new Decimal(wallet.balance);
+                  const percent = totalBalanceDecimal.isPositive() && !totalBalanceDecimal.isZero()
+                    ? Math.max(0, balanceDec.div(totalBalanceDecimal).times(100).toNumber())
+                    : 0;
+                  return (
+                    <div
+                      key={wallet.id}
+                      className="rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)]/40 p-3"
+                    >
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="flex items-center gap-2 font-medium text-[var(--foreground)] truncate">
+                          <Wallet className="size-3.5 shrink-0 text-[var(--primary)]" />
+                          <span className="truncate">{wallet.name}</span>
+                        </span>
+                        <strong className="shrink-0 font-semibold tabular-nums text-[var(--foreground)]">
+                          {money(wallet.balance, workspace.currency)}
+                        </strong>
+                      </div>
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                          <span
+                            className="block h-full rounded-full bg-[var(--primary)]"
+                            style={{ width: `${Math.min(100, percent)}%` }}
+                          />
+                        </div>
+                        <span className="shrink-0 text-[0.68rem] text-[var(--text-muted)] tabular-nums">
+                          {percent.toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <Empty
+                  variant="compact"
+                  title="Chưa có ví"
+                  description="Thêm ví để bắt đầu theo dõi."
+                />
+              )}
+            </div>
+            <div className="border-t border-[var(--border)] p-4">
+              <Popover
+                open={Boolean(transferDraft)}
+                onOpenChange={(open) => {
+                  if (open) beginTransfer();
+                  else if (!busy) setTransferDraft(null);
+                }}
+              >
+                <PopoverTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={busy || wallets.length < 2}
+                      className="w-full text-xs cursor-pointer"
+                      aria-label="Chuyển tiền giữa các ví"
+                    />
+                  }
+                >
+                  <ArrowLeftRight className="mr-1.5 size-3.5" />
+                  Chuyển tiền giữa các ví
+                </PopoverTrigger>
+                {transferDraft && (
+                  <DesktopTransactionCreatePopoverContent
+                    draft={transferDraft}
+                    wallets={walletOptions}
+                    categories={categoryOptions}
+                    busy={busy}
+                    onChange={(patch) =>
+                      setTransferDraft((current) =>
+                        current ? { ...current, ...patch } : current,
+                      )
+                    }
+                    onSave={saveTransfer}
+                    onCancel={() => setTransferDraft(null)}
+                  />
+                )}
+              </Popover>
+            </div>
+          </Card>
+        </section>
+
+        {/* TẦNG 3: CHI TIÊU THEO DANH MỤC (7 cols) & THÀNH VIÊN (5 cols) */}
+        <section className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
+          {/* Card Danh mục */}
+          <Card as="section" className="gap-0 p-0 lg:col-span-7">
+            <header className="flex items-start justify-between border-b border-[var(--border)] px-6 py-4">
               <div>
                 <h2 className="text-sm font-semibold text-[var(--foreground)]">
                   Chi tiêu theo danh mục
                 </h2>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Tỷ trọng trong kỳ đã chọn
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                  Tỷ trọng trong kỳ · Tổng chi {money(activeTotals.expense, workspace.currency)}
                 </p>
               </div>
             </header>
-            {desktopExpenseByCategory.length ? (
-              <div className="space-y-4 border-t border-[var(--border)] pt-5">
-                {desktopExpenseByCategory.slice(0, 6).map((item) => {
-                  const percentage = activeTotals.expense.isZero()
-                    ? new Decimal(0)
-                    : item.amount.div(activeTotals.expense).times(100);
-                  return (
-                    <div key={item.name}>
-                      <div className="flex items-center justify-between gap-4 text-xs">
-                        <span className="flex min-w-0 items-center gap-2.5">
-                          <CategoryIcon
-                            category={item}
-                            size={14}
+            <div className="p-5">
+              {desktopExpenseByCategory.length ? (
+                <div className="space-y-4">
+                  {desktopExpenseByCategory.slice(0, 5).map((item) => {
+                    const percentage = activeTotals.expense.isZero()
+                      ? new Decimal(0)
+                      : item.amount.div(activeTotals.expense).times(100);
+                    return (
+                      <div key={item.name}>
+                        <div className="flex items-center justify-between gap-4 text-xs">
+                          <span className="flex min-w-0 items-center gap-2.5">
+                            <CategoryIcon category={item} size={14} />
+                            <strong className="truncate font-medium text-[var(--foreground)]">
+                              {item.name}
+                            </strong>
+                          </span>
+                          <span className="shrink-0 text-[var(--text-muted)] tabular-nums">
+                            {percentage.toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                          <span
+                            className="block h-full rounded-full"
+                            style={{
+                              width: `${percentage}%`,
+                              background: item.color,
+                            }}
                           />
-                          <strong className="truncate font-medium text-[var(--foreground)]">
-                            {item.name}
-                          </strong>
-                        </span>
-                        <span className="shrink-0 text-[var(--text-muted)] tabular-nums">
-                          {percentage.toFixed(0)}%
-                        </span>
+                        </div>
+                        <p className="mt-1.5 text-right text-[0.68rem] text-[var(--text-muted)] tabular-nums">
+                          {money(item.amount, workspace.currency)}
+                        </p>
                       </div>
-                      <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                    );
+                  })}
+                </div>
+              ) : (
+                <Empty
+                  variant="compact"
+                  title="Chưa có chi tiêu"
+                  description="Dữ liệu theo danh mục sẽ xuất hiện khi có giao dịch chi."
+                />
+              )}
+            </div>
+          </Card>
+
+          {/* Card Thành viên */}
+          <Card as="section" className="gap-0 p-0 lg:col-span-5">
+            <header className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--foreground)]">
+                  Chi tiêu theo thành viên
+                </h2>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                  Mức chi tiêu của {members.length} thành viên trong kỳ
+                </p>
+              </div>
+              <Link
+                href="/settings/workspace?tab=members"
+                onClick={(event) => {
+                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                    event.preventDefault();
+                    beginNavigation("/settings/workspace?tab=members");
+                  }
+                }}
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 px-2 text-xs text-[var(--primary)] hover:text-[var(--primary)] cursor-pointer")}
+              >
+                Thành viên →
+              </Link>
+            </header>
+            <div className="space-y-4 p-5">
+              {memberExpenses.length ? (
+                memberExpenses.map((m, idx) => (
+                  <div key={m.id} className="space-y-2">
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--surface-secondary)] text-[0.65rem] font-semibold text-[var(--foreground)] uppercase">
+                          {m.name.slice(0, 2)}
+                        </span>
+                        <strong className="truncate font-medium text-[var(--foreground)]">
+                          {m.name}
+                        </strong>
+                      </div>
+                      <span className="shrink-0 font-semibold tabular-nums text-[var(--foreground)]">
+                        {money(m.spent, workspace.currency)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
                         <span
                           className="block h-full rounded-full"
                           style={{
-                            width: `${percentage}%`,
-                            background: item.color,
+                            width: `${Math.min(100, m.percent)}%`,
+                            backgroundColor: memberSeriesColor(idx),
                           }}
                         />
                       </div>
-                      <p className="mt-1.5 text-right text-[0.68rem] text-[var(--text-muted)] tabular-nums">
-                        {money(item.amount, workspace.currency)}
-                      </p>
+                      <span className="shrink-0 text-[0.68rem] text-[var(--text-muted)] tabular-nums">
+                        {m.percent.toFixed(0)}%
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <Empty
+                  variant="compact"
+                  title="Chưa có dữ liệu"
+                  description="Chưa có chi tiêu nào từ các thành viên."
+                />
+              )}
+            </div>
+          </Card>
+        </section>
+
+        {/* TẦNG 4: GIAO DỊCH GẦN NHẤT (7 cols) & ĐỊNH KỲ SẮP TỚI (5 cols) */}
+        <section className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
+          {/* Card Giao dịch gần đây */}
+          <Card as="section" className="gap-0 p-0 lg:col-span-7">
+            <header className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--foreground)]">
+                  Giao dịch gần đây
+                </h2>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                  5 biến động gần nhất trong workspace
+                </p>
+              </div>
+              <Link
+                href={ledgerHref}
+                onClick={(event) => {
+                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                    event.preventDefault();
+                    beginNavigation(ledgerHref);
+                  }
+                }}
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 px-2 text-xs text-[var(--primary)] hover:text-[var(--primary)] cursor-pointer")}
+              >
+                Xem tất cả sổ cái →
+              </Link>
+            </header>
+            <div className="divide-y divide-[var(--border)]">
+              {recentTransactions.length ? (
+                recentTransactions.map((tx) => {
+                  const isIncome = tx.type === "income";
+                  const isExpense = tx.type === "expense";
+                  const dateStr = tx.date.slice(0, 10);
+                  const [y, m, d] = dateStr.split("-");
+                  const formattedDate = `${d}/${m}`;
+                  return (
+                    <div
+                      key={tx.id}
+                      className="flex items-center justify-between gap-4 px-6 py-3 text-xs"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div
+                          className={cn(
+                            "flex size-8 shrink-0 items-center justify-center rounded-lg",
+                            isIncome && "bg-[var(--income)]/10 text-[var(--income)]",
+                            isExpense && "bg-[var(--expense)]/10 text-[var(--expense)]",
+                            !isIncome && !isExpense && "bg-[var(--primary)]/10 text-[var(--primary)]",
+                          )}
+                        >
+                          {isIncome && <ArrowDownLeft className="size-4" />}
+                          {isExpense && <ArrowUpRight className="size-4" />}
+                          {!isIncome && !isExpense && <ArrowLeftRight className="size-4" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-[var(--foreground)]">
+                            {tx.description || tx.category?.name || (isIncome ? "Khoản thu" : "Khoản chi")}
+                          </p>
+                          <p className="mt-0.5 truncate text-[0.68rem] text-[var(--text-muted)]">
+                            {tx.member} · {tx.wallet} · {formattedDate}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span
+                          className={cn(
+                            "font-semibold tabular-nums",
+                            isIncome && "text-[var(--income)]",
+                            isExpense && "text-[var(--expense)]",
+                            !isIncome && !isExpense && "text-[var(--foreground)]",
+                          )}
+                        >
+                          {isIncome ? "+" : isExpense ? "−" : ""}
+                          {money(tx.amount, workspace.currency)}
+                        </span>
+                        <p className="text-[0.68rem] text-[var(--text-muted)] capitalize">
+                          {tx.status === "approved"
+                            ? "Đã ghi nhận"
+                            : tx.status === "pending"
+                              ? "Chờ duyệt"
+                              : tx.status}
+                        </p>
+                      </div>
                     </div>
                   );
-                })}
-              </div>
-            ) : (
-              <Empty
-                variant="compact"
-                title="Chưa có chi tiêu"
-                description="Dữ liệu theo danh mục sẽ xuất hiện tại đây."
-              />
-            )}
+                })
+              ) : (
+                <div className="flex flex-col items-center p-5">
+                  <Empty
+                    variant="compact"
+                    title="Chưa có giao dịch"
+                    description="Các giao dịch mới phát sinh sẽ hiển thị tại đây."
+                  />
+                  <Popover
+                    open={Boolean(emptyCreateDraft)}
+                    onOpenChange={(open) => {
+                      if (open) beginEmptyCreate();
+                      else if (!busy) setEmptyCreateDraft(null);
+                    }}
+                  >
+                    <PopoverTrigger
+                      render={
+                        <Button
+                          size="sm"
+                          disabled={busy || !wallets.length}
+                          className="mt-3 h-7 gap-1.5 px-3 text-xs cursor-pointer"
+                          aria-label="Tạo giao dịch đầu tiên"
+                        />
+                      }
+                    >
+                      <Plus className="size-3.5" />
+                      <span>Tạo giao dịch</span>
+                    </PopoverTrigger>
+                    {emptyCreateDraft && (
+                      <DesktopTransactionCreatePopoverContent
+                        draft={emptyCreateDraft}
+                        wallets={walletOptions}
+                        categories={categoryOptions}
+                        busy={busy}
+                        onChange={(patch) =>
+                          setEmptyCreateDraft((current) =>
+                            current ? { ...current, ...patch } : current,
+                          )
+                        }
+                        onSave={saveEmptyCreate}
+                        onCancel={() => setEmptyCreateDraft(null)}
+                      />
+                    )}
+                  </Popover>
+                </div>
+              )}
+            </div>
           </Card>
-        </div>
+
+          {/* Card Định kỳ sắp tới */}
+          <Card as="section" className="gap-0 p-0 lg:col-span-5">
+            <header className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--foreground)]">
+                  Định kỳ sắp đến hạn
+                </h2>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                  Dự báo hóa đơn & dòng tiền định kỳ
+                </p>
+              </div>
+              <Link
+                href="/recurring-transactions"
+                onClick={(event) => {
+                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                    event.preventDefault();
+                    beginNavigation("/recurring-transactions");
+                  }
+                }}
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 px-2 text-xs text-[var(--primary)] hover:text-[var(--primary)] cursor-pointer")}
+              >
+                Quản lý →
+              </Link>
+            </header>
+            <div className="divide-y divide-[var(--border)]">
+              {upcomingRecurring && upcomingRecurring.length ? (
+                upcomingRecurring.slice(0, 4).map((rec) => {
+                  const dateStr = rec.nextExecutionDate.slice(0, 10);
+                  const [y, m, d] = dateStr.split("-");
+                  const formattedDate = `${d}/${m}`;
+                  return (
+                    <div
+                      key={rec.id}
+                      className="flex items-center justify-between gap-4 px-6 py-3 text-xs"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex size-8 shrink-0 flex-col items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] text-[0.65rem] font-medium leading-none text-[var(--foreground)] tabular-nums">
+                          <span>{d}</span>
+                          <span className="text-[0.6rem] text-[var(--text-muted)]">Th{m}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-[var(--foreground)]">
+                            {rec.description || rec.category?.name || "Giao dịch định kỳ"}
+                          </p>
+                          <p className="mt-0.5 truncate text-[0.68rem] text-[var(--text-muted)]">
+                            Ví nguồn: {rec.wallet}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span
+                          className={cn(
+                            "font-semibold tabular-nums",
+                            rec.type === "income" && "text-[var(--income)]",
+                            rec.type === "expense" && "text-[var(--expense)]",
+                          )}
+                        >
+                          {rec.type === "income" ? "+" : rec.type === "expense" ? "−" : ""}
+                          {money(rec.amount, workspace.currency)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-5">
+                  <Empty
+                    variant="compact"
+                    title="Chưa có khoản định kỳ"
+                    description="Thiết lập giao dịch định kỳ để tự động dự báo dòng tiền."
+                  />
+                  <div className="mt-4 flex justify-center">
+                    <Link
+                      href="/recurring-transactions"
+                      onClick={(event) => {
+                        if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                          event.preventDefault();
+                          beginNavigation("/recurring-transactions");
+                        }
+                      }}
+                      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "text-xs cursor-pointer")}
+                    >
+                      <Plus className="mr-1.5 size-3.5" />
+                      Tạo khoản định kỳ
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        </section>
       </PageContainer>
     );
   }
@@ -856,6 +1655,7 @@ function BalanceHistoryChart({
   reportPeriod,
   isMobile,
   periodOverride,
+  hideCard,
 }: {
   wallets: { id: string; name: string; balance: string }[];
   transactions: Transaction[];
@@ -863,6 +1663,7 @@ function BalanceHistoryChart({
   reportPeriod: string;
   isMobile: boolean;
   periodOverride?: DashboardPeriod;
+  hideCard?: boolean;
 }) {
   const [internalPeriod, setInternalPeriod] = useState<DashboardPeriod>("month");
   const period = periodOverride ?? internalPeriod;
@@ -887,6 +1688,89 @@ function BalanceHistoryChart({
     (row) => row.hasNegativeBalance,
   ).length;
   const axisScale = getAmountScale(balances.map((row) => row.total));
+
+  if (hideCard) {
+    if (!visibleWallets.length) {
+      return (
+        <Empty
+          variant="compact"
+          icon={WalletCards}
+          title="Chưa có ví đang hoạt động"
+          description="Tạo hoặc kích hoạt ví để theo dõi lịch sử số dư."
+        />
+      );
+    }
+    return (
+      <ChartContainer
+        config={balanceChartConfig}
+        className="h-[19rem] w-full px-2 pb-2 pt-2"
+        aria-label={`Biểu đồ tổng số dư trong ${balances.length} tháng thuộc khoảng đã chọn`}
+      >
+        <AreaChart
+          data={rows}
+          accessibilityLayer
+          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+        >
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            tickMargin={10}
+            axisLine={false}
+          />
+          <YAxis
+            width={56}
+            tickLine={false}
+            tickMargin={6}
+            axisLine={false}
+            tickCount={5}
+            tickFormatter={(value) => formatScaledAmount(value, axisScale)}
+          />
+          {negativeMonthCount > 0 && (
+            <ReferenceLine
+              y={0}
+              stroke="var(--danger)"
+              strokeDasharray="4 4"
+              strokeOpacity={0.7}
+            />
+          )}
+          <ChartTooltip
+            cursor={false}
+            content={
+              <ChartTooltipContent
+                labelKey="label"
+                indicator="line"
+                labelFormatter={(_, payload) =>
+                  payload?.[0]?.payload?.fullLabel ?? ""
+                }
+                formatter={(value) => (
+                  <div className="flex min-w-48 items-center justify-between gap-4">
+                    <span className="text-muted-foreground">
+                      Tổng số dư
+                    </span>
+                    <strong className="tabular-nums text-foreground">
+                      {money(String(value), currency)}
+                    </strong>
+                  </div>
+                )}
+              />
+            }
+          />
+          <Area
+            dataKey="total"
+            type="monotone"
+            fill="var(--color-total)"
+            fillOpacity={0.14}
+            stroke="var(--color-total)"
+            strokeWidth={2.25}
+            dot={false}
+            activeDot={{ r: 4, strokeWidth: 0 }}
+          />
+        </AreaChart>
+      </ChartContainer>
+    );
+  }
+
   return (
     <Card
       as="section"

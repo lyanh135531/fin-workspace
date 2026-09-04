@@ -75,14 +75,16 @@ export function isWorkspaceNavigationActive(
   key: WorkspaceNavigationKey,
   pathname: string,
 ): boolean {
-  if (key === "overview") return pathname === "/overview";
-  if (key === "ledger") return pathname === "/dashboard" || pathname.startsWith("/workspace/");
-  if (key === "recurring") return pathname === "/recurring-transactions";
-  if (key === "plans") return pathname === "/financial-plans";
-  if (key === "wallets") return pathname === "/wallets";
+  const cleanPath = pathname.split("?")[0].split("#")[0];
+  if (key === "overview") return cleanPath === "/overview";
+  if (key === "ledger") return cleanPath === "/dashboard" || cleanPath.startsWith("/workspace/");
+  if (key === "recurring") return cleanPath === "/recurring-transactions";
+  if (key === "plans") return cleanPath === "/financial-plans";
+  if (key === "wallets") return cleanPath === "/wallets";
   return (
-    pathname === "/settings/workspace" ||
-    pathname === "/dashboard/settings" ||
-    pathname === "/dashboard/join-requests"
+    cleanPath === "/settings/workspace" ||
+    cleanPath === "/dashboard/settings" ||
+    cleanPath === "/dashboard/join-requests" ||
+    cleanPath === "/members"
   );
 }

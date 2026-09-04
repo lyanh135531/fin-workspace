@@ -18,6 +18,7 @@ import {
 type Workspace = { id: string; name: string; role: string };
 
 type NavigationItem = {
+  key: WorkspaceNavigationKey;
   href: string;
   label: string;
   description: string;
@@ -49,6 +50,7 @@ export function DashboardNavigation({
     plans: CalendarRange, wallets: WalletCards, settings: Settings,
   };
   const workspaceItems: NavigationItem[] = workspaceNavigationItems(currentId).map((item) => ({
+    key: item.key,
     href: item.href,
     label: item.label,
     description: item.description,
@@ -108,7 +110,9 @@ function NavigationMenu({
     <SidebarMenu>
       {items.filter((item) => item.visible).map((item) => {
         const Icon = item.icon;
-        const isPending = pendingHref === item.href;
+        const isPending = pendingHref
+          ? item.href === pendingHref || isWorkspaceNavigationActive(item.key, pendingHref)
+          : false;
         const isVisuallyActive = pendingHref
           ? isPending
           : item.active;

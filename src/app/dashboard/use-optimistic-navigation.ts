@@ -1,16 +1,35 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+
+type Listener = (href: string | null) => void;
+const listeners = new Set<Listener>();
+let globalPendingHref: string | null = null;
+
+function broadcastPendingHref(href: string | null) {
+  globalPendingHref = href;
+  listeners.forEach((listener) => listener(href));
+}
 
 export function useOptimisticNavigation() {
   const router = useRouter();
-  const [targetHref, setTargetHref] = useState<string | null>(null);
+  const [pendingHref, setPendingHref] = useState<string | null>(globalPendingHref);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const listener: Listener = (href) => {
+      setPendingHref(href);
+    };
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
 
   const beginNavigation = useCallback(
     (href: string) => {
-      setTargetHref(href);
+      broadcastPendingHref(href);
       startTransition(() => {
         router.push(href);
       });
@@ -18,8 +37,14 @@ export function useOptimisticNavigation() {
     [router],
   );
 
+  useEffect(() => {
+    if (!isPending && globalPendingHref) {
+      broadcastPendingHref(null);
+    }
+  }, [isPending]);
+
   return {
-    pendingHref: isPending ? targetHref : null,
+    pendingHref,
     beginNavigation,
   };
 }
