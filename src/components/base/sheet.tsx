@@ -353,7 +353,7 @@ function SheetHeader({
       {...props}
     >
       {isStructured ? (
-        <div className="flex items-center gap-3 sm:items-start sm:gap-3.5">
+        <div className="flex items-center gap-3 sm:gap-3.5">
           {Icon && (
             <span
               className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)] sm:size-10"
@@ -362,7 +362,7 @@ function SheetHeader({
               {renderIcon(Icon)}
             </span>
           )}
-          <div className="min-w-0 flex-1 flex flex-col items-start text-left sm:pt-0.5">
+          <div className="min-w-0 flex-1 flex flex-col items-start text-left">
             {title && <SheetTitle>{title}</SheetTitle>}
             {description && <SheetDescription>{description}</SheetDescription>}
             {children}
