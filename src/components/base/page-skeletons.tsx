@@ -284,214 +284,381 @@ function DashboardPageSkeleton() {
 function OverviewPageSkeleton() {
   return (
     <div aria-busy="true" aria-label="Đang tải tổng quan tài chính">
-      <div className="mobile-page-skeleton overview-mobile-skeleton">
-        <header className="overview-mobile-skeleton-page-header">
-          <Skeleton className="h-5 w-44" />
-          <Skeleton className="mt-2 h-2.5 w-64 max-w-[80vw]" />
+      {/* 1. MOBILE SKELETON (< 901px) */}
+      <div className="mobile-page-skeleton flex flex-col gap-3 pb-8">
+        {/* Header: Tên workspace & thao tác nhanh */}
+        <header className="space-y-2.5 pt-1">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Skeleton className="size-8 rounded-full" />
+              <Skeleton className="size-8 rounded-full" />
+            </div>
+          </div>
+
+          {/* Segment chọn chế độ xem (Tháng / Quý / Năm) */}
+          <div className="grid w-full grid-cols-3 gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-1">
+            <Skeleton className="h-7 rounded-md" />
+            <Skeleton className="h-7 rounded-md" />
+            <Skeleton className="h-7 rounded-md" />
+          </div>
+
+          {/* Thanh điều hướng thời gian (Time Pager) */}
+          <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1">
+            <Skeleton className="size-8 rounded-lg" />
+            <Skeleton className="h-3.5 w-28" />
+            <Skeleton className="size-8 rounded-lg" />
+          </div>
         </header>
 
-        <section className="overview-mobile-skeleton-balance">
-          <div className="flex items-center justify-between gap-4">
-            <Skeleton className="h-2.5 w-24" />
-            <Skeleton className="h-2.5 w-16" />
+        {/* Hero Card: Tổng số dư & Dòng tiền ròng */}
+        <Card as="article" className="gap-0 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Skeleton className="size-4 rounded" />
+              <Skeleton className="h-3.5 w-36" />
+            </div>
+            <Skeleton className="h-3 w-16" />
           </div>
-          <Skeleton className="mt-4 h-8 w-48" />
-          <Skeleton className="mt-3 h-2.5 w-36" />
-          <div className="overview-mobile-skeleton-cashflow">
-            {[0, 1].map((index) => (
-              <div key={index}>
+
+          <Skeleton className="mt-2.5 h-8 w-52" />
+
+          <div className="mt-3 divide-y divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)]/40 text-xs">
+            {/* Tầng 1: Dòng tiền ròng */}
+            <div className="flex items-center justify-between px-3 py-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-4 w-28" />
+            </div>
+            {/* Tầng 2: Thu nhập & Chi phí 2 cột */}
+            <div className="grid grid-cols-2 divide-x divide-[var(--border)] py-2 text-center">
+              <div className="flex flex-col items-center gap-1 px-2">
+                <Skeleton className="h-2.5 w-12" />
+                <Skeleton className="h-3.5 w-24" />
+              </div>
+              <div className="flex flex-col items-center gap-1 px-2">
+                <Skeleton className="h-2.5 w-12" />
+                <Skeleton className="h-3.5 w-24" />
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Lưới 2 chỉ số phụ (Tốc độ chi & Tích lũy) */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <Card as="article" className="gap-0 p-3">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="size-3.5 rounded" />
+            </div>
+            <Skeleton className="mt-1.5 h-5 w-24" />
+            <div className="mt-2 border-t border-[var(--border)] pt-1.5">
+              <Skeleton className="h-2.5 w-28" />
+            </div>
+          </Card>
+
+          <Card as="article" className="gap-0 p-3">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-3 w-14" />
+              <Skeleton className="size-3.5 rounded" />
+            </div>
+            <Skeleton className="mt-1.5 h-5 w-16" />
+            <div className="mt-2 border-t border-[var(--border)] pt-1.5">
+              <Skeleton className="h-2.5 w-28" />
+            </div>
+          </Card>
+        </div>
+
+        {/* Biểu đồ Thu & Chi / Số dư */}
+        <Card as="section" className="gap-0 p-0">
+          <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2.5">
+            <div className="space-y-1">
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-2.5 w-32" />
+            </div>
+            <div className="grid w-28 grid-cols-2 gap-1 rounded-lg border border-[var(--border)] p-0.5">
+              <Skeleton className="h-6 rounded-md" />
+              <Skeleton className="h-6 rounded-md" />
+            </div>
+          </header>
+          <div className="p-3">
+            <OverviewLinePlotSkeleton />
+            <div className="flex justify-center gap-4 pt-2">
+              <div className="flex items-center gap-1.5">
+                <Skeleton className="size-2 rounded-[2px]" />
+                <Skeleton className="h-2.5 w-14" />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Skeleton className="size-2 rounded-[2px]" />
                 <Skeleton className="h-2.5 w-16" />
-                <Skeleton className="mt-2 h-3.5 w-24 max-w-full" />
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Ví tài khoản (Khớp với thiết kế mới sạch đẹp) */}
+        <Card as="section" className="gap-0 p-0">
+          <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2.5">
+            <div className="flex items-center gap-1.5">
+              <Skeleton className="size-3.5 rounded" />
+              <Skeleton className="h-3.5 w-24" />
+            </div>
+            <Skeleton className="h-3 w-14" />
+          </header>
+          <div className="divide-y divide-[var(--border)]">
+            {[0, 1].map((index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between gap-3 px-4 py-3"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <Skeleton className="size-9 shrink-0 rounded-xl" />
+                  <div className="space-y-1">
+                    <Skeleton className="h-3.5 w-20" />
+                    <Skeleton className="h-2.5 w-24" />
+                  </div>
+                </div>
+                <Skeleton className="h-4 w-24" />
               </div>
             ))}
           </div>
-        </section>
+        </Card>
 
-        <div className="overview-mobile-skeleton-filters">
-          <Skeleton className="h-11 w-full rounded-xl" />
-          <Skeleton className="h-11 w-full rounded-xl" />
-        </div>
-
-        <div className="overview-mobile-skeleton-analysis-heading">
-          <div>
-            <Skeleton className="h-2 w-24" />
-            <Skeleton className="mt-2 h-4 w-48" />
-          </div>
-          <Skeleton className="h-2.5 w-20" />
-        </div>
-
-        <section className="overview-mobile-skeleton-category">
-          <header>
-            <div>
-              <Skeleton className="h-3.5 w-32" />
-              <Skeleton className="mt-2 h-2 w-40" />
+        {/* Chi tiêu theo Hạng mục & Thành viên */}
+        <Card as="section" className="gap-0 p-0">
+          <div className="border-b border-[var(--border)] p-2">
+            <div className="grid w-full grid-cols-2 gap-1 rounded-lg border border-[var(--border)] p-1">
+              <Skeleton className="h-7 rounded-md" />
+              <Skeleton className="h-7 rounded-md" />
             </div>
-            <Skeleton className="h-6 w-7 rounded-md" />
-          </header>
-          <div className="overview-mobile-skeleton-category-body">
-            <Skeleton className="size-32 rounded-full" />
-            <div>
-              {[0, 1, 2].map((index) => (
-                <div
-                  className="overview-mobile-skeleton-category-row"
-                  key={index}
-                >
-                  <Skeleton className="size-2.5 rounded-full" />
-                  <Skeleton className="h-2.5 w-20" />
-                  <Skeleton className="ml-auto h-2.5 w-10" />
+          </div>
+          <div className="divide-y divide-[var(--border)]">
+            {[0, 1, 2].map((index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between gap-3 px-4 py-3"
+              >
+                <div className="flex items-center gap-3">
+                  <Skeleton className="size-8 rounded-lg" />
+                  <div className="space-y-1">
+                    <Skeleton className="h-3.5 w-28" />
+                    <Skeleton className="h-2.5 w-16" />
+                  </div>
                 </div>
-              ))}
-            </div>
+                <Skeleton className="h-4 w-20" />
+              </div>
+            ))}
           </div>
-        </section>
+        </Card>
 
-        {[0, 1, 2].map((index) => (
-          <section className="overview-mobile-skeleton-chart" key={index}>
-            <header>
-              <div>
-                <Skeleton className="h-3.5 w-36" />
-                <Skeleton className="mt-2 h-2 w-28" />
-              </div>
-              <Skeleton className="h-6 w-12 rounded-md" />
-            </header>
-            <div className="overview-mobile-skeleton-plot">
-              <Skeleton className="h-px w-full" />
-              <Skeleton className="h-px w-full" />
-              <Skeleton className="h-px w-full" />
-              <div>
-                {[0, 1, 2, 3, 4, 5].map((barIndex) => (
-                  <Skeleton
-                    className="w-5 rounded-t-md"
-                    key={barIndex}
-                    style={{
-                      height: `${24 + ((barIndex * 17 + index * 11) % 64)}px`,
-                    }}
-                  />
-                ))}
-              </div>
+        {/* Giao dịch gần nhất */}
+        <Card as="section" className="gap-0 p-0">
+          <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2.5">
+            <div className="flex items-center gap-1.5">
+              <Skeleton className="size-3.5 rounded" />
+              <Skeleton className="h-3.5 w-28" />
             </div>
-          </section>
-        ))}
+            <Skeleton className="h-3 w-16" />
+          </header>
+          <div className="divide-y divide-[var(--border)]">
+            {[0, 1, 2].map((index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between gap-3 px-4 py-2.5"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Skeleton className="size-7 rounded-lg" />
+                  <div className="space-y-1">
+                    <Skeleton className="h-3 w-28" />
+                    <Skeleton className="h-2 w-16" />
+                  </div>
+                </div>
+                <Skeleton className="h-3.5 w-20" />
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
 
+      {/* 2. DESKTOP SKELETON (>= 901px) */}
       <div className="desktop-page-skeleton">
         <div className="mx-auto max-w-[76rem] space-y-5 pb-10 pt-2">
+          {/* Header máy tính */}
           <header className="flex items-start justify-between gap-8 border-b border-[var(--border)] pb-5">
             <div className="space-y-2">
               <Skeleton className="h-7 w-52" />
               <Skeleton className="h-3.5 w-[min(38rem,58vw)]" />
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <Skeleton className="h-9 w-24" />
-              <Skeleton className="h-9 w-60" />
+              <Skeleton className="h-9 w-28 rounded-lg" />
+              <Skeleton className="h-9 w-44 rounded-lg" />
+              <Skeleton className="h-9 w-36 rounded-lg" />
             </div>
           </header>
 
-          <section className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-            <Card
-              as="article"
-              tone="primarySoft"
-              className="relative gap-0 lg:col-span-5"
-            >
-              <Skeleton className="h-3 w-32" />
-              <Skeleton className="mt-4 h-9 w-64 max-w-full" />
-              <div className="mt-7 flex items-center justify-between gap-4 border-t border-[var(--border)] pt-4">
-                <div className="flex items-center gap-2">
-                  <Skeleton className="size-3.5" />
-                  <Skeleton className="h-2.5 w-28" />
+          {/* TẦNG 1: 4 KPI CARDS */}
+          <section className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((index) => (
+              <Card as="article" className="gap-0 p-4 sm:p-5" key={index}>
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-3.5 w-32" />
+                  <Skeleton className="size-4 rounded" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <Skeleton className="size-3.5" />
-                  <Skeleton className="h-2.5 w-32" />
+                <Skeleton className="mt-2.5 h-8 w-44" />
+                <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-24" />
                 </div>
+              </Card>
+            ))}
+          </section>
+
+          {/* TẦNG 2: BIỂU ĐỒ DÒNG TIỀN (8 cols) & DANH SÁCH VÍ TÀI KHOẢN (4 cols) */}
+          <section className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-12">
+            {/* 8 cols: Biểu đồ */}
+            <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-8 h-full">
+              <header className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 border-b border-[var(--border)] px-4 py-3 sm:px-6 sm:py-4">
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-44" />
+                  <Skeleton className="h-3 w-56" />
+                </div>
+                <div className="grid w-44 grid-cols-2 gap-1 rounded-lg border border-[var(--border)] p-1">
+                  <Skeleton className="h-7 rounded-md" />
+                  <Skeleton className="h-7 rounded-md" />
+                </div>
+              </header>
+              <div className="flex-1 p-4 sm:p-6 min-h-[18rem]">
+                <OverviewLinePlotSkeleton />
               </div>
             </Card>
 
-            <Card as="article" className="gap-0 lg:col-span-7">
-              <header className="flex items-start justify-between gap-5 pb-5">
-                <div>
-                  <Skeleton className="h-3.5 w-32" />
-                  <Skeleton className="mt-2 h-2.5 w-52" />
+            {/* 4 cols: Ví tài khoản */}
+            <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-4 h-full">
+              <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4">
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-32" />
                 </div>
-                <Skeleton className="h-2.5 w-24" />
+                <Skeleton className="h-3 w-14" />
               </header>
-              <div className="grid grid-cols-3 border-t border-[var(--border)] pt-5">
+              <div className="flex-1 space-y-3 p-4 sm:p-5">
                 {[0, 1, 2].map((index) => (
                   <div
-                    className="border-l border-[var(--border)] px-5 first:border-l-0 first:pl-0 last:pr-0"
                     key={index}
+                    className="rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)]/40 p-3 flex items-center justify-between"
                   >
                     <div className="flex items-center gap-2">
-                      <Skeleton className="size-2" />
-                      <Skeleton className="h-2.5 w-16" />
+                      <Skeleton className="size-4 rounded" />
+                      <Skeleton className="h-3.5 w-24" />
                     </div>
-                    <Skeleton className="mt-3 h-5 w-28" />
-                    <Skeleton className="mt-2 h-2 w-20" />
+                    <Skeleton className="h-4 w-24" />
                   </div>
                 ))}
               </div>
             </Card>
           </section>
 
-          <Card as="section" className="gap-0 p-0">
-            <header className="px-6 pb-4 pt-6">
-              <Skeleton className="h-4 w-56" />
-              <Skeleton className="mt-2 h-2.5 w-64" />
-            </header>
-            <div className="grid grid-cols-1 gap-6 border-t border-[var(--border)] px-6 pb-6 pt-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)]">
-              <div className="min-w-0 border-b border-[var(--border)] pb-6 xl:border-b-0 xl:pb-0">
-                <OverviewLinePlotSkeleton />
+          {/* TẦNG 3: CHI TIÊU THEO HẠNG MỤC (7 cols) & THÀNH VIÊN (5 cols) */}
+          <section className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-12">
+            {/* 7 cols: Hạng mục */}
+            <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-7">
+              <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-6 sm:py-4">
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-3 w-48" />
+                </div>
+                <Skeleton className="h-7 w-32 rounded-lg" />
+              </header>
+              <div className="p-4 sm:p-6 space-y-4">
+                {[0, 1, 2, 3].map((index) => (
+                  <div key={index} className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="size-2.5 rounded-full" />
+                        <Skeleton className="h-3 w-28" />
+                      </div>
+                      <Skeleton className="h-3.5 w-20" />
+                    </div>
+                    <Skeleton className="h-2 w-full rounded-full" />
+                  </div>
+                ))}
               </div>
-              <div className="min-w-0">
-                <Skeleton className="h-3.5 w-36" />
-                <Skeleton className="mt-2 h-2 w-32" />
+            </Card>
+
+            {/* 5 cols: Thành viên */}
+            <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-5">
+              <header className="border-b border-[var(--border)] px-4 py-3 sm:px-6 sm:py-4">
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-40" />
+                </div>
+              </header>
+              <div className="p-4 sm:p-6">
                 <OverviewMemberPlotSkeleton />
               </div>
-            </div>
-          </Card>
-
-          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
-            <Card as="section" className="gap-0 p-0 lg:col-span-8">
-              <header className="flex items-start justify-between gap-5 px-6 pb-4 pt-6">
-                <div>
-                  <Skeleton className="h-3.5 w-32" />
-                  <Skeleton className="mt-2 h-2.5 w-64" />
-                </div>
-                <div className="grid w-48 grid-cols-2 gap-1">
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-full" />
-                </div>
-              </header>
-              <div className="border-t border-[var(--border)] px-5 pb-5 pt-4">
-                <OverviewLinePlotSkeleton />
-              </div>
             </Card>
+          </section>
 
-            <Card as="section" className="gap-0 lg:col-span-4">
-              <header className="flex items-start justify-between gap-4 pb-5">
-                <div>
-                  <Skeleton className="h-3.5 w-36" />
-                  <Skeleton className="mt-2 h-2.5 w-32" />
+          {/* TẦNG 4: GIAO DỊCH GẦN NHẤT (7 cols) & ĐỊNH KỲ SẮP TỚI (5 cols) */}
+          <section className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-12">
+            {/* 7 cols: Giao dịch gần nhất */}
+            <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-7">
+              <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-6 sm:py-4">
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-3 w-28" />
                 </div>
-                <Skeleton className="h-2.5 w-10" />
+                <Skeleton className="h-3 w-16" />
               </header>
-              <div className="space-y-4 border-t border-[var(--border)] pt-5">
-                {["w-4/5", "w-3/5", "w-full", "w-2/3", "w-1/2"].map(
-                  (width, index) => (
-                    <div key={index}>
-                      <div className="flex items-center gap-2.5">
-                        <Skeleton className="size-2 shrink-0" />
-                        <Skeleton className="h-2.5 w-24" />
-                        <Skeleton className="ml-auto h-2.5 w-8" />
+              <div className="divide-y divide-[var(--border)]">
+                {[0, 1, 2, 3].map((index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="size-8 rounded-lg" />
+                      <div className="space-y-1">
+                        <Skeleton className="h-3.5 w-36" />
+                        <Skeleton className="h-2.5 w-20" />
                       </div>
-                      <Skeleton className={`mt-2 h-1 ${width}`} />
-                      <Skeleton className="mt-2 ml-auto h-2 w-20" />
                     </div>
-                  ),
-                )}
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                ))}
               </div>
             </Card>
-          </div>
+
+            {/* 5 cols: Định kỳ sắp tới */}
+            <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-5">
+              <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-6 sm:py-4">
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-36" />
+                </div>
+                <Skeleton className="h-3 w-16" />
+              </header>
+              <div className="p-4 space-y-3">
+                {[0, 1, 2].map((index) => (
+                  <div
+                    key={index}
+                    className="rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Skeleton className="size-8 rounded-lg" />
+                      <div className="space-y-1">
+                        <Skeleton className="h-3 w-24" />
+                        <Skeleton className="h-2.5 w-16" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-3.5 w-20" />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </section>
         </div>
       </div>
     </div>
