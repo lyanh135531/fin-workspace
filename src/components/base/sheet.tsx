@@ -17,6 +17,11 @@ type SheetSize = "default" | "wide" | "sm" | "md" | "lg";
 type SheetSpacing = "default" | "flush";
 type SheetElevation = "raised" | "flat";
 type SheetSide = "top" | "right" | "bottom" | "left" | "center";
+type MobileSheetStyle = React.CSSProperties & {
+  "--mobile-sheet-drag-offset": string;
+  "--mobile-keyboard-inset": string;
+  "--mobile-visual-height": string;
+};
 
 const MOBILE_SHEET_CLOSE_RATIO = 0.22;
 const MOBILE_SHEET_MIN_CLOSE_DISTANCE = 75;
@@ -111,6 +116,30 @@ function SheetContent({
   const [visualHeight, setVisualHeight] = React.useState<number | null>(null);
   const isBottomSheet = side === "bottom";
   const shouldShowClose = showClose ?? (side !== "bottom");
+
+  const getSheetStyle = (state: SheetPrimitive.Popup.State): MobileSheetStyle => ({
+    ...(typeof style === "function" ? style(state) : style),
+    "--mobile-sheet-drag-offset": `${dragOffset}px`,
+    "--mobile-keyboard-inset": `${keyboardInset}px`,
+    "--mobile-visual-height": visualHeight ? `${visualHeight}px` : "100dvh",
+    ...(isBottomSheet && keyboardInset > 0
+      ? {
+          bottom: `${keyboardInset}px`,
+          maxHeight: visualHeight ? `${visualHeight - 8}px` : undefined,
+        }
+      : {}),
+    ...(dragging
+      ? {
+          translate: `0 ${dragOffset}px`,
+          transition: "none",
+        }
+      : isSnapping
+        ? {
+            translate: "0 0",
+            transition: "translate 0.3s cubic-bezier(0.32, 0.72, 0, 1)",
+          }
+        : {}),
+  });
 
   // Track virtual keyboard appearance via window.visualViewport
   React.useEffect(() => {
@@ -316,31 +345,7 @@ function SheetContent({
           spacing === "flush" ? "gap-0" : "gap-4",
           className,
         )}
-        style={
-          {
-            ...style,
-            "--mobile-sheet-drag-offset": `${dragOffset}px`,
-            "--mobile-keyboard-inset": `${keyboardInset}px`,
-            "--mobile-visual-height": visualHeight ? `${visualHeight}px` : "100dvh",
-            ...(isBottomSheet && keyboardInset > 0
-              ? {
-                  bottom: `${keyboardInset}px`,
-                  maxHeight: visualHeight ? `${visualHeight - 8}px` : undefined,
-                }
-              : {}),
-            ...(dragging
-              ? {
-                  translate: `0 ${dragOffset}px`,
-                  transition: "none",
-                }
-              : isSnapping
-                ? {
-                    translate: "0 0",
-                    transition: "translate 0.3s cubic-bezier(0.32, 0.72, 0, 1)",
-                  }
-                : {}),
-          } as React.CSSProperties
-        }
+        style={getSheetStyle}
         {...props}
         onFocusCapture={handleFocusCapture}
         onPointerDown={handleDragStart}
