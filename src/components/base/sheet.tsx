@@ -73,6 +73,14 @@ function SheetOverlay({ className, style, ...props }: SheetPrimitive.Backdrop.Pr
   );
 }
 
+function dismissKeyboard(): void {
+  if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+    if (document.activeElement.matches("input, textarea, select, [contenteditable='true']")) {
+      document.activeElement.blur();
+    }
+  }
+}
+
 function SheetContent({
   className,
   children,
@@ -99,8 +107,53 @@ function SheetContent({
   const [dragOffset, setDragOffset] = React.useState(0);
   const [dragging, setDragging] = React.useState(false);
   const [isSnapping, setIsSnapping] = React.useState(false);
+  const [keyboardInset, setKeyboardInset] = React.useState(0);
+  const [visualHeight, setVisualHeight] = React.useState<number | null>(null);
   const isBottomSheet = side === "bottom";
   const shouldShowClose = showClose ?? (side !== "bottom");
+
+  // Track virtual keyboard appearance via window.visualViewport
+  React.useEffect(() => {
+    if (!isBottomSheet || typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const handleViewportChange = () => {
+      const currentHeight = vv.height;
+      const inset = Math.max(
+        0,
+        window.innerHeight - currentHeight - (vv.offsetTop || 0),
+      );
+      setKeyboardInset(inset > 50 ? inset : 0);
+      setVisualHeight(currentHeight);
+    };
+
+    vv.addEventListener("resize", handleViewportChange);
+    vv.addEventListener("scroll", handleViewportChange);
+    handleViewportChange();
+
+    return () => {
+      vv.removeEventListener("resize", handleViewportChange);
+      vv.removeEventListener("scroll", handleViewportChange);
+    };
+  }, [isBottomSheet]);
+
+  const handleFocusCapture = React.useCallback(
+    (event: React.FocusEvent<HTMLDivElement>) => {
+      if (!isBottomSheet) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        !target ||
+        !target.matches("input, textarea, select, [contenteditable='true'], [role='combobox']")
+      ) {
+        return;
+      }
+      setTimeout(() => {
+        target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      }, 280);
+    },
+    [isBottomSheet],
+  );
 
   function resetDrag(): void {
     dragStartRef.current = null;
@@ -112,6 +165,7 @@ function SheetContent({
   }
 
   function handleDragStart(event: React.PointerEvent<HTMLDivElement>): void {
+    dismissKeyboard();
     const target = event.target as HTMLElement;
     const dragSurface = target.closest(
       '[data-slot="mobile-sheet-drag-handle"], [data-slot="sheet-header"]',
@@ -266,6 +320,14 @@ function SheetContent({
           {
             ...style,
             "--mobile-sheet-drag-offset": `${dragOffset}px`,
+            "--mobile-keyboard-inset": `${keyboardInset}px`,
+            "--mobile-visual-height": visualHeight ? `${visualHeight}px` : "100dvh",
+            ...(isBottomSheet && keyboardInset > 0
+              ? {
+                  bottom: `${keyboardInset}px`,
+                  maxHeight: visualHeight ? `${visualHeight - 8}px` : undefined,
+                }
+              : {}),
             ...(dragging
               ? {
                   translate: `0 ${dragOffset}px`,
@@ -280,6 +342,7 @@ function SheetContent({
           } as React.CSSProperties
         }
         {...props}
+        onFocusCapture={handleFocusCapture}
         onPointerDown={handleDragStart}
         onPointerMove={handleDragMove}
         onPointerUp={handleDragEnd}
@@ -298,6 +361,7 @@ function SheetContent({
         {isBottomSheet && (
           <div
             data-slot="mobile-sheet-drag-handle"
+            onClick={dismissKeyboard}
             className="flex w-full shrink-0 items-center justify-center pt-2.5 pb-1 sm:hidden cursor-grab active:cursor-grabbing touch-none select-none"
             aria-hidden="true"
           >
@@ -346,6 +410,7 @@ function SheetHeader({
   return (
     <div
       data-slot="sheet-header"
+      onClick={dismissKeyboard}
       className={cn(
         "shrink-0 px-5 pt-2.5 pb-3.5 sm:px-6 sm:py-5 sm:pr-14 border-b border-[var(--border)] select-none",
         className,
