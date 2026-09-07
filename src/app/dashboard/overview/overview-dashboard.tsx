@@ -751,7 +751,7 @@ export function OverviewDashboard({
           </div>
         </Card>
 
-        {/* 5. Ví tài khoản & Thao tác chuyển tiền */}
+        {/* 5. Ví tài khoản */}
         <Card as="section" className="gap-0 p-0">
           <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2.5">
             <div className="flex items-center gap-1.5">
@@ -780,38 +780,34 @@ export function OverviewDashboard({
                 const balanceDec = new Decimal(wallet.balance);
                 const percent =
                   totalBalanceDecimal.isPositive() && !totalBalanceDecimal.isZero()
-                    ? Math.max(0, balanceDec.div(totalBalanceDecimal).times(100).toNumber())
+                    ? Math.max(
+                        0,
+                        balanceDec.div(totalBalanceDecimal).times(100).toNumber(),
+                      )
                     : 0;
                 return (
-                  <div key={wallet.id} className="flex items-center justify-between gap-3 px-4 py-3 text-xs">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-[var(--text-secondary)]">
+                  <div
+                    key={wallet.id}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-xs"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--surface-secondary)] text-[var(--foreground)]">
                         <Wallet className="size-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate font-medium text-[var(--foreground)]">
-                            {wallet.name}
-                          </span>
-                          <strong className="shrink-0 font-semibold tabular-nums text-[var(--foreground)]">
-                            {money(wallet.balance, workspace.currency)}
-                          </strong>
-                        </div>
+                        <span className="block truncate font-semibold text-[var(--foreground)]">
+                          {wallet.name}
+                        </span>
                         {wallets.length > 1 && (
-                          <div className="mt-1.5 flex items-center gap-2">
-                            <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
-                              <span
-                                className="block h-full rounded-full bg-[var(--primary)]"
-                                style={{ width: `${Math.min(100, percent)}%` }}
-                              />
-                            </div>
-                            <span className="shrink-0 text-[0.65rem] text-[var(--text-muted)] tabular-nums">
-                              {percent.toFixed(0)}%
-                            </span>
-                          </div>
+                          <p className="mt-0.5 text-[0.6875rem] text-[var(--text-muted)]">
+                            {percent.toFixed(0)}% tổng tài sản
+                          </p>
                         )}
                       </div>
                     </div>
+                    <strong className="shrink-0 text-right font-semibold tabular-nums text-[var(--foreground)]">
+                      {money(wallet.balance, workspace.currency)}
+                    </strong>
                   </div>
                 );
               })
@@ -823,47 +819,6 @@ export function OverviewDashboard({
               />
             )}
           </div>
-          {wallets.length >= 2 && (
-            <div className="border-t border-[var(--border)] p-2.5">
-              <Popover
-                open={Boolean(transferDraft)}
-                onOpenChange={(open) => {
-                  if (open) beginTransfer();
-                  else if (!busy) setTransferDraft(null);
-                }}
-              >
-                <PopoverTrigger
-                  render={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      className="w-full text-xs cursor-pointer"
-                      aria-label="Chuyển tiền giữa các ví"
-                    />
-                  }
-                >
-                  <ArrowLeftRight className="mr-1.5 size-3.5" />
-                  Chuyển tiền giữa các ví
-                </PopoverTrigger>
-                {transferDraft && (
-                  <DesktopTransactionCreatePopoverContent
-                    draft={transferDraft}
-                    wallets={walletOptions}
-                    categories={categoryOptions}
-                    busy={busy}
-                    onChange={(patch) =>
-                      setTransferDraft((current) =>
-                        current ? { ...current, ...patch } : current,
-                      )
-                    }
-                    onSave={saveTransfer}
-                    onCancel={() => setTransferDraft(null)}
-                  />
-                )}
-              </Popover>
-            </div>
-          )}
         </Card>
 
         {/* 6. Chi tiêu theo Hạng mục & Thành viên (Tab Switcher Clean Full-Width) */}
@@ -2587,7 +2542,15 @@ function MonthlyFinancialChart({
               }
             />
             <ChartLegend
-              content={<ChartLegendContent className="justify-start pt-2 text-xs" />}
+              verticalAlign="bottom"
+              wrapperStyle={{
+                left: 0,
+                right: 0,
+                width: "100%",
+              }}
+              content={
+                <ChartLegendContent className="flex-wrap justify-center sm:justify-start gap-4 pt-2 text-xs" />
+              }
             />
             {visibleTypes.includes("income") && (
               isDaily ? (

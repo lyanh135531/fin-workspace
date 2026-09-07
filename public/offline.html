@@ -6,16 +6,105 @@
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#ff5b3d" />
     <title>Felix đang ngoại tuyến</title>
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem("fin-workspace-mode");
+          if (
+            mode === "dark" ||
+            (!mode && window.matchMedia("(prefers-color-scheme: dark)").matches)
+          ) {
+            document.documentElement.setAttribute("data-mode", "dark");
+          } else {
+            document.documentElement.setAttribute("data-mode", "light");
+          }
+        } catch (e) {}
+      })();
+    </script>
     <style>
       :root {
         color-scheme: light dark;
-        --offline-background: #fff8f0;
+        --offline-bg: #fff8f0;
         --offline-surface: #ffffff;
-        --offline-foreground: #271a16;
-        --offline-secondary: #725f58;
-        --offline-border: #eadbd2;
-        --offline-primary: #c93620;
+        --offline-surface-subtle: #fff1e6;
+        --offline-surface-hover: #fff7f2;
+        --offline-border: #eadfd5;
+        --offline-border-strong: #d8c9bc;
+        --offline-text: #17233c;
+        --offline-secondary: #667085;
+        --offline-muted: #98a2b3;
+        --offline-primary: #ff5b3d;
+        --offline-primary-hover: #e94a2e;
+        --offline-primary-active: #d83e25;
         --offline-primary-foreground: #ffffff;
+        --offline-warning: #f59e0b;
+        --offline-warning-soft: #fef3c7;
+        --offline-warning-text: #92400e;
+        --offline-warning-border: #fcd34d;
+        --offline-card-radius: 20px;
+        --offline-btn-radius: 12px;
+      }
+
+      html[data-mode="dark"] {
+        --offline-bg: #101722;
+        --offline-surface: #182231;
+        --offline-surface-subtle: #202c3d;
+        --offline-surface-hover: #283548;
+        --offline-border: #344054;
+        --offline-border-strong: #526074;
+        --offline-text: #f9fafb;
+        --offline-secondary: #c7ced8;
+        --offline-muted: #8f9bad;
+        --offline-primary: #ff765f;
+        --offline-primary-hover: #ff8d79;
+        --offline-primary-active: #e9604c;
+        --offline-primary-foreground: #101722;
+        --offline-warning: #fbc14d;
+        --offline-warning-soft: #2d2416;
+        --offline-warning-text: #fef08a;
+        --offline-warning-border: #634b1d;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-mode="light"]) {
+          --offline-bg: #101722;
+          --offline-surface: #182231;
+          --offline-surface-subtle: #202c3d;
+          --offline-surface-hover: #283548;
+          --offline-border: #344054;
+          --offline-border-strong: #526074;
+          --offline-text: #f9fafb;
+          --offline-secondary: #c7ced8;
+          --offline-muted: #8f9bad;
+          --offline-primary: #ff765f;
+          --offline-primary-hover: #ff8d79;
+          --offline-primary-active: #e9604c;
+          --offline-primary-foreground: #101722;
+          --offline-warning: #fbc14d;
+          --offline-warning-soft: #2d2416;
+          --offline-warning-text: #fef08a;
+          --offline-warning-border: #634b1d;
+        }
+      }
+
+      html[data-mode="light"] {
+        --offline-bg: #fff8f0;
+        --offline-surface: #ffffff;
+        --offline-surface-subtle: #fff1e6;
+        --offline-surface-hover: #fff7f2;
+        --offline-border: #eadfd5;
+        --offline-border-strong: #d8c9bc;
+        --offline-text: #17233c;
+        --offline-secondary: #667085;
+        --offline-muted: #98a2b3;
+        --offline-primary: #ff5b3d;
+        --offline-primary-hover: #e94a2e;
+        --offline-primary-active: #d83e25;
+        --offline-primary-foreground: #ffffff;
+        --offline-warning: #f59e0b;
+        --offline-warning-soft: #fef3c7;
+        --offline-warning-text: #92400e;
+        --offline-warning-border: #fcd34d;
       }
 
       * {
@@ -28,80 +117,416 @@
         margin: 0;
         display: grid;
         place-items: center;
-        padding: 24px;
-        background: var(--offline-background);
-        color: var(--offline-foreground);
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        padding: 20px;
+        background-color: var(--offline-bg);
+        color: var(--offline-text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
       }
 
-      main {
-        width: min(100%, 480px);
-        padding: 32px;
+      .card {
+        width: min(100%, 440px);
+        padding: 32px 28px;
         border: 1px solid var(--offline-border);
-        border-radius: 24px;
-        background: var(--offline-surface);
+        border-radius: var(--offline-card-radius);
+        background-color: var(--offline-surface);
         text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
       }
 
-      img {
-        width: 72px;
-        height: 72px;
+      @media (min-width: 640px) {
+        .card {
+          padding: 40px 36px;
+        }
       }
 
-      h1 {
-        margin: 20px 0 8px;
-        font-size: clamp(1.5rem, 6vw, 2rem);
-        line-height: 1.2;
-      }
-
-      p {
-        margin: 0;
-        color: var(--offline-secondary);
-        font-size: 1rem;
-        line-height: 1.6;
-      }
-
-      a {
-        min-height: 44px;
-        margin-top: 24px;
-        padding: 11px 20px;
+      .brand-badge {
+        position: relative;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        margin-bottom: 20px;
+      }
+
+      .logo-box {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        background: var(--offline-surface-subtle);
+        border: 1px solid var(--offline-border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .wifi-pill {
+        position: absolute;
+        bottom: -6px;
+        right: -6px;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background-color: var(--offline-warning-soft);
+        border: 2px solid var(--offline-surface);
+        color: var(--offline-warning-text);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        background-color: var(--offline-surface-subtle);
+        border: 1px solid var(--offline-border);
+        font-size: 0.8125rem;
+        font-weight: 550;
+        color: var(--offline-secondary);
+        margin-bottom: 16px;
+      }
+
+      .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background-color: var(--offline-warning);
+        position: relative;
+      }
+
+      .status-dot::after {
+        content: "";
+        position: absolute;
+        inset: -2px;
+        border-radius: 50%;
+        background-color: var(--offline-warning);
+        opacity: 0.4;
+        animation: pulse 2s infinite ease-in-out;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 0.4;
+        }
+        50% {
+          transform: scale(1.6);
+          opacity: 0;
+        }
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1.25;
+        letter-spacing: -0.02em;
+        color: var(--offline-text);
+      }
+
+      p.description {
+        margin: 0 0 20px;
+        color: var(--offline-secondary);
+        font-size: 0.9375rem;
+        line-height: 1.55;
+      }
+
+      .tip-box {
+        width: 100%;
+        padding: 12px 14px;
         border-radius: 12px;
-        background: var(--offline-primary);
-        color: var(--offline-primary-foreground);
-        font-weight: 650;
+        background-color: var(--offline-surface-subtle);
+        border: 1px solid var(--offline-border);
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        text-align: left;
+        margin-bottom: 24px;
+      }
+
+      .tip-box svg {
+        flex-shrink: 0;
+        margin-top: 2px;
+        color: var(--offline-secondary);
+      }
+
+      .tip-box span {
+        font-size: 0.8125rem;
+        line-height: 1.45;
+        color: var(--offline-secondary);
+      }
+
+      .actions {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .btn {
+        width: 100%;
+        min-height: 44px;
+        padding: 11px 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border-radius: var(--offline-btn-radius);
+        font-size: 0.9375rem;
+        font-weight: 600;
         text-decoration: none;
+        cursor: pointer;
+        transition:
+          background-color 0.15s ease,
+          border-color 0.15s ease,
+          color 0.15s ease;
+        border: 1px solid transparent;
+        font-family: inherit;
       }
 
-      a:focus-visible {
-        outline: 3px solid var(--offline-primary);
-        outline-offset: 3px;
+      .btn:focus-visible {
+        outline: 2px solid var(--offline-primary);
+        outline-offset: 2px;
       }
 
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --offline-background: #101722;
-          --offline-surface: #182231;
-          --offline-foreground: #f8f4f1;
-          --offline-secondary: #c7bab4;
-          --offline-border: #354252;
-          --offline-primary: #ff765f;
-          --offline-primary-foreground: #21110d;
+      .btn-primary {
+        background-color: var(--offline-primary);
+        color: var(--offline-primary-foreground);
+        border-color: var(--offline-primary);
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        background-color: var(--offline-primary-hover);
+        border-color: var(--offline-primary-hover);
+      }
+
+      .btn-primary:active:not(:disabled) {
+        background-color: var(--offline-primary-active);
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+      }
+
+      .btn-secondary {
+        background-color: transparent;
+        color: var(--offline-text);
+        border-color: var(--offline-border);
+      }
+
+      .btn-secondary:hover {
+        background-color: var(--offline-surface-subtle);
+        border-color: var(--offline-border-strong);
+      }
+
+      .live-status {
+        margin-top: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        color: var(--offline-muted);
+      }
+
+      .spin {
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
         }
       }
     </style>
   </head>
   <body>
-    <main>
-      <img src="/pwa-icon-192.png" alt="" width="72" height="72" />
+    <main class="card" role="main">
+      <div class="brand-badge">
+        <div class="logo-box" aria-hidden="true">
+          <!-- Felix SVG Logo (Self-contained) -->
+          <svg
+            width="44"
+            height="44"
+            viewBox="0 0 64 64"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <defs>
+              <linearGradient id="felix-mark" x1="15" y1="10" x2="52" y2="49">
+                <stop stop-color="#ff5b3d" />
+                <stop offset="1" stop-color="#7d6df1" />
+              </linearGradient>
+              <linearGradient id="felix-accent" x1="20" y1="11" x2="45" y2="38">
+                <stop stop-color="#7d6df1" stop-opacity="0.2" />
+                <stop offset="1" stop-color="#ffffff" stop-opacity="0.36" />
+              </linearGradient>
+            </defs>
+            <g transform="translate(0, 4)">
+              <path
+                d="M15.4 50.4c-2.2-.2-3.3-1.8-2.8-4.3l4.9-27.3C19 10.7 25.2 6.6 34.6 6.6h14.8c3.5 0 5.1 2.1 4.3 5.3-1.6 6.5-6.7 10.2-14.3 10.2h-7.2c-5.8 0-9.3 3.1-10.4 9.1l-2.2 11.9c-.9 4.9-1.9 7.7-4.2 7.3Z"
+                fill="url(#felix-mark)"
+              />
+              <path
+                d="M28.3 41.2 30 32c.8-4.5 4.2-7.1 9-7.1h9.8c2.9 0 4.2 1.8 3.4 4.5-1.9 7.2-7 11.8-14.9 11.8h-9Z"
+                fill="url(#felix-mark)"
+                transform="translate(-3, 2)"
+              />
+              <path
+                d="M18.2 35.2c4.7-9.7 11.6-18.5 23.2-24.7-11.7 2.1-19.3 8.5-22.2 18.9l-1 5.8Z"
+                fill="url(#felix-accent)"
+              />
+            </g>
+          </svg>
+        </div>
+        <div class="wifi-pill" title="Mất kết nối" aria-hidden="true">
+          <!-- Wi-Fi Off SVG -->
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="2" y1="2" x2="22" y2="22"></line>
+            <path d="M8.5 16.5a5 5 0 0 1 7 0"></path>
+            <path d="M2 8.82a15 15 0 0 1 4.17-2.65"></path>
+            <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.82"></path>
+            <line x1="12" y1="20" x2="12.01" y2="20"></line>
+          </svg>
+        </div>
+      </div>
+
+      <div class="status-pill">
+        <span class="status-dot"></span>
+        <span>Mất kết nối mạng</span>
+      </div>
+
       <h1>Felix đang ngoại tuyến</h1>
-      <p>
-        Không thể kết nối tới máy chủ. Dữ liệu tài chính không được lưu
-        trên trang này.
+      <p class="description">
+        Không thể kết nối tới máy chủ. Dữ liệu tài chính của bạn vẫn an toàn và
+        không bị ảnh hưởng.
       </p>
-      <a href="/overview">Thử kết nối lại</a>
+
+      <div class="tip-box">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <span>
+          Vui lòng kiểm tra Wi-Fi hoặc dữ liệu di động. Ứng dụng sẽ tự động đồng bộ
+          ngay khi kết nối trở lại.
+        </span>
+      </div>
+
+      <div class="actions">
+        <button
+          type="button"
+          id="retry-button"
+          class="btn btn-primary"
+          onclick="handleRetry()"
+        >
+          <svg
+            id="retry-icon"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path
+              d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+            ></path>
+          </svg>
+          <span id="retry-label">Thử kết nối lại</span>
+        </button>
+
+        <a href="/overview" class="btn btn-secondary">
+          <span>Về trang tổng quan</span>
+        </a>
+      </div>
+
+      <div id="live-status" class="live-status" aria-live="polite">
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+        </svg>
+        <span id="live-status-text">Tự động tải lại khi phát hiện có mạng</span>
+      </div>
     </main>
+
+    <script>
+      function handleRetry() {
+        var btn = document.getElementById("retry-button");
+        var icon = document.getElementById("retry-icon");
+        var label = document.getElementById("retry-label");
+
+        if (btn) btn.disabled = true;
+        if (icon) icon.classList.add("spin");
+        if (label) label.textContent = "Đang kết nối lại...";
+
+        setTimeout(function () {
+          window.location.reload();
+        }, 400);
+      }
+
+      window.addEventListener("online", function () {
+        var liveText = document.getElementById("live-status-text");
+        var btn = document.getElementById("retry-button");
+        var icon = document.getElementById("retry-icon");
+        var label = document.getElementById("retry-label");
+
+        if (liveText) {
+          liveText.textContent = "Đã phát hiện có mạng! Đang kết nối...";
+        }
+        if (btn) btn.disabled = true;
+        if (icon) icon.classList.add("spin");
+        if (label) label.textContent = "Đang kết nối lại...";
+
+        setTimeout(function () {
+          window.location.reload();
+        }, 600);
+      });
+    </script>
   </body>
 </html>
+
