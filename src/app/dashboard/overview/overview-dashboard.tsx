@@ -586,24 +586,15 @@ export function OverviewDashboard({
             {balanceLabel}
           </strong>
 
-          <div className="mt-3 grid grid-cols-3 divide-x divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)]/40 py-2 text-center text-xs">
-            <div className="px-1">
-              <span className="block text-[0.65rem] text-[var(--text-muted)]">Thu nhập</span>
-              <strong className="mt-0.5 block font-semibold text-[var(--income)] tabular-nums truncate">
-                +{money(activeTotals.income, workspace.currency)}
-              </strong>
-            </div>
-            <div className="px-1">
-              <span className="block text-[0.65rem] text-[var(--text-muted)]">Chi phí</span>
-              <strong className="mt-0.5 block font-semibold text-[var(--expense)] tabular-nums truncate">
-                −{money(activeTotals.expense, workspace.currency)}
-              </strong>
-            </div>
-            <div className="px-1">
-              <span className="block text-[0.65rem] text-[var(--text-muted)]">Dòng tiền ròng</span>
+          <div className="mt-3 divide-y divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)]/40 text-xs">
+            {/* Tầng 1: Dòng tiền ròng toàn hàng, phân cấp rõ nét và không bị tràn chữ */}
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className="text-[0.7rem] font-medium text-[var(--text-secondary)]">
+                Dòng tiền ròng
+              </span>
               <strong
                 className={cn(
-                  "mt-0.5 block font-semibold tabular-nums truncate",
+                  "font-semibold tabular-nums",
                   activeNetCashflow.isNegative()
                     ? "text-[var(--expense)]"
                     : "text-[var(--income)]",
@@ -612,6 +603,22 @@ export function OverviewDashboard({
                 {activeNetCashflow.isNegative() ? "−" : "+"}
                 {money(activeNetCashflow.abs(), workspace.currency)}
               </strong>
+            </div>
+
+            {/* Tầng 2: Thu nhập & Chi phí chia 2 cột rộng rãi */}
+            <div className="grid grid-cols-2 divide-x divide-[var(--border)] py-2 text-center">
+              <div className="px-2">
+                <span className="block text-[0.65rem] text-[var(--text-muted)]">Thu nhập</span>
+                <strong className="mt-0.5 block font-semibold text-[var(--income)] tabular-nums truncate">
+                  +{money(activeTotals.income, workspace.currency)}
+                </strong>
+              </div>
+              <div className="px-2">
+                <span className="block text-[0.65rem] text-[var(--text-muted)]">Chi phí</span>
+                <strong className="mt-0.5 block font-semibold text-[var(--expense)] tabular-nums truncate">
+                  −{money(activeTotals.expense, workspace.currency)}
+                </strong>
+              </div>
             </div>
           </div>
         </Card>
@@ -709,22 +716,22 @@ export function OverviewDashboard({
                 axisScale={getAmountScale(
                   (globalPeriod === "month"
                     ? buildDailyCashflow(transactions, {
-                        endPeriod: activeReportPeriod,
-                        walletId: "all",
-                        categoryId: "all",
-                        memberId: "all",
-                        transactionType: "all",
-                        dateRange: activeDateRange,
-                      })
+                      endPeriod: activeReportPeriod,
+                      walletId: "all",
+                      categoryId: "all",
+                      memberId: "all",
+                      transactionType: "all",
+                      dateRange: activeDateRange,
+                    })
                     : buildMonthlyCashflow(transactions, {
-                        endPeriod: activeReportPeriod,
-                        range: 12,
-                        walletId: "all",
-                        categoryId: "all",
-                        memberId: "all",
-                        transactionType: "all",
-                        dateRange: activeDateRange,
-                      })
+                      endPeriod: activeReportPeriod,
+                      range: 12,
+                      walletId: "all",
+                      categoryId: "all",
+                      memberId: "all",
+                      transactionType: "all",
+                      dateRange: activeDateRange,
+                    })
                   ).flatMap((row) => [row.income, row.expense]),
                 )}
                 isMobile={true}
@@ -1131,7 +1138,7 @@ export function OverviewDashboard({
                 }}
                 className="inline-flex items-center justify-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline"
               >
-                <span>Xem tất cả giao dịch trong sổ cái</span>
+                <span>Xem tất cả giao dịch</span>
                 <ChevronRight className="size-3.5" />
               </Link>
             ) : (
@@ -1466,22 +1473,22 @@ export function OverviewDashboard({
                   axisScale={getAmountScale(
                     (globalPeriod === "month"
                       ? buildDailyCashflow(transactions, {
-                          endPeriod: activeReportPeriod,
-                          walletId: "all",
-                          categoryId: "all",
-                          memberId: "all",
-                          transactionType: "all",
-                          dateRange: activeDateRange,
-                        })
+                        endPeriod: activeReportPeriod,
+                        walletId: "all",
+                        categoryId: "all",
+                        memberId: "all",
+                        transactionType: "all",
+                        dateRange: activeDateRange,
+                      })
                       : buildMonthlyCashflow(transactions, {
-                          endPeriod: activeReportPeriod,
-                          range: 12,
-                          walletId: "all",
-                          categoryId: "all",
-                          memberId: "all",
-                          transactionType: "all",
-                          dateRange: activeDateRange,
-                        })
+                        endPeriod: activeReportPeriod,
+                        range: 12,
+                        walletId: "all",
+                        categoryId: "all",
+                        memberId: "all",
+                        transactionType: "all",
+                        dateRange: activeDateRange,
+                      })
                     ).flatMap((row) => [row.income, row.expense]),
                   )}
                   isMobile={isMobile}
@@ -1761,7 +1768,7 @@ export function OverviewDashboard({
                 }}
                 className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 px-2 text-xs text-[var(--primary)] hover:text-[var(--primary)] cursor-pointer")}
               >
-                Xem tất cả sổ cái →
+                Xem tất cả giao dịch →
               </Link>
             </header>
             <div className="flex-1 divide-y divide-[var(--border)]">
@@ -2127,15 +2134,15 @@ function BalanceHistoryChart({
   const isDaily = period === "month";
   const balances = isDaily
     ? buildDailyBalances(wallets, transactions, {
-        walletId: "all",
-        dateRange,
-      })
+      walletId: "all",
+      dateRange,
+    })
     : buildMonthlyBalances(wallets, transactions, {
-        endPeriod: reportPeriod,
-        range: 12,
-        walletId: "all",
-        dateRange,
-      });
+      endPeriod: reportPeriod,
+      range: 12,
+      walletId: "all",
+      dateRange,
+    });
   const rows = balances.map((row) => {
     const parts = row.period.split("-");
     if (parts.length === 3) {
@@ -2457,24 +2464,24 @@ function MonthlyFinancialChart({
   const isDaily = period === "month";
   const cashflow = isDaily
     ? buildDailyCashflow(transactions, {
-        endPeriod: month,
-        walletId,
-        categoryId,
-        memberId,
-        transactionType,
-        categoryType,
-        dateRange,
-      })
+      endPeriod: month,
+      walletId,
+      categoryId,
+      memberId,
+      transactionType,
+      categoryType,
+      dateRange,
+    })
     : buildMonthlyCashflow(transactions, {
-        endPeriod: month,
-        range,
-        walletId,
-        categoryId,
-        memberId,
-        transactionType,
-        categoryType,
-        dateRange,
-      });
+      endPeriod: month,
+      range,
+      walletId,
+      categoryId,
+      memberId,
+      transactionType,
+      categoryType,
+      dateRange,
+    });
   const hasData = cashflow.some((row) =>
     visibleTypes.some((visibleType) => !new Decimal(row[visibleType]).isZero()),
   );
@@ -2912,13 +2919,13 @@ function MobileMonthlyDashboards({
   const memberMetricType: CashflowType = "expense";
   const memberTotals = showMemberComparison
     ? buildMemberMonthlyTotals(visibleMembers, transactions, {
-        endPeriod: reportPeriod,
-        range: 12,
-        walletId: "all",
-        categoryId: "all",
-        type: memberMetricType,
-        dateRange: getDashboardPeriodDateRange(reportPeriod, memberPeriod),
-      })
+      endPeriod: reportPeriod,
+      range: 12,
+      walletId: "all",
+      categoryId: "all",
+      type: memberMetricType,
+      dateRange: getDashboardPeriodDateRange(reportPeriod, memberPeriod),
+    })
     : [];
   const memberSeries = visibleMembers.map((member, index) => ({
     ...member,
@@ -3273,15 +3280,15 @@ function MobileCategoryPie({
   const visibleItems =
     items.length > 6
       ? [
-          ...items.slice(0, 5),
-          {
-            name: "Khác",
-            color: "var(--chart-7)",
-            amount: items
-              .slice(5)
-              .reduce((sum, item) => sum.plus(item.amount), new Decimal(0)),
-          },
-        ]
+        ...items.slice(0, 5),
+        {
+          name: "Khác",
+          color: "var(--chart-7)",
+          amount: items
+            .slice(5)
+            .reduce((sum, item) => sum.plus(item.amount), new Decimal(0)),
+        },
+      ]
       : items;
   const data = visibleItems.map((item) => ({
     name: item.name,
@@ -3419,21 +3426,21 @@ function Metric({
   const [period, setPeriod] = useState<DashboardPeriod>("month");
   const totals = periodData
     ? summarizeTransactions(
-        periodData.transactions,
-        getDashboardPeriodDateRange(periodData.reportPeriod, period),
-      )
+      periodData.transactions,
+      getDashboardPeriodDateRange(periodData.reportPeriod, period),
+    )
     : null;
   const resolvedValue =
     !periodData || !totals
       ? value
       : money(
-          periodData.metric === "income"
-            ? totals.income
-            : periodData.metric === "expense"
-              ? totals.expense
-              : totals.income.minus(totals.expense),
-          periodData.currency,
-        );
+        periodData.metric === "income"
+          ? totals.income
+          : periodData.metric === "expense"
+            ? totals.expense
+            : totals.income.minus(totals.expense),
+        periodData.currency,
+      );
 
   return (
     <Card

@@ -11,6 +11,9 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from "@/components/base";
 import {
   DropdownMenu,
@@ -23,11 +26,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const APPEARANCE_THEMES = [
-  { value: "sunrise", label: "Sunrise Family", color: "#FF5B3D" },
-  { value: "ocean", label: "Ocean Calm", color: "#1677B8" },
-  { value: "forest", label: "Forest Home", color: "#2F7D5B" },
-  { value: "lavender", label: "Lavender Dream", color: "#7959C8" },
-  { value: "midnight", label: "Midnight Finance", color: "#334E8C" },
+  { value: "sunrise", label: "Sunrise Family", shortLabel: "Sunrise", color: "#FF5B3D" },
+  { value: "ocean", label: "Ocean Calm", shortLabel: "Ocean", color: "#1677B8" },
+  { value: "forest", label: "Forest Home", shortLabel: "Forest", color: "#2F7D5B" },
+  { value: "lavender", label: "Lavender Dream", shortLabel: "Lavender", color: "#7959C8" },
+  { value: "midnight", label: "Midnight Finance", shortLabel: "Midnight", color: "#334E8C" },
 ] as const;
 
 type AppearanceTheme = (typeof APPEARANCE_THEMES)[number]["value"];
@@ -163,6 +166,9 @@ export function AppearanceMenu() {
 
 export function MobileAppearanceSheet() {
   const { theme, mode, selectTheme, selectMode } = useAppearance();
+  const currentTheme =
+    APPEARANCE_THEMES.find((item) => item.value === theme) ??
+    APPEARANCE_THEMES[0];
 
   return (
     <Sheet>
@@ -196,63 +202,59 @@ export function MobileAppearanceSheet() {
           </div>
         </SheetHeader>
 
-        <div className="quick-transaction-scroll grid gap-6 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-          <section aria-labelledby="mobile-mode-label" className="grid gap-2.5">
+        <div className="quick-transaction-scroll grid gap-5 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          {/* 1. Chế độ hiển thị: Segmented Control chuẩn iOS */}
+          <section aria-labelledby="mobile-mode-label" className="grid gap-2">
             <h3
               id="mobile-mode-label"
               className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
             >
               Chế độ hiển thị
             </h3>
-            <div
-              className="grid grid-cols-2 gap-2.5"
-              role="radiogroup"
-              aria-labelledby="mobile-mode-label"
+            <Tabs
+              value={mode}
+              onValueChange={(val) => selectMode(val as AppearanceMode)}
+              className="w-full gap-0"
             >
-              {(
-                [
-                  { value: "light", label: "Sáng", icon: Sun },
-                  { value: "dark", label: "Tối", icon: Moon },
-                ] as const
-              ).map((item) => {
-                const Icon = item.icon;
-                const selected = mode === item.value;
-                return (
-                  <button
-                    key={item.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => selectMode(item.value)}
-                    className={cn(
-                      "flex items-center justify-between rounded-xl border p-3.5 text-left transition-all",
-                      selected
-                        ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)] font-semibold"
-                        : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]",
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Icon size={16} aria-hidden="true" />
-                      <span className="text-sm font-medium">{item.label}</span>
-                    </div>
-                    {selected && (
-                      <Check size={16} className="text-[var(--primary)]" aria-hidden="true" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+              <TabsList
+                variant="segmented"
+                className="grid w-full grid-cols-2 h-10.5"
+                aria-label="Chọn chế độ hiển thị"
+              >
+                <TabsTrigger
+                  value="light"
+                  className="gap-2 text-xs font-medium cursor-pointer"
+                >
+                  <Sun size={15} aria-hidden="true" />
+                  <span>Sáng</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="dark"
+                  className="gap-2 text-xs font-medium cursor-pointer"
+                >
+                  <Moon size={15} aria-hidden="true" />
+                  <span>Tối</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </section>
 
+          {/* 2. Chủ đề màu: Color Swatches dạng bảng màu tinh tế */}
           <section aria-labelledby="mobile-theme-label" className="grid gap-2.5">
-            <h3
-              id="mobile-theme-label"
-              className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
-            >
-              Chủ đề màu
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3
+                id="mobile-theme-label"
+                className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
+              >
+                Chủ đề màu
+              </h3>
+              <span className="text-xs font-medium text-[var(--primary)]">
+                {currentTheme.label}
+              </span>
+            </div>
+
             <div
-              className="grid gap-2"
+              className="grid grid-cols-5 gap-1 pt-1"
               role="radiogroup"
               aria-labelledby="mobile-theme-label"
             >
@@ -264,25 +266,39 @@ export function MobileAppearanceSheet() {
                     type="button"
                     role="radio"
                     aria-checked={selected}
+                    aria-label={item.label}
                     onClick={() => selectTheme(item.value)}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-xl border p-3 text-left transition-all",
-                      selected
-                        ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--foreground)] font-semibold"
-                        : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]",
-                    )}
+                    className="group flex flex-col items-center gap-1.5 py-1 text-center touch-manipulation focus:outline-none cursor-pointer"
                   >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="size-5 rounded-full ring-2 ring-inset ring-black/10 dark:ring-white/10 shrink-0"
-                        style={{ backgroundColor: item.color }}
-                        aria-hidden="true"
-                      />
-                      <span className="text-sm font-medium">{item.label}</span>
-                    </div>
-                    {selected && (
-                      <Check size={16} className="text-[var(--primary)] shrink-0" aria-hidden="true" />
-                    )}
+                    <span
+                      className={cn(
+                        "size-11 rounded-full flex items-center justify-center transition-all duration-200",
+                        selected
+                          ? "ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--surface)] scale-105"
+                          : "opacity-80 hover:opacity-100 hover:scale-105 active:scale-95",
+                      )}
+                      style={{ backgroundColor: item.color }}
+                      aria-hidden="true"
+                    >
+                      {selected && (
+                        <Check
+                          size={18}
+                          className="text-white drop-shadow-none"
+                          strokeWidth={2.5}
+                          aria-hidden="true"
+                        />
+                      )}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-[0.68rem] tracking-tight transition-colors truncate max-w-full",
+                        selected
+                          ? "font-semibold text-[var(--foreground)]"
+                          : "font-medium text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]",
+                      )}
+                    >
+                      {item.shortLabel}
+                    </span>
                   </button>
                 );
               })}

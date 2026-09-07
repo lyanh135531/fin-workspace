@@ -2061,16 +2061,16 @@ function BudgetJarList({
             .minus(jar.closedActualAmount ?? 0)
             .toFixed(0);
         const spent = jar.expenseAmount ?? jar.closedActualAmount ?? "0";
-        const allocated = new Decimal(jar.allocatedAmount);
         const overspent = new Decimal(remaining).isNegative();
         const jarUsage = jarUsagePercentage(jar);
         const jarUsageTone = progressTone(jarUsage);
         const color = JAR_COLORS[jar.jarCode];
 
         return (
-          <div key={jar.jarCode} className="space-y-2 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
+          <div key={jar.jarCode} className="space-y-1.5 py-3">
+            {/* Tầng 1: Tên hũ thoáng rộng, không bị cắt chữ & Số tiền còn lại / vượt hạn mức */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <span
                   className="size-2.5 shrink-0 rounded-full"
                   style={{ backgroundColor: color }}
@@ -2079,31 +2079,51 @@ function BudgetJarList({
                 <span className="text-sm font-semibold text-[var(--foreground)] truncate">
                   {FINANCIAL_JAR_LABELS[jar.jarCode]}
                 </span>
-                <span className="rounded-md bg-[var(--surface-secondary)] px-2 py-0.5 text-xs font-medium text-[var(--text-muted)] shrink-0">
+                <span className="rounded-md bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[0.68rem] font-medium text-[var(--text-muted)] shrink-0">
                   {jar.percentage}%
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 text-xs font-semibold tabular-nums shrink-0">
-                <span className="text-[var(--text-muted)]">Đã chi:</span>
-                <span className="text-[var(--foreground)]">{money(spent, currency)}</span>
-                <span className="text-[var(--text-muted)]">/</span>
-                <span className="text-[var(--text-muted)]">{money(jar.allocatedAmount, currency)}</span>
-              </div>
+              <span
+                className={cn(
+                  "text-xs font-semibold tabular-nums shrink-0",
+                  overspent
+                    ? "text-[var(--destructive)]"
+                    : "text-[var(--text-secondary)]",
+                )}
+              >
+                {overspent
+                  ? `Vượt ${money(Math.abs(Number(remaining)).toString(), currency)}`
+                  : `Còn ${money(remaining, currency)}`}
+              </span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${overspent ? PROGRESS_BAR_TONES.critical : PROGRESS_BAR_TONES[jarUsageTone]}`}
-                  style={{ width: `${jarUsage}%` }}
-                />
-              </div>
-              <span className={cn(
-                "text-xs font-bold tabular-nums shrink-0",
-                overspent ? "text-[var(--destructive)]" : "text-[var(--text-secondary)]"
-              )}>
-                {overspent ? `Vượt ${money(Math.abs(Number(remaining)).toString(), currency)}` : `Còn ${money(remaining, currency)}`}
+            {/* Tầng 2: Thanh tiến độ trải dài toàn bộ chiều ngang */}
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  overspent
+                    ? PROGRESS_BAR_TONES.critical
+                    : PROGRESS_BAR_TONES[jarUsageTone]
+                }`}
+                style={{ width: `${jarUsage}%` }}
+              />
+            </div>
+
+            {/* Tầng 3: Chi tiết đã chi & hạn mức phân bổ gọn gàng */}
+            <div className="flex items-center justify-between text-[0.68rem] tabular-nums text-[var(--text-muted)]">
+              <span>
+                Đã dùng:{" "}
+                <strong className="font-medium text-[var(--foreground)]">
+                  {formatAmount(spent)}
+                </strong>{" "}
+                ({jarUsage.toFixed(0)}%)
+              </span>
+              <span>
+                Hạn mức:{" "}
+                <strong className="font-medium text-[var(--text-secondary)]">
+                  {money(jar.allocatedAmount, currency)}
+                </strong>
               </span>
             </div>
           </div>
