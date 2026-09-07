@@ -21,10 +21,8 @@ import {
   Select,
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
-  SheetTitle,
   Tabs,
   TabsCount,
   TabsList,
@@ -1268,17 +1266,11 @@ function RecurringMobileScheduleCard({
           className="recurring-delete-sheet"
           aria-label="Xác nhận xóa lịch giao dịch"
         >
-          <SheetHeader className="recurring-delete-sheet-header">
-            <span className="recurring-delete-sheet-icon" aria-hidden="true">
-              <Trash2 size={18} />
-            </span>
-            <div>
-              <SheetTitle>Xóa lịch giao dịch?</SheetTitle>
-              <SheetDescription>
-                Các giao dịch đã ghi nhận vẫn được giữ nguyên.
-              </SheetDescription>
-            </div>
-          </SheetHeader>
+          <SheetHeader
+            icon={Trash2}
+            title="Xóa lịch giao dịch?"
+            description="Các giao dịch đã ghi nhận vẫn được giữ nguyên."
+          />
           <div className="recurring-delete-sheet-body">
             <span>{schedule.description || "Giao dịch định kỳ"}</span>
             <strong className={`amount-${schedule.type}`}>

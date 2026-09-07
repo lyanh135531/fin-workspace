@@ -46,10 +46,8 @@ import {
   Select,
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
-  SheetTitle,
   Tabs,
   TabsCount,
   TabsList,
@@ -105,44 +103,18 @@ function WalletDeactivateSheet({
   return (
     <>
       <SheetHeader
-        className={cn(
-          isDesktop ? "px-8 pb-5 pt-7" : "px-4 pb-3 pt-5",
-        )}
-      >
-        <div className={cn("flex items-start", isDesktop ? "gap-3.5" : "gap-3")}>
-          <span
-            className={cn(
-              "grid shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)]",
-              isDesktop ? "size-11" : "size-10",
-            )}
-            aria-hidden="true"
-          >
-            <PauseCircle size={isDesktop ? 20 : 19} />
-          </span>
-          <div className="min-w-0 pt-0.5">
-            <SheetTitle
-              className={cn(
-                "font-semibold",
-                isDesktop && "text-[1.3rem] tracking-[-0.02em]",
-              )}
-            >
-              {hasRecurringDependencies
-                ? "Chưa thể tạm ngưng ví"
-                : "Tạm ngưng ví"}
-            </SheetTitle>
-            <SheetDescription
-              className={cn(
-                "mt-1 leading-5",
-                isDesktop ? "max-w-[30rem] text-[0.82rem]" : "text-xs",
-              )}
-            >
-              {hasRecurringDependencies
-                ? "Hãy xử lý các lịch đang sử dụng ví này trước."
-                : "Ví sẽ được chuyển khỏi danh sách đang hoạt động."}
-            </SheetDescription>
-          </div>
-        </div>
-      </SheetHeader>
+        icon={PauseCircle}
+        title={
+          hasRecurringDependencies
+            ? "Chưa thể tạm ngưng ví"
+            : "Tạm ngưng ví"
+        }
+        description={
+          hasRecurringDependencies
+            ? "Hãy xử lý các lịch đang sử dụng ví này trước."
+            : "Ví sẽ được chuyển khỏi danh sách đang hoạt động."
+        }
+      />
 
       <div
         className={cn(
@@ -1790,29 +1762,19 @@ export function WalletManagement({
             />
           ) : confirmOperation ? (
             <>
-              <SheetHeader className="ledger-mobile-review-header">
-                <div className="ledger-mobile-review-heading">
-                  <span aria-hidden>
-                    {confirmOperation.kind === "delete" ? (
-                      <Trash2 size={18} />
-                    ) : (
-                      <PauseCircle size={18} />
-                    )}
-                  </span>
-                  <div>
-                    <SheetTitle>
-                      {confirmOperation.kind === "delete"
-                        ? "Xóa ví?"
-                        : "Tạm ngưng ví?"}
-                    </SheetTitle>
-                    <SheetDescription>
-                      {confirmOperation.kind === "delete"
-                        ? "Lịch sử giao dịch của ví vẫn được giữ lại."
-                        : "Bạn có thể kích hoạt lại ví bất cứ lúc nào."}
-                    </SheetDescription>
-                  </div>
-                </div>
-              </SheetHeader>
+              <SheetHeader
+                icon={confirmOperation.kind === "delete" ? Trash2 : PauseCircle}
+                title={
+                  confirmOperation.kind === "delete"
+                    ? "Xóa ví?"
+                    : "Tạm ngưng ví?"
+                }
+                description={
+                  confirmOperation.kind === "delete"
+                    ? "Lịch sử giao dịch của ví vẫn được giữ lại."
+                    : "Bạn có thể kích hoạt lại ví bất cứ lúc nào."
+                }
+              />
 
               <div className="ledger-mobile-review-body wallet-operation-body">
                 <div className="ledger-mobile-review-transaction rounded-xl">

@@ -432,20 +432,11 @@ export function FinancialPlansManager({
               side="bottom"
               className="quick-transaction-sheet md:hidden"
             >
-              <SheetHeader className="quick-transaction-header">
-                <div className="quick-transaction-heading">
-                  <span aria-hidden>
-                    <CalendarRange size={18} />
-                  </span>
-                  <div>
-                    <SheetTitle>Chọn kế hoạch</SheetTitle>
-                    <SheetDescription>
-                      Xem mục tiêu đang chạy, bản nháp hoặc các kế hoạch trước
-                      đây.
-                    </SheetDescription>
-                  </div>
-                </div>
-              </SheetHeader>
+              <SheetHeader
+                icon={CalendarRange}
+                title="Chọn kế hoạch"
+                description="Xem mục tiêu đang chạy, bản nháp hoặc các kế hoạch trước đây."
+              />
               <nav
                 aria-label="Chọn kế hoạch"
                 className="quick-transaction-scroll grid gap-2"
@@ -614,20 +605,11 @@ export function FinancialPlansManager({
               side="bottom"
               className="quick-transaction-sheet md:hidden"
             >
-              <SheetHeader className="quick-transaction-header">
-                <div className="quick-transaction-heading">
-                  <span aria-hidden>
-                    <Target size={18} />
-                  </span>
-                  <div>
-                    <SheetTitle>{selectedPlan.name}</SheetTitle>
-                    <SheetDescription>
-                      {STATUS_LABELS[selectedPlan.status]} · Hạn{" "}
-                      {monthLabel(selectedPlan.targetMonth)}
-                    </SheetDescription>
-                  </div>
-                </div>
-              </SheetHeader>
+              <SheetHeader
+                icon={Target}
+                title={selectedPlan.name}
+                description={`${STATUS_LABELS[selectedPlan.status]} · Hạn ${monthLabel(selectedPlan.targetMonth)}`}
+              />
               <div className="quick-transaction-scroll p-4">
                 {selectedPlan.status === "draft" ? (
                   <DraftReview
@@ -2048,17 +2030,11 @@ function CurrentMonthBudget({
             side="bottom"
             className="quick-transaction-sheet md:hidden"
           >
-            <SheetHeader className="quick-transaction-header">
-              <div className="quick-transaction-heading">
-                <span aria-hidden>
-                  <PieChart size={18} />
-                </span>
-                <div>
-                  <SheetTitle>Chi tiết sáu hũ</SheetTitle>
-                  <SheetDescription>{monthLabel(month.month)}</SheetDescription>
-                </div>
-              </div>
-            </SheetHeader>
+            <SheetHeader
+              icon={PieChart}
+              title="Chi tiết sáu hũ"
+              description={monthLabel(month.month)}
+            />
             <div className="quick-transaction-scroll grid gap-3 px-4 pb-4">
               <BudgetJarList month={month} currency={currency} />
             </div>

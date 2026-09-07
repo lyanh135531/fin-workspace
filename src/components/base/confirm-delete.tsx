@@ -7,10 +7,8 @@ import { Button } from "@/components/base/button"
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
-  SheetTitle,
   SheetTrigger,
 } from "@/components/base/sheet"
 import {
@@ -134,17 +132,11 @@ function ConfirmDelete({
           className="ledger-mobile-review-sheet pending-delete"
           aria-label={ariaLabel}
         >
-          <SheetHeader className="ledger-mobile-review-header">
-            <div className="ledger-mobile-review-heading">
-              <span aria-hidden="true">
-                <Trash2 size={18} />
-              </span>
-              <div>
-                <SheetTitle>{title}</SheetTitle>
-                <SheetDescription>{description}</SheetDescription>
-              </div>
-            </div>
-          </SheetHeader>
+          <SheetHeader
+            icon={Trash2}
+            title={title}
+            description={description}
+          />
           {content && <div className="ledger-mobile-review-body">{content}</div>}
           <SheetFooter className="ledger-mobile-review-actions">
             <Button

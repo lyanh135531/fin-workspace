@@ -18,13 +18,28 @@ type SheetSpacing = "default" | "flush";
 type SheetElevation = "raised" | "flat";
 type SheetSide = "top" | "right" | "bottom" | "left" | "center";
 
-const MOBILE_SHEET_QUERY = "(max-width: 760px)";
-const MOBILE_SHEET_CLOSE_RATIO = 2 / 3;
-const MOBILE_SHEET_FAST_SWIPE_DISTANCE = 24;
-const MOBILE_SHEET_FAST_SWIPE_VELOCITY = 0.65;
+const MOBILE_SHEET_CLOSE_RATIO = 0.22;
+const MOBILE_SHEET_MIN_CLOSE_DISTANCE = 75;
+const MOBILE_SHEET_FAST_SWIPE_DISTANCE = 20;
+const MOBILE_SHEET_FAST_SWIPE_VELOCITY = 0.35;
+
+type SheetDragContextValue = {
+  dragProgress: number;
+  setDragProgress: (progress: number) => void;
+};
+
+const SheetDragContext = React.createContext<SheetDragContextValue>({
+  dragProgress: 0,
+  setDragProgress: () => {},
+});
 
 function Sheet(props: SheetPrimitive.Root.Props) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />;
+  const [dragProgress, setDragProgress] = React.useState(0);
+  return (
+    <SheetDragContext.Provider value={{ dragProgress, setDragProgress }}>
+      <SheetPrimitive.Root data-slot="sheet" {...props} />
+    </SheetDragContext.Provider>
+  );
 }
 
 function SheetTrigger(props: SheetPrimitive.Trigger.Props) {
@@ -39,7 +54,9 @@ function SheetPortal(props: SheetPrimitive.Portal.Props) {
   return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />;
 }
 
-function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
+function SheetOverlay({ className, style, ...props }: SheetPrimitive.Backdrop.Props) {
+  const { dragProgress } = React.useContext(SheetDragContext);
+
   return (
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
@@ -47,6 +64,10 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
         "fixed inset-0 z-50 bg-black/10 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-xs",
         className,
       )}
+      style={{
+        ...style,
+        opacity: dragProgress > 0 ? Math.max(0, 1 - dragProgress * 0.85) : undefined,
+      }}
       {...props}
     />
   );
@@ -71,17 +92,23 @@ function SheetContent({
   elevation?: SheetElevation;
   showClose?: boolean;
 }) {
+  const { setDragProgress } = React.useContext(SheetDragContext);
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const dragStartRef = React.useRef<BottomSheetDragStart | null>(null);
+  const recentPositionsRef = React.useRef<{ y: number; time: number }[]>([]);
   const [dragOffset, setDragOffset] = React.useState(0);
   const [dragging, setDragging] = React.useState(false);
+  const [isSnapping, setIsSnapping] = React.useState(false);
   const isBottomSheet = side === "bottom";
   const shouldShowClose = showClose ?? (side !== "bottom");
 
   function resetDrag(): void {
     dragStartRef.current = null;
+    recentPositionsRef.current = [];
     setDragging(false);
+    setIsSnapping(false);
     setDragOffset(0);
+    setDragProgress(0);
   }
 
   function handleDragStart(event: React.PointerEvent<HTMLDivElement>): void {
@@ -90,7 +117,7 @@ function SheetContent({
       '[data-slot="mobile-sheet-drag-handle"], [data-slot="sheet-header"]',
     );
     const interactiveTarget = target.closest(
-      "button, a, input, select, textarea, [role='button']",
+      "button, a, input, select, textarea, [role='button'], [role='tab'], [role='switch'], label",
     );
 
     if (
@@ -98,53 +125,110 @@ function SheetContent({
       !isBottomSheet ||
       event.button !== 0 ||
       !dragSurface ||
-      interactiveTarget ||
-      !window.matchMedia(MOBILE_SHEET_QUERY).matches
+      interactiveTarget
     ) {
       return;
     }
 
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragStartRef.current = { y: event.clientY, time: performance.now() };
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // ignore if pointer capture fails
+    }
+    const now = performance.now();
+    dragStartRef.current = { y: event.clientY, time: now };
+    recentPositionsRef.current = [{ y: event.clientY, time: now }];
     setDragging(true);
+    setIsSnapping(false);
   }
 
   function handleDragMove(event: React.PointerEvent<HTMLDivElement>): void {
     const dragStart = dragStartRef.current;
-    if (!dragStart || !event.currentTarget.hasPointerCapture(event.pointerId)) {
-      return;
+    if (!dragStart) return;
+
+    const now = performance.now();
+    recentPositionsRef.current.push({ y: event.clientY, time: now });
+    if (recentPositionsRef.current.length > 8) {
+      recentPositionsRef.current = recentPositionsRef.current.slice(-8);
     }
 
-    event.preventDefault();
-    setDragOffset(Math.max(0, event.clientY - dragStart.y));
+    const deltaY = event.clientY - dragStart.y;
+    if (deltaY > 0) {
+      event.preventDefault();
+      setDragOffset(deltaY);
+      const sheetHeight = event.currentTarget.getBoundingClientRect().height || 400;
+      setDragProgress(Math.min(1, deltaY / (sheetHeight * 0.6)));
+    } else {
+      // Elastic rubber-band resistance when pulled upward
+      const dampedY = -Math.pow(Math.abs(deltaY), 0.72) * 1.5;
+      setDragOffset(dampedY);
+      setDragProgress(0);
+    }
   }
 
   function handleDragEnd(event: React.PointerEvent<HTMLDivElement>): void {
     const dragStart = dragStartRef.current;
-    if (!dragStart || !event.currentTarget.hasPointerCapture(event.pointerId)) {
+    if (!dragStart) {
       resetDrag();
       return;
     }
 
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // ignore
+    }
+
     const distance = Math.max(0, event.clientY - dragStart.y);
-    const elapsed = Math.max(performance.now() - dragStart.time, 1);
-    const velocity = distance / elapsed;
-    const sheetHeight = event.currentTarget.getBoundingClientRect().height;
+
+    // Instantaneous velocity over the last few tracking frames (flick gesture)
+    const recent = recentPositionsRef.current;
+    let velocity = 0;
+    if (recent.length >= 2) {
+      const first = recent[0];
+      const last = recent[recent.length - 1];
+      const timeDiff = Math.max(last.time - first.time, 1);
+      velocity = (last.y - first.y) / timeDiff;
+    } else {
+      const elapsed = Math.max(performance.now() - dragStart.time, 1);
+      velocity = distance / elapsed;
+    }
+
+    const sheetHeight = event.currentTarget.getBoundingClientRect().height || 400;
     const isFastSwipe =
       distance >= MOBILE_SHEET_FAST_SWIPE_DISTANCE &&
       velocity >= MOBILE_SHEET_FAST_SWIPE_VELOCITY;
     const shouldClose =
-      isFastSwipe || distance >= sheetHeight * MOBILE_SHEET_CLOSE_RATIO;
+      isFastSwipe ||
+      distance >= MOBILE_SHEET_MIN_CLOSE_DISTANCE ||
+      distance >= sheetHeight * MOBILE_SHEET_CLOSE_RATIO;
 
-    resetDrag();
-    if (shouldClose) closeButtonRef.current?.click();
+    if (shouldClose) {
+      resetDrag();
+      setDragProgress(1);
+      closeButtonRef.current?.click();
+    } else {
+      // Fluid spring snap-back
+      setDragging(false);
+      setIsSnapping(true);
+      setDragOffset(0);
+      setDragProgress(0);
+      setTimeout(() => {
+        setIsSnapping(false);
+        resetDrag();
+      }, 300);
+    }
   }
 
   function handleDragCancel(event: React.PointerEvent<HTMLDivElement>): void {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // ignore
     }
     resetDrag();
   }
@@ -182,6 +266,17 @@ function SheetContent({
           {
             ...style,
             "--mobile-sheet-drag-offset": `${dragOffset}px`,
+            ...(dragging
+              ? {
+                  translate: `0 ${dragOffset}px`,
+                  transition: "none",
+                }
+              : isSnapping
+                ? {
+                    translate: "0 0",
+                    transition: "translate 0.3s cubic-bezier(0.32, 0.72, 0, 1)",
+                  }
+                : {}),
           } as React.CSSProperties
         }
         {...props}
@@ -193,7 +288,7 @@ function SheetContent({
         {shouldShowClose && (
           <SheetPrimitive.Close
             data-slot="sheet-close"
-            className="absolute right-4 top-4 z-20 grid size-8 place-items-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--focus-ring)] cursor-pointer disabled:pointer-events-none"
+            className="hidden sm:grid absolute right-4 top-4 z-20 size-8 place-items-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--focus-ring)] cursor-pointer disabled:pointer-events-none"
             aria-label="Đóng"
           >
             <X size={18} aria-hidden="true" />
@@ -201,15 +296,19 @@ function SheetContent({
           </SheetPrimitive.Close>
         )}
         {isBottomSheet && (
-          <div data-slot="mobile-sheet-drag-handle" aria-hidden="true">
-            <span />
+          <div
+            data-slot="mobile-sheet-drag-handle"
+            className="flex w-full shrink-0 items-center justify-center pt-2.5 pb-1 sm:hidden cursor-grab active:cursor-grabbing touch-none select-none"
+            aria-hidden="true"
+          >
+            <span className="h-1 w-9 rounded-full bg-[var(--text-muted)]/30" />
           </div>
         )}
         {children}
         {isBottomSheet && (
           <SheetPrimitive.Close
             ref={closeButtonRef}
-            hidden
+            className="sr-only"
             tabIndex={-1}
             aria-hidden="true"
           >
@@ -219,6 +318,13 @@ function SheetContent({
       </SheetPrimitive.Popup>
     </SheetPortal>
   );
+}
+
+function renderIcon(icon: SheetHeaderProps["icon"]) {
+  if (!icon) return null;
+  if (React.isValidElement(icon)) return icon;
+  const IconComp = icon as React.ElementType;
+  return <IconComp size={18} className="size-4.5 shrink-0" aria-hidden="true" />;
 }
 
 type SheetHeaderProps = React.ComponentProps<"div"> & {
@@ -241,26 +347,22 @@ function SheetHeader({
     <div
       data-slot="sheet-header"
       className={cn(
-        "shrink-0 px-6 py-5 pr-14 border-b border-[var(--border)]",
+        "shrink-0 px-5 pt-2.5 pb-3.5 sm:px-6 sm:py-5 sm:pr-14 border-b border-[var(--border)] select-none",
         className,
       )}
       {...props}
     >
       {isStructured ? (
-        <div className="flex items-start gap-3.5">
+        <div className="flex items-center gap-3 sm:items-start sm:gap-3.5">
           {Icon && (
             <span
-              className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
+              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)] sm:size-10"
               aria-hidden="true"
             >
-              {typeof Icon === "function" ? (
-                <Icon size={18} />
-              ) : React.isValidElement(Icon) ? (
-                Icon
-              ) : null}
+              {renderIcon(Icon)}
             </span>
           )}
-          <div className="min-w-0 pt-0.5">
+          <div className="min-w-0 flex-1 flex flex-col items-start text-left sm:pt-0.5">
             {title && <SheetTitle>{title}</SheetTitle>}
             {description && <SheetDescription>{description}</SheetDescription>}
             {children}
@@ -320,6 +422,7 @@ function SheetFooter({
               variant="outline"
               disabled={cancelDisabled || isSubmitting}
               onClick={onCancel}
+              className="hidden sm:inline-flex"
             >
               {cancelLabel}
             </Button>
@@ -330,7 +433,7 @@ function SheetFooter({
               variant={submitVariant}
               disabled={submitDisabled || isSubmitting}
               onClick={onSubmit}
-              className="gap-2"
+              className="w-full sm:w-auto gap-2"
             >
               {isSubmitting && (
                 <LoaderCircle
@@ -356,7 +459,7 @@ function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
     <SheetPrimitive.Title
       data-slot="sheet-title"
       className={cn(
-        "font-heading text-lg sm:text-xl font-semibold tracking-tight text-[var(--foreground)]",
+        "font-heading text-base sm:text-xl font-semibold tracking-tight text-[var(--foreground)] text-left",
         className,
       )}
       {...props}
@@ -372,7 +475,7 @@ function SheetDescription({
     <SheetPrimitive.Description
       data-slot="sheet-description"
       className={cn(
-        "text-xs sm:text-sm text-[var(--text-muted)] mt-1 leading-relaxed",
+        "text-xs sm:text-sm text-[var(--text-muted)] mt-0.5 leading-snug text-left",
         className,
       )}
       {...props}

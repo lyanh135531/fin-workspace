@@ -7,7 +7,6 @@ import {
   CalendarDays,
   Check,
   WalletCards,
-  X,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -27,11 +26,8 @@ import {
   MoneyInput,
   Select,
   Sheet,
-  SheetClose,
   SheetContent,
-  SheetDescription,
   SheetHeader,
-  SheetTitle,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -394,28 +390,11 @@ export function QuickTransactionSheet({
         elevation="flat"
         className="quick-transaction-sheet"
       >
-        <SheetHeader className="quick-transaction-header">
-          <div className="flex items-center justify-between">
-            <div className="quick-transaction-heading">
-              <span>
-                <WalletCards size={18} />
-              </span>
-              <div>
-                <SheetTitle>Nhập nhanh giao dịch</SheetTitle>
-                <SheetDescription>
-                  Ghi nhận nhanh khoản thu, chi hoặc chuyển khoản.
-                </SheetDescription>
-              </div>
-            </div>
-            <SheetClose
-              type="button"
-              className="grid size-8 shrink-0 place-items-center rounded-lg text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] cursor-pointer"
-              aria-label="Đóng"
-            >
-              <X size={18} />
-            </SheetClose>
-          </div>
-        </SheetHeader>
+        <SheetHeader
+          icon={WalletCards}
+          title="Nhập nhanh giao dịch"
+          description="Ghi nhận nhanh khoản thu, chi hoặc chuyển khoản."
+        />
         {transactionForm}
       </SheetContent>
     </Sheet>

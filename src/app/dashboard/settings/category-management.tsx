@@ -49,10 +49,8 @@ import {
   Select,
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
-  SheetTitle,
   Tabs,
   TabsCount,
   TabsList,
@@ -717,19 +715,11 @@ function WorkspaceCategoryActionsMenu({
             side="bottom"
             className="ledger-mobile-review-sheet pending-delete"
           >
-            <SheetHeader className="ledger-mobile-review-header">
-              <div className="ledger-mobile-review-heading">
-                <span aria-hidden="true">
-                  <Trash2 size={18} />
-                </span>
-                <div>
-                  <SheetTitle>Xóa danh mục?</SheetTitle>
-                  <SheetDescription>
-                    Hành động này không thể hoàn tác.
-                  </SheetDescription>
-                </div>
-              </div>
-            </SheetHeader>
+            <SheetHeader
+              icon={Trash2}
+              title="Xóa danh mục?"
+              description="Hành động này không thể hoàn tác."
+            />
             <div className="ledger-mobile-review-body">
               <div className="ledger-mobile-review-transaction">
                 <div>
