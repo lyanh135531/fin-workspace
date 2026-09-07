@@ -28,6 +28,7 @@ import {
   Clock,
   PiggyBank,
   Plus,
+  RotateCcw,
   TrendingDown,
   TrendingUp,
   Wallet,
@@ -485,94 +486,87 @@ export function OverviewDashboard({
                 Tổng quan tài chính
               </h1>
             </div>
-            {pendingTransactions.length > 0 && (
-              <Link
-                href={`${ledgerHref}?status=pending`}
-                onClick={(event) => {
-                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                    event.preventDefault();
-                    beginNavigation(`${ledgerHref}?status=pending`);
-                  }
-                }}
-                className="inline-flex items-center gap-1 rounded-full bg-[var(--warning)]/10 px-2.5 py-1 text-[0.7rem] font-medium text-[var(--warning)]"
-              >
-                <CircleAlert className="size-3" />
-                <span>{pendingTransactions.length} chờ duyệt</span>
-              </Link>
-            )}
+            <div className="flex items-center gap-1.5">
+              {activeReportPeriod !== reportPeriod && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActiveReportPeriod(reportPeriod)}
+                  className="h-7 px-2.5 rounded-lg text-xs font-medium text-[var(--primary)] border-[var(--primary)]/20 bg-[var(--primary-soft)] hover:bg-[var(--primary-soft)]/80 gap-1 touch-manipulation cursor-pointer"
+                >
+                  <RotateCcw className="size-3" />
+                  <span>Hiện tại</span>
+                </Button>
+              )}
+              {pendingTransactions.length > 0 && (
+                <Link
+                  href={`${ledgerHref}?status=pending`}
+                  onClick={(event) => {
+                    if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                      event.preventDefault();
+                      beginNavigation(`${ledgerHref}?status=pending`);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full bg-[var(--warning)]/10 px-2.5 py-1 text-[0.7rem] font-medium text-[var(--warning)]"
+                >
+                  <CircleAlert className="size-3" />
+                  <span>{pendingTransactions.length} chờ duyệt</span>
+                </Link>
+              )}
+            </div>
           </div>
 
-          {/* Hàng chọn kỳ full-width, không co rúm */}
-          <div className="flex items-center justify-between gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
-            <div className="flex items-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="size-7 p-0 rounded-lg text-[var(--text-secondary)] hover:text-[var(--foreground)] touch-manipulation"
-                onClick={() =>
-                  setActiveReportPeriod((prev) =>
-                    shiftReportPeriod(prev, -1, globalPeriod),
-                  )
-                }
-                aria-label="Kỳ trước"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <span
-                onClick={() =>
-                  activeReportPeriod !== reportPeriod &&
-                  setActiveReportPeriod(reportPeriod)
-                }
-                title={
-                  activeReportPeriod !== reportPeriod
-                    ? "Bấm để về kỳ hiện tại"
-                    : undefined
-                }
-                className={cn(
-                  "min-w-[5.5rem] px-1.5 text-center text-xs font-semibold tabular-nums select-none",
-                  activeReportPeriod !== reportPeriod
-                    ? "cursor-pointer text-[var(--primary)] underline underline-offset-2"
-                    : "text-[var(--foreground)]",
-                )}
-              >
-                {formatPeriodLabel(activeReportPeriod, globalPeriod)}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="size-7 p-0 rounded-lg text-[var(--text-secondary)] hover:text-[var(--foreground)] touch-manipulation"
-                onClick={() =>
-                  setActiveReportPeriod((prev) =>
-                    shiftReportPeriod(prev, 1, globalPeriod),
-                  )
-                }
-                aria-label="Kỳ sau"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
-            </div>
-
-            <Tabs
-              value={globalPeriod}
-              onValueChange={(val) => setGlobalPeriod(val as DashboardPeriod)}
-              className="gap-0"
+          {/* Tầng 1: Segment chọn chế độ xem (Tháng / Quý / Năm) */}
+          <Tabs
+            value={globalPeriod}
+            onValueChange={(val) => setGlobalPeriod(val as DashboardPeriod)}
+            className="w-full gap-0"
+          >
+            <TabsList
+              variant="navigation"
+              className="grid w-full grid-cols-3"
+              aria-label="Chọn kỳ xem dữ liệu"
             >
-              <TabsList
-                variant="navigation"
-                className="inline-grid w-auto grid-cols-3 gap-0.5"
-                aria-label="Chọn kỳ xem dữ liệu"
-              >
-                <TabsTrigger value="month">
-                  Tháng
-                </TabsTrigger>
-                <TabsTrigger value="quarter">
-                  Quý
-                </TabsTrigger>
-                <TabsTrigger value="year">
-                  Năm
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+              <TabsTrigger value="month">Tháng</TabsTrigger>
+              <TabsTrigger value="quarter">Quý</TabsTrigger>
+              <TabsTrigger value="year">Năm</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Tầng 2: Thanh điều hướng thời gian (Time Pager) */}
+          <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--foreground)] touch-manipulation"
+              onClick={() =>
+                setActiveReportPeriod((prev) =>
+                  shiftReportPeriod(prev, -1, globalPeriod),
+                )
+              }
+              aria-label="Kỳ trước"
+            >
+              <ChevronLeft className="size-4.5" />
+            </Button>
+
+            <span className="text-xs font-bold tracking-tight text-[var(--foreground)] tabular-nums select-none">
+              {formatPeriodLabel(activeReportPeriod, globalPeriod)}
+            </span>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--foreground)] touch-manipulation"
+              onClick={() =>
+                setActiveReportPeriod((prev) =>
+                  shiftReportPeriod(prev, 1, globalPeriod),
+                )
+              }
+              aria-label="Kỳ sau"
+            >
+              <ChevronRight className="size-4.5" />
+            </Button>
           </div>
         </header>
 
