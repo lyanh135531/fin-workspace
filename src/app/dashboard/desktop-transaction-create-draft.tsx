@@ -21,6 +21,7 @@ import {
   ArrowUpRight,
   CalendarDays,
   Plus,
+  Trash2,
 } from "lucide-react";
 
 export type TransactionType = "income" | "expense" | "transfer";
@@ -33,11 +34,14 @@ export type TransactionDraft = {
   toWalletId: string;
   date: string;
   amount: string;
+  allocations: Array<{ walletId: string; amount: string }>;
 };
 
 export type TransactionWalletOption = {
   id: string;
   name: string;
+  kind?: "asset" | "credit_card";
+  defaultFundingWalletId?: string | null;
 };
 
 export type TransactionCategoryOption = TransactionWalletOption & {
@@ -61,7 +65,7 @@ function defaultDestination(
   wallets: TransactionWalletOption[],
   sourceId: string,
 ) {
-  return wallets.find((wallet) => wallet.id !== sourceId)?.id ?? sourceId;
+  return wallets.find((wallet) => wallet.kind !== "credit_card" && wallet.id !== sourceId)?.id ?? sourceId;
 }
 
 function categoriesForTransactionType(
@@ -88,6 +92,7 @@ export function createTransactionDraft(
     toWalletId: defaultDestination(wallets, walletId),
     date: businessDate,
     amount: "",
+    allocations: [],
   };
 }
 
@@ -100,6 +105,7 @@ export function transactionDraftInput(draft: TransactionDraft) {
     amount: draft.amount,
     description: draft.description || undefined,
     date: draft.date,
+    allocations: draft.allocations.length ? draft.allocations : undefined,
   };
 }
 
@@ -120,13 +126,30 @@ export function DesktopTransactionCreateDraft({
   onSave: () => void;
   onCancel: () => void;
 }) {
+  const selectedWallet = wallets.find((wallet) => wallet.id === draft.walletId);
+  const assetWallets = wallets.filter((wallet) => wallet.kind !== "credit_card");
+  const isCreditCardExpense = draft.type === "expense" && selectedWallet?.kind === "credit_card";
+
+  function allocationForCard(wallet: TransactionWalletOption, amount: string) {
+    const fundingWalletId = wallet.defaultFundingWalletId ?? assetWallets[0]?.id;
+    return fundingWalletId ? [{ walletId: fundingWalletId, amount }] : [];
+  }
+
   function changeType(type: TransactionType): void {
+    const currentWallet = wallets.find((wallet) => wallet.id === draft.walletId);
+    const nextWallet = type !== "expense" && currentWallet?.kind === "credit_card"
+      ? assetWallets[0]
+      : currentWallet;
     onChange({
       type,
+      walletId: nextWallet?.id ?? draft.walletId,
       categoryId: "none",
+      allocations: type === "expense" && currentWallet?.kind === "credit_card"
+        ? allocationForCard(currentWallet, draft.amount)
+        : [],
       toWalletId:
         type === "transfer"
-          ? draft.toWalletId || defaultDestination(wallets, draft.walletId)
+          ? draft.toWalletId || defaultDestination(wallets, nextWallet?.id ?? draft.walletId)
           : draft.toWalletId,
     });
   }
@@ -210,28 +233,91 @@ export function DesktopTransactionCreateDraft({
               required
               disabled={busy}
               value={draft.amount}
-              onValueChange={(amount) => onChange({ amount })}
+              onValueChange={(amount) => onChange({
+                amount,
+                allocations: isCreditCardExpense && draft.allocations.length === 1
+                  ? [{ ...draft.allocations[0], amount }]
+                  : draft.allocations,
+              })}
               placeholder="0"
               label="Số tiền"
             />
             <Select
               disabled={busy || !wallets.length}
               value={draft.walletId}
-              onValueChange={(walletId) =>
+              onValueChange={(walletId) => {
+                const wallet = wallets.find((item) => item.id === walletId);
                 onChange({
                   walletId,
                   toWalletId:
                     draft.toWalletId === walletId
                       ? defaultDestination(wallets, walletId)
                       : draft.toWalletId,
-                })
-              }
-              label="Ví thực hiện"
+                  allocations: draft.type === "expense" && wallet?.kind === "credit_card"
+                    ? allocationForCard(wallet, draft.amount)
+                    : [],
+                });
+              }}
+              label="Thanh toán bằng"
               options={wallets.map((item) => ({
                 value: item.id,
                 label: item.name,
+                disabled: item.kind === "credit_card" && draft.type !== "expense",
               }))}
             />
+            {isCreditCardExpense && (
+              <fieldset className="space-y-3 border-t border-[var(--border)] pt-4">
+                <legend className="text-xs font-semibold text-[var(--foreground)]">Nguồn trả thẻ</legend>
+                <p className="text-xs text-[var(--text-muted)]">Tiền thật chỉ giảm khi thanh toán sao kê; phân bổ này xác định mỗi ví phải chịu bao nhiêu.</p>
+                {draft.allocations.map((allocation, index) => (
+                  <div key={`${allocation.walletId}:${index}`} className="grid grid-cols-[1fr_0.8fr_auto] items-end gap-2">
+                    <Select
+                      disabled={busy}
+                      value={allocation.walletId}
+                      onValueChange={(walletId) => onChange({
+                        allocations: draft.allocations.map((item, itemIndex) => itemIndex === index ? { ...item, walletId } : item),
+                      })}
+                      label={`Ví nguồn ${index + 1}`}
+                      options={assetWallets.map((wallet) => ({
+                        value: wallet.id,
+                        label: wallet.name,
+                        disabled: draft.allocations.some((item, itemIndex) => itemIndex !== index && item.walletId === wallet.id),
+                      }))}
+                    />
+                    <MoneyInput
+                      disabled={busy}
+                      value={allocation.amount}
+                      onValueChange={(amount) => onChange({
+                        allocations: draft.allocations.map((item, itemIndex) => itemIndex === index ? { ...item, amount } : item),
+                      })}
+                      label="Số tiền"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={busy || draft.allocations.length === 1}
+                      aria-label={`Xóa nguồn trả thẻ ${index + 1}`}
+                      onClick={() => onChange({ allocations: draft.allocations.filter((_, itemIndex) => itemIndex !== index) })}
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
+                  </div>
+                ))}
+                {draft.allocations.length < assetWallets.length && (
+                  <Button
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => {
+                      const nextWallet = assetWallets.find((wallet) => !draft.allocations.some((item) => item.walletId === wallet.id));
+                      if (nextWallet) onChange({ allocations: [...draft.allocations, { walletId: nextWallet.id, amount: "" }] });
+                    }}
+                  >
+                    <Plus aria-hidden="true" />
+                    Chia thêm ví
+                  </Button>
+                )}
+              </fieldset>
+            )}
             {draft.type === "transfer" ? (
               <Select
                 disabled={busy || !wallets.length}
@@ -241,7 +327,7 @@ export function DesktopTransactionCreateDraft({
                 options={wallets.map((item) => ({
                   value: item.id,
                   label: item.name,
-                  disabled: item.id === draft.walletId,
+                  disabled: item.id === draft.walletId || item.kind === "credit_card",
                 }))}
               />
             ) : (

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+
 import {
   createWalletSchema,
   idSchema,
@@ -10,9 +11,9 @@ import {
   updateWalletSchema,
 } from "@/domain";
 import { AppError } from "@/lib/errors";
+import { requireAcceptedLegalSession } from "@/lib/legal-access";
 import { prisma } from "@/lib/prisma";
 import { toActionFailure } from "@/lib/server-error";
-import { requireAcceptedLegalSession } from "@/lib/legal-access";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import {
   createWalletForWorkspace,
@@ -36,7 +37,13 @@ async function walletActor() {
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
   if (!workspaceId) throw new AppError("FORBIDDEN", "Không có nhóm tài chính đang hoạt động.");
   const membership = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id, workspaceId, status: "active", deletedAt: null, workspace: { status: "active", deletedAt: null } },
+    where: {
+      userId: session.user.id,
+      workspaceId,
+      status: "active",
+      deletedAt: null,
+      workspace: { status: "active", deletedAt: null },
+    },
     select: { workspaceId: true },
   });
   if (!membership) throw new AppError("FORBIDDEN", "Bạn không có quyền truy cập nhóm này.");
@@ -68,11 +75,7 @@ export async function updateManagedWalletAction(input: unknown) {
 export async function reorderManagedWalletsAction(input: unknown) {
   try {
     const actor = await walletActor();
-    await reorderWalletsForWorkspace(
-      actor.userId,
-      actor.workspaceId,
-      reorderWalletsSchema.parse(input),
-    );
+    await reorderWalletsForWorkspace(actor.userId, actor.workspaceId, reorderWalletsSchema.parse(input));
     revalidateWalletViews(actor.workspaceId);
     return { ok: true as const };
   } catch (error) {
@@ -84,12 +87,7 @@ export async function setManagedWalletStatusAction(input: unknown) {
   try {
     const actor = await walletActor();
     const data = z.object({ walletId: idSchema, status: statusSchema }).parse(input);
-    await setWalletStatusForWorkspace(
-      actor.userId,
-      actor.workspaceId,
-      data.walletId,
-      data.status,
-    );
+    await setWalletStatusForWorkspace(actor.userId, actor.workspaceId, data.walletId, data.status);
     revalidateWalletViews(actor.workspaceId);
     return { ok: true as const };
   } catch (error) {
@@ -100,16 +98,8 @@ export async function setManagedWalletStatusAction(input: unknown) {
 export async function softDeleteManagedWalletAction(input: unknown) {
   try {
     const actor = await walletActor();
-    const data = z.object({
-      walletId: idSchema,
-      settlementWalletId: idSchema.optional(),
-    }).parse(input);
-    await softDeleteWalletForWorkspace(
-      actor.userId,
-      actor.workspaceId,
-      data.walletId,
-      data.settlementWalletId,
-    );
+    const data = z.object({ walletId: idSchema, settlementWalletId: idSchema.optional() }).parse(input);
+    await softDeleteWalletForWorkspace(actor.userId, actor.workspaceId, data.walletId, data.settlementWalletId);
     revalidateWalletViews(actor.workspaceId);
     return { ok: true as const };
   } catch (error) {

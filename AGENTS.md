@@ -116,7 +116,10 @@ Không đưa logic nghiệp vụ hoặc cập nhật số dư vào UI component 
 | `rejected` | Không thay đổi số dư; giữ lịch sử. |
 
 - `income`: tăng số dư ví.
-- `expense`: giảm số dư ví.
+- `expense` từ ví tài sản: giảm số dư ví.
+- `expense` từ thẻ tín dụng: tăng dư nợ thẻ; không giảm ví nguồn. Tổng tiền phải được phân bổ cho một hoặc nhiều ví tài sản chịu trách nhiệm thanh toán.
+- Thanh toán thẻ: giảm dư nợ thẻ và giảm từng ví nguồn theo phần sao kê đã chọn, trong cùng một transaction. Không tính là chi tiêu lần hai.
+- Hoàn tiền thẻ: giảm dư nợ và đảo phần phân bổ của giao dịch gốc. Không ghi nhận là thu nhập.
 - `transfer`: bắt buộc có `to_wallet_id`, khác `wallet_id`, và cập nhật hai ví trong một transaction.
 - `TRANSACTION.member_id` phải tham chiếu `WORKSPACE_MEMBERS.id`, không phải `USERS.id`.
 - Member chỉ tạo giao dịch `pending`; Admin mới được duyệt/từ chối hoặc xử lý thay đổi nhạy cảm.

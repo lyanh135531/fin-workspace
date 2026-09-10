@@ -83,7 +83,8 @@ export type NotificationItem =
       type: "income" | "expense" | "transfer";
       amount: string;
       approvalStatus: "pending" | "approved" | "rejected";
-    };
+    }
+  ;
 
 type TransactionNotification = Extract<
   NotificationItem,

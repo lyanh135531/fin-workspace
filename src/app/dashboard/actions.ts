@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { changeReasonSchema, createTransactionSchema, createWalletSchema, deleteRequestReasonSchema } from "@/domain";
+import { changeReasonSchema, createCreditCardPaymentSchema, createCreditCardRefundSchema, createTransactionSchema, createWalletSchema, deleteRequestReasonSchema } from "@/domain";
 import { debug } from "@/lib/debug";
 import { AppError } from "@/lib/errors";
 import { MONEY_LIMIT_ERROR_MESSAGE } from "@/lib/money-limits";
@@ -21,6 +21,7 @@ import {
 import { idSchema } from "@/domain/common/schemas";
 import { createWalletForWorkspace } from "@/services/wallet-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
+import { createCreditCardPayment, createCreditCardRefund } from "@/services/credit-card-service";
 
 function transactionActionFailure(error: unknown, fallback: string, event: string, requestId: string) {
   if (error instanceof Error) {
@@ -53,6 +54,38 @@ export async function addTransactionAction(workspaceId: string, input: unknown) 
   const requestId = crypto.randomUUID();
   try { const user = await workspaceActor(workspaceId); const transaction = await createTransaction(user.userId, user.workspaceId, createTransactionSchema.parse(input)); debug("transaction.created", { requestId, transactionId: transaction.id, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); revalidateFinancialPlanViews(); return { ok: true as const, status: transaction.workflowStatus }; }
   catch (error) { debug("transaction.failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return transactionActionFailure(error, "Không thể tạo giao dịch.", "transaction.failed", requestId); }
+}
+
+export async function payCreditCardAction(workspaceId: string, input: unknown) {
+  const requestId = crypto.randomUUID();
+  try {
+    const user = await workspaceActor(workspaceId);
+    const transaction = await createCreditCardPayment(user.userId, user.workspaceId, createCreditCardPaymentSchema.parse(input));
+    revalidatePath("/dashboard");
+    revalidatePath(`/workspace/${user.workspaceId}`);
+    revalidatePath("/overview");
+    revalidatePath("/wallets");
+    revalidateFinancialPlanViews();
+    return { ok: true as const, status: transaction.workflowStatus };
+  } catch (error) {
+    return transactionActionFailure(error, "Không thể thanh toán dư nợ thẻ.", "credit_card.payment_failed", requestId);
+  }
+}
+
+export async function refundCreditCardExpenseAction(workspaceId: string, input: unknown) {
+  const requestId = crypto.randomUUID();
+  try {
+    const user = await workspaceActor(workspaceId);
+    const transaction = await createCreditCardRefund(user.userId, user.workspaceId, createCreditCardRefundSchema.parse(input));
+    revalidatePath("/dashboard");
+    revalidatePath(`/workspace/${user.workspaceId}`);
+    revalidatePath("/overview");
+    revalidatePath("/wallets");
+    revalidateFinancialPlanViews();
+    return { ok: true as const, status: transaction.workflowStatus };
+  } catch (error) {
+    return transactionActionFailure(error, "Không thể hoàn tiền giao dịch thẻ.", "credit_card.refund_failed", requestId);
+  }
 }
 
 export async function addQuickTransactionAction(workspaceId: unknown, input: unknown) {

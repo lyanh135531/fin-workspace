@@ -8,18 +8,21 @@ export type DashboardPeriod = "month" | "quarter" | "year";
 type ChartTransaction = {
   amount: string;
   type: CashflowType | "transfer";
+  purpose?: "standard" | "credit_card_payment" | "credit_card_refund";
   status: "pending" | "scheduled" | "approved" | "rejected";
   date: string;
   walletId: string;
   toWalletId: string | null;
   categoryId: string | null;
   memberId: string;
+  paymentSources?: Array<{ walletId: string; amount: string }>;
 };
 
 export type BalanceWallet = {
   id: string;
   name: string;
   balance: string;
+  kind?: "asset" | "credit_card";
 };
 
 export type MonthlyBalance = {
@@ -148,7 +151,11 @@ export function buildMonthlyCashflow(
 
     const periodTotals = totals.get(period);
     if (!periodTotals) continue;
-    periodTotals[transaction.type] = periodTotals[transaction.type].plus(transaction.amount);
+    if (transaction.purpose === "credit_card_refund") {
+      periodTotals.expense = periodTotals.expense.minus(transaction.amount);
+    } else {
+      periodTotals[transaction.type] = periodTotals[transaction.type].plus(transaction.amount);
+    }
   }
 
   return periods.map((period) => {
@@ -187,7 +194,7 @@ export function buildMemberMonthlyTotals(
     const period = transaction.date.slice(0, 7);
     if (
       transaction.status !== "approved"
-      || transaction.type !== filters.type
+      || (transaction.purpose === "credit_card_refund" ? filters.type !== "expense" : transaction.type !== filters.type)
       || !periodSet.has(period)
       || (filters.dateRange !== undefined
         && (transaction.date.slice(0, 10) < filters.dateRange.from
@@ -205,7 +212,9 @@ export function buildMemberMonthlyTotals(
     if (!periodTotals) continue;
     periodTotals.set(
       transaction.memberId,
-      (periodTotals.get(transaction.memberId) ?? new Decimal(0)).plus(transaction.amount),
+      (periodTotals.get(transaction.memberId) ?? new Decimal(0)).plus(
+        transaction.purpose === "credit_card_refund" ? new Decimal(transaction.amount).negated() : transaction.amount,
+      ),
     );
   }
 
@@ -237,6 +246,7 @@ export function buildMonthlyBalances(
   const balances = new Map(
     visibleWallets.map((wallet) => [wallet.id, new Decimal(wallet.balance)]),
   );
+  const walletKinds = new Map(visibleWallets.map((wallet) => [wallet.id, wallet.kind ?? "asset"] as const));
   const rows = new Map<string, MonthlyBalance>();
 
   if (filters.dateRange) {
@@ -245,7 +255,7 @@ export function buildMonthlyBalances(
         transaction.status === "approved"
         && transaction.date.slice(0, 10) > filters.dateRange.to
       ) {
-        reverseBalanceTransaction(balances, transaction);
+        reverseBalanceTransaction(balances, transaction, walletKinds);
       }
     }
   }
@@ -259,7 +269,9 @@ export function buildMonthlyBalances(
       ]),
     );
     const total = visibleWallets.reduce(
-      (sum, wallet) => sum.plus(balances.get(wallet.id) ?? 0),
+      (sum, wallet) => wallet.kind === "credit_card"
+        ? sum.minus(balances.get(wallet.id) ?? 0)
+        : sum.plus(balances.get(wallet.id) ?? 0),
       new Decimal(0),
     );
 
@@ -282,7 +294,7 @@ export function buildMonthlyBalances(
         continue;
       }
 
-      reverseBalanceTransaction(balances, transaction);
+      reverseBalanceTransaction(balances, transaction, walletKinds);
     }
   }
 
@@ -344,7 +356,11 @@ export function buildDailyCashflow(
 
     const dayTotals = totals.get(txDay);
     if (!dayTotals) continue;
-    dayTotals[transaction.type] = dayTotals[transaction.type].plus(transaction.amount);
+    if (transaction.purpose === "credit_card_refund") {
+      dayTotals.expense = dayTotals.expense.minus(transaction.amount);
+    } else {
+      dayTotals[transaction.type] = dayTotals[transaction.type].plus(transaction.amount);
+    }
   }
 
   return days.map((day) => {
@@ -379,6 +395,7 @@ export function buildDailyBalances(
   const balances = new Map(
     visibleWallets.map((wallet) => [wallet.id, new Decimal(wallet.balance)]),
   );
+  const walletKinds = new Map(visibleWallets.map((wallet) => [wallet.id, wallet.kind ?? "asset"] as const));
   const rows = new Map<string, MonthlyBalance>();
 
   for (const transaction of transactions) {
@@ -386,7 +403,7 @@ export function buildDailyBalances(
       transaction.status === "approved"
       && transaction.date.slice(0, 10) > filters.dateRange.to
     ) {
-      reverseBalanceTransaction(balances, transaction);
+      reverseBalanceTransaction(balances, transaction, walletKinds);
     }
   }
 
@@ -399,7 +416,9 @@ export function buildDailyBalances(
       ]),
     );
     const total = visibleWallets.reduce(
-      (sum, wallet) => sum.plus(balances.get(wallet.id) ?? 0),
+      (sum, wallet) => wallet.kind === "credit_card"
+        ? sum.minus(balances.get(wallet.id) ?? 0)
+        : sum.plus(balances.get(wallet.id) ?? 0),
       new Decimal(0),
     );
 
@@ -421,7 +440,7 @@ export function buildDailyBalances(
         continue;
       }
 
-      reverseBalanceTransaction(balances, transaction);
+      reverseBalanceTransaction(balances, transaction, walletKinds);
     }
   }
 
@@ -463,16 +482,30 @@ function reportPeriods(
 function reverseBalanceTransaction(
   balances: Map<string, Decimal>,
   transaction: ChartTransaction,
+  walletKinds: Map<string, "asset" | "credit_card">,
 ): void {
   const amount = new Decimal(transaction.amount);
   const sourceBalance = balances.get(transaction.walletId);
   if (sourceBalance) {
-    balances.set(
-      transaction.walletId,
-      transaction.type === "income"
-        ? sourceBalance.minus(amount)
-        : sourceBalance.plus(amount),
-    );
+    const isCreditCard = walletKinds.get(transaction.walletId) === "credit_card";
+    if (transaction.purpose === "credit_card_payment" || transaction.purpose === "credit_card_refund") {
+      balances.set(transaction.walletId, sourceBalance.plus(amount));
+    } else if (isCreditCard && transaction.type === "expense") {
+      balances.set(transaction.walletId, sourceBalance.minus(amount));
+    } else {
+      balances.set(
+        transaction.walletId,
+        transaction.type === "income" ? sourceBalance.minus(amount) : sourceBalance.plus(amount),
+      );
+    }
+  }
+
+  if (transaction.purpose === "credit_card_payment") {
+    for (const source of transaction.paymentSources ?? []) {
+      const sourceBalanceValue = balances.get(source.walletId);
+      if (sourceBalanceValue) balances.set(source.walletId, sourceBalanceValue.plus(source.amount));
+    }
+    return;
   }
 
   if (transaction.type === "transfer" && transaction.toWalletId) {

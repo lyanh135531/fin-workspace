@@ -25,6 +25,14 @@ tạo snapshot trùng. Có thể cấu hình token riêng bằng
 `FINANCIAL_PLAN_WORKER_SECRET`; nếu bỏ trống, token được dẫn xuất từ
 `NEXTAUTH_SECRET`.
 
+Thẻ tín dụng dùng obligation ledger để theo dõi chi tiêu trả sau. Sau khi deploy
+migration mới, chặn cutover nếu báo cáo invariant trả về bất kỳ dòng nào:
+
+```bash
+pnpm prisma:deploy
+pnpm credit-card:verify
+```
+
 ### Backup PostgreSQL lúc 02:00 mỗi ngày
 
 Script backup tạo dump đã kiểm tra, lưu checksum SHA-256 và chỉ giữ lại 2 bản

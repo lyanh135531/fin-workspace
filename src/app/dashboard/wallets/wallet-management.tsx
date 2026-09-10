@@ -74,6 +74,7 @@ type WalletItem = {
   transactionCount: number;
   recurringTransactionCount: number;
   updatedAt: string;
+  kind: "asset" | "credit_card";
 };
 
 type DestructiveWalletOperation = {
@@ -312,6 +313,10 @@ export function WalletManagement({
   >("income");
   const [createFundingAmount, setCreateFundingAmount] = useState("");
   const [createFundingWalletId, setCreateFundingWalletId] = useState("");
+  const [createKind, setCreateKind] = useState<"asset" | "credit_card">("asset");
+  const [creditLimit, setCreditLimit] = useState("");
+  const [openingDebt, setOpeningDebt] = useState("");
+  const [defaultFundingWalletId, setDefaultFundingWalletId] = useState("");
   const [editingWallet, setEditingWallet] = useState<WalletItem | null>(null);
   const [filterStatus, setFilterStatus] = useState<
     "all" | "active" | "deactive"
@@ -343,7 +348,7 @@ export function WalletManagement({
   const activeCount = wallets.filter(
     (wallet) => wallet.status === "active",
   ).length;
-  const activeWallets = wallets.filter((wallet) => wallet.status === "active");
+  const activeWallets = wallets.filter((wallet) => wallet.status === "active" && wallet.kind === "asset");
   const transactionCount = wallets.reduce(
     (total, wallet) => total + wallet.transactionCount,
     0,
@@ -436,6 +441,10 @@ export function WalletManagement({
     setCreateFundingType("income");
     setCreateFundingAmount("");
     setCreateFundingWalletId("");
+    setCreateKind("asset");
+    setCreditLimit("");
+    setOpeningDebt("");
+    setDefaultFundingWalletId("");
   }
 
   function handleCreate(event: React.FormEvent<HTMLFormElement>) {
@@ -446,7 +455,8 @@ export function WalletManagement({
       const result = await createManagedWalletAction({
         name: data.get("name"),
         description: data.get("description") || undefined,
-        funding: !hasInitialFunding
+        kind: createKind,
+        funding: createKind === "credit_card" || !hasInitialFunding
           ? undefined
           : createFundingType === "income"
             ? { type: "income", amount: createFundingAmount }
@@ -455,6 +465,14 @@ export function WalletManagement({
               amount: createFundingAmount,
               sourceWalletId: createFundingWalletId,
             },
+        creditCard: createKind === "credit_card" ? {
+          creditLimit,
+          defaultFundingWalletId,
+          openingDebt: openingDebt || "0",
+          openingAllocations: openingDebt && new Decimal(openingDebt).gt(0)
+            ? [{ walletId: defaultFundingWalletId, amount: openingDebt }]
+            : [],
+        } : undefined,
       });
       if (result.ok) {
         toast.success("Đã tạo ví mới.");
@@ -462,6 +480,7 @@ export function WalletManagement({
         setCreateFundingType("income");
         setCreateFundingAmount("");
         setCreateFundingWalletId("");
+        setCreateKind("asset");
         setCreatingModal(false);
         router.refresh();
       } else {
@@ -1273,6 +1292,15 @@ export function WalletManagement({
                   </div>
                 )}
                 <div className="grid gap-4">
+                  <Select
+                    label="Loại tài khoản"
+                    value={createKind}
+                    onValueChange={(value) => setCreateKind(value as "asset" | "credit_card")}
+                    options={[
+                      { value: "asset", label: "Tiền mặt / tài khoản ngân hàng" },
+                      { value: "credit_card", label: "Thẻ tín dụng" },
+                    ]}
+                  />
                   <Input
                     label="Tên ví"
                     id="create-name"
@@ -1311,13 +1339,32 @@ export function WalletManagement({
               >
                 <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
                   <CircleDollarSign size={18} className="text-[var(--primary)]" aria-hidden />
-                  <span>Số dư ban đầu</span>
+                  <span>{createKind === "credit_card" ? "Thiết lập thẻ" : "Số dư ban đầu"}</span>
                 </div>
                 <p className="text-xs text-[var(--text-muted)] -mt-2">
-                  Có thể để trống và cập nhật bằng giao dịch sau.
+                  {createKind === "credit_card"
+                    ? "Chi tiêu làm tăng dư nợ; ví nguồn chỉ bị trừ khi thanh toán sao kê."
+                    : "Có thể để trống và cập nhật bằng giao dịch sau."}
                 </p>
 
                 <div className="grid gap-4">
+                  {createKind === "credit_card" ? (
+                    <>
+                      <MoneyInput label={`Hạn mức (${workspace.currency})`} value={creditLimit} onValueChange={setCreditLimit} required />
+                      <Select
+                        label="Ví mặc định thanh toán"
+                        value={defaultFundingWalletId}
+                        onValueChange={setDefaultFundingWalletId}
+                        placeholder="Chọn ví tài sản"
+                        options={activeWallets.map((wallet) => ({ value: wallet.id, label: wallet.name }))}
+                      />
+                      <MoneyInput label={`Dư nợ ban đầu (${workspace.currency})`} value={openingDebt} onValueChange={setOpeningDebt} />
+                      <p className="text-xs leading-5 text-[var(--text-muted)]">
+                        Dư nợ ban đầu được quy trách nhiệm cho ví mặc định. Sau khi tạo, từng giao dịch có thể chia cho ví gia đình, ví của con hoặc nhiều ví khác.
+                      </p>
+                    </>
+                  ) : (
+                    <>
                   <MoneyInput
                     label={`Số tiền (${workspace.currency})`}
                     id="create-funding-amount"
@@ -1425,6 +1472,8 @@ export function WalletManagement({
                       </p>
                     </div>
                   )}
+                    </>
+                  )}
                 </div>
               </section>
             </div>
@@ -1437,8 +1486,9 @@ export function WalletManagement({
               submittingLabel="Đang tạo..."
               submitDisabled={
                 pending ||
-                !createFundingAmountIsValid ||
-                (createFundingType === "transfer" && !createFundingWalletId)
+                (createKind === "asset" && (!createFundingAmountIsValid ||
+                  (createFundingType === "transfer" && !createFundingWalletId))) ||
+                (createKind === "credit_card" && (!creditLimit || !defaultFundingWalletId))
               }
               submitType="submit"
             />

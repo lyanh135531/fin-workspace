@@ -1,0 +1,151 @@
+SET lock_timeout = '5s';
+SET statement_timeout = '60s';
+
+CREATE TYPE "WALLET_KIND" AS ENUM ('asset', 'credit_card');
+CREATE TYPE "ASSET_SUBTYPE" AS ENUM ('cash', 'bank', 'e_wallet', 'other');
+CREATE TYPE "TRANSACTION_PURPOSE" AS ENUM ('standard', 'credit_card_payment', 'credit_card_refund');
+CREATE TYPE "CREDIT_CARD_OBLIGATION_KIND" AS ENUM ('purchase', 'opening_debt', 'refund', 'adjustment');
+CREATE TYPE "CREDIT_CARD_OBLIGATION_SOURCE" AS ENUM ('transaction', 'opening_balance', 'adjustment');
+
+ALTER TABLE "WALLETS"
+  ADD COLUMN "kind" "WALLET_KIND" NOT NULL DEFAULT 'asset',
+  ADD COLUMN "asset_subtype" "ASSET_SUBTYPE" DEFAULT 'other';
+
+ALTER TABLE "TRANSACTION"
+  ADD COLUMN "purpose" "TRANSACTION_PURPOSE" NOT NULL DEFAULT 'standard',
+  ADD COLUMN "posted_date" DATE,
+  ADD COLUMN "original_transaction_id" UUID;
+
+CREATE TABLE "CREDIT_CARD_PROFILE" (
+  "wallet_id" UUID NOT NULL,
+  "credit_limit" DECIMAL(20,4) NOT NULL,
+  "default_funding_wallet_id" UUID NOT NULL,
+  "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMPTZ(6) NOT NULL,
+  CONSTRAINT "CREDIT_CARD_PROFILE_pkey" PRIMARY KEY ("wallet_id"),
+  CONSTRAINT "CREDIT_CARD_PROFILE_limit_check" CHECK ("credit_limit" > 0)
+);
+
+CREATE TABLE "CREDIT_CARD_OPENING_ALLOCATION" (
+  "id" UUID NOT NULL,
+  "card_wallet_id" UUID NOT NULL,
+  "funding_wallet_id" UUID NOT NULL,
+  "amount" DECIMAL(20,4) NOT NULL,
+  "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "CREDIT_CARD_OPENING_ALLOCATION_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "CREDIT_CARD_OPENING_ALLOCATION_amount_check" CHECK ("amount" > 0)
+);
+
+CREATE TABLE "CREDIT_CARD_ALLOCATION" (
+  "id" UUID NOT NULL,
+  "transaction_id" UUID NOT NULL,
+  "funding_wallet_id" UUID NOT NULL,
+  "amount" DECIMAL(20,4) NOT NULL,
+  "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "CREDIT_CARD_ALLOCATION_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "CREDIT_CARD_ALLOCATION_amount_check" CHECK ("amount" > 0)
+);
+
+CREATE TABLE "CREDIT_CARD_PAYMENT_SOURCE" (
+  "id" UUID NOT NULL,
+  "payment_transaction_id" UUID NOT NULL,
+  "source_wallet_id" UUID NOT NULL,
+  "amount" DECIMAL(20,4) NOT NULL,
+  "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "CREDIT_CARD_PAYMENT_SOURCE_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "CREDIT_CARD_PAYMENT_SOURCE_amount_check" CHECK ("amount" > 0)
+);
+
+CREATE TABLE "CREDIT_CARD_OBLIGATION_ENTRY" (
+  "id" UUID NOT NULL,
+  "workspace_id" UUID NOT NULL,
+  "card_wallet_id" UUID NOT NULL,
+  "funding_wallet_id" UUID NOT NULL,
+  "transaction_id" UUID,
+  "kind" "CREDIT_CARD_OBLIGATION_KIND" NOT NULL,
+  "source" "CREDIT_CARD_OBLIGATION_SOURCE" NOT NULL,
+  "effective_date" DATE NOT NULL,
+  "posted_date" DATE NOT NULL,
+  "amount" DECIMAL(20,4) NOT NULL,
+  "idempotency_key" VARCHAR(191) NOT NULL,
+  "metadata" JSONB,
+  "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "CREDIT_CARD_OBLIGATION_ENTRY_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "CREDIT_CARD_OBLIGATION_amount_check" CHECK ("amount" <> 0)
+);
+
+CREATE TABLE "CREDIT_CARD_PAYMENT_ALLOCATION" (
+  "id" UUID NOT NULL,
+  "payment_transaction_id" UUID NOT NULL,
+  "obligation_entry_id" UUID NOT NULL,
+  "amount" DECIMAL(20,4) NOT NULL,
+  "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "CREDIT_CARD_PAYMENT_ALLOCATION_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "CREDIT_CARD_PAYMENT_ALLOCATION_amount_check" CHECK ("amount" > 0)
+);
+
+CREATE TABLE "CREDIT_CARD_PAYMENT_RESERVATION" (
+  "id" UUID NOT NULL,
+  "payment_transaction_id" UUID NOT NULL,
+  "source_wallet_id" UUID NOT NULL,
+  "amount" DECIMAL(20,4) NOT NULL,
+  "released_at" TIMESTAMPTZ(6),
+  "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "CREDIT_CARD_PAYMENT_RESERVATION_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "CREDIT_CARD_PAYMENT_RESERVATION_amount_check" CHECK ("amount" > 0)
+);
+
+CREATE INDEX "CREDIT_CARD_PROFILE_default_funding_wallet_id_idx" ON "CREDIT_CARD_PROFILE"("default_funding_wallet_id");
+CREATE UNIQUE INDEX "CREDIT_CARD_OPENING_ALLOCATION_card_wallet_id_funding_wallet_id_key" ON "CREDIT_CARD_OPENING_ALLOCATION"("card_wallet_id", "funding_wallet_id");
+CREATE INDEX "CREDIT_CARD_OPENING_ALLOCATION_funding_wallet_id_idx" ON "CREDIT_CARD_OPENING_ALLOCATION"("funding_wallet_id");
+CREATE UNIQUE INDEX "CREDIT_CARD_ALLOCATION_transaction_id_funding_wallet_id_key" ON "CREDIT_CARD_ALLOCATION"("transaction_id", "funding_wallet_id");
+CREATE INDEX "CREDIT_CARD_ALLOCATION_funding_wallet_id_idx" ON "CREDIT_CARD_ALLOCATION"("funding_wallet_id");
+CREATE UNIQUE INDEX "CREDIT_CARD_PAYMENT_SOURCE_payment_transaction_id_source_wallet_id_key" ON "CREDIT_CARD_PAYMENT_SOURCE"("payment_transaction_id", "source_wallet_id");
+CREATE INDEX "CREDIT_CARD_PAYMENT_SOURCE_source_wallet_id_idx" ON "CREDIT_CARD_PAYMENT_SOURCE"("source_wallet_id");
+CREATE UNIQUE INDEX "CREDIT_CARD_OBLIGATION_ENTRY_idempotency_key_key" ON "CREDIT_CARD_OBLIGATION_ENTRY"("idempotency_key");
+CREATE INDEX "CREDIT_CARD_OBLIGATION_ENTRY_card_wallet_id_funding_wallet_id_posted_date_id_idx" ON "CREDIT_CARD_OBLIGATION_ENTRY"("card_wallet_id", "funding_wallet_id", "posted_date", "id");
+CREATE INDEX "CREDIT_CARD_OBLIGATION_ENTRY_workspace_id_posted_date_idx" ON "CREDIT_CARD_OBLIGATION_ENTRY"("workspace_id", "posted_date");
+CREATE INDEX "CREDIT_CARD_OBLIGATION_ENTRY_transaction_id_idx" ON "CREDIT_CARD_OBLIGATION_ENTRY"("transaction_id");
+CREATE UNIQUE INDEX "CREDIT_CARD_PAYMENT_ALLOCATION_payment_transaction_id_obligation_entry_id_key" ON "CREDIT_CARD_PAYMENT_ALLOCATION"("payment_transaction_id", "obligation_entry_id");
+CREATE INDEX "CREDIT_CARD_PAYMENT_ALLOCATION_obligation_entry_id_idx" ON "CREDIT_CARD_PAYMENT_ALLOCATION"("obligation_entry_id");
+CREATE UNIQUE INDEX "CREDIT_CARD_PAYMENT_RESERVATION_payment_transaction_id_source_wallet_id_key" ON "CREDIT_CARD_PAYMENT_RESERVATION"("payment_transaction_id", "source_wallet_id");
+CREATE INDEX "CREDIT_CARD_PAYMENT_RESERVATION_source_wallet_id_released_at_idx" ON "CREDIT_CARD_PAYMENT_RESERVATION"("source_wallet_id", "released_at");
+CREATE INDEX "TRANSACTION_original_transaction_id_idx" ON "TRANSACTION"("original_transaction_id");
+
+ALTER TABLE "CREDIT_CARD_PROFILE"
+  ADD CONSTRAINT "CREDIT_CARD_PROFILE_wallet_id_fkey" FOREIGN KEY ("wallet_id") REFERENCES "WALLETS"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  ADD CONSTRAINT "CREDIT_CARD_PROFILE_default_funding_wallet_id_fkey" FOREIGN KEY ("default_funding_wallet_id") REFERENCES "WALLETS"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "CREDIT_CARD_OPENING_ALLOCATION"
+  ADD CONSTRAINT "CREDIT_CARD_OPENING_ALLOCATION_card_wallet_id_fkey" FOREIGN KEY ("card_wallet_id") REFERENCES "CREDIT_CARD_PROFILE"("wallet_id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  ADD CONSTRAINT "CREDIT_CARD_OPENING_ALLOCATION_funding_wallet_id_fkey" FOREIGN KEY ("funding_wallet_id") REFERENCES "WALLETS"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "CREDIT_CARD_ALLOCATION"
+  ADD CONSTRAINT "CREDIT_CARD_ALLOCATION_transaction_id_fkey" FOREIGN KEY ("transaction_id") REFERENCES "TRANSACTION"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  ADD CONSTRAINT "CREDIT_CARD_ALLOCATION_funding_wallet_id_fkey" FOREIGN KEY ("funding_wallet_id") REFERENCES "WALLETS"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "CREDIT_CARD_PAYMENT_SOURCE"
+  ADD CONSTRAINT "CREDIT_CARD_PAYMENT_SOURCE_payment_transaction_id_fkey" FOREIGN KEY ("payment_transaction_id") REFERENCES "TRANSACTION"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  ADD CONSTRAINT "CREDIT_CARD_PAYMENT_SOURCE_source_wallet_id_fkey" FOREIGN KEY ("source_wallet_id") REFERENCES "WALLETS"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "CREDIT_CARD_OBLIGATION_ENTRY"
+  ADD CONSTRAINT "CREDIT_CARD_OBLIGATION_ENTRY_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "WORKSPACES"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  ADD CONSTRAINT "CREDIT_CARD_OBLIGATION_ENTRY_card_wallet_id_fkey" FOREIGN KEY ("card_wallet_id") REFERENCES "CREDIT_CARD_PROFILE"("wallet_id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  ADD CONSTRAINT "CREDIT_CARD_OBLIGATION_ENTRY_funding_wallet_id_fkey" FOREIGN KEY ("funding_wallet_id") REFERENCES "WALLETS"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  ADD CONSTRAINT "CREDIT_CARD_OBLIGATION_ENTRY_transaction_id_fkey" FOREIGN KEY ("transaction_id") REFERENCES "TRANSACTION"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "CREDIT_CARD_PAYMENT_ALLOCATION"
+  ADD CONSTRAINT "CREDIT_CARD_PAYMENT_ALLOCATION_payment_transaction_id_fkey" FOREIGN KEY ("payment_transaction_id") REFERENCES "TRANSACTION"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  ADD CONSTRAINT "CREDIT_CARD_PAYMENT_ALLOCATION_obligation_entry_id_fkey" FOREIGN KEY ("obligation_entry_id") REFERENCES "CREDIT_CARD_OBLIGATION_ENTRY"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "CREDIT_CARD_PAYMENT_RESERVATION"
+  ADD CONSTRAINT "CREDIT_CARD_PAYMENT_RESERVATION_payment_transaction_id_fkey" FOREIGN KEY ("payment_transaction_id") REFERENCES "TRANSACTION"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  ADD CONSTRAINT "CREDIT_CARD_PAYMENT_RESERVATION_source_wallet_id_fkey" FOREIGN KEY ("source_wallet_id") REFERENCES "WALLETS"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "TRANSACTION"
+  ADD CONSTRAINT "TRANSACTION_original_transaction_id_fkey" FOREIGN KEY ("original_transaction_id") REFERENCES "TRANSACTION"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "TRANSACTION" DROP CONSTRAINT "TRANSACTION_type_category_jar_check";
+ALTER TABLE "TRANSACTION"
+  ADD CONSTRAINT "TRANSACTION_type_category_jar_check"
+  CHECK (
+    ("purpose" = 'standard'::"TRANSACTION_PURPOSE" AND "type" = 'expense'::"TRANSACTION_TYPE" AND "category_id" IS NOT NULL AND "jar_code" IS NOT NULL)
+    OR ("purpose" = 'standard'::"TRANSACTION_PURPOSE" AND "type" = 'income'::"TRANSACTION_TYPE" AND "jar_code" IS NULL)
+    OR ("purpose" = 'standard'::"TRANSACTION_PURPOSE" AND "type" = 'transfer'::"TRANSACTION_TYPE" AND "category_id" IS NULL AND "jar_code" IS NULL)
+    OR ("purpose" = 'credit_card_payment'::"TRANSACTION_PURPOSE" AND "type" = 'transfer'::"TRANSACTION_TYPE" AND "category_id" IS NULL AND "jar_code" IS NULL AND "to_wallet_id" IS NULL)
+    OR ("purpose" = 'credit_card_refund'::"TRANSACTION_PURPOSE" AND "type" = 'income'::"TRANSACTION_TYPE" AND "category_id" IS NOT NULL AND "jar_code" IS NOT NULL AND "original_transaction_id" IS NOT NULL)
+  ) NOT VALID;
+ALTER TABLE "TRANSACTION" VALIDATE CONSTRAINT "TRANSACTION_type_category_jar_check";

@@ -22,6 +22,47 @@ enum TransactionType {
   @@map("TRANSACTION_TYPE")
 }
 
+enum TransactionPurpose {
+  standard
+  credit_card_payment
+  credit_card_refund
+
+  @@map("TRANSACTION_PURPOSE")
+}
+
+enum WalletKind {
+  asset
+  credit_card
+
+  @@map("WALLET_KIND")
+}
+
+enum AssetSubtype {
+  cash
+  bank
+  e_wallet
+  other
+
+  @@map("ASSET_SUBTYPE")
+}
+
+enum CreditCardObligationKind {
+  purchase
+  opening_debt
+  refund
+  adjustment
+
+  @@map("CREDIT_CARD_OBLIGATION_KIND")
+}
+
+enum CreditCardObligationSource {
+  transaction
+  opening_balance
+  adjustment
+
+  @@map("EMAIL_OUTBOX_STATUS")
+}
+
 enum WorkflowStatus {
   pending
   scheduled
@@ -92,31 +133,31 @@ enum OAuthIntentKind {
 }
 
 model Role {
-  id      String            @id @default(uuid()) @db.Uuid
-  name    String
-  code    String            @unique
-  members WorkspaceMember[]
+  id           String                 @id @default(uuid()) @db.Uuid
+  name         String
+  code         String                 @unique
+  members      WorkspaceMember[]
   joinRequests WorkspaceJoinRequest[]
 
   @@map("ROLE")
 }
 
 model User {
-  id           String            @id @default(uuid()) @db.Uuid
-  username     String?           @unique
-  passwordHash String?           @map("password_hash")
-  profileCompletedAt DateTime?   @default(now()) @map("profile_completed_at") @db.Timestamptz(6)
-  status       Status            @default(active)
-  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime?         @map("deleted_at") @db.Timestamptz(6)
-  memberships  WorkspaceMember[]
-  auditLogs    AuditLog[]
-  joinRequests WorkspaceJoinRequest[] @relation("JoinRequester")
+  id                   String                 @id @default(uuid()) @db.Uuid
+  username             String?                @unique
+  passwordHash         String?                @map("password_hash")
+  profileCompletedAt   DateTime?              @default(now()) @map("profile_completed_at") @db.Timestamptz(6)
+  status               Status                 @default(active)
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?              @map("deleted_at") @db.Timestamptz(6)
+  memberships          WorkspaceMember[]
+  auditLogs            AuditLog[]
+  joinRequests         WorkspaceJoinRequest[] @relation("JoinRequester")
   reviewedJoinRequests WorkspaceJoinRequest[]
-  oauthAccounts OAuthAccount[]
-  oauthLinkIntents OAuthLinkIntent[]
-  legalAcceptances LegalAcceptance[]
+  oauthAccounts        OAuthAccount[]
+  oauthLinkIntents     OAuthLinkIntent[]
+  legalAcceptances     LegalAcceptance[]
 
   @@index([status, deletedAt])
   @@map("USERS")
@@ -138,24 +179,26 @@ model LegalAcceptance {
 }
 
 model Workspace {
-  id          String            @id @default(uuid()) @db.Uuid
-  name        String
-  description String?
-  status      Status            @default(active)
-  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt   DateTime?         @map("deleted_at") @db.Timestamptz(6)
-  baseCurrency String            @default("VND") @map("base_currency") @db.VarChar(3)
-  timeZone     String            @default("Asia/Ho_Chi_Minh") @map("time_zone")
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  description  String?
+  status       Status    @default(active)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+  baseCurrency String    @default("VND") @map("base_currency") @db.VarChar(3)
+  timeZone     String    @default("Asia/Ho_Chi_Minh") @map("time_zone")
 
-  inviteCode   String            @unique @default(uuid()) @map("invite_code") @db.VarChar(36)
-  members     WorkspaceMember[]
-  wallets     WorkspaceWallet[]
-  categories  Category[]
-  auditLogs   AuditLog[]
-  joinRequests WorkspaceJoinRequest[]
+  inviteCode            String                      @unique @default(uuid()) @map("invite_code") @db.VarChar(36)
+  members               WorkspaceMember[]
+  wallets               WorkspaceWallet[]
+  categories            Category[]
+  auditLogs             AuditLog[]
+  joinRequests          WorkspaceJoinRequest[]
   recurringTransactions RecurringTransaction[]
-  financialPlans FinancialPlan[]
+  financialPlans        FinancialPlan[]
+  creditCardObligations CreditCardObligationEntry[]
+
   @@index([status, deletedAt])
   @@map("WORKSPACES")
 }
@@ -174,23 +217,23 @@ model WorkspaceWallet {
 }
 
 model WorkspaceMember {
-  id           String        @id @default(uuid()) @db.Uuid
-  workspaceId  String        @map("workspace_id") @db.Uuid
-  userId       String        @map("user_id") @db.Uuid
-  roleId       String        @map("role_id") @db.Uuid
-  status       Status        @default(active)
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
-  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  role         Role          @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  transactions Transaction[]
-  requestedChanges TransactionChangeRequest[] @relation("ChangeRequester")
-  reviewedChanges  TransactionChangeRequest[] @relation("ChangeReviewer")
-  createdRecurringTransactions RecurringTransaction[]
-  reviewedRecurringTransactions RecurringTransaction[] @relation("RecurringReviewer")
-  createdFinancialPlans FinancialPlan[]
+  id                            String                     @id @default(uuid()) @db.Uuid
+  workspaceId                   String                     @map("workspace_id") @db.Uuid
+  userId                        String                     @map("user_id") @db.Uuid
+  roleId                        String                     @map("role_id") @db.Uuid
+  status                        Status                     @default(active)
+  createdAt                     DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                     DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                     DateTime?                  @map("deleted_at") @db.Timestamptz(6)
+  workspace                     Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  user                          User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role                          Role                       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  transactions                  Transaction[]
+  requestedChanges              TransactionChangeRequest[] @relation("ChangeRequester")
+  reviewedChanges               TransactionChangeRequest[] @relation("ChangeReviewer")
+  createdRecurringTransactions  RecurringTransaction[]
+  reviewedRecurringTransactions RecurringTransaction[]     @relation("RecurringReviewer")
+  createdFinancialPlans         FinancialPlan[]
 
   @@unique([workspaceId, userId])
   @@index([workspaceId, status, deletedAt])
@@ -199,44 +242,53 @@ model WorkspaceMember {
 }
 
 model Wallet {
-  id                      String            @id @default(uuid()) @db.Uuid
-  name                    String
-  openingBalance          Decimal           @default(0) @map("opening_balance") @db.Decimal(20, 4)
-  currentBalance          Decimal           @default(0) @map("current_balance") @db.Decimal(20, 4)
-  status                  Status            @default(active)
-  description             String?
-  createdAt               DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt               DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt               DateTime?         @map("deleted_at") @db.Timestamptz(6)
-  workspaceLinks          WorkspaceWallet[]
-  sourceTransactions      Transaction[]     @relation("TransactionSourceWallet")
-  destinationTransactions Transaction[]     @relation("TransactionDestinationWallet")
-  sourceRecurringTransactions RecurringTransaction[] @relation("RecurringTransactionSourceWallet")
-  destinationRecurringTransactions RecurringTransaction[] @relation("RecurringTransactionDestinationWallet")
+  id                               String                         @id @default(uuid()) @db.Uuid
+  name                             String
+  kind                             WalletKind                     @default(asset)
+  assetSubtype                     AssetSubtype?                  @default(other) @map("asset_subtype")
+  openingBalance                   Decimal                        @default(0) @map("opening_balance") @db.Decimal(20, 4)
+  currentBalance                   Decimal                        @default(0) @map("current_balance") @db.Decimal(20, 4)
+  status                           Status                         @default(active)
+  description                      String?
+  createdAt                        DateTime                       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                        DateTime                       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                        DateTime?                      @map("deleted_at") @db.Timestamptz(6)
+  workspaceLinks                   WorkspaceWallet[]
+  sourceTransactions               Transaction[]                  @relation("TransactionSourceWallet")
+  destinationTransactions          Transaction[]                  @relation("TransactionDestinationWallet")
+  sourceRecurringTransactions      RecurringTransaction[]         @relation("RecurringTransactionSourceWallet")
+  destinationRecurringTransactions RecurringTransaction[]         @relation("RecurringTransactionDestinationWallet")
+  creditCardProfile                CreditCardProfile?             @relation("CreditCardProfileWallet")
+  defaultForCreditCards            CreditCardProfile[]            @relation("CreditCardDefaultFundingWallet")
+  creditCardAllocations            CreditCardAllocation[]         @relation("CreditCardAllocationFundingWallet")
+  creditCardOpeningAllocations     CreditCardOpeningAllocation[]  @relation("CreditCardOpeningFundingWallet")
+  creditCardPaymentSources         CreditCardPaymentSource[]      @relation("CreditCardPaymentSourceWallet")
+  fundedCreditCardObligations      CreditCardObligationEntry[]    @relation("CreditCardObligationFundingWallet")
+  creditCardPaymentReservations    CreditCardPaymentReservation[] @relation("CreditCardReservationSourceWallet")
 
   @@index([status, deletedAt])
   @@map("WALLETS")
 }
 
 model Category {
-  id           String        @id @default(uuid()) @db.Uuid
-  workspaceId  String        @map("workspace_id") @db.Uuid
-  name         String
-  code         String
-  color        String        @db.VarChar(7)
-  type         CategoryType  @default(expense)
-  icon         String?
-  parentId     String?       @map("parent_id") @db.Uuid
-  jarCode      JarCode?      @map("jar_code")
-  sortOrder    Int           @default(0) @map("order")
-  status       Status        @default(active)
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
-  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  children     Category[]    @relation("CategoryHierarchy")
-  transactions Transaction[]
+  id                    String                 @id @default(uuid()) @db.Uuid
+  workspaceId           String                 @map("workspace_id") @db.Uuid
+  name                  String
+  code                  String
+  color                 String                 @db.VarChar(7)
+  type                  CategoryType           @default(expense)
+  icon                  String?
+  parentId              String?                @map("parent_id") @db.Uuid
+  jarCode               JarCode?               @map("jar_code")
+  sortOrder             Int                    @default(0) @map("order")
+  status                Status                 @default(active)
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime?              @map("deleted_at") @db.Timestamptz(6)
+  workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  parent                Category?              @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children              Category[]             @relation("CategoryHierarchy")
+  transactions          Transaction[]
   recurringTransactions RecurringTransaction[]
 
   @@unique([workspaceId, code])
@@ -266,16 +318,16 @@ model TransactionChangeRequest {
 }
 
 model AuditLog {
-  id          String           @id @default(uuid()) @db.Uuid
-  workspaceId String           @map("workspace_id") @db.Uuid
-  actorUserId String?          @map("actor_user_id") @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  actorUserId String?   @map("actor_user_id") @db.Uuid
   action      String
-  entityType  String           @map("entity_type")
-  entityId    String?          @map("entity_id") @db.Uuid
+  entityType  String    @map("entity_type")
+  entityId    String?   @map("entity_id") @db.Uuid
   metadata    Json?
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  actor       User?            @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  actor       User?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, createdAt])
   @@index([actorUserId, createdAt])
@@ -317,88 +369,212 @@ model OAuthLinkIntent {
 }
 
 model WorkspaceJoinRequest {
-  id String @id @default(uuid()) @db.Uuid
-  workspaceId String @map("workspace_id") @db.Uuid
-  requesterId String @map("requester_id") @db.Uuid
-  reviewerId String? @map("reviewer_id") @db.Uuid
-  roleId String? @map("role_id") @db.Uuid
-  status WorkspaceJoinRequestStatus @default(pending)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  respondedAt DateTime? @map("responded_at") @db.Timestamptz(6)
-  workspace Workspace @relation(fields:[workspaceId],references:[id],onDelete:Restrict)
-  requester User @relation("JoinRequester",fields:[requesterId],references:[id],onDelete:Restrict)
-  reviewer User? @relation(fields:[reviewerId],references:[id],onDelete:SetNull)
-  role Role? @relation(fields:[roleId],references:[id],onDelete:Restrict)
-  @@index([workspaceId,status])
-  @@index([requesterId,status])
+  id          String                     @id @default(uuid()) @db.Uuid
+  workspaceId String                     @map("workspace_id") @db.Uuid
+  requesterId String                     @map("requester_id") @db.Uuid
+  reviewerId  String?                    @map("reviewer_id") @db.Uuid
+  roleId      String?                    @map("role_id") @db.Uuid
+  status      WorkspaceJoinRequestStatus @default(pending)
+  createdAt   DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  respondedAt DateTime?                  @map("responded_at") @db.Timestamptz(6)
+  workspace   Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  requester   User                       @relation("JoinRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  reviewer    User?                      @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
+  role        Role?                      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, status])
+  @@index([requesterId, status])
   @@map("WORKSPACE_JOIN_REQUEST")
 }
 
 model Transaction {
-  id             String          @id @default(uuid()) @db.Uuid
-  memberId       String          @map("member_id") @db.Uuid
-  walletId       String          @map("wallet_id") @db.Uuid
-  toWalletId     String?         @map("to_wallet_id") @db.Uuid
-  categoryId     String?         @map("category_id") @db.Uuid
-  type           TransactionType
-  workflowStatus WorkflowStatus  @default(pending) @map("workflow_status")
-  amount         Decimal         @db.Decimal(20, 4)
-  description    String?
-  date           DateTime        @db.Date
-  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz(6)
-  recurringTransactionId String? @map("recurring_transaction_id") @db.Uuid
-  recurringPeriod String?        @map("recurring_period") @db.VarChar(7)
-  jarCode         JarCode?       @map("jar_code")
-  member         WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Restrict)
-  wallet         Wallet          @relation("TransactionSourceWallet", fields: [walletId], references: [id], onDelete: Restrict)
-  toWallet       Wallet?         @relation("TransactionDestinationWallet", fields: [toWalletId], references: [id], onDelete: Restrict)
-  category       Category?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  changeRequests TransactionChangeRequest[]
-  recurringTransaction RecurringTransaction? @relation(fields: [recurringTransactionId], references: [id], onDelete: Restrict)
+  id                            String                         @id @default(uuid()) @db.Uuid
+  memberId                      String                         @map("member_id") @db.Uuid
+  walletId                      String                         @map("wallet_id") @db.Uuid
+  toWalletId                    String?                        @map("to_wallet_id") @db.Uuid
+  categoryId                    String?                        @map("category_id") @db.Uuid
+  type                          TransactionType
+  purpose                       TransactionPurpose             @default(standard)
+  workflowStatus                WorkflowStatus                 @default(pending) @map("workflow_status")
+  amount                        Decimal                        @db.Decimal(20, 4)
+  description                   String?
+  date                          DateTime                       @db.Date
+  postedDate                    DateTime?                      @map("posted_date") @db.Date
+  createdAt                     DateTime                       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                     DateTime                       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                     DateTime?                      @map("deleted_at") @db.Timestamptz(6)
+  recurringTransactionId        String?                        @map("recurring_transaction_id") @db.Uuid
+  recurringPeriod               String?                        @map("recurring_period") @db.VarChar(7)
+  originalTransactionId         String?                        @map("original_transaction_id") @db.Uuid
+  jarCode                       JarCode?                       @map("jar_code")
+  member                        WorkspaceMember                @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  wallet                        Wallet                         @relation("TransactionSourceWallet", fields: [walletId], references: [id], onDelete: Restrict)
+  toWallet                      Wallet?                        @relation("TransactionDestinationWallet", fields: [toWalletId], references: [id], onDelete: Restrict)
+  category                      Category?                      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  changeRequests                TransactionChangeRequest[]
+  recurringTransaction          RecurringTransaction?          @relation(fields: [recurringTransactionId], references: [id], onDelete: Restrict)
+  originalTransaction           Transaction?                   @relation("CreditCardRefundOriginal", fields: [originalTransactionId], references: [id], onDelete: Restrict)
+  refundTransactions            Transaction[]                  @relation("CreditCardRefundOriginal")
+  creditCardAllocations         CreditCardAllocation[]
+  creditCardPaymentSources      CreditCardPaymentSource[]
+  creditCardObligationEntries   CreditCardObligationEntry[]
+  creditCardPaymentAllocations  CreditCardPaymentAllocation[]
+  creditCardPaymentReservations CreditCardPaymentReservation[]
 
+  @@unique([recurringTransactionId, recurringPeriod])
   @@index([memberId, date])
   @@index([walletId, workflowStatus, date])
   @@index([toWalletId, workflowStatus, date])
   @@index([categoryId, date])
   @@index([jarCode, date])
-  @@unique([recurringTransactionId, recurringPeriod])
+  @@index([originalTransactionId])
   @@map("TRANSACTION")
 }
 
+model CreditCardProfile {
+  walletId               String                        @id @map("wallet_id") @db.Uuid
+  creditLimit            Decimal                       @map("credit_limit") @db.Decimal(20, 4)
+  defaultFundingWalletId String                        @map("default_funding_wallet_id") @db.Uuid
+  createdAt              DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  wallet                 Wallet                        @relation("CreditCardProfileWallet", fields: [walletId], references: [id], onDelete: Restrict)
+  defaultFundingWallet   Wallet                        @relation("CreditCardDefaultFundingWallet", fields: [defaultFundingWalletId], references: [id], onDelete: Restrict)
+  openingAllocations     CreditCardOpeningAllocation[]
+  obligations            CreditCardObligationEntry[]
+
+  @@index([defaultFundingWalletId])
+  @@map("CREDIT_CARD_PROFILE")
+}
+
+model CreditCardObligationEntry {
+  id                 String                        @id @default(uuid()) @db.Uuid
+  workspaceId        String                        @map("workspace_id") @db.Uuid
+  cardWalletId       String                        @map("card_wallet_id") @db.Uuid
+  fundingWalletId    String                        @map("funding_wallet_id") @db.Uuid
+  transactionId      String?                       @map("transaction_id") @db.Uuid
+  kind               CreditCardObligationKind
+  source             CreditCardObligationSource
+  effectiveDate      DateTime                      @map("effective_date") @db.Date
+  postedDate         DateTime                      @map("posted_date") @db.Date
+  amount             Decimal                       @db.Decimal(20, 4)
+  idempotencyKey     String                        @unique @map("idempotency_key") @db.VarChar(191)
+  metadata           Json?
+  createdAt          DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace          Workspace                     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  card               CreditCardProfile             @relation(fields: [cardWalletId], references: [walletId], onDelete: Restrict)
+  fundingWallet      Wallet                        @relation("CreditCardObligationFundingWallet", fields: [fundingWalletId], references: [id], onDelete: Restrict)
+  transaction        Transaction?                  @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  paymentAllocations CreditCardPaymentAllocation[]
+
+  @@index([cardWalletId, fundingWalletId, postedDate, id])
+  @@index([workspaceId, postedDate])
+  @@index([transactionId])
+  @@map("CREDIT_CARD_OBLIGATION_ENTRY")
+}
+
+model CreditCardPaymentAllocation {
+  id                   String                    @id @default(uuid()) @db.Uuid
+  paymentTransactionId String                    @map("payment_transaction_id") @db.Uuid
+  obligationEntryId    String                    @map("obligation_entry_id") @db.Uuid
+  amount               Decimal                   @db.Decimal(20, 4)
+  createdAt            DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  paymentTransaction   Transaction               @relation(fields: [paymentTransactionId], references: [id], onDelete: Restrict)
+  obligationEntry      CreditCardObligationEntry @relation(fields: [obligationEntryId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentTransactionId, obligationEntryId])
+  @@index([obligationEntryId])
+  @@map("CREDIT_CARD_PAYMENT_ALLOCATION")
+}
+
+model CreditCardPaymentReservation {
+  id                   String      @id @default(uuid()) @db.Uuid
+  paymentTransactionId String      @map("payment_transaction_id") @db.Uuid
+  sourceWalletId       String      @map("source_wallet_id") @db.Uuid
+  amount               Decimal     @db.Decimal(20, 4)
+  releasedAt           DateTime?   @map("released_at") @db.Timestamptz(6)
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  paymentTransaction   Transaction @relation(fields: [paymentTransactionId], references: [id], onDelete: Restrict)
+  sourceWallet         Wallet      @relation("CreditCardReservationSourceWallet", fields: [sourceWalletId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentTransactionId, sourceWalletId])
+  @@index([sourceWalletId, releasedAt])
+  @@map("CREDIT_CARD_PAYMENT_RESERVATION")
+}
+
+model CreditCardOpeningAllocation {
+  id              String            @id @default(uuid()) @db.Uuid
+  cardWalletId    String            @map("card_wallet_id") @db.Uuid
+  fundingWalletId String            @map("funding_wallet_id") @db.Uuid
+  amount          Decimal           @db.Decimal(20, 4)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  card            CreditCardProfile @relation(fields: [cardWalletId], references: [walletId], onDelete: Restrict)
+  fundingWallet   Wallet            @relation("CreditCardOpeningFundingWallet", fields: [fundingWalletId], references: [id], onDelete: Restrict)
+
+  @@unique([cardWalletId, fundingWalletId])
+  @@index([fundingWalletId])
+  @@map("CREDIT_CARD_OPENING_ALLOCATION")
+}
+
+model CreditCardAllocation {
+  id              String      @id @default(uuid()) @db.Uuid
+  transactionId   String      @map("transaction_id") @db.Uuid
+  fundingWalletId String      @map("funding_wallet_id") @db.Uuid
+  amount          Decimal     @db.Decimal(20, 4)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  fundingWallet   Wallet      @relation("CreditCardAllocationFundingWallet", fields: [fundingWalletId], references: [id], onDelete: Restrict)
+
+  @@unique([transactionId, fundingWalletId])
+  @@index([fundingWalletId])
+  @@map("CREDIT_CARD_ALLOCATION")
+}
+
+model CreditCardPaymentSource {
+  id                   String      @id @default(uuid()) @db.Uuid
+  paymentTransactionId String      @map("payment_transaction_id") @db.Uuid
+  sourceWalletId       String      @map("source_wallet_id") @db.Uuid
+  amount               Decimal     @db.Decimal(20, 4)
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  paymentTransaction   Transaction @relation(fields: [paymentTransactionId], references: [id], onDelete: Restrict)
+  sourceWallet         Wallet      @relation("CreditCardPaymentSourceWallet", fields: [sourceWalletId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentTransactionId, sourceWalletId])
+  @@index([sourceWalletId])
+  @@map("CREDIT_CARD_PAYMENT_SOURCE")
+}
+
 model RecurringTransaction {
-  id                String          @id @default(uuid()) @db.Uuid
-  workspaceId       String          @map("workspace_id") @db.Uuid
-  createdByMemberId String          @map("created_by_member_id") @db.Uuid
-  reviewedByMemberId String?        @map("reviewed_by_member_id") @db.Uuid
-  walletId          String          @map("wallet_id") @db.Uuid
-  toWalletId        String?         @map("to_wallet_id") @db.Uuid
-  categoryId        String?         @map("category_id") @db.Uuid
-  type              TransactionType
-  amount            Decimal         @db.Decimal(20, 4)
-  description       String?
-  dayOfMonth        Int             @map("day_of_month")
-  startDate         DateTime        @map("start_date") @db.Date
-  endDate           DateTime?       @map("end_date") @db.Date
-  nextExecutionDate DateTime        @map("next_execution_date") @db.Date
-  status            Status          @default(active)
-  approvalStatus    RecurringApprovalStatus @default(pending) @map("approval_status")
-  reviewedAt        DateTime?       @map("reviewed_at") @db.Timestamptz(6)
-  approvedAt        DateTime?       @map("approved_at") @db.Timestamptz(6)
-  completedAt       DateTime?       @map("completed_at") @db.Timestamptz(6)
-  lastError         String?         @map("last_error")
-  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt         DateTime?       @map("deleted_at") @db.Timestamptz(6)
-  workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  createdBy         WorkspaceMember @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
-  reviewedBy        WorkspaceMember? @relation("RecurringReviewer", fields: [reviewedByMemberId], references: [id], onDelete: Restrict)
-  wallet            Wallet          @relation("RecurringTransactionSourceWallet", fields: [walletId], references: [id], onDelete: Restrict)
-  toWallet          Wallet?         @relation("RecurringTransactionDestinationWallet", fields: [toWalletId], references: [id], onDelete: Restrict)
-  category          Category?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  transactions      Transaction[]
+  id                 String                  @id @default(uuid()) @db.Uuid
+  workspaceId        String                  @map("workspace_id") @db.Uuid
+  createdByMemberId  String                  @map("created_by_member_id") @db.Uuid
+  reviewedByMemberId String?                 @map("reviewed_by_member_id") @db.Uuid
+  walletId           String                  @map("wallet_id") @db.Uuid
+  toWalletId         String?                 @map("to_wallet_id") @db.Uuid
+  categoryId         String?                 @map("category_id") @db.Uuid
+  type               TransactionType
+  amount             Decimal                 @db.Decimal(20, 4)
+  description        String?
+  dayOfMonth         Int                     @map("day_of_month")
+  startDate          DateTime                @map("start_date") @db.Date
+  endDate            DateTime?               @map("end_date") @db.Date
+  nextExecutionDate  DateTime                @map("next_execution_date") @db.Date
+  status             Status                  @default(active)
+  approvalStatus     RecurringApprovalStatus @default(pending) @map("approval_status")
+  reviewedAt         DateTime?               @map("reviewed_at") @db.Timestamptz(6)
+  approvedAt         DateTime?               @map("approved_at") @db.Timestamptz(6)
+  completedAt        DateTime?               @map("completed_at") @db.Timestamptz(6)
+  lastError          String?                 @map("last_error")
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?               @map("deleted_at") @db.Timestamptz(6)
+  workspace          Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdBy          WorkspaceMember         @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  reviewedBy         WorkspaceMember?        @relation("RecurringReviewer", fields: [reviewedByMemberId], references: [id], onDelete: Restrict)
+  wallet             Wallet                  @relation("RecurringTransactionSourceWallet", fields: [walletId], references: [id], onDelete: Restrict)
+  toWallet           Wallet?                 @relation("RecurringTransactionDestinationWallet", fields: [toWalletId], references: [id], onDelete: Restrict)
+  category           Category?               @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  transactions       Transaction[]
 
   @@index([workspaceId, status, nextExecutionDate])
   @@index([workspaceId, approvalStatus, status, nextExecutionDate])
@@ -409,24 +585,24 @@ model RecurringTransaction {
 }
 
 model FinancialPlan {
-  id                         String              @id @default(uuid()) @db.Uuid
-  workspaceId                String              @map("workspace_id") @db.Uuid
+  id                         String               @id @default(uuid()) @db.Uuid
+  workspaceId                String               @map("workspace_id") @db.Uuid
   name                       String
-  targetAmount               Decimal             @map("target_amount") @db.Decimal(20, 4)
-  existingGoalAmount         Decimal             @default(0) @map("existing_goal_amount") @db.Decimal(20, 4)
-  startMonth                 DateTime?           @map("start_month") @db.Date
-  targetMonth                DateTime            @map("target_month") @db.Date
-  status                     FinancialPlanStatus @default(draft)
-  createdByMemberId          String              @map("created_by_member_id") @db.Uuid
-  activationWorkspaceBalance Decimal?            @map("activation_workspace_balance") @db.Decimal(20, 4)
-  activatedAt                DateTime?           @map("activated_at") @db.Timestamptz(6)
-  completedAt                DateTime?           @map("completed_at") @db.Timestamptz(6)
-  cancelledAt                DateTime?           @map("cancelled_at") @db.Timestamptz(6)
-  createdAt                  DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                  DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt                  DateTime?           @map("deleted_at") @db.Timestamptz(6)
-  workspace                  Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  createdBy                  WorkspaceMember     @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  targetAmount               Decimal              @map("target_amount") @db.Decimal(20, 4)
+  existingGoalAmount         Decimal              @default(0) @map("existing_goal_amount") @db.Decimal(20, 4)
+  startMonth                 DateTime?            @map("start_month") @db.Date
+  targetMonth                DateTime             @map("target_month") @db.Date
+  status                     FinancialPlanStatus  @default(draft)
+  createdByMemberId          String               @map("created_by_member_id") @db.Uuid
+  activationWorkspaceBalance Decimal?             @map("activation_workspace_balance") @db.Decimal(20, 4)
+  activatedAt                DateTime?            @map("activated_at") @db.Timestamptz(6)
+  completedAt                DateTime?            @map("completed_at") @db.Timestamptz(6)
+  cancelledAt                DateTime?            @map("cancelled_at") @db.Timestamptz(6)
+  createdAt                  DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                  DateTime?            @map("deleted_at") @db.Timestamptz(6)
+  workspace                  Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdBy                  WorkspaceMember      @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
   allocations                PlanJarAllocation[]
   months                     FinancialPlanMonth[]
 
@@ -450,21 +626,21 @@ model PlanJarAllocation {
 }
 
 model FinancialPlanMonth {
-  id                       String                  @id @default(uuid()) @db.Uuid
-  financialPlanId          String                  @map("financial_plan_id") @db.Uuid
-  month                    DateTime                @db.Date
-  baseRequiredAmount       Decimal                 @map("base_required_amount") @db.Decimal(20, 4)
-  adjustedRequiredAmount   Decimal                 @map("adjusted_required_amount") @db.Decimal(20, 4)
-  rawGrossBudget           Decimal                 @map("raw_gross_budget") @db.Decimal(20, 4)
-  allocatableGrossBudget   Decimal                 @map("allocatable_gross_budget") @db.Decimal(20, 4)
-  resourceShortfall        Decimal                 @map("resource_shortfall") @db.Decimal(20, 4)
-  closedEligibleExpense    Decimal                 @map("closed_eligible_expense") @db.Decimal(20, 4)
-  closedActualGoalAmount   Decimal                 @map("closed_actual_goal_amount") @db.Decimal(20, 4)
-  closedAt                 DateTime                @map("closed_at") @db.Timestamptz(6)
-  calculatorVersion        String                  @map("calculator_version") @db.VarChar(32)
-  createdAt                DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  financialPlan            FinancialPlan           @relation(fields: [financialPlanId], references: [id], onDelete: Restrict)
-  jars                     FinancialPlanMonthJar[]
+  id                     String                  @id @default(uuid()) @db.Uuid
+  financialPlanId        String                  @map("financial_plan_id") @db.Uuid
+  month                  DateTime                @db.Date
+  baseRequiredAmount     Decimal                 @map("base_required_amount") @db.Decimal(20, 4)
+  adjustedRequiredAmount Decimal                 @map("adjusted_required_amount") @db.Decimal(20, 4)
+  rawGrossBudget         Decimal                 @map("raw_gross_budget") @db.Decimal(20, 4)
+  allocatableGrossBudget Decimal                 @map("allocatable_gross_budget") @db.Decimal(20, 4)
+  resourceShortfall      Decimal                 @map("resource_shortfall") @db.Decimal(20, 4)
+  closedEligibleExpense  Decimal                 @map("closed_eligible_expense") @db.Decimal(20, 4)
+  closedActualGoalAmount Decimal                 @map("closed_actual_goal_amount") @db.Decimal(20, 4)
+  closedAt               DateTime                @map("closed_at") @db.Timestamptz(6)
+  calculatorVersion      String                  @map("calculator_version") @db.VarChar(32)
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  financialPlan          FinancialPlan           @relation(fields: [financialPlanId], references: [id], onDelete: Restrict)
+  jars                   FinancialPlanMonthJar[]
 
   @@unique([financialPlanId, month])
   @@index([month])
@@ -472,13 +648,13 @@ model FinancialPlanMonth {
 }
 
 model FinancialPlanMonthJar {
-  id                       String             @id @default(uuid()) @db.Uuid
-  financialPlanMonthId     String             @map("financial_plan_month_id") @db.Uuid
-  jarCode                  JarCode            @map("jar_code")
-  percentage               Decimal            @db.Decimal(5, 2)
-  allocatedAmount          Decimal            @map("allocated_amount") @db.Decimal(20, 4)
-  closedActualAmount       Decimal            @map("closed_actual_amount") @db.Decimal(20, 4)
-  financialPlanMonth       FinancialPlanMonth @relation(fields: [financialPlanMonthId], references: [id], onDelete: Restrict)
+  id                   String             @id @default(uuid()) @db.Uuid
+  financialPlanMonthId String             @map("financial_plan_month_id") @db.Uuid
+  jarCode              JarCode            @map("jar_code")
+  percentage           Decimal            @db.Decimal(5, 2)
+  allocatedAmount      Decimal            @map("allocated_amount") @db.Decimal(20, 4)
+  closedActualAmount   Decimal            @map("closed_actual_amount") @db.Decimal(20, 4)
+  financialPlanMonth   FinancialPlanMonth @relation(fields: [financialPlanMonthId], references: [id], onDelete: Restrict)
 
   @@unique([financialPlanMonthId, jarCode])
   @@index([jarCode])

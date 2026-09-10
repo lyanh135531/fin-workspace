@@ -51,12 +51,52 @@ export async function createWalletForWorkspace(userId: string, workspaceId: stri
     await lockWorkspaceWalletNames(tx, workspaceId);
     await assertWalletNameAvailable(tx, workspaceId, input.name);
     const zero = new Decimal(0);
+    const kind = input.kind ?? "asset";
+    const creditCard = input.creditCard;
+    const openingAllocations = creditCard?.openingDebt.gt(0) && creditCard.openingAllocations.length === 0
+      ? [{ walletId: creditCard.defaultFundingWalletId, amount: creditCard.openingDebt }]
+      : (creditCard?.openingAllocations ?? []);
+    if (kind === "credit_card" && !creditCard) {
+      throw new AppError("VALIDATION_ERROR", "Thiếu cấu hình thẻ tín dụng.");
+    }
+    if (kind === "credit_card" && creditCard) {
+      const fundingWalletIds = [
+        creditCard.defaultFundingWalletId,
+        ...openingAllocations.map((allocation) => allocation.walletId),
+      ];
+      const fundingLinks = await tx.workspaceWallet.findMany({
+        where: {
+          workspaceId,
+          walletId: { in: fundingWalletIds },
+          wallet: { kind: "asset", status: "active", deletedAt: null },
+        },
+        select: { walletId: true },
+      });
+      if (new Set(fundingLinks.map(({ walletId }) => walletId)).size !== new Set(fundingWalletIds).size) {
+        throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Ví trả thẻ phải là ví tài sản đang hoạt động trong nhóm này.");
+      }
+    }
+    const openingBalance = kind === "credit_card" && creditCard ? creditCard.openingDebt : zero;
     const wallet = await tx.wallet.create({
       data: {
         name: input.name,
         description: input.description,
-        openingBalance: zero,
-        currentBalance: zero,
+        kind,
+        assetSubtype: kind === "asset" ? (input.assetSubtype ?? "other") : null,
+        openingBalance,
+        currentBalance: openingBalance,
+        creditCardProfile: creditCard ? {
+          create: {
+            creditLimit: creditCard.creditLimit,
+            defaultFundingWalletId: creditCard.defaultFundingWalletId,
+            openingAllocations: openingAllocations.length ? {
+              create: openingAllocations.map((allocation) => ({
+                fundingWalletId: allocation.walletId,
+                amount: allocation.amount,
+              })),
+            } : undefined,
+          },
+        } : undefined,
       },
     });
     const lastWallet = await tx.workspaceWallet.findFirst({
@@ -71,7 +111,25 @@ export async function createWalletForWorkspace(userId: string, workspaceId: stri
         sortOrder: (lastWallet?.sortOrder ?? -1) + 1,
       },
     });
-    if (input.funding && input.funding.amount.gt(0)) {
+    if (kind === "credit_card" && creditCard) {
+      const businessDate = getBusinessDateInTimeZone(member.workspace.timeZone, new Date());
+      if (creditCard.openingDebt.gt(0)) {
+        await tx.creditCardObligationEntry.createMany({
+          data: openingAllocations.map((allocation) => ({
+            workspaceId,
+            cardWalletId: wallet.id,
+            fundingWalletId: allocation.walletId,
+            kind: "opening_debt" as const,
+            source: "opening_balance" as const,
+            effectiveDate: new Date(`${businessDate}T00:00:00.000Z`),
+            postedDate: new Date(`${businessDate}T00:00:00.000Z`),
+            amount: allocation.amount,
+            idempotencyKey: `opening:${wallet.id}:${allocation.walletId}`,
+          })),
+        });
+      }
+    }
+    if (kind === "asset" && input.funding && input.funding.amount.gt(0)) {
       const businessDate = getBusinessDateInTimeZone(
         member.workspace.timeZone,
         new Date(),
@@ -105,6 +163,18 @@ export async function createWalletForWorkspace(userId: string, workspaceId: stri
             walletInitialFunding: true,
             createdWalletId: wallet.id,
           },
+        },
+      });
+    }
+    if (kind === "credit_card") {
+      await tx.auditLog.create({
+        data: {
+          workspaceId,
+          actorUserId: userId,
+          action: "workspace.credit_card_created",
+          entityType: "wallet",
+          entityId: wallet.id,
+          metadata: { openingDebt: openingBalance.toString() },
         },
       });
     }
@@ -175,7 +245,7 @@ async function assertWalletHasNoOpenDependencies(
   workspaceId: string,
   walletId: string,
 ) {
-  const [openTransactions, recurringTransactions] = await Promise.all([
+  const [openTransactions, recurringTransactions, creditCardDependencies] = await Promise.all([
     tx.transaction.count({
       where: {
         deletedAt: null,
@@ -191,6 +261,11 @@ async function assertWalletHasNoOpenDependencies(
         OR: [{ walletId }, { toWalletId: walletId }],
       },
     }),
+    Promise.all([
+      tx.creditCardProfile?.count?.({ where: { defaultFundingWalletId: walletId } }) ?? 0,
+      tx.creditCardObligationEntry?.count?.({ where: { fundingWalletId: walletId } }) ?? 0,
+      tx.creditCardPaymentReservation?.count?.({ where: { sourceWalletId: walletId, releasedAt: null } }) ?? 0,
+    ]).then((counts) => counts.reduce((sum, count) => sum + count, 0)),
   ]);
 
   if (openTransactions > 0) {
@@ -204,6 +279,9 @@ async function assertWalletHasNoOpenDependencies(
       "CONFLICT",
       `Ví đang được sử dụng bởi ${recurringTransactions} giao dịch định kỳ. Hãy đổi ví hoặc xóa giao dịch định kỳ liên quan trước.`,
     );
+  }
+  if (creditCardDependencies > 0) {
+    throw new AppError("CONFLICT", "Ví còn liên kết thanh toán hoặc nghĩa vụ thẻ tín dụng.");
   }
 }
 
@@ -240,6 +318,9 @@ export async function setWalletStatusForWorkspace(
     if (link.wallet.status === status) return link.wallet;
 
     if (status === "deactive") {
+      if (link.wallet.kind === "credit_card" && !new Decimal(link.wallet.currentBalance.toString()).isZero()) {
+        throw new AppError("CONFLICT", "Thẻ vẫn còn dư nợ. Hãy thanh toán hết trước khi tạm ngưng.");
+      }
       await assertWalletHasNoOpenDependencies(tx, workspaceId, walletId);
     }
 
@@ -290,6 +371,9 @@ export async function softDeleteWalletForWorkspace(
 
     await assertWalletHasNoOpenDependencies(tx, workspaceId, walletId);
     const balance = new Decimal(link.wallet.currentBalance.toString());
+    if (link.wallet.kind === "credit_card" && !balance.isZero()) {
+      throw new AppError("CONFLICT", "Thẻ vẫn còn dư nợ. Không thể tất toán bằng chuyển khoản ví thông thường.");
+    }
     let settlementTransactionId: string | null = null;
 
     if (!balance.isZero()) {

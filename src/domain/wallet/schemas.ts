@@ -1,4 +1,5 @@
 import { z } from "zod";
+import Decimal from "decimal.js";
 import { idSchema, optionalTrimmedTextSchema } from "@/domain/common/schemas";
 import { moneySchema, positiveMoneySchema } from "@/lib/decimal";
 
@@ -23,10 +24,48 @@ const walletFundingSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
+const walletAllocationSchema = z.object({
+  walletId: idSchema,
+  amount: positiveMoneySchema,
+});
+
 export const createWalletSchema = z.object({
   name: walletNameSchema,
   description: optionalTrimmedTextSchema,
+  kind: z.enum(["asset", "credit_card"]).default("asset"),
+  assetSubtype: z.enum(["cash", "bank", "e_wallet", "other"]).default("other"),
   funding: walletFundingSchema.optional(),
+  creditCard: z.object({
+    creditLimit: positiveMoneySchema,
+    defaultFundingWalletId: idSchema,
+    openingDebt: moneySchema.refine((amount) => amount.gte(0), {
+      message: "Dư nợ ban đầu không được âm.",
+    }),
+    openingAllocations: z.array(walletAllocationSchema).max(50).default([]),
+  }).optional(),
+}).superRefine(({ kind, funding, creditCard }, ctx) => {
+  if (kind === "asset" && creditCard) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["creditCard"], message: "Ví tài sản không dùng cấu hình thẻ tín dụng." });
+  }
+  if (kind === "credit_card" && funding) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["funding"], message: "Thẻ tín dụng không được nạp số dư như ví tài sản." });
+  }
+  if (kind === "credit_card" && !creditCard) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["creditCard"], message: "Thiếu cấu hình thẻ tín dụng." });
+    return;
+  }
+  if (!creditCard) return;
+  if (creditCard.openingDebt.gt(creditCard.creditLimit)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["creditCard", "openingDebt"], message: "Dư nợ ban đầu không được vượt hạn mức." });
+  }
+  const allocations = creditCard.openingAllocations;
+  if (new Set(allocations.map((item) => item.walletId)).size !== allocations.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["creditCard", "openingAllocations"], message: "Mỗi ví chỉ được phân bổ một lần." });
+  }
+  const total = allocations.reduce((sum, item) => sum.plus(item.amount), new Decimal(0));
+  if (allocations.length && !total.eq(creditCard.openingDebt)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["creditCard", "openingAllocations"], message: "Tổng phân bổ phải bằng dư nợ ban đầu." });
+  }
 });
 
 export const updateWalletSchema = z
@@ -46,6 +85,10 @@ export const reorderWalletsSchema = z.object({
   ),
 });
 
-export type CreateWalletInput = z.output<typeof createWalletSchema>;
+type ParsedCreateWalletInput = z.output<typeof createWalletSchema>;
+export type CreateWalletInput = Omit<ParsedCreateWalletInput, "kind" | "assetSubtype"> & {
+  kind?: ParsedCreateWalletInput["kind"];
+  assetSubtype?: ParsedCreateWalletInput["assetSubtype"];
+};
 export type UpdateWalletInput = z.output<typeof updateWalletSchema>;
 export type ReorderWalletsInput = z.output<typeof reorderWalletsSchema>;

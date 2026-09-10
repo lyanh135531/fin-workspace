@@ -29,7 +29,7 @@ export default async function RecurringTransactionsPage() {
 
   const [walletLinks, categories, recurringTransactions] = await Promise.all([
     prisma.workspaceWallet.findMany({
-      where: { workspaceId, wallet: { status: "active", deletedAt: null } },
+      where: { workspaceId, wallet: { kind: "asset", status: "active", deletedAt: null } },
       include: { wallet: true },
       orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
     }),

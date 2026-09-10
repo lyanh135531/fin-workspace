@@ -27,9 +27,14 @@ export async function getWorkspaceBalance(
       workspaceId,
       wallet: { deletedAt: null, ...(before ? { createdAt: { lt: before } } : {}) },
     },
-    select: { walletId: true, wallet: { select: { currentBalance: true } } },
+    select: { walletId: true, wallet: { select: { currentBalance: true, kind: true } } },
   });
-  let balance = links.reduce((sum, link) => sum.plus(link.wallet.currentBalance.toString()), ZERO);
+  let balance = links.reduce(
+    (sum, link) => link.wallet.kind === "credit_card"
+      ? sum.minus(link.wallet.currentBalance.toString())
+      : sum.plus(link.wallet.currentBalance.toString()),
+    ZERO,
+  );
   if (!before || links.length === 0) return balance;
 
   const walletIds = links.map((link) => link.walletId);
@@ -41,10 +46,11 @@ export async function getWorkspaceBalance(
       member: { workspaceId },
       OR: [{ walletId: { in: walletIds } }, { toWalletId: { in: walletIds } }],
     },
-    select: { type: true, amount: true, walletId: true, toWalletId: true },
+    select: { type: true, purpose: true, amount: true, walletId: true, toWalletId: true },
   });
   for (const record of laterTransactions) {
     const amount = new Decimal(record.amount.toString());
+    if (record.purpose === "credit_card_payment") continue;
     if (record.type === "income" && walletIds.includes(record.walletId)) balance = balance.minus(amount);
     if (record.type === "expense" && walletIds.includes(record.walletId)) balance = balance.plus(amount);
     if (record.type === "transfer") {
@@ -78,7 +84,7 @@ export async function getFinancialPlanMonthLedger(
   const { start, end } = monthDateRange(month);
   const records = await tx.transaction.findMany({
     where: { member: { workspaceId }, deletedAt: null, date: { gte: start, lt: end } },
-    select: { type: true, workflowStatus: true, amount: true, jarCode: true },
+    select: { type: true, purpose: true, workflowStatus: true, amount: true, jarCode: true },
   });
   const result: FinancialPlanMonthLedger = {
     approvedIncome: new Decimal(0), forecastIncome: new Decimal(0),
@@ -86,16 +92,19 @@ export async function getFinancialPlanMonthLedger(
     pendingIncome: new Decimal(0), pendingExpense: new Decimal(0),
   };
   for (const record of records) {
-    if (record.type === "transfer" || record.workflowStatus === "rejected") continue;
+    if (record.purpose === "credit_card_payment" || record.type === "transfer" || record.workflowStatus === "rejected") continue;
     const amount = new Decimal(record.amount.toString());
     if (record.workflowStatus === "approved") {
-      if (record.type === "income") result.approvedIncome = result.approvedIncome.plus(amount);
+      if (record.purpose === "credit_card_refund") addExpense(result.approvedExpenseByJar, record.jarCode, amount.negated());
+      else if (record.type === "income") result.approvedIncome = result.approvedIncome.plus(amount);
       else addExpense(result.approvedExpenseByJar, record.jarCode, amount);
     } else if (record.workflowStatus === "scheduled" && includeForecast) {
-      if (record.type === "income") result.forecastIncome = result.forecastIncome.plus(amount);
+      if (record.purpose === "credit_card_refund") addExpense(result.forecastExpenseByJar, record.jarCode, amount.negated());
+      else if (record.type === "income") result.forecastIncome = result.forecastIncome.plus(amount);
       else addExpense(result.forecastExpenseByJar, record.jarCode, amount);
     } else if (record.workflowStatus === "pending") {
-      if (record.type === "income") result.pendingIncome = result.pendingIncome.plus(amount);
+      if (record.purpose === "credit_card_refund") result.pendingExpense = result.pendingExpense.minus(amount);
+      else if (record.type === "income") result.pendingIncome = result.pendingIncome.plus(amount);
       else result.pendingExpense = result.pendingExpense.plus(amount);
     }
   }

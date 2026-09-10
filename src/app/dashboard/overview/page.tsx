@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
+import { getWorkspaceCreditCardCommitments } from "@/services/credit-card-service";
 
 import { PageContainer } from "@/components/base";
 
@@ -26,11 +27,16 @@ export default async function OverviewPage() {
   const reportPeriod = businessDate.slice(0, 7);
 
   const [walletLinks, members, transactions, recurringRows, categories] = await Promise.all([
-    prisma.workspaceWallet.findMany({ where: { workspaceId, wallet: { status: "active", deletedAt: null } }, include: { wallet: true }, orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }] }),
+    prisma.workspaceWallet.findMany({ where: { workspaceId, wallet: { status: "active", deletedAt: null } }, include: { wallet: { include: { creditCardProfile: true } } }, orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }] }),
     prisma.workspaceMember.findMany({ where: { workspaceId, status: "active", deletedAt: null }, select: { id: true, user: { select: { username: true } } }, orderBy: { user: { username: "asc" } } }),
     prisma.transaction.findMany({
       where: { deletedAt: null, member: { workspaceId } },
-      include: { wallet: { select: { name: true } }, category: { select: { name: true, color: true, icon: true } }, member: { include: { user: { select: { username: true } } } } },
+      include: {
+        wallet: { select: { name: true } },
+        category: { select: { name: true, color: true, icon: true } },
+        member: { include: { user: { select: { username: true } } } },
+        creditCardPaymentSources: { select: { sourceWalletId: true, amount: true } },
+      },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     }),
     prisma.recurringTransaction.findMany({
@@ -61,10 +67,14 @@ export default async function OverviewPage() {
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     }),
   ]);
+  const commitments = await getWorkspaceCreditCardCommitments(workspaceId);
 
   const totalByCurrency = walletLinks.reduce<Record<string, string>>((totals, { wallet }) => {
     // Wallets currently inherit the workspace base currency; preserve the per-currency shape for future support.
-    totals[membership.workspace.baseCurrency] = new Decimal(totals[membership.workspace.baseCurrency] ?? 0).plus(wallet.currentBalance.toString()).toString();
+    const current = new Decimal(totals[membership.workspace.baseCurrency] ?? 0);
+    totals[membership.workspace.baseCurrency] = (wallet.kind === "credit_card"
+      ? current.minus(wallet.currentBalance.toString())
+      : current.plus(wallet.currentBalance.toString())).toString();
     return totals;
   }, {});
 
@@ -75,7 +85,19 @@ export default async function OverviewPage() {
           workspace={{ id: workspaceId, name: membership.workspace.name, currency: membership.workspace.baseCurrency }}
           reportPeriod={reportPeriod}
           businessDate={businessDate}
-          wallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString(), updatedAt: wallet.updatedAt.toISOString() }))}
+          wallets={walletLinks.map(({ wallet }) => {
+            const committed = commitments.get(wallet.id) ?? new Decimal(0);
+            return {
+              id: wallet.id,
+              name: wallet.name,
+              kind: wallet.kind,
+              defaultFundingWalletId: wallet.creditCardProfile?.defaultFundingWalletId ?? null,
+              balance: wallet.currentBalance.toString(),
+              committed: committed.toString(),
+              available: wallet.kind === "asset" ? new Decimal(wallet.currentBalance.toString()).minus(committed).toString() : wallet.currentBalance.toString(),
+              updatedAt: wallet.updatedAt.toISOString(),
+            };
+          })}
           totalByCurrency={totalByCurrency}
           members={members.map((member) => ({ id: member.id, name: member.user.username ?? "Người dùng" }))}
           categories={categories.map((cat) => ({
@@ -86,7 +108,7 @@ export default async function OverviewPage() {
             parentId: cat.parentId,
             type: cat.type as "income" | "expense",
           }))}
-          transactions={transactions.map((transaction) => ({ id: transaction.id, amount: transaction.amount.toString(), type: transaction.type, status: transaction.workflowStatus, description: transaction.description, date: transaction.date.toISOString(), walletId: transaction.walletId, toWalletId: transaction.toWalletId, wallet: transaction.wallet.name, categoryId: transaction.categoryId, category: transaction.category, memberId: transaction.memberId, member: transaction.member.user.username ?? "Người dùng" }))}
+          transactions={transactions.map((transaction) => ({ id: transaction.id, amount: transaction.amount.toString(), type: transaction.type, purpose: transaction.purpose, status: transaction.workflowStatus, description: transaction.description, date: transaction.date.toISOString(), walletId: transaction.walletId, toWalletId: transaction.toWalletId, wallet: transaction.wallet.name, categoryId: transaction.categoryId, category: transaction.category, memberId: transaction.memberId, member: transaction.member.user.username ?? "Người dùng", paymentSources: transaction.creditCardPaymentSources.map((source) => ({ walletId: source.sourceWalletId, amount: source.amount.toString() })) }))}
           userRole={membership.role.name}
           upcomingRecurring={recurringRows.map((item) => ({
             id: item.id,

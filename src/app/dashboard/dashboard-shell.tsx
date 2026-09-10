@@ -143,7 +143,14 @@ async function loadDashboardShellData() {
           },
           select: {
             workspaceId: true,
-            wallet: { select: { id: true, name: true } },
+            wallet: {
+              select: {
+                id: true,
+                name: true,
+                kind: true,
+                creditCardProfile: { select: { defaultFundingWalletId: true } },
+              },
+            },
           },
           orderBy: [
             { workspaceId: "asc" },

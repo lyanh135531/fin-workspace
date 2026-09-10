@@ -142,7 +142,6 @@ export async function WorkspaceNotifications({
       select: { id: true, name: true },
     })
     : Promise.resolve([]);
-
   const [
     transactions,
     activationLogs,

@@ -13,14 +13,18 @@ import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { requireWorkspaceMember } from "@/services/workspace-access";
+import { allocateOldestObligations, assertCardBalanceReconciled, getCardObligationBalances, normalizeApprovedRefundAllocations, syncCreditCardObligationsForTransaction } from "@/services/credit-card-ledger";
 
 type TransactionClient = Prisma.TransactionClient;
 type ResolvedTransactionInput = CreateTransactionInput & { timing: TransactionTiming };
 type TransactionResourceInput = {
+  transactionId?: string;
   walletId: string;
   toWalletId?: string | null;
   categoryId?: string | null;
   type: "income" | "expense" | "transfer";
+  amount?: Decimal.Value;
+  allocations?: Array<{ walletId: string; amount: Decimal }>;
 };
 
 function asDatabaseDate(date: string) {
@@ -42,9 +46,25 @@ export async function requireTransactionResources(
   input: TransactionResourceInput,
 ) {
   const walletIds = [input.walletId, input.toWalletId].filter((id): id is string => Boolean(id));
+  if (typeof tx.$queryRaw === "function") {
+    for (const walletId of [...new Set(walletIds)].sort()) {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "WALLETS" WHERE "id" = CAST(${walletId} AS uuid) FOR UPDATE`,
+      );
+    }
+  }
   const links = await tx.workspaceWallet.findMany({
     where: { workspaceId, walletId: { in: walletIds }, wallet: { status: "active", deletedAt: null } },
-    select: { walletId: true },
+    select: {
+      walletId: true,
+      wallet: {
+        select: {
+          kind: true,
+          currentBalance: true,
+          creditCardProfile: { select: { creditLimit: true, defaultFundingWalletId: true } },
+        },
+      },
+    },
   });
   if (new Set(links.map((link) => link.walletId)).size !== new Set(walletIds).size) {
     throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Ví không thuộc nhóm này hoặc không còn hoạt động.");
@@ -60,6 +80,65 @@ export async function requireTransactionResources(
       throw new AppError("VALIDATION_ERROR", "Loại danh mục không khớp với loại giao dịch.");
     }
   }
+  const sourceLink = links.find((link) => link.walletId === input.walletId);
+  const destinationLink = links.find((link) => link.walletId === input.toWalletId);
+  if (!sourceLink) throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Không tìm thấy ví thực hiện trong nhóm này.");
+  // Older test doubles and pre-migration records have no explicit kind; asset is the migration default.
+  const sourceKind = sourceLink.wallet?.kind ?? "asset";
+  const destinationKind = destinationLink?.wallet?.kind ?? "asset";
+  if (input.type === "transfer" && (sourceKind !== "asset" || destinationKind !== "asset")) {
+    throw new AppError("VALIDATION_ERROR", "Chuyển tiền thông thường chỉ áp dụng giữa các ví tài sản.");
+  }
+  if (input.type === "income" && sourceKind === "credit_card") {
+    throw new AppError("VALIDATION_ERROR", "Hoàn tiền thẻ phải được tạo từ giao dịch chi tiêu gốc.");
+  }
+  if (input.type === "expense" && sourceKind === "credit_card") {
+    const profile = sourceLink.wallet.creditCardProfile;
+    if (!profile) throw new AppError("CONFLICT", "Thẻ thiếu cấu hình hạn mức hoặc ví thanh toán mặc định.");
+    const allocations = input.allocations?.length
+      ? input.allocations
+      : input.amount === undefined
+        ? []
+        : [{ walletId: profile.defaultFundingWalletId, amount: new Decimal(input.amount) }];
+    if (!allocations.length) throw new AppError("VALIDATION_ERROR", "Cần phân bổ nguồn trả cho giao dịch thẻ.");
+    const allocationIds = allocations.map((allocation) => allocation.walletId);
+    const allocationLinks = await tx.workspaceWallet.findMany({
+      where: {
+        workspaceId,
+        walletId: { in: allocationIds },
+        wallet: { kind: "asset", status: "active", deletedAt: null },
+      },
+      select: { walletId: true },
+    });
+    if (new Set(allocationLinks.map((link) => link.walletId)).size !== new Set(allocationIds).size) {
+      throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Nguồn trả thẻ phải là ví tài sản đang hoạt động trong nhóm này.");
+    }
+    const total = allocations.reduce((sum, allocation) => sum.plus(allocation.amount), new Decimal(0));
+    const amount = input.amount === undefined ? null : new Decimal(input.amount);
+    if (amount && !total.eq(amount)) throw new AppError("VALIDATION_ERROR", "Tổng phân bổ phải bằng số tiền giao dịch.");
+    const pending = await tx.transaction.aggregate({
+      where: {
+        walletId: input.walletId,
+        type: "expense",
+        purpose: "standard",
+        workflowStatus: { in: ["pending", "scheduled"] },
+        deletedAt: null,
+        id: input.transactionId ? { not: input.transactionId } : undefined,
+      },
+      _sum: { amount: true },
+    });
+    const exposure = new Decimal(sourceLink.wallet.currentBalance.toString())
+      .plus(pending._sum.amount?.toString() ?? 0)
+      .plus(input.amount ?? 0);
+    if (exposure.gt(profile.creditLimit.toString())) {
+      throw new AppError("VALIDATION_ERROR", "Giao dịch vượt hạn mức khả dụng sau các giao dịch đang chờ.");
+    }
+    if (!category?.jarCode) throw new AppError("VALIDATION_ERROR", "Danh mục chi tiêu chưa có hũ tài chính hợp lệ.");
+    return { jarCode: category.jarCode, walletKind: sourceKind, allocations };
+  }
+  if (input.type === "expense" && sourceKind === "asset" && input.allocations?.length) {
+    throw new AppError("VALIDATION_ERROR", "Giao dịch từ ví tài sản không cần phân bổ nguồn trả thẻ.");
+  }
   const expenseJarCode = input.type === "expense" ? category?.jarCode : null;
   if (input.type === "expense" && !expenseJarCode) {
     throw new AppError("VALIDATION_ERROR", "Danh mục chi tiêu chưa có hũ tài chính hợp lệ.");
@@ -68,11 +147,44 @@ export async function requireTransactionResources(
     jarCode: input.type === "expense"
       ? expenseJarCode
       : null,
+    ...(sourceKind === "credit_card" ? { walletKind: sourceKind } : {}),
   };
 }
 
-async function applyBalance(tx: TransactionClient, record: Pick<Transaction, "type" | "amount" | "walletId" | "toWalletId">, reverse = false) {
+export async function applyBalance(tx: TransactionClient, record: Pick<Transaction, "id" | "type" | "purpose" | "amount" | "walletId" | "toWalletId">, reverse = false) {
   const amount = new Decimal(record.amount.toString());
+  const wallet = typeof tx.wallet.findUniqueOrThrow === "function"
+    ? await tx.wallet.findUniqueOrThrow({
+        where: { id: record.walletId },
+        select: { kind: true, currentBalance: true, creditCardProfile: { select: { creditLimit: true } } },
+      })
+    : { kind: "asset" as const, currentBalance: new Decimal(0), creditCardProfile: null };
+  if (record.purpose === "credit_card_payment") {
+    if (!reverse && new Decimal(wallet.currentBalance.toString()).lt(amount)) {
+      throw new AppError("VALIDATION_ERROR", "Số tiền thanh toán vượt quá dư nợ thẻ hiện tại.");
+    }
+    const sources = await tx.creditCardPaymentSource.findMany({ where: { paymentTransactionId: record.id } });
+    for (const source of sources) {
+      await tx.wallet.update({
+        where: { id: source.sourceWalletId },
+        data: { currentBalance: reverse ? { increment: source.amount } : { decrement: source.amount } },
+      });
+    }
+    await tx.wallet.update({ where: { id: record.walletId }, data: { currentBalance: reverse ? { increment: amount } : { decrement: amount } } });
+    return;
+  }
+  if (record.purpose === "credit_card_refund") {
+    await tx.wallet.update({ where: { id: record.walletId }, data: { currentBalance: reverse ? { increment: amount } : { decrement: amount } } });
+    return;
+  }
+  if (wallet.kind === "credit_card") {
+    if (record.type !== "expense") throw new AppError("VALIDATION_ERROR", "Loại giao dịch không hợp lệ cho thẻ tín dụng.");
+    if (!reverse && wallet.creditCardProfile && new Decimal(wallet.currentBalance.toString()).plus(amount).gt(wallet.creditCardProfile.creditLimit.toString())) {
+      throw new AppError("VALIDATION_ERROR", "Giao dịch vượt hạn mức thẻ tín dụng.");
+    }
+    await tx.wallet.update({ where: { id: record.walletId }, data: { currentBalance: reverse ? { decrement: amount } : { increment: amount } } });
+    return;
+  }
   if (record.type === "income") {
     await tx.wallet.update({ where: { id: record.walletId }, data: { currentBalance: reverse ? { decrement: amount } : { increment: amount } } });
   }
@@ -84,6 +196,22 @@ async function applyBalance(tx: TransactionClient, record: Pick<Transaction, "ty
     await tx.wallet.update({ where: { id: record.walletId }, data: { currentBalance: reverse ? { increment: amount } : { decrement: amount } } });
     await tx.wallet.update({ where: { id: record.toWalletId }, data: { currentBalance: reverse ? { decrement: amount } : { increment: amount } } });
   }
+}
+
+async function replaceCreditCardAllocations(
+  tx: TransactionClient,
+  transactionId: string,
+  allocations: CreateTransactionInput["allocations"],
+) {
+  await tx.creditCardAllocation.deleteMany({ where: { transactionId } });
+  if (!allocations?.length) return;
+  await tx.creditCardAllocation.createMany({
+    data: allocations.map((allocation) => ({
+      transactionId,
+      fundingWalletId: allocation.walletId,
+      amount: allocation.amount,
+    })),
+  });
 }
 
 export async function createApprovedTransactionInTransaction(
@@ -104,13 +232,21 @@ export async function createApprovedTransactionInTransaction(
       amount: input.amount,
       description: input.description ?? null,
       date: asDatabaseDate(input.date),
+      postedDate: asDatabaseDate(input.postedDate ?? input.date),
       workflowStatus: "approved",
       recurringTransactionId: recurring?.id,
       recurringPeriod: recurring?.period,
       jarCode: resources.jarCode,
     },
   });
+  if (resources.walletKind === "credit_card") {
+    await replaceCreditCardAllocations(tx, record.id, resources.allocations ?? input.allocations);
+  }
   await applyBalance(tx, record);
+  if (resources.walletKind === "credit_card") {
+    await syncCreditCardObligationsForTransaction(tx, workspaceId, record.id);
+    await assertCardBalanceReconciled(tx, record.walletId);
+  }
   return record;
 }
 
@@ -141,6 +277,11 @@ function proposedTransaction(input: ResolvedTransactionInput) {
     amount: input.amount.toString(),
     description: input.description ?? null,
     date: input.date,
+    postedDate: input.postedDate ?? input.date,
+    allocations: input.allocations?.map((allocation) => ({
+      walletId: allocation.walletId,
+      amount: allocation.amount.toString(),
+    })),
   };
 }
 
@@ -153,8 +294,17 @@ async function applyUpdate(
   now = new Date(),
 ) {
   await lockTransaction(tx, record.id);
-  const current = await tx.transaction.findFirst({ where: { id: record.id, deletedAt: null } });
+  const current = await tx.transaction.findFirst({
+    where: { id: record.id, deletedAt: null },
+    include: { wallet: { select: { kind: true } } },
+  });
   if (!current) throw new AppError("NOT_FOUND", "Giao dịch không còn tồn tại.");
+  if (current.purpose && current.purpose !== "standard") {
+    throw new AppError("CONFLICT", "Giao dịch thẻ chuyên biệt không thể sửa bằng biểu mẫu giao dịch thường.");
+  }
+  if (current.workflowStatus === "approved" && current.wallet?.kind === "credit_card") {
+    throw new AppError("CONFLICT", "Chi tiêu thẻ đã duyệt không thể sửa; hãy hoàn tiền và tạo giao dịch mới.");
+  }
   const resources = await requireTransactionResources(tx, workspaceId, input);
   if (current.workflowStatus === "approved") await applyBalance(tx, current, true);
   const workflowStatus = workflowStatusForAppliedDate(input.date, getBusinessDateInTimeZone(timeZone, now));
@@ -168,18 +318,33 @@ async function applyUpdate(
       amount: input.amount,
       description: input.description ?? null,
       date: asDatabaseDate(input.date),
+      postedDate: asDatabaseDate(input.postedDate ?? input.date),
       workflowStatus,
       jarCode: resources.jarCode,
     },
   });
+  await replaceCreditCardAllocations(
+    tx,
+    updated.id,
+    resources.walletKind === "credit_card" ? resources.allocations : undefined,
+  );
   if (workflowStatus === "approved") await applyBalance(tx, updated);
   return updated;
 }
 
 async function softDelete(tx: TransactionClient, record: Transaction) {
   await lockTransaction(tx, record.id);
-  const current = await tx.transaction.findFirst({ where: { id: record.id, deletedAt: null } });
+  const current = await tx.transaction.findFirst({
+    where: { id: record.id, deletedAt: null },
+    include: { wallet: { select: { kind: true } } },
+  });
   if (!current) throw new AppError("NOT_FOUND", "Giao dịch không còn tồn tại.");
+  if (current.purpose && current.purpose !== "standard") {
+    throw new AppError("CONFLICT", "Giao dịch thẻ chuyên biệt không thể xóa trực tiếp; hãy tạo điều chỉnh.");
+  }
+  if (current.workflowStatus === "approved" && current.wallet?.kind === "credit_card") {
+    throw new AppError("CONFLICT", "Chi tiêu thẻ đã duyệt không thể xóa; hãy tạo hoàn tiền.");
+  }
   const claimed = await tx.transaction.updateMany({ where: { id: current.id, deletedAt: null }, data: { deletedAt: new Date() } });
   if (claimed.count !== 1) throw new AppError("CONFLICT", "Giao dịch đã được xóa trước đó.");
   if (current.workflowStatus === "approved") await applyBalance(tx, current, true);
@@ -215,11 +380,21 @@ export async function createTransaction(userId: string, workspaceId: string, inp
         amount: resolved.amount,
         description: resolved.description,
         date: asDatabaseDate(resolved.date),
+        postedDate: asDatabaseDate(resolved.postedDate ?? resolved.date),
         workflowStatus,
         jarCode: resources.jarCode,
       },
     });
-    if (workflowStatus === "approved") await applyBalance(tx, record);
+    if (resources.walletKind === "credit_card") {
+      await replaceCreditCardAllocations(tx, record.id, resources.allocations ?? resolved.allocations);
+    }
+    if (workflowStatus === "approved") {
+      await applyBalance(tx, record);
+      if (resources.walletKind === "credit_card") {
+        await syncCreditCardObligationsForTransaction(tx, workspaceId, record.id);
+        await assertCardBalanceReconciled(tx, record.walletId);
+      }
+    }
     await tx.auditLog.create({
       data: { workspaceId, actorUserId: userId, action: "transaction.created", entityType: "transaction", entityId: record.id, metadata: { timing: resolved.timing, workflowStatus, balanceApplied: workflowStatus === "approved", jarCode: resources.jarCode } },
     });
@@ -233,9 +408,19 @@ export async function approveTransaction(userId: string, workspaceId: string, tr
     await lockTransaction(tx, transactionId);
     const record = await tx.transaction.findFirst({
       where: { id: transactionId, workflowStatus: { in: ["pending", "scheduled"] }, deletedAt: null, member: { workspaceId, status: "active", deletedAt: null } },
+      include: { creditCardAllocations: true },
     });
     if (!record) throw new AppError("NOT_FOUND", "Không tìm thấy giao dịch đang chờ hoặc đã lên lịch.");
-    const resources = await requireTransactionResources(tx, workspaceId, record);
+    const resources = !record.purpose || record.purpose === "standard"
+      ? await requireTransactionResources(tx, workspaceId, {
+          ...record,
+          transactionId: record.id,
+          allocations: (record.creditCardAllocations ?? []).map((allocation) => ({
+            walletId: allocation.fundingWalletId,
+            amount: new Decimal(allocation.amount.toString()),
+          })),
+        })
+      : { jarCode: record.jarCode, walletKind: "credit_card" as const };
     const today = getBusinessDateInTimeZone(member.workspace.timeZone);
     const nextStatus = record.workflowStatus === "scheduled"
       ? "approved"
@@ -245,7 +430,38 @@ export async function approveTransaction(userId: string, workspaceId: string, tr
       data: { workflowStatus: nextStatus, jarCode: resources.jarCode },
     });
     if (claimed.count !== 1) throw new AppError("CONFLICT", "Giao dịch đã được xử lý.");
-    if (nextStatus === "approved") await applyBalance(tx, record);
+    if (nextStatus === "approved") {
+      if (record.purpose === "credit_card_payment") {
+        const sources = await tx.creditCardPaymentSource.findMany({ where: { paymentTransactionId: record.id } });
+        for (const walletId of [...new Set([record.walletId, ...sources.map((source) => source.sourceWalletId)])].sort()) {
+          await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "WALLETS" WHERE "id" = CAST(${walletId} AS uuid) FOR UPDATE`);
+        }
+        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "CREDIT_CARD_OBLIGATION_ENTRY" WHERE "card_wallet_id" = CAST(${record.walletId} AS uuid) FOR UPDATE`);
+        const allocations = allocateOldestObligations(
+          await getCardObligationBalances(tx, record.walletId),
+          sources.map((source) => ({ walletId: source.sourceWalletId, amount: new Decimal(source.amount.toString()) })),
+        );
+        await tx.creditCardPaymentAllocation.createMany({
+          data: allocations.map((allocation) => ({ paymentTransactionId: record.id, ...allocation })),
+        });
+        await tx.creditCardPaymentReservation.updateMany({
+          where: { paymentTransactionId: record.id, releasedAt: null },
+          data: { releasedAt: new Date() },
+        });
+      }
+      await applyBalance(tx, record);
+      if (resources.walletKind === "credit_card" && record.purpose === "standard") {
+        await syncCreditCardObligationsForTransaction(tx, workspaceId, record.id);
+        await assertCardBalanceReconciled(tx, record.walletId);
+      }
+      if (record.purpose === "credit_card_payment") {
+        await assertCardBalanceReconciled(tx, record.walletId);
+      } else if (record.purpose === "credit_card_refund") {
+        await normalizeApprovedRefundAllocations(tx, record.id);
+        await syncCreditCardObligationsForTransaction(tx, workspaceId, record.id);
+        await assertCardBalanceReconciled(tx, record.walletId);
+      }
+    }
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.approved", entityType: "transaction", entityId: record.id, metadata: { previousStatus: record.workflowStatus, workflowStatus: nextStatus, balanceApplied: nextStatus === "approved", jarCode: resources.jarCode } } });
     return tx.transaction.findUniqueOrThrow({ where: { id: record.id } });
   });
@@ -258,6 +474,9 @@ export async function rejectTransaction(userId: string, workspaceId: string, tra
     const record = await tx.transaction.findFirst({ where: { id: transactionId, workflowStatus: "pending", deletedAt: null, member: { workspaceId, status: "active", deletedAt: null } } });
     if (!record) throw new AppError("NOT_FOUND", "Không tìm thấy giao dịch đang chờ duyệt.");
     await tx.transaction.update({ where: { id: record.id }, data: { workflowStatus: "rejected" } });
+    if (record.purpose === "credit_card_payment") {
+      await tx.creditCardPaymentReservation.updateMany({ where: { paymentTransactionId: record.id, releasedAt: null }, data: { releasedAt: new Date() } });
+    }
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.rejected", entityType: "transaction", entityId: record.id } });
     return record;
   });
@@ -277,12 +496,42 @@ export async function activateDueScheduledTransactions(workspaceId: string, now 
     let activated = 0;
     for (const record of due) {
       await lockTransaction(tx, record.id);
-      const current = await tx.transaction.findFirst({ where: { id: record.id, workflowStatus: "scheduled", deletedAt: null } });
+      const current = await tx.transaction.findFirst({
+        where: { id: record.id, workflowStatus: "scheduled", deletedAt: null },
+        include: { creditCardAllocations: true },
+      });
       if (!current) continue;
-      const resources = await requireTransactionResources(tx, workspaceId, current);
+      const resources = current.purpose === "standard"
+          ? await requireTransactionResources(tx, workspaceId, {
+              ...current,
+              transactionId: current.id,
+            allocations: (current.creditCardAllocations ?? []).map((allocation) => ({
+              walletId: allocation.fundingWalletId,
+              amount: new Decimal(allocation.amount.toString()),
+            })),
+          })
+        : { jarCode: current.jarCode, walletKind: "credit_card" as const };
       const claimed = await tx.transaction.updateMany({ where: { id: current.id, workflowStatus: "scheduled", deletedAt: null }, data: { workflowStatus: "approved", jarCode: resources.jarCode } });
       if (claimed.count !== 1) continue;
+      if (current.purpose === "credit_card_payment") {
+        const sources = await tx.creditCardPaymentSource.findMany({ where: { paymentTransactionId: current.id } });
+        for (const walletId of [...new Set([current.walletId, ...sources.map((source) => source.sourceWalletId)])].sort()) {
+          await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "WALLETS" WHERE "id" = CAST(${walletId} AS uuid) FOR UPDATE`);
+        }
+        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "CREDIT_CARD_OBLIGATION_ENTRY" WHERE "card_wallet_id" = CAST(${current.walletId} AS uuid) FOR UPDATE`);
+        const allocations = allocateOldestObligations(
+          await getCardObligationBalances(tx, current.walletId),
+          sources.map((source) => ({ walletId: source.sourceWalletId, amount: new Decimal(source.amount.toString()) })),
+        );
+        await tx.creditCardPaymentAllocation.createMany({ data: allocations.map((allocation) => ({ paymentTransactionId: current.id, ...allocation })) });
+        await tx.creditCardPaymentReservation.updateMany({ where: { paymentTransactionId: current.id, releasedAt: null }, data: { releasedAt: new Date() } });
+      }
       await applyBalance(tx, current);
+      if (resources.walletKind === "credit_card" && current.purpose !== "credit_card_payment") {
+        if (current.purpose === "credit_card_refund") await normalizeApprovedRefundAllocations(tx, current.id);
+        await syncCreditCardObligationsForTransaction(tx, workspaceId, current.id);
+      }
+      if (resources.walletKind === "credit_card") await assertCardBalanceReconciled(tx, current.walletId);
       await tx.auditLog.create({ data: { workspaceId, action: "transaction.scheduled_activated", entityType: "transaction", entityId: current.id, metadata: { dueDate: asBusinessDate(current.date), jarCode: resources.jarCode } } });
       activated += 1;
     }
@@ -309,6 +558,7 @@ export async function updateTransaction(
     if (!isAdminRole(member.role.code) && record.memberId !== member.id) {
       throw new AppError("FORBIDDEN", "Bạn chỉ có thể gửi yêu cầu sửa giao dịch do mình tạo.");
     }
+    if (record.purpose && record.purpose !== "standard") throw new AppError("VALIDATION_ERROR", "Giao dịch thẻ chuyên biệt không thể sửa trực tiếp.");
     const resolved = resolveTransactionInput(input, member.workspace.timeZone, now);
     await requireTransactionResources(tx, workspaceId, resolved);
     if (isAdminRole(member.role.code)) {
@@ -329,13 +579,14 @@ export async function deleteOrRequestTransaction(userId: string, workspaceId: st
   const member = await requireWorkspaceMember(userId, workspaceId);
   return prisma.$transaction(async (tx) => {
     const record = await findWorkspaceTransaction(tx, workspaceId, transactionId);
+    if (!isAdminRole(member.role.code) && record.memberId !== member.id) {
+      throw new AppError("FORBIDDEN", "Bạn chỉ có thể gửi yêu cầu xóa giao dịch do mình tạo.");
+    }
+    if (record.purpose && record.purpose !== "standard") throw new AppError("VALIDATION_ERROR", "Giao dịch thẻ chuyên biệt không thể xóa trực tiếp.");
     if (isAdminRole(member.role.code)) {
       await softDelete(tx, record);
       await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.deleted", entityType: "transaction", entityId: record.id, metadata: { workflowStatus: record.workflowStatus, balanceReversed: record.workflowStatus === "approved" } } });
       return { kind: "deleted" as const, id: record.id };
-    }
-    if (record.memberId !== member.id) {
-      throw new AppError("FORBIDDEN", "Bạn chỉ có thể gửi yêu cầu xóa giao dịch do mình tạo.");
     }
     if (!reason.trim()) {
       throw new AppError(

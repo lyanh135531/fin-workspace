@@ -44,4 +44,29 @@ describe("createTransactionSchema", () => {
   it("always requires a transaction date", () => {
     expect(() => createTransactionSchema.parse({ walletId, type: "expense", amount: "10" })).toThrow();
   });
+
+  it("accepts wallet allocations for a credit-card expense", () => {
+    const value = createTransactionSchema.parse({
+      walletId,
+      categoryId: "00000000-0000-0000-0000-000000000201",
+      type: "expense",
+      amount: "1500000",
+      date: "2026-07-17",
+      allocations: [
+        { walletId, amount: "1000000" },
+        { walletId: otherWalletId, amount: "500000" },
+      ],
+    });
+    expect(value.allocations?.map((item) => item.amount.toString())).toEqual(["1000000", "500000"]);
+  });
+
+  it("rejects allocations on income", () => {
+    expect(() => createTransactionSchema.parse({
+      walletId,
+      type: "income",
+      amount: "10",
+      date: "2026-07-17",
+      allocations: [{ walletId: otherWalletId, amount: "10" }],
+    })).toThrow();
+  });
 });

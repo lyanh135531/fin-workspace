@@ -104,6 +104,8 @@ type Transaction = {
   category: { name: string; color: string; icon: string | null } | null;
   memberId: string;
   member: string;
+  purpose?: "standard" | "credit_card_payment" | "credit_card_refund";
+  paymentSources?: { walletId: string; amount: string }[];
 };
 type UpcomingRecurring = {
   id: string;
@@ -118,7 +120,16 @@ type UpcomingRecurring = {
 type Props = {
   workspace: { id: string; name: string; currency: string };
   reportPeriod: string;
-  wallets: { id: string; name: string; balance: string; updatedAt: string }[];
+  wallets: {
+    id: string;
+    name: string;
+    kind: "asset" | "credit_card";
+    balance: string;
+    committed: string;
+    available: string;
+    defaultFundingWalletId?: string | null;
+    updatedAt: string;
+  }[];
   totalByCurrency: Record<string, string>;
   members: { id: string; name: string }[];
   transactions: Transaction[];
@@ -293,7 +304,7 @@ export function OverviewDashboard({
   const [busy, startTransition] = useTransition();
 
   const walletOptions = useMemo<TransactionWalletOption[]>(
-    () => wallets.map((w) => ({ id: w.id, name: w.name })),
+    () => wallets.map((w) => ({ id: w.id, name: w.name, kind: w.kind, defaultFundingWalletId: w.defaultFundingWalletId })),
     [wallets],
   );
 
@@ -402,7 +413,7 @@ export function OverviewDashboard({
   const periodProgress = calculatePeriodProgress(activeReportPeriod, globalPeriod);
   const dailyBurnRate = activeTotals.expense.div(periodProgress.elapsed);
   const totalBalanceDecimal = wallets.reduce(
-    (sum, w) => sum.plus(new Decimal(w.balance)),
+    (sum, w) => w.kind === "credit_card" ? sum : sum.plus(new Decimal(w.balance)),
     new Decimal(0),
   );
   const savingsRate = activeTotals.income.gt(0)
@@ -779,7 +790,7 @@ export function OverviewDashboard({
               wallets.map((wallet) => {
                 const balanceDec = new Decimal(wallet.balance);
                 const percent =
-                  totalBalanceDecimal.isPositive() && !totalBalanceDecimal.isZero()
+                  wallet.kind === "asset" && totalBalanceDecimal.isPositive() && !totalBalanceDecimal.isZero()
                     ? Math.max(
                         0,
                         balanceDec.div(totalBalanceDecimal).times(100).toNumber(),
@@ -798,7 +809,13 @@ export function OverviewDashboard({
                         <span className="block truncate font-semibold text-[var(--foreground)]">
                           {wallet.name}
                         </span>
-                        {wallets.length > 1 && (
+                        {wallet.kind === "credit_card" ? (
+                          <p className="mt-0.5 text-[0.6875rem] text-[var(--text-muted)]">Dư nợ thẻ tín dụng</p>
+                        ) : new Decimal(wallet.committed).gt(0) ? (
+                          <p className="mt-0.5 text-[0.6875rem] text-[var(--text-muted)]">
+                            Khả dụng {money(wallet.available, workspace.currency)} · đã dành {money(wallet.committed, workspace.currency)}
+                          </p>
+                        ) : wallets.length > 1 && (
                           <p className="mt-0.5 text-[0.6875rem] text-[var(--text-muted)]">
                             {percent.toFixed(0)}% tổng tài sản
                           </p>
@@ -1492,7 +1509,7 @@ export function OverviewDashboard({
                 wallets.map((wallet) => {
                   const balanceDec = new Decimal(wallet.balance);
                   const percent = totalBalanceDecimal.isPositive() && !totalBalanceDecimal.isZero()
-                    ? Math.max(0, balanceDec.div(totalBalanceDecimal).times(100).toNumber())
+                    && wallet.kind === "asset" ? Math.max(0, balanceDec.div(totalBalanceDecimal).times(100).toNumber())
                     : 0;
                   return (
                     <div
@@ -1508,7 +1525,7 @@ export function OverviewDashboard({
                           {money(wallet.balance, workspace.currency)}
                         </strong>
                       </div>
-                      <div className="mt-2.5 flex items-center gap-2">
+                      {wallet.kind === "asset" ? <div className="mt-2.5 flex items-center gap-2">
                         <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
                           <span
                             className="block h-full rounded-full bg-[var(--primary)]"
@@ -1518,7 +1535,7 @@ export function OverviewDashboard({
                         <span className="shrink-0 text-[0.68rem] text-[var(--text-muted)] tabular-nums">
                           {percent.toFixed(0)}%
                         </span>
-                      </div>
+                      </div> : <p className="mt-2 text-[0.68rem] text-[var(--text-muted)]">Dư nợ chưa thanh toán</p>}
                     </div>
                   );
                 })

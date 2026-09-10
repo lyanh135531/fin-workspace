@@ -11,6 +11,7 @@ type SummaryTransaction = {
   amount: { toString(): string } | string;
   date: Date | string;
   type: "income" | "expense" | "transfer";
+  purpose?: "standard" | "credit_card_payment" | "credit_card_refund";
   workflowStatus: "pending" | "scheduled" | "approved" | "rejected";
 };
 
@@ -28,13 +29,17 @@ export function buildLedgerPeriodSummaries(
     const period = date.slice(0, 7);
     const periodSummary = summaryByPeriod.get(period) ?? emptySummary();
     summaryByPeriod.set(period, periodSummary);
-    if (transaction.workflowStatus === "approved" && transaction.type === "income") {
+    if (transaction.workflowStatus === "approved" && transaction.type === "income" && transaction.purpose !== "credit_card_refund") {
       periodSummary.income = periodSummary.income.plus(transaction.amount.toString());
       allPeriods.income = allPeriods.income.plus(transaction.amount.toString());
     }
     if (transaction.workflowStatus === "approved" && transaction.type === "expense") {
       periodSummary.expense = periodSummary.expense.plus(transaction.amount.toString());
       allPeriods.expense = allPeriods.expense.plus(transaction.amount.toString());
+    }
+    if (transaction.workflowStatus === "approved" && transaction.purpose === "credit_card_refund") {
+      periodSummary.expense = periodSummary.expense.minus(transaction.amount.toString());
+      allPeriods.expense = allPeriods.expense.minus(transaction.amount.toString());
     }
     if (transaction.workflowStatus === "pending") {
       periodSummary.pending += 1;

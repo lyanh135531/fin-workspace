@@ -49,7 +49,7 @@ export async function WorkspaceDashboard({
   const [walletLinks, categories, transactions] = await Promise.all([
     prisma.workspaceWallet.findMany({
       where: { workspaceId, wallet: { status: "active", deletedAt: null } },
-      include: { wallet: true },
+      include: { wallet: { include: { creditCardProfile: true } } },
       orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
     }),
     prisma.category.findMany({
@@ -159,6 +159,8 @@ export async function WorkspaceDashboard({
         wallets: walletLinks.map(({ wallet }) => ({
           id: wallet.id,
           name: wallet.name,
+          kind: wallet.kind,
+          defaultFundingWalletId: wallet.creditCardProfile?.defaultFundingWalletId ?? null,
         })),
         categories,
         startWithNewTransaction,

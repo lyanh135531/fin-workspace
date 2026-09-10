@@ -37,4 +37,14 @@ describe("ledger financial summaries", () => {
       { period: "2026-07", income: "0", expense: "0", pending: 0 },
     ]);
   });
+
+  it("counts card purchases once, subtracts refunds, and excludes payments", () => {
+    const [all] = buildLedgerPeriodSummaries([
+      { date: "2026-07-10", type: "expense", purpose: "standard", amount: "100", workflowStatus: "approved" },
+      { date: "2026-07-11", type: "transfer", purpose: "credit_card_payment", amount: "60", workflowStatus: "approved" },
+      { date: "2026-07-12", type: "income", purpose: "credit_card_refund", amount: "25", workflowStatus: "approved" },
+    ], "2026-07");
+
+    expect(all).toMatchObject({ income: "0", expense: "75", pending: 0 });
+  });
 });
