@@ -1,6 +1,7 @@
 import {
   BookOpen,
   CalendarRange,
+  CreditCard,
   LayoutDashboard,
   Repeat2,
   WalletCards,
@@ -401,6 +402,7 @@ function FallbackNavigation() {
       icon: Repeat2,
     },
     { href: "/wallets", label: "Ví", icon: WalletCards },
+    { href: "/credit-cards", label: "Thẻ tín dụng", icon: CreditCard },
     { href: "/financial-plans", label: "Kế hoạch", icon: CalendarRange },
   ];
   return (

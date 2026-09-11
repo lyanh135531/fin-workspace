@@ -81,6 +81,7 @@ export type CreateTransactionInput = z.output<typeof createTransactionSchema>;
 
 export const createCreditCardPaymentSchema = z.object({
   cardWalletId: idSchema,
+  statementId: idSchema,
   date: businessDateSchema,
   description: optionalTrimmedTextSchema,
   sources: z.array(z.object({

@@ -11,7 +11,7 @@ type SummaryTransaction = {
   amount: { toString(): string } | string;
   date: Date | string;
   type: "income" | "expense" | "transfer";
-  purpose?: "standard" | "credit_card_payment" | "credit_card_refund";
+  purpose?: "standard" | "credit_card_payment" | "credit_card_refund" | "credit_card_installment_fee";
   workflowStatus: "pending" | "scheduled" | "approved" | "rejected";
 };
 

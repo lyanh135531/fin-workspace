@@ -21,5 +21,6 @@ export const DEFAULT_WORKSPACE_CATEGORIES: readonly DefaultWorkspaceCategory[] =
   { name: "Quan hệ xã hội & quà tặng", code: "EXPENSE_SOCIAL_GIFTS", color: "#F43F5E", type: "expense", icon: "gift", sortOrder: 80, jarCode: "GIVING" },
   { name: "Giải trí & sở thích", code: "EXPENSE_ENTERTAINMENT", color: "#A855F7", type: "expense", icon: "entertainment", sortOrder: 90, jarCode: "ENJOYMENT" },
   { name: "Chi phí phát sinh", code: "EXPENSE_UNEXPECTED", color: "#64748B", type: "expense", icon: "tag", sortOrder: 100, jarCode: "RESPONSIBILITY" },
+  { name: "Phí tài chính", code: "EXPENSE_INSTALLMENT_FEE", color: "#64748B", type: "expense", icon: "card", sortOrder: 105, jarCode: "RESPONSIBILITY" },
   { name: "Đầu tư", code: "EXPENSE_INVESTMENT", color: "#10B981", type: "expense", icon: "landmark", sortOrder: 110, jarCode: "INVESTMENT" },
 ]

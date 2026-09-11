@@ -8,7 +8,7 @@ export type DashboardPeriod = "month" | "quarter" | "year";
 type ChartTransaction = {
   amount: string;
   type: CashflowType | "transfer";
-  purpose?: "standard" | "credit_card_payment" | "credit_card_refund";
+  purpose?: "standard" | "credit_card_payment" | "credit_card_refund" | "credit_card_installment_fee";
   status: "pending" | "scheduled" | "approved" | "rejected";
   date: string;
   walletId: string;

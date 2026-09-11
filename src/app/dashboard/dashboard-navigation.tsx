@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, CalendarRange, LayoutDashboard, Repeat2, Settings, WalletCards } from "lucide-react";
+import { BookOpen, CalendarRange, CreditCard, LayoutDashboard, Repeat2, Settings, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -47,7 +47,7 @@ export function DashboardNavigation({
   const { pendingHref, beginNavigation } = useOptimisticNavigation();
   const icons: Record<WorkspaceNavigationKey, typeof LayoutDashboard> = {
     overview: LayoutDashboard, ledger: BookOpen, recurring: Repeat2,
-    plans: CalendarRange, wallets: WalletCards, settings: Settings,
+    plans: CalendarRange, wallets: WalletCards, creditCards: CreditCard, settings: Settings,
   };
   const workspaceItems: NavigationItem[] = workspaceNavigationItems(currentId).map((item) => ({
     key: item.key,

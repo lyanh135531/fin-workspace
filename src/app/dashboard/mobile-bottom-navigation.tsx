@@ -3,6 +3,7 @@
 import {
   BookOpen,
   CalendarRange,
+  CreditCard,
   LayoutDashboard,
   Plus,
   Repeat2,
@@ -37,6 +38,7 @@ function navigationItems(currentWorkspaceId?: string): {
     recurring: Repeat2,
     plans: CalendarRange,
     wallets: WalletCards,
+    creditCards: CreditCard,
     settings: Settings,
   };
   const primary = workspaceNavigationItems(currentWorkspaceId)

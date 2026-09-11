@@ -10,6 +10,8 @@ const PAGE_LABELS: Record<string, string> = {
   "/financial-plans": "Kế hoạch",
   "/wallets": "Ví",
   "/dashboard/wallets": "Ví",
+  "/credit-cards": "Thẻ tín dụng",
+  "/dashboard/credit-cards": "Thẻ tín dụng",
   "/settings/account": "Tài khoản",
   "/account": "Tài khoản",
   "/settings/workspace": "Cài đặt",

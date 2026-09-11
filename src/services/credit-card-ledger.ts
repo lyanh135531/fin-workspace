@@ -96,7 +96,7 @@ export async function syncCreditCardObligationsForTransaction(
       deletedAt: null,
       member: { workspaceId },
       wallet: { kind: "credit_card", workspaceLinks: { some: { workspaceId } } },
-      purpose: { in: ["standard", "credit_card_refund"] },
+      purpose: { in: ["standard", "credit_card_refund", "credit_card_installment_fee"] },
     },
     include: { creditCardAllocations: true },
   });

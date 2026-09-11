@@ -2,6 +2,8 @@ export * from "@/domain/category/schemas";
 export { DEFAULT_WORKSPACE_CATEGORIES } from "@/domain/category/default-categories";
 export type { DefaultWorkspaceCategory } from "@/domain/category/default-categories";
 export * from "@/domain/common/schemas";
+export * from "@/domain/credit-card/installments";
+export * from "@/domain/credit-card/schemas";
 export * from "@/domain/financial-jar/jars";
 export * from "@/domain/financial-plan/calculator";
 export * from "@/domain/financial-plan/month";

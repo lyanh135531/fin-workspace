@@ -26,8 +26,24 @@ enum TransactionPurpose {
   standard
   credit_card_payment
   credit_card_refund
+  credit_card_installment_fee
 
   @@map("TRANSACTION_PURPOSE")
+}
+
+enum CreditCardInstallmentStatus {
+  pending
+  active
+  completed
+
+  @@map("FELIX_INSTALLMENT_STATUS")
+}
+
+enum CreditCardStatementStatus {
+  issued
+  paid
+
+  @@map("FELIX_STATEMENT_STATUS")
 }
 
 enum WalletKind {
@@ -60,7 +76,7 @@ enum CreditCardObligationSource {
   opening_balance
   adjustment
 
-  @@map("EMAIL_OUTBOX_STATUS")
+  @@map("CREDIT_CARD_OBLIGATION_SOURCE")
 }
 
 enum WorkflowStatus {
@@ -189,15 +205,17 @@ model Workspace {
   baseCurrency String    @default("VND") @map("base_currency") @db.VarChar(3)
   timeZone     String    @default("Asia/Ho_Chi_Minh") @map("time_zone")
 
-  inviteCode            String                      @unique @default(uuid()) @map("invite_code") @db.VarChar(36)
-  members               WorkspaceMember[]
-  wallets               WorkspaceWallet[]
-  categories            Category[]
-  auditLogs             AuditLog[]
-  joinRequests          WorkspaceJoinRequest[]
-  recurringTransactions RecurringTransaction[]
-  financialPlans        FinancialPlan[]
-  creditCardObligations CreditCardObligationEntry[]
+  inviteCode                 String                      @unique @default(uuid()) @map("invite_code") @db.VarChar(36)
+  members                    WorkspaceMember[]
+  wallets                    WorkspaceWallet[]
+  categories                 Category[]
+  auditLogs                  AuditLog[]
+  joinRequests               WorkspaceJoinRequest[]
+  recurringTransactions      RecurringTransaction[]
+  financialPlans             FinancialPlan[]
+  creditCardObligations      CreditCardObligationEntry[]
+  creditCardInstallmentPlans CreditCardInstallmentPlan[]
+  creditCardStatements       CreditCardStatement[]
 
   @@index([status, deletedAt])
   @@map("WORKSPACES")
@@ -217,23 +235,24 @@ model WorkspaceWallet {
 }
 
 model WorkspaceMember {
-  id                            String                     @id @default(uuid()) @db.Uuid
-  workspaceId                   String                     @map("workspace_id") @db.Uuid
-  userId                        String                     @map("user_id") @db.Uuid
-  roleId                        String                     @map("role_id") @db.Uuid
-  status                        Status                     @default(active)
-  createdAt                     DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                     DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt                     DateTime?                  @map("deleted_at") @db.Timestamptz(6)
-  workspace                     Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  user                          User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
-  role                          Role                       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  id                            String                      @id @default(uuid()) @db.Uuid
+  workspaceId                   String                      @map("workspace_id") @db.Uuid
+  userId                        String                      @map("user_id") @db.Uuid
+  roleId                        String                      @map("role_id") @db.Uuid
+  status                        Status                      @default(active)
+  createdAt                     DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                     DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                     DateTime?                   @map("deleted_at") @db.Timestamptz(6)
+  workspace                     Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  user                          User                        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role                          Role                        @relation(fields: [roleId], references: [id], onDelete: Restrict)
   transactions                  Transaction[]
-  requestedChanges              TransactionChangeRequest[] @relation("ChangeRequester")
-  reviewedChanges               TransactionChangeRequest[] @relation("ChangeReviewer")
+  requestedChanges              TransactionChangeRequest[]  @relation("ChangeRequester")
+  reviewedChanges               TransactionChangeRequest[]  @relation("ChangeReviewer")
   createdRecurringTransactions  RecurringTransaction[]
-  reviewedRecurringTransactions RecurringTransaction[]     @relation("RecurringReviewer")
+  reviewedRecurringTransactions RecurringTransaction[]      @relation("RecurringReviewer")
   createdFinancialPlans         FinancialPlan[]
+  createdInstallmentPlans       CreditCardInstallmentPlan[]
 
   @@unique([workspaceId, userId])
   @@index([workspaceId, status, deletedAt])
@@ -407,6 +426,7 @@ model Transaction {
   recurringTransactionId        String?                        @map("recurring_transaction_id") @db.Uuid
   recurringPeriod               String?                        @map("recurring_period") @db.VarChar(7)
   originalTransactionId         String?                        @map("original_transaction_id") @db.Uuid
+  creditCardStatementId         String?                        @map("billing_statement_id") @db.Uuid
   jarCode                       JarCode?                       @map("jar_code")
   member                        WorkspaceMember                @relation(fields: [memberId], references: [id], onDelete: Restrict)
   wallet                        Wallet                         @relation("TransactionSourceWallet", fields: [walletId], references: [id], onDelete: Restrict)
@@ -421,6 +441,9 @@ model Transaction {
   creditCardObligationEntries   CreditCardObligationEntry[]
   creditCardPaymentAllocations  CreditCardPaymentAllocation[]
   creditCardPaymentReservations CreditCardPaymentReservation[]
+  installmentPlan               CreditCardInstallmentPlan?     @relation("InstallmentOriginalTransaction")
+  installmentFeePlan            CreditCardInstallmentPlan?     @relation("InstallmentFeeTransaction")
+  creditCardStatement           CreditCardStatement?           @relation(fields: [creditCardStatementId], references: [id], onDelete: Restrict)
 
   @@unique([recurringTransactionId, recurringPeriod])
   @@index([memberId, date])
@@ -429,6 +452,7 @@ model Transaction {
   @@index([categoryId, date])
   @@index([jarCode, date])
   @@index([originalTransactionId])
+  @@index([creditCardStatementId])
   @@map("TRANSACTION")
 }
 
@@ -436,12 +460,16 @@ model CreditCardProfile {
   walletId               String                        @id @map("wallet_id") @db.Uuid
   creditLimit            Decimal                       @map("credit_limit") @db.Decimal(20, 4)
   defaultFundingWalletId String                        @map("default_funding_wallet_id") @db.Uuid
+  statementClosingDay    Int                           @map("statement_closing_day")
+  paymentDueDay          Int                           @map("payment_due_day")
   createdAt              DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(6)
   wallet                 Wallet                        @relation("CreditCardProfileWallet", fields: [walletId], references: [id], onDelete: Restrict)
   defaultFundingWallet   Wallet                        @relation("CreditCardDefaultFundingWallet", fields: [defaultFundingWalletId], references: [id], onDelete: Restrict)
   openingAllocations     CreditCardOpeningAllocation[]
   obligations            CreditCardObligationEntry[]
+  installmentPlans       CreditCardInstallmentPlan[]
+  statements             CreditCardStatement[]
 
   @@index([defaultFundingWalletId])
   @@map("CREDIT_CARD_PROFILE")
@@ -466,6 +494,7 @@ model CreditCardObligationEntry {
   fundingWallet      Wallet                        @relation("CreditCardObligationFundingWallet", fields: [fundingWalletId], references: [id], onDelete: Restrict)
   transaction        Transaction?                  @relation(fields: [transactionId], references: [id], onDelete: Restrict)
   paymentAllocations CreditCardPaymentAllocation[]
+  statementItems     CreditCardStatementItem[]
 
   @@index([cardWalletId, fundingWalletId, postedDate, id])
   @@index([workspaceId, postedDate])
@@ -542,6 +571,91 @@ model CreditCardPaymentSource {
   @@unique([paymentTransactionId, sourceWalletId])
   @@index([sourceWalletId])
   @@map("CREDIT_CARD_PAYMENT_SOURCE")
+}
+
+model CreditCardInstallmentPlan {
+  id                String                      @id @default(uuid()) @db.Uuid
+  workspaceId       String                      @map("workspace_id") @db.Uuid
+  cardWalletId      String                      @map("card_wallet_id") @db.Uuid
+  transactionId     String                      @unique @map("transaction_id") @db.Uuid
+  feeTransactionId  String?                     @unique @map("fee_transaction_id") @db.Uuid
+  createdByMemberId String                      @map("created_by_member_id") @db.Uuid
+  termCount         Int                         @map("term_count")
+  feeAmount         Decimal                     @default(0) @map("fee_amount") @db.Decimal(20, 4)
+  effectiveDate     DateTime                    @map("effective_date") @db.Date
+  status            CreditCardInstallmentStatus @default(pending)
+  activatedAt       DateTime?                   @map("activated_at") @db.Timestamptz(6)
+  completedAt       DateTime?                   @map("completed_at") @db.Timestamptz(6)
+  createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace         Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  card              CreditCardProfile           @relation(fields: [cardWalletId], references: [walletId], onDelete: Restrict)
+  transaction       Transaction                 @relation("InstallmentOriginalTransaction", fields: [transactionId], references: [id], onDelete: Restrict)
+  feeTransaction    Transaction?                @relation("InstallmentFeeTransaction", fields: [feeTransactionId], references: [id], onDelete: Restrict)
+  createdBy         WorkspaceMember             @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  installments      CreditCardInstallment[]
+
+  @@index([workspaceId, status])
+  @@index([cardWalletId, status])
+  @@map("CREDIT_CARD_EQUAL_INSTALLMENT_PLAN")
+}
+
+model CreditCardInstallment {
+  id              String                    @id @default(uuid()) @db.Uuid
+  planId          String                    @map("plan_id") @db.Uuid
+  installmentNo   Int                       @map("installment_no")
+  statementDate   DateTime                  @map("statement_date") @db.Date
+  dueDate         DateTime                  @map("due_date") @db.Date
+  principalAmount Decimal                   @map("principal_amount") @db.Decimal(20, 4)
+  feeAmount       Decimal                   @default(0) @map("fee_amount") @db.Decimal(20, 4)
+  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  plan            CreditCardInstallmentPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  statementItems  CreditCardStatementItem[]
+
+  @@unique([planId, installmentNo])
+  @@index([statementDate])
+  @@map("CREDIT_CARD_INSTALLMENT")
+}
+
+model CreditCardStatement {
+  id             String                    @id @default(uuid()) @db.Uuid
+  workspaceId    String                    @map("workspace_id") @db.Uuid
+  cardWalletId   String                    @map("card_wallet_id") @db.Uuid
+  cycleStartDate DateTime                  @map("cycle_start_date") @db.Date
+  cycleEndDate   DateTime                  @map("cycle_end_date") @db.Date
+  dueDate        DateTime                  @map("due_date") @db.Date
+  totalAmount    Decimal                   @map("total_amount") @db.Decimal(20, 4)
+  status         CreditCardStatementStatus @default(issued)
+  paidAt         DateTime?                 @map("paid_at") @db.Timestamptz(6)
+  createdAt      DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace      Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  card           CreditCardProfile         @relation(fields: [cardWalletId], references: [walletId], onDelete: Restrict)
+  items          CreditCardStatementItem[]
+  payments       Transaction[]
+
+  @@unique([cardWalletId, cycleEndDate])
+  @@index([workspaceId, status, dueDate])
+  @@map("CREDIT_CARD_BILLING_STATEMENT")
+}
+
+model CreditCardStatementItem {
+  id                String                    @id @default(uuid()) @db.Uuid
+  statementId       String                    @map("statement_id") @db.Uuid
+  obligationEntryId String                    @map("obligation_entry_id") @db.Uuid
+  installmentId     String?                   @map("installment_id") @db.Uuid
+  fundingWalletId   String                    @map("funding_wallet_id") @db.Uuid
+  amount            Decimal                   @db.Decimal(20, 4)
+  isCarry           Boolean                   @default(false) @map("is_carry")
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  statement         CreditCardStatement       @relation(fields: [statementId], references: [id], onDelete: Restrict)
+  obligationEntry   CreditCardObligationEntry @relation(fields: [obligationEntryId], references: [id], onDelete: Restrict)
+  installment       CreditCardInstallment?    @relation(fields: [installmentId], references: [id], onDelete: Restrict)
+
+  @@unique([statementId, obligationEntryId, installmentId])
+  @@index([obligationEntryId])
+  @@index([installmentId])
+  @@index([fundingWalletId])
+  @@map("CREDIT_CARD_BILLING_STATEMENT_ITEM")
 }
 
 model RecurringTransaction {

@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
-const endpoint = process.env.RECURRING_WORKER_URL ?? "http://app:15730/api/internal/recurring/run";
+const endpoints = [
+  ["recurring", process.env.RECURRING_WORKER_URL ?? "http://app:15730/api/internal/recurring/run"],
+  ["credit-card-statements", process.env.CREDIT_CARD_STATEMENT_WORKER_URL ?? "http://app:15730/api/internal/credit-card-statements/run"],
+];
 const dedicatedSecret = process.env.RECURRING_WORKER_SECRET;
 const authSecret = process.env.NEXTAUTH_SECRET;
 const secret = dedicatedSecret?.length >= 32
@@ -22,7 +25,7 @@ function delay(milliseconds) {
 }
 
 async function run() {
-  try {
+  for (const [label, endpoint] of endpoints) try {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { authorization: `Bearer ${secret}` },
@@ -31,12 +34,12 @@ async function run() {
     const body = await response.text();
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${body.slice(0, 500)}`);
     const result = JSON.parse(body);
-    if (result.posted || result.failed || result.advanced) {
-      console.info("[recurring-worker]", new Date().toISOString(), result);
+    if (result.posted || result.failed || result.advanced || result.generated) {
+      console.info(`[${label}-worker]`, new Date().toISOString(), result);
     }
   } catch (error) {
     console.error(
-      "[recurring-worker]",
+      `[${label}-worker]`,
       new Date().toISOString(),
       error instanceof Error ? error.message : error,
     );

@@ -7,12 +7,11 @@ import { getBusinessDateInTimeZone } from "@/lib/date";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import {
-  allocateOldestObligations,
   assertCardBalanceReconciled,
-  getCardObligationBalances,
   normalizeApprovedRefundAllocations,
   syncCreditCardObligationsForTransaction,
 } from "@/services/credit-card-ledger";
+import { completePaidInstallmentPlansInTransaction, generateCardStatementsInTransaction, statementPaymentDetails } from "@/services/credit-card-statement-service";
 import { applyBalance } from "@/services/transaction-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
@@ -47,6 +46,8 @@ export async function createCreditCardPayment(
   const workflowStatus = workflowStatusForCreation(member.role.code, timing);
 
   return prisma.$transaction(async (tx) => {
+    const today = getBusinessDateInTimeZone(member.workspace.timeZone, now);
+    await generateCardStatementsInTransaction(tx, workspaceId, input.cardWalletId, today);
     await lockWallets(tx, [input.cardWalletId, ...input.sources.map(({ walletId }) => walletId)]);
     await lockCardObligations(tx, input.cardWalletId);
     const card = await tx.workspaceWallet.findFirst({
@@ -72,48 +73,28 @@ export async function createCreditCardPayment(
       throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Nguồn thanh toán phải là ví tài sản đang hoạt động trong nhóm này.");
     }
 
-    const total = input.sources.reduce((sum, source) => sum.plus(source.amount), ZERO);
-    const reservations = await tx.creditCardPaymentReservation.groupBy({
-      by: ["sourceWalletId"],
-      where: {
-        releasedAt: null,
-        paymentTransaction: {
-          walletId: input.cardWalletId,
-          workflowStatus: { in: ["pending", "scheduled"] },
-          deletedAt: null,
-        },
-      },
-      _sum: { amount: true },
+    const oldest = await tx.creditCardStatement.findFirst({
+      where: { workspaceId, cardWalletId: input.cardWalletId, status: "issued" },
+      orderBy: [{ cycleEndDate: "asc" }, { createdAt: "asc" }],
+      select: { id: true },
     });
-    const reservedTotal = reservations.reduce(
-      (sum, reservation) => sum.plus(reservation._sum.amount?.toString() ?? 0),
-      ZERO,
-    );
-    const payable = Decimal.max(new Decimal(card.wallet.currentBalance.toString()).minus(reservedTotal), ZERO);
-    if (total.gt(payable)) {
-      throw new AppError("VALIDATION_ERROR", "Số tiền thanh toán vượt dư nợ còn lại sau các thanh toán đang chờ.");
+    if (!oldest || oldest.id !== input.statementId) throw new AppError("CONFLICT", "Hãy thanh toán sao kê cũ nhất trước.");
+    const { statement, dueByWallet, allocations } = await statementPaymentDetails(tx, input.statementId);
+    if (statement.status !== "issued" || statement.cardWalletId !== input.cardWalletId || statement.workspaceId !== workspaceId) {
+      throw new AppError("CONFLICT", "Sao kê không còn khả dụng để thanh toán.");
     }
-
-    const balances = await getCardObligationBalances(tx, input.cardWalletId);
-    const reservedByWallet = new Map(
-      reservations.map((reservation) => [
-        reservation.sourceWalletId,
-        new Decimal(reservation._sum.amount?.toString() ?? 0),
-      ]),
-    );
-    const availableBalances = balances.map((entry) => ({ ...entry }));
-    for (const [walletId, reserved] of reservedByWallet) {
-      let remainder = reserved;
-      for (const entry of availableBalances.filter((item) => item.fundingWalletId === walletId)) {
-        if (!remainder.gt(0)) break;
-        const open = Decimal.max(new Decimal(entry.amount).minus(entry.paid), ZERO);
-        const applied = Decimal.min(open, remainder);
-        entry.paid = new Decimal(entry.paid).plus(applied);
-        remainder = remainder.minus(applied);
-      }
+    const pendingPayment = await tx.transaction.findFirst({
+      where: { creditCardStatementId: statement.id, workflowStatus: { in: ["pending", "scheduled", "approved"] }, deletedAt: null },
+      select: { id: true },
+    });
+    if (pendingPayment) throw new AppError("CONFLICT", "Sao kê đã có thanh toán đang chờ hoặc đã hoàn tất.");
+    const supplied = new Map(input.sources.map((source) => [source.walletId, new Decimal(source.amount)]));
+    const expected = [...dueByWallet].filter(([, amount]) => amount.gt(0));
+    if (supplied.size !== expected.length || expected.some(([walletId, amount]) => !supplied.get(walletId)?.eq(amount))) {
+      throw new AppError("VALIDATION_ERROR", "Nguồn thanh toán phải khớp chính xác số còn thiếu của sao kê.");
     }
-    // Dry run: every source can only settle obligations assigned to that source wallet.
-    allocateOldestObligations(availableBalances, input.sources);
+    const total = expected.reduce((sum, [, amount]) => sum.plus(amount), ZERO);
+    if (!total.eq(statement.totalAmount)) throw new AppError("CONFLICT", "Tổng sao kê không khớp chi tiết nghĩa vụ.");
 
     const record = await tx.transaction.create({
       data: {
@@ -126,17 +107,19 @@ export async function createCreditCardPayment(
         date: databaseDate(input.date),
         postedDate: databaseDate(input.date),
         workflowStatus,
+        creditCardStatementId: statement.id,
         creditCardPaymentSources: {
           create: input.sources.map((source) => ({ sourceWalletId: source.walletId, amount: source.amount })),
         },
       },
     });
     if (workflowStatus === "approved") {
-      const allocations = allocateOldestObligations(balances, input.sources);
       await tx.creditCardPaymentAllocation.createMany({
-        data: allocations.map((allocation) => ({ paymentTransactionId: record.id, ...allocation })),
+        data: [...allocations].map(([obligationEntryId, amount]) => ({ paymentTransactionId: record.id, obligationEntryId, amount })),
       });
       await applyBalance(tx, record);
+      await tx.creditCardStatement.update({ where: { id: statement.id }, data: { status: "paid", paidAt: new Date() } });
+      await completePaidInstallmentPlansInTransaction(tx, statement.id);
       await assertCardBalanceReconciled(tx, input.cardWalletId);
     } else {
       await tx.creditCardPaymentReservation.createMany({
@@ -180,6 +163,7 @@ export async function createCreditCardRefund(
         id: input.originalTransactionId,
         type: "expense",
         purpose: "standard",
+        installmentPlan: null,
         workflowStatus: "approved",
         deletedAt: null,
         member: { workspaceId },

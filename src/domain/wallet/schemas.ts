@@ -38,6 +38,8 @@ export const createWalletSchema = z.object({
   creditCard: z.object({
     creditLimit: positiveMoneySchema,
     defaultFundingWalletId: idSchema,
+    statementClosingDay: z.number().int().min(1).max(31),
+    paymentDueDay: z.number().int().min(1).max(31),
     openingDebt: moneySchema.refine((amount) => amount.gte(0), {
       message: "Dư nợ ban đầu không được âm.",
     }),

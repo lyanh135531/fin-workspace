@@ -26,6 +26,8 @@ describe("wallet schemas", () => {
       creditCard: {
         creditLimit: "50000000",
         defaultFundingWalletId: fundingWalletId,
+        statementClosingDay: 25,
+        paymentDueDay: 10,
         openingDebt: "1200000",
         openingAllocations: [{ walletId: fundingWalletId, amount: "1200000" }],
       },
@@ -42,6 +44,8 @@ describe("wallet schemas", () => {
       creditCard: {
         creditLimit: "50000000",
         defaultFundingWalletId: fundingWalletId,
+        statementClosingDay: 25,
+        paymentDueDay: 10,
         openingDebt: "1200000",
         openingAllocations: [{ walletId: fundingWalletId, amount: "1000000" }],
       },
@@ -55,6 +59,8 @@ describe("wallet schemas", () => {
       creditCard: {
         creditLimit: "50000000",
         defaultFundingWalletId: "00000000-0000-4000-8000-000000000010",
+        statementClosingDay: 25,
+        paymentDueDay: 10,
         openingDebt: "1200000",
       },
     });

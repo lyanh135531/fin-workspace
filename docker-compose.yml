@@ -47,6 +47,7 @@ services:
     env_file: .env
     environment:
       - RECURRING_WORKER_URL=http://app:15730/api/internal/recurring/run
+      - CREDIT_CARD_STATEMENT_WORKER_URL=http://app:15730/api/internal/credit-card-statements/run
       - RECURRING_WORKER_INTERVAL_MS=60000
     depends_on:
       app:

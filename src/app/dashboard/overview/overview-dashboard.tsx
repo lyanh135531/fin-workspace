@@ -104,7 +104,7 @@ type Transaction = {
   category: { name: string; color: string; icon: string | null } | null;
   memberId: string;
   member: string;
-  purpose?: "standard" | "credit_card_payment" | "credit_card_refund";
+  purpose?: "standard" | "credit_card_payment" | "credit_card_refund" | "credit_card_installment_fee";
   paymentSources?: { walletId: string; amount: string }[];
 };
 type UpcomingRecurring = {

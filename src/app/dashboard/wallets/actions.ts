@@ -25,6 +25,7 @@ import {
 
 function revalidateWalletViews(workspaceId: string) {
   revalidatePath("/wallets");
+  revalidatePath("/credit-cards");
   revalidatePath(`/workspace/${workspaceId}`);
   revalidatePath("/overview");
   revalidatePath("/recurring-transactions");

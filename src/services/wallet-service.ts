@@ -89,6 +89,8 @@ export async function createWalletForWorkspace(userId: string, workspaceId: stri
           create: {
             creditLimit: creditCard.creditLimit,
             defaultFundingWalletId: creditCard.defaultFundingWalletId,
+            statementClosingDay: creditCard.statementClosingDay,
+            paymentDueDay: creditCard.paymentDueDay,
             openingAllocations: openingAllocations.length ? {
               create: openingAllocations.map((allocation) => ({
                 fundingWalletId: allocation.walletId,
