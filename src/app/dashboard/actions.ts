@@ -80,7 +80,7 @@ export async function payCreditCardAction(workspaceId: string, input: unknown) {
   }
 }
 
-export async function refundCreditCardExpenseAction(workspaceId: string, input: unknown) {
+export async function addCreditCardRefundAction(workspaceId: string, input: unknown) {
   const requestId = crypto.randomUUID();
   try {
     const user = await workspaceActor(workspaceId);
@@ -94,7 +94,7 @@ export async function refundCreditCardExpenseAction(workspaceId: string, input: 
     revalidateFinancialPlanViews();
     return { ok: true as const, status: transaction.workflowStatus };
   } catch (error) {
-    return transactionActionFailure(error, "Không thể hoàn tiền giao dịch thẻ.", "credit_card.refund_failed", requestId);
+    return transactionActionFailure(error, "Không thể ghi nhận hoàn tiền vào thẻ.", "credit_card.refund_failed", requestId);
   }
 }
 

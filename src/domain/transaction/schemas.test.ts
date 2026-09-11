@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createTransactionSchema } from "@/domain/transaction/schemas";
+import { createCreditCardRefundSchema, createTransactionSchema } from "@/domain/transaction/schemas";
 
 const walletId = "00000000-0000-4000-8000-000000000001";
 const otherWalletId = "00000000-0000-4000-8000-000000000002";
@@ -67,6 +67,26 @@ describe("createTransactionSchema", () => {
       amount: "10",
       date: "2026-07-17",
       allocations: [{ walletId: otherWalletId, amount: "10" }],
+    })).toThrow();
+  });
+});
+
+describe("createCreditCardRefundSchema", () => {
+  it("accepts a refund entered directly against a credit card", () => {
+    const value = createCreditCardRefundSchema.parse({
+      cardWalletId: walletId,
+      amount: "250000",
+      date: "2026-09-11",
+    });
+    expect(value.cardWalletId).toBe(walletId);
+    expect(value.amount.toString()).toBe("250000");
+  });
+
+  it("does not accept an original transaction as the refund target", () => {
+    expect(() => createCreditCardRefundSchema.parse({
+      originalTransactionId: walletId,
+      amount: "250000",
+      date: "2026-09-11",
     })).toThrow();
   });
 });

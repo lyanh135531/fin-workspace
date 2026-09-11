@@ -92,7 +92,7 @@ export async function requireTransactionResources(
     throw new AppError("VALIDATION_ERROR", "Chuyển tiền thông thường chỉ áp dụng giữa các ví tài sản.");
   }
   if (input.type === "income" && sourceKind === "credit_card") {
-    throw new AppError("VALIDATION_ERROR", "Hoàn tiền thẻ phải được tạo từ giao dịch chi tiêu gốc.");
+    throw new AppError("VALIDATION_ERROR", "Hãy ghi nhận hoàn tiền từ trang Thẻ tín dụng.");
   }
   if (input.type === "expense" && sourceKind === "credit_card") {
     const profile = sourceLink.wallet.creditCardProfile;

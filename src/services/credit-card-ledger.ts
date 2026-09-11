@@ -123,52 +123,93 @@ export async function syncCreditCardObligationsForTransaction(
   }
 }
 
+export function allocateRefundByFundingWallet(
+  entries: ObligationBalance[],
+  defaultFundingWalletId: string,
+  refundAmount: Decimal,
+) {
+  const outstandingByWallet = new Map<string, Decimal>();
+  const walletOrder: string[] = [];
+  for (const entry of entries) {
+    if (!outstandingByWallet.has(entry.fundingWalletId)) walletOrder.push(entry.fundingWalletId);
+    outstandingByWallet.set(
+      entry.fundingWalletId,
+      (outstandingByWallet.get(entry.fundingWalletId) ?? ZERO)
+        .plus(entry.amount)
+        .minus(entry.paid),
+    );
+  }
+
+  let remainder = refundAmount;
+  const allocations = new Map<string, Decimal>();
+  for (const fundingWalletId of walletOrder) {
+    const amount = Decimal.min(
+      remainder,
+      Decimal.max(outstandingByWallet.get(fundingWalletId) ?? ZERO, ZERO),
+    ).toDecimalPlaces(4);
+    if (amount.gt(0)) allocations.set(fundingWalletId, amount);
+    remainder = remainder.minus(amount);
+    if (!remainder.gt(0)) break;
+  }
+  if (remainder.gt(0)) {
+    allocations.set(
+      defaultFundingWalletId,
+      (allocations.get(defaultFundingWalletId) ?? ZERO).plus(remainder),
+    );
+  }
+  return allocations;
+}
+
 export async function normalizeApprovedRefundAllocations(
   tx: TransactionClient,
   refundTransactionId: string,
 ) {
   const refund = await tx.transaction.findUnique({
     where: { id: refundTransactionId },
-    select: { originalTransactionId: true, amount: true, purpose: true, workflowStatus: true },
+    select: { walletId: true, amount: true, purpose: true, workflowStatus: true },
   });
-  if (refund?.purpose !== "credit_card_refund" || refund.workflowStatus !== "approved" || !refund.originalTransactionId) return;
+  if (refund?.purpose !== "credit_card_refund" || refund.workflowStatus !== "approved") return;
   await tx.$queryRaw(
-    Prisma.sql`SELECT "id" FROM "TRANSACTION" WHERE "id" = CAST(${refund.originalTransactionId} AS uuid) FOR UPDATE`,
+    Prisma.sql`SELECT "id" FROM "CREDIT_CARD_OBLIGATION_ENTRY" WHERE "card_wallet_id" = CAST(${refund.walletId} AS uuid) FOR UPDATE`,
   );
-  const original = await tx.transaction.findUniqueOrThrow({
-    where: { id: refund.originalTransactionId },
-    include: {
-      creditCardAllocations: true,
-      refundTransactions: {
-        where: { id: { not: refundTransactionId }, workflowStatus: "approved", deletedAt: null },
-        include: { creditCardAllocations: true },
-      },
-    },
-  });
-  const approvedBefore = original.refundTransactions.reduce(
-    (sum, item) => sum.plus(item.amount.toString()),
-    ZERO,
-  );
-  const isFinalRefund = approvedBefore.plus(refund.amount.toString()).eq(original.amount.toString());
-  let remainder = new Decimal(refund.amount.toString());
-  const allocations = original.creditCardAllocations.map((allocation, index) => {
-    const previouslyRefunded = original.refundTransactions.reduce(
-      (sum, item) => sum.plus(
-        item.creditCardAllocations.find(({ fundingWalletId }) => fundingWalletId === allocation.fundingWalletId)?.amount.toString() ?? 0,
+  const [profile, obligations] = await Promise.all([
+    tx.creditCardProfile.findUnique({
+      where: { walletId: refund.walletId },
+      select: { defaultFundingWalletId: true },
+    }),
+    tx.creditCardObligationEntry.findMany({
+      where: { cardWalletId: refund.walletId, transactionId: { not: refundTransactionId } },
+      include: { paymentAllocations: { select: { amount: true } } },
+      orderBy: [{ postedDate: "asc" }, { id: "asc" }],
+    }),
+  ]);
+  if (!profile) throw new AppError("CONFLICT", "Thẻ thiếu cấu hình ví thanh toán mặc định.");
+
+  const allocationByWallet = allocateRefundByFundingWallet(
+    obligations.map((obligation) => ({
+      id: obligation.id,
+      fundingWalletId: obligation.fundingWalletId,
+      amount: obligation.amount,
+      paid: obligation.paymentAllocations.reduce(
+        (sum, allocation) => sum.plus(allocation.amount.toString()),
+        ZERO,
       ),
-      ZERO,
-    );
-    const amount = index === original.creditCardAllocations.length - 1
-      ? remainder
-      : isFinalRefund
-        ? new Decimal(allocation.amount.toString()).minus(previouslyRefunded)
-        : new Decimal(refund.amount.toString())
-            .times(allocation.amount.toString())
-            .div(original.amount.toString())
-            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
-    remainder = remainder.minus(amount);
-    return { transactionId: refundTransactionId, fundingWalletId: allocation.fundingWalletId, amount };
+      effectiveDate: obligation.effectiveDate,
+      postedDate: obligation.postedDate,
+    })),
+    profile.defaultFundingWalletId,
+    new Decimal(refund.amount.toString()),
+  );
+
+  await tx.creditCardObligationEntry.deleteMany({
+    where: { transactionId: refundTransactionId },
   });
   await tx.creditCardAllocation.deleteMany({ where: { transactionId: refundTransactionId } });
-  await tx.creditCardAllocation.createMany({ data: allocations });
+  await tx.creditCardAllocation.createMany({
+    data: [...allocationByWallet].map(([fundingWalletId, amount]) => ({
+      transactionId: refundTransactionId,
+      fundingWalletId,
+      amount,
+    })),
+  });
 }

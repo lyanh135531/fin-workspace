@@ -155,73 +155,29 @@ export async function createCreditCardRefund(
   const workflowStatus = workflowStatusForCreation(member.role.code, timing);
 
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "TRANSACTION" WHERE "id" = CAST(${input.originalTransactionId} AS uuid) FOR UPDATE`,
-    );
-    const original = await tx.transaction.findFirst({
+    await lockWallets(tx, [input.cardWalletId]);
+    await lockCardObligations(tx, input.cardWalletId);
+    const card = await tx.workspaceWallet.findFirst({
       where: {
-        id: input.originalTransactionId,
-        type: "expense",
-        purpose: "standard",
-        installmentPlan: null,
-        workflowStatus: "approved",
-        deletedAt: null,
-        member: { workspaceId },
-        wallet: { kind: "credit_card", workspaceLinks: { some: { workspaceId } } },
+        workspaceId,
+        walletId: input.cardWalletId,
+        wallet: { kind: "credit_card", status: "active", deletedAt: null },
       },
-      include: {
-        creditCardAllocations: true,
-        refundTransactions: {
-          where: { deletedAt: null, workflowStatus: { not: "rejected" } },
-          select: { amount: true, creditCardAllocations: true },
-        },
-      },
+      select: { walletId: true },
     });
-    if (!original) throw new AppError("NOT_FOUND", "Không tìm thấy giao dịch thẻ có thể hoàn tiền.");
-
-    await lockWallets(tx, [original.walletId]);
-    await lockCardObligations(tx, original.walletId);
-    const alreadyRefunded = original.refundTransactions.reduce(
-      (sum, refund) => sum.plus(refund.amount.toString()),
-      ZERO,
-    );
-    if (alreadyRefunded.plus(input.amount).gt(original.amount.toString())) {
-      throw new AppError("VALIDATION_ERROR", "Tổng hoàn tiền vượt quá giao dịch gốc.");
-    }
-
-    let remainder = input.amount;
-    const isFinalRefund = alreadyRefunded.plus(input.amount).eq(original.amount.toString());
-    const allocations = original.creditCardAllocations.map((allocation, index) => {
-      const refundedForWallet = original.refundTransactions.reduce(
-        (sum, refund) => sum.plus(
-          refund.creditCardAllocations.find((item) => item.fundingWalletId === allocation.fundingWalletId)?.amount.toString() ?? 0,
-        ),
-        ZERO,
-      );
-      const amount = index === original.creditCardAllocations.length - 1
-        ? remainder
-        : isFinalRefund
-          ? new Decimal(allocation.amount.toString()).minus(refundedForWallet)
-          : input.amount.times(allocation.amount.toString()).div(original.amount.toString()).toDecimalPlaces(4, Decimal.ROUND_DOWN);
-      remainder = remainder.minus(amount);
-      return { fundingWalletId: allocation.fundingWalletId, amount };
-    });
+    if (!card) throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Thẻ không thuộc nhóm này hoặc không còn hoạt động.");
 
     const record = await tx.transaction.create({
       data: {
         memberId: member.id,
-        walletId: original.walletId,
-        categoryId: original.categoryId,
+        walletId: input.cardWalletId,
         type: "income",
         purpose: "credit_card_refund",
         amount: input.amount,
-        description: input.description ?? `Hoàn tiền: ${original.description ?? "giao dịch thẻ"}`,
+        description: input.description ?? "Hoàn tiền vào thẻ tín dụng",
         date: databaseDate(input.date),
         postedDate: databaseDate(input.postedDate ?? input.date),
         workflowStatus,
-        originalTransactionId: original.id,
-        jarCode: original.jarCode,
-        creditCardAllocations: { create: allocations },
       },
     });
     if (workflowStatus === "approved") {
@@ -237,7 +193,7 @@ export async function createCreditCardRefund(
         action: "credit_card.refund_created",
         entityType: "transaction",
         entityId: record.id,
-        metadata: { originalTransactionId: original.id, workflowStatus },
+        metadata: { cardWalletId: input.cardWalletId, workflowStatus },
       },
     });
     return record;

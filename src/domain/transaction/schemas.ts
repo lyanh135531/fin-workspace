@@ -100,7 +100,7 @@ export const createCreditCardPaymentSchema = z.object({
 });
 
 export const createCreditCardRefundSchema = z.object({
-  originalTransactionId: idSchema,
+  cardWalletId: idSchema,
   amount: positiveMoneySchema,
   date: businessDateSchema,
   postedDate: businessDateSchema.optional(),

@@ -98,13 +98,6 @@ export default async function CreditCardsPage() {
               },
             },
             include: {
-              refundTransactions: {
-                where: {
-                  deletedAt: null,
-                  workflowStatus: { not: "rejected" },
-                },
-                select: { amount: true },
-              },
               creditCardPaymentReservations: {
                 where: { releasedAt: null },
                 select: { sourceWalletId: true, amount: true },
@@ -258,28 +251,15 @@ export default async function CreditCardsPage() {
       ),
       activities: wallet.sourceTransactions.map((transaction) => ({
         id: transaction.id,
-        originalTransactionId: transaction.originalTransactionId,
         purpose: transaction.purpose,
         description: transaction.description,
         amount: transaction.amount.toString(),
         date: transaction.date.toISOString().slice(0, 10),
         status: transaction.workflowStatus,
-        refundableAmount: transaction.purpose === "standard"
-          ? Decimal.max(
-              new Decimal(transaction.amount.toString()).minus(
-                transaction.refundTransactions.reduce(
-                  (sum, refund) => sum.plus(refund.amount.toString()),
-                  ZERO,
-                ),
-              ),
-              ZERO,
-            ).toString()
-          : undefined,
         installmentEligible:
           transaction.purpose === "standard" &&
           transaction.workflowStatus === "approved" &&
           !transaction.installmentPlan &&
-          transaction.refundTransactions.length === 0 &&
           transaction.creditCardObligationEntries.every(
             (entry) =>
               entry.paymentAllocations.length === 0 &&
@@ -299,7 +279,7 @@ export default async function CreditCardsPage() {
               Thẻ tín dụng
             </h1>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
-              Tạo thẻ, quản lý sao kê, đăng ký trả góp và thanh toán tại một nơi.
+              Tạo thẻ, ghi nhận hoàn tiền, quản lý sao kê, trả góp và thanh toán tại một nơi.
             </p>
           </div>
           <CreditCardCreate
