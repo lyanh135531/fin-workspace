@@ -273,20 +273,22 @@ export default async function CreditCardsPage() {
   return (
     <PageContainer>
       <div className="min-[901px]:mx-auto min-[901px]:max-w-[76rem]">
-        <header className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-[var(--foreground)]">
+        <header className="mb-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold text-[var(--foreground)] truncate">
               Thẻ tín dụng
             </h1>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            <p className="hidden sm:block mt-1 text-sm text-[var(--text-secondary)]">
               Tạo thẻ, ghi nhận hoàn tiền, quản lý sao kê, trả góp và thanh toán tại một nơi.
             </p>
           </div>
-          <CreditCardCreate
-            currency={membership.workspace.baseCurrency}
-            canManage={workspaceCapabilities(membership.role.code).canManageWallets}
-            fundingWallets={fundingLinks.map(({ wallet }) => wallet)}
-          />
+          <div className="shrink-0">
+            <CreditCardCreate
+              currency={membership.workspace.baseCurrency}
+              canManage={workspaceCapabilities(membership.role.code).canManageWallets}
+              fundingWallets={fundingLinks.map(({ wallet }) => wallet)}
+            />
+          </div>
         </header>
         <CreditCardOverview
           workspaceId={workspaceId}
