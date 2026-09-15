@@ -330,174 +330,174 @@ function CreditCardPanel({
   return (
     <>
       <Card as="article" className="gap-0 p-4 sm:p-5 md:p-6 overflow-hidden">
-      {/* 1. Sleek Virtual Card & Main Metrics */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-6">
-        {/* Virtual Card Graphic */}
-        <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[var(--border)] bg-gradient-to-br from-[var(--surface-secondary)] via-[var(--surface)] to-[var(--surface-secondary)] p-4 sm:p-5 text-[var(--foreground)] transition-all select-none lg:w-[26rem] lg:shrink-0">
-          {/* Subtle ambient lighting */}
-          <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-[var(--primary)]/10 blur-xl" />
-          <div className="pointer-events-none absolute -left-6 -bottom-6 h-28 w-28 rounded-full bg-[var(--primary)]/5 blur-xl" />
+        {/* 2-Column Responsive Layout: stacked on mobile, 12-col grid on desktop */}
+        <div className="flex flex-col gap-5 lg:grid lg:grid-cols-12 lg:gap-6 lg:items-start">
+          {/* CỘT TRÁI (Col 5): Thẻ ảo & Chỉ số */}
+          <div className="flex flex-col gap-3.5 lg:col-span-5">
+            {/* Virtual Card Graphic */}
+            <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[var(--border)] bg-gradient-to-br from-[var(--surface-secondary)] via-[var(--surface)] to-[var(--surface-secondary)] p-4 sm:p-5 text-[var(--foreground)] transition-all select-none">
+              {/* Subtle ambient lighting */}
+              <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-[var(--primary)]/10 blur-xl" />
+              <div className="pointer-events-none absolute -left-6 -bottom-6 h-28 w-28 rounded-full bg-[var(--primary)]/5 blur-xl" />
 
-          {/* Top row: Chip + Waves + Brand Pill */}
-          {/* Top row: Chip + Waves on left; Refund Action + Brand Tag on right */}
-          <div className="relative z-10 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              {/* EMV Chip */}
-              <div className="grid h-5 w-7 place-items-center rounded border border-[var(--border)] bg-amber-500/15">
-                <div className="grid h-3 w-4.5 grid-cols-2 grid-rows-2 gap-0.5 opacity-70">
-                  <span className="rounded-tl border-b border-r border-amber-600/50" />
-                  <span className="rounded-tr border-b border-l border-amber-600/50" />
-                  <span className="rounded-bl border-t border-r border-amber-600/50" />
-                  <span className="rounded-br border-t border-l border-amber-600/50" />
+              {/* Top row: Chip + Waves + Brand Pill */}
+              <div className="relative z-10 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {/* EMV Chip */}
+                  <div className="grid h-5 w-7 place-items-center rounded border border-[var(--border)] bg-amber-500/15">
+                    <div className="grid h-3 w-4.5 grid-cols-2 grid-rows-2 gap-0.5 opacity-70">
+                      <span className="rounded-tl border-b border-r border-amber-600/50" />
+                      <span className="rounded-tr border-b border-l border-amber-600/50" />
+                      <span className="rounded-bl border-t border-r border-amber-600/50" />
+                      <span className="rounded-br border-t border-l border-amber-600/50" />
+                    </div>
+                  </div>
+                  {/* Contactless waves */}
+                  <svg
+                    className="h-3.5 w-3.5 text-[var(--text-muted)]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M8.5 16.5a5 5 0 0 1 0-9" />
+                    <path d="M12 19a8.5 8.5 0 0 0 0-14" />
+                    <path d="M15.5 21.5a12 12 0 0 0 0-19" />
+                  </svg>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <CardBrandBadge brand={brand} />
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <button
+                          type="button"
+                          aria-label={`Tùy chọn thẻ ${card.name}`}
+                          className="grid size-7 place-items-center rounded-full text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-secondary)]/80 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                      }
+                    >
+                      <MoreHorizontal size={16} aria-hidden="true" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      side="bottom"
+                      sideOffset={6}
+                      className="w-52 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
+                    >
+                      <DropdownMenuItem
+                        onClick={() => setRefundOpen(true)}
+                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                      >
+                        <RotateCcw className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                        <span>Ghi nhận hoàn tiền</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="my-1 -mx-1 bg-[var(--border)]" />
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => setConfirmDelete(true)}
+                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer"
+                      >
+                        <Trash2 className="size-4 shrink-0" aria-hidden="true" />
+                        <span>Xóa thẻ</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
-              {/* Contactless waves */}
-              <svg
-                className="h-3.5 w-3.5 text-[var(--text-muted)]"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M8.5 16.5a5 5 0 0 1 0-9" />
-                <path d="M12 19a8.5 8.5 0 0 0 0-14" />
-                <path d="M15.5 21.5a12 12 0 0 0 0-19" />
-              </svg>
-            </div>
 
-            <div className="flex items-center gap-1.5">
-              <CardBrandBadge brand={brand} />
+              {/* Card Name & Masked numbers */}
+              <div className="relative z-10 my-3">
+                <h3 className="truncate text-base font-semibold tracking-wide text-[var(--foreground)]">
+                  {card.name}
+                </h3>
+                <p className="mt-0.5 font-mono text-[11px] tracking-widest text-[var(--text-muted)]">
+                  ••••  ••••  ••••  ••••
+                </p>
+              </div>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <button
-                      type="button"
-                      aria-label={`Tùy chọn thẻ ${card.name}`}
-                      className="grid size-7 place-items-center rounded-full text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-secondary)]/80 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              {/* Main Debt / Balance */}
+              <div className="relative z-10 border-t border-[var(--border)] pt-2.5">
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <span className="block text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                      {hasCredit ? "Dư có (trả trước)" : "Tổng dư nợ hiện tại"}
+                    </span>
+                    <span className="text-xl font-bold tabular-nums text-[var(--foreground)]">
+                      {formatAmount(hasCredit ? card.creditBalance : card.debt)} {currency}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                      Chu kỳ
+                    </span>
+                    <span className="text-xs font-medium text-[var(--text-secondary)] tabular-nums">
+                      Chốt {card.statementClosingDay} · Hạn {card.paymentDueDay}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Credit Limit Utilization Progress Bar */}
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] mb-1">
+                    <span>Đã dùng {utilizationPercent}% hạn mức</span>
+                    <span className="tabular-nums font-medium text-[var(--foreground)]">
+                      Khả dụng: {formatAmount(card.availableCredit)} {currency}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        utilizationPercent > 80
+                          ? "bg-[var(--destructive)]"
+                          : utilizationPercent > 50
+                            ? "bg-amber-500"
+                            : "bg-[var(--primary)]"
+                      }`}
+                      style={{ width: `${utilizationPercent}%` }}
                     />
-                  }
-                >
-                  <MoreHorizontal size={16} aria-hidden="true" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  side="bottom"
-                  sideOffset={6}
-                  className="w-52 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
-                >
-                  <DropdownMenuItem
-                    onClick={() => setRefundOpen(true)}
-                    className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
-                  >
-                    <RotateCcw className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                    <span>Ghi nhận hoàn tiền</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="my-1 -mx-1 bg-[var(--border)]" />
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => setConfirmDelete(true)}
-                    className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer"
-                  >
-                    <Trash2 className="size-4 shrink-0" aria-hidden="true" />
-                    <span>Xóa thẻ</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-
-          {/* Card Name & Masked numbers */}
-          <div className="relative z-10 my-3">
-            <h3 className="truncate text-base font-semibold tracking-wide text-[var(--foreground)]">
-              {card.name}
-            </h3>
-            <p className="mt-0.5 font-mono text-[11px] tracking-widest text-[var(--text-muted)]">
-              ••••  ••••  ••••  ••••
-            </p>
-          </div>
-
-          {/* Main Debt / Balance */}
-          <div className="relative z-10 border-t border-[var(--border)] pt-2.5">
-            <div className="flex items-baseline justify-between">
-              <div>
-                <span className="block text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                  {hasCredit ? "Dư có (trả trước)" : "Tổng dư nợ hiện tại"}
-                </span>
-                <span className="text-xl font-bold tabular-nums text-[var(--foreground)]">
-                  {formatAmount(hasCredit ? card.creditBalance : card.debt)} {currency}
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="block text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                  Chu kỳ
-                </span>
-                <span className="text-xs font-medium text-[var(--text-secondary)] tabular-nums">
-                  Chốt {card.statementClosingDay} · Hạn {card.paymentDueDay}
-                </span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Credit Limit Utilization Progress Bar */}
-            <div className="mt-3">
-              <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] mb-1">
-                <span>Đã dùng {utilizationPercent}% hạn mức</span>
-                <span className="tabular-nums font-medium text-[var(--foreground)]">
-                  Khả dụng: {formatAmount(card.availableCredit)} {currency}
-                </span>
+            {/* Key Metrics Grid */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-2.5 sm:p-3">
+                <span className="block text-[11px] text-[var(--text-muted)]">Hạn mức thẻ</span>
+                <p className="mt-0.5 text-xs sm:text-sm font-semibold tabular-nums text-[var(--foreground)] truncate">
+                  {formatAmount(card.limit)} {currency}
+                </p>
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    utilizationPercent > 80
-                      ? "bg-[var(--destructive)]"
-                      : utilizationPercent > 50
-                        ? "bg-amber-500"
-                        : "bg-[var(--primary)]"
-                  }`}
-                  style={{ width: `${utilizationPercent}%` }}
-                />
+
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-2.5 sm:p-3">
+                <span className="block text-[11px] text-[var(--text-muted)]">Khả dụng</span>
+                <p className="mt-0.5 text-xs sm:text-sm font-semibold tabular-nums text-[var(--success)] truncate">
+                  {formatAmount(card.availableCredit)} {currency}
+                </p>
+              </div>
+
+              <div className="col-span-2 sm:col-span-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-2.5 sm:p-3">
+                <span className="block text-[11px] text-[var(--text-muted)]">Chờ thanh toán</span>
+                <p className="mt-0.5 text-xs sm:text-sm font-semibold tabular-nums text-[var(--foreground)] truncate">
+                  {formatAmount(card.pendingPayment)} {currency}
+                </p>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Bento Metrics */}
-        <div className="flex flex-1 flex-col justify-center gap-3">
-          {/* Key Metrics Grid */}
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3">
-              <span className="block text-[11px] text-[var(--text-muted)]">Hạn mức thẻ</span>
-              <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--foreground)] truncate">
-                {formatAmount(card.limit)} {currency}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3">
-              <span className="block text-[11px] text-[var(--text-muted)]">Khả dụng</span>
-              <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--success)] truncate">
-                {formatAmount(card.availableCredit)} {currency}
-              </p>
-            </div>
-
-            <div className="col-span-2 sm:col-span-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3">
-              <span className="block text-[11px] text-[var(--text-muted)]">Chờ thanh toán</span>
-              <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--foreground)] truncate">
-                {formatAmount(card.pendingPayment)} {currency}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Sao kê cần thanh toán (Statement Section) */}
-      <section
-        className="mt-5 border-t border-[var(--border)] pt-4"
-        aria-labelledby={`statement-${card.id}`}
-      >
+          {/* CỘT PHẢI (Col 7): Sao kê, Trả góp, Hoạt động & Lịch sử */}
+          <div className="flex flex-col gap-4 sm:gap-5 lg:col-span-7">
+            {/* 2. Sao kê cần thanh toán (Statement Section) */}
+            <section
+              className="border-t border-[var(--border)] pt-4 lg:border-t-0 lg:pt-0"
+              aria-labelledby={`statement-${card.id}`}
+            >
         <div className="flex items-center justify-between mb-2.5">
           <h4
             id={`statement-${card.id}`}
@@ -801,6 +801,44 @@ function CreditCardPanel({
         )}
       </section>
 
+      {/* 5. Lịch sử sao kê (Collapsible) */}
+      {card.statements.length > 0 && (
+        <details className="group border-t border-[var(--border)] pt-3">
+          <summary className="flex cursor-pointer items-center justify-between text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)] select-none">
+            <span>Lịch sử sao kê ({card.statements.length})</span>
+            <ChevronDown
+              size={14}
+              className="transition-transform duration-200 group-open:rotate-180"
+              aria-hidden="true"
+            />
+          </summary>
+          <div className="mt-2.5 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/15 px-3">
+            {card.statements.map((statement) => (
+              <div
+                key={statement.id}
+                className="flex items-center justify-between gap-4 py-2 text-xs"
+              >
+                <span className="text-[var(--text-secondary)]">
+                  Chốt {statement.cycleEndDate} · Hạn {statement.dueDate}
+                </span>
+                <span className="tabular-nums font-medium text-[var(--foreground)]">
+                  {formatAmount(statement.amount)} {currency} ·{" "}
+                  <span
+                    className={
+                      statement.status === "paid" ? "text-emerald-500" : "text-amber-500"
+                    }
+                  >
+                    {statement.status === "paid" ? "Đã trả" : "Chưa trả"}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  </div>
+
       {/* Ghi nhận hoàn tiền - Bottom Sheet trên Mobile, Drawer trên Desktop */}
       <Sheet
         open={refundOpen}
@@ -977,42 +1015,6 @@ function CreditCardPanel({
           </form>
         </SheetContent>
       </Sheet>
-
-      {/* 5. Lịch sử sao kê (Collapsible) */}
-      {card.statements.length > 0 && (
-        <details className="group mt-4 border-t border-[var(--border)] pt-3">
-          <summary className="flex cursor-pointer items-center justify-between text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)] select-none">
-            <span>Lịch sử sao kê ({card.statements.length})</span>
-            <ChevronDown
-              size={14}
-              className="transition-transform duration-200 group-open:rotate-180"
-              aria-hidden="true"
-            />
-          </summary>
-          <div className="mt-2.5 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/15 px-3">
-            {card.statements.map((statement) => (
-              <div
-                key={statement.id}
-                className="flex items-center justify-between gap-4 py-2 text-xs"
-              >
-                <span className="text-[var(--text-secondary)]">
-                  Chốt {statement.cycleEndDate} · Hạn {statement.dueDate}
-                </span>
-                <span className="tabular-nums font-medium text-[var(--foreground)]">
-                  {formatAmount(statement.amount)} {currency} ·{" "}
-                  <span
-                    className={
-                      statement.status === "paid" ? "text-emerald-500" : "text-amber-500"
-                    }
-                  >
-                    {statement.status === "paid" ? "Đã trả" : "Chưa trả"}
-                  </span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
       </Card>
 
       <ConfirmDelete

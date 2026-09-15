@@ -7,7 +7,6 @@ import {
   Banknote,
   CheckCircle2,
   ChevronRight,
-  Clock,
   CircleDollarSign,
   CreditCard,
   Eye,
@@ -1196,7 +1195,7 @@ export function WalletManagement({
 
           <div>
             <div
-              className="grid grid-cols-[1.25rem_2.5rem_minmax(10rem,1fr)_minmax(8rem,0.7fr)_6.5rem] items-center gap-3 border-t border-[var(--border)] py-2.5 text-[0.68rem] font-medium text-[var(--text-muted)] min-[1320px]:grid-cols-[1.25rem_2.5rem_minmax(12rem,1.25fr)_minmax(9rem,0.75fr)_minmax(8rem,0.65fr)_minmax(7rem,0.55fr)_6.5rem]"
+              className="grid grid-cols-[1.25rem_2.5rem_minmax(10rem,1fr)_minmax(8rem,0.7fr)_6.5rem] items-center gap-3 border-t border-[var(--border)] py-2.5 text-[0.68rem] font-medium text-[var(--text-muted)] min-[1320px]:grid-cols-[1.25rem_2.5rem_minmax(12rem,1.25fr)_minmax(9rem,0.75fr)_minmax(8rem,0.65fr)_6.5rem]"
               aria-hidden="true"
             >
               <span />
@@ -1204,7 +1203,6 @@ export function WalletManagement({
               <span>Ví</span>
               <span>Số dư</span>
               <span className="hidden min-[1320px]:block">Hoạt động</span>
-              <span className="hidden min-[1320px]:block">Cập nhật</span>
               <span className="text-right">Thao tác</span>
             </div>
 
@@ -1245,7 +1243,7 @@ export function WalletManagement({
                     }}
                     onDrop={(event) => handleWalletDrop(event, wallet.id)}
                     className={cn(
-                      "group/wallet grid min-h-[4.75rem] grid-cols-[1.25rem_2.5rem_minmax(10rem,1fr)_minmax(8rem,0.7fr)_6.5rem] items-center gap-3 border-t border-[var(--border)] py-3.5 transition-colors min-[1320px]:grid-cols-[1.25rem_2.5rem_minmax(12rem,1.25fr)_minmax(9rem,0.75fr)_minmax(8rem,0.65fr)_minmax(7rem,0.55fr)_6.5rem]",
+                      "group/wallet grid min-h-[4.75rem] grid-cols-[1.25rem_2.5rem_minmax(10rem,1fr)_minmax(8rem,0.7fr)_6.5rem] items-center gap-3 border-t border-[var(--border)] py-3.5 transition-colors min-[1320px]:grid-cols-[1.25rem_2.5rem_minmax(12rem,1.25fr)_minmax(9rem,0.75fr)_minmax(8rem,0.65fr)_6.5rem]",
                       isAdmin &&
                       filterStatus === "all" &&
                       !pending &&
@@ -1353,15 +1351,6 @@ export function WalletManagement({
                           Không có lịch định kỳ
                         </p>
                       )}
-                    </div>
-
-                    <div className="hidden min-w-0 items-center gap-1.5 text-[0.68rem] text-[var(--text-muted)] min-[1320px]:flex">
-                      <Clock size={13} aria-hidden />
-                      <span>
-                        {new Intl.DateTimeFormat("vi-VN", {
-                          dateStyle: "medium",
-                        }).format(new Date(wallet.updatedAt))}
-                      </span>
                     </div>
 
                     <div className="flex items-center justify-end gap-1">
