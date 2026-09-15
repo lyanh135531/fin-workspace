@@ -1026,7 +1026,11 @@ function CreditCardPanel({
         title={`Xóa thẻ “${card.name}”?`}
         description={
           !card.hasApprovedTransactions ? (
-            "Thẻ chưa phát sinh giao dịch được duyệt. Dư nợ hoặc số dư mở đầu đã nhập khi tạo thẻ sẽ được loại bỏ."
+            hasDebt ? (
+              `Thẻ chưa có giao dịch nào. Khoản dư nợ ban đầu (${formatAmount(card.debt)} ${currency}) sẽ bị hủy cùng với thẻ.`
+            ) : (
+              "Thẻ chưa có giao dịch nào. Bạn có chắc chắn muốn xóa thẻ này không?"
+            )
           ) : hasDebt ? (
             <span className="text-destructive block">
               Thẻ vẫn còn dư nợ {formatAmount(card.debt)} {currency}. Bạn cần thanh toán hết toàn bộ dư nợ trước khi xóa thẻ.
