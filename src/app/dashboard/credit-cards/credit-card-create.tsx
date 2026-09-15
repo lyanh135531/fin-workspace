@@ -484,11 +484,11 @@ export function CreditCardCreate({
       <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && close()}>
         <SheetContent
           side={isDesktop ? "right" : "bottom"}
-          placement="inset"
-          size="wide"
-          spacing="flush"
-          elevation="flat"
-          className="max-h-[82dvh] sm:max-h-none data-[side=bottom]:inset-x-3 data-[side=bottom]:bottom-3 data-[side=bottom]:max-w-lg data-[side=bottom]:mx-auto sm:data-[side=bottom]:inset-x-auto"
+          placement={isDesktop ? "inset" : "edge"}
+          size={isDesktop ? "wide" : "default"}
+          spacing={isDesktop ? "flush" : "default"}
+          elevation={isDesktop ? "flat" : "raised"}
+          className={isDesktop ? undefined : "quick-transaction-sheet"}
         >
           <form
             className="flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -503,7 +503,7 @@ export function CreditCardCreate({
 
             {/* Mobile Layout: Uses standard Base Tabs with TabsContent (matching financial-plans-manager) */}
             {!isDesktop ? (
-              <div className="flex-1 overflow-y-auto p-4 overscroll-contain pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+              <div className="flex-1 overflow-y-auto p-4 overscroll-contain pb-6">
                 <Tabs
                   value={activeTab}
                   onValueChange={(val) => setActiveTab(val as "card" | "billing")}
@@ -541,7 +541,7 @@ export function CreditCardCreate({
               </div>
             ) : (
               /* Desktop Layout: 2-column side-by-side */
-              <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-4 sm:p-6 md:grid-cols-2 md:gap-8 overscroll-contain pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+              <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-4 sm:p-6 md:grid-cols-2 md:gap-8 overscroll-contain">
                 <div className="space-y-4">
                   {cardFields}
                 </div>
@@ -553,6 +553,7 @@ export function CreditCardCreate({
 
             {/* Standard SheetFooter (Mobile: Single action, Cancel hidden by base SheetFooter convention) */}
             <SheetFooter
+              className="pb-[max(1.25rem,env(safe-area-inset-bottom))] px-4 sm:px-6 py-3 sm:py-3.5"
               onCancel={close}
               cancelLabel="Hủy"
               submitLabel={
