@@ -373,7 +373,6 @@ function CreditCardPanel({
 
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  nativeButton={false}
                   render={
                     <button
                       type="button"
