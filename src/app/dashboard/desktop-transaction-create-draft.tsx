@@ -20,8 +20,11 @@ import {
   ArrowLeftRight,
   ArrowUpRight,
   CalendarDays,
+  CreditCard,
   Plus,
+  Split,
   Trash2,
+  Wallet,
 } from "lucide-react";
 
 export type TransactionType = "income" | "expense" | "transfer";
@@ -128,7 +131,71 @@ export function DesktopTransactionCreateDraft({
 }) {
   const selectedWallet = wallets.find((wallet) => wallet.id === draft.walletId);
   const assetWallets = wallets.filter((wallet) => wallet.kind !== "credit_card");
+  const sortedWallets = [
+    ...wallets.filter((wallet) => wallet.kind !== "credit_card"),
+    ...wallets.filter((wallet) => wallet.kind === "credit_card"),
+  ];
   const isCreditCardExpense = draft.type === "expense" && selectedWallet?.kind === "credit_card";
+
+  function walletSelectOption(
+    wallet: TransactionWalletOption,
+    options?: { disabled?: boolean },
+  ) {
+    const isCard = wallet.kind === "credit_card";
+    return {
+      value: wallet.id,
+      label: wallet.name,
+      content: (
+        <div className="flex w-full items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-2">
+            {isCard ? (
+              <CreditCard
+                className="size-4 shrink-0 text-[var(--primary)]"
+                aria-hidden="true"
+              />
+            ) : (
+              <Wallet
+                className="size-4 shrink-0 text-[var(--text-muted)]"
+                aria-hidden="true"
+              />
+            )}
+            <span className="truncate">{wallet.name}</span>
+          </span>
+          <span
+            className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+              isCard
+                ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                : "bg-[var(--surface-secondary)] text-[var(--text-muted)]"
+            }`}
+          >
+            {isCard ? "Thẻ tín dụng" : "Ví tài sản"}
+          </span>
+        </div>
+      ),
+      selectedContent: (
+        <span className="flex min-w-0 items-center gap-2">
+          {isCard ? (
+            <CreditCard
+              className="size-4 shrink-0 text-[var(--primary)]"
+              aria-hidden="true"
+            />
+          ) : (
+            <Wallet
+              className="size-4 shrink-0 text-[var(--text-muted)]"
+              aria-hidden="true"
+            />
+          )}
+          <span className="truncate">{wallet.name}</span>
+          {isCard && (
+            <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
+              Thẻ tín dụng
+            </span>
+          )}
+        </span>
+      ),
+      disabled: options?.disabled,
+    };
+  }
 
   function allocationForCard(wallet: TransactionWalletOption, amount: string) {
     const fundingWalletId = wallet.defaultFundingWalletId ?? assetWallets[0]?.id;
@@ -210,7 +277,7 @@ export function DesktopTransactionCreateDraft({
           </TabsList>
         </Tabs>
 
-        <div className="mt-6 grid grid-cols-[1.08fr_0.92fr] gap-7">
+        <div className="mt-6 grid grid-cols-[1fr_1fr] gap-7">
           <section className="space-y-4" aria-labelledby="transaction-core-title">
             <div>
               <h3
@@ -222,12 +289,13 @@ export function DesktopTransactionCreateDraft({
                   size={15}
                   aria-hidden="true"
                 />
-                Giao dịch
+                Giao dịch & Nguồn tiền
               </h3>
               <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">
-                Số tiền và nguồn ví thực hiện.
+                Số tiền và phương thức thanh toán.
               </p>
             </div>
+
             <MoneyInput
               autoFocus
               required
@@ -242,6 +310,7 @@ export function DesktopTransactionCreateDraft({
               placeholder="0"
               label="Số tiền"
             />
+
             <Select
               disabled={busy || !wallets.length}
               value={draft.walletId}
@@ -259,93 +328,198 @@ export function DesktopTransactionCreateDraft({
                 });
               }}
               label="Thanh toán bằng"
-              options={wallets.map((item) => ({
-                value: item.id,
-                label: item.name,
-                disabled: item.kind === "credit_card" && draft.type !== "expense",
-              }))}
+              options={sortedWallets.map((item) =>
+                walletSelectOption(item, {
+                  disabled: item.kind === "credit_card" && draft.type !== "expense",
+                }),
+              )}
             />
-            {isCreditCardExpense && (
-              <fieldset className="space-y-3 border-t border-[var(--border)] pt-4">
-                <legend className="text-xs font-semibold text-[var(--foreground)]">Nguồn trả thẻ</legend>
-                <p className="text-xs text-[var(--text-muted)]">Tiền thật chỉ giảm khi thanh toán sao kê; phân bổ này xác định mỗi ví phải chịu bao nhiêu.</p>
-                {draft.allocations.map((allocation, index) => (
-                  <div key={`${allocation.walletId}:${index}`} className="grid grid-cols-[1fr_0.8fr_auto] items-end gap-2">
-                    <Select
-                      disabled={busy}
-                      value={allocation.walletId}
-                      onValueChange={(walletId) => onChange({
-                        allocations: draft.allocations.map((item, itemIndex) => itemIndex === index ? { ...item, walletId } : item),
-                      })}
-                      label={`Ví nguồn ${index + 1}`}
-                      options={assetWallets.map((wallet) => ({
-                        value: wallet.id,
-                        label: wallet.name,
-                        disabled: draft.allocations.some((item, itemIndex) => itemIndex !== index && item.walletId === wallet.id),
-                      }))}
-                    />
-                    <MoneyInput
-                      disabled={busy}
-                      value={allocation.amount}
-                      onValueChange={(amount) => onChange({
-                        allocations: draft.allocations.map((item, itemIndex) => itemIndex === index ? { ...item, amount } : item),
-                      })}
-                      label="Số tiền"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={busy || draft.allocations.length === 1}
-                      aria-label={`Xóa nguồn trả thẻ ${index + 1}`}
-                      onClick={() => onChange({ allocations: draft.allocations.filter((_, itemIndex) => itemIndex !== index) })}
-                    >
-                      <Trash2 aria-hidden="true" />
-                    </Button>
-                  </div>
-                ))}
-                {draft.allocations.length < assetWallets.length && (
-                  <Button
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() => {
-                      const nextWallet = assetWallets.find((wallet) => !draft.allocations.some((item) => item.walletId === wallet.id));
-                      if (nextWallet) onChange({ allocations: [...draft.allocations, { walletId: nextWallet.id, amount: "" }] });
-                    }}
-                  >
-                    <Plus aria-hidden="true" />
-                    Chia thêm ví
-                  </Button>
-                )}
-              </fieldset>
-            )}
-            {draft.type === "transfer" ? (
+
+            {draft.type === "transfer" && (
               <Select
                 disabled={busy || !wallets.length}
                 value={draft.toWalletId}
                 onValueChange={(toWalletId) => onChange({ toWalletId })}
                 label="Ví nhận"
-                options={wallets.map((item) => ({
-                  value: item.id,
-                  label: item.name,
-                  disabled: item.id === draft.walletId || item.kind === "credit_card",
-                }))}
-              />
-            ) : (
-              <CategoryTreeSelect
-                disabled={
-                  busy ||
-                  !categoriesForTransactionType(categories, draft.type).length
-                }
-                value={draft.categoryId}
-                onValueChange={(categoryId) => onChange({ categoryId })}
-                label="Danh mục"
-                required={draft.type === "expense"}
-                categories={categoriesForTransactionType(
-                  categories,
-                  draft.type,
+                options={sortedWallets.map((item) =>
+                  walletSelectOption(item, {
+                    disabled: item.id === draft.walletId || item.kind === "credit_card",
+                  }),
                 )}
-                emptyOption={draft.type === "expense" ? undefined : { value: "none", label: "Không chọn" }}
               />
+            )}
+
+            {isCreditCardExpense && (
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 space-y-2.5">
+                {draft.allocations.length <= 1 ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--foreground)]">
+                        <CreditCard size={13} className="text-[var(--primary)]" aria-hidden="true" />
+                        Ví trả nợ thẻ
+                      </span>
+                      {assetWallets.length > 1 && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            const nextWallet = assetWallets.find(
+                              (w) => w.id !== draft.allocations[0]?.walletId,
+                            );
+                            if (nextWallet) {
+                              onChange({
+                                allocations: [
+                                  {
+                                    walletId:
+                                      draft.allocations[0]?.walletId ||
+                                      assetWallets[0].id,
+                                    amount: "",
+                                  },
+                                  { walletId: nextWallet.id, amount: "" },
+                                ],
+                              });
+                            }
+                          }}
+                          className="text-[11px] font-medium text-[var(--primary)] hover:underline cursor-pointer"
+                        >
+                          + Chia nhiều ví
+                        </button>
+                      )}
+                    </div>
+                    <Select
+                      disabled={busy}
+                      value={
+                        draft.allocations[0]?.walletId ||
+                        selectedWallet?.defaultFundingWalletId ||
+                        assetWallets[0]?.id
+                      }
+                      onValueChange={(walletId) => {
+                        onChange({
+                          allocations: [{ walletId, amount: draft.amount }],
+                        });
+                      }}
+                      options={assetWallets.map((wallet) =>
+                        walletSelectOption(wallet),
+                      )}
+                    />
+                    <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
+                      Tiền trong ví chỉ bị trừ khi bạn thanh toán thẻ.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--foreground)]">
+                        <Split size={13} className="text-[var(--primary)]" aria-hidden="true" />
+                        Phân bổ ví trả nợ thẻ ({draft.allocations.length} ví)
+                      </span>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          const primaryWalletId =
+                            draft.allocations[0]?.walletId ||
+                            selectedWallet?.defaultFundingWalletId ||
+                            assetWallets[0]?.id;
+                          onChange({
+                            allocations: primaryWalletId
+                              ? [{ walletId: primaryWalletId, amount: draft.amount }]
+                              : [],
+                          });
+                        }}
+                        className="text-[11px] font-medium text-[var(--text-muted)] hover:text-[var(--foreground)] hover:underline cursor-pointer"
+                      >
+                        Thu gọn (1 ví)
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {draft.allocations.map((allocation, index) => (
+                        <div
+                          key={`${allocation.walletId}:${index}`}
+                          className="grid grid-cols-[1fr_0.85fr_auto] items-end gap-2"
+                        >
+                          <Select
+                            disabled={busy}
+                            value={allocation.walletId}
+                            onValueChange={(walletId) =>
+                              onChange({
+                                allocations: draft.allocations.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, walletId } : item,
+                                ),
+                              })
+                            }
+                            label={index === 0 ? "Ví nguồn" : undefined}
+                            options={assetWallets.map((wallet) =>
+                              walletSelectOption(wallet, {
+                                disabled: draft.allocations.some(
+                                  (item, itemIndex) =>
+                                    itemIndex !== index && item.walletId === wallet.id,
+                                ),
+                              }),
+                            )}
+                          />
+                          <MoneyInput
+                            disabled={busy}
+                            value={allocation.amount}
+                            onValueChange={(amount) =>
+                              onChange({
+                                allocations: draft.allocations.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, amount } : item,
+                                ),
+                              })
+                            }
+                            label={index === 0 ? "Số tiền" : undefined}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={busy || draft.allocations.length === 1}
+                            aria-label={`Xóa nguồn trả thẻ ${index + 1}`}
+                            onClick={() =>
+                              onChange({
+                                allocations: draft.allocations.filter(
+                                  (_, itemIndex) => itemIndex !== index,
+                                ),
+                              })
+                            }
+                          >
+                            <Trash2 size={14} aria-hidden="true" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {draft.allocations.length < assetWallets.length && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        className="h-8 text-xs gap-1 w-full"
+                        onClick={() => {
+                          const nextWallet = assetWallets.find(
+                            (wallet) =>
+                              !draft.allocations.some(
+                                (item) => item.walletId === wallet.id,
+                              ),
+                          );
+                          if (nextWallet)
+                            onChange({
+                              allocations: [
+                                ...draft.allocations,
+                                { walletId: nextWallet.id, amount: "" },
+                              ],
+                            });
+                        }}
+                      >
+                        <Plus size={13} aria-hidden="true" />
+                        Chia thêm ví
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
             )}
           </section>
 
@@ -366,9 +540,32 @@ export function DesktopTransactionCreateDraft({
                 Thông tin ghi nhận
               </h3>
               <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">
-                Ngày phát sinh và nội dung nhận diện.
+                Danh mục phân loại, thời gian và ghi chú.
               </p>
             </div>
+
+            {draft.type !== "transfer" && (
+              <CategoryTreeSelect
+                disabled={
+                  busy ||
+                  !categoriesForTransactionType(categories, draft.type).length
+                }
+                value={draft.categoryId}
+                onValueChange={(categoryId) => onChange({ categoryId })}
+                label="Danh mục"
+                required={draft.type === "expense"}
+                categories={categoriesForTransactionType(
+                  categories,
+                  draft.type,
+                )}
+                emptyOption={
+                  draft.type === "expense"
+                    ? undefined
+                    : { value: "none", label: "Không chọn" }
+                }
+              />
+            )}
+
             <DatePicker
               disabled={busy}
               label="Ngày giao dịch"
