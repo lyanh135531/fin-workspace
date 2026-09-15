@@ -4,9 +4,14 @@ import Decimal from "decimal.js";
 import {
   AlertTriangle,
   ArrowLeftRight,
+  Banknote,
   CheckCircle2,
+  ChevronRight,
   Clock,
   CircleDollarSign,
+  CreditCard,
+  Eye,
+  EyeOff,
   GripVertical,
   Landmark,
   PauseCircle,
@@ -16,6 +21,7 @@ import {
   Repeat2,
   Trash2,
   TrendingUp,
+  Wallet,
   WalletCards,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -295,6 +301,109 @@ function moveWallet(
   ];
 }
 
+const WALLET_PALETTES = [
+  {
+    bg: "bg-emerald-500",
+    text: "text-emerald-500",
+    iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  },
+  {
+    bg: "bg-sky-500",
+    text: "text-sky-500",
+    iconBg: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  },
+  {
+    bg: "bg-violet-500",
+    text: "text-violet-500",
+    iconBg: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  },
+  {
+    bg: "bg-amber-500",
+    text: "text-amber-500",
+    iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  },
+  {
+    bg: "bg-rose-500",
+    text: "text-rose-500",
+    iconBg: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+  },
+];
+
+function getWalletVisual(wallet: WalletItem, index: number) {
+  if (wallet.kind === "credit_card") {
+    return {
+      icon: CreditCard,
+      iconBg:
+        "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20",
+      palette: {
+        bg: "bg-rose-500",
+        text: "text-rose-500",
+        iconBg: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+      },
+      kindBadge: "Thẻ tín dụng",
+      kindBadgeClass:
+        "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20",
+      balanceLabel: "Dư nợ",
+      balanceColor: "text-rose-600 dark:text-rose-400",
+      isCreditCard: true,
+    };
+  }
+
+  const lower = wallet.name.toLowerCase();
+  if (
+    lower.includes("tiền") ||
+    lower.includes("mặt") ||
+    lower.includes("cash")
+  ) {
+    return {
+      icon: Banknote,
+      iconBg:
+        "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20",
+      palette: WALLET_PALETTES[0],
+      kindBadge: "Tiền mặt",
+      kindBadgeClass:
+        "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20",
+      balanceLabel: "Khả dụng",
+      balanceColor: "text-[var(--foreground)]",
+      isCreditCard: false,
+    };
+  }
+  if (
+    lower.includes("tech") ||
+    lower.includes("bank") ||
+    lower.includes("vcb") ||
+    lower.includes("tcb") ||
+    lower.includes("mb") ||
+    lower.includes("acb") ||
+    lower.includes("ngân hàng")
+  ) {
+    return {
+      icon: Landmark,
+      iconBg:
+        "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20",
+      palette: WALLET_PALETTES[1],
+      kindBadge: "Ngân hàng",
+      kindBadgeClass:
+        "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20",
+      balanceLabel: "Khả dụng",
+      balanceColor: "text-[var(--foreground)]",
+      isCreditCard: false,
+    };
+  }
+  const palette = WALLET_PALETTES[(index + 2) % WALLET_PALETTES.length];
+  return {
+    icon: Wallet,
+    iconBg: palette.iconBg,
+    palette,
+    kindBadge: "Ví tài sản",
+    kindBadgeClass:
+      "bg-[var(--surface-secondary)] text-[var(--text-secondary)] border border-[var(--border)]",
+    balanceLabel: "Khả dụng",
+    balanceColor: "text-[var(--foreground)]",
+    isCreditCard: false,
+  };
+}
+
 export function WalletManagement({
   workspace,
   wallets,
@@ -330,8 +439,42 @@ export function WalletManagement({
   const [mobileMenuWalletId, setMobileMenuWalletId] = useState<string | null>(
     null,
   );
+  const [filterKind, setFilterKind] = useState<"all" | "asset" | "credit_card">(
+    "all",
+  );
+  const [showBalance, setShowBalance] = useState(true);
   const [isDesktop, setIsDesktop] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const {
+    assetWallets,
+    creditWallets,
+    totalAssetBalance,
+    totalCreditDebt,
+  } = useMemo(() => {
+    const assets = wallets.filter(
+      (w) => w.kind !== "credit_card" && w.status === "active",
+    );
+    const credits = wallets.filter(
+      (w) => w.kind === "credit_card" && w.status === "active",
+    );
+
+    const assetSum = assets.reduce(
+      (acc, w) => acc.plus(new Decimal(w.currentBalance)),
+      new Decimal(0),
+    );
+    const debtSum = credits.reduce(
+      (acc, w) => acc.plus(new Decimal(w.currentBalance)),
+      new Decimal(0),
+    );
+
+    return {
+      assetWallets: assets,
+      creditWallets: credits,
+      totalAssetBalance: assetSum,
+      totalCreditDebt: debtSum,
+    };
+  }, [wallets]);
 
   useEffect(() => {
     const query = window.matchMedia("(min-width: 901px)");
@@ -344,7 +487,9 @@ export function WalletManagement({
   const activeCount = wallets.filter(
     (wallet) => wallet.status === "active",
   ).length;
-  const activeWallets = wallets.filter((wallet) => wallet.status === "active" && wallet.kind === "asset");
+  const activeWallets = wallets.filter(
+    (wallet) => wallet.status === "active" && wallet.kind === "asset",
+  );
   const transactionCount = wallets.reduce(
     (total, wallet) => total + wallet.transactionCount,
     0,
@@ -382,13 +527,39 @@ export function WalletManagement({
       return false;
     }
   })();
+  const createFundingRequiresSourceWallet = (() => {
+    try {
+      return (
+        createFundingAmount.trim() !== "" &&
+        new Decimal(createFundingAmount).gt(0)
+      );
+    } catch {
+      return false;
+    }
+  })();
 
   const filteredWallets = useMemo(
     () =>
-      orderedWallets.filter(
-        (wallet) => filterStatus === "all" || wallet.status === filterStatus,
-      ),
-    [orderedWallets, filterStatus],
+      orderedWallets.filter((wallet) => {
+        const matchStatus =
+          filterStatus === "all" || wallet.status === filterStatus;
+        const matchKind =
+          filterKind === "all" ||
+          (filterKind === "asset" && wallet.kind !== "credit_card") ||
+          (filterKind === "credit_card" && wallet.kind === "credit_card");
+        return matchStatus && matchKind;
+      }),
+    [orderedWallets, filterStatus, filterKind],
+  );
+
+  const filteredAssetWallets = useMemo(
+    () => filteredWallets.filter((w) => w.kind !== "credit_card"),
+    [filteredWallets],
+  );
+
+  const filteredCreditWallets = useMemo(
+    () => filteredWallets.filter((w) => w.kind === "credit_card"),
+    [filteredWallets],
   );
 
   function saveWalletOrder(
@@ -566,6 +737,178 @@ export function WalletManagement({
     });
   }
 
+  function renderWalletCard(wallet: WalletItem, index: number) {
+    const isActive = wallet.status === "active";
+    const menuOpen = mobileMenuWalletId === wallet.id;
+    const visual = getWalletVisual(wallet, index);
+    const Icon = visual.icon;
+    const isCredit = wallet.kind === "credit_card";
+
+    const rowContent = (
+      <div className="flex items-center justify-between gap-3 px-3.5 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-xl",
+              visual.iconBg,
+            )}
+            aria-hidden
+          >
+            <Icon size={18} />
+          </span>
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-semibold text-[var(--foreground)]">
+              {wallet.name}
+            </h3>
+            <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+              {!isActive ? (
+                <span className="inline-flex items-center rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                  Tạm ngưng
+                </span>
+              ) : isCredit ? (
+                <span>Thẻ tín dụng</span>
+              ) : (
+                <span>{visual.kindBadge}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="text-right">
+            <div
+              className={cn(
+                "text-sm font-bold tabular-nums tracking-tight",
+                isCredit
+                  ? "text-rose-600 dark:text-rose-400"
+                  : "text-[var(--foreground)]",
+              )}
+            >
+              {showBalance
+                ? `${isCredit && new Decimal(wallet.currentBalance).gt(0) ? "-" : ""}${formatAmount(wallet.currentBalance)}`
+                : "••••••"}
+              <span className="ml-1 text-[10px] font-medium uppercase text-[var(--text-muted)]">
+                {workspace.currency}
+              </span>
+            </div>
+          </div>
+          {isAdmin && (
+            <ChevronRight
+              size={15}
+              className="text-[var(--text-muted)]/40"
+              aria-hidden
+            />
+          )}
+        </div>
+      </div>
+    );
+
+    if (!isAdmin) {
+      return (
+        <article
+          key={wallet.id}
+          className={cn(
+            "overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]",
+            !isActive && "opacity-75 bg-[var(--surface-secondary)]",
+          )}
+        >
+          {rowContent}
+        </article>
+      );
+    }
+
+    return (
+      <DropdownMenu
+        key={wallet.id}
+        open={menuOpen}
+        onOpenChange={(open) =>
+          setMobileMenuWalletId(open ? wallet.id : null)
+        }
+      >
+        <SpotlightTrigger
+          open={menuOpen}
+          onOpenChange={(open) =>
+            setMobileMenuWalletId(open ? wallet.id : null)
+          }
+          render={
+            <article
+              className={cn(
+                "cursor-pointer select-none overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] transition-all duration-150 active:scale-[0.99] active:bg-[var(--surface-hover)]",
+                !isActive && "opacity-75 bg-[var(--surface-secondary)]",
+                menuOpen &&
+                  "border-[var(--primary)] ring-1 ring-[var(--primary)]",
+              )}
+              aria-label={`${wallet.name}, ${visual.balanceLabel} ${formatAmount(wallet.currentBalance)} ${workspace.currency}. Chạm để mở menu quản lý.`}
+            />
+          }
+          dismissLabel={`Đóng menu quản lý ${wallet.name}`}
+        >
+          {(spotlightTrigger) => (
+            <DropdownMenuTrigger
+              nativeButton={false}
+              render={spotlightTrigger}
+            >
+              {rowContent}
+            </DropdownMenuTrigger>
+          )}
+        </SpotlightTrigger>
+
+        <DropdownMenuContent
+          align="end"
+          side="bottom"
+          sideOffset={6}
+          className="w-52 rounded-xl p-1.5"
+        >
+          <DropdownMenuItem
+            disabled={pending}
+            onClick={() => {
+              setMobileMenuWalletId(null);
+              setEditingWallet(wallet);
+            }}
+          >
+            <Pencil aria-hidden />
+            Chỉnh sửa ví
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant={isActive ? "destructive" : "default"}
+            disabled={pending}
+            onClick={() => {
+              if (isActive) {
+                openMobileDeactivateConfirmation(wallet);
+              } else {
+                setMobileMenuWalletId(null);
+                activateWallet(wallet);
+              }
+            }}
+          >
+            {isActive ? (
+              <PauseCircle aria-hidden />
+            ) : (
+              <PlayCircle aria-hidden />
+            )}
+            {isActive ? "Tạm ngưng ví" : "Kích hoạt lại"}
+          </DropdownMenuItem>
+          {!isActive && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={pending}
+                onClick={() => {
+                  setMobileMenuWalletId(null);
+                  requestDestructiveOperation(wallet, "delete");
+                }}
+              >
+                <Trash2 aria-hidden />
+                Xóa ví
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   return (
     <div className="wallet-management-shell space-y-6">
       <div className="wallet-mobile-dashboard">
@@ -588,248 +931,130 @@ export function WalletManagement({
           )}
         </header>
 
-        <section className="wallet-mobile-balance" aria-label="Tổng tài sản">
-          <div className="wallet-mobile-balance-heading">
-            <span className="wallet-mobile-balance-icon" aria-hidden>
-              <Landmark size={17} />
-            </span>
-            <p>Tổng số dư khả dụng</p>
-          </div>
-          <p className="wallet-mobile-balance-amount">
-            {formatAmount(totalBalance)}
-            <span>{workspace.currency}</span>
-          </p>
-          <dl className="wallet-mobile-balance-meta">
-            <div>
-              <dt>Đang hoạt động</dt>
-              <dd>
-                {activeCount}/{wallets.length} ví
-              </dd>
-            </div>
-            <div>
-              <dt>Tổng giao dịch</dt>
-              <dd>{transactionCount}</dd>
-            </div>
-          </dl>
-        </section>
-
+        {/* Hero Balance Card - Compact & Minimalist */}
         <section
-          className="wallet-mobile-collection"
-          aria-labelledby="wallet-mobile-list-title"
+          className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"
+          aria-label="Tổng tài sản"
         >
-          <div className="wallet-mobile-list-heading">
-            <div>
-              <h2 id="wallet-mobile-list-title">Ví của bạn</h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
+              <span className="flex size-6 items-center justify-center rounded-lg bg-[var(--primary)]/10 text-[var(--primary)]">
+                <Landmark size={13} />
+              </span>
+              <span>Tổng số dư khả dụng ròng</span>
             </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7 rounded-lg text-[var(--text-muted)] hover:text-[var(--foreground)]"
+              onClick={() => setShowBalance((prev) => !prev)}
+              aria-label={showBalance ? "Ẩn số dư" : "Hiện số dư"}
+            >
+              {showBalance ? <Eye size={15} /> : <EyeOff size={15} />}
+            </Button>
           </div>
 
-          <Tabs
-            className="wallet-mobile-filters workspace-settings-tabs"
-            value={filterStatus}
-            onValueChange={(value) =>
-              setFilterStatus(value as "all" | "active" | "deactive")
-            }
-          >
-            <TabsList
-              variant="navigation"
-              className={cn(
-                "w-full",
-                wallets.length - activeCount > 0
-                  ? "grid-cols-3"
-                  : "grid-cols-2",
-              )}
-            >
-              <TabsTrigger value="all">
-                <WalletCards aria-hidden />
-                <span>Tất cả</span>
-              </TabsTrigger>
-              <TabsTrigger value="active">
-                <CheckCircle2 aria-hidden />
-                <span>Hoạt động</span>
-              </TabsTrigger>
-              {wallets.length - activeCount > 0 && (
-                <TabsTrigger value="deactive">
-                  <PauseCircle aria-hidden />
-                  <span>Tạm ngưng</span>
-                </TabsTrigger>
-              )}
-            </TabsList>
-          </Tabs>
+          <div className="mt-1.5 flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-[var(--foreground)]">
+              {showBalance ? formatAmount(totalBalance) : "••••••••"}
+            </span>
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+              {workspace.currency}
+            </span>
+          </div>
 
-          <div className="wallet-mobile-list rounded-2xl">
-            {filteredWallets.map((wallet) => {
-              const isActive = wallet.status === "active";
-              const menuOpen = mobileMenuWalletId === wallet.id;
-              const rowContent = (
-                <>
-                  <div className="wallet-mobile-item-main">
-                    <span className="wallet-mobile-item-icon" aria-hidden>
-                      <WalletCards size={18} />
-                    </span>
-                    <div className="wallet-mobile-item-identity">
-                      <h3>{wallet.name}</h3>
-                      <p>
-                        <span aria-hidden />
-                        {isActive ? "Đang hoạt động" : "Tạm ngưng"}
-                      </p>
-                    </div>
-                    <div className="wallet-mobile-item-balance">
-                      <strong>{formatAmount(wallet.currentBalance)}</strong>
-                      <span>{workspace.currency}</span>
-                    </div>
-                  </div>
+          {/* Quick breakdown: Tài sản vs Dư nợ thẻ */}
+          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-emerald-600 dark:text-emerald-400">
+              <span className="size-1.5 rounded-full bg-emerald-500" />
+              <span>Tài sản:</span>
+              <strong className="tabular-nums font-bold">
+                {showBalance ? `+${formatAmount(totalAssetBalance)}` : "••••••"}
+              </strong>
+            </div>
 
-                  <footer className="wallet-mobile-item-footer">
-                    <div>
-                      <span>{wallet.transactionCount} giao dịch</span>
-                      {wallet.recurringTransactionCount > 0 && (
-                        <span className="wallet-mobile-recurring">
-                          <Repeat2 size={12} />
-                          {wallet.recurringTransactionCount} định kỳ
-                        </span>
-                      )}
-                    </div>
-                    {isAdmin && (
-                      <span className="wallet-mobile-item-hint">
-                        Chạm để quản lý
-                      </span>
-                    )}
-                  </footer>
-                </>
-              );
-
-              if (!isAdmin) {
-                return (
-                  <article
-                    key={wallet.id}
-                    className={cn(
-                      "wallet-mobile-item",
-                      !isActive && "is-paused",
-                    )}
-                  >
-                    {rowContent}
-                  </article>
-                );
-              }
-
-              return (
-                <DropdownMenu
-                  key={wallet.id}
-                  open={menuOpen}
-                  onOpenChange={(open) =>
-                    setMobileMenuWalletId(open ? wallet.id : null)
-                  }
-                >
-                  <SpotlightTrigger
-                    open={menuOpen}
-                    onOpenChange={(open) =>
-                      setMobileMenuWalletId(open ? wallet.id : null)
-                    }
-                    render={
-                      <article
-                        className={cn(
-                          "wallet-mobile-item wallet-mobile-item-interactive rounded-xl overflow-hidden",
-                          !isActive && "is-paused",
-                        )}
-                        aria-label={`${wallet.name}, số dư ${formatAmount(wallet.currentBalance)} ${workspace.currency}. Chạm để mở menu quản lý.`}
-                      />
-                    }
-                    dismissLabel={`Đóng menu quản lý ${wallet.name}`}
-                  >
-                    {(spotlightTrigger) => (
-                      <DropdownMenuTrigger
-                        nativeButton={false}
-                        render={spotlightTrigger}
-                      >
-                        {rowContent}
-                      </DropdownMenuTrigger>
-                    )}
-                  </SpotlightTrigger>
-
-                  <DropdownMenuContent
-                    align="center"
-                    side="bottom"
-                    sideOffset={6}
-                    className="wallet-mobile-context-menu"
-                  >
-                    <DropdownMenuItem
-                      disabled={pending}
-                      onClick={() => {
-                        setMobileMenuWalletId(null);
-                        setEditingWallet(wallet);
-                      }}
-                    >
-                      <Pencil aria-hidden />
-                      Chỉnh sửa ví
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      variant={isActive ? "destructive" : "default"}
-                      disabled={pending}
-                      onClick={() => {
-                        if (isActive) {
-                          openMobileDeactivateConfirmation(wallet);
-                        } else {
-                          setMobileMenuWalletId(null);
-                          activateWallet(wallet);
-                        }
-                      }}
-                    >
-                      {isActive ? (
-                        <PauseCircle aria-hidden />
-                      ) : (
-                        <PlayCircle aria-hidden />
-                      )}
-                      {isActive ? "Tạm ngưng ví" : "Kích hoạt lại"}
-                    </DropdownMenuItem>
-                    {!isActive && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          disabled={pending}
-                          onClick={() => {
-                            setMobileMenuWalletId(null);
-                            requestDestructiveOperation(wallet, "delete");
-                          }}
-                        >
-                          <Trash2 aria-hidden />
-                          Xóa ví
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              );
-            })}
-
-            {!filteredWallets.length && (
-              <Empty
-                variant="compact"
-                icon={WalletCards}
-                title={
-                  filterStatus === "all"
-                    ? "Nhóm chưa có ví"
-                    : "Không có ví ở trạng thái này"
-                }
-                description={
-                  filterStatus === "all" && isAdmin
-                    ? "Tạo ví đầu tiên để bắt đầu ghi nhận giao dịch."
-                    : "Chọn trạng thái khác để xem các ví còn lại."
-                }
-                action={
-                  filterStatus === "all" && isAdmin ? (
-                    <Button
-                      type="button"
-                      onClick={() => setCreatingModal(true)}
-                    >
-                      <Plus size={16} />
-                      Thêm ví đầu tiên
-                    </Button>
-                  ) : undefined
-                }
-              />
+            {totalCreditDebt.gt(0) && (
+              <div className="flex items-center gap-1.5 rounded-lg bg-rose-500/10 px-2.5 py-1 text-rose-600 dark:text-rose-400">
+                <span className="size-1.5 rounded-full bg-rose-500" />
+                <span>Dư nợ:</span>
+                <strong className="tabular-nums font-bold">
+                  {showBalance ? `-${formatAmount(totalCreditDebt)}` : "••••••"}
+                </strong>
+              </div>
             )}
           </div>
+        </section>
+
+        {/* Wallets & Credit Cards Section */}
+        <section
+          className="wallet-mobile-collection space-y-3.5"
+          aria-label="Danh sách ví và thẻ"
+        >
+
+          {/* Group 1: Ví tài sản */}
+          {assetWallets.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between px-1 text-xs font-semibold text-[var(--text-secondary)]">
+                <span className="flex items-center gap-1.5">
+                  <Wallet size={13} className="text-emerald-500" />
+                  <span>Ví tài sản ({assetWallets.length})</span>
+                </span>
+                <span className="text-[11px] font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                  {showBalance
+                    ? `+${formatAmount(totalAssetBalance)} ${workspace.currency}`
+                    : "••••••"}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {assetWallets.map((wallet, index) =>
+                  renderWalletCard(wallet, index),
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Group 2: Thẻ tín dụng */}
+          {creditWallets.length > 0 && (
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between px-1 text-xs font-semibold text-[var(--text-secondary)]">
+                <span className="flex items-center gap-1.5">
+                  <CreditCard size={13} className="text-rose-500" />
+                  <span>Thẻ tín dụng ({creditWallets.length})</span>
+                </span>
+                <span className="text-[11px] font-semibold tabular-nums text-rose-600 dark:text-rose-400">
+                  {showBalance
+                    ? `Dư nợ: -${formatAmount(totalCreditDebt)} ${workspace.currency}`
+                    : "••••••"}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {creditWallets.map((wallet, index) =>
+                  renderWalletCard(wallet, index),
+                )}
+              </div>
+            </div>
+          )}
+
+          {!wallets.length && (
+            <Empty
+              variant="compact"
+              icon={WalletCards}
+              title="Chưa có ví nào"
+              description="Bắt đầu tạo ví tài sản hoặc thêm thẻ tín dụng để quản lý dòng tiền."
+              action={
+                isAdmin ? (
+                  <Button
+                    type="button"
+                    onClick={() => setCreatingModal(true)}
+                  >
+                    <Plus size={16} />
+                    Thêm ví mới
+                  </Button>
+                ) : undefined
+              }
+            />
+          )}
         </section>
       </div>
 
@@ -871,13 +1096,18 @@ export function WalletManagement({
                     {workspace.currency}
                   </span>
                 </p>
-                <p className="mt-2 flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                  <span
-                    className="size-1.5 rounded-full bg-[var(--success)]"
-                    aria-hidden="true"
-                  />
-                  Tổng hợp từ {activeCount} ví đang hoạt động
-                </p>
+                <div className="mt-2 flex items-center gap-3 text-xs">
+                  <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="size-1.5 rounded-full bg-emerald-500" />
+                    Tài sản: +{formatAmount(totalAssetBalance)}
+                  </span>
+                  {totalCreditDebt.gt(0) && (
+                    <span className="inline-flex items-center gap-1.5 font-medium text-rose-600 dark:text-rose-400">
+                      <span className="size-1.5 rounded-full bg-rose-500" />
+                      Dư nợ thẻ: -{formatAmount(totalCreditDebt)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -979,8 +1209,9 @@ export function WalletManagement({
             </div>
 
             <div>
-              {filteredWallets.map((wallet) => {
+              {filteredWallets.map((wallet, index) => {
                 const isActive = wallet.status === "active";
+                const visual = getWalletVisual(wallet, index);
                 return (
                   <article
                     key={wallet.id}
@@ -1042,13 +1273,12 @@ export function WalletManagement({
 
                     <span
                       className={cn(
-                        "grid size-10 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]",
-                        !isActive &&
-                        "bg-[var(--surface-secondary)] text-[var(--warning)]",
+                        "grid size-10 place-items-center rounded-xl",
+                        visual.iconBg,
                       )}
                       aria-hidden="true"
                     >
-                      <WalletCards size={18} />
+                      <visual.icon size={18} />
                     </span>
 
                     <div className="min-w-0">
@@ -1056,6 +1286,14 @@ export function WalletManagement({
                         <h3 className="truncate text-sm font-semibold text-[var(--foreground)]">
                           {wallet.name}
                         </h3>
+                        <span
+                          className={cn(
+                            "inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                            visual.kindBadgeClass,
+                          )}
+                        >
+                          {visual.kindBadge}
+                        </span>
                         <span
                           className={cn(
                             "inline-flex shrink-0 items-center gap-1 text-[0.68rem] font-medium",
@@ -1078,7 +1316,18 @@ export function WalletManagement({
 
                     <div className="min-w-0">
                       <p className="flex items-baseline gap-1.5">
-                        <strong className="truncate text-sm font-semibold text-[var(--foreground)] tabular-nums">
+                        <strong
+                          className={cn(
+                            "truncate text-sm font-semibold tabular-nums",
+                            visual.isCreditCard
+                              ? "text-rose-600 dark:text-rose-400"
+                              : "text-[var(--foreground)]",
+                          )}
+                        >
+                          {visual.isCreditCard &&
+                          new Decimal(wallet.currentBalance).gt(0)
+                            ? "-"
+                            : ""}
                           {formatAmount(wallet.currentBalance)}
                         </strong>
                         <span className="text-[0.65rem] font-medium text-[var(--text-muted)]">
@@ -1086,7 +1335,7 @@ export function WalletManagement({
                         </span>
                       </p>
                       <p className="mt-1 text-[0.68rem] text-[var(--text-muted)] tabular-nums">
-                        Đầu kỳ {formatAmount(wallet.openingBalance)}
+                        {visual.balanceLabel} · Đầu kỳ {formatAmount(wallet.openingBalance)}
                       </p>
                     </div>
 
