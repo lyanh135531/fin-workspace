@@ -35,6 +35,7 @@ type ConfirmDeleteProps = {
   className?: string
   trigger?: ReactElement | null
   presentation?: "popover" | "sheet"
+  anchor?: React.RefObject<Element | null>
 }
 
 function ConfirmDelete({
@@ -52,6 +53,7 @@ function ConfirmDelete({
   className,
   trigger,
   presentation = "popover",
+  anchor,
 }: ConfirmDeleteProps) {
   const [internalOpen, setInternalOpen] = useState<boolean>(false)
   const [isPending, setIsPending] = useState<boolean>(false)
@@ -177,6 +179,7 @@ function ConfirmDelete({
 
       <PopoverContent
         role="alertdialog"
+        anchor={anchor}
         side="bottom"
         align="end"
         sideOffset={6}

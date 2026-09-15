@@ -1,10 +1,28 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
   process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
   process.env.APP_TIME_ZONE = "Asia/Ho_Chi_Minh";
 });
+
+const deleteMocks = vi.hoisted(() => ({
+  transaction: vi.fn(),
+  requireWorkspaceMember: vi.fn(),
+  assertWalletHasNoOpenDependencies: vi.fn(),
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: { $transaction: deleteMocks.transaction },
+}));
+vi.mock("@/services/workspace-access", () => ({
+  requireWorkspaceMember: deleteMocks.requireWorkspaceMember,
+}));
+vi.mock("@/services/wallet-service", () => ({
+  assertWalletHasNoOpenDependencies: deleteMocks.assertWalletHasNoOpenDependencies,
+}));
+
 import { allocateOldestObligations, allocateRefundByFundingWallet } from "@/services/credit-card-ledger";
+import { deleteCreditCard } from "@/services/credit-card-service";
 import Decimal from "decimal.js";
 
 describe("credit card obligation ledger", () => {
@@ -49,14 +67,33 @@ describe("credit card obligation ledger", () => {
 });
 
 describe("deleteCreditCard checks", () => {
-  it("rejects deletion when card still has outstanding debt", async () => {
-    const { deleteCreditCard } = await import("@/services/credit-card-service");
-    const { prisma } = await import("@/lib/prisma");
-    const { requireWorkspaceMember } = await import("@/services/workspace-access");
+  const tx = {
+    $queryRaw: vi.fn(),
+    workspaceWallet: { findFirst: vi.fn() },
+    creditCardInstallmentPlan: { count: vi.fn() },
+    creditCardStatement: { count: vi.fn() },
+    wallet: { update: vi.fn() },
+    auditLog: { create: vi.fn() },
+  };
 
-    vi.mocked(requireWorkspaceMember as never);
-    // Verified via TypeScript contract and AppError CONFLICT test
-    expect(deleteCreditCard).toBeDefined();
+  beforeEach(() => {
+    vi.clearAllMocks();
+    deleteMocks.requireWorkspaceMember.mockResolvedValue({});
+    deleteMocks.transaction.mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
+    tx.$queryRaw.mockResolvedValue([]);
+  });
+
+  it("rejects deletion when card still has outstanding debt", async () => {
+    tx.workspaceWallet.findFirst.mockResolvedValue({
+      wallet: { currentBalance: new Decimal(125_000) },
+    });
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id"),
+    ).rejects.toThrow("Thẻ vẫn còn dư nợ");
+    expect(tx.wallet.update).not.toHaveBeenCalled();
   });
 });
 

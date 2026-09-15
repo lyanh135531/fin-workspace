@@ -19,7 +19,7 @@ import {
   Wallet,
   WalletCards,
 } from "lucide-react";
-import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
 
 import {
@@ -224,6 +224,7 @@ function CreditCardPanel({
   const [feeAmount, setFeeAmount] = useState("");
   const [menuActivityId, setMenuActivityId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const cardMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
   const walletNames = useMemo(
     () => new Map(card.fundingShares.map((share) => [share.walletId, share.walletName])),
@@ -313,18 +314,16 @@ function CreditCardPanel({
     });
   }
 
-  function handleDeleteCard() {
-    startTransition(async () => {
-      const result = await deleteCreditCardAction(workspaceId, {
-        cardWalletId: card.id,
-      });
-      if (!result.ok) {
-        toast.error(result.message ?? "Không thể xóa thẻ tín dụng.");
-        return;
-      }
-      toast.success(`Đã xóa thẻ “${card.name}”.`);
-      setConfirmDelete(false);
+  async function handleDeleteCard() {
+    const result = await deleteCreditCardAction(workspaceId, {
+      cardWalletId: card.id,
     });
+    if (!result.ok) {
+      toast.error(result.message ?? "Không thể xóa thẻ tín dụng.");
+      return false;
+    }
+    toast.success(`Đã xóa thẻ “${card.name}”.`);
+    return true;
   }
 
   return (
@@ -376,6 +375,7 @@ function CreditCardPanel({
                     <DropdownMenuTrigger
                       render={
                         <button
+                          ref={cardMenuTriggerRef}
                           type="button"
                           aria-label={`Tùy chọn thẻ ${card.name}`}
                           className="grid size-7 place-items-center rounded-full text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-secondary)]/80 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -1028,6 +1028,10 @@ function CreditCardPanel({
             <span className="text-destructive block">
               Thẻ vẫn còn dư nợ {formatAmount(card.debt)} {currency}. Bạn cần thanh toán hết toàn bộ dư nợ trước khi xóa thẻ.
             </span>
+          ) : hasCredit ? (
+            <span className="text-destructive block">
+              Thẻ còn số dư có {formatAmount(card.creditBalance)} {currency}. Bạn cần sử dụng hết số dư trước khi xóa thẻ.
+            </span>
           ) : pendingDecimal.gt(0) ? (
             <span className="text-destructive block">
               Thẻ còn khoản thanh toán đang chờ xử lý ({formatAmount(card.pendingPayment)} {currency}). Vui lòng chờ thanh toán hoàn tất trước khi xóa.
@@ -1037,9 +1041,10 @@ function CreditCardPanel({
           )
         }
         confirmLabel="Xóa thẻ"
-        confirmDisabled={hasDebt || pendingDecimal.gt(0) || pending}
+        confirmDisabled={hasDebt || hasCredit || pendingDecimal.gt(0) || pending}
         disabled={pending}
         presentation={isDesktop ? "popover" : "sheet"}
+        anchor={cardMenuTriggerRef}
         onConfirm={handleDeleteCard}
       />
     </>

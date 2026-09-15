@@ -17,6 +17,7 @@ function PopoverContent({
   className,
   align = "center",
   alignOffset = 0,
+  anchor,
   side = "bottom",
   sideOffset = 4,
   elevation = "raised",
@@ -24,7 +25,7 @@ function PopoverContent({
 }: PopoverPrimitive.Popup.Props &
   Pick<
     PopoverPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset"
+    "align" | "alignOffset" | "anchor" | "side" | "sideOffset"
   > & {
     elevation?: "raised" | "flat";
   }) {
@@ -33,6 +34,7 @@ function PopoverContent({
       <PopoverPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}
+        anchor={anchor}
         side={side}
         sideOffset={sideOffset}
         className="isolate z-50"
