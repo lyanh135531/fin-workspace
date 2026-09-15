@@ -117,6 +117,7 @@ export type CreditCardOverviewItem = {
   limit: string;
   availableCredit: string;
   pendingPayment: string;
+  hasApprovedTransactions: boolean;
   defaultFundingWalletId: string;
   statementClosingDay: number;
   paymentDueDay: number;
@@ -1024,7 +1025,9 @@ function CreditCardPanel({
         ariaLabel={`Xóa thẻ ${card.name}`}
         title={`Xóa thẻ “${card.name}”?`}
         description={
-          hasDebt ? (
+          !card.hasApprovedTransactions ? (
+            "Thẻ chưa phát sinh giao dịch được duyệt. Dư nợ hoặc số dư mở đầu đã nhập khi tạo thẻ sẽ được loại bỏ."
+          ) : hasDebt ? (
             <span className="text-destructive block">
               Thẻ vẫn còn dư nợ {formatAmount(card.debt)} {currency}. Bạn cần thanh toán hết toàn bộ dư nợ trước khi xóa thẻ.
             </span>
@@ -1041,7 +1044,11 @@ function CreditCardPanel({
           )
         }
         confirmLabel="Xóa thẻ"
-        confirmDisabled={hasDebt || hasCredit || pendingDecimal.gt(0) || pending}
+        confirmDisabled={
+          (card.hasApprovedTransactions && (hasDebt || hasCredit)) ||
+          pendingDecimal.gt(0) ||
+          pending
+        }
         disabled={pending}
         presentation={isDesktop ? "popover" : "sheet"}
         anchor={cardMenuTriggerRef}

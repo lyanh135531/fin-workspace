@@ -288,8 +288,17 @@ export async function deleteCreditCard(
       );
     }
 
+    await assertWalletHasNoOpenDependencies(tx, workspaceId, cardWalletId);
+
+    const approvedTransactionCount = await tx.transaction.count({
+      where: {
+        workflowStatus: "approved",
+        member: { workspaceId },
+        OR: [{ walletId: cardWalletId }, { toWalletId: cardWalletId }],
+      },
+    });
     const balance = new Decimal(link.wallet.currentBalance.toString());
-    if (!balance.isZero()) {
+    if (approvedTransactionCount > 0 && !balance.isZero()) {
       if (balance.gt(0)) {
         throw new AppError(
           "CONFLICT",
@@ -302,32 +311,32 @@ export async function deleteCreditCard(
       );
     }
 
-    await assertWalletHasNoOpenDependencies(tx, workspaceId, cardWalletId);
+    if (approvedTransactionCount > 0) {
+      const activeInstallmentPlans = await tx.creditCardInstallmentPlan.count({
+        where: {
+          cardWalletId,
+          status: { in: ["pending", "active"] },
+        },
+      });
+      if (activeInstallmentPlans > 0) {
+        throw new AppError(
+          "CONFLICT",
+          `Thẻ còn ${activeInstallmentPlans} gói trả góp chưa hoàn tất. Không thể xóa thẻ.`,
+        );
+      }
 
-    const activeInstallmentPlans = await tx.creditCardInstallmentPlan.count({
-      where: {
-        cardWalletId,
-        status: { in: ["pending", "active"] },
-      },
-    });
-    if (activeInstallmentPlans > 0) {
-      throw new AppError(
-        "CONFLICT",
-        `Thẻ còn ${activeInstallmentPlans} gói trả góp chưa hoàn tất. Không thể xóa thẻ.`,
-      );
-    }
-
-    const unpaidStatements = await tx.creditCardStatement.count({
-      where: {
-        cardWalletId,
-        status: { not: "paid" },
-      },
-    });
-    if (unpaidStatements > 0) {
-      throw new AppError(
-        "CONFLICT",
-        `Thẻ còn ${unpaidStatements} kỳ sao kê chưa hoàn tất thanh toán.`,
-      );
+      const unpaidStatements = await tx.creditCardStatement.count({
+        where: {
+          cardWalletId,
+          status: { not: "paid" },
+        },
+      });
+      if (unpaidStatements > 0) {
+        throw new AppError(
+          "CONFLICT",
+          `Thẻ còn ${unpaidStatements} kỳ sao kê chưa hoàn tất thanh toán.`,
+        );
+      }
     }
 
     const deletedAt = new Date();
@@ -350,6 +359,9 @@ export async function deleteCreditCard(
         metadata: {
           softDeleted: true,
           deletedAt: deletedAt.toISOString(),
+          approvedTransactionCount,
+          discardedOpeningBalance:
+            approvedTransactionCount === 0 ? balance.toString() : null,
         },
       },
     });

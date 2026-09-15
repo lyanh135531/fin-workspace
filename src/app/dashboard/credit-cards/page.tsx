@@ -44,6 +44,13 @@ export default async function CreditCardsPage() {
     include: {
       wallet: {
         include: {
+          _count: {
+            select: {
+              sourceTransactions: {
+                where: { workflowStatus: "approved" },
+              },
+            },
+          },
           creditCardProfile: {
             include: {
               obligations: {
@@ -192,6 +199,7 @@ export default async function CreditCardsPage() {
       pendingPayment: [...pendingByWallet.values()]
         .reduce((sum, amount) => sum.plus(amount), ZERO)
         .toString(),
+      hasApprovedTransactions: wallet._count.sourceTransactions > 0,
       defaultFundingWalletId: profile.defaultFundingWalletId,
       statementClosingDay: profile.statementClosingDay,
       paymentDueDay: profile.paymentDueDay,

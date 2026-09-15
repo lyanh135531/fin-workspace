@@ -70,6 +70,7 @@ describe("deleteCreditCard checks", () => {
   const tx = {
     $queryRaw: vi.fn(),
     workspaceWallet: { findFirst: vi.fn() },
+    transaction: { count: vi.fn() },
     creditCardInstallmentPlan: { count: vi.fn() },
     creditCardStatement: { count: vi.fn() },
     wallet: { update: vi.fn() },
@@ -83,6 +84,9 @@ describe("deleteCreditCard checks", () => {
       async (callback: (client: typeof tx) => unknown) => callback(tx),
     );
     tx.$queryRaw.mockResolvedValue([]);
+    tx.transaction.count.mockResolvedValue(1);
+    tx.creditCardInstallmentPlan.count.mockResolvedValue(0);
+    tx.creditCardStatement.count.mockResolvedValue(0);
   });
 
   it("rejects deletion when card still has outstanding debt", async () => {
@@ -94,6 +98,25 @@ describe("deleteCreditCard checks", () => {
       deleteCreditCard("user-id", "workspace-id", "card-id"),
     ).rejects.toThrow("Thẻ vẫn còn dư nợ");
     expect(tx.wallet.update).not.toHaveBeenCalled();
+  });
+
+  it("deletes a mistakenly created card with opening debt but no approved transactions", async () => {
+    tx.workspaceWallet.findFirst.mockResolvedValue({
+      wallet: { currentBalance: new Decimal(125_000) },
+    });
+    tx.transaction.count.mockResolvedValue(0);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id"),
+    ).resolves.toEqual({ ok: true });
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "card-id" },
+      data: {
+        status: "deactive",
+        deletedAt: expect.any(Date),
+        currentBalance: new Decimal(0),
+      },
+    });
   });
 });
 
