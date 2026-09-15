@@ -3028,9 +3028,9 @@ function MobileTransactionDraft({
           }))}
         />
         {isCreditCardExpense && (
-          <fieldset className="grid gap-3 border-t border-[var(--border)] pt-3">
-            <legend className="text-sm font-medium text-[var(--foreground)]">Ví chịu khoản chi</legend>
-            <p className="text-xs leading-5 text-[var(--text-muted)]">Chưa trừ tiền lúc này. Hệ thống dùng các phần dưới đây khi đến kỳ trả thẻ.</p>
+          <fieldset className="grid gap-3 pt-1">
+            <legend className="text-sm font-medium text-[var(--foreground)]">Ví nguồn thanh toán sao kê</legend>
+            <p className="text-xs leading-5 text-[var(--text-muted)]">Chưa trừ tiền ngay. Tiền được giữ chỗ và chỉ trích trừ khi bạn thanh toán sao kê thẻ.</p>
             {draft.allocations.map((allocation, index) => (
               <div key={`${index}:${allocation.walletId}`} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
                 <Select

@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Sparkles,
   Split,
+  Trash2,
   Wallet,
   WalletCards,
 } from "lucide-react";
@@ -23,12 +24,14 @@ import { toast } from "sonner";
 
 import {
   addCreditCardRefundAction,
+  deleteCreditCardAction,
   payCreditCardAction,
   registerCreditCardInstallmentAction,
 } from "@/app/dashboard/actions";
 import {
   Button,
   Card,
+  ConfirmDelete,
   Input,
   MoneyInput,
   Select,
@@ -41,9 +44,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { formatAmount } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 function subscribeDesktop(callback: () => void) {
   const query = window.matchMedia("(min-width: 901px)");
@@ -215,7 +221,9 @@ function CreditCardPanel({
   const [refundAmount, setRefundAmount] = useState("");
   const [installmentTarget, setInstallmentTarget] = useState<CardActivity | null>(null);
   const [termCount, setTermCount] = useState("3");
-  const [feeAmount, setFeeAmount] = useState("0");
+  const [feeAmount, setFeeAmount] = useState("");
+  const [menuActivityId, setMenuActivityId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const walletNames = useMemo(
     () => new Map(card.fundingShares.map((share) => [share.walletId, share.walletName])),
@@ -234,6 +242,7 @@ function CreditCardPanel({
   );
 
   const hasCredit = creditBalanceDecimal.gt(0);
+  const hasDebt = debtDecimal.gt(0);
   const brand = useMemo(() => detectCardBrand(card.name), [card.name]);
 
   // Credit limit utilization percentage (0 - 100%)
@@ -270,7 +279,7 @@ function CreditCardPanel({
       const result = await registerCreditCardInstallmentAction(workspaceId, {
         transactionId: installmentTarget.id,
         termCount: Number(termCount),
-        feeAmount,
+        feeAmount: feeAmount.trim() || "0",
       });
       if (!result.ok) {
         toast.error(result.message ?? "Không thể đăng ký trả góp.");
@@ -278,7 +287,7 @@ function CreditCardPanel({
       }
       toast.success("Đã đăng ký trả góp.");
       setInstallmentTarget(null);
-      setFeeAmount("0");
+      setFeeAmount("");
     });
   }
 
@@ -304,8 +313,23 @@ function CreditCardPanel({
     });
   }
 
+  function handleDeleteCard() {
+    startTransition(async () => {
+      const result = await deleteCreditCardAction(workspaceId, {
+        cardWalletId: card.id,
+      });
+      if (!result.ok) {
+        toast.error(result.message ?? "Không thể xóa thẻ tín dụng.");
+        return;
+      }
+      toast.success(`Đã xóa thẻ “${card.name}”.`);
+      setConfirmDelete(false);
+    });
+  }
+
   return (
-    <Card as="article" className="gap-0 p-4 sm:p-5 md:p-6 overflow-hidden">
+    <>
+      <Card as="article" className="gap-0 p-4 sm:p-5 md:p-6 overflow-hidden">
       {/* 1. Sleek Virtual Card & Main Metrics */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-6">
         {/* Virtual Card Graphic */}
@@ -349,26 +373,38 @@ function CreditCardPanel({
 
               <DropdownMenu>
                 <DropdownMenuTrigger
+                  nativeButton={false}
                   render={
-                    <Button
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="icon"
                       aria-label={`Tùy chọn thẻ ${card.name}`}
+                      className="grid size-7 place-items-center rounded-full text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-secondary)]/80 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     />
                   }
                 >
-                  <MoreHorizontal aria-hidden="true" />
+                  <MoreHorizontal size={16} aria-hidden="true" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
                   side="bottom"
-                  sideOffset={4}
-                  className="min-w-44"
+                  sideOffset={6}
+                  className="w-52 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
                 >
-                  <DropdownMenuItem onClick={() => setRefundOpen(true)}>
-                    <RotateCcw aria-hidden="true" />
+                  <DropdownMenuItem
+                    onClick={() => setRefundOpen(true)}
+                    className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                  >
+                    <RotateCcw className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
                     <span>Ghi nhận hoàn tiền</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-1 -mx-1 bg-[var(--border)]" />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setConfirmDelete(true)}
+                    className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer"
+                  >
+                    <Trash2 className="size-4 shrink-0" aria-hidden="true" />
+                    <span>Xóa thẻ</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -614,24 +650,25 @@ function CreditCardPanel({
         className="mt-5 border-t border-[var(--border)] pt-4"
         aria-labelledby={`activities-${card.id}`}
       >
-        <h4
-          id={`activities-${card.id}`}
-          className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2.5"
-        >
-          Hoạt động gần đây
-        </h4>
+        <div className="flex items-center justify-between mb-2.5">
+          <h4
+            id={`activities-${card.id}`}
+            className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
+          >
+            Hoạt động gần đây
+          </h4>
+          {card.activities.some((a) => a.installmentEligible) && (
+            <span className="text-[11px] text-[var(--text-muted)]">
+              Chạm để quản lý
+            </span>
+          )}
+        </div>
 
         {card.activities.length ? (
           <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/15 px-3">
             {card.activities.map((activity) => {
-              const isExpense =
-                activity.purpose === "standard" ||
-                activity.purpose === "credit_card_installment_fee";
-              return (
-                <div
-                  key={activity.id}
-                  className="flex items-center justify-between gap-3 py-2.5"
-                >
+              const rowContent = (
+                <>
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
                       className={`grid size-8 shrink-0 place-items-center rounded-lg ${
@@ -653,15 +690,17 @@ function CreditCardPanel({
 
                     <div className="min-w-0">
                       <p className="truncate text-xs font-medium text-[var(--foreground)]">
-                        {activity.description ?? activityLabel(activity)}
+                        {activity.description || activityLabel(activity)}
                       </p>
-                      <p className="text-[11px] text-[var(--text-muted)]">
-                        {activity.date} · {activityLabel(activity)}
+                      <p className="truncate text-[11px] text-[var(--text-muted)]">
+                        {activity.description && activity.description !== activityLabel(activity)
+                          ? `${activity.date} · ${activityLabel(activity)}`
+                          : activity.date}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-col items-end shrink-0">
                     <span
                       className={`text-xs font-semibold tabular-nums ${
                         activity.purpose === "credit_card_refund"
@@ -675,20 +714,83 @@ function CreditCardPanel({
                         : "+"}
                       {formatAmount(activity.amount)} {currency}
                     </span>
-
-                    {activity.installmentEligible && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-[11px] gap-1"
-                        onClick={() => setInstallmentTarget(activity)}
-                      >
-                        <Split size={12} aria-hidden="true" />
-                        Trả góp
-                      </Button>
+                    {activity.installmentPlanId && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--primary)]">
+                        <Split size={9} aria-hidden="true" />
+                        <span>Đang trả góp</span>
+                      </span>
                     )}
                   </div>
+                </>
+              );
+
+              const isMenuOpen = menuActivityId === activity.id;
+
+              if (activity.installmentEligible) {
+                return (
+                  <DropdownMenu
+                    key={activity.id}
+                    open={isMenuOpen}
+                    onOpenChange={(open) =>
+                      setMenuActivityId(open ? activity.id : null)
+                    }
+                  >
+                    <SpotlightTrigger
+                      open={isMenuOpen}
+                      onOpenChange={(open) =>
+                        setMenuActivityId(open ? activity.id : null)
+                      }
+                      render={
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          className={cn(
+                            "group/activity flex items-center justify-between gap-3 py-2.5 px-2 -mx-2 rounded-xl cursor-pointer select-none outline-none transition-all border",
+                            isMenuOpen
+                              ? "bg-[var(--surface)] border-[var(--border)]"
+                              : "border-transparent hover:bg-[var(--surface-secondary)]/50 active:bg-[var(--surface-secondary)]/70 focus-visible:ring-1 focus-visible:ring-ring",
+                          )}
+                          aria-label={`Giao dịch ${activity.description || activityLabel(activity)}, ${formatAmount(activity.amount)} ${currency}. Bấm để mở tùy chọn.`}
+                        />
+                      }
+                      dismissLabel={`Đóng menu giao dịch ${activity.description || activityLabel(activity)}`}
+                    >
+                      {(spotlightTrigger) => (
+                        <DropdownMenuTrigger
+                          nativeButton={false}
+                          render={spotlightTrigger}
+                        >
+                          {rowContent}
+                        </DropdownMenuTrigger>
+                      )}
+                    </SpotlightTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      side="bottom"
+                      sideOffset={6}
+                      className="w-52 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
+                    >
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setMenuActivityId(null);
+                          setInstallmentTarget(activity);
+                        }}
+                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                      >
+                        <Split className="size-4 text-[var(--primary)]" aria-hidden="true" />
+                        <span>Đăng ký trả góp</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              }
+
+              return (
+                <div
+                  key={activity.id}
+                  className="flex items-center justify-between gap-3 py-2.5 px-2 -mx-2 rounded-xl border border-transparent"
+                >
+                  {rowContent}
                 </div>
               );
             })}
@@ -712,11 +814,11 @@ function CreditCardPanel({
       >
         <SheetContent
           side={isDesktop ? "right" : "bottom"}
-          placement="inset"
-          size="default"
-          spacing="flush"
-          elevation="flat"
-          className="max-h-[85dvh] sm:max-h-none data-[side=bottom]:inset-x-3 data-[side=bottom]:bottom-3 data-[side=bottom]:max-w-lg data-[side=bottom]:mx-auto sm:data-[side=bottom]:inset-x-auto"
+          placement={isDesktop ? "inset" : "edge"}
+          size={isDesktop ? "wide" : "default"}
+          spacing={isDesktop ? "flush" : "default"}
+          elevation={isDesktop ? "flat" : "raised"}
+          className={isDesktop ? undefined : "quick-transaction-sheet"}
         >
           <form
             className="flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -731,7 +833,7 @@ function CreditCardPanel({
               description={`Nhập số tiền hoàn trực tiếp vào thẻ ${card.name}.`}
             />
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain pb-2">
               {/* Context info card */}
               <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 flex items-center justify-between text-xs">
                 <div className="space-y-0.5">
@@ -771,6 +873,7 @@ function CreditCardPanel({
             </div>
 
             <SheetFooter
+              className="pb-[max(1.25rem,env(safe-area-inset-bottom))] px-4 sm:px-6 py-3 sm:py-3.5"
               onCancel={() => {
                 setRefundOpen(false);
                 setRefundAmount("");
@@ -795,11 +898,11 @@ function CreditCardPanel({
       >
         <SheetContent
           side={isDesktop ? "right" : "bottom"}
-          placement="inset"
-          size="default"
-          spacing="flush"
-          elevation="flat"
-          className="max-h-[85dvh] sm:max-h-none data-[side=bottom]:inset-x-3 data-[side=bottom]:bottom-3 data-[side=bottom]:max-w-lg data-[side=bottom]:mx-auto sm:data-[side=bottom]:inset-x-auto"
+          placement={isDesktop ? "inset" : "edge"}
+          size={isDesktop ? "wide" : "default"}
+          spacing={isDesktop ? "flush" : "default"}
+          elevation={isDesktop ? "flat" : "raised"}
+          className={isDesktop ? undefined : "quick-transaction-sheet"}
         >
           <form
             className="flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -814,7 +917,7 @@ function CreditCardPanel({
               description="Chuyển giao dịch thẻ thành trả góp nhiều kỳ."
             />
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain pb-2">
               {installmentTarget && (
                 <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 space-y-1 text-xs">
                   <span className="text-[var(--text-muted)]">Giao dịch gốc</span>
@@ -843,13 +946,17 @@ function CreditCardPanel({
                   }))}
                   required
                 />
-                <MoneyInput
-                  label={`Phí trả góp một lần (${currency})`}
-                  value={feeAmount}
-                  onValueChange={setFeeAmount}
-                  placeholder="0"
-                  required
-                />
+                <div>
+                  <MoneyInput
+                    label={`Phí chuyển đổi trả góp (${currency})`}
+                    value={feeAmount}
+                    onValueChange={setFeeAmount}
+                    placeholder="0"
+                  />
+                  <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                    Tùy chọn. Để trống hoặc nhập 0 nếu là trả góp 0% phí.
+                  </p>
+                </div>
               </div>
 
               <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
@@ -858,11 +965,15 @@ function CreditCardPanel({
             </div>
 
             <SheetFooter
+              className="pb-[max(1.25rem,env(safe-area-inset-bottom))] px-4 sm:px-6 py-3 sm:py-3.5"
               onCancel={() => setInstallmentTarget(null)}
               cancelLabel="Hủy"
               submitLabel={pending ? "Đang xử lý..." : "Xác nhận trả góp"}
               isSubmitting={pending}
-              submitDisabled={pending || new Decimal(feeAmount || 0).lt(0)}
+              submitDisabled={
+                pending ||
+                (feeAmount.trim() !== "" && new Decimal(feeAmount).lt(0))
+              }
             />
           </form>
         </SheetContent>
@@ -903,7 +1014,34 @@ function CreditCardPanel({
           </div>
         </details>
       )}
-    </Card>
+      </Card>
+
+      <ConfirmDelete
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        trigger={null}
+        ariaLabel={`Xóa thẻ ${card.name}`}
+        title={`Xóa thẻ “${card.name}”?`}
+        description={
+          hasDebt ? (
+            <span className="text-destructive block">
+              Thẻ vẫn còn dư nợ {formatAmount(card.debt)} {currency}. Bạn cần thanh toán hết toàn bộ dư nợ trước khi xóa thẻ.
+            </span>
+          ) : pendingDecimal.gt(0) ? (
+            <span className="text-destructive block">
+              Thẻ còn khoản thanh toán đang chờ xử lý ({formatAmount(card.pendingPayment)} {currency}). Vui lòng chờ thanh toán hoàn tất trước khi xóa.
+            </span>
+          ) : (
+            "Thẻ sẽ bị xóa khỏi danh sách hoạt động. Toàn bộ lịch sử giao dịch đã phát sinh trước đây vẫn được bảo lưu nguyên vẹn."
+          )
+        }
+        confirmLabel="Xóa thẻ"
+        confirmDisabled={hasDebt || pendingDecimal.gt(0) || pending}
+        disabled={pending}
+        presentation={isDesktop ? "popover" : "sheet"}
+        onConfirm={handleDeleteCard}
+      />
+    </>
   );
 }
 

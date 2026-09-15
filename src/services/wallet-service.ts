@@ -242,7 +242,7 @@ export async function updateWalletForWorkspace(userId: string, workspaceId: stri
   });
 }
 
-async function assertWalletHasNoOpenDependencies(
+export async function assertWalletHasNoOpenDependencies(
   tx: Prisma.TransactionClient,
   workspaceId: string,
   walletId: string,

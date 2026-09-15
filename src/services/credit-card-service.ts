@@ -13,6 +13,7 @@ import {
 } from "@/services/credit-card-ledger";
 import { completePaidInstallmentPlansInTransaction, generateCardStatementsInTransaction, statementPaymentDetails } from "@/services/credit-card-statement-service";
 import { applyBalance } from "@/services/transaction-service";
+import { assertWalletHasNoOpenDependencies } from "@/services/wallet-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
 const ZERO = new Decimal(0);
@@ -261,4 +262,98 @@ export async function getCreditCardSummary(workspaceId: string, cardWalletId: st
 
 export async function getCreditCardAvailableCredit(workspaceId: string, cardWalletId: string) {
   return (await getCreditCardSummary(workspaceId, cardWalletId)).availableCredit;
+}
+
+export async function deleteCreditCard(
+  userId: string,
+  workspaceId: string,
+  cardWalletId: string,
+) {
+  await requireWorkspaceMember(userId, workspaceId, true);
+
+  return prisma.$transaction(async (tx) => {
+    await lockWallets(tx, [cardWalletId]);
+    const link = await tx.workspaceWallet.findFirst({
+      where: {
+        workspaceId,
+        walletId: cardWalletId,
+        wallet: { kind: "credit_card", deletedAt: null },
+      },
+      include: { wallet: true },
+    });
+    if (!link) {
+      throw new AppError(
+        "WORKSPACE_ISOLATION_VIOLATION",
+        "Thẻ tín dụng không tồn tại trong nhóm này.",
+      );
+    }
+
+    const balance = new Decimal(link.wallet.currentBalance.toString());
+    if (!balance.isZero()) {
+      if (balance.gt(0)) {
+        throw new AppError(
+          "CONFLICT",
+          `Thẻ vẫn còn dư nợ (${balance.toString()} VND). Vui lòng thanh toán hết dư nợ trước khi xóa thẻ.`,
+        );
+      }
+      throw new AppError(
+        "CONFLICT",
+        `Thẻ đang có số dư có (${balance.abs().toString()} VND). Vui lòng sử dụng hết số dư trước khi xóa thẻ.`,
+      );
+    }
+
+    await assertWalletHasNoOpenDependencies(tx, workspaceId, cardWalletId);
+
+    const activeInstallmentPlans = await tx.creditCardInstallmentPlan.count({
+      where: {
+        cardWalletId,
+        status: { in: ["pending", "active"] },
+      },
+    });
+    if (activeInstallmentPlans > 0) {
+      throw new AppError(
+        "CONFLICT",
+        `Thẻ còn ${activeInstallmentPlans} gói trả góp chưa hoàn tất. Không thể xóa thẻ.`,
+      );
+    }
+
+    const unpaidStatements = await tx.creditCardStatement.count({
+      where: {
+        cardWalletId,
+        status: { not: "paid" },
+      },
+    });
+    if (unpaidStatements > 0) {
+      throw new AppError(
+        "CONFLICT",
+        `Thẻ còn ${unpaidStatements} kỳ sao kê chưa hoàn tất thanh toán.`,
+      );
+    }
+
+    const deletedAt = new Date();
+    await tx.wallet.update({
+      where: { id: cardWalletId },
+      data: {
+        status: "deactive",
+        deletedAt,
+        currentBalance: new Decimal(0),
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        workspaceId,
+        actorUserId: userId,
+        action: "workspace.credit_card_deleted",
+        entityType: "wallet",
+        entityId: cardWalletId,
+        metadata: {
+          softDeleted: true,
+          deletedAt: deletedAt.toISOString(),
+        },
+      },
+    });
+
+    return { ok: true as const };
+  });
 }

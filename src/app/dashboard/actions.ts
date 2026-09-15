@@ -21,7 +21,7 @@ import {
 import { idSchema } from "@/domain/common/schemas";
 import { createWalletForWorkspace } from "@/services/wallet-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
-import { createCreditCardPayment, createCreditCardRefund } from "@/services/credit-card-service";
+import { createCreditCardPayment, createCreditCardRefund, deleteCreditCard } from "@/services/credit-card-service";
 import { registerCreditCardInstallment } from "@/services/credit-card-installment-service";
 
 function transactionActionFailure(error: unknown, fallback: string, event: string, requestId: string) {
@@ -111,6 +111,28 @@ export async function registerCreditCardInstallmentAction(workspaceId: string, i
     return { ok: true as const, planId: plan.id };
   } catch (error) {
     return transactionActionFailure(error, "Không thể đăng ký trả góp.", "credit_card.installment_failed", requestId);
+  }
+}
+
+export async function deleteCreditCardAction(workspaceId: string, input: unknown) {
+  const requestId = crypto.randomUUID();
+  try {
+    const user = await workspaceActor(workspaceId);
+    const { cardWalletId } = z.object({ cardWalletId: idSchema }).parse(input);
+    await deleteCreditCard(user.userId, user.workspaceId, cardWalletId);
+    revalidatePath("/dashboard");
+    revalidatePath("/wallets");
+    revalidatePath("/dashboard/wallets");
+    revalidateCreditCardViews();
+    revalidateFinancialPlanViews();
+    return { ok: true as const };
+  } catch (error) {
+    return transactionActionFailure(
+      error,
+      "Không thể xóa thẻ tín dụng.",
+      "credit_card.delete_failed",
+      requestId,
+    );
   }
 }
 

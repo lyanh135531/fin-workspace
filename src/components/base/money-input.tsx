@@ -51,11 +51,11 @@ function MoneyInput({ className, id, label, placeholder = "0", wrapperClassName,
     </div>
   )
 
-  if (!label) return input
+  if (!label && !wrapperClassName && !exceedsMaximum) return input
 
   return (
-    <div data-slot="money-input" className={cn("grid gap-1", wrapperClassName)}>
-      <Label htmlFor={inputId} required={props.required}>{label}</Label>
+    <div data-slot="money-input" className={cn(label ? "grid gap-1" : undefined, wrapperClassName)}>
+      {label && <Label htmlFor={inputId} required={props.required}>{label}</Label>}
       {input}
       {exceedsMaximum && (
         <p id={limitErrorId} className="text-xs text-destructive" role="alert">

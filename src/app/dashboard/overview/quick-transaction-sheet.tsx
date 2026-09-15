@@ -6,6 +6,8 @@ import {
   ArrowUpRight,
   CalendarDays,
   Check,
+  CreditCard,
+  Wallet,
   WalletCards,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -199,7 +201,7 @@ export function QuickTransactionSheet({
       return;
     }
     if (isCreditCardExpense && !allocationWalletId) {
-      toast.error("Hãy chọn ví chịu khoản chi thẻ.");
+      toast.error("Hãy chọn ví nguồn thanh toán sao kê.");
       return;
     }
 
@@ -283,8 +285,7 @@ export function QuickTransactionSheet({
         </Tabs>
 
         <MoneyInput
-          label="Số tiền"
-          wrapperClassName="quick-amount-field"
+          wrapperClassName="quick-amount-field mt-3.5 mb-1 sm:mt-4 sm:mb-2"
           autoFocus
           value={amount}
           onValueChange={setAmount}
@@ -295,7 +296,13 @@ export function QuickTransactionSheet({
         {workspace.wallets.length ? (
           <div className="quick-transaction-grid">
             <Select
-              label={type === "transfer" ? "Ví gửi" : "Ví"}
+              label={
+                type === "transfer"
+                  ? "Ví gửi"
+                  : isCreditCardExpense
+                    ? "Thẻ thanh toán"
+                    : "Ví"
+              }
               value={walletId}
               onValueChange={(nextWalletId) => {
                 setWalletId(nextWalletId);
@@ -308,11 +315,50 @@ export function QuickTransactionSheet({
                 }
               }}
               placeholder="Chọn ví"
-              options={workspace.wallets.map((wallet) => ({
-                value: wallet.id,
-                label: wallet.name,
-                disabled: wallet.kind === "credit_card" && type !== "expense",
-              }))}
+              options={workspace.wallets.map((wallet) => {
+                const isCard = wallet.kind === "credit_card";
+                return {
+                  value: wallet.id,
+                  label: wallet.name,
+                  content: (
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <span className="flex items-center gap-2 min-w-0">
+                        {isCard ? (
+                          <CreditCard className="size-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                        ) : (
+                          <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                        )}
+                        <span className="truncate">{wallet.name}</span>
+                      </span>
+                      <span
+                        className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                          isCard
+                            ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                            : "bg-[var(--surface-secondary)] text-[var(--text-muted)]"
+                        }`}
+                      >
+                        {isCard ? "Thẻ tín dụng" : "Ví tài sản"}
+                      </span>
+                    </div>
+                  ),
+                  selectedContent: (
+                    <span className="flex items-center gap-2 min-w-0">
+                      {isCard ? (
+                        <CreditCard className="size-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                      ) : (
+                        <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                      )}
+                      <span className="truncate">{wallet.name}</span>
+                      {isCard && (
+                        <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
+                          Thẻ tín dụng
+                        </span>
+                      )}
+                    </span>
+                  ),
+                  disabled: isCard && type !== "expense",
+                };
+              })}
             />
 
             {type === "transfer" ? (
@@ -324,6 +370,18 @@ export function QuickTransactionSheet({
                 options={workspace.wallets.map((wallet) => ({
                   value: wallet.id,
                   label: wallet.name,
+                  content: (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                      <span className="truncate">{wallet.name}</span>
+                    </div>
+                  ),
+                  selectedContent: (
+                    <span className="flex items-center gap-2 min-w-0">
+                      <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                      <span className="truncate">{wallet.name}</span>
+                    </span>
+                  ),
                   disabled: wallet.id === walletId,
                 }))}
               />
@@ -350,14 +408,33 @@ export function QuickTransactionSheet({
         )}
 
         {isCreditCardExpense && (
-          <div className="grid gap-2 border-t border-[var(--border)] pt-3">
+          <div className="mt-3 grid gap-1.5">
             <Select
-              label="Ví chịu khoản chi"
+              label="Ví nguồn thanh toán sao kê"
               value={allocationWalletId}
               onValueChange={setAllocationWalletId}
-              options={workspace.wallets.filter((wallet) => wallet.kind === "asset").map((wallet) => ({ value: wallet.id, label: wallet.name }))}
+              options={workspace.wallets
+                .filter((wallet) => wallet.kind === "asset")
+                .map((wallet) => ({
+                  value: wallet.id,
+                  label: wallet.name,
+                  content: (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                      <span className="truncate">{wallet.name}</span>
+                    </div>
+                  ),
+                  selectedContent: (
+                    <span className="flex items-center gap-2 min-w-0">
+                      <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                      <span className="truncate">{wallet.name}</span>
+                    </span>
+                  ),
+                }))}
             />
-            <p className="text-xs leading-5 text-[var(--text-muted)]">Ví này chưa bị trừ tiền. Số tiền được giữ chỗ và chỉ trừ khi thanh toán sao kê.</p>
+            <p className="text-xs leading-5 text-[var(--text-muted)]">
+              Chưa trừ tiền ngay. Số tiền được giữ chỗ và chỉ trích trừ khi bạn thanh toán sao kê thẻ.
+            </p>
           </div>
         )}
 
