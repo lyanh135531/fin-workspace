@@ -302,8 +302,8 @@ export function CreditCardCreate({
           openingAllocations: debt.gt(0)
             ? [
                 {
-                  assetWalletId: fundingWalletId,
-                  allocatedAmount: finalOpeningDebt,
+                  walletId: fundingWalletId,
+                  amount: finalOpeningDebt,
                 },
               ]
             : [],
