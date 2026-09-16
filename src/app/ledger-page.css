@@ -1366,6 +1366,7 @@
   }
 
   .ledger-create-money-input input,
+  .ledger-create-money-input [data-slot="input"],
   .ledger-create-money-input input:focus,
   .ledger-create-money-input input:focus-visible {
     height: auto;
@@ -1373,7 +1374,7 @@
     background: transparent !important;
     padding: 0.15rem 4.25rem 0.45rem 0 !important;
     color: var(--text-primary);
-    font-size: 24px;
+    font-size: 24px !important;
     font-weight: 750;
     letter-spacing: -0.045em;
     box-shadow: none !important;
@@ -1500,6 +1501,7 @@
   }
 
   .ledger-mobile-edit-sheet .quick-amount-field input,
+  .ledger-mobile-edit-sheet .quick-amount-field [data-slot="input"],
   .ledger-mobile-edit-sheet .quick-amount-field input:focus,
   .ledger-mobile-edit-sheet .quick-amount-field input:focus-visible {
     height: auto;
@@ -1507,7 +1509,7 @@
     border: 0 !important;
     background: transparent !important;
     padding: 0.15rem 4.25rem 0.45rem 0 !important;
-    font-size: clamp(1.8rem, 8vw, 2.4rem);
+    font-size: clamp(1.8rem, 8vw, 2.4rem) !important;
     font-weight: 750;
     letter-spacing: -0.045em;
     box-shadow: none !important;

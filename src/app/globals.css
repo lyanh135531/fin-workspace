@@ -2523,7 +2523,7 @@ textarea {
   }
 }
 
-/* Form controls own their typography: 16px on mobile to prevent iOS Safari auto-zoom, 14px on desktop */
+/* Form controls own their default typography: 16px on mobile to prevent iOS Safari auto-zoom, 14px on desktop */
 [data-slot="input"],
 [data-slot="textarea"],
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
@@ -12435,13 +12435,14 @@ html[data-sidebar-collapsed="true"]
   transform: scaleX(1);
 }
 
-.quick-amount-field input {
+.quick-amount-field input,
+.quick-amount-field [data-slot="input"] {
   height: auto;
   border: 0 !important;
   background: transparent !important;
   padding: 0.15rem 4.25rem 0.45rem 0 !important;
   color: var(--text-primary);
-  font-size: clamp(1.8rem, 8vw, 2.4rem);
+  font-size: clamp(1.8rem, 8vw, 2.4rem) !important;
   font-weight: 750;
   letter-spacing: -0.045em;
   box-shadow: none !important;
