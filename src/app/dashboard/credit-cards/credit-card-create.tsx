@@ -3,15 +3,10 @@
 import Decimal from "decimal.js";
 import {
   AlertCircle,
-  ArrowRight,
   Calendar,
-  CalendarDays,
-  Check,
   CreditCard,
-  Info,
   Plus,
   Sparkles,
-  Wallet,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useState, useSyncExternalStore, useTransition } from "react";
@@ -200,8 +195,6 @@ export function CreditCardCreate({
   const [paymentDueDay, setPaymentDueDay] = useState("10");
 
   const debtToggleId = useId();
-
-  if (!canManage) return null;
 
   function close() {
     setOpen(false);
@@ -468,6 +461,8 @@ export function CreditCardCreate({
       </div>
     </>
   );
+
+  if (!canManage) return null;
 
   return (
     <>

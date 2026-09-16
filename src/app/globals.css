@@ -2523,6 +2523,25 @@ textarea {
   }
 }
 
+/* Form controls own their typography: 16px on mobile to prevent iOS Safari auto-zoom, 14px on desktop */
+[data-slot="input"],
+[data-slot="textarea"],
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+textarea,
+select {
+  font-size: 16px;
+}
+
+@media (min-width: 768px) {
+  [data-slot="input"],
+  [data-slot="textarea"],
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  textarea,
+  select {
+    font-size: 0.875rem;
+  }
+}
+
 [data-slot="button"] > svg:not([class*="size-"]) {
   width: 1rem;
   height: 1rem;
