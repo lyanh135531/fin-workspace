@@ -160,13 +160,46 @@ export function allocateRefundByFundingWallet(
   return allocations;
 }
 
+export function allocateLinkedRefundByFundingWallet(
+  remainingByWallet: Array<{ walletId: string; amount: Decimal.Value }>,
+  refundAmount: Decimal,
+) {
+  const positive = remainingByWallet
+    .map((item) => ({ walletId: item.walletId, amount: Decimal.max(item.amount, ZERO) }))
+    .filter((item) => item.amount.gt(0));
+  const total = positive.reduce((sum, item) => sum.plus(item.amount), ZERO);
+  if (!refundAmount.gt(0) || refundAmount.gt(total)) {
+    throw new AppError("VALIDATION_ERROR", "Số tiền hoàn vượt quá phần còn có thể hoàn của giao dịch gốc.");
+  }
+
+  let remainder = refundAmount;
+  return new Map(
+    positive.map((item, index) => {
+      const amount = index === positive.length - 1
+        ? remainder
+        : Decimal.min(
+            item.amount,
+            refundAmount.mul(item.amount).div(total).toDecimalPlaces(4, Decimal.ROUND_DOWN),
+          );
+      remainder = remainder.minus(amount);
+      return [item.walletId, amount] as const;
+    }).filter(([, amount]) => amount.gt(0)),
+  );
+}
+
 export async function normalizeApprovedRefundAllocations(
   tx: TransactionClient,
   refundTransactionId: string,
 ) {
   const refund = await tx.transaction.findUnique({
     where: { id: refundTransactionId },
-    select: { walletId: true, amount: true, purpose: true, workflowStatus: true },
+    select: {
+      walletId: true,
+      amount: true,
+      purpose: true,
+      workflowStatus: true,
+      originalTransactionId: true,
+    },
   });
   if (refund?.purpose !== "credit_card_refund" || refund.workflowStatus !== "approved") return;
   await tx.$queryRaw(
@@ -185,21 +218,69 @@ export async function normalizeApprovedRefundAllocations(
   ]);
   if (!profile) throw new AppError("CONFLICT", "Thẻ thiếu cấu hình ví thanh toán mặc định.");
 
-  const allocationByWallet = allocateRefundByFundingWallet(
-    obligations.map((obligation) => ({
-      id: obligation.id,
-      fundingWalletId: obligation.fundingWalletId,
-      amount: obligation.amount,
-      paid: obligation.paymentAllocations.reduce(
-        (sum, allocation) => sum.plus(allocation.amount.toString()),
-        ZERO,
-      ),
-      effectiveDate: obligation.effectiveDate,
-      postedDate: obligation.postedDate,
-    })),
-    profile.defaultFundingWalletId,
-    new Decimal(refund.amount.toString()),
-  );
+  let allocationByWallet: Map<string, Decimal>;
+  if (refund.originalTransactionId) {
+    await tx.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "TRANSACTION" WHERE "id" = CAST(${refund.originalTransactionId} AS uuid) FOR UPDATE`,
+    );
+    const original = await tx.transaction.findFirst({
+      where: {
+        id: refund.originalTransactionId,
+        walletId: refund.walletId,
+        purpose: "standard",
+        type: "expense",
+        workflowStatus: "approved",
+        deletedAt: null,
+      },
+      include: {
+        creditCardAllocations: true,
+        refundTransactions: {
+          where: {
+            id: { not: refundTransactionId },
+            workflowStatus: { not: "rejected" },
+            deletedAt: null,
+          },
+          include: { creditCardAllocations: true },
+        },
+      },
+    });
+    if (!original) throw new AppError("CONFLICT", "Giao dịch gốc không còn khả dụng để hoàn tiền.");
+
+    const refundedByWallet = new Map<string, Decimal>();
+    for (const priorRefund of original.refundTransactions) {
+      for (const allocation of priorRefund.creditCardAllocations) {
+        refundedByWallet.set(
+          allocation.fundingWalletId,
+          (refundedByWallet.get(allocation.fundingWalletId) ?? ZERO).plus(allocation.amount.toString()),
+        );
+      }
+    }
+    allocationByWallet = allocateLinkedRefundByFundingWallet(
+      original.creditCardAllocations.map((allocation) => ({
+        walletId: allocation.fundingWalletId,
+        amount: new Decimal(allocation.amount.toString())
+          .minus(refundedByWallet.get(allocation.fundingWalletId) ?? ZERO),
+      })),
+      new Decimal(refund.amount.toString()),
+    );
+  } else {
+    // Legacy refunds created before refunds were linked to an original purchase.
+    allocationByWallet = allocateRefundByFundingWallet(
+      obligations.map((obligation) => ({
+        id: obligation.id,
+        fundingWalletId: obligation.fundingWalletId,
+        amount: obligation.amount,
+        paid: obligation.paymentAllocations.reduce(
+          (sum, allocation) => sum.plus(allocation.amount.toString()),
+          ZERO,
+        ),
+        effectiveDate: obligation.effectiveDate,
+        postedDate: obligation.postedDate,
+      })),
+      profile.defaultFundingWalletId,
+      new Decimal(refund.amount.toString()),
+    );
+  }
 
   await tx.creditCardObligationEntry.deleteMany({
     where: { transactionId: refundTransactionId },

@@ -3,22 +3,18 @@
 import Decimal from "decimal.js";
 import {
   AlertCircle,
-  ArrowDownLeft,
-  ArrowUpRight,
-  Calendar,
   CalendarClock,
   CheckCircle2,
   ChevronDown,
   CreditCard,
-  Info,
   MoreHorizontal,
+  Pencil,
   RotateCcw,
-  Sparkles,
   Split,
   Trash2,
-  Wallet,
   WalletCards,
 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -27,6 +23,7 @@ import {
   deleteCreditCardAction,
   payCreditCardAction,
   registerCreditCardInstallmentAction,
+  updateCreditCardAction,
 } from "@/app/dashboard/actions";
 import {
   Button,
@@ -39,6 +36,7 @@ import {
   SheetContent,
   SheetFooter,
   SheetHeader,
+  Textarea,
 } from "@/components/base";
 import {
   DropdownMenu,
@@ -71,6 +69,8 @@ type FundingShare = {
   outstanding: string;
 };
 
+type FundingWallet = { id: string; name: string };
+
 type CardActivity = {
   id: string;
   purpose:
@@ -84,6 +84,14 @@ type CardActivity = {
   status: "pending" | "scheduled" | "approved" | "rejected";
   installmentEligible: boolean;
   installmentPlanId: string | null;
+  refundableAmount: string;
+};
+
+type RefundCandidate = {
+  id: string;
+  description: string | null;
+  date: string;
+  refundableAmount: string;
 };
 
 type Statement = {
@@ -112,6 +120,7 @@ type InstallmentPlan = {
 export type CreditCardOverviewItem = {
   id: string;
   name: string;
+  description: string | null;
   debt: string;
   creditBalance: string;
   limit: string;
@@ -131,6 +140,7 @@ export type CreditCardOverviewItem = {
     | null;
   statements: Statement[];
   installmentPlans: InstallmentPlan[];
+  refundCandidates: RefundCandidate[];
   activities: CardActivity[];
 };
 
@@ -201,16 +211,36 @@ function activityLabel(activity: CardActivity) {
   return activity.installmentPlanId ? "Chi tiêu trả góp" : "Chi tiêu";
 }
 
+function formatIsoDate(value: string) {
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+const DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => ({
+  value: String(index + 1),
+  label: `Ngày ${index + 1}`,
+}));
+
 function CreditCardPanel({
   workspaceId,
   currency,
   businessDate,
   card,
+  canManage,
+  canApprove,
+  fundingWallets,
+  expanded,
+  onToggle,
 }: {
   workspaceId: string;
   currency: string;
   businessDate: string;
   card: CreditCardOverviewItem;
+  canManage: boolean;
+  canApprove: boolean;
+  fundingWallets: FundingWallet[];
+  expanded: boolean;
+  onToggle: () => void;
 }) {
   const isDesktop = useSyncExternalStore(
     subscribeDesktop,
@@ -220,11 +250,20 @@ function CreditCardPanel({
   const [pending, startTransition] = useTransition();
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundAmount, setRefundAmount] = useState("");
+  const [refundTransactionId, setRefundTransactionId] = useState("");
   const [installmentTarget, setInstallmentTarget] = useState<CardActivity | null>(null);
   const [termCount, setTermCount] = useState("3");
   const [feeAmount, setFeeAmount] = useState("");
   const [menuActivityId, setMenuActivityId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [paymentConfirmOpen, setPaymentConfirmOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState(card.name);
+  const [editDescription, setEditDescription] = useState(card.description ?? "");
+  const [editLimit, setEditLimit] = useState(card.limit);
+  const [editFundingWalletId, setEditFundingWalletId] = useState(card.defaultFundingWalletId);
+  const [editClosingDay, setEditClosingDay] = useState(String(card.statementClosingDay));
+  const [editDueDay, setEditDueDay] = useState(String(card.paymentDueDay));
   const cardMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
   const walletNames = useMemo(
@@ -246,6 +285,9 @@ function CreditCardPanel({
   const hasCredit = creditBalanceDecimal.gt(0);
   const hasDebt = debtDecimal.gt(0);
   const brand = useMemo(() => detectCardBrand(card.name), [card.name]);
+  const selectedRefundActivity = card.refundCandidates.find(
+    (activity) => activity.id === refundTransactionId,
+  );
 
   // Credit limit utilization percentage (0 - 100%)
   const utilizationPercent = useMemo(() => {
@@ -272,6 +314,7 @@ function CreditCardPanel({
           ? "Đã thanh toán sao kê."
           : "Đã tạo thanh toán chờ xử lý.",
       );
+      setPaymentConfirmOpen(false);
     });
   }
 
@@ -294,10 +337,11 @@ function CreditCardPanel({
   }
 
   function submitRefund() {
-    if (!new Decimal(refundAmount || 0).gt(0)) return;
+    if (!refundTransactionId || !new Decimal(refundAmount || 0).gt(0)) return;
     startTransition(async () => {
       const result = await addCreditCardRefundAction(workspaceId, {
         cardWalletId: card.id,
+        originalTransactionId: refundTransactionId,
         amount: refundAmount,
         date: businessDate,
       });
@@ -312,6 +356,27 @@ function CreditCardPanel({
       );
       setRefundOpen(false);
       setRefundAmount("");
+      setRefundTransactionId("");
+    });
+  }
+
+  function submitEdit() {
+    startTransition(async () => {
+      const result = await updateCreditCardAction(workspaceId, {
+        cardWalletId: card.id,
+        name: editName,
+        description: editDescription,
+        creditLimit: editLimit,
+        defaultFundingWalletId: editFundingWalletId,
+        statementClosingDay: Number(editClosingDay),
+        paymentDueDay: Number(editDueDay),
+      });
+      if (!result.ok) {
+        toast.error(result.message ?? "Không thể cập nhật thẻ tín dụng.");
+        return;
+      }
+      toast.success("Đã cập nhật thẻ tín dụng.");
+      setEditOpen(false);
     });
   }
 
@@ -330,6 +395,37 @@ function CreditCardPanel({
   return (
     <>
       <Card as="article" className="gap-0 p-4 sm:p-5 md:p-6 overflow-hidden">
+        <Button
+          type="button"
+          variant="unstyled"
+          className="flex min-h-11 w-full items-center justify-between gap-4 text-left"
+          aria-expanded={expanded}
+          aria-controls={`credit-card-details-${card.id}`}
+          onClick={onToggle}
+        >
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold text-[var(--foreground)]">{card.name}</h2>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+              {card.statement
+                ? `Hạn thanh toán ${formatIsoDate(card.statement.dueDate)}`
+                : `Chốt sao kê ngày ${card.statementClosingDay}`}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <div className="text-right">
+              <p className="text-sm font-semibold tabular-nums text-[var(--foreground)]">
+                {formatAmount(hasCredit ? card.creditBalance : card.debt)} {currency}
+              </p>
+              <p className="text-[11px] text-[var(--text-muted)]">{hasCredit ? "Dư có" : "Dư nợ"}</p>
+            </div>
+            <ChevronDown
+              className={cn("size-4 text-[var(--text-muted)] transition-transform", expanded && "rotate-180")}
+              aria-hidden="true"
+            />
+          </div>
+        </Button>
+        {expanded && (
+        <div id={`credit-card-details-${card.id}`} className="mt-5 border-t border-[var(--border)] pt-5">
         {/* 2-Column Responsive Layout: stacked on mobile, 12-col grid on desktop */}
         <div className="flex flex-col gap-5 lg:grid lg:grid-cols-12 lg:gap-6 lg:items-start">
           {/* CỘT TRÁI (Col 5): Thẻ ảo & Chỉ số */}
@@ -379,7 +475,7 @@ function CreditCardPanel({
                           ref={cardMenuTriggerRef}
                           type="button"
                           aria-label={`Tùy chọn thẻ ${card.name}`}
-                          className="grid size-7 place-items-center rounded-full text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-secondary)]/80 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          className="grid size-11 place-items-center rounded-full text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-secondary)]/80 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring md:size-8"
                         />
                       }
                     >
@@ -391,22 +487,39 @@ function CreditCardPanel({
                       sideOffset={6}
                       className="w-52 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
                     >
+                      {canManage && (
+                        <DropdownMenuItem
+                          onClick={() => setEditOpen(true)}
+                          className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                        >
+                          <Pencil className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                          <span>Chỉnh sửa thẻ</span>
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
-                        onClick={() => setRefundOpen(true)}
+                        disabled={card.refundCandidates.length === 0}
+                        onClick={() => {
+                          setRefundTransactionId(card.refundCandidates[0]?.id ?? "");
+                          setRefundOpen(true);
+                        }}
                         className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
                       >
                         <RotateCcw className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
                         <span>Ghi nhận hoàn tiền</span>
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator className="my-1 -mx-1 bg-[var(--border)]" />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={() => setConfirmDelete(true)}
-                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer"
-                      >
-                        <Trash2 className="size-4 shrink-0" aria-hidden="true" />
-                        <span>Xóa thẻ</span>
-                      </DropdownMenuItem>
+                      {canManage && (
+                        <>
+                          <DropdownMenuSeparator className="my-1 -mx-1 bg-[var(--border)]" />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => setConfirmDelete(true)}
+                            className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer"
+                          >
+                            <Trash2 className="size-4 shrink-0" aria-hidden="true" />
+                            <span>Xóa thẻ</span>
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -414,9 +527,9 @@ function CreditCardPanel({
 
               {/* Card Name & Masked numbers */}
               <div className="relative z-10 my-3">
-                <h3 className="truncate text-base font-semibold tracking-wide text-[var(--foreground)]">
+                <p className="truncate text-base font-semibold tracking-wide text-[var(--foreground)]">
                   {card.name}
-                </h3>
+                </p>
                 <p className="mt-0.5 font-mono text-[11px] tracking-widest text-[var(--text-muted)]">
                   ••••  ••••  ••••  ••••
                 </p>
@@ -457,7 +570,7 @@ function CreditCardPanel({
                         utilizationPercent > 80
                           ? "bg-[var(--destructive)]"
                           : utilizationPercent > 50
-                            ? "bg-amber-500"
+                            ? "bg-[var(--warning)]"
                             : "bg-[var(--primary)]"
                       }`}
                       style={{ width: `${utilizationPercent}%` }}
@@ -500,22 +613,22 @@ function CreditCardPanel({
               aria-labelledby={`statement-${card.id}`}
             >
         <div className="flex items-center justify-between mb-2.5">
-          <h4
+          <h3
             id={`statement-${card.id}`}
             className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
           >
             <WalletCards size={14} className="text-[var(--primary)]" aria-hidden="true" />
             Sao kê cần thanh toán
-          </h4>
+          </h3>
 
           {card.statement && (
             <span
               className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                 card.statement.overdue
-                  ? "bg-red-500/15 text-red-500"
+                  ? "bg-[color-mix(in_srgb,var(--destructive)_12%,var(--surface))] text-[var(--destructive)]"
                   : card.statement.paymentPending
-                    ? "bg-amber-500/15 text-amber-500"
-                    : "bg-blue-500/15 text-blue-500"
+                    ? "bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)]"
+                    : "bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
               }`}
             >
               {card.statement.overdue
@@ -541,9 +654,15 @@ function CreditCardPanel({
                       : "text-[var(--text-secondary)]"
                   }`}
                 >
-                  Chốt: {card.statement.cycleEndDate} · Hạn: {card.statement.dueDate}
+                  Chốt: {formatIsoDate(card.statement.cycleEndDate)} · Hạn: {formatIsoDate(card.statement.dueDate)}
                   {card.statement.overdue && " (Đã quá hạn)"}
                 </p>
+                <Link
+                  href={`/credit-cards/${card.id}/statements/${card.statement.id}`}
+                  className="mt-1 inline-flex min-h-8 items-center text-xs font-medium text-[var(--primary)] hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--focus-ring)]"
+                >
+                  Xem chi tiết sao kê
+                </Link>
               </div>
 
               <Button
@@ -553,7 +672,7 @@ function CreditCardPanel({
                   card.statement.paymentPending ||
                   !new Decimal(card.statement.amount || 0).gt(0)
                 }
-                onClick={payStatement}
+                onClick={() => setPaymentConfirmOpen(true)}
                 className="gap-1.5 w-full sm:w-auto"
               >
                 <WalletCards size={16} aria-hidden="true" />
@@ -588,7 +707,7 @@ function CreditCardPanel({
           /* Compact and clean empty state for statement (no disabled full-width button) */
           <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/20 px-3.5 py-2.5 text-xs">
             <span className="flex items-center gap-2 font-medium text-[var(--text-secondary)]">
-              <CheckCircle2 className="size-4 text-emerald-500 shrink-0" aria-hidden="true" />
+              <CheckCircle2 className="size-4 text-[var(--success)] shrink-0" aria-hidden="true" />
               Chưa có sao kê cần thanh toán
             </span>
             <span className="text-[11px] text-[var(--text-muted)] tabular-nums">
@@ -604,13 +723,13 @@ function CreditCardPanel({
           className="mt-5 border-t border-[var(--border)] pt-4"
           aria-labelledby={`plans-${card.id}`}
         >
-          <h4
+          <h3
             id={`plans-${card.id}`}
             className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2.5"
           >
-            <CalendarClock size={14} className="text-amber-500" aria-hidden="true" />
+            <CalendarClock size={14} className="text-[var(--warning)]" aria-hidden="true" />
             Kế hoạch trả góp ({card.installmentPlans.length})
-          </h4>
+          </h3>
           <div className="space-y-2.5">
             {card.installmentPlans.map((plan) => {
               const paid = plan.installments.filter((item) => item.paid).length;
@@ -634,7 +753,7 @@ function CreditCardPanel({
                     </span>
                     <span className="tabular-nums">
                       {next
-                        ? `Kỳ tới: ${formatAmount(next.amount)} ${currency} (${next.dueDate})`
+                        ? `Kỳ tới: ${formatAmount(next.amount)} ${currency} (${formatIsoDate(next.dueDate)})`
                         : "Đã tất toán"}
                     </span>
                   </div>
@@ -651,12 +770,12 @@ function CreditCardPanel({
         aria-labelledby={`activities-${card.id}`}
       >
         <div className="flex items-center justify-between mb-2.5">
-          <h4
+          <h3
             id={`activities-${card.id}`}
             className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
           >
             Hoạt động gần đây
-          </h4>
+          </h3>
           {card.activities.some((a) => a.installmentEligible) && (
             <span className="text-[11px] text-[var(--text-muted)]">
               Chạm để quản lý
@@ -673,9 +792,9 @@ function CreditCardPanel({
                     <div
                       className={`grid size-8 shrink-0 place-items-center rounded-lg ${
                         activity.purpose === "credit_card_refund"
-                          ? "bg-emerald-500/15 text-emerald-500"
+                          ? "bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] text-[var(--success)]"
                           : activity.purpose === "credit_card_payment"
-                            ? "bg-blue-500/15 text-blue-500"
+                            ? "bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
                             : "bg-[var(--surface-secondary)] text-[var(--text-secondary)]"
                       }`}
                     >
@@ -694,8 +813,8 @@ function CreditCardPanel({
                       </p>
                       <p className="truncate text-[11px] text-[var(--text-muted)]">
                         {activity.description && activity.description !== activityLabel(activity)
-                          ? `${activity.date} · ${activityLabel(activity)}`
-                          : activity.date}
+                          ? `${formatIsoDate(activity.date)} · ${activityLabel(activity)}`
+                          : formatIsoDate(activity.date)}
                       </p>
                     </div>
                   </div>
@@ -704,7 +823,7 @@ function CreditCardPanel({
                     <span
                       className={`text-xs font-semibold tabular-nums ${
                         activity.purpose === "credit_card_refund"
-                          ? "text-emerald-500"
+                          ? "text-[var(--success)]"
                           : "text-[var(--foreground)]"
                       }`}
                     >
@@ -815,30 +934,97 @@ function CreditCardPanel({
           </summary>
           <div className="mt-2.5 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/15 px-3">
             {card.statements.map((statement) => (
-              <div
+              <Link
                 key={statement.id}
+                href={`/credit-cards/${card.id}/statements/${statement.id}`}
                 className="flex items-center justify-between gap-4 py-2 text-xs"
               >
                 <span className="text-[var(--text-secondary)]">
-                  Chốt {statement.cycleEndDate} · Hạn {statement.dueDate}
+                  Chốt {formatIsoDate(statement.cycleEndDate)} · Hạn {formatIsoDate(statement.dueDate)}
                 </span>
                 <span className="tabular-nums font-medium text-[var(--foreground)]">
                   {formatAmount(statement.amount)} {currency} ·{" "}
                   <span
                     className={
-                      statement.status === "paid" ? "text-emerald-500" : "text-amber-500"
+                      statement.status === "paid" ? "text-[var(--success)]" : "text-[var(--warning)]"
                     }
                   >
                     {statement.status === "paid" ? "Đã trả" : "Chưa trả"}
                   </span>
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
         </details>
       )}
     </div>
   </div>
+        </div>
+        )}
+
+      <Sheet
+        open={paymentConfirmOpen}
+        onOpenChange={(nextOpen) => !pending && setPaymentConfirmOpen(nextOpen)}
+      >
+        <SheetContent
+          side={isDesktop ? "right" : "bottom"}
+          placement={isDesktop ? "inset" : "edge"}
+          size={isDesktop ? "sm" : "default"}
+          spacing="flush"
+          elevation="flat"
+          className={isDesktop ? undefined : "quick-transaction-sheet"}
+        >
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <SheetHeader
+              icon={WalletCards}
+              title={canApprove ? "Xác nhận thanh toán" : "Gửi yêu cầu thanh toán"}
+              description={canApprove
+                ? `Kiểm tra các ví sẽ bị trừ trước khi thanh toán ${card.name}.`
+                : "Giao dịch sẽ chờ quản trị viên duyệt trước khi thay đổi số dư."}
+            />
+            <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-4 text-center">
+                <p className="text-xs text-[var(--text-muted)]">Tổng thanh toán sao kê</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--foreground)]">
+                  {formatAmount(card.statement?.amount ?? 0)} {currency}
+                </p>
+                {card.statement && (
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    Hạn {formatIsoDate(card.statement.dueDate)}
+                  </p>
+                )}
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  Ví sẽ bị trừ
+                </h3>
+                <div className="mt-2 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] px-3">
+                  {card.statement?.sources.map((source) => (
+                    <div key={source.walletId} className="flex items-center justify-between gap-3 py-3 text-sm">
+                      <span className="min-w-0 truncate text-[var(--text-secondary)]">
+                        {walletNames.get(source.walletId) ?? "Ví nguồn"}
+                      </span>
+                      <span className="shrink-0 font-semibold tabular-nums text-[var(--foreground)]">
+                        {formatAmount(source.amount)} {currency}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <SheetFooter
+              onCancel={() => setPaymentConfirmOpen(false)}
+              cancelLabel="Hủy"
+              submitLabel={canApprove ? "Xác nhận thanh toán" : "Gửi yêu cầu"}
+              isSubmitting={pending}
+              submittingLabel="Đang xử lý..."
+              submitDisabled={pending || !card.statement}
+              onSubmit={payStatement}
+              submitType="button"
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Ghi nhận hoàn tiền - Bottom Sheet trên Mobile, Drawer trên Desktop */}
       <Sheet
@@ -847,6 +1033,7 @@ function CreditCardPanel({
           if (!nextOpen) {
             setRefundOpen(false);
             setRefundAmount("");
+            setRefundTransactionId("");
           }
         }}
       >
@@ -868,7 +1055,7 @@ function CreditCardPanel({
             <SheetHeader
               icon={RotateCcw}
               title="Ghi nhận hoàn tiền"
-              description={`Nhập số tiền hoàn trực tiếp vào thẻ ${card.name}.`}
+              description={`Chọn giao dịch gốc và nhập số tiền được hoàn vào thẻ ${card.name}.`}
             />
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain pb-2">
@@ -888,14 +1075,32 @@ function CreditCardPanel({
               </div>
 
               <div className="space-y-3">
+                <Select
+                  label="Giao dịch gốc"
+                  value={refundTransactionId}
+                  onValueChange={(value) => {
+                    setRefundTransactionId(value);
+                    setRefundAmount("");
+                  }}
+                  options={card.refundCandidates.map((activity) => ({
+                    value: activity.id,
+                    label: `${activity.description ?? "Chi tiêu thẻ"} · ${formatIsoDate(activity.date)} · còn ${formatAmount(activity.refundableAmount)} ${currency}`,
+                  }))}
+                  required
+                />
                 <MoneyInput
-                  autoFocus
                   label={`Số tiền hoàn (${currency})`}
                   value={refundAmount}
                   onValueChange={setRefundAmount}
                   placeholder="0"
                   required
                 />
+                {selectedRefundActivity && refundAmount && new Decimal(refundAmount || 0).gt(selectedRefundActivity.refundableAmount) && (
+                  <p role="alert" className="flex items-center gap-1.5 text-xs text-[var(--destructive)]">
+                    <AlertCircle className="size-3.5" aria-hidden="true" />
+                    Chỉ còn có thể hoàn {formatAmount(selectedRefundActivity.refundableAmount)} {currency}.
+                  </p>
+                )}
 
                 <Input
                   label="Ngày ghi nhận hoàn"
@@ -906,7 +1111,7 @@ function CreditCardPanel({
               </div>
 
               <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                Khoản tiền này sẽ trực tiếp giảm dư nợ thẻ {card.name}. Nếu số tiền hoàn lớn hơn dư nợ hiện tại, phần chênh lệch sẽ trở thành số dư có (trả trước) cho các chi tiêu tiếp theo.
+                Khoản hoàn sẽ giảm dư nợ và đảo đúng phần phân bổ ví của giao dịch gốc. Nếu thẻ đã được thanh toán, khoản hoàn có thể tạo số dư có.
               </p>
             </div>
 
@@ -915,12 +1120,17 @@ function CreditCardPanel({
               onCancel={() => {
                 setRefundOpen(false);
                 setRefundAmount("");
+                setRefundTransactionId("");
               }}
               cancelLabel="Hủy"
               submitLabel={pending ? "Đang ghi nhận..." : "Xác nhận hoàn tiền"}
               isSubmitting={pending}
               submitDisabled={
-                pending || !refundAmount || !new Decimal(refundAmount || 0).gt(0)
+                pending ||
+                !refundTransactionId ||
+                !refundAmount ||
+                !new Decimal(refundAmount || 0).gt(0) ||
+                Boolean(selectedRefundActivity && new Decimal(refundAmount || 0).gt(selectedRefundActivity.refundableAmount))
               }
             />
           </form>
@@ -968,7 +1178,7 @@ function CreditCardPanel({
                     </span>
                   </div>
                   <p className="text-[11px] text-[var(--text-muted)]">
-                    Ngày giao dịch: {installmentTarget.date}
+                    Ngày giao dịch: {formatIsoDate(installmentTarget.date)}
                   </p>
                 </div>
               )}
@@ -1016,9 +1226,109 @@ function CreditCardPanel({
           </form>
         </SheetContent>
       </Sheet>
+
+      <Sheet open={editOpen} onOpenChange={(nextOpen) => !pending && setEditOpen(nextOpen)}>
+        <SheetContent
+          side={isDesktop ? "right" : "bottom"}
+          placement={isDesktop ? "inset" : "edge"}
+          size={isDesktop ? "wide" : "default"}
+          spacing="flush"
+          elevation="flat"
+          className={isDesktop ? undefined : "quick-transaction-sheet"}
+        >
+          <form
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submitEdit();
+            }}
+          >
+            <SheetHeader
+              icon={Pencil}
+              title="Chỉnh sửa thẻ tín dụng"
+              description="Thông tin mới chỉ áp dụng cho các kỳ sao kê phát sinh sau khi cập nhật."
+            />
+            <div className="grid flex-1 gap-4 overflow-y-auto p-4 sm:p-6 md:grid-cols-2 md:gap-6">
+              <div className="space-y-4">
+                <Input
+                  label="Tên thẻ"
+                  value={editName}
+                  onChange={(event) => setEditName(event.target.value)}
+                  maxLength={120}
+                  required
+                />
+                <Textarea
+                  label="Ghi chú"
+                  value={editDescription}
+                  onChange={(event) => setEditDescription(event.target.value)}
+                  maxLength={2000}
+                  rows={3}
+                />
+                <MoneyInput
+                  label={`Hạn mức tín dụng (${currency})`}
+                  value={editLimit}
+                  onValueChange={setEditLimit}
+                  required
+                />
+                {editLimit && new Decimal(editLimit || 0).lt(card.debt) && (
+                  <p role="alert" className="flex items-center gap-1.5 text-xs text-[var(--destructive)]">
+                    <AlertCircle className="size-3.5" aria-hidden="true" />
+                    Hạn mức không được thấp hơn dư nợ {formatAmount(card.debt)} {currency}.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-4 md:border-l md:border-[var(--border)] md:pl-6">
+                <Select
+                  label="Ví thanh toán mặc định"
+                  value={editFundingWalletId}
+                  onValueChange={setEditFundingWalletId}
+                  options={fundingWallets.map((wallet) => ({ value: wallet.id, label: wallet.name }))}
+                  required
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Select
+                    label="Ngày chốt sao kê"
+                    value={editClosingDay}
+                    onValueChange={setEditClosingDay}
+                    options={DAY_OPTIONS}
+                    required
+                  />
+                  <Select
+                    label="Hạn thanh toán"
+                    value={editDueDay}
+                    onValueChange={setEditDueDay}
+                    options={DAY_OPTIONS}
+                    required
+                  />
+                </div>
+                {card.installmentPlans.some((plan) => plan.status === "pending" || plan.status === "active") && editClosingDay !== String(card.statementClosingDay) && (
+                  <p role="alert" className="flex items-start gap-1.5 text-xs text-[var(--warning)]">
+                    <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                    Không thể đổi ngày chốt khi thẻ còn kế hoạch trả góp đang hoạt động.
+                  </p>
+                )}
+              </div>
+            </div>
+            <SheetFooter
+              onCancel={() => setEditOpen(false)}
+              submitLabel="Lưu thay đổi"
+              isSubmitting={pending}
+              submitDisabled={
+                pending ||
+                !editName.trim() ||
+                !editFundingWalletId ||
+                !editLimit ||
+                !new Decimal(editLimit || 0).gt(0) ||
+                new Decimal(editLimit || 0).lt(card.debt) ||
+                (card.installmentPlans.some((plan) => plan.status === "pending" || plan.status === "active") && editClosingDay !== String(card.statementClosingDay))
+              }
+            />
+          </form>
+        </SheetContent>
+      </Sheet>
       </Card>
 
-      <ConfirmDelete
+      {canManage && <ConfirmDelete
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         trigger={null}
@@ -1057,7 +1367,7 @@ function CreditCardPanel({
         presentation={isDesktop ? "popover" : "sheet"}
         anchor={cardMenuTriggerRef}
         onConfirm={handleDeleteCard}
-      />
+      />}
     </>
   );
 }
@@ -1067,11 +1377,29 @@ export function CreditCardOverview(props: {
   currency: string;
   businessDate: string;
   cards: CreditCardOverviewItem[];
+  canManage: boolean;
+  canApprove: boolean;
+  fundingWallets: FundingWallet[];
 }) {
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(() => {
+    const priority = props.cards.find((card) => card.statement?.overdue)
+      ?? props.cards.find((card) => card.statement)
+      ?? props.cards[0];
+    return priority?.id ?? null;
+  });
+
   return (
     <section className="space-y-4" aria-label="Danh sách thẻ tín dụng">
       {props.cards.length ? (
-        props.cards.map((card) => <CreditCardPanel key={card.id} {...props} card={card} />)
+        props.cards.map((card) => (
+          <CreditCardPanel
+            key={card.id}
+            {...props}
+            card={card}
+            expanded={expandedCardId === card.id}
+            onToggle={() => setExpandedCardId((current) => current === card.id ? null : card.id)}
+          />
+        ))
       ) : (
         <Card as="div" className="gap-2 p-6 text-center">
           <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--surface-secondary)] text-[var(--text-muted)]">

@@ -110,6 +110,10 @@ export default async function CreditCardsPage() {
                 select: { sourceWalletId: true, amount: true },
               },
               installmentPlan: { select: { id: true } },
+              refundTransactions: {
+                where: { deletedAt: null, workflowStatus: { not: "rejected" } },
+                select: { amount: true },
+              },
               creditCardObligationEntries: {
                 include: {
                   paymentAllocations: { select: { id: true } },
@@ -134,6 +138,52 @@ export default async function CreditCardsPage() {
       orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
     }),
   ]);
+
+  const refundTransactions = links.length
+    ? await prisma.transaction.findMany({
+        where: {
+          walletId: { in: links.map(({ wallet }) => wallet.id) },
+          type: "expense",
+          purpose: "standard",
+          workflowStatus: "approved",
+          deletedAt: null,
+          member: { workspaceId },
+        },
+        include: {
+          refundTransactions: {
+            where: { deletedAt: null, workflowStatus: { not: "rejected" } },
+            select: { amount: true },
+          },
+        },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      })
+    : [];
+  const refundCandidatesByCard = new Map<string, Array<{
+    id: string;
+    description: string | null;
+    date: string;
+    refundableAmount: string;
+  }>>();
+  for (const transaction of refundTransactions) {
+    const refundable = Decimal.max(
+      new Decimal(transaction.amount.toString()).minus(
+        transaction.refundTransactions.reduce(
+          (sum, refund) => sum.plus(refund.amount.toString()),
+          ZERO,
+        ),
+      ),
+      ZERO,
+    );
+    if (!refundable.gt(0)) continue;
+    const candidates = refundCandidatesByCard.get(transaction.walletId) ?? [];
+    candidates.push({
+      id: transaction.id,
+      description: transaction.description,
+      date: transaction.date.toISOString().slice(0, 10),
+      refundableAmount: refundable.toString(),
+    });
+    refundCandidatesByCard.set(transaction.walletId, candidates);
+  }
 
   const cards = links.flatMap(({ wallet }) => {
     const profile = wallet.creditCardProfile;
@@ -187,6 +237,7 @@ export default async function CreditCardsPage() {
     return [{
       id: wallet.id,
       name: wallet.name,
+      description: wallet.description,
       debt: Decimal.max(wallet.currentBalance.toString(), ZERO).toString(),
       creditBalance: Decimal.max(
         new Decimal(wallet.currentBalance.toString()).negated(),
@@ -274,7 +325,19 @@ export default async function CreditCardsPage() {
               entry.statementItems.length === 0,
           ),
         installmentPlanId: transaction.installmentPlan?.id ?? null,
+        refundableAmount: transaction.purpose === "standard"
+          ? Decimal.max(
+              new Decimal(transaction.amount.toString()).minus(
+                transaction.refundTransactions.reduce(
+                  (sum, refund) => sum.plus(refund.amount.toString()),
+                  ZERO,
+                ),
+              ),
+              ZERO,
+            ).toString()
+          : "0",
       })),
+      refundCandidates: refundCandidatesByCard.get(wallet.id) ?? [],
     }];
   });
 
@@ -303,6 +366,9 @@ export default async function CreditCardsPage() {
           currency={membership.workspace.baseCurrency}
           businessDate={getBusinessDateInTimeZone(membership.workspace.timeZone)}
           cards={cards}
+          canManage={workspaceCapabilities(membership.role.code).canManageWallets}
+          canApprove={workspaceCapabilities(membership.role.code).canApproveTransactions}
+          fundingWallets={fundingLinks.map(({ wallet }) => wallet)}
         />
       </div>
     </PageContainer>
