@@ -1,6 +1,6 @@
 import Decimal from "decimal.js";
 import { Prisma } from "@/generated/prisma/client";
-import type { InstallmentInput, RegisterCreditCardInstallmentInput } from "@/domain";
+import type { ImportCreditCardInstallmentInput, InstallmentInput, RegisterCreditCardInstallmentInput } from "@/domain";
 import { dueDateAfterStatement, firstStatementOnOrAfter, installmentAmounts, nextStatementDate } from "@/domain";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { AppError } from "@/lib/errors";
@@ -49,6 +49,7 @@ export async function activateInstallmentPlanInTransaction(tx: Tx, workspaceId: 
   if (!plan) throw new AppError("NOT_FOUND", "Không tìm thấy kế hoạch trả góp.");
   if (plan.status === "active" || plan.status === "completed") return plan;
   const original = plan.transaction;
+  if (!original) throw new AppError("CONFLICT", "Kế hoạch trả góp giao dịch bị thiếu giao dịch gốc.");
   if (original.workflowStatus !== "approved" || original.deletedAt || original.type !== "expense" || original.purpose !== "standard") {
     throw new AppError("CONFLICT", "Giao dịch chưa đủ điều kiện kích hoạt trả góp.");
   }
@@ -188,5 +189,284 @@ export async function registerCreditCardInstallment(
       data: { workspaceId, actorUserId: userId, action: "credit_card.installment_registered", entityType: "credit_card_installment_plan", entityId: plan.id, metadata: { transactionId: original.id, termCount: input.termCount, feeAmount: input.feeAmount.toString() } },
     });
     return plan;
+  });
+}
+
+function assertValidImportedStatementDate(
+  firstStatementDate: string,
+  effectiveDate: string,
+  closingDay: number,
+  latestClosed: string | null,
+) {
+  let candidate = firstStatementOnOrAfter(effectiveDate, closingDay);
+  if (latestClosed && candidate <= latestClosed) {
+    candidate = nextStatementDate(latestClosed, closingDay);
+  }
+  for (let index = 0; index < 60; index += 1) {
+    if (candidate === firstStatementDate) return;
+    if (candidate > firstStatementDate) break;
+    candidate = nextStatementDate(candidate, closingDay);
+  }
+  throw new AppError("VALIDATION_ERROR", "Kỳ sao kê bắt đầu không khớp lịch chốt của thẻ.");
+}
+
+export async function importCreditCardInstallment(
+  userId: string,
+  workspaceId: string,
+  input: ImportCreditCardInstallmentInput,
+  now = new Date(),
+) {
+  const member = await requireWorkspaceMember(userId, workspaceId, true);
+  const effectiveDate = getBusinessDateInTimeZone(member.workspace.timeZone, now);
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(
+      Prisma.sql`SELECT "wallet_id" FROM "CREDIT_CARD_PROFILE" WHERE "wallet_id" = CAST(${input.cardWalletId} AS uuid) FOR UPDATE`,
+    );
+    const card = await tx.workspaceWallet.findFirst({
+      where: {
+        workspaceId,
+        walletId: input.cardWalletId,
+        wallet: { kind: "credit_card", status: "active", deletedAt: null },
+      },
+      select: {
+        wallet: {
+          select: {
+            currentBalance: true,
+            creditCardProfile: {
+              select: {
+                creditLimit: true,
+                statementClosingDay: true,
+                paymentDueDay: true,
+                statements: { orderBy: { cycleEndDate: "desc" }, take: 1, select: { cycleEndDate: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    const profile = card?.wallet.creditCardProfile;
+    if (!card || !profile) {
+      throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Thẻ không khả dụng trong nhóm tài chính này.");
+    }
+    const fundingWalletIds = input.allocations.map((allocation) => allocation.walletId);
+    const fundingWallets = await tx.workspaceWallet.findMany({
+      where: {
+        workspaceId,
+        walletId: { in: fundingWalletIds },
+        wallet: { kind: "asset", status: "active", deletedAt: null },
+      },
+      select: { walletId: true },
+    });
+    if (new Set(fundingWallets.map((item) => item.walletId)).size !== new Set(fundingWalletIds).size) {
+      throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Ví trả thẻ phải là ví tài sản đang hoạt động trong nhóm này.");
+    }
+    const latestClosed = profile.statements[0]?.cycleEndDate
+      ? isoDate(profile.statements[0].cycleEndDate)
+      : null;
+    assertValidImportedStatementDate(
+      input.firstStatementDate,
+      effectiveDate,
+      profile.statementClosingDay,
+      latestClosed,
+    );
+    if (
+      input.balanceMode === "add_to_balance"
+      && new Decimal(card.wallet.currentBalance.toString()).plus(input.remainingAmount).gt(profile.creditLimit.toString())
+    ) {
+      throw new AppError("VALIDATION_ERROR", "Khoản trả góp nhập vào làm vượt hạn mức thẻ tín dụng.");
+    }
+
+    const plan = await tx.creditCardInstallmentPlan.create({
+      data: {
+        workspaceId,
+        cardWalletId: input.cardWalletId,
+        transactionId: null,
+        createdByMemberId: member.id,
+        origin: "imported",
+        description: input.description,
+        termCount: input.termCount,
+        paidTermCount: input.paidTermCount,
+        feeAmount: ZERO,
+        importBalanceMode: input.balanceMode,
+        effectiveDate: dbDate(effectiveDate),
+        status: "active",
+        activatedAt: new Date(),
+      },
+    });
+
+    if (input.balanceMode === "included_opening_debt") {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "CREDIT_CARD_OBLIGATION_ENTRY" WHERE "card_wallet_id" = CAST(${input.cardWalletId} AS uuid) FOR UPDATE`,
+      );
+      for (const allocation of input.allocations) {
+        const candidates = await tx.creditCardObligationEntry.findMany({
+          where: {
+            workspaceId,
+            cardWalletId: input.cardWalletId,
+            fundingWalletId: allocation.walletId,
+            source: "opening_balance",
+            installmentPlanId: null,
+            amount: { gt: 0 },
+            paymentAllocations: { none: {} },
+            statementItems: { none: {} },
+          },
+          orderBy: [{ postedDate: "asc" }, { id: "asc" }],
+        });
+        let remaining = new Decimal(allocation.amount);
+        for (const candidate of candidates) {
+          if (!remaining.gt(0)) break;
+          const candidateAmount = new Decimal(candidate.amount.toString());
+          const moved = Decimal.min(remaining, candidateAmount);
+          if (moved.eq(candidateAmount)) {
+            await tx.creditCardObligationEntry.update({
+              where: { id: candidate.id },
+              data: { installmentPlanId: plan.id },
+            });
+          } else {
+            await tx.creditCardObligationEntry.update({
+              where: { id: candidate.id },
+              data: { amount: candidateAmount.minus(moved) },
+            });
+            await tx.creditCardObligationEntry.create({
+              data: {
+                workspaceId,
+                cardWalletId: input.cardWalletId,
+                fundingWalletId: allocation.walletId,
+                installmentPlanId: plan.id,
+                kind: candidate.kind,
+                source: candidate.source,
+                effectiveDate: candidate.effectiveDate,
+                postedDate: candidate.postedDate,
+                amount: moved,
+                idempotencyKey: `installment-import:${plan.id}:${candidate.id}`,
+                metadata: { importedFromObligationId: candidate.id },
+              },
+            });
+          }
+          remaining = remaining.minus(moved);
+        }
+        if (remaining.gt(0)) {
+          throw new AppError(
+            "VALIDATION_ERROR",
+            "Dư nợ ban đầu chưa vào sao kê của ví đã chọn không đủ để phân loại thành trả góp.",
+          );
+        }
+      }
+    } else {
+      await tx.creditCardObligationEntry.createMany({
+        data: input.allocations.map((allocation) => ({
+          workspaceId,
+          cardWalletId: input.cardWalletId,
+          fundingWalletId: allocation.walletId,
+          installmentPlanId: plan.id,
+          kind: "opening_debt" as const,
+          source: "adjustment" as const,
+          effectiveDate: dbDate(effectiveDate),
+          postedDate: dbDate(effectiveDate),
+          amount: allocation.amount,
+          idempotencyKey: `installment-import:${plan.id}:${allocation.walletId}`,
+          metadata: { importBalanceMode: input.balanceMode },
+        })),
+      });
+      await tx.wallet.update({
+        where: { id: input.cardWalletId },
+        data: { currentBalance: { increment: input.remainingAmount } },
+      });
+    }
+
+    const remainingTermCount = input.termCount - input.paidTermCount;
+    const amounts = installmentAmounts(input.remainingAmount, remainingTermCount);
+    let statementDate = input.firstStatementDate;
+    await tx.creditCardInstallment.createMany({
+      data: amounts.map((principalAmount, index) => {
+        const currentStatementDate = statementDate;
+        statementDate = nextStatementDate(statementDate, profile.statementClosingDay);
+        return {
+          planId: plan.id,
+          installmentNo: input.paidTermCount + index + 1,
+          statementDate: dbDate(currentStatementDate),
+          dueDate: dbDate(dueDateAfterStatement(currentStatementDate, profile.paymentDueDay)),
+          principalAmount,
+          feeAmount: ZERO,
+        };
+      }),
+    });
+    await assertCardBalanceReconciled(tx, input.cardWalletId);
+    await tx.auditLog.create({
+      data: {
+        workspaceId,
+        actorUserId: userId,
+        action: "credit_card.installment_imported",
+        entityType: "credit_card_installment_plan",
+        entityId: plan.id,
+        metadata: {
+          termCount: input.termCount,
+          paidTermCount: input.paidTermCount,
+          remainingAmount: input.remainingAmount.toString(),
+          balanceMode: input.balanceMode,
+          firstStatementDate: input.firstStatementDate,
+        },
+      },
+    });
+    return plan;
+  });
+}
+
+export async function deleteImportedCreditCardInstallment(
+  userId: string,
+  workspaceId: string,
+  planId: string,
+) {
+  await requireWorkspaceMember(userId, workspaceId, true);
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "CREDIT_CARD_EQUAL_INSTALLMENT_PLAN" WHERE "id" = CAST(${planId} AS uuid) FOR UPDATE`,
+    );
+    const plan = await tx.creditCardInstallmentPlan.findFirst({
+      where: { id: planId, workspaceId, origin: "imported" },
+      include: {
+        importedObligations: {
+          include: { paymentAllocations: { select: { id: true } }, statementItems: { select: { id: true } } },
+        },
+        installments: { include: { statementItems: { select: { id: true } } } },
+      },
+    });
+    if (!plan) throw new AppError("NOT_FOUND", "Không tìm thấy khoản trả góp đã nhập.");
+    const locked = plan.importedObligations.some(
+      (entry) => entry.paymentAllocations.length > 0 || entry.statementItems.length > 0,
+    ) || plan.installments.some((installment) => installment.statementItems.length > 0);
+    if (locked) {
+      throw new AppError("CONFLICT", "Khoản trả góp đã vào sao kê hoặc được thanh toán nên không thể xóa.");
+    }
+    const importedAmount = plan.importedObligations.reduce(
+      (sum, entry) => sum.plus(entry.amount.toString()),
+      ZERO,
+    );
+    if (plan.importBalanceMode === "add_to_balance") {
+      await tx.wallet.update({
+        where: { id: plan.cardWalletId },
+        data: { currentBalance: { decrement: importedAmount } },
+      });
+      await tx.creditCardObligationEntry.deleteMany({ where: { installmentPlanId: plan.id } });
+    } else {
+      await tx.creditCardObligationEntry.updateMany({
+        where: { installmentPlanId: plan.id },
+        data: { installmentPlanId: null },
+      });
+    }
+    await tx.creditCardInstallment.deleteMany({ where: { planId: plan.id } });
+    await tx.creditCardInstallmentPlan.delete({ where: { id: plan.id } });
+    await assertCardBalanceReconciled(tx, plan.cardWalletId);
+    await tx.auditLog.create({
+      data: {
+        workspaceId,
+        actorUserId: userId,
+        action: "credit_card.installment_import_deleted",
+        entityType: "credit_card_installment_plan",
+        entityId: plan.id,
+        metadata: { importedAmount: importedAmount.toString(), balanceMode: plan.importBalanceMode },
+      },
+    });
+    return { id: plan.id };
   });
 }

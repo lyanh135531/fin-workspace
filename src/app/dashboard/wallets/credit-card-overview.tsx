@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronDown,
   CreditCard,
+  History,
   MoreHorizontal,
   Pencil,
   RotateCcw,
@@ -21,6 +22,8 @@ import { toast } from "sonner";
 import {
   addCreditCardRefundAction,
   deleteCreditCardAction,
+  deleteImportedCreditCardInstallmentAction,
+  importCreditCardInstallmentAction,
   payCreditCardAction,
   registerCreditCardInstallmentAction,
   updateCreditCardAction,
@@ -48,6 +51,7 @@ import {
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { formatAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { firstStatementOnOrAfter, installmentAmounts, nextStatementDate } from "@/domain/credit-card/installments";
 
 function subscribeDesktop(callback: () => void) {
   const query = window.matchMedia("(min-width: 901px)");
@@ -104,10 +108,14 @@ type Statement = {
 
 type InstallmentPlan = {
   id: string;
+  origin: "transaction" | "imported";
   description: string | null;
   principal: string;
   fee: string;
   termCount: number;
+  paidTermCount: number;
+  importBalanceMode: "included_opening_debt" | "add_to_balance" | null;
+  canDelete: boolean;
   status: "pending" | "active" | "completed";
   installments: Array<{
     number: number;
@@ -131,6 +139,7 @@ export type CreditCardOverviewItem = {
   statementClosingDay: number;
   paymentDueDay: number;
   fundingShares: FundingShare[];
+  importableOpeningDebt: Array<{ walletId: string; amount: string }>;
   statement:
     | (Statement & {
         overdue: boolean;
@@ -254,6 +263,14 @@ function CreditCardPanel({
   const [installmentTarget, setInstallmentTarget] = useState<CardActivity | null>(null);
   const [termCount, setTermCount] = useState("3");
   const [feeAmount, setFeeAmount] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importDescription, setImportDescription] = useState("");
+  const [importTermCount, setImportTermCount] = useState("12");
+  const [importPaidTermCount, setImportPaidTermCount] = useState("0");
+  const [importRemainingAmount, setImportRemainingAmount] = useState("");
+  const [importBalanceMode, setImportBalanceMode] = useState<"included_opening_debt" | "add_to_balance">("included_opening_debt");
+  const [importFundingWalletId, setImportFundingWalletId] = useState(card.defaultFundingWalletId);
+  const [importFirstStatementDate, setImportFirstStatementDate] = useState("");
   const [menuActivityId, setMenuActivityId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [paymentConfirmOpen, setPaymentConfirmOpen] = useState(false);
@@ -288,6 +305,47 @@ function CreditCardPanel({
   const selectedRefundActivity = card.refundCandidates.find(
     (activity) => activity.id === refundTransactionId,
   );
+  const importableOpeningDebtByWallet = useMemo(
+    () => new Map(card.importableOpeningDebt.map((item) => [item.walletId, new Decimal(item.amount)])),
+    [card.importableOpeningDebt],
+  );
+
+  const importStatementOptions = useMemo(() => {
+    let statementDate = firstStatementOnOrAfter(businessDate, card.statementClosingDay);
+    const latestStatementDate = card.statements[0]?.cycleEndDate ?? null;
+    if (latestStatementDate && statementDate <= latestStatementDate) {
+      statementDate = nextStatementDate(latestStatementDate, card.statementClosingDay);
+    }
+    return Array.from({ length: 24 }, () => {
+      const value = statementDate;
+      statementDate = nextStatementDate(statementDate, card.statementClosingDay);
+      return { value, label: formatIsoDate(value) };
+    });
+  }, [businessDate, card.statementClosingDay, card.statements]);
+
+  const importPreview = useMemo(() => {
+    const totalTerms = Number(importTermCount);
+    const paidTerms = Number(importPaidTermCount);
+    if (!Number.isInteger(totalTerms) || !Number.isInteger(paidTerms) || totalTerms < 2 || totalTerms > 60 || paidTerms < 0 || paidTerms >= totalTerms) {
+      return null;
+    }
+    try {
+      const remaining = new Decimal(importRemainingAmount || 0);
+      if (!remaining.gt(0)) return null;
+      const amounts = installmentAmounts(remaining, totalTerms - paidTerms);
+      return {
+        remainingTerms: amounts.length,
+        regularAmount: amounts[0].toString(),
+        finalAmount: amounts[amounts.length - 1].toString(),
+      };
+    } catch {
+      return null;
+    }
+  }, [importPaidTermCount, importRemainingAmount, importTermCount]);
+  const selectedImportableOpeningDebt = importableOpeningDebtByWallet.get(importFundingWalletId) ?? new Decimal(0);
+  const exceedsImportableOpeningDebt = importBalanceMode === "included_opening_debt"
+    && Boolean(importPreview)
+    && new Decimal(importRemainingAmount || 0).gt(selectedImportableOpeningDebt);
 
   // Credit limit utilization percentage (0 - 100%)
   const utilizationPercent = useMemo(() => {
@@ -358,6 +416,49 @@ function CreditCardPanel({
       setRefundAmount("");
       setRefundTransactionId("");
     });
+  }
+
+  function openImportInstallment() {
+    setImportDescription("");
+    setImportTermCount("12");
+    setImportPaidTermCount("0");
+    setImportRemainingAmount("");
+    setImportBalanceMode("included_opening_debt");
+    setImportFundingWalletId(card.defaultFundingWalletId);
+    setImportFirstStatementDate(importStatementOptions[0]?.value ?? "");
+    setImportOpen(true);
+  }
+
+  function importOngoingInstallment() {
+    if (!importPreview || !importFundingWalletId || !importFirstStatementDate) return;
+    startTransition(async () => {
+      const result = await importCreditCardInstallmentAction(workspaceId, {
+        cardWalletId: card.id,
+        description: importDescription,
+        termCount: Number(importTermCount),
+        paidTermCount: Number(importPaidTermCount),
+        remainingAmount: importRemainingAmount,
+        firstStatementDate: importFirstStatementDate,
+        balanceMode: importBalanceMode,
+        allocations: [{ walletId: importFundingWalletId, amount: importRemainingAmount }],
+      });
+      if (!result.ok) {
+        toast.error(result.message ?? "Không thể nhập khoản trả góp đang có.");
+        return;
+      }
+      toast.success("Đã nhập khoản trả góp đang có.");
+      setImportOpen(false);
+    });
+  }
+
+  async function handleDeleteImportedPlan(plan: InstallmentPlan) {
+    const result = await deleteImportedCreditCardInstallmentAction(workspaceId, { planId: plan.id });
+    if (!result.ok) {
+      toast.error(result.message ?? "Không thể xóa khoản trả góp đã nhập.");
+      return false;
+    }
+    toast.success("Đã xóa khoản trả góp đã nhập.");
+    return true;
   }
 
   function submitEdit() {
@@ -718,34 +819,73 @@ function CreditCardPanel({
       </section>
 
       {/* 3. Kế hoạch trả góp (Installment Plans) */}
-      {card.installmentPlans.length > 0 && (
+      {(canManage || card.installmentPlans.length > 0) && (
         <section
           className="mt-5 border-t border-[var(--border)] pt-4"
           aria-labelledby={`plans-${card.id}`}
         >
-          <h3
-            id={`plans-${card.id}`}
-            className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2.5"
-          >
-            <CalendarClock size={14} className="text-[var(--warning)]" aria-hidden="true" />
-            Kế hoạch trả góp ({card.installmentPlans.length})
-          </h3>
-          <div className="space-y-2.5">
+          <div className="mb-2.5 flex items-center justify-between gap-3">
+            <h3
+              id={`plans-${card.id}`}
+              className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
+            >
+              <CalendarClock size={14} className="text-[var(--warning)]" aria-hidden="true" />
+              Kế hoạch trả góp ({card.installmentPlans.length})
+            </h3>
+            {canManage && (
+              <Button type="button" variant="outline" size="sm" onClick={openImportInstallment}>
+                <History aria-hidden="true" />
+                Nhập khoản cũ
+              </Button>
+            )}
+          </div>
+          {card.installmentPlans.length > 0 ? <div className="space-y-2.5">
             {card.installmentPlans.map((plan) => {
-              const paid = plan.installments.filter((item) => item.paid).length;
+              const paid = plan.paidTermCount + plan.installments.filter((item) => item.paid).length;
               const next = plan.installments.find((item) => !item.paid);
               return (
                 <div
                   key={plan.id}
                   className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/20 p-3 space-y-1.5"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium text-sm text-[var(--foreground)] truncate">
-                      {plan.description ?? "Giao dịch trả góp"}
-                    </p>
-                    <span className="text-sm font-semibold tabular-nums text-[var(--foreground)] shrink-0">
-                      {formatAmount(plan.principal)} {currency}
-                    </span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm text-[var(--foreground)] truncate">
+                        {plan.description ?? "Giao dịch trả góp"}
+                      </p>
+                      {plan.origin === "imported" && (
+                        <span className="text-[10px] font-medium text-[var(--primary)]">Khoản đã có trước khi dùng app</span>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <span className="text-sm font-semibold tabular-nums text-[var(--foreground)]">
+                        {formatAmount(plan.principal)} {currency}
+                      </span>
+                      {canManage && plan.canDelete && (
+                        <ConfirmDelete
+                          ariaLabel={`Xóa khoản trả góp ${plan.description ?? "đã nhập"}`}
+                          title="Xóa khoản trả góp đã nhập?"
+                          description={
+                            plan.importBalanceMode === "add_to_balance"
+                              ? "Dư nợ đã cộng khi nhập khoản này sẽ được trừ lại. Thao tác chỉ thực hiện được khi chưa có kỳ nào vào sao kê."
+                              : "Khoản này sẽ trở lại dư nợ thông thường. Thao tác chỉ thực hiện được khi chưa có kỳ nào vào sao kê."
+                          }
+                          confirmLabel="Xóa khoản đã nhập"
+                          presentation={isDesktop ? "popover" : "sheet"}
+                          trigger={
+                            <Button
+                              type="button"
+                              variant="destructiveIcon"
+                              size="icon"
+                              aria-label={`Xóa khoản trả góp ${plan.description ?? "đã nhập"}`}
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </Button>
+                          }
+                          onConfirm={() => handleDeleteImportedPlan(plan)}
+                        />
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
                     <span>
@@ -760,7 +900,11 @@ function CreditCardPanel({
                 </div>
               );
             })}
-          </div>
+          </div> : (
+            <p className="py-2 text-xs text-[var(--text-muted)]">
+              Chưa có kế hoạch trả góp. Nếu đã trả góp trước khi dùng app, hãy nhập phần còn lại tại đây.
+            </p>
+          )}
         </section>
       )}
 
@@ -1221,6 +1365,151 @@ function CreditCardPanel({
               submitDisabled={
                 pending ||
                 (feeAmount.trim() !== "" && new Decimal(feeAmount).lt(0))
+              }
+            />
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={importOpen} onOpenChange={(nextOpen) => !pending && setImportOpen(nextOpen)}>
+        <SheetContent
+          side={isDesktop ? "right" : "bottom"}
+          placement={isDesktop ? "inset" : "edge"}
+          size={isDesktop ? "wide" : "default"}
+          spacing={isDesktop ? "flush" : "default"}
+          elevation={isDesktop ? "flat" : "raised"}
+          className={isDesktop ? undefined : "quick-transaction-sheet"}
+        >
+          <form
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            onSubmit={(event) => {
+              event.preventDefault();
+              importOngoingInstallment();
+            }}
+          >
+            <SheetHeader
+              icon={History}
+              title="Nhập khoản trả góp đang có"
+              description="Ghi nhận phần còn lại mà không tạo chi tiêu giả trong quá khứ."
+            />
+            <div className="flex-1 space-y-4 overflow-y-auto p-4 pb-2 overscroll-contain sm:p-5">
+              <Input
+                label="Tên khoản trả góp"
+                value={importDescription}
+                onChange={(event) => setImportDescription(event.target.value)}
+                placeholder="Ví dụ: Điện thoại"
+                maxLength={120}
+                required
+              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Tổng số kỳ"
+                  type="number"
+                  inputMode="numeric"
+                  min={2}
+                  max={60}
+                  value={importTermCount}
+                  onChange={(event) => setImportTermCount(event.target.value)}
+                  required
+                  aria-invalid={Number(importTermCount) < 2 || Number(importTermCount) > 60}
+                />
+                <Input
+                  label="Số kỳ đã trả"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={Math.max(Number(importTermCount) - 1, 0)}
+                  value={importPaidTermCount}
+                  onChange={(event) => setImportPaidTermCount(event.target.value)}
+                  required
+                  aria-invalid={Number(importPaidTermCount) < 0 || Number(importPaidTermCount) >= Number(importTermCount)}
+                />
+              </div>
+              <div>
+                <MoneyInput
+                  label={`Dư nợ trả góp còn lại (${currency})`}
+                  value={importRemainingAmount}
+                  onValueChange={setImportRemainingAmount}
+                  placeholder="0"
+                  required
+                />
+                <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
+                  Nhập cả phần phí còn lại nếu ngân hàng đã tính phí vào dư nợ của gói.
+                </p>
+              </div>
+              <Select
+                label="Khoản này đã được ghi vào dư nợ thẻ chưa?"
+                value={importBalanceMode}
+                onValueChange={(value) => setImportBalanceMode(value as typeof importBalanceMode)}
+                options={[
+                  { value: "included_opening_debt", label: "Đã nằm trong dư nợ ban đầu" },
+                  { value: "add_to_balance", label: "Chưa ghi nhận — cộng thêm vào dư nợ" },
+                ]}
+                required
+              />
+              <p className="-mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
+                {importBalanceMode === "included_opening_debt"
+                  ? "App chỉ phân loại lại phần dư nợ ban đầu chưa thanh toán và chưa vào sao kê; tổng dư nợ không đổi."
+                  : "App tăng dư nợ thẻ nhưng không tính khoản này thành chi tiêu mới trong báo cáo."}
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Select
+                    label="Ví chịu trách nhiệm thanh toán"
+                    value={importFundingWalletId}
+                    onValueChange={setImportFundingWalletId}
+                    options={fundingWallets.map((wallet) => ({ value: wallet.id, label: wallet.name }))}
+                    required
+                  />
+                  {importBalanceMode === "included_opening_debt" && (
+                    <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                      Có thể phân loại: {formatAmount(selectedImportableOpeningDebt)} {currency}
+                    </p>
+                  )}
+                </div>
+                <Select
+                  label="Bắt đầu từ sao kê"
+                  value={importFirstStatementDate}
+                  onValueChange={setImportFirstStatementDate}
+                  options={importStatementOptions}
+                  required
+                />
+              </div>
+              {importPreview && (
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 text-xs text-[var(--text-secondary)]" aria-live="polite">
+                  <p className="font-medium text-[var(--foreground)]">
+                    Còn {importPreview.remainingTerms} kỳ · đã trả {importPaidTermCount}/{importTermCount} kỳ
+                  </p>
+                  <p className="mt-1 tabular-nums">
+                    Kỳ thường {formatAmount(importPreview.regularAmount)} {currency}
+                    {importPreview.finalAmount !== importPreview.regularAmount
+                      ? ` · Kỳ cuối ${formatAmount(importPreview.finalAmount)} ${currency}`
+                      : ""}
+                  </p>
+                </div>
+              )}
+              {importBalanceMode === "included_opening_debt" && (
+                <p className={`flex gap-2 text-[11px] leading-relaxed ${exceedsImportableOpeningDebt ? "text-[var(--destructive)]" : "text-[var(--warning)]"}`} role={exceedsImportableOpeningDebt ? "alert" : undefined}>
+                  <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                  {exceedsImportableOpeningDebt
+                    ? "Dư nợ ban đầu chưa vào sao kê của ví này không đủ. Hãy giảm số tiền, chọn ví khác hoặc chọn cộng thêm vào dư nợ."
+                    : "Nếu dư nợ ban đầu đã lên sao kê hoặc được thanh toán, app sẽ chặn để tránh sửa lịch sử tài chính."}
+                </p>
+              )}
+            </div>
+            <SheetFooter
+              className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5"
+              onCancel={() => setImportOpen(false)}
+              cancelLabel="Hủy"
+              submitLabel={pending ? "Đang xử lý..." : "Nhập khoản trả góp"}
+              isSubmitting={pending}
+              submitDisabled={
+                pending ||
+                !importDescription.trim() ||
+                !importPreview ||
+                !importFundingWalletId ||
+                !importFirstStatementDate ||
+                exceedsImportableOpeningDebt
               }
             />
           </form>
