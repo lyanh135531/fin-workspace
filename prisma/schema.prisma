@@ -123,6 +123,31 @@ enum FinancialPlanStatus {
   @@map("FINANCIAL_PLAN_STATUS")
 }
 
+enum FinancialGoalTrackingMode {
+  manual
+  linked_wallet
+
+  @@map("FINANCIAL_GOAL_TRACKING_MODE")
+}
+
+enum FinancialGoalFundingStatus {
+  pending
+  approved
+  rejected
+
+  @@map("FINANCIAL_GOAL_FUNDING_STATUS")
+}
+
+enum FinancialGoalFundingKind {
+  opening
+  contribution
+  withdrawal
+  adjustment
+  reversal
+
+  @@map("FINANCIAL_GOAL_FUNDING_KIND")
+}
+
 enum ChangeRequestStatus {
   pending
   approved
@@ -252,6 +277,9 @@ model WorkspaceMember {
   createdRecurringTransactions  RecurringTransaction[]
   reviewedRecurringTransactions RecurringTransaction[]      @relation("RecurringReviewer")
   createdFinancialPlans         FinancialPlan[]
+  createdFinancialGoals         FinancialPlanGoal[]
+  requestedGoalFundingEntries   FinancialGoalFundingEntry[] @relation("GoalFundingRequester")
+  reviewedGoalFundingEntries    FinancialGoalFundingEntry[] @relation("GoalFundingReviewer")
   createdInstallmentPlans       CreditCardInstallmentPlan[]
 
   @@unique([workspaceId, userId])
@@ -284,6 +312,7 @@ model Wallet {
   creditCardPaymentSources         CreditCardPaymentSource[]      @relation("CreditCardPaymentSourceWallet")
   fundedCreditCardObligations      CreditCardObligationEntry[]    @relation("CreditCardObligationFundingWallet")
   creditCardPaymentReservations    CreditCardPaymentReservation[] @relation("CreditCardReservationSourceWallet")
+  linkedFinancialGoals             FinancialPlanGoal[]            @relation("FinancialGoalLinkedWallet")
 
   @@index([status, deletedAt])
   @@map("WALLETS")
@@ -719,10 +748,86 @@ model FinancialPlan {
   createdBy                  WorkspaceMember      @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
   allocations                PlanJarAllocation[]
   months                     FinancialPlanMonth[]
+  goals                      FinancialPlanGoal[]
 
   @@index([workspaceId, status, deletedAt])
   @@index([targetMonth])
   @@map("FINANCIAL_PLAN")
+}
+
+model FinancialPlanGoal {
+  id                String                      @id @default(uuid()) @db.Uuid
+  financialPlanId   String                      @map("financial_plan_id") @db.Uuid
+  name              String
+  targetAmount      Decimal                     @map("target_amount") @db.Decimal(20, 4)
+  targetMonth       DateTime                    @map("target_month") @db.Date
+  trackingMode      FinancialGoalTrackingMode   @default(manual) @map("tracking_mode")
+  linkedWalletId    String?                     @map("linked_wallet_id") @db.Uuid
+  sortOrder         Int                         @default(0) @map("sort_order")
+  status            FinancialPlanStatus         @default(draft)
+  createdByMemberId String                      @map("created_by_member_id") @db.Uuid
+  completedAt       DateTime?                   @map("completed_at") @db.Timestamptz(6)
+  cancelledAt       DateTime?                   @map("cancelled_at") @db.Timestamptz(6)
+  createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?                   @map("deleted_at") @db.Timestamptz(6)
+  financialPlan     FinancialPlan               @relation(fields: [financialPlanId], references: [id], onDelete: Restrict)
+  linkedWallet      Wallet?                     @relation("FinancialGoalLinkedWallet", fields: [linkedWalletId], references: [id], onDelete: Restrict)
+  createdBy         WorkspaceMember             @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  fundingEntries    FinancialGoalFundingEntry[]
+  months            FinancialPlanGoalMonth[]
+
+  @@index([financialPlanId, status, deletedAt, sortOrder])
+  @@index([linkedWalletId])
+  @@index([targetMonth])
+  @@map("FINANCIAL_PLAN_GOAL")
+}
+
+model FinancialGoalFundingEntry {
+  id                String                      @id @default(uuid()) @db.Uuid
+  goalId            String                      @map("goal_id") @db.Uuid
+  amount            Decimal                     @db.Decimal(20, 4)
+  kind              FinancialGoalFundingKind    @default(contribution)
+  status            FinancialGoalFundingStatus  @default(pending)
+  effectiveDate     DateTime                    @map("effective_date") @db.Date
+  note              String?
+  requesterMemberId String                      @map("requester_member_id") @db.Uuid
+  reviewerMemberId  String?                     @map("reviewer_member_id") @db.Uuid
+  reversesEntryId   String?                     @map("reverses_entry_id") @db.Uuid
+  reviewedAt        DateTime?                   @map("reviewed_at") @db.Timestamptz(6)
+  createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  goal              FinancialPlanGoal           @relation(fields: [goalId], references: [id], onDelete: Restrict)
+  requester         WorkspaceMember             @relation("GoalFundingRequester", fields: [requesterMemberId], references: [id], onDelete: Restrict)
+  reviewer          WorkspaceMember?            @relation("GoalFundingReviewer", fields: [reviewerMemberId], references: [id], onDelete: Restrict)
+  reversesEntry     FinancialGoalFundingEntry?  @relation("GoalFundingReversal", fields: [reversesEntryId], references: [id], onDelete: Restrict)
+  reversedBy        FinancialGoalFundingEntry[] @relation("GoalFundingReversal")
+
+  @@unique([reversesEntryId])
+  @@index([goalId, status, effectiveDate])
+  @@index([requesterMemberId, status])
+  @@index([reviewerMemberId])
+  @@map("FINANCIAL_GOAL_FUNDING_ENTRY")
+}
+
+model FinancialPlanGoalMonth {
+  id                    String             @id @default(uuid()) @db.Uuid
+  goalId                String             @map("goal_id") @db.Uuid
+  financialPlanMonthId  String             @map("financial_plan_month_id") @db.Uuid
+  month                 DateTime           @db.Date
+  requiredAmount        Decimal            @map("required_amount") @db.Decimal(20, 4)
+  projectedContribution Decimal            @map("projected_contribution") @db.Decimal(20, 4)
+  actualContribution    Decimal            @map("actual_contribution") @db.Decimal(20, 4)
+  closingProgress       Decimal            @map("closing_progress") @db.Decimal(20, 4)
+  remainingAmount       Decimal            @map("remaining_amount") @db.Decimal(20, 4)
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  goal                  FinancialPlanGoal  @relation(fields: [goalId], references: [id], onDelete: Restrict)
+  financialPlanMonth    FinancialPlanMonth @relation(fields: [financialPlanMonthId], references: [id], onDelete: Restrict)
+
+  @@unique([goalId, month])
+  @@index([financialPlanMonthId])
+  @@index([month])
+  @@map("FINANCIAL_PLAN_GOAL_MONTH")
 }
 
 model PlanJarAllocation {
@@ -740,21 +845,22 @@ model PlanJarAllocation {
 }
 
 model FinancialPlanMonth {
-  id                     String                  @id @default(uuid()) @db.Uuid
-  financialPlanId        String                  @map("financial_plan_id") @db.Uuid
-  month                  DateTime                @db.Date
-  baseRequiredAmount     Decimal                 @map("base_required_amount") @db.Decimal(20, 4)
-  adjustedRequiredAmount Decimal                 @map("adjusted_required_amount") @db.Decimal(20, 4)
-  rawGrossBudget         Decimal                 @map("raw_gross_budget") @db.Decimal(20, 4)
-  allocatableGrossBudget Decimal                 @map("allocatable_gross_budget") @db.Decimal(20, 4)
-  resourceShortfall      Decimal                 @map("resource_shortfall") @db.Decimal(20, 4)
-  closedEligibleExpense  Decimal                 @map("closed_eligible_expense") @db.Decimal(20, 4)
-  closedActualGoalAmount Decimal                 @map("closed_actual_goal_amount") @db.Decimal(20, 4)
-  closedAt               DateTime                @map("closed_at") @db.Timestamptz(6)
-  calculatorVersion      String                  @map("calculator_version") @db.VarChar(32)
-  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  financialPlan          FinancialPlan           @relation(fields: [financialPlanId], references: [id], onDelete: Restrict)
+  id                     String                   @id @default(uuid()) @db.Uuid
+  financialPlanId        String                   @map("financial_plan_id") @db.Uuid
+  month                  DateTime                 @db.Date
+  baseRequiredAmount     Decimal                  @map("base_required_amount") @db.Decimal(20, 4)
+  adjustedRequiredAmount Decimal                  @map("adjusted_required_amount") @db.Decimal(20, 4)
+  rawGrossBudget         Decimal                  @map("raw_gross_budget") @db.Decimal(20, 4)
+  allocatableGrossBudget Decimal                  @map("allocatable_gross_budget") @db.Decimal(20, 4)
+  resourceShortfall      Decimal                  @map("resource_shortfall") @db.Decimal(20, 4)
+  closedEligibleExpense  Decimal                  @map("closed_eligible_expense") @db.Decimal(20, 4)
+  closedActualGoalAmount Decimal                  @map("closed_actual_goal_amount") @db.Decimal(20, 4)
+  closedAt               DateTime                 @map("closed_at") @db.Timestamptz(6)
+  calculatorVersion      String                   @map("calculator_version") @db.VarChar(32)
+  createdAt              DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  financialPlan          FinancialPlan            @relation(fields: [financialPlanId], references: [id], onDelete: Restrict)
   jars                   FinancialPlanMonthJar[]
+  goals                  FinancialPlanGoalMonth[]
 
   @@unique([financialPlanId, month])
   @@index([month])

@@ -247,7 +247,7 @@ export async function assertWalletHasNoOpenDependencies(
   workspaceId: string,
   walletId: string,
 ) {
-  const [openTransactions, recurringTransactions, creditCardDependencies] = await Promise.all([
+  const [openTransactions, recurringTransactions, creditCardDependencies, linkedGoals] = await Promise.all([
     tx.transaction.count({
       where: {
         deletedAt: null,
@@ -268,6 +268,14 @@ export async function assertWalletHasNoOpenDependencies(
       tx.creditCardObligationEntry?.count?.({ where: { fundingWalletId: walletId } }) ?? 0,
       tx.creditCardPaymentReservation?.count?.({ where: { sourceWalletId: walletId, releasedAt: null } }) ?? 0,
     ]).then((counts) => counts.reduce((sum, count) => sum + count, 0)),
+    tx.financialPlanGoal?.count?.({
+      where: {
+        linkedWalletId: walletId,
+        deletedAt: null,
+        status: { in: ["draft", "active"] },
+        financialPlan: { workspaceId, deletedAt: null },
+      },
+    }) ?? 0,
   ]);
 
   if (openTransactions > 0) {
@@ -284,6 +292,9 @@ export async function assertWalletHasNoOpenDependencies(
   }
   if (creditCardDependencies > 0) {
     throw new AppError("CONFLICT", "Ví còn liên kết thanh toán hoặc nghĩa vụ thẻ tín dụng.");
+  }
+  if (linkedGoals > 0) {
+    throw new AppError("CONFLICT", "Ví đang được dùng để xác nhận tiến độ mục tiêu tài chính. Hãy kết thúc mục tiêu trước.");
   }
 }
 

@@ -10,6 +10,7 @@ import {
   Bell,
   CalendarClock,
   CircleCheckBig,
+  CircleDollarSign,
   CircleX,
   FilePenLine,
   ReceiptText,
@@ -27,6 +28,7 @@ import {
 } from "@/app/dashboard/actions";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
 import { reviewRecurringTransactionAction } from "@/app/dashboard/recurring-transactions/actions";
+import { reviewFinancialGoalFundingAction } from "@/app/dashboard/financial-plans/actions";
 import { ApprovalActionButton } from "@/components/approval-action-icon";
 import {
   Button,
@@ -84,6 +86,14 @@ export type NotificationItem =
       amount: string;
       approvalStatus: "pending" | "approved" | "rejected";
     }
+  | {
+      kind: "goalFunding";
+      id: string;
+      username: string;
+      goalName: string;
+      amount: string;
+      approvalStatus: "pending" | "approved" | "rejected";
+    }
   ;
 
 type TransactionNotification = Extract<
@@ -93,6 +103,7 @@ type TransactionNotification = Extract<
 type ChangeNotification = Extract<NotificationItem, { kind: "change" }>;
 type JoinNotification = Extract<NotificationItem, { kind: "join" }>;
 type RecurringNotification = Extract<NotificationItem, { kind: "recurring" }>;
+type GoalFundingNotification = Extract<NotificationItem, { kind: "goalFunding" }>;
 type Role = { code: string; name: string };
 
 const transactionTypeLabel: Record<TransactionNotification["type"], string> = {
@@ -482,6 +493,40 @@ function RecurringNotificationCard({
   );
 }
 
+function GoalFundingNotificationCard({ item, currency, pending, canReview, onReview }: {
+  item: GoalFundingNotification;
+  currency: string;
+  pending: boolean;
+  canReview: boolean;
+  onReview: (approve: boolean) => void;
+}) {
+  const approved = item.approvalStatus === "approved";
+  const rejected = item.approvalStatus === "rejected";
+  const label = approved ? "Đã duyệt" : rejected ? "Đã từ chối" : "Chờ duyệt";
+  const color = approved ? "text-[var(--success)]" : rejected ? "text-[var(--destructive)]" : "text-[var(--warning)]";
+  return (
+    <article role="listitem" className="notification-item p-4">
+      <div className="flex items-start gap-3">
+        <NotificationTypeIcon className={color}><CircleDollarSign size={17} aria-hidden="true" /></NotificationTypeIcon>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <p className="truncate text-sm font-semibold text-[var(--foreground)]">{item.goalName}</p>
+            <span className={`shrink-0 text-xs font-semibold ${color}`}>{label}</span>
+          </div>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{item.username} · Đóng góp mục tiêu</p>
+          <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-[var(--foreground)]">{money(item.amount, currency)}</p>
+          {canReview && item.approvalStatus === "pending" && (
+            <div className="mt-3 flex justify-end gap-2">
+              <ApprovalActionButton decision="reject" disabled={pending} onClick={() => onReview(false)} />
+              <ApprovalActionButton decision="approve" disabled={pending} onClick={() => onReview(true)} />
+            </div>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export function NotificationsMenu({
   workspaceId,
   items,
@@ -590,6 +635,17 @@ export function NotificationsMenu({
     });
   }
 
+  function reviewGoalFunding(id: string, approve: boolean): void {
+    if (!canReview) return;
+    start(async () => {
+      const result = await reviewFinancialGoalFundingAction({ entryId: id, approve });
+      if (result.ok) {
+        toast.success(approve ? "Đã duyệt khoản đóng góp." : "Đã từ chối khoản đóng góp.");
+        router.refresh();
+      } else toast.error(result.message ?? "Không thể xử lý khoản đóng góp.");
+    });
+  }
+
   const notificationItems = items.map((item) => {
     if (item.kind === "join") {
       return (
@@ -632,6 +688,20 @@ export function NotificationsMenu({
           pending={pending}
           canReview={canReview}
           onReview={(approve) => reviewRecurring(item.id, approve)}
+        />
+      );
+    }
+
+
+    if (item.kind === "goalFunding") {
+      return (
+        <GoalFundingNotificationCard
+          key={`goal-funding-${item.id}`}
+          item={item}
+          currency={currency}
+          pending={pending}
+          canReview={canReview}
+          onReview={(approve) => reviewGoalFunding(item.id, approve)}
         />
       );
     }

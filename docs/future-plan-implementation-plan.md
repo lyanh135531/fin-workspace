@@ -1,6 +1,6 @@
 # Kế hoạch triển khai sáu hũ và kế hoạch tài chính tương lai
 
-> Trạng thái: Nghiệp vụ đã chốt, đủ điều kiện triển khai theo phase. Review theo codebase ngày 2026-08-24.  
+> Trạng thái: Nền tảng sáu hũ đã có; bản nâng cấp nhiều mục tiêu và funding ledger được triển khai ngày 2026-09-16.
 > Nguồn nghiệp vụ: `docs/future-plan-business.md`.  
 > Nguyên tắc rollout: additive migration trước, backfill và xác minh, sau đó mới siết constraint và xóa code cũ.
 
@@ -53,6 +53,15 @@ Các điểm code hiện tại ảnh hưởng trực tiếp:
 ### 2.2. Trạng thái
 
 Không còn product gate mở trong phạm vi hiện tại.
+
+### 2.3. Nâng cấp nhiều mục tiêu (2026-09-16)
+
+- `FINANCIAL_PLAN` là kế hoạch tổng; `FINANCIAL_PLAN_GOAL` lưu nhiều mục tiêu có priority và deadline riêng.
+- Tiến độ thủ công dùng `FINANCIAL_GOAL_FUNDING_ENTRY`; Member gửi `pending`, Admin duyệt hoặc từ chối, bản ghi sai được đảo bằng reversal.
+- Tiến độ tự động có thể liên kết một ví tài sản; service chặn xóa/vô hiệu hóa ví khi mục tiêu còn mở.
+- `FINANCIAL_PLAN_GOAL_MONTH` chốt snapshot từng mục tiêu khi đóng tháng và không cho update.
+- Calculator phân bổ nguồn lực theo priority, sau đó deadline, thời điểm tạo và id để kết quả xác định.
+- Các cột target/progress/deadline cũ trên `FINANCIAL_PLAN` được giữ là aggregate cache trong giai đoạn tương thích, không còn là nguồn sự thật của từng mục tiêu.
 
 ## 3. Thiết kế dữ liệu đề xuất
 

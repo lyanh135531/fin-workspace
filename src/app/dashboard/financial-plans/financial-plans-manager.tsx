@@ -9,7 +9,7 @@ import {
   activateFinancialPlanAction,
   cancelFinancialPlanAction,
   completeFinancialPlanAction,
-  createFinancialPlanDraftAction,
+  createFinancialPlanWithGoalsAction,
   deleteFinancialPlanAction,
   updateFinancialPlanAllocationsAction,
   updateFinancialPlanDeadlineAction,
@@ -18,7 +18,6 @@ import {
 import {
   Button,
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -54,6 +53,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
+import { FinancialPlanGoals, type FinancialGoalView } from "@/app/dashboard/financial-plans/financial-plan-goals";
 import {
   FINANCIAL_JAR_CODES,
   FINANCIAL_JAR_LABELS,
@@ -70,14 +70,11 @@ import {
   CircleX,
   CircleDollarSign,
   Eye,
-  Flag,
   History,
-  LoaderCircle,
   Minus,
   MoreHorizontal,
   Pencil,
   PieChart,
-  PiggyBank,
   Plus,
   RotateCcw,
   SlidersHorizontal,
@@ -219,6 +216,12 @@ function nextMonth(month: string) {
     : `${year}-${String(m + 1).padStart(2, "0")}`;
 }
 
+function monthCountInclusive(startMonth: string, endMonth: string) {
+  const [startYear, startValue] = startMonth.split("-").map(Number);
+  const [endYear, endValue] = endMonth.split("-").map(Number);
+  return Math.max((endYear - startYear) * 12 + endValue - startValue + 1, 1);
+}
+
 function money(value: string, currency: string) {
   return `${formatAmount(value)} ${currency}`;
 }
@@ -272,9 +275,9 @@ const JAR_COLORS: Record<FinancialJarCode, string> = {
   ESSENTIAL: "var(--primary)",
   RESPONSIBILITY: "var(--warning)",
   DEVELOPMENT: "var(--success)",
-  ENJOYMENT: "#e879a0",
-  INVESTMENT: "#60a5fa",
-  GIVING: "#a78bfa",
+  ENJOYMENT: "color-mix(in srgb, var(--destructive) 72%, var(--primary))",
+  INVESTMENT: "var(--info)",
+  GIVING: "color-mix(in srgb, var(--primary) 58%, var(--text-secondary))",
 };
 
 function jarUsagePercentage(jar: PlanMonthJar) {
@@ -297,6 +300,8 @@ export function FinancialPlansManager({
   canManage,
   plans,
   selectedPlan,
+  financialGoals,
+  goalWallets,
 }: {
   workspaceName: string;
   currency: string;
@@ -304,6 +309,8 @@ export function FinancialPlansManager({
   canManage: boolean;
   plans: PlanListItem[];
   selectedPlan: SelectedPlan;
+  financialGoals: FinancialGoalView[];
+  goalWallets: Array<{ id: string; name: string; balance: string }>;
 }) {
   const router = useRouter();
   const [editorOpen, setEditorOpen] = useState(false);
@@ -637,6 +644,7 @@ export function FinancialPlansManager({
                   />
                 ) : (
                   <PlanDetail
+                    key={selectedPlan.id}
                     plan={selectedPlan}
                     currency={currency}
                     currentMonth={currentPlanMonth}
@@ -720,7 +728,17 @@ export function FinancialPlansManager({
               />
             </Card>
           ) : selectedPlan.status === "draft" ? (
-            <DraftReview
+            <div className="grid gap-5">
+              <FinancialPlanGoals
+                planId={selectedPlan.id}
+                planStatus={selectedPlan.status}
+                goals={financialGoals}
+                wallets={goalWallets}
+                currency={currency}
+                businessMonth={businessMonth}
+                canManage={canManage}
+              />
+              <DraftReview
               plan={selectedPlan}
               currency={currency}
               isMobile={isMobile}
@@ -739,9 +757,21 @@ export function FinancialPlansManager({
                   () => router.replace("/financial-plans"),
                 )
               }
-            />
+              />
+            </div>
           ) : (
-            <PlanDetail
+            <div className="grid gap-5">
+              <FinancialPlanGoals
+                planId={selectedPlan.id}
+                planStatus={selectedPlan.status}
+                goals={financialGoals}
+                wallets={goalWallets}
+                currency={currency}
+                businessMonth={businessMonth}
+                canManage={canManage}
+              />
+              <PlanDetail
+              key={selectedPlan.id}
               plan={selectedPlan}
               currency={currency}
               currentMonth={currentPlanMonth}
@@ -777,7 +807,8 @@ export function FinancialPlansManager({
                   () => router.replace("/financial-plans"),
                 )
               }
-            />
+              />
+            </div>
           )}
         </section>
       </div>
@@ -788,6 +819,7 @@ export function FinancialPlansManager({
           onOpenChange={setEditorOpen}
           businessMonth={businessMonth}
           plan={selectedPlan?.status === "draft" ? selectedPlan : null}
+          hasMultipleGoals={financialGoals.length > 1}
           isMobile={isMobile}
           disabled={isPending}
           onSaved={(id) => {
@@ -1466,10 +1498,6 @@ function PlanDetail({
   const [deadlinePopoverOpen, setDeadlinePopoverOpen] = useState(false);
   const [desktopTargetMonth, setDesktopTargetMonth] = useState(plan.targetMonth);
 
-  useEffect(() => {
-    setDesktopTargetMonth(plan.targetMonth);
-  }, [plan.targetMonth]);
-
   return (
     <div className="grid gap-5">
       <Card tone="primarySoft" className="p-4 md:p-6">
@@ -2093,7 +2121,7 @@ function BudgetJarList({
                 )}
               >
                 {overspent
-                  ? `Vượt ${money(Math.abs(Number(remaining)).toString(), currency)}`
+                  ? `Vượt ${money(new Decimal(remaining).abs().toFixed(0), currency)}`
                   : `Còn ${money(remaining, currency)}`}
               </span>
             </div>
@@ -2421,58 +2449,6 @@ function MonthDetailMetrics({
   );
 }
 
-function Metric({
-  label,
-  value,
-  icon: Icon,
-  tone = "default",
-  featured = false,
-}: {
-  label: string;
-  value: string;
-  icon: typeof Target;
-  tone?: "default" | "warning";
-  featured?: boolean;
-}) {
-  return (
-    <div className="flex min-w-0 items-start gap-3">
-      <span
-        className={
-          tone === "warning" ? "text-[var(--warning)]" : "text-[var(--primary)]"
-        }
-      >
-        <Icon aria-hidden />
-      </span>
-      <div className="min-w-0">
-        <p className="text-xs text-[var(--text-muted)]">{label}</p>
-        <p
-          className={`truncate font-semibold tabular-nums text-[var(--foreground)] ${featured ? "text-xl tracking-tight md:text-sm md:tracking-normal" : ""}`}
-        >
-          {value}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function RatioList({ ratios }: { ratios: RatioDraft }) {
-  return (
-    <dl className="grid divide-y divide-[var(--border)] md:gap-2 md:divide-y-0">
-      {FINANCIAL_JAR_CODES.map((jarCode) => (
-        <div
-          key={jarCode}
-          className="flex justify-between gap-3 py-2 first:pt-0 last:pb-0 md:py-0"
-        >
-          <dt className="text-[var(--text-secondary)]">
-            {FINANCIAL_JAR_LABELS[jarCode]}
-          </dt>
-          <dd className="font-semibold tabular-nums">{ratios[jarCode]}%</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 function PlanSheetHeader({
   icon: Icon,
   title,
@@ -2497,6 +2473,7 @@ function PlanEditorSheet({
   onOpenChange,
   businessMonth,
   plan,
+  hasMultipleGoals,
   isMobile,
   disabled,
   onSaved,
@@ -2505,6 +2482,7 @@ function PlanEditorSheet({
   onOpenChange: (open: boolean) => void;
   businessMonth: string;
   plan: DraftView | null;
+  hasMultipleGoals: boolean;
   isMobile: boolean;
   disabled: boolean;
   onSaved: (id: string) => void;
@@ -2534,8 +2512,7 @@ function PlanEditorSheet({
   const total = ratioTotal(draft.percentages);
   const valid = Boolean(
     draft.name.trim() &&
-    draft.targetAmount &&
-    draft.targetMonth >= nextMonth(businessMonth) &&
+    (hasMultipleGoals || (draft.targetAmount && draft.targetMonth >= nextMonth(businessMonth))) &&
     total.equals(100),
   );
 
@@ -2544,7 +2521,18 @@ function PlanEditorSheet({
       const payload = { ...draft, ...(plan ? { planId: plan.id } : {}) };
       const result = plan
         ? await updateFinancialPlanDraftAction(payload)
-        : await createFinancialPlanDraftAction(payload);
+        : await createFinancialPlanWithGoalsAction({
+            name: draft.name,
+            goals: [{
+              name: draft.name,
+              targetAmount: draft.targetAmount,
+              existingAmount: draft.existingGoalAmount,
+              targetMonth: draft.targetMonth,
+              trackingMode: "manual",
+              linkedWalletId: null,
+            }],
+            percentages: draft.percentages,
+          });
       if (!result.ok) {
         toast.error(result.message);
         return;
@@ -2624,7 +2612,7 @@ function PlanEditorSheet({
                     }
                     placeholder="Quỹ Tết năm sau"
                   />
-                  <MonthPicker
+                  {!hasMultipleGoals && <MonthPicker
                     label="Hạn hoàn thành"
                     required
                     minMonth={nextMonth(businessMonth)}
@@ -2633,22 +2621,25 @@ function PlanEditorSheet({
                       setDraft({ ...draft, targetMonth })
                     }
                     disabled={isPending}
-                  />
-                  <MoneyInput
+                  />}
+                  {!hasMultipleGoals && <MoneyInput
                     label="Bạn cần bao nhiêu?"
                     required
                     value={draft.targetAmount}
                     onValueChange={(targetAmount) =>
                       setDraft({ ...draft, targetAmount })
                     }
-                  />
-                  <MoneyInput
+                  />}
+                  {!hasMultipleGoals && <MoneyInput
                     label="Đã có sẵn bao nhiêu?"
                     value={draft.existingGoalAmount}
                     onValueChange={(existingGoalAmount) =>
                       setDraft({ ...draft, existingGoalAmount })
                     }
-                  />
+                  />}
+                  {!hasMultipleGoals ? <DraftFeasibilityPreview draft={draft} businessMonth={businessMonth} /> : (
+                    <p className="text-sm leading-6 text-[var(--text-secondary)]">Số tiền và deadline được quản lý riêng trên từng mục tiêu. Màn hình này chỉ đổi tên kế hoạch và tỷ lệ sáu hũ.</p>
+                  )}
                 </div>
               </TabsContent>
 
@@ -2675,7 +2666,7 @@ function PlanEditorSheet({
                   }
                   placeholder="Quỹ Tết năm sau"
                 />
-                <MonthPicker
+                {!hasMultipleGoals && <MonthPicker
                   label="Hạn hoàn thành"
                   required
                   minMonth={nextMonth(businessMonth)}
@@ -2684,8 +2675,8 @@ function PlanEditorSheet({
                     setDraft({ ...draft, targetMonth })
                   }
                   disabled={isPending}
-                />
-                <div className="grid gap-4 sm:grid-cols-2">
+                />}
+                {!hasMultipleGoals && <div className="grid gap-4 sm:grid-cols-2">
                   <MoneyInput
                     label="Bạn cần bao nhiêu?"
                     required
@@ -2701,7 +2692,10 @@ function PlanEditorSheet({
                       setDraft({ ...draft, existingGoalAmount })
                     }
                   />
-                </div>
+                </div>}
+                {!hasMultipleGoals ? <DraftFeasibilityPreview draft={draft} businessMonth={businessMonth} /> : (
+                  <p className="text-sm leading-6 text-[var(--text-secondary)]">Số tiền và deadline được quản lý riêng trên từng mục tiêu. Màn hình này chỉ đổi tên kế hoạch và tỷ lệ sáu hũ.</p>
+                )}
               </div>
 
               <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-5">
@@ -2727,6 +2721,28 @@ function PlanEditorSheet({
         />
       </SheetContent>
     </Sheet>
+  );
+}
+
+function DraftFeasibilityPreview({ draft, businessMonth }: { draft: EditorDraft; businessMonth: string }) {
+  let remaining = new Decimal(0);
+  try {
+    remaining = Decimal.max(new Decimal(draft.targetAmount || 0).minus(draft.existingGoalAmount || 0), 0);
+  } catch {
+    remaining = new Decimal(0);
+  }
+  const months = draft.targetMonth ? monthCountInclusive(businessMonth, draft.targetMonth) : 1;
+  const monthly = remaining.dividedToIntegerBy(months);
+  return (
+    <div className="grid gap-2 rounded-xl bg-[var(--surface-secondary)] p-3" aria-live="polite">
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-sm text-[var(--text-secondary)]">Cần xác nhận trung bình mỗi tháng</span>
+        <strong className="tabular-nums text-[var(--foreground)]">{formatAmount(monthly.toFixed(0))} VND</strong>
+      </div>
+      <p className="text-xs leading-5 text-[var(--text-muted)]">
+        Đây là mức cần dành cho mục tiêu đầu tiên. Sau khi tạo, bạn có thể thêm mục tiêu khác và hệ thống sẽ forecast lại theo ưu tiên.
+      </p>
+    </div>
   );
 }
 

@@ -7,12 +7,13 @@
 
 Một workspace có thể lập kế hoạch cần đạt một số tiền xác định vào một tháng trong tương lai. Hệ thống phải:
 
-1. Tính khoản bắt buộc phải dành cho mục tiêu mỗi tháng.
-2. Tính hạn mức còn được phép chi mà không phá kế hoạch.
-3. Phân bổ hạn mức chi vào sáu hũ tài chính cố định.
-4. Cho mọi giao dịch chi tiêu thụ hạn mức hũ theo category.
-5. Dồn phần chi vượt hoặc phần chi thiếu sang các tháng còn lại.
-6. Cảnh báo khi kế hoạch không khả thi với dòng tiền dự kiến.
+1. Quản lý nhiều mục tiêu có số tiền, deadline và thứ tự ưu tiên riêng trong một kế hoạch.
+2. Tính khoản bắt buộc phải dành cho từng mục tiêu mỗi tháng.
+3. Tính hạn mức còn được phép chi mà không phá kế hoạch.
+4. Phân bổ hạn mức chi vào sáu hũ tài chính cố định.
+5. Cho mọi giao dịch chi tiêu thụ hạn mức hũ theo category.
+6. Dồn phần chi vượt hoặc phần chi thiếu sang các tháng còn lại.
+7. Cảnh báo khi kế hoạch không khả thi với dòng tiền dự kiến.
 
 ## 2. Phạm vi và phân quyền
 
@@ -20,8 +21,18 @@ Một workspace có thể lập kế hoạch cần đạt một số tiền xác
 - Transfer giữa các ví trong cùng workspace có dòng tiền ròng bằng `0`.
 - Tại một thời điểm, mỗi workspace chỉ có tối đa một kế hoạch `active`.
 - Admin được tạo, kích hoạt, sửa các trường được phép, hủy và kết thúc kế hoạch.
-- Member chỉ được xem.
-- Tiến độ là số liệu ảo; hệ thống không chuyển hoặc khóa tiền thật trong ví.
+- Member được xem và gửi khoản đóng góp thủ công; khoản này chỉ có hiệu lực sau khi Admin duyệt.
+- Tiến độ lấy từ sổ đóng góp đã duyệt hoặc số dư ví tài sản được liên kết. Hệ thống không tự chuyển hoặc khóa tiền thật.
+
+### 2.1. Mục tiêu và nguồn xác nhận tiến độ
+
+- Mỗi kế hoạch có từ 1 đến 20 mục tiêu.
+- Mỗi mục tiêu có tên, target, deadline, thứ tự ưu tiên và một nguồn theo dõi.
+- `manual`: tiến độ bằng tổng funding entry `approved`; bản ghi đã duyệt không sửa/xóa, sai sót được đảo bằng reversal.
+- `linked_wallet`: tiến độ bằng `max(current_balance, 0)` của một ví tài sản thuộc workspace.
+- Một ví chỉ được theo dõi bởi một mục tiêu chưa kết thúc; không được xóa hoặc vô hiệu hóa ví đang liên kết.
+- Sau khi kích hoạt, nguồn theo dõi bị khóa; target và deadline vẫn có thể đổi khi không viết lại snapshot tháng đã chốt.
+- Nguồn lực tháng được phân cho mục tiêu theo thứ tự ưu tiên; nếu bằng nhau thì deadline sớm hơn được xử lý trước.
 
 ## 3. Các khái niệm tiền tệ
 
@@ -362,7 +373,7 @@ Sáu hũ và snapshot vẫn dùng để phân loại, lọc và báo cáo chi ti
 
 Đạt sớm chỉ đổi sức khỏe thành `goal_reached`; plan vẫn `active` cho đến khi Admin kết thúc. Đến deadline:
 
-- Đủ mục tiêu: hệ thống chuyển plan sang `completed`.
+- Đủ mục tiêu: health chuyển sang `goal_reached`; Admin xác nhận `completed`.
 - Chưa đủ: plan vẫn `active`, sức khỏe `overdue`, để Admin gia hạn hoặc hủy.
 
 Sau khi plan cũ `completed` hoặc `cancelled`, workspace được tạo/kích hoạt plan mới.
@@ -434,7 +445,7 @@ Trước backfill phải kiểm tra toàn bộ cây category. Migration phải d
 
 - Bỏ menu và trang Cài đặt chung.
 - Chuyển đầy đủ năm color theme và light/dark mode lên authenticated header.
-- Trên mobile, Kế hoạch nằm trong menu sheet, không thêm vào bottom navigation.
+- Trên mobile, Kế hoạch là một destination chính trong bottom navigation.
 - Quản lý category nằm trong ngữ cảnh workspace.
 - Điều khiển header phải có accessible name, keyboard navigation và focus management.
 

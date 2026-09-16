@@ -7,6 +7,8 @@ import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getFinancialPlanView, getWorkspaceFinancialPlans } from "@/services/financial-plan-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 import { workspaceCapabilities } from "@/domain/role-policy";
+import { getFinancialPlanGoalPortfolio } from "@/services/financial-goal-service";
+import { prisma } from "@/lib/prisma";
 
 export default async function FinancialPlansPage({
   searchParams,
@@ -24,6 +26,25 @@ export default async function FinancialPlansPage({
     ?? plans.find((plan) => plan.status === "draft")
     ?? plans[0];
   const view = selected ? await getFinancialPlanView(session.user.id, workspaceId, selected.id) : null;
+  const businessMonth = getBusinessDateInTimeZone(member.workspace.timeZone).slice(0, 7);
+  const currentPlanMonth = view && view.status !== "draft"
+    ? view.months.find((month) => month.month === businessMonth && !month.closed) ?? view.months.find((month) => !month.closed)
+    : null;
+  const [financialGoals, walletLinks] = await Promise.all([
+    selected
+      ? getFinancialPlanGoalPortfolio(
+          session.user.id,
+          workspaceId,
+          selected.id,
+          currentPlanMonth?.projectedActualGoalAmount ?? currentPlanMonth?.adjustedRequiredAmount ?? "0",
+        )
+      : Promise.resolve([]),
+    prisma.workspaceWallet.findMany({
+      where: { workspaceId, wallet: { kind: "asset", status: "active", deletedAt: null } },
+      select: { wallet: { select: { id: true, name: true, currentBalance: true } } },
+      orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
+    }),
+  ]);
 
   return (
     <PageContainer>
@@ -31,7 +52,7 @@ export default async function FinancialPlansPage({
         <FinancialPlansManager
           workspaceName={member.workspace.name}
           currency={member.workspace.baseCurrency}
-          businessMonth={getBusinessDateInTimeZone(member.workspace.timeZone).slice(0, 7)}
+          businessMonth={businessMonth}
           canManage={workspaceCapabilities(member.role.code).canManagePlans}
           plans={plans.map((plan) => ({
             id: plan.id,
@@ -43,6 +64,8 @@ export default async function FinancialPlansPage({
             targetMonth: plan.targetMonth.toISOString().slice(0, 7),
           }))}
           selectedPlan={view}
+          financialGoals={financialGoals}
+          goalWallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString() }))}
         />
       </div>
     </PageContainer>

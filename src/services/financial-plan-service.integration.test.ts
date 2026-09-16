@@ -48,8 +48,11 @@ describe("financial plan service database invariants", () => {
     const planIds = plans.map((plan) => plan.id);
     const months = await prisma.financialPlanMonth.findMany({ where: { financialPlanId: { in: planIds } }, select: { id: true } });
     await prisma.$transaction(async (tx) => {
+      await tx.financialPlanGoalMonth.deleteMany({ where: { financialPlanMonthId: { in: months.map((month) => month.id) } } });
       await tx.financialPlanMonthJar.deleteMany({ where: { financialPlanMonthId: { in: months.map((month) => month.id) } } });
       await tx.financialPlanMonth.deleteMany({ where: { financialPlanId: { in: planIds } } });
+      await tx.financialGoalFundingEntry.deleteMany({ where: { goal: { financialPlanId: { in: planIds } } } });
+      await tx.financialPlanGoal.deleteMany({ where: { financialPlanId: { in: planIds } } });
       await tx.planJarAllocation.deleteMany({ where: { financialPlanId: { in: planIds } } });
       await tx.financialPlan.deleteMany({ where: { workspaceId } });
     });
@@ -107,6 +110,23 @@ describe("financial plan service database invariants", () => {
     expect(secondCatchUp.closed).toBe(0);
     expect(await prisma.financialPlanMonth.count({ where: { financialPlanId: active.id } })).toBe(2);
     expect(await prisma.financialPlanMonthJar.count({ where: { financialPlanMonth: { financialPlanId: active.id } } })).toBe(12);
+    expect(await prisma.financialPlanGoal.count({ where: { financialPlanId: active.id, deletedAt: null } })).toBe(1);
+    const goalSnapshot = await prisma.financialPlanGoalMonth.findFirstOrThrow({ where: { financialPlanMonth: { financialPlanId: active.id } } });
+    await expect(prisma.financialPlanGoalMonth.update({ where: { id: goalSnapshot.id }, data: { requiredAmount: new Decimal(1) } }))
+      .rejects.toThrow("immutable");
+    const activeGoal = await prisma.financialPlanGoal.findFirstOrThrow({ where: { financialPlanId: active.id } });
+    const approvedFunding = await prisma.financialGoalFundingEntry.create({ data: {
+      goalId: activeGoal.id,
+      amount: new Decimal(1),
+      kind: "adjustment",
+      status: "approved",
+      effectiveDate: new Date("2026-09-01T00:00:00.000Z"),
+      requesterMemberId: memberId,
+      reviewerMemberId: memberId,
+      reviewedAt: new Date("2026-09-01T00:00:00.000Z"),
+    } });
+    await expect(prisma.financialGoalFundingEntry.update({ where: { id: approvedFunding.id }, data: { note: "tampered" } }))
+      .rejects.toThrow("immutable");
     const snapshot = await prisma.financialPlanMonth.findFirstOrThrow({ where: { financialPlanId: active.id } });
     await expect(prisma.financialPlanMonth.update({ where: { id: snapshot.id }, data: { calculatorVersion: "tampered" } }))
       .rejects.toThrow("immutable");

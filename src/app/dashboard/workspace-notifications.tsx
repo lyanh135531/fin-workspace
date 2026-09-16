@@ -79,6 +79,24 @@ export async function WorkspaceNotifications({
     orderBy: { updatedAt: "desc" },
     take: 10,
   });
+  const goalFundingPromise = prisma.financialGoalFundingEntry.findMany({
+    where: {
+      goal: { financialPlan: { workspaceId, deletedAt: null } },
+      ...(isAdmin
+        ? { status: "pending" as const }
+        : {
+            requesterMemberId: memberId,
+            status: { in: ["approved" as const, "rejected" as const] },
+            reviewedAt: { gte: range.businessDayStart, lt: range.nextBusinessDayStart },
+          }),
+    },
+    include: {
+      goal: { select: { name: true } },
+      requester: { include: { user: { select: { username: true } } } },
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 10,
+  });
   const activationLogsPromise = prisma.auditLog.findMany({
     where: {
       workspaceId,
@@ -151,6 +169,7 @@ export async function WorkspaceNotifications({
     changeWallets,
     changeCategories,
     recurringTransactions,
+    goalFundingEntries,
   ] = await Promise.all([
     transactionsPromise,
     activationLogsPromise,
@@ -160,6 +179,7 @@ export async function WorkspaceNotifications({
     changeWalletsPromise,
     changeCategoriesPromise,
     recurringTransactionsPromise,
+    goalFundingPromise,
   ]);
   const walletNames = new Map(
     changeWallets.map((item) => [item.walletId, item.wallet.name] as const),
@@ -262,6 +282,14 @@ export async function WorkspaceNotifications({
       amount: item.amount.toString(),
       type: item.type,
       approvalStatus: item.approvalStatus,
+    })),
+    ...goalFundingEntries.map((item) => ({
+      kind: "goalFunding" as const,
+      id: item.id,
+      username: item.requester.user.username ?? "Người dùng",
+      goalName: item.goal.name,
+      amount: item.amount.toString(),
+      approvalStatus: item.status,
     })),
   ];
 

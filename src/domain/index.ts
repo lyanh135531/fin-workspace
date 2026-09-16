@@ -6,6 +6,7 @@ export * from "@/domain/credit-card/installments";
 export * from "@/domain/credit-card/schemas";
 export * from "@/domain/financial-jar/jars";
 export * from "@/domain/financial-plan/calculator";
+export * from "@/domain/financial-plan/goal-calculator";
 export * from "@/domain/financial-plan/month";
 export * from "@/domain/financial-plan/schemas";
 export * from "@/domain/transaction/schemas";

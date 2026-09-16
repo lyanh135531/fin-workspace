@@ -4,6 +4,7 @@ import {
   FINANCIAL_PLAN_CALCULATOR_VERSION,
   calculateLiveRequiredAmount,
   calculateMonthlyPlanBudget,
+  allocateGoalFundingByPriority,
   databaseDateToMonth,
   decimalMap,
   deriveFinancialPlanHealth,
@@ -31,6 +32,7 @@ import {
   getWorkspaceBalance,
 } from "@/services/financial-plan-ledger";
 import { requireWorkspaceMember } from "@/services/workspace-access";
+import { activateFinancialPlanGoals, getFinancialGoalProgress, getPlanGoalProgressSummary } from "@/services/financial-goal-service";
 
 type TransactionClient = Prisma.TransactionClient;
 const DRAFT_ALLOCATION_MONTH = "1970-01";
@@ -102,6 +104,32 @@ export async function createFinancialPlanDraft(
       },
     });
     await tx.planJarAllocation.createMany({ data: allocationRows(plan.id, DRAFT_ALLOCATION_MONTH, input.percentages) });
+    const goal = await tx.financialPlanGoal.create({
+      data: {
+        financialPlanId: plan.id,
+        name: input.name,
+        targetAmount: input.targetAmount,
+        targetMonth: monthToDatabaseDate(input.targetMonth),
+        trackingMode: "manual",
+        status: "draft",
+        createdByMemberId: member.id,
+      },
+    });
+    if (input.existingGoalAmount.greaterThan(0)) {
+      await tx.financialGoalFundingEntry.create({
+        data: {
+          goalId: goal.id,
+          amount: input.existingGoalAmount,
+          kind: "opening",
+          status: "approved",
+          effectiveDate: new Date(),
+          requesterMemberId: member.id,
+          reviewerMemberId: member.id,
+          reviewedAt: new Date(),
+          note: "Số tiền đã xác nhận khi tạo mục tiêu",
+        },
+      });
+    }
     await tx.auditLog.create({
       data: { workspaceId, actorUserId: userId, action: "financial_plan.draft_created", entityType: "financial_plan", entityId: plan.id,
         metadata: { targetAmount: input.targetAmount.toFixed(0), existingGoalAmount: input.existingGoalAmount.toFixed(0), targetMonth: input.targetMonth } },
@@ -120,12 +148,45 @@ export async function updateFinancialPlanDraft(
   return prisma.$transaction(async (tx) => {
     const plan = await managedPlan(tx, workspaceId, input.planId);
     if (plan.status !== "draft") throw new AppError("CONFLICT", "Chỉ kế hoạch nháp mới được sửa toàn bộ.");
+    const goals = await tx.financialPlanGoal.findMany({
+      where: { financialPlanId: plan.id, deletedAt: null },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+    const hasMultipleGoals = goals.length > 1;
     const updated = await tx.financialPlan.update({ where: { id: plan.id }, data: {
-      name: input.name, targetAmount: input.targetAmount, existingGoalAmount: input.existingGoalAmount,
-      targetMonth: monthToDatabaseDate(input.targetMonth),
+      name: input.name,
+      ...(!hasMultipleGoals ? {
+        targetAmount: input.targetAmount,
+        existingGoalAmount: input.existingGoalAmount,
+        targetMonth: monthToDatabaseDate(input.targetMonth),
+      } : {}),
     } });
     await tx.planJarAllocation.deleteMany({ where: { financialPlanId: plan.id } });
     await tx.planJarAllocation.createMany({ data: allocationRows(plan.id, DRAFT_ALLOCATION_MONTH, input.percentages) });
+    const primaryGoal = goals[0];
+    if (primaryGoal && !hasMultipleGoals) {
+      await tx.financialPlanGoal.update({ where: { id: primaryGoal.id }, data: { name: input.name, targetAmount: input.targetAmount, targetMonth: monthToDatabaseDate(input.targetMonth) } });
+      const currentFunding = await tx.financialGoalFundingEntry.aggregate({
+        where: { goalId: primaryGoal.id, status: "approved" },
+        _sum: { amount: true },
+      });
+      const adjustment = input.existingGoalAmount.minus(currentFunding._sum.amount?.toString() ?? 0);
+      if (!adjustment.isZero()) {
+        await tx.financialGoalFundingEntry.create({
+          data: {
+            goalId: primaryGoal.id,
+            amount: adjustment,
+            kind: "adjustment",
+            status: "approved",
+            effectiveDate: new Date(),
+            requesterMemberId: plan.createdByMemberId,
+            reviewerMemberId: plan.createdByMemberId,
+            reviewedAt: new Date(),
+            note: "Điều chỉnh số tiền đã xác nhận trong bản nháp",
+          },
+        });
+      }
+    }
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "financial_plan.draft_updated", entityType: "financial_plan", entityId: plan.id } });
     return updated;
   });
@@ -165,16 +226,14 @@ export async function activateFinancialPlan(
   const month = currentMonth(member.workspace.timeZone, now);
   return prisma.$transaction(async (tx) => {
     await advisoryWorkspaceLock(tx, workspaceId);
-    const plan = await managedPlan(tx, workspaceId, planId);
+    let plan = await managedPlan(tx, workspaceId, planId);
     if (plan.status !== "draft") throw new AppError("CONFLICT", "Kế hoạch không còn ở trạng thái nháp.");
     if (databaseDateToMonth(plan.targetMonth) < month) throw new AppError("VALIDATION_ERROR", "Deadline không được trước tháng hiện tại.");
     const active = await tx.financialPlan.findFirst({ where: { workspaceId, status: "active", deletedAt: null }, select: { id: true } });
     if (active) throw new AppError("CONFLICT", "Nhóm tài chính đã có một kế hoạch đang hoạt động.");
+    await activateFinancialPlanGoals(tx, workspaceId, plan.id, month);
+    plan = await managedPlan(tx, workspaceId, planId);
     const balance = await getWorkspaceBalance(tx, workspaceId);
-    const existing = new Decimal(plan.existingGoalAmount.toString());
-    if (existing.greaterThan(Decimal.max(balance, ZERO))) {
-      throw new AppError("VALIDATION_ERROR", "Tiền đã dành sẵn không được lớn hơn số dư thực tế của nhóm tài chính.");
-    }
     const draftPercentages = allocationForMonth(plan.allocations, DRAFT_ALLOCATION_MONTH);
     await tx.planJarAllocation.deleteMany({ where: { financialPlanId: plan.id } });
     await tx.planJarAllocation.createMany({ data: allocationRows(plan.id, month, draftPercentages) });
@@ -224,13 +283,16 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
     const firstUnclosed = closeOrder.find((candidate) => !plan.months.some((item) => databaseDateToMonth(item.month) === candidate));
     if (firstUnclosed !== month) throw new AppError("CONFLICT", "Phải đóng các tháng kế hoạch theo đúng thứ tự.");
 
-    let realized = new Decimal(plan.existingGoalAmount.toString());
-    for (const closed of plan.months) realized = realized.plus(await adjustedClosedActual(tx, plan.workspaceId, closed));
+    const goalProgress = await getPlanGoalProgressSummary(tx, plan.id);
+    let realized = goalProgress.hasGoals ? goalProgress.totalProgress : new Decimal(plan.existingGoalAmount.toString());
+    if (!goalProgress.hasGoals) {
+      for (const closed of plan.months) realized = realized.plus(await adjustedClosedActual(tx, plan.workspaceId, closed));
+    }
     const remainingMonths = monthsInclusive(month, targetMonth);
     const adjustedRequired = splitVndAcrossMonths(Decimal.max(new Decimal(plan.targetAmount.toString()).minus(realized), ZERO), remainingMonths.length)[0];
     const allMonths = monthsInclusive(startMonth, targetMonth);
     const baseAmounts = splitVndAcrossMonths(
-      Decimal.max(new Decimal(plan.targetAmount.toString()).minus(plan.existingGoalAmount.toString()), ZERO),
+      Decimal.max(new Decimal(plan.targetAmount.toString()).minus(realized), ZERO),
       allMonths.length,
     );
     const baseRequired = baseAmounts[allMonths.indexOf(month)];
@@ -242,7 +304,7 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
       const balanceAtEnd = await getWorkspaceBalance(tx, plan.workspaceId, end);
       rawGrossBudget = firstMonthRawGrossBudget({
         currentWorkspaceBalance: balanceAtEnd,
-        existingGoalAmount: plan.existingGoalAmount.toString(),
+        existingGoalAmount: goalProgress.hasGoals ? goalProgress.workspaceReserved : plan.existingGoalAmount.toString(),
         approvedExpenseFromMonthStart: sumJarMap(ledger.approvedExpenseByJar),
         remainingForecastIncome: 0,
         requiredGoalAmount: adjustedRequired,
@@ -263,12 +325,43 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
       financialPlanMonthId: snapshot.id, jarCode, percentage: percentages[jarCode],
       allocatedAmount: result.allocatedByJar[jarCode], closedActualAmount: result.expenseByJar[jarCode],
     })) });
+    const goals = await tx.financialPlanGoal.findMany({
+      where: { financialPlanId: plan.id, status: "active", deletedAt: null },
+      orderBy: [{ sortOrder: "asc" }, { targetMonth: "asc" }, { createdAt: "asc" }],
+    });
+    if (goals.length) {
+      const progressByGoal = new Map<string, Decimal>();
+      for (const goal of goals) progressByGoal.set(goal.id, await getFinancialGoalProgress(tx, goal));
+      const allocations = new Map(allocateGoalFundingByPriority(goals.map((goal) => ({
+        id: goal.id,
+        targetAmount: goal.targetAmount.toString(),
+        actualProgress: progressByGoal.get(goal.id) ?? ZERO,
+        targetMonth: databaseDateToMonth(goal.targetMonth),
+        sortOrder: goal.sortOrder,
+        createdAt: goal.createdAt,
+      })), result.actualGoalAmountForMonth, month).map((item) => [item.goalId, item]));
+      for (const goal of goals) {
+        const progress = progressByGoal.get(goal.id) ?? ZERO;
+        const previous = await tx.financialPlanGoalMonth.findFirst({ where: { goalId: goal.id, month: { lt: monthToDatabaseDate(month) } }, orderBy: { month: "desc" } });
+        const required = allocations.get(goal.id)?.requiredAmount ?? ZERO;
+        await tx.financialPlanGoalMonth.create({ data: {
+          goalId: goal.id,
+          financialPlanMonthId: snapshot.id,
+          month: monthToDatabaseDate(month),
+          requiredAmount: required,
+          projectedContribution: allocations.get(goal.id)?.allocatedAmount ?? ZERO,
+          actualContribution: progress.minus(previous?.closingProgress.toString() ?? 0),
+          closingProgress: progress,
+          remainingAmount: Decimal.max(new Decimal(goal.targetAmount.toString()).minus(progress), ZERO),
+        } });
+      }
+    }
     await tx.auditLog.create({ data: { workspaceId: plan.workspaceId, action: "financial_plan.month_closed", entityType: "financial_plan", entityId: plan.id,
       metadata: { month, adjustedRequiredAmount: adjustedRequired.toFixed(0), actualGoalAmount: result.actualGoalAmountForMonth.toFixed(0), calculatorVersion: FINANCIAL_PLAN_CALCULATOR_VERSION } } });
 
     const totalAfterClose = realized.plus(result.actualGoalAmountForMonth);
     let completed = false;
-    if (month === targetMonth && totalAfterClose.greaterThanOrEqualTo(plan.targetAmount.toString())) {
+    if (!goalProgress.hasGoals && month === targetMonth && totalAfterClose.greaterThanOrEqualTo(plan.targetAmount.toString())) {
       await tx.financialPlan.update({ where: { id: plan.id }, data: { status: "completed", completedAt: now } });
       await tx.auditLog.create({ data: { workspaceId: plan.workspaceId, action: "financial_plan.completed", entityType: "financial_plan", entityId: plan.id,
         metadata: { automatic: true, realizedProgress: totalAfterClose.toFixed(0) } } });
@@ -349,13 +442,18 @@ async function finishFinancialPlan(
     const plan = await managedPlan(tx, workspaceId, planId);
     if (plan.status !== "active") throw new AppError("CONFLICT", "Kế hoạch không còn hoạt động.");
     if (status === "completed") {
-      let realized = new Decimal(plan.existingGoalAmount.toString());
-      for (const month of plan.months) realized = realized.plus(await adjustedClosedActual(tx, workspaceId, month));
+      const goalProgress = await getPlanGoalProgressSummary(tx, plan.id);
+      let realized = goalProgress.hasGoals ? goalProgress.totalProgress : new Decimal(plan.existingGoalAmount.toString());
+      if (!goalProgress.hasGoals) for (const month of plan.months) realized = realized.plus(await adjustedClosedActual(tx, workspaceId, month));
       if (realized.lessThan(plan.targetAmount.toString())) throw new AppError("VALIDATION_ERROR", "Chưa đạt mục tiêu nên không thể đánh dấu hoàn thành.");
     }
     const updated = await tx.financialPlan.update({ where: { id: plan.id }, data: {
       status, ...(status === "completed" ? { completedAt: now } : { cancelledAt: now }),
     } });
+    await tx.financialPlanGoal.updateMany({
+      where: { financialPlanId: plan.id, status: "active", deletedAt: null },
+      data: { status, ...(status === "completed" ? { completedAt: now } : { cancelledAt: now }) },
+    });
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: `financial_plan.${status}`, entityType: "financial_plan", entityId: plan.id,
       metadata: { automatic: false } } });
     return updated;
@@ -394,6 +492,7 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
     const startMonth = databaseDateToMonth(plan.startMonth);
     const targetMonth = databaseDateToMonth(plan.targetMonth);
     const businessMonth = currentMonth(member.workspace.timeZone, now);
+    const goalProgress = await getPlanGoalProgressSummary(tx, plan.id);
     let closedSnapshotProgress = new Decimal(plan.existingGoalAmount.toString());
     let adjustedActualProgress = new Decimal(plan.existingGoalAmount.toString());
     let requiredProgressThroughClosedMonths = new Decimal(plan.existingGoalAmount.toString());
@@ -417,14 +516,16 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
         jars: month.jars.map((jar) => ({ jarCode: jar.jarCode, percentage: jar.percentage.toString(), allocatedAmount: jar.allocatedAmount.toString(), closedActualAmount: jar.closedActualAmount.toString() })),
       });
     }
-    const realizedProgress = plan.status === "active" ? adjustedActualProgress : closedSnapshotProgress;
+    const realizedProgress = goalProgress.hasGoals
+      ? goalProgress.totalProgress
+      : plan.status === "active" ? adjustedActualProgress : closedSnapshotProgress;
     const allPlanMonths = monthsInclusive(startMonth, targetMonth);
     const closedSet = new Set(plan.months.map((month) => databaseDateToMonth(month.month)));
     const openMonths = plan.status === "active"
       ? allPlanMonths.filter((month) => !closedSet.has(month))
       : [];
     const baseSchedule = splitVndAcrossMonths(
-      Decimal.max(new Decimal(plan.targetAmount.toString()).minus(plan.existingGoalAmount.toString()), ZERO), allPlanMonths.length,
+      Decimal.max(new Decimal(plan.targetAmount.toString()).minus(realizedProgress), ZERO), allPlanMonths.length,
     );
     const currentBalance = openMonths.includes(startMonth) ? await getWorkspaceBalance(tx, workspaceId) : ZERO;
     const projectedMonths = [];
@@ -442,7 +543,7 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
       });
       const rawGrossBudget = month === startMonth
         ? firstMonthRawGrossBudget({
-            currentWorkspaceBalance: currentBalance, existingGoalAmount: plan.existingGoalAmount.toString(),
+            currentWorkspaceBalance: currentBalance, existingGoalAmount: goalProgress.hasGoals ? goalProgress.workspaceReserved : plan.existingGoalAmount.toString(),
             approvedExpenseFromMonthStart: sumJarMap(ledger.approvedExpenseByJar),
             remainingForecastIncome: includeForecast ? ledger.forecastIncome : 0, requiredGoalAmount: required,
           })

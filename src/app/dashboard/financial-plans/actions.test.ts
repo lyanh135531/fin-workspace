@@ -16,6 +16,17 @@ vi.mock("@/services/financial-plan-service", () => ({
   activateFinancialPlan: mocks.activate, updateFinancialPlanDeadline: vi.fn(),
   updateFinancialPlanAllocations: vi.fn(), cancelFinancialPlan: vi.fn(), completeFinancialPlan: vi.fn(),
 }));
+vi.mock("@/services/financial-goal-service", () => ({
+  createFinancialGoalFunding: vi.fn(),
+  createFinancialPlanGoal: vi.fn(),
+  createFinancialPlanWithGoals: vi.fn(),
+  finishFinancialPlanGoal: vi.fn(),
+  previewFinancialPlan: vi.fn(),
+  reorderFinancialPlanGoals: vi.fn(),
+  reviewFinancialGoalFunding: vi.fn(),
+  reverseFinancialGoalFunding: vi.fn(),
+  updateFinancialPlanGoal: vi.fn(),
+}));
 
 import { activateFinancialPlanAction, createFinancialPlanDraftAction, deleteFinancialPlanAction } from "@/app/dashboard/financial-plans/actions";
 import { AppError } from "@/lib/errors";
