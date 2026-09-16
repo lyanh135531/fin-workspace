@@ -9,6 +9,7 @@ const deleteMocks = vi.hoisted(() => ({
   transaction: vi.fn(),
   requireWorkspaceMember: vi.fn(),
   assertWalletHasNoOpenDependencies: vi.fn(),
+  ensureWalletNameAvailable: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -19,10 +20,11 @@ vi.mock("@/services/workspace-access", () => ({
 }));
 vi.mock("@/services/wallet-service", () => ({
   assertWalletHasNoOpenDependencies: deleteMocks.assertWalletHasNoOpenDependencies,
+  ensureWalletNameAvailable: deleteMocks.ensureWalletNameAvailable,
 }));
 
-import { allocateOldestObligations, allocateRefundByFundingWallet } from "@/services/credit-card-ledger";
-import { deleteCreditCard } from "@/services/credit-card-service";
+import { allocateLinkedRefundByFundingWallet, allocateOldestObligations, allocateRefundByFundingWallet } from "@/services/credit-card-ledger";
+import { deleteCreditCard, updateCreditCard } from "@/services/credit-card-service";
 import Decimal from "decimal.js";
 
 describe("credit card obligation ledger", () => {
@@ -64,6 +66,23 @@ describe("credit card obligation ledger", () => {
       ["wallet-default", "20"],
     ]);
   });
+
+  it("reverses a linked partial refund proportionally across the original wallets", () => {
+    const allocations = allocateLinkedRefundByFundingWallet([
+      { walletId: "wallet-a", amount: "60" },
+      { walletId: "wallet-b", amount: "40" },
+    ], new Decimal(25));
+    expect([...allocations].map(([walletId, amount]) => [walletId, amount.toString()])).toEqual([
+      ["wallet-a", "15"],
+      ["wallet-b", "10"],
+    ]);
+  });
+
+  it("rejects a linked refund above the remaining original allocation", () => {
+    expect(() => allocateLinkedRefundByFundingWallet([
+      { walletId: "wallet-a", amount: "10" },
+    ], new Decimal(10.0001))).toThrow("vượt quá phần còn có thể hoàn");
+  });
 });
 
 describe("deleteCreditCard checks", () => {
@@ -74,12 +93,14 @@ describe("deleteCreditCard checks", () => {
     creditCardInstallmentPlan: { count: vi.fn() },
     creditCardStatement: { count: vi.fn() },
     wallet: { update: vi.fn() },
+    creditCardProfile: { update: vi.fn() },
     auditLog: { create: vi.fn() },
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     deleteMocks.requireWorkspaceMember.mockResolvedValue({});
+    deleteMocks.ensureWalletNameAvailable.mockResolvedValue(undefined);
     deleteMocks.transaction.mockImplementation(
       async (callback: (client: typeof tx) => unknown) => callback(tx),
     );
@@ -117,6 +138,74 @@ describe("deleteCreditCard checks", () => {
         currentBalance: new Decimal(0),
       },
     });
+  });
+});
+
+describe("updateCreditCard checks", () => {
+  const tx = {
+    $queryRaw: vi.fn(),
+    workspaceWallet: { findFirst: vi.fn() },
+    creditCardInstallmentPlan: { count: vi.fn() },
+    wallet: { update: vi.fn() },
+    creditCardProfile: { update: vi.fn() },
+    auditLog: { create: vi.fn() },
+  };
+  const validInput = {
+    cardWalletId: "card-id",
+    name: "Visa chính",
+    description: "Chi tiêu gia đình",
+    creditLimit: new Decimal(50_000_000),
+    defaultFundingWalletId: "funding-id",
+    statementClosingDay: 25,
+    paymentDueDay: 10,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    deleteMocks.requireWorkspaceMember.mockResolvedValue({});
+    deleteMocks.ensureWalletNameAvailable.mockResolvedValue(undefined);
+    deleteMocks.transaction.mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
+    tx.$queryRaw.mockResolvedValue([]);
+    tx.workspaceWallet.findFirst
+      .mockResolvedValueOnce({
+        wallet: {
+          currentBalance: new Decimal(20_000_000),
+          creditCardProfile: { statementClosingDay: 25 },
+        },
+      })
+      .mockResolvedValueOnce({ walletId: "funding-id" });
+    tx.creditCardInstallmentPlan.count.mockResolvedValue(0);
+  });
+
+  it("rejects a credit limit below current debt", async () => {
+    await expect(updateCreditCard("user-id", "workspace-id", {
+      ...validInput,
+      creditLimit: new Decimal(10_000_000),
+    })).rejects.toThrow("thấp hơn dư nợ hiện tại");
+    expect(tx.creditCardProfile.update).not.toHaveBeenCalled();
+  });
+
+  it("updates card metadata and future billing configuration", async () => {
+    await expect(updateCreditCard("user-id", "workspace-id", validInput)).resolves.toEqual({ ok: true });
+    expect(tx.creditCardProfile.update).toHaveBeenCalledWith({
+      where: { walletId: "card-id" },
+      data: {
+        creditLimit: new Decimal(50_000_000),
+        defaultFundingWalletId: "funding-id",
+        statementClosingDay: 25,
+        paymentDueDay: 10,
+      },
+    });
+  });
+
+  it("blocks a closing-day change while installments are active", async () => {
+    tx.creditCardInstallmentPlan.count.mockResolvedValue(1);
+    await expect(updateCreditCard("user-id", "workspace-id", {
+      ...validInput,
+      statementClosingDay: 20,
+    })).rejects.toThrow("kế hoạch trả góp đang hoạt động");
   });
 });
 

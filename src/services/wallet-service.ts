@@ -45,6 +45,16 @@ async function assertWalletNameAvailable(
   }
 }
 
+export async function ensureWalletNameAvailable(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  name: string,
+  excludeWalletId?: string,
+) {
+  await lockWorkspaceWalletNames(tx, workspaceId);
+  await assertWalletNameAvailable(tx, workspaceId, name, excludeWalletId);
+}
+
 export async function createWalletForWorkspace(userId: string, workspaceId: string, input: CreateWalletInput) {
   const member = await requireWorkspaceMember(userId, workspaceId, true);
   return prisma.$transaction(async (tx) => {

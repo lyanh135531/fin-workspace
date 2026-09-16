@@ -72,19 +72,21 @@ describe("createTransactionSchema", () => {
 });
 
 describe("createCreditCardRefundSchema", () => {
-  it("accepts a refund entered directly against a credit card", () => {
+  it("requires the original approved card transaction", () => {
     const value = createCreditCardRefundSchema.parse({
       cardWalletId: walletId,
+      originalTransactionId: otherWalletId,
       amount: "250000",
       date: "2026-09-11",
     });
     expect(value.cardWalletId).toBe(walletId);
+    expect(value.originalTransactionId).toBe(otherWalletId);
     expect(value.amount.toString()).toBe("250000");
   });
 
-  it("does not accept an original transaction as the refund target", () => {
+  it("rejects a refund without the original transaction", () => {
     expect(() => createCreditCardRefundSchema.parse({
-      originalTransactionId: walletId,
+      cardWalletId: walletId,
       amount: "250000",
       date: "2026-09-11",
     })).toThrow();

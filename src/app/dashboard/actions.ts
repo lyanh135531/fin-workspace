@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { changeReasonSchema, createCreditCardPaymentSchema, createCreditCardRefundSchema, createTransactionSchema, createWalletSchema, deleteRequestReasonSchema, registerCreditCardInstallmentSchema } from "@/domain";
+import { changeReasonSchema, createCreditCardPaymentSchema, createCreditCardRefundSchema, createTransactionSchema, createWalletSchema, deleteRequestReasonSchema, registerCreditCardInstallmentSchema, updateCreditCardSchema } from "@/domain";
 import { debug } from "@/lib/debug";
 import { AppError } from "@/lib/errors";
 import { MONEY_LIMIT_ERROR_MESSAGE } from "@/lib/money-limits";
@@ -21,7 +21,7 @@ import {
 import { idSchema } from "@/domain/common/schemas";
 import { createWalletForWorkspace } from "@/services/wallet-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
-import { createCreditCardPayment, createCreditCardRefund, deleteCreditCard } from "@/services/credit-card-service";
+import { createCreditCardPayment, createCreditCardRefund, deleteCreditCard, updateCreditCard } from "@/services/credit-card-service";
 import { registerCreditCardInstallment } from "@/services/credit-card-installment-service";
 
 function transactionActionFailure(error: unknown, fallback: string, event: string, requestId: string) {
@@ -131,6 +131,26 @@ export async function deleteCreditCardAction(workspaceId: string, input: unknown
       error,
       "Không thể xóa thẻ tín dụng.",
       "credit_card.delete_failed",
+      requestId,
+    );
+  }
+}
+
+export async function updateCreditCardAction(workspaceId: string, input: unknown) {
+  const requestId = crypto.randomUUID();
+  try {
+    const user = await workspaceActor(workspaceId);
+    await updateCreditCard(user.userId, user.workspaceId, updateCreditCardSchema.parse(input));
+    revalidatePath("/dashboard");
+    revalidatePath("/overview");
+    revalidatePath("/wallets");
+    revalidateCreditCardViews();
+    return { ok: true as const };
+  } catch (error) {
+    return transactionActionFailure(
+      error,
+      "Không thể cập nhật thẻ tín dụng.",
+      "credit_card.update_failed",
       requestId,
     );
   }

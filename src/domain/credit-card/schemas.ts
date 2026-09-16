@@ -1,7 +1,19 @@
 import { z } from "zod";
-import { idSchema } from "@/domain/common/schemas";
+import { idSchema, optionalTrimmedTextSchema } from "@/domain/common/schemas";
 import { INSTALLMENT_TERM_COUNTS } from "@/domain/credit-card/installments";
-import { moneySchema } from "@/lib/decimal";
+import { moneySchema, positiveMoneySchema } from "@/lib/decimal";
+
+const statementDaySchema = z.number().int().min(1).max(31);
+
+export const updateCreditCardSchema = z.object({
+  cardWalletId: idSchema,
+  name: z.string().trim().min(1).max(120).transform((name) => name.normalize("NFC")),
+  description: optionalTrimmedTextSchema,
+  creditLimit: positiveMoneySchema,
+  defaultFundingWalletId: idSchema,
+  statementClosingDay: statementDaySchema,
+  paymentDueDay: statementDaySchema,
+});
 
 const termCountSchema = z.number().int().refine(
   (value): value is (typeof INSTALLMENT_TERM_COUNTS)[number] => INSTALLMENT_TERM_COUNTS.includes(value as never),
@@ -19,3 +31,4 @@ export const registerCreditCardInstallmentSchema = installmentInputSchema.extend
 
 export type InstallmentInput = z.output<typeof installmentInputSchema>;
 export type RegisterCreditCardInstallmentInput = z.output<typeof registerCreditCardInstallmentSchema>;
+export type UpdateCreditCardInput = z.output<typeof updateCreditCardSchema>;

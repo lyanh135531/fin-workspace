@@ -89,7 +89,7 @@ export function isWorkspaceNavigationActive(
   if (key === "recurring") return cleanPath === "/recurring-transactions";
   if (key === "plans") return cleanPath === "/financial-plans";
   if (key === "wallets") return cleanPath === "/wallets";
-  if (key === "creditCards") return cleanPath === "/credit-cards";
+  if (key === "creditCards") return cleanPath === "/credit-cards" || cleanPath.startsWith("/credit-cards/");
   return (
     cleanPath === "/settings/workspace" ||
     cleanPath === "/dashboard/settings" ||

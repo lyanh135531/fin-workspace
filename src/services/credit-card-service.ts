@@ -1,6 +1,6 @@
 import Decimal from "decimal.js";
 
-import type { CreateCreditCardPaymentInput, CreateCreditCardRefundInput } from "@/domain";
+import type { CreateCreditCardPaymentInput, CreateCreditCardRefundInput, UpdateCreditCardInput } from "@/domain";
 import { transactionTimingForDate, workflowStatusForCreation } from "@/domain/transaction/policy";
 import { Prisma } from "@/generated/prisma/client";
 import { getBusinessDateInTimeZone } from "@/lib/date";
@@ -13,7 +13,7 @@ import {
 } from "@/services/credit-card-ledger";
 import { completePaidInstallmentPlansInTransaction, generateCardStatementsInTransaction, statementPaymentDetails } from "@/services/credit-card-statement-service";
 import { applyBalance } from "@/services/transaction-service";
-import { assertWalletHasNoOpenDependencies } from "@/services/wallet-service";
+import { assertWalletHasNoOpenDependencies, ensureWalletNameAvailable } from "@/services/wallet-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
 const ZERO = new Decimal(0);
@@ -158,6 +158,9 @@ export async function createCreditCardRefund(
   return prisma.$transaction(async (tx) => {
     await lockWallets(tx, [input.cardWalletId]);
     await lockCardObligations(tx, input.cardWalletId);
+    await tx.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "TRANSACTION" WHERE "id" = CAST(${input.originalTransactionId} AS uuid) FOR UPDATE`,
+    );
     const card = await tx.workspaceWallet.findFirst({
       where: {
         workspaceId,
@@ -167,6 +170,35 @@ export async function createCreditCardRefund(
       select: { walletId: true },
     });
     if (!card) throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Thẻ không thuộc nhóm này hoặc không còn hoạt động.");
+
+    const original = await tx.transaction.findFirst({
+      where: {
+        id: input.originalTransactionId,
+        walletId: input.cardWalletId,
+        type: "expense",
+        purpose: "standard",
+        workflowStatus: "approved",
+        deletedAt: null,
+        member: { workspaceId },
+      },
+      include: {
+        refundTransactions: {
+          where: { workflowStatus: { not: "rejected" }, deletedAt: null },
+          select: { amount: true },
+        },
+      },
+    });
+    if (!original) {
+      throw new AppError("VALIDATION_ERROR", "Hãy chọn một giao dịch thẻ đã duyệt để hoàn tiền.");
+    }
+    const alreadyRefunded = original.refundTransactions.reduce(
+      (sum, refund) => sum.plus(refund.amount.toString()),
+      ZERO,
+    );
+    const refundable = new Decimal(original.amount.toString()).minus(alreadyRefunded);
+    if (input.amount.gt(refundable)) {
+      throw new AppError("VALIDATION_ERROR", `Giao dịch này chỉ còn có thể hoàn ${refundable.toString()}.`);
+    }
 
     const record = await tx.transaction.create({
       data: {
@@ -179,6 +211,7 @@ export async function createCreditCardRefund(
         date: databaseDate(input.date),
         postedDate: databaseDate(input.postedDate ?? input.date),
         workflowStatus,
+        originalTransactionId: original.id,
       },
     });
     if (workflowStatus === "approved") {
@@ -198,6 +231,82 @@ export async function createCreditCardRefund(
       },
     });
     return record;
+  });
+}
+
+export async function updateCreditCard(
+  userId: string,
+  workspaceId: string,
+  input: UpdateCreditCardInput,
+) {
+  await requireWorkspaceMember(userId, workspaceId, true);
+  return prisma.$transaction(async (tx) => {
+    await ensureWalletNameAvailable(tx, workspaceId, input.name, input.cardWalletId);
+    await lockWallets(tx, [input.cardWalletId, input.defaultFundingWalletId]);
+    const card = await tx.workspaceWallet.findFirst({
+      where: {
+        workspaceId,
+        walletId: input.cardWalletId,
+        wallet: { kind: "credit_card", status: "active", deletedAt: null },
+      },
+      include: { wallet: { include: { creditCardProfile: true } } },
+    });
+    if (!card?.wallet.creditCardProfile) {
+      throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Thẻ không thuộc nhóm này hoặc không còn hoạt động.");
+    }
+    const fundingWallet = await tx.workspaceWallet.findFirst({
+      where: {
+        workspaceId,
+        walletId: input.defaultFundingWalletId,
+        wallet: { kind: "asset", status: "active", deletedAt: null },
+      },
+      select: { walletId: true },
+    });
+    if (!fundingWallet) {
+      throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Ví thanh toán mặc định không khả dụng trong nhóm này.");
+    }
+    const balance = Decimal.max(card.wallet.currentBalance.toString(), ZERO);
+    if (input.creditLimit.lt(balance)) {
+      throw new AppError("VALIDATION_ERROR", "Hạn mức mới không được thấp hơn dư nợ hiện tại.");
+    }
+    if (input.statementClosingDay !== card.wallet.creditCardProfile.statementClosingDay) {
+      const activeInstallments = await tx.creditCardInstallmentPlan.count({
+        where: { cardWalletId: input.cardWalletId, status: { in: ["pending", "active"] } },
+      });
+      if (activeInstallments > 0) {
+        throw new AppError("CONFLICT", "Không thể đổi ngày chốt khi thẻ còn kế hoạch trả góp đang hoạt động.");
+      }
+    }
+
+    await tx.wallet.update({
+      where: { id: input.cardWalletId },
+      data: { name: input.name, description: input.description || null },
+    });
+    await tx.creditCardProfile.update({
+      where: { walletId: input.cardWalletId },
+      data: {
+        creditLimit: input.creditLimit,
+        defaultFundingWalletId: input.defaultFundingWalletId,
+        statementClosingDay: input.statementClosingDay,
+        paymentDueDay: input.paymentDueDay,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        workspaceId,
+        actorUserId: userId,
+        action: "workspace.credit_card_updated",
+        entityType: "wallet",
+        entityId: input.cardWalletId,
+        metadata: {
+          creditLimit: input.creditLimit.toString(),
+          defaultFundingWalletId: input.defaultFundingWalletId,
+          statementClosingDay: input.statementClosingDay,
+          paymentDueDay: input.paymentDueDay,
+        },
+      },
+    });
+    return { ok: true as const };
   });
 }
 
