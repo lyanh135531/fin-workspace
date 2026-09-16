@@ -1,11 +1,16 @@
 import Decimal from "decimal.js";
 import { describe, expect, it, vi } from "vitest";
-import { statementPaymentDetails } from "@/services/credit-card-statement-service";
+import { shareForImportedInstallment, statementPaymentDetails } from "@/services/credit-card-statement-service";
 import type { Prisma } from "@/generated/prisma/client";
 
 vi.mock("@/lib/env", () => ({ env: { DATABASE_URL: "postgresql://test", APP_TIME_ZONE: "Asia/Ho_Chi_Minh" } }));
 
 describe("credit card statement payments", () => {
+  it("allocates only the remaining imported terms and keeps the final rounding remainder", () => {
+    expect(shareForImportedInstallment("100", 12, 8, 9).toFixed(4)).toBe("25.0000");
+    expect(shareForImportedInstallment("100.0001", 12, 8, 12).toFixed(4)).toBe("25.0001");
+  });
+
   it("nets credits per funding wallet and allocates only the statement amount", async () => {
     const tx = {
       creditCardStatement: {

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { changeReasonSchema, createCreditCardPaymentSchema, createCreditCardRefundSchema, createTransactionSchema, createWalletSchema, deleteRequestReasonSchema, registerCreditCardInstallmentSchema, updateCreditCardSchema } from "@/domain";
+import { changeReasonSchema, createCreditCardPaymentSchema, createCreditCardRefundSchema, createTransactionSchema, createWalletSchema, deleteImportedCreditCardInstallmentSchema, deleteRequestReasonSchema, importCreditCardInstallmentSchema, registerCreditCardInstallmentSchema, updateCreditCardSchema } from "@/domain";
 import { debug } from "@/lib/debug";
 import { AppError } from "@/lib/errors";
 import { MONEY_LIMIT_ERROR_MESSAGE } from "@/lib/money-limits";
@@ -22,7 +22,7 @@ import { idSchema } from "@/domain/common/schemas";
 import { createWalletForWorkspace } from "@/services/wallet-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 import { createCreditCardPayment, createCreditCardRefund, deleteCreditCard, updateCreditCard } from "@/services/credit-card-service";
-import { registerCreditCardInstallment } from "@/services/credit-card-installment-service";
+import { deleteImportedCreditCardInstallment, importCreditCardInstallment, registerCreditCardInstallment } from "@/services/credit-card-installment-service";
 
 function transactionActionFailure(error: unknown, fallback: string, event: string, requestId: string) {
   if (error instanceof Error) {
@@ -133,6 +133,43 @@ export async function deleteCreditCardAction(workspaceId: string, input: unknown
       "credit_card.delete_failed",
       requestId,
     );
+  }
+}
+
+export async function importCreditCardInstallmentAction(workspaceId: string, input: unknown) {
+  const requestId = crypto.randomUUID();
+  try {
+    const user = await workspaceActor(workspaceId);
+    const plan = await importCreditCardInstallment(
+      user.userId,
+      user.workspaceId,
+      importCreditCardInstallmentSchema.parse(input),
+    );
+    revalidatePath("/dashboard");
+    revalidatePath("/wallets");
+    revalidatePath("/dashboard/wallets");
+    revalidateCreditCardViews();
+    revalidateFinancialPlanViews();
+    return { ok: true as const, planId: plan.id };
+  } catch (error) {
+    return transactionActionFailure(error, "Không thể nhập khoản trả góp đang có.", "credit_card.installment_import_failed", requestId);
+  }
+}
+
+export async function deleteImportedCreditCardInstallmentAction(workspaceId: string, input: unknown) {
+  const requestId = crypto.randomUUID();
+  try {
+    const user = await workspaceActor(workspaceId);
+    const parsed = deleteImportedCreditCardInstallmentSchema.parse(input);
+    await deleteImportedCreditCardInstallment(user.userId, user.workspaceId, parsed.planId);
+    revalidatePath("/dashboard");
+    revalidatePath("/wallets");
+    revalidatePath("/dashboard/wallets");
+    revalidateCreditCardViews();
+    revalidateFinancialPlanViews();
+    return { ok: true as const };
+  } catch (error) {
+    return transactionActionFailure(error, "Không thể xóa khoản trả góp đã nhập.", "credit_card.installment_import_delete_failed", requestId);
   }
 }
 

@@ -57,6 +57,7 @@ export default async function CreditCardsPage() {
                 include: {
                   fundingWallet: { select: { name: true } },
                   paymentAllocations: { select: { amount: true } },
+                  statementItems: { select: { id: true } },
                 },
                 orderBy: [{ postedDate: "asc" }, { id: "asc" }],
               },
@@ -77,6 +78,12 @@ export default async function CreditCardsPage() {
               installmentPlans: {
                 include: {
                   transaction: { select: { description: true, amount: true } },
+                  importedObligations: {
+                    include: {
+                      paymentAllocations: { select: { id: true } },
+                      statementItems: { select: { id: true } },
+                    },
+                  },
                   installments: {
                     include: {
                       statementItems: {
@@ -280,11 +287,25 @@ export default async function CreditCardsPage() {
       })),
       installmentPlans: profile.installmentPlans.map((plan) => ({
         id: plan.id,
-        description: plan.transaction.description,
-        principal: plan.transaction.amount.toString(),
+        origin: plan.origin,
+        description: plan.description ?? plan.transaction?.description ?? null,
+        principal: plan.transaction
+          ? plan.transaction.amount.toString()
+          : plan.importedObligations.reduce(
+              (sum, entry) => sum.plus(entry.amount.toString()),
+              ZERO,
+            ).toString(),
         fee: plan.feeAmount.toString(),
         termCount: plan.termCount,
+        paidTermCount: plan.paidTermCount,
+        importBalanceMode: plan.importBalanceMode,
         status: plan.status,
+        canDelete:
+          plan.origin === "imported" &&
+          plan.importedObligations.every(
+            (entry) => entry.paymentAllocations.length === 0 && entry.statementItems.length === 0,
+          ) &&
+          plan.installments.every((installment) => installment.statementItems.length === 0),
         installments: plan.installments.map((installment) => ({
           number: installment.installmentNo,
           dueDate: installment.dueDate.toISOString().slice(0, 10),
@@ -308,6 +329,24 @@ export default async function CreditCardsPage() {
           ).toString(),
         }),
       ),
+      importableOpeningDebt: profile.obligations
+        .filter(
+          (entry) =>
+            entry.source === "opening_balance" &&
+            !entry.installmentPlanId &&
+            entry.paymentAllocations.length === 0 &&
+            entry.statementItems.length === 0 &&
+            new Decimal(entry.amount.toString()).gt(0),
+        )
+        .reduce<Array<{ walletId: string; amount: string }>>((items, entry) => {
+          const current = items.find((item) => item.walletId === entry.fundingWalletId);
+          if (current) {
+            current.amount = new Decimal(current.amount).plus(entry.amount.toString()).toString();
+          } else {
+            items.push({ walletId: entry.fundingWalletId, amount: entry.amount.toString() });
+          }
+          return items;
+        }, []),
       activities: wallet.sourceTransactions.map((transaction) => ({
         id: transaction.id,
         purpose: transaction.purpose,

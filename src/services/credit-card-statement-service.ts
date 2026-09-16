@@ -26,6 +26,15 @@ function shareForInstallment(amount: Decimal.Value, termCount: number, installme
   return installmentAmounts(amount, termCount)[installmentNo - 1];
 }
 
+export function shareForImportedInstallment(
+  amount: Decimal.Value,
+  termCount: number,
+  paidTermCount: number,
+  installmentNo: number,
+) {
+  return shareForInstallment(amount, termCount - paidTermCount, installmentNo - paidTermCount);
+}
+
 async function createStatementForCycle(
   tx: Tx,
   workspaceId: string,
@@ -44,6 +53,7 @@ async function createStatementForCycle(
         { transactionId: null },
         { transaction: { installmentPlan: null, installmentFeePlan: null } },
       ],
+      installmentPlanId: null,
     },
     include: { paymentAllocations: { select: { amount: true } } },
     orderBy: [{ postedDate: "asc" }, { id: "asc" }],
@@ -55,6 +65,7 @@ async function createStatementForCycle(
         include: {
           transaction: { include: { creditCardAllocations: true, creditCardObligationEntries: true } },
           feeTransaction: { include: { creditCardAllocations: true, creditCardObligationEntries: true } },
+          importedObligations: true,
         },
       },
     },
@@ -88,7 +99,24 @@ async function createStatementForCycle(
     if (!remaining.isZero()) items.push({ obligationEntryId: entry.id, fundingWalletId: entry.fundingWalletId, amount: remaining });
   }
   for (const installment of installments) {
+    if (installment.plan.origin === "imported") {
+      for (const obligation of installment.plan.importedObligations) {
+        items.push({
+          obligationEntryId: obligation.id,
+          installmentId: installment.id,
+          fundingWalletId: obligation.fundingWalletId,
+          amount: shareForImportedInstallment(
+            obligation.amount.toString(),
+            installment.plan.termCount,
+            installment.plan.paidTermCount,
+            installment.installmentNo,
+          ),
+        });
+      }
+      continue;
+    }
     const original = installment.plan.transaction;
+    if (!original) throw new AppError("CONFLICT", "Kế hoạch trả góp bị thiếu giao dịch gốc.");
     for (const allocation of original.creditCardAllocations) {
       const obligation = original.creditCardObligationEntries.find((entry) => entry.fundingWalletId === allocation.fundingWalletId);
       if (!obligation) throw new AppError("CONFLICT", "Thiếu nghĩa vụ gốc của giao dịch trả góp.");
