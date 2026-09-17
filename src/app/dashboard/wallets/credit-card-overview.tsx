@@ -230,6 +230,75 @@ export function CardBrandBadge({ brand }: { brand: string }) {
   );
 }
 
+export function MiniVirtualCardVisual({ brand }: { brand: string }) {
+  return (
+    <div
+      className="relative isolate flex h-9.5 w-14 shrink-0 flex-col justify-between overflow-hidden rounded-lg border border-[var(--border)] bg-gradient-to-br from-[var(--surface-secondary)] via-[var(--surface)] to-[var(--surface-secondary)] p-1.5 select-none transition-transform group-hover/card-btn:scale-[1.03]"
+      aria-hidden="true"
+    >
+      {/* Subtle ambient lighting accent */}
+      <div className="pointer-events-none absolute -right-2.5 -top-2.5 size-7 rounded-full bg-[var(--primary)]/15 blur-xs" />
+
+      {/* Top row: Micro Chip EMV & Contactless Wave */}
+      <div className="relative z-[1] flex items-center justify-between">
+        {/* Micro Chip EMV */}
+        <div className="flex h-2.5 w-3.5 items-center justify-center rounded-[2px] border border-amber-500/50 bg-amber-500/20">
+          <div className="grid h-1.5 w-2 grid-cols-2 gap-0.5 opacity-85">
+            <span className="rounded-tl-[1px] border-b border-r border-amber-600/60" />
+            <span className="rounded-tr-[1px] border-b border-l border-amber-600/60" />
+            <span className="rounded-bl-[1px] border-t border-r border-amber-600/60" />
+            <span className="rounded-br-[1px] border-t border-l border-amber-600/60" />
+          </div>
+        </div>
+
+        {/* Micro Contactless Waves */}
+        <svg
+          className="size-2.5 text-[var(--text-muted)] opacity-70"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M8.5 16.5a5 5 0 0 1 0-9" />
+          <path d="M12 19a8.5 8.5 0 0 0 0-14" />
+        </svg>
+      </div>
+
+      {/* Bottom row: Micro Card Dots + Brand Emblem */}
+      <div className="relative z-[1] flex items-end justify-between leading-none">
+        <span className="text-[7px] font-mono tracking-widest text-[var(--text-muted)] opacity-75">
+          ••••
+        </span>
+        {brand === "VISA" && (
+          <span className="text-[8px] font-black italic tracking-tighter text-[var(--foreground)]">
+            VISA
+          </span>
+        )}
+        {brand === "MASTERCARD" && (
+          <div className="flex items-center -space-x-1">
+            <span className="size-2 rounded-full bg-[#EB001B] opacity-90" />
+            <span className="size-2 rounded-full bg-[#F79E1B] opacity-90 mix-blend-screen" />
+          </div>
+        )}
+        {brand === "JCB" && (
+          <span className="text-[7px] font-bold tracking-tight text-blue-500">JCB</span>
+        )}
+        {brand === "AMEX" && (
+          <span className="text-[7px] font-extrabold tracking-tight text-sky-500">AMEX</span>
+        )}
+        {brand === "NAPAS" && (
+          <span className="text-[7px] font-bold tracking-tight text-sky-500">NAPAS</span>
+        )}
+        {brand === "CREDIT" && (
+          <CreditCard className="size-2.5 text-[var(--primary)]" />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function activityLabel(activity: CardActivity) {
   if (activity.purpose === "credit_card_payment") return "Thanh toán sao kê";
   if (activity.purpose === "credit_card_refund") return "Hoàn tiền";
@@ -915,38 +984,112 @@ function CreditCardPanel({
 
   return (
     <>
-      <Card as="article" className="gap-0 p-4 sm:p-5 md:p-6 overflow-hidden">
+      <Card as="article" className="gap-0 p-3.5 sm:p-5 overflow-hidden transition-colors">
         <Button
           type="button"
           variant="unstyled"
-          className="flex min-h-11 w-full items-center justify-between gap-4 text-left"
+          className="group/card-btn flex min-h-11 w-full flex-col gap-3 text-left transition-colors cursor-pointer outline-none"
           aria-expanded={expanded}
           aria-controls={`credit-card-details-${card.id}`}
           onClick={onToggle}
         >
-          <div className="min-w-0">
-            <h2 className="truncate text-base font-semibold text-[var(--foreground)]">{card.name}</h2>
-            <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-              {card.statement
-                ? `Hạn thanh toán ${formatIsoDate(card.statement.dueDate)}`
-                : `Chốt sao kê ngày ${card.statementClosingDay}`}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <div className="text-right">
-              <p className="text-sm font-semibold tabular-nums text-[var(--foreground)]">
-                {formatAmount(hasCredit ? card.creditBalance : card.debt)} {currency}
-              </p>
-              <p className="text-[11px] text-[var(--text-muted)]">{hasCredit ? "Dư có" : "Dư nợ"}</p>
+          <div className="flex w-full items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <MiniVirtualCardVisual brand={brand} />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="truncate text-sm sm:text-base font-semibold text-[var(--foreground)]">
+                    {card.name}
+                  </h2>
+                  {card.statement?.overdue ? (
+                    <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-600 dark:text-rose-400">
+                      Quá hạn
+                    </span>
+                  ) : card.statement ? (
+                    <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                      Đến hạn {formatShortDate(card.statement.dueDate)}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                  {card.statement
+                    ? `Hạn thanh toán ${formatIsoDate(card.statement.dueDate)}`
+                    : `Chốt ngày ${card.statementClosingDay} • Hạn ngày ${card.paymentDueDay}`}
+                </p>
+              </div>
             </div>
-            <ChevronDown
-              className={cn("size-4 text-[var(--text-muted)] transition-transform", expanded && "rotate-180")}
-              aria-hidden="true"
-            />
+
+            <div className="flex shrink-0 items-center gap-2.5">
+              <div className="text-right">
+                <p
+                  className={cn(
+                    "text-sm sm:text-base font-bold tabular-nums tracking-tight",
+                    hasCredit
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : new Decimal(card.debt || 0).gt(0)
+                      ? "text-rose-600 dark:text-rose-400"
+                      : "text-[var(--foreground)]"
+                  )}
+                >
+                  {formatAmount(hasCredit ? card.creditBalance : card.debt)}{" "}
+                  <span className="text-[10px] font-medium uppercase text-[var(--text-muted)]">
+                    {currency}
+                  </span>
+                </p>
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  {hasCredit ? "Dư có" : "Dư nợ"}
+                </p>
+              </div>
+              <div
+                className={cn(
+                  "grid size-7 shrink-0 place-items-center rounded-lg transition-colors",
+                  expanded
+                    ? "bg-[var(--surface-secondary)] text-[var(--foreground)]"
+                    : "text-[var(--text-muted)]"
+                )}
+              >
+                <ChevronDown
+                  className={cn("size-4 transition-transform duration-200", expanded && "rotate-180")}
+                  aria-hidden="true"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Mini progress bar & available limit indicator */}
+          <div className="w-full pt-0.5">
+            <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+              <span>
+                Khả dụng:{" "}
+                <strong className="font-semibold tabular-nums text-[var(--foreground)]">
+                  {formatAmount(card.availableCredit)}
+                </strong>{" "}
+                {currency}
+              </span>
+              <span>
+                Đã dùng{" "}
+                <strong className="font-semibold tabular-nums text-[var(--foreground)]">
+                  {utilizationPercent}%
+                </strong>
+              </span>
+            </div>
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)] border border-[var(--border)]/40">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-300",
+                  utilizationPercent > 80
+                    ? "bg-rose-500"
+                    : utilizationPercent > 50
+                    ? "bg-amber-500"
+                    : "bg-[var(--primary)]"
+                )}
+                style={{ width: `${utilizationPercent}%` }}
+              />
+            </div>
           </div>
         </Button>
         {expanded && (
-          <div id={`credit-card-details-${card.id}`} className="mt-5 border-t border-[var(--border)] pt-5">
+          <div id={`credit-card-details-${card.id}`} className="mt-4 border-t border-[var(--border)] pt-4 sm:mt-5 sm:pt-5">
             {/* 2-Column Responsive Layout: stacked on mobile, 12-col grid on desktop */}
             <div className="flex flex-col gap-5 lg:grid lg:grid-cols-12 lg:gap-6 lg:items-start">
               {/* CỘT TRÁI (Col 5): Thẻ ảo & Chỉ số */}
@@ -2518,25 +2661,87 @@ export function CreditCardOverview(props: {
     parentId?: string | null;
   }>;
 }) {
-  const [expandedCardId, setExpandedCardId] = useState<string | null>(() => {
-    const priority = props.cards.find((card) => card.statement?.overdue)
-      ?? props.cards.find((card) => card.statement)
-      ?? props.cards[0];
-    return priority?.id ?? null;
-  });
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+
+  const totalDebt = useMemo(() => {
+    return props.cards.reduce(
+      (sum, c) => sum.plus(new Decimal(c.debt || 0)),
+      new Decimal(0),
+    );
+  }, [props.cards]);
+
+  const totalLimit = useMemo(() => {
+    return props.cards.reduce(
+      (sum, c) => sum.plus(new Decimal(c.limit || 0)),
+      new Decimal(0),
+    );
+  }, [props.cards]);
+
+  const totalAvailable = useMemo(() => {
+    return props.cards.reduce(
+      (sum, c) => sum.plus(new Decimal(c.availableCredit || 0)),
+      new Decimal(0),
+    );
+  }, [props.cards]);
 
   return (
     <section className="space-y-4" aria-label="Danh sách thẻ tín dụng">
+      {props.cards.length > 0 && (
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-3">
+          <Card as="div" className="p-3.5 sm:p-4 rounded-2xl flex flex-col justify-between">
+            <span className="text-[11px] font-medium text-[var(--text-muted)]">Tổng dư nợ</span>
+            <p
+              className={cn(
+                "mt-1 text-base sm:text-lg font-bold tabular-nums tracking-tight",
+                totalDebt.gt(0) ? "text-rose-600 dark:text-rose-400" : "text-[var(--foreground)]",
+              )}
+            >
+              {formatAmount(totalDebt.toString())}{" "}
+              <span className="text-[10px] font-medium uppercase text-[var(--text-muted)]">
+                {props.currency}
+              </span>
+            </p>
+          </Card>
+
+          <Card as="div" className="p-3.5 sm:p-4 rounded-2xl flex flex-col justify-between">
+            <span className="text-[11px] font-medium text-[var(--text-muted)]">Tổng khả dụng</span>
+            <p className="mt-1 text-base sm:text-lg font-bold tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400">
+              {formatAmount(totalAvailable.toString())}{" "}
+              <span className="text-[10px] font-medium uppercase text-[var(--text-muted)]">
+                {props.currency}
+              </span>
+            </p>
+          </Card>
+
+          <Card as="div" className="col-span-2 sm:col-span-1 p-3.5 sm:p-4 rounded-2xl flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-[var(--text-muted)]">Tổng hạn mức</span>
+              <span className="text-[10px] font-medium text-[var(--text-secondary)]">
+                {props.cards.length} thẻ
+              </span>
+            </div>
+            <p className="mt-1 text-base sm:text-lg font-bold tabular-nums tracking-tight text-[var(--foreground)]">
+              {formatAmount(totalLimit.toString())}{" "}
+              <span className="text-[10px] font-medium uppercase text-[var(--text-muted)]">
+                {props.currency}
+              </span>
+            </p>
+          </Card>
+        </div>
+      )}
+
       {props.cards.length ? (
-        props.cards.map((card) => (
-          <CreditCardPanel
-            key={card.id}
-            {...props}
-            card={card}
-            expanded={expandedCardId === card.id}
-            onToggle={() => setExpandedCardId((current) => current === card.id ? null : card.id)}
-          />
-        ))
+        <div className="space-y-3">
+          {props.cards.map((card) => (
+            <CreditCardPanel
+              key={card.id}
+              {...props}
+              card={card}
+              expanded={expandedCardId === card.id}
+              onToggle={() => setExpandedCardId((current) => current === card.id ? null : card.id)}
+            />
+          ))}
+        </div>
       ) : (
         <Card as="div" className="gap-2 p-6 text-center">
           <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--surface-secondary)] text-[var(--text-muted)]">
