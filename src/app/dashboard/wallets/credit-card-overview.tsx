@@ -6,6 +6,7 @@ import {
   CalendarClock,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   CreditCard,
   History,
   MoreHorizontal,
@@ -51,7 +52,7 @@ import {
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { formatAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { firstStatementOnOrAfter, installmentAmounts, nextStatementDate } from "@/domain/credit-card/installments";
+import { firstStatementOnOrAfter, nextStatementDate } from "@/domain/credit-card/installments";
 
 function subscribeDesktop(callback: () => void) {
   const query = window.matchMedia("(min-width: 901px)");
@@ -78,10 +79,10 @@ type FundingWallet = { id: string; name: string };
 type CardActivity = {
   id: string;
   purpose:
-    | "standard"
-    | "credit_card_payment"
-    | "credit_card_refund"
-    | "credit_card_installment_fee";
+  | "standard"
+  | "credit_card_payment"
+  | "credit_card_refund"
+  | "credit_card_installment_fee";
   description: string | null;
   amount: string;
   date: string;
@@ -141,12 +142,12 @@ export type CreditCardOverviewItem = {
   fundingShares: FundingShare[];
   importableOpeningDebt: Array<{ walletId: string; amount: string }>;
   statement:
-    | (Statement & {
-        overdue: boolean;
-        paymentPending: boolean;
-        sources: Array<{ walletId: string; amount: string }>;
-      })
-    | null;
+  | (Statement & {
+    overdue: boolean;
+    paymentPending: boolean;
+    sources: Array<{ walletId: string; amount: string }>;
+  })
+  | null;
   statements: Statement[];
   installmentPlans: InstallmentPlan[];
   refundCandidates: RefundCandidate[];
@@ -225,6 +226,11 @@ function formatIsoDate(value: string) {
   return `${day}/${month}/${year}`;
 }
 
+function formatShortDate(value: string) {
+  const [, month, day] = value.split("-");
+  return `${day}/${month}`;
+}
+
 const DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => ({
   value: String(index + 1),
   label: `Ngày ${index + 1}`,
@@ -264,9 +270,10 @@ function CreditCardPanel({
   const [termCount, setTermCount] = useState("3");
   const [feeAmount, setFeeAmount] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [importStep, setImportStep] = useState<1 | 2>(1);
   const [importDescription, setImportDescription] = useState("");
-  const [importTermCount, setImportTermCount] = useState("12");
-  const [importPaidTermCount, setImportPaidTermCount] = useState("0");
+  const [importTermCount, setImportTermCount] = useState("");
+  const [importPaidTermCount, setImportPaidTermCount] = useState("");
   const [importRemainingAmount, setImportRemainingAmount] = useState("");
   const [importBalanceMode, setImportBalanceMode] = useState<"included_opening_debt" | "add_to_balance">("included_opening_debt");
   const [importFundingWalletId, setImportFundingWalletId] = useState(card.defaultFundingWalletId);
@@ -281,6 +288,10 @@ function CreditCardPanel({
   const [editFundingWalletId, setEditFundingWalletId] = useState(card.defaultFundingWalletId);
   const [editClosingDay, setEditClosingDay] = useState(String(card.statementClosingDay));
   const [editDueDay, setEditDueDay] = useState(String(card.paymentDueDay));
+  const [allPlansOpen, setAllPlansOpen] = useState(false);
+  const [allActivitiesOpen, setAllActivitiesOpen] = useState(false);
+  const [menuPlanId, setMenuPlanId] = useState<string | null>(null);
+  const [deletingPlan, setDeletingPlan] = useState<InstallmentPlan | null>(null);
   const cardMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
   const walletNames = useMemo(
@@ -324,24 +335,26 @@ function CreditCardPanel({
   }, [businessDate, card.statementClosingDay, card.statements]);
 
   const importPreview = useMemo(() => {
+    if (!importTermCount.trim()) return null;
     const totalTerms = Number(importTermCount);
-    const paidTerms = Number(importPaidTermCount);
+    const paidTerms = importPaidTermCount.trim() === "" ? 0 : Number(importPaidTermCount);
     if (!Number.isInteger(totalTerms) || !Number.isInteger(paidTerms) || totalTerms < 2 || totalTerms > 60 || paidTerms < 0 || paidTerms >= totalTerms) {
       return null;
     }
     try {
       const remaining = new Decimal(importRemainingAmount || 0);
       if (!remaining.gt(0)) return null;
-      const amounts = installmentAmounts(remaining, totalTerms - paidTerms);
+      const remainingTerms = totalTerms - paidTerms;
+      const monthlyAmount = remaining.dividedBy(remainingTerms).ceil().toFixed(0);
       return {
-        remainingTerms: amounts.length,
-        regularAmount: amounts[0].toString(),
-        finalAmount: amounts[amounts.length - 1].toString(),
+        remainingTerms,
+        monthlyAmount,
       };
     } catch {
       return null;
     }
   }, [importPaidTermCount, importRemainingAmount, importTermCount]);
+  const canProceedToStep2 = Boolean(importDescription.trim() && importPreview);
   const selectedImportableOpeningDebt = importableOpeningDebtByWallet.get(importFundingWalletId) ?? new Decimal(0);
   const exceedsImportableOpeningDebt = importBalanceMode === "included_opening_debt"
     && Boolean(importPreview)
@@ -419,9 +432,10 @@ function CreditCardPanel({
   }
 
   function openImportInstallment() {
+    setImportStep(1);
     setImportDescription("");
-    setImportTermCount("12");
-    setImportPaidTermCount("0");
+    setImportTermCount("");
+    setImportPaidTermCount("");
     setImportRemainingAmount("");
     setImportBalanceMode("included_opening_debt");
     setImportFundingWalletId(card.defaultFundingWalletId);
@@ -436,7 +450,7 @@ function CreditCardPanel({
         cardWalletId: card.id,
         description: importDescription,
         termCount: Number(importTermCount),
-        paidTermCount: Number(importPaidTermCount),
+        paidTermCount: Number(importPaidTermCount || "0"),
         remainingAmount: importRemainingAmount,
         firstStatementDate: importFirstStatementDate,
         balanceMode: importBalanceMode,
@@ -448,16 +462,17 @@ function CreditCardPanel({
       }
       toast.success("Đã nhập khoản trả góp đang có.");
       setImportOpen(false);
+      setImportStep(1);
     });
   }
 
   async function handleDeleteImportedPlan(plan: InstallmentPlan) {
     const result = await deleteImportedCreditCardInstallmentAction(workspaceId, { planId: plan.id });
     if (!result.ok) {
-      toast.error(result.message ?? "Không thể xóa khoản trả góp đã nhập.");
+      toast.error(result.message ?? "Không thể xóa khoản trả góp.");
       return false;
     }
-    toast.success("Đã xóa khoản trả góp đã nhập.");
+    toast.success(`Đã xóa khoản trả góp${plan.description ? ` “${plan.description}”` : ""}.`);
     return true;
   }
 
@@ -493,6 +508,242 @@ function CreditCardPanel({
     return true;
   }
 
+  function renderInstallmentCard(plan: InstallmentPlan) {
+    const paid = plan.paidTermCount + plan.installments.filter((item) => item.paid).length;
+    const next = plan.installments.find((item) => !item.paid);
+    const hasFee = new Decimal(plan.fee || 0).gt(0);
+
+    const cardContent = (
+      <>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-medium text-sm text-[var(--foreground)] truncate max-w-[200px]">
+                {plan.description ?? "Giao dịch trả góp"}
+              </span>
+              {plan.origin === "imported" && (
+                <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-[var(--surface-secondary)] text-[var(--text-secondary)] shrink-0 border border-[var(--border)]">
+                  Khoản có sẵn
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center">
+            <span className="text-sm font-semibold tabular-nums text-[var(--foreground)]">
+              {formatAmount(plan.principal, { maximumFractionDigits: 0 })} {currency}
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1.5 border-t border-[var(--border)]/60 text-xs">
+          <div className="text-[var(--text-muted)] truncate">
+            Đã trả <span className="font-medium text-[var(--foreground)]">{paid}/{plan.termCount} tháng</span>
+            {hasFee && (
+              <span> · Phí {formatAmount(plan.fee, { maximumFractionDigits: 0 })} {currency}</span>
+            )}
+          </div>
+          <div className="sm:text-right text-[var(--text-muted)] truncate">
+            {next ? (
+              <>
+                Kỳ tới ({formatShortDate(next.dueDate)}):{" "}
+                <span className="font-medium text-[var(--foreground)] tabular-nums">
+                  {formatAmount(next.amount, { maximumFractionDigits: 0 })} {currency}
+                </span>
+              </>
+            ) : (
+              <span className="font-medium text-[var(--success)]">Đã tất toán</span>
+            )}
+          </div>
+        </div>
+      </>
+    );
+
+    const isMenuOpen = menuPlanId === plan.id;
+
+    if (canManage && plan.canDelete) {
+      return (
+        <DropdownMenu
+          key={plan.id}
+          open={isMenuOpen}
+          onOpenChange={(open) => setMenuPlanId(open ? plan.id : null)}
+        >
+          <SpotlightTrigger
+            open={isMenuOpen}
+            onOpenChange={(open) => setMenuPlanId(open ? plan.id : null)}
+            render={
+              <div
+                role="button"
+                tabIndex={0}
+                className={cn(
+                  "rounded-xl border p-3 space-y-2 cursor-pointer select-none outline-none transition-all",
+                  isMenuOpen
+                    ? "bg-[var(--surface)] border-[var(--primary)] ring-1 ring-[var(--primary)]"
+                    : "border-[var(--border)] bg-[var(--surface-secondary)]/20 hover:bg-[var(--surface-secondary)]/40 active:bg-[var(--surface-secondary)]/60 focus-visible:ring-1 focus-visible:ring-ring",
+                )}
+                aria-label={`Khoản trả góp ${plan.description || "Giao dịch trả góp"}, ${formatAmount(plan.principal)} ${currency}. Chạm để mở tùy chọn.`}
+              />
+            }
+            dismissLabel={`Đóng menu tùy chọn ${plan.description || "khoản trả góp"}`}
+          >
+            {(spotlightTrigger) => (
+              <DropdownMenuTrigger nativeButton={false} render={spotlightTrigger}>
+                {cardContent}
+              </DropdownMenuTrigger>
+            )}
+          </SpotlightTrigger>
+          <DropdownMenuContent
+            align="end"
+            side="bottom"
+            sideOffset={6}
+            className="w-48 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
+          >
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => {
+                setMenuPlanId(null);
+                setDeletingPlan(plan);
+              }}
+              className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--destructive)]"
+            >
+              <Trash2 className="size-4 shrink-0" aria-hidden="true" />
+              <span>Xóa khoản trả góp</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
+
+    return (
+      <div
+        key={plan.id}
+        className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/20 p-3 space-y-2"
+      >
+        {cardContent}
+      </div>
+    );
+  }
+
+  function renderActivityRow(activity: CardActivity) {
+    const rowContent = (
+      <>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className={`grid size-8 shrink-0 place-items-center rounded-lg ${
+              activity.purpose === "credit_card_refund"
+                ? "bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] text-[var(--success)]"
+                : activity.purpose === "credit_card_payment"
+                  ? "bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
+                  : "bg-[var(--surface-secondary)] text-[var(--text-secondary)]"
+            }`}
+          >
+            {activity.purpose === "credit_card_refund" ? (
+              <RotateCcw size={14} />
+            ) : activity.purpose === "credit_card_payment" ? (
+              <CheckCircle2 size={14} />
+            ) : (
+              <CreditCard size={14} />
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium text-[var(--foreground)]">
+              {activity.description || activityLabel(activity)}
+            </p>
+            <p className="truncate text-[11px] text-[var(--text-muted)]">
+              {activity.description && activity.description !== activityLabel(activity)
+                ? `${formatIsoDate(activity.date)} · ${activityLabel(activity)}`
+                : formatIsoDate(activity.date)}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end shrink-0">
+          <span
+            className={`text-xs font-semibold tabular-nums ${
+              activity.purpose === "credit_card_refund"
+                ? "text-[var(--success)]"
+                : "text-[var(--foreground)]"
+            }`}
+          >
+            {activity.purpose === "credit_card_refund" ||
+            activity.purpose === "credit_card_payment"
+              ? "−"
+              : "+"}
+            {formatAmount(activity.amount, { maximumFractionDigits: 0 })} {currency}
+          </span>
+          {activity.installmentPlanId && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--primary)]">
+              <Split size={9} aria-hidden="true" />
+              <span>Đang trả góp</span>
+            </span>
+          )}
+        </div>
+      </>
+    );
+
+    const isMenuOpen = menuActivityId === activity.id;
+
+    if (activity.installmentEligible) {
+      return (
+        <DropdownMenu
+          key={activity.id}
+          open={isMenuOpen}
+          onOpenChange={(open) => setMenuActivityId(open ? activity.id : null)}
+        >
+          <SpotlightTrigger
+            open={isMenuOpen}
+            onOpenChange={(open) => setMenuActivityId(open ? activity.id : null)}
+            render={
+              <div
+                role="button"
+                tabIndex={0}
+                className={cn(
+                  "group/activity flex items-center justify-between gap-3 py-2.5 px-2 -mx-2 rounded-xl cursor-pointer select-none outline-none transition-all border",
+                  isMenuOpen
+                    ? "bg-[var(--surface)] border-[var(--border)]"
+                    : "border-transparent hover:bg-[var(--surface-secondary)]/50 active:bg-[var(--surface-secondary)]/70 focus-visible:ring-1 focus-visible:ring-ring",
+                )}
+                aria-label={`Giao dịch ${activity.description || activityLabel(activity)}, ${formatAmount(activity.amount)} ${currency}. Bấm để mở tùy chọn.`}
+              />
+            }
+            dismissLabel={`Đóng menu giao dịch ${activity.description || activityLabel(activity)}`}
+          >
+            {(spotlightTrigger) => (
+              <DropdownMenuTrigger nativeButton={false} render={spotlightTrigger}>
+                {rowContent}
+              </DropdownMenuTrigger>
+            )}
+          </SpotlightTrigger>
+          <DropdownMenuContent
+            align="end"
+            side="bottom"
+            sideOffset={6}
+            className="w-52 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
+          >
+            <DropdownMenuItem
+              onClick={() => {
+                setMenuActivityId(null);
+                setInstallmentTarget(activity);
+              }}
+              className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+            >
+              <Split className="size-4 text-[var(--primary)]" aria-hidden="true" />
+              <span>Đăng ký trả góp</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
+
+    return (
+      <div
+        key={activity.id}
+        className="flex items-center justify-between gap-3 py-2.5 px-2 -mx-2 rounded-xl border border-transparent"
+      >
+        {rowContent}
+      </div>
+    );
+  }
+
   return (
     <>
       <Card as="article" className="gap-0 p-4 sm:p-5 md:p-6 overflow-hidden">
@@ -526,1095 +777,972 @@ function CreditCardPanel({
           </div>
         </Button>
         {expanded && (
-        <div id={`credit-card-details-${card.id}`} className="mt-5 border-t border-[var(--border)] pt-5">
-        {/* 2-Column Responsive Layout: stacked on mobile, 12-col grid on desktop */}
-        <div className="flex flex-col gap-5 lg:grid lg:grid-cols-12 lg:gap-6 lg:items-start">
-          {/* CỘT TRÁI (Col 5): Thẻ ảo & Chỉ số */}
-          <div className="flex flex-col gap-3.5 lg:col-span-5">
-            {/* Virtual Card Graphic */}
-            <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[var(--border)] bg-gradient-to-br from-[var(--surface-secondary)] via-[var(--surface)] to-[var(--surface-secondary)] p-4 sm:p-5 text-[var(--foreground)] transition-all select-none">
-              {/* Subtle ambient lighting */}
-              <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-[var(--primary)]/10 blur-xl" />
-              <div className="pointer-events-none absolute -left-6 -bottom-6 h-28 w-28 rounded-full bg-[var(--primary)]/5 blur-xl" />
+          <div id={`credit-card-details-${card.id}`} className="mt-5 border-t border-[var(--border)] pt-5">
+            {/* 2-Column Responsive Layout: stacked on mobile, 12-col grid on desktop */}
+            <div className="flex flex-col gap-5 lg:grid lg:grid-cols-12 lg:gap-6 lg:items-start">
+              {/* CỘT TRÁI (Col 5): Thẻ ảo & Chỉ số */}
+              <div className="flex flex-col gap-3.5 lg:col-span-5">
+                {/* Virtual Card Graphic */}
+                <div className="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl border border-[var(--border)] bg-gradient-to-br from-[var(--surface-secondary)] via-[var(--surface)] to-[var(--surface-secondary)] p-4 sm:p-5 text-[var(--foreground)] transition-all select-none">
+                  {/* Subtle ambient lighting */}
+                  <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-[var(--primary)]/10 blur-xl" />
+                  <div className="pointer-events-none absolute -left-6 -bottom-6 h-28 w-28 rounded-full bg-[var(--primary)]/5 blur-xl" />
 
-              {/* Top row: Chip + Waves + Brand Pill */}
-              <div className="relative z-10 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  {/* EMV Chip */}
-                  <div className="grid h-5 w-7 place-items-center rounded border border-[var(--border)] bg-amber-500/15">
-                    <div className="grid h-3 w-4.5 grid-cols-2 grid-rows-2 gap-0.5 opacity-70">
-                      <span className="rounded-tl border-b border-r border-amber-600/50" />
-                      <span className="rounded-tr border-b border-l border-amber-600/50" />
-                      <span className="rounded-bl border-t border-r border-amber-600/50" />
-                      <span className="rounded-br border-t border-l border-amber-600/50" />
-                    </div>
-                  </div>
-                  {/* Contactless waves */}
-                  <svg
-                    className="h-3.5 w-3.5 text-[var(--text-muted)]"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M8.5 16.5a5 5 0 0 1 0-9" />
-                    <path d="M12 19a8.5 8.5 0 0 0 0-14" />
-                    <path d="M15.5 21.5a12 12 0 0 0 0-19" />
-                  </svg>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <CardBrandBadge brand={brand} />
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <button
-                          ref={cardMenuTriggerRef}
-                          type="button"
-                          aria-label={`Tùy chọn thẻ ${card.name}`}
-                          className="grid size-11 place-items-center rounded-full text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-secondary)]/80 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring md:size-8"
-                        />
-                      }
-                    >
-                      <MoreHorizontal size={16} aria-hidden="true" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      side="bottom"
-                      sideOffset={6}
-                      className="w-52 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
-                    >
-                      {canManage && (
-                        <DropdownMenuItem
-                          onClick={() => setEditOpen(true)}
-                          className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
-                        >
-                          <Pencil className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                          <span>Chỉnh sửa thẻ</span>
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        disabled={card.refundCandidates.length === 0}
-                        onClick={() => {
-                          setRefundTransactionId(card.refundCandidates[0]?.id ?? "");
-                          setRefundOpen(true);
-                        }}
-                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                  {/* Top row: Chip + Waves + Brand Pill */}
+                  <div className="relative z-[1] flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {/* EMV Chip */}
+                      <div className="grid h-5 w-7 place-items-center rounded border border-[var(--border)] bg-amber-500/15">
+                        <div className="grid h-3 w-4.5 grid-cols-2 grid-rows-2 gap-0.5 opacity-70">
+                          <span className="rounded-tl border-b border-r border-amber-600/50" />
+                          <span className="rounded-tr border-b border-l border-amber-600/50" />
+                          <span className="rounded-bl border-t border-r border-amber-600/50" />
+                          <span className="rounded-br border-t border-l border-amber-600/50" />
+                        </div>
+                      </div>
+                      {/* Contactless waves */}
+                      <svg
+                        className="h-3.5 w-3.5 text-[var(--text-muted)]"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
                       >
-                        <RotateCcw className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                        <span>Ghi nhận hoàn tiền</span>
-                      </DropdownMenuItem>
-                      {canManage && (
-                        <>
-                          <DropdownMenuSeparator className="my-1 -mx-1 bg-[var(--border)]" />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setConfirmDelete(true)}
-                            className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer"
-                          >
-                            <Trash2 className="size-4 shrink-0" aria-hidden="true" />
-                            <span>Xóa thẻ</span>
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-
-              {/* Card Name & Masked numbers */}
-              <div className="relative z-10 my-3">
-                <p className="truncate text-base font-semibold tracking-wide text-[var(--foreground)]">
-                  {card.name}
-                </p>
-                <p className="mt-0.5 font-mono text-[11px] tracking-widest text-[var(--text-muted)]">
-                  ••••  ••••  ••••  ••••
-                </p>
-              </div>
-
-              {/* Main Debt / Balance */}
-              <div className="relative z-10 border-t border-[var(--border)] pt-2.5">
-                <div className="flex items-baseline justify-between">
-                  <div>
-                    <span className="block text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                      {hasCredit ? "Dư có (trả trước)" : "Tổng dư nợ hiện tại"}
-                    </span>
-                    <span className="text-xl font-bold tabular-nums text-[var(--foreground)]">
-                      {formatAmount(hasCredit ? card.creditBalance : card.debt)} {currency}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="block text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                      Chu kỳ
-                    </span>
-                    <span className="text-xs font-medium text-[var(--text-secondary)] tabular-nums">
-                      Chốt {card.statementClosingDay} · Hạn {card.paymentDueDay}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Credit Limit Utilization Progress Bar */}
-                <div className="mt-3">
-                  <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] mb-1">
-                    <span>Đã dùng {utilizationPercent}% hạn mức</span>
-                    <span className="tabular-nums font-medium text-[var(--foreground)]">
-                      Khả dụng: {formatAmount(card.availableCredit)} {currency}
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ${
-                        utilizationPercent > 80
-                          ? "bg-[var(--destructive)]"
-                          : utilizationPercent > 50
-                            ? "bg-[var(--warning)]"
-                            : "bg-[var(--primary)]"
-                      }`}
-                      style={{ width: `${utilizationPercent}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Key Metrics Grid */}
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-2.5 sm:p-3">
-                <span className="block text-[11px] text-[var(--text-muted)]">Hạn mức thẻ</span>
-                <p className="mt-0.5 text-xs sm:text-sm font-semibold tabular-nums text-[var(--foreground)] truncate">
-                  {formatAmount(card.limit)} {currency}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-2.5 sm:p-3">
-                <span className="block text-[11px] text-[var(--text-muted)]">Khả dụng</span>
-                <p className="mt-0.5 text-xs sm:text-sm font-semibold tabular-nums text-[var(--success)] truncate">
-                  {formatAmount(card.availableCredit)} {currency}
-                </p>
-              </div>
-
-              <div className="col-span-2 sm:col-span-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-2.5 sm:p-3">
-                <span className="block text-[11px] text-[var(--text-muted)]">Chờ thanh toán</span>
-                <p className="mt-0.5 text-xs sm:text-sm font-semibold tabular-nums text-[var(--foreground)] truncate">
-                  {formatAmount(card.pendingPayment)} {currency}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* CỘT PHẢI (Col 7): Sao kê, Trả góp, Hoạt động & Lịch sử */}
-          <div className="flex flex-col gap-4 sm:gap-5 lg:col-span-7">
-            {/* 2. Sao kê cần thanh toán (Statement Section) */}
-            <section
-              className="border-t border-[var(--border)] pt-4 lg:border-t-0 lg:pt-0"
-              aria-labelledby={`statement-${card.id}`}
-            >
-        <div className="flex items-center justify-between mb-2.5">
-          <h3
-            id={`statement-${card.id}`}
-            className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
-          >
-            <WalletCards size={14} className="text-[var(--primary)]" aria-hidden="true" />
-            Sao kê cần thanh toán
-          </h3>
-
-          {card.statement && (
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                card.statement.overdue
-                  ? "bg-[color-mix(in_srgb,var(--destructive)_12%,var(--surface))] text-[var(--destructive)]"
-                  : card.statement.paymentPending
-                    ? "bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)]"
-                    : "bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
-              }`}
-            >
-              {card.statement.overdue
-                ? "Quá hạn"
-                : card.statement.paymentPending
-                  ? "Đang chờ duyệt"
-                  : "Cần thanh toán"}
-            </span>
-          )}
-        </div>
-
-        {card.statement ? (
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3.5 space-y-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xl font-bold tabular-nums text-[var(--foreground)]">
-                  {formatAmount(card.statement.amount)} {currency}
-                </p>
-                <p
-                  className={`mt-0.5 text-xs ${
-                    card.statement.overdue
-                      ? "font-medium text-[var(--destructive)]"
-                      : "text-[var(--text-secondary)]"
-                  }`}
-                >
-                  Chốt: {formatIsoDate(card.statement.cycleEndDate)} · Hạn: {formatIsoDate(card.statement.dueDate)}
-                  {card.statement.overdue && " (Đã quá hạn)"}
-                </p>
-                <Link
-                  href={`/credit-cards/${card.id}/statements/${card.statement.id}`}
-                  className="mt-1 inline-flex min-h-8 items-center text-xs font-medium text-[var(--primary)] hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--focus-ring)]"
-                >
-                  Xem chi tiết sao kê
-                </Link>
-              </div>
-
-              <Button
-                type="button"
-                disabled={
-                  pending ||
-                  card.statement.paymentPending ||
-                  !new Decimal(card.statement.amount || 0).gt(0)
-                }
-                onClick={() => setPaymentConfirmOpen(true)}
-                className="gap-1.5 w-full sm:w-auto"
-              >
-                <WalletCards size={16} aria-hidden="true" />
-                {card.statement.paymentPending ? "Đang chờ xử lý" : "Thanh toán sao kê"}
-              </Button>
-            </div>
-
-            {card.statement.sources.length > 0 && (
-              <div className="border-t border-[var(--border)] pt-2.5 space-y-1.5">
-                <span className="block text-[11px] font-medium text-[var(--text-muted)]">
-                  Phân bổ ví thanh toán:
-                </span>
-                <div className="grid gap-1.5 sm:grid-cols-2">
-                  {card.statement.sources.map((source) => (
-                    <div
-                      key={source.walletId}
-                      className="flex items-center justify-between text-xs text-[var(--text-secondary)]"
-                    >
-                      <span className="truncate">
-                        {walletNames.get(source.walletId) ?? "Ví nguồn"}
-                      </span>
-                      <span className="font-semibold tabular-nums text-[var(--foreground)]">
-                        {formatAmount(source.amount)} {currency}
-                      </span>
+                        <path d="M8.5 16.5a5 5 0 0 1 0-9" />
+                        <path d="M12 19a8.5 8.5 0 0 0 0-14" />
+                        <path d="M15.5 21.5a12 12 0 0 0 0-19" />
+                      </svg>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          /* Compact and clean empty state for statement (no disabled full-width button) */
-          <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/20 px-3.5 py-2.5 text-xs">
-            <span className="flex items-center gap-2 font-medium text-[var(--text-secondary)]">
-              <CheckCircle2 className="size-4 text-[var(--success)] shrink-0" aria-hidden="true" />
-              Chưa có sao kê cần thanh toán
-            </span>
-            <span className="text-[11px] text-[var(--text-muted)] tabular-nums">
-              Kỳ tới: Ngày {card.statementClosingDay}
-            </span>
-          </div>
-        )}
-      </section>
 
-      {/* 3. Kế hoạch trả góp (Installment Plans) */}
-      {(canManage || card.installmentPlans.length > 0) && (
-        <section
-          className="mt-5 border-t border-[var(--border)] pt-4"
-          aria-labelledby={`plans-${card.id}`}
-        >
-          <div className="mb-2.5 flex items-center justify-between gap-3">
-            <h3
-              id={`plans-${card.id}`}
-              className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
-            >
-              <CalendarClock size={14} className="text-[var(--warning)]" aria-hidden="true" />
-              Kế hoạch trả góp ({card.installmentPlans.length})
-            </h3>
-            {canManage && (
-              <Button type="button" variant="outline" size="sm" onClick={openImportInstallment}>
-                <History aria-hidden="true" />
-                Nhập khoản cũ
-              </Button>
-            )}
-          </div>
-          {card.installmentPlans.length > 0 ? <div className="space-y-2.5">
-            {card.installmentPlans.map((plan) => {
-              const paid = plan.paidTermCount + plan.installments.filter((item) => item.paid).length;
-              const next = plan.installments.find((item) => !item.paid);
-              return (
-                <div
-                  key={plan.id}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/20 p-3 space-y-1.5"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm text-[var(--foreground)] truncate">
-                        {plan.description ?? "Giao dịch trả góp"}
-                      </p>
-                      {plan.origin === "imported" && (
-                        <span className="text-[10px] font-medium text-[var(--primary)]">Khoản đã có trước khi dùng app</span>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <span className="text-sm font-semibold tabular-nums text-[var(--foreground)]">
-                        {formatAmount(plan.principal)} {currency}
-                      </span>
-                      {canManage && plan.canDelete && (
-                        <ConfirmDelete
-                          ariaLabel={`Xóa khoản trả góp ${plan.description ?? "đã nhập"}`}
-                          title="Xóa khoản trả góp đã nhập?"
-                          description={
-                            plan.importBalanceMode === "add_to_balance"
-                              ? "Dư nợ đã cộng khi nhập khoản này sẽ được trừ lại. Thao tác chỉ thực hiện được khi chưa có kỳ nào vào sao kê."
-                              : "Khoản này sẽ trở lại dư nợ thông thường. Thao tác chỉ thực hiện được khi chưa có kỳ nào vào sao kê."
-                          }
-                          confirmLabel="Xóa khoản đã nhập"
-                          presentation={isDesktop ? "popover" : "sheet"}
-                          trigger={
-                            <Button
+                    <div className="flex items-center gap-1.5">
+                      <CardBrandBadge brand={brand} />
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <button
+                              ref={cardMenuTriggerRef}
                               type="button"
-                              variant="destructiveIcon"
-                              size="icon"
-                              aria-label={`Xóa khoản trả góp ${plan.description ?? "đã nhập"}`}
-                            >
-                              <Trash2 aria-hidden="true" />
-                            </Button>
+                              aria-label={`Tùy chọn thẻ ${card.name}`}
+                              className="grid size-11 place-items-center rounded-full text-[var(--text-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-secondary)]/80 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring md:size-8"
+                            />
                           }
-                          onConfirm={() => handleDeleteImportedPlan(plan)}
-                        />
-                      )}
+                        >
+                          <MoreHorizontal size={16} aria-hidden="true" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          side="bottom"
+                          sideOffset={6}
+                          className="w-52 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
+                        >
+                          {canManage && (
+                            <DropdownMenuItem
+                              onClick={() => setEditOpen(true)}
+                              className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                            >
+                              <Pencil className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                              <span>Chỉnh sửa thẻ</span>
+                            </DropdownMenuItem>
+                          )}
+                          {canManage && (
+                            <DropdownMenuItem
+                              onSelect={openImportInstallment}
+                              onClick={openImportInstallment}
+                              className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                            >
+                              <History className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                              <span>Nhập trả góp có sẵn</span>
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            disabled={card.refundCandidates.length === 0}
+                            onClick={() => {
+                              setRefundTransactionId(card.refundCandidates[0]?.id ?? "");
+                              setRefundOpen(true);
+                            }}
+                            className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                          >
+                            <RotateCcw className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                            <span>Ghi nhận hoàn tiền</span>
+                          </DropdownMenuItem>
+                          {canManage && (
+                            <>
+                              <DropdownMenuSeparator className="my-1 -mx-1 bg-[var(--border)]" />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => setConfirmDelete(true)}
+                                className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer"
+                              >
+                                <Trash2 className="size-4 shrink-0" aria-hidden="true" />
+                                <span>Xóa thẻ</span>
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-                    <span>
-                      Tiến độ: {paid}/{plan.termCount} kỳ · Phí {formatAmount(plan.fee)} {currency}
-                    </span>
-                    <span className="tabular-nums">
-                      {next
-                        ? `Kỳ tới: ${formatAmount(next.amount)} ${currency} (${formatIsoDate(next.dueDate)})`
-                        : "Đã tất toán"}
-                    </span>
+
+                  {/* Card Name & Masked numbers */}
+                  <div className="relative z-[1] my-3">
+                    <p className="truncate text-base font-semibold tracking-wide text-[var(--foreground)]">
+                      {card.name}
+                    </p>
+                    <p className="mt-0.5 font-mono text-[11px] tracking-widest text-[var(--text-muted)]">
+                      ••••  ••••  ••••  ••••
+                    </p>
+                  </div>
+
+                  {/* Main Debt / Balance */}
+                  <div className="relative z-[1] border-t border-[var(--border)] pt-2.5">
+                    <div className="flex items-baseline justify-between">
+                      <div>
+                        <span className="block text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                          {hasCredit ? "Dư có (trả trước)" : "Tổng dư nợ hiện tại"}
+                        </span>
+                        <span className="text-xl font-bold tabular-nums text-[var(--foreground)]">
+                          {formatAmount(hasCredit ? card.creditBalance : card.debt)} {currency}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                          Chu kỳ
+                        </span>
+                        <span className="text-xs font-medium text-[var(--text-secondary)] tabular-nums">
+                          Chốt {card.statementClosingDay} · Hạn {card.paymentDueDay}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Credit Limit Utilization Progress Bar */}
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] mb-1">
+                        <span>Đã dùng {utilizationPercent}% hạn mức</span>
+                        <span className="tabular-nums font-medium text-[var(--foreground)]">
+                          Khả dụng: {formatAmount(card.availableCredit)} {currency}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${utilizationPercent > 80
+                              ? "bg-[var(--destructive)]"
+                              : utilizationPercent > 50
+                                ? "bg-[var(--warning)]"
+                                : "bg-[var(--primary)]"
+                            }`}
+                          style={{ width: `${utilizationPercent}%` }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              );
-            })}
-          </div> : (
-            <p className="py-2 text-xs text-[var(--text-muted)]">
-              Chưa có kế hoạch trả góp. Nếu đã trả góp trước khi dùng app, hãy nhập phần còn lại tại đây.
-            </p>
-          )}
-        </section>
-      )}
 
-      {/* 4. Hoạt động gần đây (Recent Activities) */}
-      <section
-        className="mt-5 border-t border-[var(--border)] pt-4"
-        aria-labelledby={`activities-${card.id}`}
-      >
-        <div className="flex items-center justify-between mb-2.5">
-          <h3
-            id={`activities-${card.id}`}
-            className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
-          >
-            Hoạt động gần đây
-          </h3>
-          {card.activities.some((a) => a.installmentEligible) && (
-            <span className="text-[11px] text-[var(--text-muted)]">
-              Chạm để quản lý
-            </span>
-          )}
-        </div>
+                {/* Key Metrics Grid */}
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-2.5 sm:p-3">
+                    <span className="block text-[11px] text-[var(--text-muted)]">Hạn mức thẻ</span>
+                    <p className="mt-0.5 text-xs sm:text-sm font-semibold tabular-nums text-[var(--foreground)] truncate">
+                      {formatAmount(card.limit)} {currency}
+                    </p>
+                  </div>
 
-        {card.activities.length ? (
-          <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/15 px-3">
-            {card.activities.map((activity) => {
-              const rowContent = (
-                <>
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div
-                      className={`grid size-8 shrink-0 place-items-center rounded-lg ${
-                        activity.purpose === "credit_card_refund"
-                          ? "bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] text-[var(--success)]"
-                          : activity.purpose === "credit_card_payment"
-                            ? "bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
-                            : "bg-[var(--surface-secondary)] text-[var(--text-secondary)]"
-                      }`}
-                    >
-                      {activity.purpose === "credit_card_refund" ? (
-                        <RotateCcw size={14} />
-                      ) : activity.purpose === "credit_card_payment" ? (
-                        <CheckCircle2 size={14} />
-                      ) : (
-                        <CreditCard size={14} />
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-2.5 sm:p-3">
+                    <span className="block text-[11px] text-[var(--text-muted)]">Khả dụng</span>
+                    <p className="mt-0.5 text-xs sm:text-sm font-semibold tabular-nums text-[var(--success)] truncate">
+                      {formatAmount(card.availableCredit)} {currency}
+                    </p>
+                  </div>
+
+                  <div className="col-span-2 sm:col-span-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-2.5 sm:p-3">
+                    <span className="block text-[11px] text-[var(--text-muted)]">Chờ thanh toán</span>
+                    <p className="mt-0.5 text-xs sm:text-sm font-semibold tabular-nums text-[var(--foreground)] truncate">
+                      {formatAmount(card.pendingPayment)} {currency}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* CỘT PHẢI (Col 7): Sao kê, Trả góp, Hoạt động & Lịch sử */}
+              <div className="flex flex-col gap-4 sm:gap-5 lg:col-span-7">
+                {/* 2. Sao kê cần thanh toán (Statement Section) */}
+                {card.statement ? (
+                  <section
+                    className="border-t border-[var(--border)] pt-4 lg:border-t-0 lg:pt-0"
+                    aria-labelledby={`statement-${card.id}`}
+                  >
+                    <div className="flex items-center justify-between mb-2.5">
+                      <h3
+                        id={`statement-${card.id}`}
+                        className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
+                      >
+                        <WalletCards size={14} className="text-[var(--primary)]" aria-hidden="true" />
+                        Sao kê cần thanh toán
+                      </h3>
+
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          card.statement.overdue
+                            ? "bg-[color-mix(in_srgb,var(--destructive)_12%,var(--surface))] text-[var(--destructive)]"
+                            : card.statement.paymentPending
+                              ? "bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)]"
+                              : "bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
+                        }`}
+                      >
+                        {card.statement.overdue
+                          ? "Quá hạn"
+                          : card.statement.paymentPending
+                            ? "Đang chờ duyệt"
+                            : "Cần thanh toán"}
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3.5 space-y-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-xl font-bold tabular-nums text-[var(--foreground)]">
+                            {formatAmount(card.statement.amount, { maximumFractionDigits: 0 })} {currency}
+                          </p>
+                          <p
+                            className={`mt-0.5 text-xs ${
+                              card.statement.overdue
+                                ? "font-medium text-[var(--destructive)]"
+                                : "text-[var(--text-secondary)]"
+                            }`}
+                          >
+                            Chốt: {formatIsoDate(card.statement.cycleEndDate)} · Hạn: {formatIsoDate(card.statement.dueDate)}
+                            {card.statement.overdue && " (Đã quá hạn)"}
+                          </p>
+                          <Link
+                            href={`/credit-cards/${card.id}/statements/${card.statement.id}`}
+                            className="mt-1 inline-flex min-h-8 items-center text-xs font-medium text-[var(--primary)] hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--focus-ring)]"
+                          >
+                            Xem chi tiết sao kê
+                          </Link>
+                        </div>
+
+                        <Button
+                          type="button"
+                          disabled={
+                            pending ||
+                            card.statement.paymentPending ||
+                            !new Decimal(card.statement.amount || 0).gt(0)
+                          }
+                          onClick={() => setPaymentConfirmOpen(true)}
+                          className="gap-1.5 w-full sm:w-auto"
+                        >
+                          <WalletCards size={16} aria-hidden="true" />
+                          {card.statement.paymentPending ? "Đang chờ xử lý" : "Thanh toán sao kê"}
+                        </Button>
+                      </div>
+
+                      {card.statement.sources.length > 0 && (
+                        <div className="border-t border-[var(--border)] pt-2.5 space-y-1.5">
+                          <span className="block text-[11px] font-medium text-[var(--text-muted)]">
+                            Phân bổ ví thanh toán:
+                          </span>
+                          <div className="grid gap-1.5 sm:grid-cols-2">
+                            {card.statement.sources.map((source) => (
+                              <div
+                                key={source.walletId}
+                                className="flex items-center justify-between text-xs text-[var(--text-secondary)]"
+                              >
+                                <span className="truncate">
+                                  {walletNames.get(source.walletId) ?? "Ví nguồn"}
+                                </span>
+                                <span className="font-semibold tabular-nums text-[var(--foreground)]">
+                                  {formatAmount(source.amount, { maximumFractionDigits: 0 })} {currency}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                ) : (
+                  <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/15 px-3.5 py-2.5 text-xs">
+                    <span className="flex items-center gap-2 font-medium text-[var(--text-secondary)]">
+                      <CheckCircle2 className="size-4 text-[var(--success)] shrink-0" aria-hidden="true" />
+                      Chưa có sao kê đến hạn
+                    </span>
+                    <span className="text-[11px] text-[var(--text-muted)] tabular-nums">
+                      Chốt ngày {card.statementClosingDay}
+                    </span>
+                  </div>
+                )}
+
+                {/* 3. Kế hoạch trả góp (Installment Plans) */}
+                {card.installmentPlans.length > 0 && (
+                  <section
+                    className="border-t border-[var(--border)] pt-3.5"
+                    aria-labelledby={`plans-${card.id}`}
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <h3
+                        id={`plans-${card.id}`}
+                        className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
+                      >
+                        <CalendarClock size={14} className="text-[var(--warning)]" aria-hidden="true" />
+                        Khoản trả góp ({card.installmentPlans.length})
+                      </h3>
+                      {card.installmentPlans.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => setAllPlansOpen(true)}
+                          className="flex items-center gap-0.5 text-xs font-medium text-[var(--primary)] hover:underline focus-visible:outline-none"
+                        >
+                          <span>Xem tất cả</span>
+                          <ChevronRight size={13} aria-hidden="true" />
+                        </button>
                       )}
                     </div>
 
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-medium text-[var(--foreground)]">
-                        {activity.description || activityLabel(activity)}
-                      </p>
-                      <p className="truncate text-[11px] text-[var(--text-muted)]">
-                        {activity.description && activity.description !== activityLabel(activity)
-                          ? `${formatIsoDate(activity.date)} · ${activityLabel(activity)}`
-                          : formatIsoDate(activity.date)}
-                      </p>
+                    <div className="space-y-2.5">
+                      {card.installmentPlans.slice(0, 2).map(renderInstallmentCard)}
                     </div>
-                  </div>
+                  </section>
+                )}
 
-                  <div className="flex flex-col items-end shrink-0">
-                    <span
-                      className={`text-xs font-semibold tabular-nums ${
-                        activity.purpose === "credit_card_refund"
-                          ? "text-[var(--success)]"
-                          : "text-[var(--foreground)]"
-                      }`}
+                {/* 4. Hoạt động gần đây (Recent Activities) */}
+                <section
+                  className="border-t border-[var(--border)] pt-3.5"
+                  aria-labelledby={`activities-${card.id}`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3
+                      id={`activities-${card.id}`}
+                      className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
                     >
-                      {activity.purpose === "credit_card_refund" ||
-                      activity.purpose === "credit_card_payment"
-                        ? "−"
-                        : "+"}
-                      {formatAmount(activity.amount)} {currency}
-                    </span>
-                    {activity.installmentPlanId && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--primary)]">
-                        <Split size={9} aria-hidden="true" />
-                        <span>Đang trả góp</span>
-                      </span>
+                      Giao dịch gần đây
+                    </h3>
+                    {card.activities.length > 4 && (
+                      <button
+                        type="button"
+                        onClick={() => setAllActivitiesOpen(true)}
+                        className="flex items-center gap-0.5 text-xs font-medium text-[var(--primary)] hover:underline focus-visible:outline-none"
+                      >
+                        <span>Xem tất cả ({card.activities.length})</span>
+                        <ChevronRight size={13} aria-hidden="true" />
+                      </button>
                     )}
                   </div>
-                </>
-              );
 
-              const isMenuOpen = menuActivityId === activity.id;
-
-              if (activity.installmentEligible) {
-                return (
-                  <DropdownMenu
-                    key={activity.id}
-                    open={isMenuOpen}
-                    onOpenChange={(open) =>
-                      setMenuActivityId(open ? activity.id : null)
-                    }
-                  >
-                    <SpotlightTrigger
-                      open={isMenuOpen}
-                      onOpenChange={(open) =>
-                        setMenuActivityId(open ? activity.id : null)
-                      }
-                      render={
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          className={cn(
-                            "group/activity flex items-center justify-between gap-3 py-2.5 px-2 -mx-2 rounded-xl cursor-pointer select-none outline-none transition-all border",
-                            isMenuOpen
-                              ? "bg-[var(--surface)] border-[var(--border)]"
-                              : "border-transparent hover:bg-[var(--surface-secondary)]/50 active:bg-[var(--surface-secondary)]/70 focus-visible:ring-1 focus-visible:ring-ring",
-                          )}
-                          aria-label={`Giao dịch ${activity.description || activityLabel(activity)}, ${formatAmount(activity.amount)} ${currency}. Bấm để mở tùy chọn.`}
-                        />
-                      }
-                      dismissLabel={`Đóng menu giao dịch ${activity.description || activityLabel(activity)}`}
-                    >
-                      {(spotlightTrigger) => (
-                        <DropdownMenuTrigger
-                          nativeButton={false}
-                          render={spotlightTrigger}
-                        >
-                          {rowContent}
-                        </DropdownMenuTrigger>
-                      )}
-                    </SpotlightTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      side="bottom"
-                      sideOffset={6}
-                      className="w-52 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
-                    >
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setMenuActivityId(null);
-                          setInstallmentTarget(activity);
-                        }}
-                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
-                      >
-                        <Split className="size-4 text-[var(--primary)]" aria-hidden="true" />
-                        <span>Đăng ký trả góp</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              }
-
-              return (
-                <div
-                  key={activity.id}
-                  className="flex items-center justify-between gap-3 py-2.5 px-2 -mx-2 rounded-xl border border-transparent"
-                >
-                  {rowContent}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="py-4 text-center text-xs text-[var(--text-muted)]">
-            Chưa có giao dịch thẻ phát sinh.
-          </p>
-        )}
-      </section>
-
-      {/* 5. Lịch sử sao kê (Collapsible) */}
-      {card.statements.length > 0 && (
-        <details className="group border-t border-[var(--border)] pt-3">
-          <summary className="flex cursor-pointer items-center justify-between text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)] select-none">
-            <span>Lịch sử sao kê ({card.statements.length})</span>
-            <ChevronDown
-              size={14}
-              className="transition-transform duration-200 group-open:rotate-180"
-              aria-hidden="true"
-            />
-          </summary>
-          <div className="mt-2.5 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/15 px-3">
-            {card.statements.map((statement) => (
-              <Link
-                key={statement.id}
-                href={`/credit-cards/${card.id}/statements/${statement.id}`}
-                className="flex items-center justify-between gap-4 py-2 text-xs"
-              >
-                <span className="text-[var(--text-secondary)]">
-                  Chốt {formatIsoDate(statement.cycleEndDate)} · Hạn {formatIsoDate(statement.dueDate)}
-                </span>
-                <span className="tabular-nums font-medium text-[var(--foreground)]">
-                  {formatAmount(statement.amount)} {currency} ·{" "}
-                  <span
-                    className={
-                      statement.status === "paid" ? "text-[var(--success)]" : "text-[var(--warning)]"
-                    }
-                  >
-                    {statement.status === "paid" ? "Đã trả" : "Chưa trả"}
-                  </span>
-                </span>
-              </Link>
-            ))}
-          </div>
-        </details>
-      )}
-    </div>
-  </div>
-        </div>
-        )}
-
-      <Sheet
-        open={paymentConfirmOpen}
-        onOpenChange={(nextOpen) => !pending && setPaymentConfirmOpen(nextOpen)}
-      >
-        <SheetContent
-          side={isDesktop ? "right" : "bottom"}
-          placement={isDesktop ? "inset" : "edge"}
-          size={isDesktop ? "sm" : "default"}
-          spacing="flush"
-          elevation="flat"
-          className={isDesktop ? undefined : "quick-transaction-sheet"}
-        >
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <SheetHeader
-              icon={WalletCards}
-              title={canApprove ? "Xác nhận thanh toán" : "Gửi yêu cầu thanh toán"}
-              description={canApprove
-                ? `Kiểm tra các ví sẽ bị trừ trước khi thanh toán ${card.name}.`
-                : "Giao dịch sẽ chờ quản trị viên duyệt trước khi thay đổi số dư."}
-            />
-            <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-4 text-center">
-                <p className="text-xs text-[var(--text-muted)]">Tổng thanh toán sao kê</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--foreground)]">
-                  {formatAmount(card.statement?.amount ?? 0)} {currency}
-                </p>
-                {card.statement && (
-                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                    Hạn {formatIsoDate(card.statement.dueDate)}
-                  </p>
-                )}
-              </div>
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                  Ví sẽ bị trừ
-                </h3>
-                <div className="mt-2 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] px-3">
-                  {card.statement?.sources.map((source) => (
-                    <div key={source.walletId} className="flex items-center justify-between gap-3 py-3 text-sm">
-                      <span className="min-w-0 truncate text-[var(--text-secondary)]">
-                        {walletNames.get(source.walletId) ?? "Ví nguồn"}
-                      </span>
-                      <span className="shrink-0 font-semibold tabular-nums text-[var(--foreground)]">
-                        {formatAmount(source.amount)} {currency}
-                      </span>
+                  {card.activities.length ? (
+                    <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/15 px-3">
+                      {card.activities.slice(0, 4).map(renderActivityRow)}
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <SheetFooter
-              onCancel={() => setPaymentConfirmOpen(false)}
-              cancelLabel="Hủy"
-              submitLabel={canApprove ? "Xác nhận thanh toán" : "Gửi yêu cầu"}
-              isSubmitting={pending}
-              submittingLabel="Đang xử lý..."
-              submitDisabled={pending || !card.statement}
-              onSubmit={payStatement}
-              submitType="button"
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Ghi nhận hoàn tiền - Bottom Sheet trên Mobile, Drawer trên Desktop */}
-      <Sheet
-        open={refundOpen}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) {
-            setRefundOpen(false);
-            setRefundAmount("");
-            setRefundTransactionId("");
-          }
-        }}
-      >
-        <SheetContent
-          side={isDesktop ? "right" : "bottom"}
-          placement={isDesktop ? "inset" : "edge"}
-          size={isDesktop ? "wide" : "default"}
-          spacing={isDesktop ? "flush" : "default"}
-          elevation={isDesktop ? "flat" : "raised"}
-          className={isDesktop ? undefined : "quick-transaction-sheet"}
-        >
-          <form
-            className="flex min-h-0 flex-1 flex-col overflow-hidden"
-            onSubmit={(e) => {
-              e.preventDefault();
-              submitRefund();
-            }}
-          >
-            <SheetHeader
-              icon={RotateCcw}
-              title="Ghi nhận hoàn tiền"
-              description={`Chọn giao dịch gốc và nhập số tiền được hoàn vào thẻ ${card.name}.`}
-            />
-
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain pb-2">
-              {/* Context info card */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 flex items-center justify-between text-xs">
-                <div className="space-y-0.5">
-                  <span className="text-[var(--text-muted)]">Thẻ tín dụng</span>
-                  <p className="font-semibold text-[var(--foreground)]">{card.name}</p>
-                </div>
-                <div className="text-right space-y-0.5">
-                  <span className="text-[var(--text-muted)]">Dư nợ hiện tại</span>
-                  <p className="font-semibold tabular-nums text-[var(--foreground)]">
-                    {formatAmount(hasCredit ? card.creditBalance : card.debt)} {currency}
-                    {hasCredit ? " (Dư có)" : ""}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Select
-                  label="Giao dịch gốc"
-                  value={refundTransactionId}
-                  onValueChange={(value) => {
-                    setRefundTransactionId(value);
-                    setRefundAmount("");
-                  }}
-                  options={card.refundCandidates.map((activity) => ({
-                    value: activity.id,
-                    label: `${activity.description ?? "Chi tiêu thẻ"} · ${formatIsoDate(activity.date)} · còn ${formatAmount(activity.refundableAmount)} ${currency}`,
-                  }))}
-                  required
-                />
-                <MoneyInput
-                  label={`Số tiền hoàn (${currency})`}
-                  value={refundAmount}
-                  onValueChange={setRefundAmount}
-                  placeholder="0"
-                  required
-                />
-                {selectedRefundActivity && refundAmount && new Decimal(refundAmount || 0).gt(selectedRefundActivity.refundableAmount) && (
-                  <p role="alert" className="flex items-center gap-1.5 text-xs text-[var(--destructive)]">
-                    <AlertCircle className="size-3.5" aria-hidden="true" />
-                    Chỉ còn có thể hoàn {formatAmount(selectedRefundActivity.refundableAmount)} {currency}.
-                  </p>
-                )}
-
-                <Input
-                  label="Ngày ghi nhận hoàn"
-                  type="date"
-                  value={businessDate}
-                  readOnly
-                />
-              </div>
-
-              <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                Khoản hoàn sẽ giảm dư nợ và đảo đúng phần phân bổ ví của giao dịch gốc. Nếu thẻ đã được thanh toán, khoản hoàn có thể tạo số dư có.
-              </p>
-            </div>
-
-            <SheetFooter
-              className="pb-[max(1.25rem,env(safe-area-inset-bottom))] px-4 sm:px-6 py-3 sm:py-3.5"
-              onCancel={() => {
-                setRefundOpen(false);
-                setRefundAmount("");
-                setRefundTransactionId("");
-              }}
-              cancelLabel="Hủy"
-              submitLabel={pending ? "Đang ghi nhận..." : "Xác nhận hoàn tiền"}
-              isSubmitting={pending}
-              submitDisabled={
-                pending ||
-                !refundTransactionId ||
-                !refundAmount ||
-                !new Decimal(refundAmount || 0).gt(0) ||
-                Boolean(selectedRefundActivity && new Decimal(refundAmount || 0).gt(selectedRefundActivity.refundableAmount))
-              }
-            />
-          </form>
-        </SheetContent>
-      </Sheet>
-
-      {/* Đăng ký trả góp - Bottom Sheet trên Mobile, Drawer trên Desktop */}
-      <Sheet
-        open={Boolean(installmentTarget)}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) setInstallmentTarget(null);
-        }}
-      >
-        <SheetContent
-          side={isDesktop ? "right" : "bottom"}
-          placement={isDesktop ? "inset" : "edge"}
-          size={isDesktop ? "wide" : "default"}
-          spacing={isDesktop ? "flush" : "default"}
-          elevation={isDesktop ? "flat" : "raised"}
-          className={isDesktop ? undefined : "quick-transaction-sheet"}
-        >
-          <form
-            className="flex min-h-0 flex-1 flex-col overflow-hidden"
-            onSubmit={(e) => {
-              e.preventDefault();
-              registerInstallment();
-            }}
-          >
-            <SheetHeader
-              icon={Split}
-              title="Đăng ký trả góp"
-              description="Chuyển giao dịch thẻ thành trả góp nhiều kỳ."
-            />
-
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain pb-2">
-              {installmentTarget && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 space-y-1 text-xs">
-                  <span className="text-[var(--text-muted)]">Giao dịch gốc</span>
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-[var(--foreground)] truncate">
-                      {installmentTarget.description ?? "Chi tiêu thẻ"}
+                  ) : (
+                    <p className="py-3 text-center text-xs text-[var(--text-muted)]">
+                      Chưa có giao dịch thẻ phát sinh.
                     </p>
-                    <span className="font-bold tabular-nums text-[var(--foreground)]">
-                      {formatAmount(installmentTarget.amount)} {currency}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[var(--text-muted)]">
-                    Ngày giao dịch: {formatIsoDate(installmentTarget.date)}
-                  </p>
-                </div>
-              )}
+                  )}
+                </section>
 
-              <div className="space-y-3">
-                <Select
-                  label="Số kỳ trả góp"
-                  value={termCount}
-                  onValueChange={setTermCount}
-                  options={[3, 6, 9, 12, 18, 24].map((value) => ({
-                    value: String(value),
-                    label: `${value} tháng`,
-                  }))}
-                  required
-                />
-                <div>
-                  <MoneyInput
-                    label={`Phí chuyển đổi trả góp (${currency})`}
-                    value={feeAmount}
-                    onValueChange={setFeeAmount}
-                    placeholder="0"
-                  />
-                  <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                    Tùy chọn. Để trống hoặc nhập 0 nếu là trả góp 0% phí.
-                  </p>
-                </div>
+                {/* 5. Lịch sử sao kê (Collapsible) */}
+                {card.statements.length > 0 && (
+                  <details className="group border-t border-[var(--border)] pt-3">
+                    <summary className="flex cursor-pointer items-center justify-between text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)] select-none">
+                      <span>Lịch sử sao kê ({card.statements.length})</span>
+                      <ChevronDown
+                        size={14}
+                        className="transition-transform duration-200 group-open:rotate-180"
+                        aria-hidden="true"
+                      />
+                    </summary>
+                    <div className="mt-2.5 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/15 px-3">
+                      {card.statements.map((statement) => (
+                        <Link
+                          key={statement.id}
+                          href={`/credit-cards/${card.id}/statements/${statement.id}`}
+                          className="flex items-center justify-between gap-4 py-2 text-xs"
+                        >
+                          <span className="text-[var(--text-secondary)]">
+                            Chốt {formatIsoDate(statement.cycleEndDate)} · Hạn {formatIsoDate(statement.dueDate)}
+                          </span>
+                          <span className="tabular-nums font-medium text-[var(--foreground)]">
+                            {formatAmount(statement.amount)} {currency} ·{" "}
+                            <span
+                              className={
+                                statement.status === "paid" ? "text-[var(--success)]" : "text-[var(--warning)]"
+                              }
+                            >
+                              {statement.status === "paid" ? "Đã trả" : "Chưa trả"}
+                            </span>
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </div>
-
-              <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                Sau khi đăng ký trả góp thành công, số tiền gốc và phí sẽ được phân bổ đều vào các kỳ sao kê tiếp theo. Giao dịch trả góp không thể hủy trực tiếp.
-              </p>
             </div>
+          </div>
+        )}
 
-            <SheetFooter
-              className="pb-[max(1.25rem,env(safe-area-inset-bottom))] px-4 sm:px-6 py-3 sm:py-3.5"
-              onCancel={() => setInstallmentTarget(null)}
-              cancelLabel="Hủy"
-              submitLabel={pending ? "Đang xử lý..." : "Xác nhận trả góp"}
-              isSubmitting={pending}
-              submitDisabled={
-                pending ||
-                (feeAmount.trim() !== "" && new Decimal(feeAmount).lt(0))
-              }
-            />
-          </form>
-        </SheetContent>
-      </Sheet>
-
-      <Sheet open={importOpen} onOpenChange={(nextOpen) => !pending && setImportOpen(nextOpen)}>
-        <SheetContent
-          side={isDesktop ? "right" : "bottom"}
-          placement={isDesktop ? "inset" : "edge"}
-          size={isDesktop ? "wide" : "default"}
-          spacing={isDesktop ? "flush" : "default"}
-          elevation={isDesktop ? "flat" : "raised"}
-          className={isDesktop ? undefined : "quick-transaction-sheet"}
+        <Sheet
+          open={paymentConfirmOpen}
+          onOpenChange={(nextOpen) => !pending && setPaymentConfirmOpen(nextOpen)}
         >
-          <form
-            className="flex min-h-0 flex-1 flex-col overflow-hidden"
-            onSubmit={(event) => {
-              event.preventDefault();
-              importOngoingInstallment();
-            }}
+          <SheetContent
+            side={isDesktop ? "right" : "bottom"}
+            placement={isDesktop ? "inset" : "edge"}
+            size={isDesktop ? "sm" : "default"}
+            spacing="flush"
+            elevation="flat"
+            className={isDesktop ? undefined : "quick-transaction-sheet"}
           >
-            <SheetHeader
-              icon={History}
-              title="Nhập khoản trả góp đang có"
-              description="Ghi nhận phần còn lại mà không tạo chi tiêu giả trong quá khứ."
-            />
-            <div className="flex-1 space-y-4 overflow-y-auto p-4 pb-2 overscroll-contain sm:p-5">
-              <Input
-                label="Tên khoản trả góp"
-                value={importDescription}
-                onChange={(event) => setImportDescription(event.target.value)}
-                placeholder="Ví dụ: Điện thoại"
-                maxLength={120}
-                required
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <SheetHeader
+                icon={WalletCards}
+                title={canApprove ? "Xác nhận thanh toán" : "Gửi yêu cầu thanh toán"}
+                description={canApprove
+                  ? `Kiểm tra các ví sẽ bị trừ trước khi thanh toán ${card.name}.`
+                  : "Giao dịch sẽ chờ quản trị viên duyệt trước khi thay đổi số dư."}
               />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Input
-                  label="Tổng số kỳ"
-                  type="number"
-                  inputMode="numeric"
-                  min={2}
-                  max={60}
-                  value={importTermCount}
-                  onChange={(event) => setImportTermCount(event.target.value)}
-                  required
-                  aria-invalid={Number(importTermCount) < 2 || Number(importTermCount) > 60}
-                />
-                <Input
-                  label="Số kỳ đã trả"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={Math.max(Number(importTermCount) - 1, 0)}
-                  value={importPaidTermCount}
-                  onChange={(event) => setImportPaidTermCount(event.target.value)}
-                  required
-                  aria-invalid={Number(importPaidTermCount) < 0 || Number(importPaidTermCount) >= Number(importTermCount)}
-                />
-              </div>
-              <div>
-                <MoneyInput
-                  label={`Dư nợ trả góp còn lại (${currency})`}
-                  value={importRemainingAmount}
-                  onValueChange={setImportRemainingAmount}
-                  placeholder="0"
-                  required
-                />
-                <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
-                  Nhập cả phần phí còn lại nếu ngân hàng đã tính phí vào dư nợ của gói.
-                </p>
-              </div>
-              <Select
-                label="Khoản này đã được ghi vào dư nợ thẻ chưa?"
-                value={importBalanceMode}
-                onValueChange={(value) => setImportBalanceMode(value as typeof importBalanceMode)}
-                options={[
-                  { value: "included_opening_debt", label: "Đã nằm trong dư nợ ban đầu" },
-                  { value: "add_to_balance", label: "Chưa ghi nhận — cộng thêm vào dư nợ" },
-                ]}
-                required
-              />
-              <p className="-mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
-                {importBalanceMode === "included_opening_debt"
-                  ? "App chỉ phân loại lại phần dư nợ ban đầu chưa thanh toán và chưa vào sao kê; tổng dư nợ không đổi."
-                  : "App tăng dư nợ thẻ nhưng không tính khoản này thành chi tiêu mới trong báo cáo."}
-              </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Select
-                    label="Ví chịu trách nhiệm thanh toán"
-                    value={importFundingWalletId}
-                    onValueChange={setImportFundingWalletId}
-                    options={fundingWallets.map((wallet) => ({ value: wallet.id, label: wallet.name }))}
-                    required
-                  />
-                  {importBalanceMode === "included_opening_debt" && (
-                    <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                      Có thể phân loại: {formatAmount(selectedImportableOpeningDebt)} {currency}
+              <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-4 text-center">
+                  <p className="text-xs text-[var(--text-muted)]">Tổng thanh toán sao kê</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--foreground)]">
+                    {formatAmount(card.statement?.amount ?? 0)} {currency}
+                  </p>
+                  {card.statement && (
+                    <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                      Hạn {formatIsoDate(card.statement.dueDate)}
                     </p>
                   )}
                 </div>
-                <Select
-                  label="Bắt đầu từ sao kê"
-                  value={importFirstStatementDate}
-                  onValueChange={setImportFirstStatementDate}
-                  options={importStatementOptions}
-                  required
-                />
-              </div>
-              {importPreview && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 text-xs text-[var(--text-secondary)]" aria-live="polite">
-                  <p className="font-medium text-[var(--foreground)]">
-                    Còn {importPreview.remainingTerms} kỳ · đã trả {importPaidTermCount}/{importTermCount} kỳ
-                  </p>
-                  <p className="mt-1 tabular-nums">
-                    Kỳ thường {formatAmount(importPreview.regularAmount)} {currency}
-                    {importPreview.finalAmount !== importPreview.regularAmount
-                      ? ` · Kỳ cuối ${formatAmount(importPreview.finalAmount)} ${currency}`
-                      : ""}
-                  </p>
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    Ví sẽ bị trừ
+                  </h3>
+                  <div className="mt-2 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] px-3">
+                    {card.statement?.sources.map((source) => (
+                      <div key={source.walletId} className="flex items-center justify-between gap-3 py-3 text-sm">
+                        <span className="min-w-0 truncate text-[var(--text-secondary)]">
+                          {walletNames.get(source.walletId) ?? "Ví nguồn"}
+                        </span>
+                        <span className="shrink-0 font-semibold tabular-nums text-[var(--foreground)]">
+                          {formatAmount(source.amount)} {currency}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
-              {importBalanceMode === "included_opening_debt" && (
-                <p className={`flex gap-2 text-[11px] leading-relaxed ${exceedsImportableOpeningDebt ? "text-[var(--destructive)]" : "text-[var(--warning)]"}`} role={exceedsImportableOpeningDebt ? "alert" : undefined}>
-                  <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                  {exceedsImportableOpeningDebt
-                    ? "Dư nợ ban đầu chưa vào sao kê của ví này không đủ. Hãy giảm số tiền, chọn ví khác hoặc chọn cộng thêm vào dư nợ."
-                    : "Nếu dư nợ ban đầu đã lên sao kê hoặc được thanh toán, app sẽ chặn để tránh sửa lịch sử tài chính."}
-                </p>
-              )}
+              </div>
+              <SheetFooter
+                onCancel={() => setPaymentConfirmOpen(false)}
+                cancelLabel="Hủy"
+                submitLabel={canApprove ? "Xác nhận thanh toán" : "Gửi yêu cầu"}
+                isSubmitting={pending}
+                submittingLabel="Đang xử lý..."
+                submitDisabled={pending || !card.statement}
+                onSubmit={payStatement}
+                submitType="button"
+              />
             </div>
-            <SheetFooter
-              className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5"
-              onCancel={() => setImportOpen(false)}
-              cancelLabel="Hủy"
-              submitLabel={pending ? "Đang xử lý..." : "Nhập khoản trả góp"}
-              isSubmitting={pending}
-              submitDisabled={
-                pending ||
-                !importDescription.trim() ||
-                !importPreview ||
-                !importFundingWalletId ||
-                !importFirstStatementDate ||
-                exceedsImportableOpeningDebt
-              }
-            />
-          </form>
-        </SheetContent>
-      </Sheet>
+          </SheetContent>
+        </Sheet>
 
-      <Sheet open={editOpen} onOpenChange={(nextOpen) => !pending && setEditOpen(nextOpen)}>
-        <SheetContent
-          side={isDesktop ? "right" : "bottom"}
-          placement={isDesktop ? "inset" : "edge"}
-          size={isDesktop ? "wide" : "default"}
-          spacing="flush"
-          elevation="flat"
-          className={isDesktop ? undefined : "quick-transaction-sheet"}
+        {/* Ghi nhận hoàn tiền - Bottom Sheet trên Mobile, Drawer trên Desktop */}
+        <Sheet
+          open={refundOpen}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              setRefundOpen(false);
+              setRefundAmount("");
+              setRefundTransactionId("");
+            }
+          }}
         >
-          <form
-            className="flex min-h-0 flex-1 flex-col overflow-hidden"
-            onSubmit={(event) => {
-              event.preventDefault();
-              submitEdit();
-            }}
+          <SheetContent
+            side={isDesktop ? "right" : "bottom"}
+            placement={isDesktop ? "inset" : "edge"}
+            size={isDesktop ? "wide" : "default"}
+            spacing={isDesktop ? "flush" : "default"}
+            elevation={isDesktop ? "flat" : "raised"}
+            className={isDesktop ? undefined : "quick-transaction-sheet"}
           >
-            <SheetHeader
-              icon={Pencil}
-              title="Chỉnh sửa thẻ tín dụng"
-              description="Thông tin mới chỉ áp dụng cho các kỳ sao kê phát sinh sau khi cập nhật."
-            />
-            <div className="grid flex-1 gap-4 overflow-y-auto p-4 sm:p-6 md:grid-cols-2 md:gap-6">
-              <div className="space-y-4">
-                <Input
-                  label="Tên thẻ"
-                  value={editName}
-                  onChange={(event) => setEditName(event.target.value)}
-                  maxLength={120}
-                  required
-                />
-                <Textarea
-                  label="Ghi chú"
-                  value={editDescription}
-                  onChange={(event) => setEditDescription(event.target.value)}
-                  maxLength={2000}
-                  rows={3}
-                />
-                <MoneyInput
-                  label={`Hạn mức tín dụng (${currency})`}
-                  value={editLimit}
-                  onValueChange={setEditLimit}
-                  required
-                />
-                {editLimit && new Decimal(editLimit || 0).lt(card.debt) && (
-                  <p role="alert" className="flex items-center gap-1.5 text-xs text-[var(--destructive)]">
-                    <AlertCircle className="size-3.5" aria-hidden="true" />
-                    Hạn mức không được thấp hơn dư nợ {formatAmount(card.debt)} {currency}.
-                  </p>
-                )}
-              </div>
-              <div className="space-y-4 md:border-l md:border-[var(--border)] md:pl-6">
-                <Select
-                  label="Ví thanh toán mặc định"
-                  value={editFundingWalletId}
-                  onValueChange={setEditFundingWalletId}
-                  options={fundingWallets.map((wallet) => ({ value: wallet.id, label: wallet.name }))}
-                  required
-                />
-                <div className="grid grid-cols-2 gap-3">
+            <form
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitRefund();
+              }}
+            >
+              <SheetHeader
+                icon={RotateCcw}
+                title="Ghi nhận hoàn tiền"
+                description={`Chọn giao dịch gốc và nhập số tiền được hoàn vào thẻ ${card.name}.`}
+              />
+
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain pb-2">
+                {/* Context info card */}
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 flex items-center justify-between text-xs">
+                  <div className="space-y-0.5">
+                    <span className="text-[var(--text-muted)]">Thẻ tín dụng</span>
+                    <p className="font-semibold text-[var(--foreground)]">{card.name}</p>
+                  </div>
+                  <div className="text-right space-y-0.5">
+                    <span className="text-[var(--text-muted)]">Dư nợ hiện tại</span>
+                    <p className="font-semibold tabular-nums text-[var(--foreground)]">
+                      {formatAmount(hasCredit ? card.creditBalance : card.debt)} {currency}
+                      {hasCredit ? " (Dư có)" : ""}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
                   <Select
-                    label="Ngày chốt sao kê"
-                    value={editClosingDay}
-                    onValueChange={setEditClosingDay}
-                    options={DAY_OPTIONS}
+                    label="Giao dịch gốc"
+                    value={refundTransactionId}
+                    onValueChange={(value) => {
+                      setRefundTransactionId(value);
+                      setRefundAmount("");
+                    }}
+                    options={card.refundCandidates.map((activity) => ({
+                      value: activity.id,
+                      label: `${activity.description ?? "Chi tiêu thẻ"} · ${formatIsoDate(activity.date)} · còn ${formatAmount(activity.refundableAmount)} ${currency}`,
+                    }))}
                     required
                   />
-                  <Select
-                    label="Hạn thanh toán"
-                    value={editDueDay}
-                    onValueChange={setEditDueDay}
-                    options={DAY_OPTIONS}
+                  <MoneyInput
+                    label={`Số tiền hoàn (${currency})`}
+                    value={refundAmount}
+                    onValueChange={setRefundAmount}
+                    placeholder="0"
                     required
+                  />
+                  {selectedRefundActivity && refundAmount && new Decimal(refundAmount || 0).gt(selectedRefundActivity.refundableAmount) && (
+                    <p role="alert" className="flex items-center gap-1.5 text-xs text-[var(--destructive)]">
+                      <AlertCircle className="size-3.5" aria-hidden="true" />
+                      Chỉ còn có thể hoàn {formatAmount(selectedRefundActivity.refundableAmount)} {currency}.
+                    </p>
+                  )}
+
+                  <Input
+                    label="Ngày ghi nhận hoàn"
+                    type="date"
+                    value={businessDate}
+                    readOnly
                   />
                 </div>
-                {card.installmentPlans.some((plan) => plan.status === "pending" || plan.status === "active") && editClosingDay !== String(card.statementClosingDay) && (
-                  <p role="alert" className="flex items-start gap-1.5 text-xs text-[var(--warning)]">
-                    <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                    Không thể đổi ngày chốt khi thẻ còn kế hoạch trả góp đang hoạt động.
-                  </p>
-                )}
+
+                <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                  Khoản hoàn sẽ giảm dư nợ và đảo đúng phần phân bổ ví của giao dịch gốc. Nếu thẻ đã được thanh toán, khoản hoàn có thể tạo số dư có.
+                </p>
               </div>
-            </div>
-            <SheetFooter
-              onCancel={() => setEditOpen(false)}
-              submitLabel="Lưu thay đổi"
-              isSubmitting={pending}
-              submitDisabled={
-                pending ||
-                !editName.trim() ||
-                !editFundingWalletId ||
-                !editLimit ||
-                !new Decimal(editLimit || 0).gt(0) ||
-                new Decimal(editLimit || 0).lt(card.debt) ||
-                (card.installmentPlans.some((plan) => plan.status === "pending" || plan.status === "active") && editClosingDay !== String(card.statementClosingDay))
-              }
-            />
-          </form>
-        </SheetContent>
-      </Sheet>
+
+              <SheetFooter
+                className="pb-[max(1.25rem,env(safe-area-inset-bottom))] px-4 sm:px-6 py-3 sm:py-3.5"
+                onCancel={() => {
+                  setRefundOpen(false);
+                  setRefundAmount("");
+                  setRefundTransactionId("");
+                }}
+                cancelLabel="Hủy"
+                submitLabel={pending ? "Đang ghi nhận..." : "Xác nhận hoàn tiền"}
+                isSubmitting={pending}
+                submitDisabled={
+                  pending ||
+                  !refundTransactionId ||
+                  !refundAmount ||
+                  !new Decimal(refundAmount || 0).gt(0) ||
+                  Boolean(selectedRefundActivity && new Decimal(refundAmount || 0).gt(selectedRefundActivity.refundableAmount))
+                }
+              />
+            </form>
+          </SheetContent>
+        </Sheet>
+
+        {/* Đăng ký trả góp - Bottom Sheet trên Mobile, Drawer trên Desktop */}
+        <Sheet
+          open={Boolean(installmentTarget)}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setInstallmentTarget(null);
+          }}
+        >
+          <SheetContent
+            side={isDesktop ? "right" : "bottom"}
+            placement={isDesktop ? "inset" : "edge"}
+            size={isDesktop ? "wide" : "default"}
+            spacing={isDesktop ? "flush" : "default"}
+            elevation={isDesktop ? "flat" : "raised"}
+            className={isDesktop ? undefined : "quick-transaction-sheet"}
+          >
+            <form
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              onSubmit={(e) => {
+                e.preventDefault();
+                registerInstallment();
+              }}
+            >
+              <SheetHeader
+                icon={Split}
+                title="Đăng ký trả góp"
+                description="Chuyển giao dịch thẻ thành trả góp nhiều kỳ."
+              />
+
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain pb-2">
+                {installmentTarget && (
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 space-y-1 text-xs">
+                    <span className="text-[var(--text-muted)]">Giao dịch gốc</span>
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-[var(--foreground)] truncate">
+                        {installmentTarget.description ?? "Chi tiêu thẻ"}
+                      </p>
+                      <span className="font-bold tabular-nums text-[var(--foreground)]">
+                        {formatAmount(installmentTarget.amount)} {currency}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[var(--text-muted)]">
+                      Ngày giao dịch: {formatIsoDate(installmentTarget.date)}
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <Select
+                    label="Số kỳ trả góp"
+                    value={termCount}
+                    onValueChange={setTermCount}
+                    options={[3, 6, 9, 12, 18, 24].map((value) => ({
+                      value: String(value),
+                      label: `${value} tháng`,
+                    }))}
+                    required
+                  />
+                  <div>
+                    <MoneyInput
+                      label={`Phí chuyển đổi trả góp (${currency})`}
+                      value={feeAmount}
+                      onValueChange={setFeeAmount}
+                      placeholder="0"
+                    />
+                    <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                      Tùy chọn. Để trống hoặc nhập 0 nếu là trả góp 0% phí.
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                  Sau khi đăng ký trả góp thành công, số tiền gốc và phí sẽ được phân bổ đều vào các kỳ sao kê tiếp theo. Giao dịch trả góp không thể hủy trực tiếp.
+                </p>
+              </div>
+
+              <SheetFooter
+                className="pb-[max(1.25rem,env(safe-area-inset-bottom))] px-4 sm:px-6 py-3 sm:py-3.5"
+                onCancel={() => setInstallmentTarget(null)}
+                cancelLabel="Hủy"
+                submitLabel={pending ? "Đang xử lý..." : "Xác nhận trả góp"}
+                isSubmitting={pending}
+                submitDisabled={
+                  pending ||
+                  (feeAmount.trim() !== "" && new Decimal(feeAmount).lt(0))
+                }
+              />
+            </form>
+          </SheetContent>
+        </Sheet>
+
+        <Sheet
+          open={importOpen}
+          onOpenChange={(nextOpen) => {
+            if (!pending) {
+              setImportOpen(nextOpen);
+              if (!nextOpen) setImportStep(1);
+            }
+          }}
+        >
+          <SheetContent
+            side={isDesktop ? "right" : "bottom"}
+            placement={isDesktop ? "inset" : "edge"}
+            size={isDesktop ? "wide" : "default"}
+            spacing={isDesktop ? "flush" : "default"}
+            elevation={isDesktop ? "flat" : "raised"}
+            className={isDesktop ? undefined : "quick-transaction-sheet"}
+          >
+            <form
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (importStep === 1) {
+                  if (canProceedToStep2) setImportStep(2);
+                } else {
+                  importOngoingInstallment();
+                }
+              }}
+            >
+              <SheetHeader
+                icon={History}
+                title={importStep === 1 ? "Thêm khoản trả góp đã có" : "Thanh toán & Dư nợ thẻ"}
+                description={
+                  importStep === 1
+                    ? "Bước 1/2 · Thông tin khoản trả góp"
+                    : "Bước 2/2 · Nguồn tiền và tính nợ thẻ"
+                }
+              >
+                <div className="mt-2.5 flex w-full items-center gap-1.5" aria-hidden="true">
+                  <div className="h-1 flex-1 rounded-full bg-[var(--primary)]" />
+                  <div
+                    className={cn(
+                      "h-1 flex-1 rounded-full transition-colors duration-200",
+                      importStep === 2 ? "bg-[var(--primary)]" : "bg-[var(--border)]",
+                    )}
+                  />
+                </div>
+              </SheetHeader>
+
+              {importStep === 1 ? (
+                <div className="flex-1 space-y-3.5 overflow-y-auto p-4 pb-2 overscroll-contain sm:p-5">
+                  <Input
+                    label="Tên khoản trả góp"
+                    value={importDescription}
+                    onChange={(event) => setImportDescription(event.target.value)}
+                    placeholder="Điện thoại, Học phí..."
+                    maxLength={120}
+                    required
+                    autoFocus
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="Tổng số tháng"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="12"
+                      min={2}
+                      max={60}
+                      value={importTermCount}
+                      onChange={(event) => setImportTermCount(event.target.value)}
+                      required
+                      aria-invalid={importTermCount !== "" && (Number(importTermCount) < 2 || Number(importTermCount) > 60)}
+                    />
+                    <Input
+                      label="Đã trả (tháng)"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="0"
+                      min={0}
+                      max={importTermCount ? Math.max(Number(importTermCount) - 1, 0) : undefined}
+                      value={importPaidTermCount}
+                      onChange={(event) => setImportPaidTermCount(event.target.value)}
+                      aria-invalid={
+                        importPaidTermCount !== "" &&
+                        (Number(importPaidTermCount) < 0 ||
+                          (importTermCount !== "" && Number(importPaidTermCount) >= Number(importTermCount)))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <MoneyInput
+                      label={`Số tiền còn phải trả (${currency})`}
+                      value={importRemainingAmount}
+                      onValueChange={setImportRemainingAmount}
+                      placeholder="0"
+                      required
+                    />
+                    <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
+                      Gồm cả phí chuyển đổi trả góp (nếu ngân hàng tính gộp vào nợ).
+                    </p>
+                  </div>
+                  {importPreview && (
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 text-xs text-[var(--text-secondary)]" aria-live="polite">
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        Còn lại {importPreview.remainingTerms} tháng · Đã trả {importPaidTermCount || "0"}/{importTermCount} tháng
+                      </p>
+                      <p className="mt-1 font-semibold text-sm text-[var(--foreground)] tabular-nums">
+                        Mỗi tháng trả: {formatAmount(importPreview.monthlyAmount, { maximumFractionDigits: 0 })} {currency}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex-1 space-y-3.5 overflow-y-auto p-4 pb-2 overscroll-contain sm:p-5">
+                  <div>
+                    <Select
+                      label="Dư nợ thẻ hiện tại đã gồm khoản này chưa?"
+                      value={importBalanceMode}
+                      onValueChange={(value) => setImportBalanceMode(value as typeof importBalanceMode)}
+                      options={[
+                        { value: "included_opening_debt", label: "Đã tính trong nợ ban đầu" },
+                        { value: "add_to_balance", label: "Chưa tính (cộng thêm vào nợ thẻ)" },
+                      ]}
+                      required
+                    />
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-muted)]">
+                      {importBalanceMode === "included_opening_debt"
+                        ? "Dư nợ thẻ giữ nguyên, chỉ tách khoản này ra để theo dõi lịch trả hàng tháng."
+                        : "Tăng dư nợ thẻ tương ứng, không tính là khoản chi tiêu mới trong tháng."}
+                    </p>
+                  </div>
+                  <div>
+                    <Select
+                      label="Ví dùng để thanh toán"
+                      value={importFundingWalletId}
+                      onValueChange={setImportFundingWalletId}
+                      options={fundingWallets.map((wallet) => ({ value: wallet.id, label: wallet.name }))}
+                      required
+                    />
+                    {importBalanceMode === "included_opening_debt" && (
+                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                        Nợ ban đầu còn khả dụng: {formatAmount(selectedImportableOpeningDebt)} {currency}
+                      </p>
+                    )}
+                  </div>
+                  <Select
+                    label="Bắt đầu từ kỳ sao kê"
+                    value={importFirstStatementDate}
+                    onValueChange={setImportFirstStatementDate}
+                    options={importStatementOptions}
+                    required
+                  />
+                  {importBalanceMode === "included_opening_debt" && (
+                    <p className={`flex gap-2 text-[11px] leading-relaxed ${exceedsImportableOpeningDebt ? "text-[var(--destructive)]" : "text-[var(--warning)]"}`} role={exceedsImportableOpeningDebt ? "alert" : undefined}>
+                      <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                      {exceedsImportableOpeningDebt
+                        ? "Số tiền vượt quá phần nợ ban đầu còn lại của thẻ. Bạn hãy giảm số tiền hoặc chọn 'Chưa tính (cộng thêm vào nợ thẻ)'."
+                        : "Nếu nợ ban đầu đã lên sao kê hoặc đã thanh toán, app sẽ chặn để đảm bảo sổ sách chính xác."}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {importStep === 1 ? (
+                <SheetFooter
+                  className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5"
+                  onCancel={() => setImportOpen(false)}
+                  cancelLabel="Hủy"
+                  submitLabel="Tiếp tục"
+                  submitType="button"
+                  onSubmit={(e) => {
+                    e?.preventDefault();
+                    if (canProceedToStep2) setImportStep(2);
+                  }}
+                  submitDisabled={!canProceedToStep2}
+                />
+              ) : (
+                <SheetFooter
+                  className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5"
+                  onCancel={() => setImportStep(1)}
+                  cancelLabel="Quay lại"
+                  submitLabel={pending ? "Đang xử lý..." : "Nhập khoản trả góp"}
+                  submitType="submit"
+                  isSubmitting={pending}
+                  submitDisabled={
+                    pending ||
+                    !canProceedToStep2 ||
+                    !importFundingWalletId ||
+                    !importFirstStatementDate ||
+                    exceedsImportableOpeningDebt
+                  }
+                />
+              )}
+            </form>
+          </SheetContent>
+        </Sheet>
+
+        <Sheet open={editOpen} onOpenChange={(nextOpen) => !pending && setEditOpen(nextOpen)}>
+          <SheetContent
+            side={isDesktop ? "right" : "bottom"}
+            placement={isDesktop ? "inset" : "edge"}
+            size={isDesktop ? "wide" : "default"}
+            spacing="flush"
+            elevation="flat"
+            className={isDesktop ? undefined : "quick-transaction-sheet"}
+          >
+            <form
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              onSubmit={(event) => {
+                event.preventDefault();
+                submitEdit();
+              }}
+            >
+              <SheetHeader
+                icon={Pencil}
+                title="Chỉnh sửa thẻ tín dụng"
+                description="Thông tin mới chỉ áp dụng cho các kỳ sao kê phát sinh sau khi cập nhật."
+              />
+              <div className="grid flex-1 gap-4 overflow-y-auto p-4 sm:p-6 md:grid-cols-2 md:gap-6">
+                <div className="space-y-4">
+                  <Input
+                    label="Tên thẻ"
+                    value={editName}
+                    onChange={(event) => setEditName(event.target.value)}
+                    maxLength={120}
+                    required
+                  />
+                  <Textarea
+                    label="Ghi chú"
+                    value={editDescription}
+                    onChange={(event) => setEditDescription(event.target.value)}
+                    maxLength={2000}
+                    rows={3}
+                  />
+                  <MoneyInput
+                    label={`Hạn mức tín dụng (${currency})`}
+                    value={editLimit}
+                    onValueChange={setEditLimit}
+                    required
+                  />
+                  {editLimit && new Decimal(editLimit || 0).lt(card.debt) && (
+                    <p role="alert" className="flex items-center gap-1.5 text-xs text-[var(--destructive)]">
+                      <AlertCircle className="size-3.5" aria-hidden="true" />
+                      Hạn mức không được thấp hơn dư nợ {formatAmount(card.debt)} {currency}.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-4 md:border-l md:border-[var(--border)] md:pl-6">
+                  <Select
+                    label="Ví thanh toán mặc định"
+                    value={editFundingWalletId}
+                    onValueChange={setEditFundingWalletId}
+                    options={fundingWallets.map((wallet) => ({ value: wallet.id, label: wallet.name }))}
+                    required
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select
+                      label="Ngày chốt sao kê"
+                      value={editClosingDay}
+                      onValueChange={setEditClosingDay}
+                      options={DAY_OPTIONS}
+                      required
+                    />
+                    <Select
+                      label="Hạn thanh toán"
+                      value={editDueDay}
+                      onValueChange={setEditDueDay}
+                      options={DAY_OPTIONS}
+                      required
+                    />
+                  </div>
+                  {card.installmentPlans.some((plan) => plan.status === "pending" || plan.status === "active") && editClosingDay !== String(card.statementClosingDay) && (
+                    <p role="alert" className="flex items-start gap-1.5 text-xs text-[var(--warning)]">
+                      <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                      Không thể đổi ngày chốt khi thẻ còn kế hoạch trả góp đang hoạt động.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <SheetFooter
+                onCancel={() => setEditOpen(false)}
+                submitLabel="Lưu thay đổi"
+                isSubmitting={pending}
+                submitDisabled={
+                  pending ||
+                  !editName.trim() ||
+                  !editFundingWalletId ||
+                  !editLimit ||
+                  !new Decimal(editLimit || 0).gt(0) ||
+                  new Decimal(editLimit || 0).lt(card.debt) ||
+                  (card.installmentPlans.some((plan) => plan.status === "pending" || plan.status === "active") && editClosingDay !== String(card.statementClosingDay))
+                }
+              />
+            </form>
+          </SheetContent>
+        </Sheet>
       </Card>
 
       {canManage && <ConfirmDelete
@@ -1657,6 +1785,93 @@ function CreditCardPanel({
         anchor={cardMenuTriggerRef}
         onConfirm={handleDeleteCard}
       />}
+
+        {/* Sheet xem toàn bộ Kế hoạch trả góp */}
+        <Sheet open={allPlansOpen} onOpenChange={setAllPlansOpen}>
+          <SheetContent
+            side={isDesktop ? "right" : "bottom"}
+            placement={isDesktop ? "inset" : "edge"}
+            size={isDesktop ? "wide" : "default"}
+            spacing="flush"
+            elevation="flat"
+            className={isDesktop ? undefined : "quick-transaction-sheet"}
+          >
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <SheetHeader
+                icon={CalendarClock}
+                title="Khoản trả góp"
+                description={`Tất cả ${card.installmentPlans.length} khoản trả góp của thẻ ${card.name}.`}
+              />
+              <div className="flex-1 space-y-2.5 overflow-y-auto p-4 sm:p-6 overscroll-contain">
+                {card.installmentPlans.map(renderInstallmentCard)}
+              </div>
+              <SheetFooter
+                className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5"
+                onSubmit={() => setAllPlansOpen(false)}
+                submitLabel="Đóng"
+                submitType="button"
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Sheet xem toàn bộ Giao dịch gần đây */}
+        <Sheet open={allActivitiesOpen} onOpenChange={setAllActivitiesOpen}>
+          <SheetContent
+            side={isDesktop ? "right" : "bottom"}
+            placement={isDesktop ? "inset" : "edge"}
+            size={isDesktop ? "wide" : "default"}
+            spacing="flush"
+            elevation="flat"
+            className={isDesktop ? undefined : "quick-transaction-sheet"}
+          >
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <SheetHeader
+                icon={History}
+                title="Giao dịch gần đây"
+                description={`Tất cả ${card.activities.length} giao dịch phát sinh trên thẻ ${card.name}.`}
+              />
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 overscroll-contain">
+                <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/15 px-3">
+                  {card.activities.map(renderActivityRow)}
+                </div>
+              </div>
+              <SheetFooter
+                className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5"
+                onSubmit={() => setAllActivitiesOpen(false)}
+                submitLabel="Đóng"
+                submitType="button"
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Xác nhận xóa khoản trả góp */}
+        {deletingPlan && (
+          <ConfirmDelete
+            open={Boolean(deletingPlan)}
+            onOpenChange={(open) => !open && setDeletingPlan(null)}
+            trigger={null}
+            ariaLabel={`Xóa khoản trả góp ${deletingPlan.description || ""}`}
+            title={
+              deletingPlan.description
+                ? `Xóa khoản trả góp “${deletingPlan.description}”?`
+                : "Xóa khoản trả góp?"
+            }
+            description={
+              deletingPlan.importBalanceMode === "add_to_balance"
+                ? "Dư nợ thẻ sẽ được giảm trừ số tiền tương ứng. Thao tác chỉ thực hiện được khi khoản này chưa vào sao kê."
+                : "Số tiền còn lại sẽ được chuyển về dư nợ thẻ thông thường. Thao tác chỉ thực hiện được khi khoản này chưa vào sao kê."
+            }
+            confirmLabel="Xóa khoản trả góp"
+            presentation={isDesktop ? "popover" : "sheet"}
+            disabled={pending}
+            onConfirm={async () => {
+              const ok = await handleDeleteImportedPlan(deletingPlan);
+              if (ok) setDeletingPlan(null);
+            }}
+          />
+        )}
     </>
   );
 }
