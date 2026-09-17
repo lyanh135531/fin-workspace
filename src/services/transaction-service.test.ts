@@ -236,4 +236,163 @@ describe("transaction deletion approval", () => {
     }));
     expect(tx.wallet.update).not.toHaveBeenCalled();
   });
+
+  describe("credit card transaction edit & delete", () => {
+    const creditCardTransaction = {
+      ...transaction,
+      walletId: "card-1",
+      wallet: { kind: "credit_card" as const, creditCardProfile: null },
+      purpose: "standard",
+      installmentPlan: null,
+      creditCardStatement: null,
+      refundTransactions: [],
+      creditCardObligationEntries: [],
+    };
+
+    it("allows admin to delete an uncommitted approved credit card expense", async () => {
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockResolvedValue(creditCardTransaction),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        wallet: {
+          update: vi.fn().mockResolvedValue({}),
+          findUniqueOrThrow: vi.fn().mockResolvedValue({ kind: "credit_card", currentBalance: new Decimal(0) }),
+        },
+        creditCardObligationEntry: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        creditCardAllocation: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        auditLog: { create: vi.fn().mockResolvedValue({}) },
+      };
+
+      (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: "admin-member",
+        role: { code: "ADMIN" },
+        workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+      });
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (client: typeof tx) => unknown) => callback(tx),
+      );
+
+      const result = await deleteOrRequestTransaction("admin-user", "workspace-1", "transaction-1", "Xóa chi tiêu thẻ nhầm");
+      expect(result).toEqual({ kind: "deleted", id: "transaction-1" });
+
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { id: "card-1" },
+        data: { currentBalance: { decrement: expect.any(Decimal) } },
+      });
+      expect(tx.creditCardObligationEntry.deleteMany).toHaveBeenCalledWith({
+        where: { transactionId: "transaction-1" },
+      });
+      expect(tx.creditCardAllocation.deleteMany).toHaveBeenCalledWith({
+        where: { transactionId: "transaction-1" },
+      });
+    });
+
+    it("prevents deleting credit card transaction if already statemented", async () => {
+      const statemented = {
+        ...creditCardTransaction,
+        creditCardStatement: { id: "stmt-1" },
+      };
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockResolvedValue(statemented),
+        },
+      };
+
+      (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: "admin-member",
+        role: { code: "ADMIN" },
+        workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+      });
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (client: typeof tx) => unknown) => callback(tx),
+      );
+
+      await expect(
+        deleteOrRequestTransaction("admin-user", "workspace-1", "transaction-1", "Xóa"),
+      ).rejects.toThrow("Giao dịch đã vào kế hoạch trả góp hoặc sao kê và không thể xóa.");
+    });
+
+    it("allows admin to update credit card transaction to an asset wallet", async () => {
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockResolvedValue(creditCardTransaction),
+          update: vi.fn().mockResolvedValue({
+            ...creditCardTransaction,
+            walletId: "wallet-asset-1",
+            amount: "150000",
+          }),
+        },
+        workspaceWallet: {
+          findMany: vi.fn().mockResolvedValue([
+            { walletId: "wallet-asset-1", wallet: { kind: "asset" } },
+          ]),
+        },
+        category: { findFirst: vi.fn().mockResolvedValue({ id: "cat-1", type: "expense", jarCode: "NEC" }) },
+        wallet: {
+          update: vi.fn().mockResolvedValue({}),
+          findUniqueOrThrow: vi.fn().mockImplementation(({ where }: { where: { id: string } }) => {
+            if (where.id === "card-1") return Promise.resolve({ kind: "credit_card", currentBalance: new Decimal(0) });
+            return Promise.resolve({ kind: "asset", currentBalance: new Decimal(500000) });
+          }),
+        },
+        creditCardObligationEntry: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        creditCardAllocation: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        auditLog: { create: vi.fn().mockResolvedValue({}) },
+      };
+
+      (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: "admin-member",
+        role: { code: "ADMIN" },
+        workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+      });
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (client: typeof tx) => unknown) => callback(tx),
+      );
+
+      const result = await updateTransaction(
+        "admin-user",
+        "workspace-1",
+        "transaction-1",
+        {
+          walletId: "wallet-asset-1",
+          categoryId: "cat-1",
+          type: "expense",
+          amount: new Decimal("150000"),
+          date: "2026-07-20",
+          allocations: [],
+        },
+        "Chuyển sang tiền mặt",
+      );
+
+      expect(result.kind).toBe("updated");
+      // Reversed old card
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { id: "card-1" },
+        data: { currentBalance: { decrement: expect.any(Decimal) } },
+      });
+      // Applied new asset wallet
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { id: "wallet-asset-1" },
+        data: { currentBalance: { decrement: expect.any(Decimal) } },
+      });
+      expect(tx.creditCardObligationEntry.deleteMany).toHaveBeenCalledWith({
+        where: { transactionId: "transaction-1" },
+      });
+    });
+  });
 });
+

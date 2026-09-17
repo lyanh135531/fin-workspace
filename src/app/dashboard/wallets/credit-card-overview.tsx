@@ -3,7 +3,9 @@
 import Decimal from "decimal.js";
 import {
   AlertCircle,
+  ArrowDown,
   CalendarClock,
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -14,32 +16,41 @@ import {
   RotateCcw,
   Split,
   Trash2,
+  Wallet,
   WalletCards,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
 
+import type { DeleteCreditCardResolution } from "@/domain/credit-card/schemas";
+
 import {
   addCreditCardRefundAction,
   deleteCreditCardAction,
   deleteImportedCreditCardInstallmentAction,
+  deleteTransactionAction,
   importCreditCardInstallmentAction,
   payCreditCardAction,
   registerCreditCardInstallmentAction,
   updateCreditCardAction,
+  updateTransactionAction,
 } from "@/app/dashboard/actions";
 import {
   Button,
   Card,
+  CategoryTreeSelect,
   ConfirmDelete,
+  DatePicker,
   Input,
   MoneyInput,
   Select,
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetFooter,
   SheetHeader,
+  SheetTitle,
   Textarea,
 } from "@/components/base";
 import {
@@ -90,6 +101,11 @@ type CardActivity = {
   installmentEligible: boolean;
   installmentPlanId: string | null;
   refundableAmount: string;
+  canDelete?: boolean;
+  canEdit?: boolean;
+  categoryId?: string | null;
+  category?: string | null;
+  walletId?: string;
 };
 
 type RefundCandidate = {
@@ -244,6 +260,8 @@ function CreditCardPanel({
   canManage,
   canApprove,
   fundingWallets,
+  wallets,
+  categories,
   expanded,
   onToggle,
 }: {
@@ -254,6 +272,14 @@ function CreditCardPanel({
   canManage: boolean;
   canApprove: boolean;
   fundingWallets: FundingWallet[];
+  wallets?: Array<{ id: string; name: string; kind: string }>;
+  categories?: Array<{
+    id: string;
+    name: string;
+    icon?: string | null;
+    color?: string | null;
+    parentId?: string | null;
+  }>;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -280,6 +306,37 @@ function CreditCardPanel({
   const [importFirstStatementDate, setImportFirstStatementDate] = useState("");
   const [menuActivityId, setMenuActivityId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteResolutionOpen, setDeleteResolutionOpen] = useState(false);
+  const [confirmResolutionOpen, setConfirmResolutionOpen] = useState(false);
+  const [deleteAction, setDeleteAction] = useState<"void_transactions" | "migrate_transactions">("void_transactions");
+  const [deletePending, startDeleteTransition] = useTransition();
+
+  const destinationWallets = useMemo(() => {
+    if (wallets && wallets.length > 0) {
+      return wallets.filter((w) => w.kind !== "credit_card" && w.id !== card.id);
+    }
+    return fundingWallets
+      .filter((fw) => fw.id !== card.id)
+      .map((fw) => ({
+        id: fw.id,
+        name: fw.name,
+        kind: "asset",
+      }));
+  }, [wallets, fundingWallets, card.id]);
+
+  const [migrateWalletId, setMigrateWalletId] = useState<string>(destinationWallets[0]?.id ?? "");
+  const selectedMigrateWallet = destinationWallets.find((w) => w.id === migrateWalletId);
+
+  const hasPaidStatements = card.statements?.some((s) => s.status === "paid");
+  const hasActiveInstallments = card.installmentPlans?.some(
+    (p) => p.status === "active" || p.status === "completed"
+  );
+  const cannotDeleteReason = hasPaidStatements
+    ? "Thẻ đã có kỳ sao kê đã thanh toán. Để bảo đảm sổ sách kế toán, thẻ này không thể xóa."
+    : hasActiveInstallments
+    ? "Thẻ đang có kế hoạch trả góp đang chạy hoặc đã hoàn tất, không thể xóa trực tiếp."
+    : null;
+
   const [paymentConfirmOpen, setPaymentConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState(card.name);
@@ -292,7 +349,65 @@ function CreditCardPanel({
   const [allActivitiesOpen, setAllActivitiesOpen] = useState(false);
   const [menuPlanId, setMenuPlanId] = useState<string | null>(null);
   const [deletingPlan, setDeletingPlan] = useState<InstallmentPlan | null>(null);
+  const [deletingActivity, setDeletingActivity] = useState<CardActivity | null>(null);
+  const [editingActivity, setEditingActivity] = useState<CardActivity | null>(null);
+  const [editWalletId, setEditWalletId] = useState<string>("");
+  const [editAmount, setEditAmount] = useState<string>("");
+  const [editDate, setEditDate] = useState<string>("");
+  const [editCategoryId, setEditCategoryId] = useState<string>("");
+  const [editActivityDescription, setEditActivityDescription] = useState<string>("");
+  const [showEditDetails, setShowEditDetails] = useState(false);
   const cardMenuTriggerRef = useRef<HTMLButtonElement>(null);
+
+  function startEditingActivity(activity: CardActivity) {
+    setEditingActivity(activity);
+    setEditWalletId(activity.walletId || card.id);
+    setEditAmount(activity.amount);
+    setEditDate(activity.date);
+    setEditCategoryId(activity.categoryId || (categories?.[0]?.id ?? ""));
+    setEditActivityDescription(activity.description ?? "");
+    setShowEditDetails(false);
+  }
+
+  function handleSaveEdit() {
+    if (!editingActivity || !editWalletId || !editAmount || !editDate) return;
+    const selectedWallet = wallets?.find((w) => w.id === editWalletId);
+    const isCreditCard = selectedWallet?.kind === "credit_card";
+    startTransition(async () => {
+      const res = await updateTransactionAction(
+        workspaceId,
+        editingActivity.id,
+        {
+          walletId: editWalletId,
+          amount: new Decimal(editAmount),
+          date: editDate,
+          type: "expense",
+          categoryId: editCategoryId || undefined,
+          description: editActivityDescription.trim() || undefined,
+          allocations: isCreditCard
+            ? [
+                {
+                  walletId:
+                    card.defaultFundingWalletId ??
+                    fundingWallets[0]?.id ??
+                    wallets?.find((w) => w.kind === "asset")?.id ??
+                    "",
+                  amount: new Decimal(editAmount),
+                },
+              ]
+            : undefined,
+        },
+        "Sửa giao dịch từ trang Thẻ tín dụng",
+      );
+      if (res.ok) {
+        toast.success("Đã cập nhật giao dịch thành công.");
+        setEditingActivity(null);
+        setShowEditDetails(false);
+      } else {
+        toast.error(res.message ?? "Không thể cập nhật giao dịch.");
+      }
+    });
+  }
 
   const walletNames = useMemo(
     () => new Map(card.fundingShares.map((share) => [share.walletId, share.walletName])),
@@ -496,16 +611,30 @@ function CreditCardPanel({
     });
   }
 
-  async function handleDeleteCard() {
+  async function handleDeleteCard(resolution?: DeleteCreditCardResolution) {
     const result = await deleteCreditCardAction(workspaceId, {
       cardWalletId: card.id,
+      resolution,
     });
     if (!result.ok) {
       toast.error(result.message ?? "Không thể xóa thẻ tín dụng.");
       return false;
     }
     toast.success(`Đã xóa thẻ “${card.name}”.`);
+    setConfirmResolutionOpen(false);
+    setDeleteResolutionOpen(false);
+    setConfirmDelete(false);
     return true;
+  }
+
+  function handleConfirmResolutionDelete() {
+    startDeleteTransition(async () => {
+      const resolution: DeleteCreditCardResolution =
+        deleteAction === "migrate_transactions"
+          ? { action: "migrate_transactions", targetWalletId: migrateWalletId }
+          : { action: "void_transactions" };
+      await handleDeleteCard(resolution);
+    });
   }
 
   function renderInstallmentCard(plan: InstallmentPlan) {
@@ -681,8 +810,11 @@ function CreditCardPanel({
     );
 
     const isMenuOpen = menuActivityId === activity.id;
+    const canDeleteActivity = canManage && Boolean(activity.canDelete);
+    const canEditActivity = canManage && Boolean(activity.canEdit);
+    const hasActivityMenu = activity.installmentEligible || canEditActivity || canDeleteActivity;
 
-    if (activity.installmentEligible) {
+    if (hasActivityMenu) {
       return (
         <DropdownMenu
           key={activity.id}
@@ -719,16 +851,53 @@ function CreditCardPanel({
             sideOffset={6}
             className="w-52 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
           >
-            <DropdownMenuItem
-              onClick={() => {
-                setMenuActivityId(null);
-                setInstallmentTarget(activity);
-              }}
-              className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
-            >
-              <Split className="size-4 text-[var(--primary)]" aria-hidden="true" />
-              <span>Đăng ký trả góp</span>
-            </DropdownMenuItem>
+            {activity.installmentEligible && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setMenuActivityId(null);
+                  setInstallmentTarget(activity);
+                }}
+                className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+              >
+                <Split className="size-4 text-[var(--primary)]" aria-hidden="true" />
+                <span>Đăng ký trả góp</span>
+              </DropdownMenuItem>
+            )}
+            {canEditActivity && (
+              <>
+                {activity.installmentEligible && (
+                  <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-[var(--border)]" />
+                )}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setMenuActivityId(null);
+                    startEditingActivity(activity);
+                  }}
+                  className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                >
+                  <Pencil className="size-4 text-[var(--primary)]" aria-hidden="true" />
+                  <span>Chỉnh sửa giao dịch</span>
+                </DropdownMenuItem>
+              </>
+            )}
+            {canDeleteActivity && (
+              <>
+                {(activity.installmentEligible || canEditActivity) && (
+                  <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-[var(--border)]" />
+                )}
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => {
+                    setMenuActivityId(null);
+                    setDeletingActivity(activity);
+                  }}
+                  className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--destructive)]"
+                >
+                  <Trash2 className="size-4 shrink-0" aria-hidden="true" />
+                  <span>Xóa giao dịch</span>
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       );
@@ -874,7 +1043,17 @@ function CreditCardPanel({
                               <DropdownMenuSeparator className="my-1 -mx-1 bg-[var(--border)]" />
                               <DropdownMenuItem
                                 variant="destructive"
-                                onClick={() => setConfirmDelete(true)}
+                                onClick={() => {
+                                  if (card.hasApprovedTransactions) {
+                                    setDeleteAction("void_transactions");
+                                    if (destinationWallets[0]?.id) {
+                                      setMigrateWalletId(destinationWallets[0].id);
+                                    }
+                                    setDeleteResolutionOpen(true);
+                                  } else {
+                                    setConfirmDelete(true);
+                                  }
+                                }}
                                 className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer"
                               >
                                 <Trash2 className="size-4 shrink-0" aria-hidden="true" />
@@ -1786,6 +1965,244 @@ function CreditCardPanel({
         onConfirm={handleDeleteCard}
       />}
 
+      {canManage && (
+        <Sheet
+          open={deleteResolutionOpen}
+          onOpenChange={(nextOpen) => !deletePending && setDeleteResolutionOpen(nextOpen)}
+        >
+          <SheetContent
+            side={isDesktop ? "right" : "bottom"}
+            placement={isDesktop ? "inset" : "edge"}
+            size="default"
+            spacing="flush"
+            elevation="flat"
+            className={isDesktop ? undefined : "quick-transaction-sheet"}
+          >
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <SheetHeader>
+                <div className="flex items-center gap-3 sm:gap-3.5">
+                  <span
+                    className="grid size-9 shrink-0 place-items-center rounded-xl bg-destructive/10 text-destructive sm:size-10"
+                    aria-hidden="true"
+                  >
+                    <Trash2 size={18} />
+                  </span>
+                  <div className="min-w-0 flex-1 flex flex-col items-start text-left">
+                    <SheetTitle>Xóa thẻ “{card.name}”</SheetTitle>
+                    <SheetDescription>
+                      Thẻ đang có giao dịch phát sinh. Chọn phương án xử lý để hoàn tất xóa thẻ.
+                    </SheetDescription>
+                  </div>
+                </div>
+              </SheetHeader>
+
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                {/* Thông tin tóm tắt thẻ */}
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 text-xs text-[var(--text-secondary)] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span>Tổng dư nợ hiện tại</span>
+                    <span className="font-semibold text-sm text-[var(--foreground)] tabular-nums">
+                      {formatAmount(card.debt)} {currency}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Số giao dịch trên thẻ</span>
+                    <span className="font-medium text-[var(--foreground)] tabular-nums">
+                      {card.activities.length} giao dịch
+                    </span>
+                  </div>
+                </div>
+
+                {cannotDeleteReason && (
+                  <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-xs text-destructive">
+                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                    <span>{cannotDeleteReason}</span>
+                  </div>
+                )}
+
+                {/* Danh sách 2 phương án */}
+                <div className="space-y-3">
+                  {/* Phương án 1: Tạo nhầm thẻ */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDeleteAction("void_transactions")}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setDeleteAction("void_transactions");
+                      }
+                    }}
+                    className={cn(
+                      "cursor-pointer rounded-xl border p-4 transition-all text-left outline-none",
+                      deleteAction === "void_transactions"
+                        ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_5%,var(--surface))]"
+                        : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)]"
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          "mt-0.5 size-4.5 rounded-full border flex items-center justify-center shrink-0 transition-colors",
+                          deleteAction === "void_transactions"
+                            ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                            : "border-[var(--border)] bg-[var(--surface)]"
+                        )}
+                      >
+                        {deleteAction === "void_transactions" && <div className="size-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="font-semibold text-sm text-[var(--foreground)]">
+                            Hủy toàn bộ giao dịch
+                          </span>
+                          <span className="text-[11px] font-medium text-[var(--text-muted)] shrink-0">
+                            Tạo nhầm thẻ
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-[var(--text-secondary)] leading-relaxed">
+                          Dành cho thẻ tạo thử nghiệm hoặc nhập nhầm. Toàn bộ giao dịch sẽ bị hủy và hoàn trả tiền tạm giữ về ví thanh toán.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Phương án 2: Ghi nhầm ví */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDeleteAction("migrate_transactions")}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setDeleteAction("migrate_transactions");
+                      }
+                    }}
+                    className={cn(
+                      "cursor-pointer rounded-xl border p-4 transition-all text-left outline-none",
+                      deleteAction === "migrate_transactions"
+                        ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_5%,var(--surface))]"
+                        : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)]"
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          "mt-0.5 size-4.5 rounded-full border flex items-center justify-center shrink-0 transition-colors",
+                          deleteAction === "migrate_transactions"
+                            ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                            : "border-[var(--border)] bg-[var(--surface)]"
+                        )}
+                      >
+                        {deleteAction === "migrate_transactions" && <div className="size-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="font-semibold text-sm text-[var(--foreground)]">
+                            Chuyển giao dịch sang ví khác
+                          </span>
+                          <span className="text-[11px] font-medium text-[var(--text-muted)] shrink-0">
+                            Ghi nhầm ví
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-[var(--text-secondary)] leading-relaxed">
+                          Dành cho chi tiêu thực tế nhưng chọn nhầm thẻ. Giao dịch sẽ chuyển sang ví bạn chọn và trừ tiền trực tiếp từ ví đó.
+                        </p>
+
+                        {deleteAction === "migrate_transactions" && (
+                          <div className="mt-3 pt-3 border-t border-[var(--border)]" onClick={(e) => e.stopPropagation()}>
+                            {destinationWallets.length > 0 ? (
+                              <Select
+                                label="Chuyển giao dịch sang ví"
+                                value={migrateWalletId}
+                                onValueChange={setMigrateWalletId}
+                                options={destinationWallets.map((w) => ({
+                                  value: w.id,
+                                  label: `${w.name}${w.kind === "credit_card" ? " (Thẻ tín dụng)" : ""}`,
+                                }))}
+                                placeholder="Chọn ví nhận giao dịch"
+                                required
+                              />
+                            ) : (
+                              <p className="text-xs text-[var(--destructive)]">
+                                Không tìm thấy ví tài sản nào khác trong sổ để chuyển giao dịch sang.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="flex items-center gap-2 text-xs text-[var(--text-muted)] pt-1">
+                  <AlertCircle className="size-3.5 shrink-0" />
+                  Hành động này sẽ xóa vĩnh viễn thẻ tín dụng khỏi hệ thống và không thể hoàn tác.
+                </p>
+              </div>
+
+              <SheetFooter
+                className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5"
+                onCancel={() => setDeleteResolutionOpen(false)}
+                cancelLabel="Hủy"
+                cancelDisabled={deletePending}
+                submitLabel={
+                  deleteAction === "void_transactions"
+                    ? "Hủy giao dịch & Xóa thẻ"
+                    : "Chuyển ví & Xóa thẻ"
+                }
+                submitVariant="destructive"
+                submitType="button"
+                submitDisabled={
+                  deletePending ||
+                  Boolean(cannotDeleteReason) ||
+                  (deleteAction === "migrate_transactions" && (!migrateWalletId || destinationWallets.length === 0))
+                }
+                onSubmit={() => {
+                  setDeleteResolutionOpen(false);
+                  setConfirmResolutionOpen(true);
+                }}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {canManage && (
+        <ConfirmDelete
+          open={confirmResolutionOpen}
+          onOpenChange={(open) => {
+            setConfirmResolutionOpen(open);
+            if (!open && !deletePending) {
+              setDeleteResolutionOpen(true);
+            }
+          }}
+          trigger={null}
+          ariaLabel={`Xác nhận xóa thẻ ${card.name}`}
+          title={`Xóa thẻ “${card.name}”?`}
+          description={
+            deleteAction === "void_transactions"
+              ? `Toàn bộ ${card.activities.length} giao dịch trên thẻ sẽ bị hủy vĩnh viễn và các khoản tiền tạm giữ sẽ được giải phóng về ví thanh toán.`
+              : `Toàn bộ ${card.activities.length} giao dịch sẽ được chuyển sang ví “${selectedMigrateWallet?.name ?? "được chọn"}” và trừ tiền trực tiếp từ ví đó.`
+          }
+          confirmLabel={
+            deleteAction === "void_transactions"
+              ? "Hủy giao dịch & Xóa thẻ"
+              : "Chuyển ví & Xóa thẻ"
+          }
+          presentation={isDesktop ? "popover" : "sheet"}
+          anchor={cardMenuTriggerRef}
+          disabled={deletePending}
+          onConfirm={async () => {
+            const resolution: DeleteCreditCardResolution =
+              deleteAction === "migrate_transactions"
+                ? { action: "migrate_transactions", targetWalletId: migrateWalletId }
+                : { action: "void_transactions" };
+            return await handleDeleteCard(resolution);
+          }}
+        />
+      )}
+
         {/* Sheet xem toàn bộ Kế hoạch trả góp */}
         <Sheet open={allPlansOpen} onOpenChange={setAllPlansOpen}>
           <SheetContent
@@ -1872,6 +2289,214 @@ function CreditCardPanel({
             }}
           />
         )}
+
+        {/* Xác nhận xóa giao dịch thẻ ghi nhầm */}
+        {deletingActivity && (
+          <ConfirmDelete
+            open={Boolean(deletingActivity)}
+            onOpenChange={(open) => !open && setDeletingActivity(null)}
+            trigger={null}
+            ariaLabel={`Xóa giao dịch ${deletingActivity.description || "chi tiêu thẻ"}`}
+            title={
+              deletingActivity.description
+                ? `Xóa giao dịch “${deletingActivity.description}”?`
+                : "Xóa giao dịch chi tiêu này?"
+            }
+            description={`Giao dịch ${formatAmount(deletingActivity.amount)} ${currency} sẽ bị xóa và dư nợ thẻ sẽ được giảm trừ số tiền tương ứng.`}
+            confirmLabel="Xóa giao dịch"
+            presentation={isDesktop ? "popover" : "sheet"}
+            disabled={pending}
+            onConfirm={async () => {
+              const res = await deleteTransactionAction(workspaceId, deletingActivity.id, "Xóa giao dịch nhầm trên thẻ tín dụng");
+              if (res.ok) {
+                toast.success(`Đã xóa giao dịch${deletingActivity.description ? ` “${deletingActivity.description}”` : ""}.`);
+                setDeletingActivity(null);
+              } else {
+                toast.error(res.message ?? "Không thể xóa giao dịch.");
+              }
+            }}
+          />
+        )}
+
+        {/* Sửa giao dịch / Đổi ví - Sheet inset, quick-amount-field & collapsible details */}
+        <Sheet
+          open={Boolean(editingActivity)}
+          onOpenChange={(open) => {
+            if (!pending && !open) {
+              setEditingActivity(null);
+              setShowEditDetails(false);
+            }
+          }}
+        >
+          <SheetContent
+            side={isDesktop ? "right" : "bottom"}
+            placement="inset"
+            elevation="flat"
+            spacing="flush"
+            className={cn(
+              "ledger-mobile-edit-sheet",
+              isDesktop ? "sm:max-w-md" : "max-h-[92vh]",
+            )}
+            aria-label="Chỉnh sửa giao dịch"
+          >
+            {editingActivity && (
+              <form
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSaveEdit();
+                }}
+              >
+                <SheetHeader className="wallet-edit-header ledger-transaction-sheet-header">
+                  <div className="wallet-edit-heading">
+                    <span aria-hidden="true">
+                      <Pencil size={18} />
+                    </span>
+                    <div className="min-w-0">
+                      <SheetTitle>Chỉnh sửa giao dịch</SheetTitle>
+                      <SheetDescription>
+                        {editingActivity.description || "Cập nhật thông tin giao dịch"}
+                      </SheetDescription>
+                    </div>
+                  </div>
+                </SheetHeader>
+
+                <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6 overscroll-contain">
+                  {/* Số tiền: quick-amount-field */}
+                  <MoneyInput
+                    wrapperClassName="quick-amount-field mt-3 mb-2"
+                    autoFocus
+                    value={editAmount}
+                    onValueChange={setEditAmount}
+                    placeholder="0"
+                    aria-label="Số tiền giao dịch"
+                    required
+                  />
+
+                  {/* Ví và Danh mục chuẩn form giao dịch */}
+                  <div className="quick-transaction-grid">
+                    <Select
+                      label="Ví"
+                      value={editWalletId}
+                      onValueChange={setEditWalletId}
+                      placeholder="Chọn ví"
+                      options={(wallets ?? []).map((w) => {
+                        const isCard = w.kind === "credit_card";
+                        return {
+                          value: w.id,
+                          label: w.name,
+                          content: (
+                            <div className="flex w-full items-center justify-between gap-2">
+                              <span className="flex items-center gap-2 min-w-0">
+                                {isCard ? (
+                                  <CreditCard className="size-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                                ) : (
+                                  <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                                )}
+                                <span className="truncate">{w.name}</span>
+                              </span>
+                              <span
+                                className={cn(
+                                  "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                                  isCard
+                                    ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                                    : "bg-[var(--surface-secondary)] text-[var(--text-muted)]",
+                                )}
+                              >
+                                {isCard ? "Thẻ tín dụng" : "Ví tài sản"}
+                              </span>
+                            </div>
+                          ),
+                          selectedContent: (
+                            <span className="flex items-center gap-2 min-w-0">
+                              {isCard ? (
+                                <CreditCard className="size-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                              ) : (
+                                <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                              )}
+                              <span className="truncate">{w.name}</span>
+                              {isCard && (
+                                <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
+                                  Thẻ tín dụng
+                                </span>
+                              )}
+                            </span>
+                          ),
+                        };
+                      })}
+                      required
+                    />
+
+                    {categories && categories.length > 0 && (
+                      <CategoryTreeSelect
+                        label="Danh mục"
+                        value={editCategoryId}
+                        onValueChange={setEditCategoryId}
+                        placeholder="Chọn danh mục"
+                        categories={categories.map((c) => ({
+                          id: c.id,
+                          name: c.name,
+                          icon: c.icon ?? undefined,
+                          color: c.color ?? undefined,
+                          parentId: c.parentId ?? undefined,
+                        }))}
+                        required
+                      />
+                    )}
+                  </div>
+
+                  {/* Chi tiết bổ sung (giống tạo/sửa giao dịch: ẩn mặc định, mở ra khi cần) */}
+                  <Button
+                    variant="unstyled"
+                    size="auto"
+                    type="button"
+                    className="quick-details-toggle"
+                    onClick={() => setShowEditDetails((prev) => !prev)}
+                    aria-expanded={showEditDetails}
+                  >
+                    <CalendarDays size={16} />
+                    {showEditDetails
+                      ? "Ẩn thông tin bổ sung"
+                      : "Thêm nội dung hoặc đổi ngày"}
+                  </Button>
+
+                  {showEditDetails && (
+                    <div className="quick-details">
+                      <DatePicker
+                        label="Ngày giao dịch"
+                        value={editDate}
+                        onValueChange={setEditDate}
+                        required
+                      />
+                      <Input
+                        label="Nội dung"
+                        placeholder="Ăn trưa, nhận lương..."
+                        value={editActivityDescription}
+                        onChange={(e) => setEditActivityDescription(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <SheetFooter
+                  onCancel={() => {
+                    setEditingActivity(null);
+                    setShowEditDetails(false);
+                  }}
+                  submitLabel="Lưu thay đổi"
+                  isSubmitting={pending}
+                  submitDisabled={
+                    pending ||
+                    !editWalletId ||
+                    !editAmount ||
+                    new Decimal(editAmount || 0).lte(0) ||
+                    !editDate
+                  }
+                />
+              </form>
+            )}
+          </SheetContent>
+        </Sheet>
     </>
   );
 }
@@ -1884,6 +2509,14 @@ export function CreditCardOverview(props: {
   canManage: boolean;
   canApprove: boolean;
   fundingWallets: FundingWallet[];
+  wallets?: Array<{ id: string; name: string; kind: string }>;
+  categories?: Array<{
+    id: string;
+    name: string;
+    icon?: string | null;
+    color?: string | null;
+    parentId?: string | null;
+  }>;
 }) {
   const [expandedCardId, setExpandedCardId] = useState<string | null>(() => {
     const priority = props.cards.find((card) => card.statement?.overdue)

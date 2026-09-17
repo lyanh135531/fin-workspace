@@ -73,7 +73,24 @@ export const deleteImportedCreditCardInstallmentSchema = z.object({
   planId: idSchema,
 });
 
+export const deleteCreditCardResolutionSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("void_transactions"),
+  }),
+  z.object({
+    action: z.literal("migrate_transactions"),
+    targetWalletId: idSchema,
+  }),
+]);
+
+export const deleteCreditCardSchema = z.object({
+  cardWalletId: idSchema,
+  resolution: deleteCreditCardResolutionSchema.optional(),
+});
+
 export type InstallmentInput = z.output<typeof installmentInputSchema>;
 export type RegisterCreditCardInstallmentInput = z.output<typeof registerCreditCardInstallmentSchema>;
 export type ImportCreditCardInstallmentInput = z.output<typeof importCreditCardInstallmentSchema>;
 export type UpdateCreditCardInput = z.output<typeof updateCreditCardSchema>;
+export type DeleteCreditCardResolution = z.output<typeof deleteCreditCardResolutionSchema>;
+export type DeleteCreditCardInput = z.output<typeof deleteCreditCardSchema>;

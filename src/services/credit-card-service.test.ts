@@ -89,9 +89,14 @@ describe("deleteCreditCard checks", () => {
   const tx = {
     $queryRaw: vi.fn(),
     workspaceWallet: { findFirst: vi.fn() },
-    transaction: { count: vi.fn() },
-    creditCardInstallmentPlan: { count: vi.fn() },
-    creditCardStatement: { count: vi.fn() },
+    transaction: { count: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+    creditCardInstallmentPlan: { count: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
+    creditCardStatement: { count: vi.fn(), deleteMany: vi.fn() },
+    creditCardStatementItem: { deleteMany: vi.fn() },
+    creditCardObligationEntry: { deleteMany: vi.fn() },
+    creditCardAllocation: { deleteMany: vi.fn() },
+    creditCardPaymentReservation: { updateMany: vi.fn() },
+    recurringTransaction: { count: vi.fn() },
     wallet: { update: vi.fn() },
     creditCardProfile: { update: vi.fn() },
     auditLog: { create: vi.fn() },
@@ -108,9 +113,11 @@ describe("deleteCreditCard checks", () => {
     tx.transaction.count.mockResolvedValue(1);
     tx.creditCardInstallmentPlan.count.mockResolvedValue(0);
     tx.creditCardStatement.count.mockResolvedValue(0);
+    tx.recurringTransaction.count.mockResolvedValue(0);
+    tx.transaction.findMany.mockResolvedValue([]);
   });
 
-  it("rejects deletion when card still has outstanding debt", async () => {
+  it("rejects deletion without resolution when card still has outstanding debt", async () => {
     tx.workspaceWallet.findFirst.mockResolvedValue({
       wallet: { currentBalance: new Decimal(125_000) },
     });
@@ -119,6 +126,75 @@ describe("deleteCreditCard checks", () => {
       deleteCreditCard("user-id", "workspace-id", "card-id"),
     ).rejects.toThrow("Thẻ vẫn còn dư nợ");
     expect(tx.wallet.update).not.toHaveBeenCalled();
+  });
+
+  it("deletes card and voids transactions when void_transactions resolution is provided", async () => {
+    tx.workspaceWallet.findFirst.mockResolvedValue({
+      wallet: { currentBalance: new Decimal(125_000) },
+    });
+    tx.transaction.findMany.mockResolvedValue([
+      { id: "tx-1", type: "expense", amount: new Decimal(125_000), workflowStatus: "approved" },
+    ]);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id", {
+        action: "void_transactions",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(tx.transaction.update).toHaveBeenCalledWith({
+      where: { id: "tx-1" },
+      data: { deletedAt: expect.any(Date) },
+    });
+    expect(tx.creditCardPaymentReservation.updateMany).toHaveBeenCalledWith({
+      where: { paymentTransactionId: { in: ["tx-1"] }, releasedAt: null },
+      data: { releasedAt: expect.any(Date) },
+    });
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "card-id" },
+      data: {
+        status: "deactive",
+        deletedAt: expect.any(Date),
+        currentBalance: new Decimal(0),
+      },
+    });
+  });
+
+  it("migrates transactions to destination wallet and deletes card when migrate_transactions is provided", async () => {
+    tx.workspaceWallet.findFirst
+      .mockResolvedValueOnce({
+        wallet: { id: "card-id", kind: "credit_card", currentBalance: new Decimal(200_000) },
+      })
+      .mockResolvedValueOnce({
+        wallet: { id: "cash-id", kind: "asset", currentBalance: new Decimal(1_000_000) },
+      });
+    tx.transaction.findMany.mockResolvedValue([
+      { id: "tx-1", walletId: "card-id", type: "expense", amount: new Decimal(200_000), workflowStatus: "approved" },
+    ]);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id", {
+        action: "migrate_transactions",
+        targetWalletId: "cash-id",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(tx.transaction.update).toHaveBeenCalledWith({
+      where: { id: "tx-1" },
+      data: { walletId: "cash-id" },
+    });
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "cash-id" },
+      data: { currentBalance: new Decimal(800_000) },
+    });
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "card-id" },
+      data: {
+        status: "deactive",
+        deletedAt: expect.any(Date),
+        currentBalance: new Decimal(0),
+      },
+    });
   });
 
   it("deletes a mistakenly created card with opening debt but no approved transactions", async () => {

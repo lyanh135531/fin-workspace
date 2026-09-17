@@ -298,18 +298,40 @@ async function applyUpdate(
   await lockTransaction(tx, record.id);
   const current = await tx.transaction.findFirst({
     where: { id: record.id, deletedAt: null },
-    include: { wallet: { select: { kind: true } }, installmentPlan: { select: { id: true, status: true } }, creditCardStatement: { select: { id: true } } },
+    include: {
+      wallet: { select: { kind: true } },
+      installmentPlan: { select: { id: true, status: true } },
+      creditCardStatement: { select: { id: true } },
+      refundTransactions: { where: { deletedAt: null }, select: { id: true } },
+      creditCardObligationEntries: {
+        include: {
+          paymentAllocations: { select: { id: true } },
+          statementItems: { select: { id: true } },
+        },
+      },
+    },
   });
   if (!current) throw new AppError("NOT_FOUND", "Giao dịch không còn tồn tại.");
-  if (current.installmentPlan || current.creditCardStatement) throw new AppError("CONFLICT", "Giao dịch đã vào kế hoạch trả góp hoặc sao kê và không thể sửa.");
+  if (current.installmentPlan || current.creditCardStatement) {
+    throw new AppError("CONFLICT", "Giao dịch đã vào kế hoạch trả góp hoặc sao kê và không thể sửa.");
+  }
   if (current.purpose && current.purpose !== "standard") {
     throw new AppError("CONFLICT", "Giao dịch thẻ chuyên biệt không thể sửa bằng biểu mẫu giao dịch thường.");
   }
-  if (current.workflowStatus === "approved" && current.wallet?.kind === "credit_card") {
-    throw new AppError("CONFLICT", "Chi tiêu thẻ đã duyệt không thể sửa; hãy hoàn tiền và tạo giao dịch mới.");
+  if (current.refundTransactions?.length) {
+    throw new AppError("CONFLICT", "Giao dịch đã có hoàn tiền và không thể sửa; hãy kiểm tra lại các khoản hoàn tiền liên kết.");
+  }
+  if (current.creditCardObligationEntries?.some((entry) => entry.paymentAllocations.length > 0 || entry.statementItems.length > 0)) {
+    throw new AppError("CONFLICT", "Giao dịch đã được thanh toán hoặc đưa vào bảng kê sao kê và không thể sửa.");
   }
   const resources = await requireTransactionResources(tx, workspaceId, input);
-  if (current.workflowStatus === "approved") await applyBalance(tx, current, true);
+  if (current.workflowStatus === "approved") {
+    await applyBalance(tx, current, true);
+    if (current.wallet?.kind === "credit_card") {
+      await tx.creditCardObligationEntry.deleteMany({ where: { transactionId: current.id } });
+      await tx.creditCardAllocation.deleteMany({ where: { transactionId: current.id } });
+    }
+  }
   const workflowStatus = workflowStatusForAppliedDate(input.date, getBusinessDateInTimeZone(timeZone, now));
   const updated = await tx.transaction.update({
     where: { id: record.id },
@@ -326,12 +348,23 @@ async function applyUpdate(
       jarCode: resources.jarCode,
     },
   });
-  await replaceCreditCardAllocations(
-    tx,
-    updated.id,
-    resources.walletKind === "credit_card" ? resources.allocations : undefined,
-  );
-  if (workflowStatus === "approved") await applyBalance(tx, updated);
+  if (resources.walletKind === "credit_card") {
+    await replaceCreditCardAllocations(
+      tx,
+      updated.id,
+      resources.allocations ?? input.allocations,
+    );
+  }
+  if (workflowStatus === "approved") {
+    await applyBalance(tx, updated);
+    if (resources.walletKind === "credit_card") {
+      await syncCreditCardObligationsForTransaction(tx, workspaceId, updated.id);
+      await assertCardBalanceReconciled(tx, updated.walletId);
+    }
+  }
+  if (current.workflowStatus === "approved" && current.wallet?.kind === "credit_card" && current.walletId !== updated.walletId) {
+    await assertCardBalanceReconciled(tx, current.walletId);
+  }
   return updated;
 }
 
@@ -339,20 +372,45 @@ async function softDelete(tx: TransactionClient, record: Transaction) {
   await lockTransaction(tx, record.id);
   const current = await tx.transaction.findFirst({
     where: { id: record.id, deletedAt: null },
-    include: { wallet: { select: { kind: true } }, installmentPlan: { select: { id: true, status: true } }, creditCardStatement: { select: { id: true } } },
+    include: {
+      wallet: { select: { kind: true } },
+      installmentPlan: { select: { id: true, status: true } },
+      creditCardStatement: { select: { id: true } },
+      refundTransactions: { where: { deletedAt: null }, select: { id: true } },
+      creditCardObligationEntries: {
+        include: {
+          paymentAllocations: { select: { id: true } },
+          statementItems: { select: { id: true } },
+        },
+      },
+    },
   });
   if (!current) throw new AppError("NOT_FOUND", "Giao dịch không còn tồn tại.");
-  if (current.installmentPlan?.status === "active" || current.installmentPlan?.status === "completed" || current.creditCardStatement) throw new AppError("CONFLICT", "Giao dịch đã vào kế hoạch trả góp hoặc sao kê và không thể xóa.");
-  if (current.installmentPlan?.status === "pending") await tx.creditCardInstallmentPlan.delete({ where: { id: current.installmentPlan.id } });
+  if (current.installmentPlan?.status === "active" || current.installmentPlan?.status === "completed" || current.creditCardStatement) {
+    throw new AppError("CONFLICT", "Giao dịch đã vào kế hoạch trả góp hoặc sao kê và không thể xóa.");
+  }
+  if (current.installmentPlan?.status === "pending") {
+    await tx.creditCardInstallmentPlan.delete({ where: { id: current.installmentPlan.id } });
+  }
   if (current.purpose && current.purpose !== "standard") {
     throw new AppError("CONFLICT", "Giao dịch thẻ chuyên biệt không thể xóa trực tiếp; hãy tạo điều chỉnh.");
   }
-  if (current.workflowStatus === "approved" && current.wallet?.kind === "credit_card") {
-    throw new AppError("CONFLICT", "Chi tiêu thẻ đã duyệt không thể xóa; hãy tạo hoàn tiền.");
+  if (current.refundTransactions?.length) {
+    throw new AppError("CONFLICT", "Giao dịch đã có hoàn tiền và không thể xóa; hãy xóa các khoản hoàn tiền trước.");
+  }
+  if (current.creditCardObligationEntries?.some((entry) => entry.paymentAllocations.length > 0 || entry.statementItems.length > 0)) {
+    throw new AppError("CONFLICT", "Giao dịch đã được thanh toán hoặc đưa vào bảng kê sao kê và không thể xóa.");
   }
   const claimed = await tx.transaction.updateMany({ where: { id: current.id, deletedAt: null }, data: { deletedAt: new Date() } });
   if (claimed.count !== 1) throw new AppError("CONFLICT", "Giao dịch đã được xóa trước đó.");
-  if (current.workflowStatus === "approved") await applyBalance(tx, current, true);
+  if (current.workflowStatus === "approved") {
+    await applyBalance(tx, current, true);
+    if (current.wallet?.kind === "credit_card") {
+      await tx.creditCardObligationEntry.deleteMany({ where: { transactionId: current.id } });
+      await tx.creditCardAllocation.deleteMany({ where: { transactionId: current.id } });
+      await assertCardBalanceReconciled(tx, current.walletId);
+    }
+  }
 }
 
 async function findWorkspaceTransaction(tx: TransactionClient, workspaceId: string, transactionId: string) {

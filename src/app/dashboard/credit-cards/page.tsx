@@ -5,10 +5,12 @@ import { CreditCardOverview } from "@/app/dashboard/wallets/credit-card-overview
 import { CreditCardCreate } from "@/app/dashboard/credit-cards/credit-card-create";
 import { PageContainer } from "@/components/base";
 import { workspaceCapabilities } from "@/domain/role-policy";
+import { firstStatementOnOrAfter } from "@/domain/credit-card/installments";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { availableCategoryWhere } from "@/services/category-visibility";
 import { generateWorkspaceCreditCardStatements } from "@/services/credit-card-statement-service";
 
 const ZERO = new Decimal(0);
@@ -35,7 +37,7 @@ export default async function CreditCardsPage() {
     membership.workspace.timeZone,
   );
 
-  const [links, fundingLinks] = await Promise.all([
+  const [links, allWalletLinks, categories] = await Promise.all([
     prisma.workspaceWallet.findMany({
     where: {
       workspaceId,
@@ -112,6 +114,7 @@ export default async function CreditCardsPage() {
               },
             },
             include: {
+              category: { select: { id: true, name: true } },
               creditCardPaymentReservations: {
                 where: { releasedAt: null },
                 select: { sourceWalletId: true, amount: true },
@@ -139,12 +142,25 @@ export default async function CreditCardsPage() {
     prisma.workspaceWallet.findMany({
       where: {
         workspaceId,
-        wallet: { kind: "asset", status: "active", deletedAt: null },
+        wallet: { status: "active", deletedAt: null },
       },
-      select: { wallet: { select: { id: true, name: true } } },
+      select: { wallet: { select: { id: true, name: true, kind: true } } },
       orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
     }),
+    prisma.category.findMany({
+      where: {
+        type: "expense",
+        ...availableCategoryWhere(workspaceId),
+      },
+      select: { id: true, name: true, icon: true, color: true, parentId: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
   ]);
+
+  const fundingWallets = allWalletLinks
+    .filter(({ wallet }) => wallet.kind === "asset")
+    .map(({ wallet }) => wallet);
+  const selectableWallets = allWalletLinks.map(({ wallet }) => wallet);
 
   const refundTransactions = links.length
     ? await prisma.transaction.findMany({
@@ -198,10 +214,6 @@ export default async function CreditCardsPage() {
 
     const pendingByWallet = new Map<string, Decimal>();
     for (const transaction of wallet.sourceTransactions) {
-      if (
-        transaction.purpose !== "credit_card_payment" ||
-        !["pending", "scheduled"].includes(transaction.workflowStatus)
-      ) continue;
       for (const reservation of transaction.creditCardPaymentReservations) {
         pendingByWallet.set(
           reservation.sourceWalletId,
@@ -244,7 +256,13 @@ export default async function CreditCardsPage() {
     return [{
       id: wallet.id,
       name: wallet.name,
+      currency: membership.workspace.baseCurrency,
       description: wallet.description,
+      balance: wallet.currentBalance.toString(),
+      remainingBalance: Decimal.max(
+        new Decimal(wallet.currentBalance.toString()).negated(),
+        ZERO,
+      ).toString(),
       debt: Decimal.max(wallet.currentBalance.toString(), ZERO).toString(),
       creditBalance: Decimal.max(
         new Decimal(wallet.currentBalance.toString()).negated(),
@@ -298,6 +316,34 @@ export default async function CreditCardsPage() {
         fee: plan.feeAmount.toString(),
         termCount: plan.termCount,
         paidTermCount: plan.paidTermCount,
+        monthlyPrincipal: plan.installments[0]?.principalAmount.toString() ?? "0",
+        monthlyFee: plan.installments[0]?.feeAmount.toString() ?? "0",
+        totalPerTerm: plan.installments[0]
+          ? new Decimal(plan.installments[0].principalAmount.toString())
+              .plus(plan.installments[0].feeAmount.toString())
+              .toString()
+          : "0",
+        remainingPrincipal: Decimal.max(
+          new Decimal(
+            plan.transaction
+              ? plan.transaction.amount.toString()
+              : plan.importedObligations.reduce(
+                  (sum, entry) => sum.plus(entry.amount.toString()),
+                  ZERO,
+                ).toString(),
+          ).minus(
+            plan.installments
+              .filter((i) => i.statementItems.some((s) => s.statement.status === "paid"))
+              .reduce((sum, i) => sum.plus(i.principalAmount.toString()), ZERO),
+          ),
+          ZERO,
+        ).toString(),
+        nextStatementDate: profile.statementClosingDay
+          ? firstStatementOnOrAfter(
+              getBusinessDateInTimeZone(membership.workspace.timeZone),
+              profile.statementClosingDay,
+            )
+          : null,
         importBalanceMode: plan.importBalanceMode,
         status: plan.status,
         canDelete:
@@ -347,35 +393,72 @@ export default async function CreditCardsPage() {
           }
           return items;
         }, []),
-      activities: wallet.sourceTransactions.map((transaction) => ({
-        id: transaction.id,
-        purpose: transaction.purpose,
-        description: transaction.description,
-        amount: transaction.amount.toString(),
-        date: transaction.date.toISOString().slice(0, 10),
-        status: transaction.workflowStatus,
-        installmentEligible:
+      reservedFunding: profile.obligations
+        .filter((entry) =>
+          new Decimal(entry.amount.toString())
+            .minus(
+              entry.paymentAllocations.reduce(
+                (sum, a) => sum.plus(a.amount.toString()),
+                ZERO,
+              ),
+            )
+            .gt(0),
+        )
+        .reduce<Array<{ walletId: string; amount: string }>>((items, entry) => {
+          const current = items.find((item) => item.walletId === entry.fundingWalletId);
+          if (current) {
+            current.amount = new Decimal(current.amount).plus(entry.amount.toString()).toString();
+          } else {
+            items.push({ walletId: entry.fundingWalletId, amount: entry.amount.toString() });
+          }
+          return items;
+        }, []),
+      activities: wallet.sourceTransactions.map((transaction) => {
+        const canModify =
           transaction.purpose === "standard" &&
-          transaction.workflowStatus === "approved" &&
           !transaction.installmentPlan &&
+          !transaction.creditCardStatementId &&
+          transaction.refundTransactions.length === 0 &&
           transaction.creditCardObligationEntries.every(
             (entry) =>
               entry.paymentAllocations.length === 0 &&
               entry.statementItems.length === 0,
-          ),
-        installmentPlanId: transaction.installmentPlan?.id ?? null,
-        refundableAmount: transaction.purpose === "standard"
-          ? Decimal.max(
-              new Decimal(transaction.amount.toString()).minus(
-                transaction.refundTransactions.reduce(
-                  (sum, refund) => sum.plus(refund.amount.toString()),
-                  ZERO,
+          );
+        return {
+          id: transaction.id,
+          purpose: transaction.purpose,
+          description: transaction.description,
+          amount: transaction.amount.toString(),
+          date: transaction.date.toISOString().slice(0, 10),
+          status: transaction.workflowStatus,
+          categoryId: transaction.categoryId ?? null,
+          category: transaction.category?.name ?? null,
+          walletId: transaction.walletId,
+          installmentEligible:
+            transaction.purpose === "standard" &&
+            transaction.workflowStatus === "approved" &&
+            !transaction.installmentPlan &&
+            transaction.creditCardObligationEntries.every(
+              (entry) =>
+                entry.paymentAllocations.length === 0 &&
+                entry.statementItems.length === 0,
+            ),
+          canDelete: canModify,
+          canEdit: canModify,
+          installmentPlanId: transaction.installmentPlan?.id ?? null,
+          refundableAmount: transaction.purpose === "standard"
+            ? Decimal.max(
+                new Decimal(transaction.amount.toString()).minus(
+                  transaction.refundTransactions.reduce(
+                    (sum, refund) => sum.plus(refund.amount.toString()),
+                    ZERO,
+                  ),
                 ),
-              ),
-              ZERO,
-            ).toString()
-          : "0",
-      })),
+                ZERO,
+              ).toString()
+            : "0",
+        };
+      }),
       refundCandidates: refundCandidatesByCard.get(wallet.id) ?? [],
     }];
   });
@@ -396,7 +479,7 @@ export default async function CreditCardsPage() {
             <CreditCardCreate
               currency={membership.workspace.baseCurrency}
               canManage={workspaceCapabilities(membership.role.code).canManageWallets}
-              fundingWallets={fundingLinks.map(({ wallet }) => wallet)}
+              fundingWallets={fundingWallets}
             />
           </div>
         </header>
@@ -407,7 +490,9 @@ export default async function CreditCardsPage() {
           cards={cards}
           canManage={workspaceCapabilities(membership.role.code).canManageWallets}
           canApprove={workspaceCapabilities(membership.role.code).canApproveTransactions}
-          fundingWallets={fundingLinks.map(({ wallet }) => wallet)}
+          fundingWallets={fundingWallets}
+          wallets={selectableWallets}
+          categories={categories}
         />
       </div>
     </PageContainer>
