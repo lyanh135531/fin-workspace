@@ -479,25 +479,41 @@ export async function deleteCreditCard(
         );
       }
     } else if (isVoidingAll) {
+      const cardStatements = (await tx.creditCardStatement.findMany?.({
+        where: { cardWalletId },
+        select: { id: true },
+      })) ?? [];
+      const cardStatementIds = cardStatements.map((s) => s.id);
+
+      const cardPlans = (await tx.creditCardInstallmentPlan.findMany?.({
+        where: { cardWalletId },
+        select: { id: true },
+      })) ?? [];
+      const cardPlanIds = cardPlans.map((p) => p.id);
+
       const cardTransactions = await tx.transaction.findMany({
         where: {
           deletedAt: null,
           member: { workspaceId },
-          OR: [{ walletId: cardWalletId }, { toWalletId: cardWalletId }],
+          OR: [
+            { walletId: cardWalletId },
+            { toWalletId: cardWalletId },
+            ...(cardStatementIds.length > 0
+              ? [{ creditCardStatementId: { in: cardStatementIds } }]
+              : []),
+          ],
         },
         select: { id: true },
       });
       const cardTransactionIds = cardTransactions.map((t) => t.id);
 
       if (cardTransactionIds.length > 0) {
-        await tx.creditCardPaymentReservation.updateMany({
-          where: { paymentTransactionId: { in: cardTransactionIds }, releasedAt: null },
-          data: { releasedAt: new Date() },
+        await tx.creditCardPaymentReservation?.deleteMany?.({
+          where: { paymentTransactionId: { in: cardTransactionIds } },
         });
       }
-      await tx.creditCardPaymentReservation.updateMany({
-        where: { sourceWalletId: cardWalletId, releasedAt: null },
-        data: { releasedAt: new Date() },
+      await tx.creditCardPaymentReservation?.deleteMany?.({
+        where: { sourceWalletId: cardWalletId },
       });
 
       if (cardTransactionIds.length > 0) {
@@ -511,29 +527,57 @@ export async function deleteCreditCard(
       await tx.creditCardPaymentAllocation?.deleteMany?.({
         where: { obligationEntry: { cardWalletId } },
       });
-
-      await tx.creditCardStatementItem.deleteMany({
-        where: { statement: { cardWalletId } },
-      });
-      await tx.creditCardStatement.deleteMany({
-        where: { cardWalletId },
+      await tx.creditCardPaymentSource?.deleteMany?.({
+        where: { sourceWalletId: cardWalletId },
       });
 
-      await tx.creditCardInstallment?.deleteMany?.({
-        where: { plan: { cardWalletId } },
-      });
-      await tx.creditCardInstallmentPlan.deleteMany({
-        where: { cardWalletId },
+      await tx.creditCardStatementItem?.deleteMany?.({
+        where: {
+          OR: [
+            { statement: { cardWalletId } },
+            { obligationEntry: { cardWalletId } },
+            ...(cardPlanIds.length > 0
+              ? [{ installment: { planId: { in: cardPlanIds } } }]
+              : []),
+          ],
+        },
       });
 
-      await tx.creditCardObligationEntry.deleteMany({
-        where: { cardWalletId },
+      await tx.creditCardObligationEntry?.deleteMany?.({
+        where: {
+          OR: [
+            { cardWalletId },
+            ...(cardTransactionIds.length > 0
+              ? [{ transactionId: { in: cardTransactionIds } }]
+              : []),
+            ...(cardPlanIds.length > 0
+              ? [{ installmentPlanId: { in: cardPlanIds } }]
+              : []),
+          ],
+        },
       });
-      if (cardTransactionIds.length > 0) {
-        await tx.creditCardObligationEntry.deleteMany({
-          where: { transactionId: { in: cardTransactionIds } },
+
+      if (cardPlanIds.length > 0) {
+        await tx.creditCardInstallment?.deleteMany?.({
+          where: { planId: { in: cardPlanIds } },
         });
-        await tx.creditCardAllocation.deleteMany({
+      }
+      await tx.creditCardInstallmentPlan?.deleteMany?.({
+        where: { cardWalletId },
+      });
+
+      if (cardStatementIds.length > 0) {
+        await tx.transaction.updateMany?.({
+          where: { creditCardStatementId: { in: cardStatementIds } },
+          data: { creditCardStatementId: null },
+        });
+      }
+      await tx.creditCardStatement?.deleteMany?.({
+        where: { cardWalletId },
+      });
+
+      if (cardTransactionIds.length > 0) {
+        await tx.creditCardAllocation?.deleteMany?.({
           where: { transactionId: { in: cardTransactionIds } },
         });
       }
@@ -541,11 +585,20 @@ export async function deleteCreditCard(
         where: { cardWalletId },
       });
 
-      for (const t of cardTransactions) {
-        await tx.transaction.update({
-          where: { id: t.id },
-          data: { deletedAt: new Date() },
-        });
+      if (cardTransactionIds.length > 0) {
+        if (tx.transaction.updateMany) {
+          await tx.transaction.updateMany({
+            where: { id: { in: cardTransactionIds } },
+            data: { deletedAt: new Date() },
+          });
+        } else {
+          for (const t of cardTransactions) {
+            await tx.transaction.update({
+              where: { id: t.id },
+              data: { deletedAt: new Date() },
+            });
+          }
+        }
       }
 
       await tx.recurringTransaction?.updateMany?.({

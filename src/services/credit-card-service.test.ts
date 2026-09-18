@@ -89,16 +89,19 @@ describe("deleteCreditCard checks", () => {
   const tx = {
     $queryRaw: vi.fn(),
     workspaceWallet: { findFirst: vi.fn() },
-    transaction: { count: vi.fn(), findMany: vi.fn(), update: vi.fn() },
-    creditCardInstallmentPlan: { count: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
-    creditCardStatement: { count: vi.fn(), deleteMany: vi.fn() },
+    transaction: { count: vi.fn(), findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    creditCardInstallmentPlan: { count: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), findMany: vi.fn() },
+    creditCardStatement: { count: vi.fn(), deleteMany: vi.fn(), findMany: vi.fn() },
     creditCardStatementItem: { deleteMany: vi.fn() },
     creditCardObligationEntry: { deleteMany: vi.fn() },
     creditCardAllocation: { deleteMany: vi.fn() },
-    creditCardPaymentReservation: { updateMany: vi.fn() },
-    recurringTransaction: { count: vi.fn() },
+    creditCardPaymentReservation: { updateMany: vi.fn(), deleteMany: vi.fn() },
+    creditCardPaymentAllocation: { deleteMany: vi.fn() },
+    creditCardPaymentSource: { deleteMany: vi.fn() },
+    creditCardInstallment: { deleteMany: vi.fn() },
+    recurringTransaction: { count: vi.fn(), updateMany: vi.fn() },
     wallet: { update: vi.fn() },
-    creditCardProfile: { update: vi.fn() },
+    creditCardProfile: { update: vi.fn(), deleteMany: vi.fn() },
     auditLog: { create: vi.fn() },
   };
 
@@ -115,6 +118,8 @@ describe("deleteCreditCard checks", () => {
     tx.creditCardStatement.count.mockResolvedValue(0);
     tx.recurringTransaction.count.mockResolvedValue(0);
     tx.transaction.findMany.mockResolvedValue([]);
+    tx.creditCardStatement.findMany.mockResolvedValue([]);
+    tx.creditCardInstallmentPlan.findMany.mockResolvedValue([]);
   });
 
   it("rejects deletion without resolution when card still has outstanding debt", async () => {
@@ -142,13 +147,9 @@ describe("deleteCreditCard checks", () => {
       }),
     ).resolves.toEqual({ ok: true });
 
-    expect(tx.transaction.update).toHaveBeenCalledWith({
-      where: { id: "tx-1" },
+    expect(tx.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["tx-1"] } },
       data: { deletedAt: expect.any(Date) },
-    });
-    expect(tx.creditCardPaymentReservation.updateMany).toHaveBeenCalledWith({
-      where: { paymentTransactionId: { in: ["tx-1"] }, releasedAt: null },
-      data: { releasedAt: expect.any(Date) },
     });
     expect(tx.wallet.update).toHaveBeenCalledWith({
       where: { id: "card-id" },
@@ -172,9 +173,41 @@ describe("deleteCreditCard checks", () => {
       deleteCreditCard("user-id", "workspace-id", "card-id", undefined, true),
     ).resolves.toEqual({ ok: true });
 
-    expect(tx.transaction.update).toHaveBeenCalledWith({
-      where: { id: "tx-2" },
+    expect(tx.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["tx-2"] } },
       data: { deletedAt: expect.any(Date) },
+    });
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "card-id" },
+      data: {
+        status: "deactive",
+        deletedAt: expect.any(Date),
+        currentBalance: new Decimal(0),
+      },
+    });
+  });
+
+  it("deletes card with paid statements and unlinks statement transactions when confirmLoss is true", async () => {
+    tx.workspaceWallet.findFirst.mockResolvedValue({
+      wallet: { currentBalance: new Decimal(0) },
+    });
+    tx.creditCardStatement.findMany.mockResolvedValue([
+      { id: "statement-1" },
+    ]);
+    tx.transaction.findMany.mockResolvedValue([
+      { id: "tx-payment-1", type: "expense", creditCardStatementId: "statement-1" },
+    ]);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id", undefined, true),
+    ).resolves.toEqual({ ok: true });
+
+    expect(tx.transaction.updateMany).toHaveBeenCalledWith({
+      where: { creditCardStatementId: { in: ["statement-1"] } },
+      data: { creditCardStatementId: null },
+    });
+    expect(tx.creditCardStatement.deleteMany).toHaveBeenCalledWith({
+      where: { cardWalletId: "card-id" },
     });
     expect(tx.wallet.update).toHaveBeenCalledWith({
       where: { id: "card-id" },
