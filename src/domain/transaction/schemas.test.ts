@@ -84,11 +84,14 @@ describe("createCreditCardRefundSchema", () => {
     expect(value.amount.toString()).toBe("250000");
   });
 
-  it("rejects a refund without the original transaction", () => {
-    expect(() => createCreditCardRefundSchema.parse({
+  it("allows an independent refund without the original transaction", () => {
+    const value = createCreditCardRefundSchema.parse({
       cardWalletId: walletId,
       amount: "250000",
       date: "2026-09-11",
-    })).toThrow();
+    });
+    expect(value.cardWalletId).toBe(walletId);
+    expect(value.originalTransactionId).toBeUndefined();
+    expect(value.amount.toString()).toBe("250000");
   });
 });

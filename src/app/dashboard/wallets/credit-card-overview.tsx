@@ -11,6 +11,7 @@ import {
   ChevronRight,
   CreditCard,
   History,
+  Info,
   MoreHorizontal,
   Pencil,
   RotateCcw,
@@ -361,6 +362,7 @@ function CreditCardPanel({
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundAmount, setRefundAmount] = useState("");
   const [refundTransactionId, setRefundTransactionId] = useState("");
+  const [refundDescription, setRefundDescription] = useState("");
   const [installmentTarget, setInstallmentTarget] = useState<CardActivity | null>(null);
   const [termCount, setTermCount] = useState("3");
   const [feeAmount, setFeeAmount] = useState("");
@@ -403,8 +405,8 @@ function CreditCardPanel({
   const cannotDeleteReason = hasPaidStatements
     ? "Thẻ đã có kỳ sao kê đã thanh toán. Để bảo đảm sổ sách kế toán, thẻ này không thể xóa."
     : hasActiveInstallments
-    ? "Thẻ đang có kế hoạch trả góp đang chạy hoặc đã hoàn tất, không thể xóa trực tiếp."
-    : null;
+      ? "Thẻ đang có kế hoạch trả góp đang chạy hoặc đã hoàn tất, không thể xóa trực tiếp."
+      : null;
 
   const [paymentConfirmOpen, setPaymentConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -455,15 +457,15 @@ function CreditCardPanel({
           description: editActivityDescription.trim() || undefined,
           allocations: isCreditCard
             ? [
-                {
-                  walletId:
-                    card.defaultFundingWalletId ??
-                    fundingWallets[0]?.id ??
-                    wallets?.find((w) => w.kind === "asset")?.id ??
-                    "",
-                  amount: new Decimal(editAmount),
-                },
-              ]
+              {
+                walletId:
+                  card.defaultFundingWalletId ??
+                  fundingWallets[0]?.id ??
+                  wallets?.find((w) => w.kind === "asset")?.id ??
+                  "",
+                amount: new Decimal(editAmount),
+              },
+            ]
             : undefined,
         },
         "Sửa giao dịch từ trang Thẻ tín dụng",
@@ -592,13 +594,14 @@ function CreditCardPanel({
   }
 
   function submitRefund() {
-    if (!refundTransactionId || !new Decimal(refundAmount || 0).gt(0)) return;
+    if (!new Decimal(refundAmount || 0).gt(0)) return;
     startTransition(async () => {
       const result = await addCreditCardRefundAction(workspaceId, {
         cardWalletId: card.id,
-        originalTransactionId: refundTransactionId,
+        originalTransactionId: refundTransactionId || undefined,
         amount: refundAmount,
         date: businessDate,
+        description: refundDescription.trim() || undefined,
       });
       if (!result.ok) {
         toast.error(result.message ?? "Không thể hoàn tiền.");
@@ -606,12 +609,15 @@ function CreditCardPanel({
       }
       toast.success(
         result.status === "approved"
-          ? "Đã ghi nhận hoàn tiền vào thẻ."
+          ? refundTransactionId
+            ? "Đã ghi nhận hoàn tiền giao dịch."
+            : "Đã ghi nhận hoàn tiền vào thẻ."
           : "Đã tạo khoản hoàn tiền chờ duyệt.",
       );
       setRefundOpen(false);
       setRefundAmount("");
       setRefundTransactionId("");
+      setRefundDescription("");
     });
   }
 
@@ -825,13 +831,12 @@ function CreditCardPanel({
       <>
         <div className="flex items-center gap-2.5 min-w-0">
           <div
-            className={`grid size-8 shrink-0 place-items-center rounded-lg ${
-              activity.purpose === "credit_card_refund"
+            className={`grid size-8 shrink-0 place-items-center rounded-lg ${activity.purpose === "credit_card_refund"
                 ? "bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] text-[var(--success)]"
                 : activity.purpose === "credit_card_payment"
                   ? "bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
                   : "bg-[var(--surface-secondary)] text-[var(--text-secondary)]"
-            }`}
+              }`}
           >
             {activity.purpose === "credit_card_refund" ? (
               <RotateCcw size={14} />
@@ -856,14 +861,13 @@ function CreditCardPanel({
 
         <div className="flex flex-col items-end shrink-0">
           <span
-            className={`text-xs font-semibold tabular-nums ${
-              activity.purpose === "credit_card_refund"
+            className={`text-xs font-semibold tabular-nums ${activity.purpose === "credit_card_refund"
                 ? "text-[var(--success)]"
                 : "text-[var(--foreground)]"
-            }`}
+              }`}
           >
             {activity.purpose === "credit_card_refund" ||
-            activity.purpose === "credit_card_payment"
+              activity.purpose === "credit_card_payment"
               ? "−"
               : "+"}
             {formatAmount(activity.amount, { maximumFractionDigits: 0 })} {currency}
@@ -881,7 +885,9 @@ function CreditCardPanel({
     const isMenuOpen = menuActivityId === activity.id;
     const canDeleteActivity = canManage && Boolean(activity.canDelete);
     const canEditActivity = canManage && Boolean(activity.canEdit);
-    const hasActivityMenu = activity.installmentEligible || canEditActivity || canDeleteActivity;
+    const refundCandidate = card.refundCandidates.find((c) => c.id === activity.id);
+    const canRefundActivity = canManage && Boolean(refundCandidate && new Decimal(refundCandidate.refundableAmount).gt(0));
+    const hasActivityMenu = activity.installmentEligible || canEditActivity || canRefundActivity || canDeleteActivity;
 
     if (hasActivityMenu) {
       return (
@@ -949,9 +955,29 @@ function CreditCardPanel({
                 </DropdownMenuItem>
               </>
             )}
-            {canDeleteActivity && (
+            {canRefundActivity && (
               <>
                 {(activity.installmentEligible || canEditActivity) && (
+                  <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-[var(--border)]" />
+                )}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setMenuActivityId(null);
+                    setRefundTransactionId(activity.id);
+                    setRefundDescription(`Hoàn tiền cho ${activity.description || "giao dịch"}`);
+                    setRefundAmount(refundCandidate?.refundableAmount ?? "");
+                    setRefundOpen(true);
+                  }}
+                  className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                >
+                  <RotateCcw className="size-4 text-[var(--primary)]" aria-hidden="true" />
+                  <span>Hoàn tiền giao dịch</span>
+                </DropdownMenuItem>
+              </>
+            )}
+            {canDeleteActivity && (
+              <>
+                {(activity.installmentEligible || canEditActivity || canRefundActivity) && (
                   <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-[var(--border)]" />
                 )}
                 <DropdownMenuItem
@@ -1027,8 +1053,8 @@ function CreditCardPanel({
                     hasCredit
                       ? "text-emerald-600 dark:text-emerald-400"
                       : new Decimal(card.debt || 0).gt(0)
-                      ? "text-rose-600 dark:text-rose-400"
-                      : "text-[var(--foreground)]"
+                        ? "text-rose-600 dark:text-rose-400"
+                        : "text-[var(--foreground)]"
                   )}
                 >
                   {formatAmount(hasCredit ? card.creditBalance : card.debt)}{" "}
@@ -1080,8 +1106,8 @@ function CreditCardPanel({
                   utilizationPercent > 80
                     ? "bg-rose-500"
                     : utilizationPercent > 50
-                    ? "bg-amber-500"
-                    : "bg-[var(--primary)]"
+                      ? "bg-amber-500"
+                      : "bg-[var(--primary)]"
                 )}
                 style={{ width: `${utilizationPercent}%` }}
               />
@@ -1171,9 +1197,10 @@ function CreditCardPanel({
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem
-                            disabled={card.refundCandidates.length === 0}
                             onClick={() => {
-                              setRefundTransactionId(card.refundCandidates[0]?.id ?? "");
+                              setRefundTransactionId("");
+                              setRefundDescription("");
+                              setRefundAmount("");
                               setRefundOpen(true);
                             }}
                             className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
@@ -1251,10 +1278,10 @@ function CreditCardPanel({
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
                         <div
                           className={`h-full rounded-full transition-all duration-300 ${utilizationPercent > 80
-                              ? "bg-[var(--destructive)]"
-                              : utilizationPercent > 50
-                                ? "bg-[var(--warning)]"
-                                : "bg-[var(--primary)]"
+                            ? "bg-[var(--destructive)]"
+                            : utilizationPercent > 50
+                              ? "bg-[var(--warning)]"
+                              : "bg-[var(--primary)]"
                             }`}
                           style={{ width: `${utilizationPercent}%` }}
                         />
@@ -1306,13 +1333,12 @@ function CreditCardPanel({
                       </h3>
 
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                          card.statement.overdue
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${card.statement.overdue
                             ? "bg-[color-mix(in_srgb,var(--destructive)_12%,var(--surface))] text-[var(--destructive)]"
                             : card.statement.paymentPending
                               ? "bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)]"
                               : "bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
-                        }`}
+                          }`}
                       >
                         {card.statement.overdue
                           ? "Quá hạn"
@@ -1329,11 +1355,10 @@ function CreditCardPanel({
                             {formatAmount(card.statement.amount, { maximumFractionDigits: 0 })} {currency}
                           </p>
                           <p
-                            className={`mt-0.5 text-xs ${
-                              card.statement.overdue
+                            className={`mt-0.5 text-xs ${card.statement.overdue
                                 ? "font-medium text-[var(--destructive)]"
                                 : "text-[var(--text-secondary)]"
-                            }`}
+                              }`}
                           >
                             Chốt: {formatIsoDate(card.statement.cycleEndDate)} · Hạn: {formatIsoDate(card.statement.dueDate)}
                             {card.statement.overdue && " (Đã quá hạn)"}
@@ -1570,6 +1595,7 @@ function CreditCardPanel({
         </Sheet>
 
         {/* Ghi nhận hoàn tiền - Bottom Sheet trên Mobile, Drawer trên Desktop */}
+        {/* Ghi nhận hoàn tiền - Bottom Sheet trên Mobile, Drawer trên Desktop */}
         <Sheet
           open={refundOpen}
           onOpenChange={(nextOpen) => {
@@ -1577,6 +1603,7 @@ function CreditCardPanel({
               setRefundOpen(false);
               setRefundAmount("");
               setRefundTransactionId("");
+              setRefundDescription("");
             }
           }}
         >
@@ -1597,80 +1624,116 @@ function CreditCardPanel({
             >
               <SheetHeader
                 icon={RotateCcw}
-                title="Ghi nhận hoàn tiền"
-                description={`Chọn giao dịch gốc và nhập số tiền được hoàn vào thẻ ${card.name}.`}
+                title={refundTransactionId ? "Hoàn tiền giao dịch" : "Ghi nhận hoàn tiền"}
+                description={
+                  refundTransactionId
+                    ? `Hoàn tiền chi tiêu vào thẻ ${card.name}`
+                    : `Cộng tiền hoàn hoặc cashback vào thẻ ${card.name}`
+                }
               />
 
               <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain pb-2">
-                {/* Context info card */}
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 flex items-center justify-between text-xs">
-                  <div className="space-y-0.5">
-                    <span className="text-[var(--text-muted)]">Thẻ tín dụng</span>
-                    <p className="font-semibold text-[var(--foreground)]">{card.name}</p>
+                {/* Compact Card Pill */}
+                <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 px-3.5 py-2.5 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-[var(--primary)]/10 text-[var(--primary)]">
+                      <CreditCard size={13} />
+                    </span>
+                    <span className="font-semibold text-[var(--foreground)] truncate">{card.name}</span>
                   </div>
-                  <div className="text-right space-y-0.5">
-                    <span className="text-[var(--text-muted)]">Dư nợ hiện tại</span>
-                    <p className="font-semibold tabular-nums text-[var(--foreground)]">
+                  <div className="text-right shrink-0">
+                    <span className="text-[11px] text-[var(--text-muted)]">Dư nợ: </span>
+                    <strong className="font-semibold tabular-nums text-[var(--foreground)]">
                       {formatAmount(hasCredit ? card.creditBalance : card.debt)} {currency}
-                      {hasCredit ? " (Dư có)" : ""}
-                    </p>
+                    </strong>
+                    {hasCredit && <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium ml-1">(Dư có)</span>}
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <Select
-                    label="Giao dịch gốc"
-                    value={refundTransactionId}
-                    onValueChange={(value) => {
-                      setRefundTransactionId(value);
-                      setRefundAmount("");
-                    }}
-                    options={card.refundCandidates.map((activity) => ({
-                      value: activity.id,
-                      label: `${activity.description ?? "Chi tiêu thẻ"} · ${formatIsoDate(activity.date)} · còn ${formatAmount(activity.refundableAmount)} ${currency}`,
-                    }))}
-                    required
-                  />
+                {/* If linked to a specific transaction, show original transaction box */}
+                {selectedRefundActivity && (
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+                      <span className="font-medium">Giao dịch gốc</span>
+                      <span>{formatIsoDate(selectedRefundActivity.date)}</span>
+                    </div>
+                    <p className="font-semibold text-[var(--foreground)]">
+                      {selectedRefundActivity.description || "Chi tiêu thẻ"}
+                    </p>
+                    <div className="flex items-center justify-between pt-1 border-t border-[var(--border)]/50 text-[11px]">
+                      <span className="text-[var(--text-muted)]">Số tiền có thể hoàn:</span>
+                      <strong className="font-semibold tabular-nums text-[var(--primary)]">
+                        {formatAmount(selectedRefundActivity.refundableAmount)} {currency}
+                      </strong>
+                    </div>
+                  </div>
+                )}
+
+                {/* Amount input */}
+                <div>
                   <MoneyInput
-                    label={`Số tiền hoàn (${currency})`}
+                    label="Số tiền hoàn"
                     value={refundAmount}
                     onValueChange={setRefundAmount}
                     placeholder="0"
                     required
+                    autoFocus
                   />
                   {selectedRefundActivity && refundAmount && new Decimal(refundAmount || 0).gt(selectedRefundActivity.refundableAmount) && (
-                    <p role="alert" className="flex items-center gap-1.5 text-xs text-[var(--destructive)]">
+                    <p role="alert" className="mt-1 flex items-center gap-1.5 text-xs text-[var(--destructive)]">
                       <AlertCircle className="size-3.5" aria-hidden="true" />
-                      Chỉ còn có thể hoàn {formatAmount(selectedRefundActivity.refundableAmount)} {currency}.
+                      Chỉ còn có thể hoàn tối đa {formatAmount(selectedRefundActivity.refundableAmount)} {currency}.
                     </p>
                   )}
+                </div>
 
+                {/* Reason / Description */}
+                <div>
                   <Input
-                    label="Ngày ghi nhận hoàn"
-                    type="date"
-                    value={businessDate}
-                    readOnly
+                    label="Nội dung"
+                    value={refundDescription}
+                    onChange={(e) => setRefundDescription(e.target.value)}
+                    placeholder={
+                      refundTransactionId
+                        ? "Lý do hoàn tiền (hủy đơn, trả hàng...)"
+                        : "Cashback chi tiêu, Hoàn phí thường niên..."
+                    }
+                    maxLength={120}
                   />
                 </div>
 
-                <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                  Khoản hoàn sẽ giảm dư nợ và đảo đúng phần phân bổ ví của giao dịch gốc. Nếu thẻ đã được thanh toán, khoản hoàn có thể tạo số dư có.
-                </p>
+                {/* Date note */}
+                <div className="flex items-center justify-between rounded-xl bg-[var(--surface-secondary)]/30 px-3.5 py-2 text-xs text-[var(--text-muted)] border border-[var(--border)]/60">
+                  <span>Ngày ghi nhận</span>
+                  <span className="font-medium text-[var(--foreground)] tabular-nums">
+                    {formatIsoDate(businessDate)}
+                  </span>
+                </div>
+
+                {/* Friendly explanation note */}
+                <div className="flex items-start gap-2 rounded-xl bg-[var(--surface-secondary)]/40 p-2.5 text-[11px] text-[var(--text-muted)] leading-relaxed border border-[var(--border)]/40">
+                  <Info className="size-3.5 shrink-0 text-[var(--primary)] mt-0.5" aria-hidden="true" />
+                  <span>
+                    {refundTransactionId
+                      ? "Tiền hoàn sẽ giảm dư nợ thẻ và đảo lại phần tiền phân bổ từ ví bảo lãnh của giao dịch gốc."
+                      : "Tiền hoàn sẽ tự động cấn trừ vào dư nợ thẻ hoặc cộng vào hạn mức khả dụng của bạn."}
+                  </span>
+                </div>
               </div>
 
               <SheetFooter
-                className="pb-[max(1.25rem,env(safe-area-inset-bottom))] px-4 sm:px-6 py-3 sm:py-3.5"
+                className="pb-[max(1.5rem,env(safe-area-inset-bottom))] px-4 sm:px-6 py-3 sm:py-3.5"
                 onCancel={() => {
                   setRefundOpen(false);
                   setRefundAmount("");
                   setRefundTransactionId("");
+                  setRefundDescription("");
                 }}
                 cancelLabel="Hủy"
-                submitLabel={pending ? "Đang ghi nhận..." : "Xác nhận hoàn tiền"}
+                submitLabel={pending ? "Đang ghi nhận..." : "Ghi nhận hoàn tiền"}
                 isSubmitting={pending}
                 submitDisabled={
                   pending ||
-                  !refundTransactionId ||
                   !refundAmount ||
                   !new Decimal(refundAmount || 0).gt(0) ||
                   Boolean(selectedRefundActivity && new Decimal(refundAmount || 0).gt(selectedRefundActivity.refundableAmount))
@@ -2346,211 +2409,190 @@ function CreditCardPanel({
         />
       )}
 
-        {/* Sheet xem toàn bộ Kế hoạch trả góp */}
-        <Sheet open={allPlansOpen} onOpenChange={setAllPlansOpen}>
-          <SheetContent
-            side={isDesktop ? "right" : "bottom"}
-            placement={isDesktop ? "inset" : "edge"}
-            size={isDesktop ? "wide" : "default"}
-            spacing="flush"
-            elevation="flat"
-            className={isDesktop ? undefined : "quick-transaction-sheet"}
-          >
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <SheetHeader
-                icon={CalendarClock}
-                title="Khoản trả góp"
-                description={`Tất cả ${card.installmentPlans.length} khoản trả góp của thẻ ${card.name}.`}
-              />
-              <div className="flex-1 space-y-2.5 overflow-y-auto p-4 sm:p-6 overscroll-contain">
-                {card.installmentPlans.map(renderInstallmentCard)}
-              </div>
-              <SheetFooter
-                className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5"
-                onSubmit={() => setAllPlansOpen(false)}
-                submitLabel="Đóng"
-                submitType="button"
-              />
+      {/* Sheet xem toàn bộ Kế hoạch trả góp */}
+      <Sheet open={allPlansOpen} onOpenChange={setAllPlansOpen}>
+        <SheetContent
+          side={isDesktop ? "right" : "bottom"}
+          placement={isDesktop ? "inset" : "edge"}
+          size={isDesktop ? "wide" : "default"}
+          spacing="flush"
+          elevation="flat"
+          className={isDesktop ? undefined : "quick-transaction-sheet"}
+        >
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <SheetHeader
+              icon={CalendarClock}
+              title="Khoản trả góp"
+              description={`Tất cả ${card.installmentPlans.length} khoản trả góp của thẻ ${card.name}.`}
+            />
+            <div className="flex-1 space-y-2.5 overflow-y-auto p-4 sm:p-6 overscroll-contain">
+              {card.installmentPlans.map(renderInstallmentCard)}
             </div>
-          </SheetContent>
-        </Sheet>
+            <SheetFooter
+              className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5"
+              onSubmit={() => setAllPlansOpen(false)}
+              submitLabel="Đóng"
+              submitType="button"
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
-        {/* Sheet xem toàn bộ Giao dịch gần đây */}
-        <Sheet open={allActivitiesOpen} onOpenChange={setAllActivitiesOpen}>
-          <SheetContent
-            side={isDesktop ? "right" : "bottom"}
-            placement={isDesktop ? "inset" : "edge"}
-            size={isDesktop ? "wide" : "default"}
-            spacing="flush"
-            elevation="flat"
-            className={isDesktop ? undefined : "quick-transaction-sheet"}
-          >
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <SheetHeader
-                icon={History}
-                title="Giao dịch gần đây"
-                description={`Tất cả ${card.activities.length} giao dịch phát sinh trên thẻ ${card.name}.`}
-              />
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 overscroll-contain">
-                <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/15 px-3">
-                  {card.activities.map(renderActivityRow)}
-                </div>
+      {/* Sheet xem toàn bộ Giao dịch gần đây */}
+      <Sheet open={allActivitiesOpen} onOpenChange={setAllActivitiesOpen}>
+        <SheetContent
+          side={isDesktop ? "right" : "bottom"}
+          placement={isDesktop ? "inset" : "edge"}
+          size={isDesktop ? "wide" : "default"}
+          spacing="flush"
+          elevation="flat"
+          className={isDesktop ? undefined : "quick-transaction-sheet"}
+        >
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <SheetHeader
+              icon={History}
+              title="Giao dịch gần đây"
+              description={`Tất cả ${card.activities.length} giao dịch phát sinh trên thẻ ${card.name}.`}
+            />
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 overscroll-contain">
+              <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/15 px-3">
+                {card.activities.map(renderActivityRow)}
               </div>
-              <SheetFooter
-                className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5"
-                onSubmit={() => setAllActivitiesOpen(false)}
-                submitLabel="Đóng"
-                submitType="button"
-              />
             </div>
-          </SheetContent>
-        </Sheet>
+            <SheetFooter
+              className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5"
+              onSubmit={() => setAllActivitiesOpen(false)}
+              submitLabel="Đóng"
+              submitType="button"
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
-        {/* Xác nhận xóa khoản trả góp */}
-        {deletingPlan && (
-          <ConfirmDelete
-            open={Boolean(deletingPlan)}
-            onOpenChange={(open) => !open && setDeletingPlan(null)}
-            trigger={null}
-            ariaLabel={`Xóa khoản trả góp ${deletingPlan.description || ""}`}
-            title={
-              deletingPlan.description
-                ? `Xóa khoản trả góp “${deletingPlan.description}”?`
-                : "Xóa khoản trả góp?"
-            }
-            description={
-              deletingPlan.importBalanceMode === "add_to_balance"
-                ? "Dư nợ thẻ sẽ được giảm trừ số tiền tương ứng. Thao tác chỉ thực hiện được khi khoản này chưa vào sao kê."
-                : "Số tiền còn lại sẽ được chuyển về dư nợ thẻ thông thường. Thao tác chỉ thực hiện được khi khoản này chưa vào sao kê."
-            }
-            confirmLabel="Xóa khoản trả góp"
-            presentation={isDesktop ? "popover" : "sheet"}
-            disabled={pending}
-            onConfirm={async () => {
-              const ok = await handleDeleteImportedPlan(deletingPlan);
-              if (ok) setDeletingPlan(null);
-            }}
-          />
-        )}
+      {/* Xác nhận xóa khoản trả góp */}
+      {deletingPlan && (
+        <ConfirmDelete
+          open={Boolean(deletingPlan)}
+          onOpenChange={(open) => !open && setDeletingPlan(null)}
+          trigger={null}
+          ariaLabel={`Xóa khoản trả góp ${deletingPlan.description || ""}`}
+          title={
+            deletingPlan.description
+              ? `Xóa khoản trả góp “${deletingPlan.description}”?`
+              : "Xóa khoản trả góp?"
+          }
+          description={
+            deletingPlan.importBalanceMode === "add_to_balance"
+              ? "Dư nợ thẻ sẽ được giảm trừ số tiền tương ứng. Thao tác chỉ thực hiện được khi khoản này chưa vào sao kê."
+              : "Số tiền còn lại sẽ được chuyển về dư nợ thẻ thông thường. Thao tác chỉ thực hiện được khi khoản này chưa vào sao kê."
+          }
+          confirmLabel="Xóa khoản trả góp"
+          presentation={isDesktop ? "popover" : "sheet"}
+          disabled={pending}
+          onConfirm={async () => {
+            const ok = await handleDeleteImportedPlan(deletingPlan);
+            if (ok) setDeletingPlan(null);
+          }}
+        />
+      )}
 
-        {/* Xác nhận xóa giao dịch thẻ ghi nhầm */}
-        {deletingActivity && (
-          <ConfirmDelete
-            open={Boolean(deletingActivity)}
-            onOpenChange={(open) => !open && setDeletingActivity(null)}
-            trigger={null}
-            ariaLabel={`Xóa giao dịch ${deletingActivity.description || "chi tiêu thẻ"}`}
-            title={
-              deletingActivity.description
-                ? `Xóa giao dịch “${deletingActivity.description}”?`
-                : "Xóa giao dịch chi tiêu này?"
-            }
-            description={`Giao dịch ${formatAmount(deletingActivity.amount)} ${currency} sẽ bị xóa và dư nợ thẻ sẽ được giảm trừ số tiền tương ứng.`}
-            confirmLabel="Xóa giao dịch"
-            presentation={isDesktop ? "popover" : "sheet"}
-            disabled={pending}
-            onConfirm={async () => {
-              const res = await deleteTransactionAction(workspaceId, deletingActivity.id, "Xóa giao dịch nhầm trên thẻ tín dụng");
-              if (res.ok) {
-                toast.success(`Đã xóa giao dịch${deletingActivity.description ? ` “${deletingActivity.description}”` : ""}.`);
-                setDeletingActivity(null);
-              } else {
-                toast.error(res.message ?? "Không thể xóa giao dịch.");
-              }
-            }}
-          />
-        )}
-
-        {/* Sửa giao dịch / Đổi ví - Sheet inset, quick-amount-field & collapsible details */}
-        <Sheet
-          open={Boolean(editingActivity)}
-          onOpenChange={(open) => {
-            if (!pending && !open) {
-              setEditingActivity(null);
-              setShowEditDetails(false);
+      {/* Xác nhận xóa giao dịch thẻ ghi nhầm */}
+      {deletingActivity && (
+        <ConfirmDelete
+          open={Boolean(deletingActivity)}
+          onOpenChange={(open) => !open && setDeletingActivity(null)}
+          trigger={null}
+          ariaLabel={`Xóa giao dịch ${deletingActivity.description || "chi tiêu thẻ"}`}
+          title={
+            deletingActivity.description
+              ? `Xóa giao dịch “${deletingActivity.description}”?`
+              : "Xóa giao dịch chi tiêu này?"
+          }
+          description={`Giao dịch ${formatAmount(deletingActivity.amount)} ${currency} sẽ bị xóa và dư nợ thẻ sẽ được giảm trừ số tiền tương ứng.`}
+          confirmLabel="Xóa giao dịch"
+          presentation={isDesktop ? "popover" : "sheet"}
+          disabled={pending}
+          onConfirm={async () => {
+            const res = await deleteTransactionAction(workspaceId, deletingActivity.id, "Xóa giao dịch nhầm trên thẻ tín dụng");
+            if (res.ok) {
+              toast.success(`Đã xóa giao dịch${deletingActivity.description ? ` “${deletingActivity.description}”` : ""}.`);
+              setDeletingActivity(null);
+            } else {
+              toast.error(res.message ?? "Không thể xóa giao dịch.");
             }
           }}
+        />
+      )}
+
+      {/* Sửa giao dịch / Đổi ví - Sheet inset, quick-amount-field & collapsible details */}
+      <Sheet
+        open={Boolean(editingActivity)}
+        onOpenChange={(open) => {
+          if (!pending && !open) {
+            setEditingActivity(null);
+            setShowEditDetails(false);
+          }
+        }}
+      >
+        <SheetContent
+          side={isDesktop ? "right" : "bottom"}
+          placement="inset"
+          elevation="flat"
+          spacing="flush"
+          className={cn(
+            "ledger-mobile-edit-sheet",
+            isDesktop ? "sm:max-w-md" : "max-h-[92vh]",
+          )}
+          aria-label="Chỉnh sửa giao dịch"
         >
-          <SheetContent
-            side={isDesktop ? "right" : "bottom"}
-            placement="inset"
-            elevation="flat"
-            spacing="flush"
-            className={cn(
-              "ledger-mobile-edit-sheet",
-              isDesktop ? "sm:max-w-md" : "max-h-[92vh]",
-            )}
-            aria-label="Chỉnh sửa giao dịch"
-          >
-            {editingActivity && (
-              <form
-                className="flex min-h-0 flex-1 flex-col overflow-hidden"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSaveEdit();
-                }}
-              >
-                <SheetHeader className="wallet-edit-header ledger-transaction-sheet-header">
-                  <div className="wallet-edit-heading">
-                    <span aria-hidden="true">
-                      <Pencil size={18} />
-                    </span>
-                    <div className="min-w-0">
-                      <SheetTitle>Chỉnh sửa giao dịch</SheetTitle>
-                      <SheetDescription>
-                        {editingActivity.description || "Cập nhật thông tin giao dịch"}
-                      </SheetDescription>
-                    </div>
+          {editingActivity && (
+            <form
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveEdit();
+              }}
+            >
+              <SheetHeader className="wallet-edit-header ledger-transaction-sheet-header">
+                <div className="wallet-edit-heading">
+                  <span aria-hidden="true">
+                    <Pencil size={18} />
+                  </span>
+                  <div className="min-w-0">
+                    <SheetTitle>Chỉnh sửa giao dịch</SheetTitle>
+                    <SheetDescription>
+                      {editingActivity.description || "Cập nhật thông tin giao dịch"}
+                    </SheetDescription>
                   </div>
-                </SheetHeader>
+                </div>
+              </SheetHeader>
 
-                <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6 overscroll-contain">
-                  {/* Số tiền: quick-amount-field */}
-                  <MoneyInput
-                    wrapperClassName="quick-amount-field mt-3 mb-2"
-                    autoFocus
-                    value={editAmount}
-                    onValueChange={setEditAmount}
-                    placeholder="0"
-                    aria-label="Số tiền giao dịch"
-                    required
-                  />
+              <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6 overscroll-contain">
+                {/* Số tiền: quick-amount-field */}
+                <MoneyInput
+                  wrapperClassName="quick-amount-field mt-3 mb-2"
+                  autoFocus
+                  value={editAmount}
+                  onValueChange={setEditAmount}
+                  placeholder="0"
+                  aria-label="Số tiền giao dịch"
+                  required
+                />
 
-                  {/* Ví và Danh mục chuẩn form giao dịch */}
-                  <div className="quick-transaction-grid">
-                    <Select
-                      label="Ví"
-                      value={editWalletId}
-                      onValueChange={setEditWalletId}
-                      placeholder="Chọn ví"
-                      options={(wallets ?? []).map((w) => {
-                        const isCard = w.kind === "credit_card";
-                        return {
-                          value: w.id,
-                          label: w.name,
-                          content: (
-                            <div className="flex w-full items-center justify-between gap-2">
-                              <span className="flex items-center gap-2 min-w-0">
-                                {isCard ? (
-                                  <CreditCard className="size-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
-                                ) : (
-                                  <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                                )}
-                                <span className="truncate">{w.name}</span>
-                              </span>
-                              <span
-                                className={cn(
-                                  "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                                  isCard
-                                    ? "bg-[var(--primary)]/10 text-[var(--primary)]"
-                                    : "bg-[var(--surface-secondary)] text-[var(--text-muted)]",
-                                )}
-                              >
-                                {isCard ? "Thẻ tín dụng" : "Ví tài sản"}
-                              </span>
-                            </div>
-                          ),
-                          selectedContent: (
+                {/* Ví và Danh mục chuẩn form giao dịch */}
+                <div className="quick-transaction-grid">
+                  <Select
+                    label="Ví"
+                    value={editWalletId}
+                    onValueChange={setEditWalletId}
+                    placeholder="Chọn ví"
+                    options={(wallets ?? []).map((w) => {
+                      const isCard = w.kind === "credit_card";
+                      return {
+                        value: w.id,
+                        label: w.name,
+                        content: (
+                          <div className="flex w-full items-center justify-between gap-2">
                             <span className="flex items-center gap-2 min-w-0">
                               {isCard ? (
                                 <CreditCard className="size-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
@@ -2558,88 +2600,109 @@ function CreditCardPanel({
                                 <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
                               )}
                               <span className="truncate">{w.name}</span>
-                              {isCard && (
-                                <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
-                                  Thẻ tín dụng
-                                </span>
-                              )}
                             </span>
-                          ),
-                        };
-                      })}
+                            <span
+                              className={cn(
+                                "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                                isCard
+                                  ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                                  : "bg-[var(--surface-secondary)] text-[var(--text-muted)]",
+                              )}
+                            >
+                              {isCard ? "Thẻ tín dụng" : "Ví tài sản"}
+                            </span>
+                          </div>
+                        ),
+                        selectedContent: (
+                          <span className="flex items-center gap-2 min-w-0">
+                            {isCard ? (
+                              <CreditCard className="size-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                            ) : (
+                              <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                            )}
+                            <span className="truncate">{w.name}</span>
+                            {isCard && (
+                              <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
+                                Thẻ tín dụng
+                              </span>
+                            )}
+                          </span>
+                        ),
+                      };
+                    })}
+                    required
+                  />
+
+                  {categories && categories.length > 0 && (
+                    <CategoryTreeSelect
+                      label="Danh mục"
+                      value={editCategoryId}
+                      onValueChange={setEditCategoryId}
+                      placeholder="Chọn danh mục"
+                      categories={categories.map((c) => ({
+                        id: c.id,
+                        name: c.name,
+                        icon: c.icon ?? undefined,
+                        color: c.color ?? undefined,
+                        parentId: c.parentId ?? undefined,
+                      }))}
                       required
                     />
-
-                    {categories && categories.length > 0 && (
-                      <CategoryTreeSelect
-                        label="Danh mục"
-                        value={editCategoryId}
-                        onValueChange={setEditCategoryId}
-                        placeholder="Chọn danh mục"
-                        categories={categories.map((c) => ({
-                          id: c.id,
-                          name: c.name,
-                          icon: c.icon ?? undefined,
-                          color: c.color ?? undefined,
-                          parentId: c.parentId ?? undefined,
-                        }))}
-                        required
-                      />
-                    )}
-                  </div>
-
-                  {/* Chi tiết bổ sung (giống tạo/sửa giao dịch: ẩn mặc định, mở ra khi cần) */}
-                  <Button
-                    variant="unstyled"
-                    size="auto"
-                    type="button"
-                    className="quick-details-toggle"
-                    onClick={() => setShowEditDetails((prev) => !prev)}
-                    aria-expanded={showEditDetails}
-                  >
-                    <CalendarDays size={16} />
-                    {showEditDetails
-                      ? "Ẩn thông tin bổ sung"
-                      : "Thêm nội dung hoặc đổi ngày"}
-                  </Button>
-
-                  {showEditDetails && (
-                    <div className="quick-details">
-                      <DatePicker
-                        label="Ngày giao dịch"
-                        value={editDate}
-                        onValueChange={setEditDate}
-                        required
-                      />
-                      <Input
-                        label="Nội dung"
-                        placeholder="Ăn trưa, nhận lương..."
-                        value={editActivityDescription}
-                        onChange={(e) => setEditActivityDescription(e.target.value)}
-                      />
-                    </div>
                   )}
                 </div>
 
-                <SheetFooter
-                  onCancel={() => {
-                    setEditingActivity(null);
-                    setShowEditDetails(false);
-                  }}
-                  submitLabel="Lưu thay đổi"
-                  isSubmitting={pending}
-                  submitDisabled={
-                    pending ||
-                    !editWalletId ||
-                    !editAmount ||
-                    new Decimal(editAmount || 0).lte(0) ||
-                    !editDate
-                  }
-                />
-              </form>
-            )}
-          </SheetContent>
-        </Sheet>
+                {/* Chi tiết bổ sung (giống tạo/sửa giao dịch: ẩn mặc định, mở ra khi cần) */}
+                <Button
+                  variant="unstyled"
+                  size="auto"
+                  type="button"
+                  className="quick-details-toggle"
+                  onClick={() => setShowEditDetails((prev) => !prev)}
+                  aria-expanded={showEditDetails}
+                >
+                  <CalendarDays size={16} />
+                  {showEditDetails
+                    ? "Ẩn thông tin bổ sung"
+                    : "Thêm nội dung hoặc đổi ngày"}
+                </Button>
+
+                {showEditDetails && (
+                  <div className="quick-details">
+                    <DatePicker
+                      label="Ngày giao dịch"
+                      value={editDate}
+                      onValueChange={setEditDate}
+                      required
+                    />
+                    <Input
+                      label="Nội dung"
+                      placeholder="Ăn trưa, nhận lương..."
+                      value={editActivityDescription}
+                      onChange={(e) => setEditActivityDescription(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <SheetFooter
+                onCancel={() => {
+                  setEditingActivity(null);
+                  setShowEditDetails(false);
+                }}
+                submitLabel="Lưu thay đổi"
+                isSubmitting={pending}
+                submitDisabled={
+                  pending ||
+                  !editWalletId ||
+                  !editAmount ||
+                  new Decimal(editAmount || 0).lte(0) ||
+                  !editDate
+                }
+              />
+            </form>
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

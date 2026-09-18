@@ -163,9 +163,11 @@ export async function createCreditCardRefund(
   return prisma.$transaction(async (tx) => {
     await lockWallets(tx, [input.cardWalletId]);
     await lockCardObligations(tx, input.cardWalletId);
-    await tx.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "TRANSACTION" WHERE "id" = CAST(${input.originalTransactionId} AS uuid) FOR UPDATE`,
-    );
+    if (input.originalTransactionId) {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "TRANSACTION" WHERE "id" = CAST(${input.originalTransactionId} AS uuid) FOR UPDATE`,
+      );
+    }
     const card = await tx.workspaceWallet.findFirst({
       where: {
         workspaceId,
@@ -176,33 +178,39 @@ export async function createCreditCardRefund(
     });
     if (!card) throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Thẻ không thuộc nhóm này hoặc không còn hoạt động.");
 
-    const original = await tx.transaction.findFirst({
-      where: {
-        id: input.originalTransactionId,
-        walletId: input.cardWalletId,
-        type: "expense",
-        purpose: "standard",
-        workflowStatus: "approved",
-        deletedAt: null,
-        member: { workspaceId },
-      },
-      include: {
-        refundTransactions: {
-          where: { workflowStatus: { not: "rejected" }, deletedAt: null },
-          select: { amount: true },
-        },
-      },
-    });
-    if (!original) {
+    const original = input.originalTransactionId
+      ? await tx.transaction.findFirst({
+          where: {
+            id: input.originalTransactionId,
+            walletId: input.cardWalletId,
+            type: "expense",
+            purpose: "standard",
+            workflowStatus: "approved",
+            deletedAt: null,
+            member: { workspaceId },
+          },
+          include: {
+            refundTransactions: {
+              where: { workflowStatus: { not: "rejected" }, deletedAt: null },
+              select: { amount: true },
+            },
+          },
+        })
+      : null;
+
+    if (input.originalTransactionId && !original) {
       throw new AppError("VALIDATION_ERROR", "Hãy chọn một giao dịch thẻ đã duyệt để hoàn tiền.");
     }
-    const alreadyRefunded = original.refundTransactions.reduce(
-      (sum, refund) => sum.plus(refund.amount.toString()),
-      ZERO,
-    );
-    const refundable = new Decimal(original.amount.toString()).minus(alreadyRefunded);
-    if (input.amount.gt(refundable)) {
-      throw new AppError("VALIDATION_ERROR", `Giao dịch này chỉ còn có thể hoàn ${refundable.toString()}.`);
+
+    if (original) {
+      const alreadyRefunded = original.refundTransactions.reduce(
+        (sum, refund) => sum.plus(refund.amount.toString()),
+        ZERO,
+      );
+      const refundable = new Decimal(original.amount.toString()).minus(alreadyRefunded);
+      if (input.amount.gt(refundable)) {
+        throw new AppError("VALIDATION_ERROR", `Giao dịch này chỉ còn có thể hoàn ${refundable.toString()}.`);
+      }
     }
 
     const record = await tx.transaction.create({
@@ -212,11 +220,11 @@ export async function createCreditCardRefund(
         type: "income",
         purpose: "credit_card_refund",
         amount: input.amount,
-        description: input.description ?? "Hoàn tiền vào thẻ tín dụng",
+        description: input.description ?? (original ? "Hoàn tiền vào thẻ tín dụng" : "Hoàn tiền chi tiêu / Cashback"),
         date: databaseDate(input.date),
         postedDate: databaseDate(input.postedDate ?? input.date),
         workflowStatus,
-        originalTransactionId: original.id,
+        originalTransactionId: original?.id ?? null,
       },
     });
     if (workflowStatus === "approved") {
