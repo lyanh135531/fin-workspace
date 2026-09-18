@@ -181,9 +181,11 @@ export async function deleteImportedCreditCardInstallmentAction(workspaceId: str
     revalidateFinancialPlanViews();
     return { ok: true as const };
   } catch (error) {
-    return transactionActionFailure(error, "Không thể xóa khoản trả góp đã nhập.", "credit_card.installment_import_delete_failed", requestId);
+    return transactionActionFailure(error, "Không thể hủy khoản trả góp.", "credit_card.installment_delete_failed", requestId);
   }
 }
+
+export const deleteCreditCardInstallmentAction = deleteImportedCreditCardInstallmentAction;
 
 export async function updateCreditCardAction(workspaceId: string, input: unknown) {
   const requestId = crypto.randomUUID();

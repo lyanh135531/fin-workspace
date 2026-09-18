@@ -52,6 +52,7 @@ function transactionClient() {
     creditCardInstallmentPlan: {
       create: vi.fn().mockResolvedValue({ id: "plan-1" }),
       findFirst: vi.fn(),
+      update: vi.fn(),
       delete: vi.fn(),
     },
     creditCardObligationEntry: {
@@ -65,6 +66,12 @@ function transactionClient() {
     creditCardInstallment: {
       createMany: vi.fn(),
       deleteMany: vi.fn(),
+    },
+    creditCardAllocation: {
+      deleteMany: vi.fn(),
+    },
+    transaction: {
+      delete: vi.fn(),
     },
     wallet: { update: vi.fn() },
     auditLog: { create: vi.fn() },
@@ -220,4 +227,45 @@ describe("deleteImportedCreditCardInstallment", () => {
     ).rejects.toThrow("đã vào sao kê");
     expect(tx.creditCardInstallmentPlan.delete).not.toHaveBeenCalled();
   });
+
+  it("deletes a transaction-based installment plan and reverts fee", async () => {
+    const tx = transactionClient();
+    tx.creditCardInstallmentPlan.findFirst.mockResolvedValue({
+      id: "plan-2",
+      cardWalletId: "card-1",
+      origin: "transaction",
+      transactionId: "tx-original-1",
+      feeTransactionId: "tx-fee-1",
+      feeAmount: new Decimal(50000),
+      importedObligations: [],
+      installments: [{ id: "installment-1", statementItems: [] }],
+      feeTransaction: {
+        creditCardObligationEntries: [{
+          id: "entry-fee-1",
+          paymentAllocations: [],
+          statementItems: [],
+        }],
+      },
+    });
+    mocks.requireWorkspaceMember.mockResolvedValue({});
+    mocks.assertCardBalanceReconciled.mockResolvedValue(undefined);
+    mocks.transaction.mockImplementation(async (callback: (client: typeof tx) => unknown) => callback(tx));
+
+    await deleteImportedCreditCardInstallment("user-1", "workspace-1", "plan-2");
+
+    expect(tx.creditCardInstallmentPlan.update).toHaveBeenCalledWith({
+      where: { id: "plan-2" },
+      data: { feeTransactionId: null },
+    });
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "card-1" },
+      data: { currentBalance: { decrement: new Decimal(50000) } },
+    });
+    expect(tx.creditCardObligationEntry.deleteMany).toHaveBeenCalledWith({ where: { transactionId: "tx-fee-1" } });
+    expect(tx.creditCardAllocation.deleteMany).toHaveBeenCalledWith({ where: { transactionId: "tx-fee-1" } });
+    expect(tx.transaction.delete).toHaveBeenCalledWith({ where: { id: "tx-fee-1" } });
+    expect(tx.creditCardInstallment.deleteMany).toHaveBeenCalledWith({ where: { planId: "plan-2" } });
+    expect(tx.creditCardInstallmentPlan.delete).toHaveBeenCalledWith({ where: { id: "plan-2" } });
+  });
 });
+

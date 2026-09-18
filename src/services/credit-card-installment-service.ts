@@ -412,7 +412,7 @@ export async function importCreditCardInstallment(
   });
 }
 
-export async function deleteImportedCreditCardInstallment(
+export async function deleteCreditCardInstallmentPlan(
   userId: string,
   workspaceId: string,
   planId: string,
@@ -423,37 +423,89 @@ export async function deleteImportedCreditCardInstallment(
       Prisma.sql`SELECT "id" FROM "CREDIT_CARD_EQUAL_INSTALLMENT_PLAN" WHERE "id" = CAST(${planId} AS uuid) FOR UPDATE`,
     );
     const plan = await tx.creditCardInstallmentPlan.findFirst({
-      where: { id: planId, workspaceId, origin: "imported" },
+      where: { id: planId, workspaceId },
       include: {
         importedObligations: {
           include: { paymentAllocations: { select: { id: true } }, statementItems: { select: { id: true } } },
         },
         installments: { include: { statementItems: { select: { id: true } } } },
+        feeTransaction: {
+          include: {
+            creditCardObligationEntries: {
+              include: { paymentAllocations: { select: { id: true } }, statementItems: { select: { id: true } } },
+            },
+          },
+        },
       },
     });
-    if (!plan) throw new AppError("NOT_FOUND", "Không tìm thấy khoản trả góp đã nhập.");
-    const locked = plan.importedObligations.some(
-      (entry) => entry.paymentAllocations.length > 0 || entry.statementItems.length > 0,
-    ) || plan.installments.some((installment) => installment.statementItems.length > 0);
+    if (!plan) throw new AppError("NOT_FOUND", "Không tìm thấy khoản trả góp.");
+    const locked =
+      plan.importedObligations.some(
+        (entry) => entry.paymentAllocations.length > 0 || entry.statementItems.length > 0,
+      ) ||
+      plan.installments.some((installment) => installment.statementItems.length > 0) ||
+      Boolean(
+        plan.feeTransaction?.creditCardObligationEntries.some(
+          (entry) => entry.paymentAllocations.length > 0 || entry.statementItems.length > 0,
+        ),
+      );
     if (locked) {
       throw new AppError("CONFLICT", "Khoản trả góp đã vào sao kê hoặc được thanh toán nên không thể xóa.");
     }
-    const importedAmount = plan.importedObligations.reduce(
-      (sum, entry) => sum.plus(entry.amount.toString()),
-      ZERO,
-    );
-    if (plan.importBalanceMode === "add_to_balance") {
+
+    if (plan.origin === "imported" || plan.importBalanceMode || !plan.transactionId) {
+      const importedAmount = plan.importedObligations.reduce(
+        (sum, entry) => sum.plus(entry.amount.toString()),
+        ZERO,
+      );
+      if (plan.importBalanceMode === "add_to_balance") {
+        await tx.wallet.update({
+          where: { id: plan.cardWalletId },
+          data: { currentBalance: { decrement: importedAmount } },
+        });
+        await tx.creditCardObligationEntry.deleteMany({ where: { installmentPlanId: plan.id } });
+      } else {
+        await tx.creditCardObligationEntry.updateMany({
+          where: { installmentPlanId: plan.id },
+          data: { installmentPlanId: null },
+        });
+      }
+      await tx.creditCardInstallment.deleteMany({ where: { planId: plan.id } });
+      await tx.creditCardInstallmentPlan.delete({ where: { id: plan.id } });
+      await assertCardBalanceReconciled(tx, plan.cardWalletId);
+      await tx.auditLog.create({
+        data: {
+          workspaceId,
+          actorUserId: userId,
+          action: "credit_card.installment_import_deleted",
+          entityType: "credit_card_installment_plan",
+          entityId: plan.id,
+          metadata: { importedAmount: importedAmount.toString(), balanceMode: plan.importBalanceMode },
+        },
+      });
+      return { id: plan.id };
+    }
+
+    // origin === "transaction"
+    const feeId = plan.feeTransactionId;
+    if (feeId) {
+      const feeAmount = new Decimal(plan.feeAmount.toString());
+      // Disconnect fee foreign key from plan first
+      await tx.creditCardInstallmentPlan.update({
+        where: { id: plan.id },
+        data: { feeTransactionId: null },
+      });
+      // Decrement currentBalance on wallet by feeAmount
       await tx.wallet.update({
         where: { id: plan.cardWalletId },
-        data: { currentBalance: { decrement: importedAmount } },
+        data: { currentBalance: { decrement: feeAmount } },
       });
-      await tx.creditCardObligationEntry.deleteMany({ where: { installmentPlanId: plan.id } });
-    } else {
-      await tx.creditCardObligationEntry.updateMany({
-        where: { installmentPlanId: plan.id },
-        data: { installmentPlanId: null },
-      });
+      // Delete obligations, allocations, and transaction of the fee
+      await tx.creditCardObligationEntry.deleteMany({ where: { transactionId: feeId } });
+      await tx.creditCardAllocation.deleteMany({ where: { transactionId: feeId } });
+      await tx.transaction.delete({ where: { id: feeId } });
     }
+
     await tx.creditCardInstallment.deleteMany({ where: { planId: plan.id } });
     await tx.creditCardInstallmentPlan.delete({ where: { id: plan.id } });
     await assertCardBalanceReconciled(tx, plan.cardWalletId);
@@ -461,12 +513,14 @@ export async function deleteImportedCreditCardInstallment(
       data: {
         workspaceId,
         actorUserId: userId,
-        action: "credit_card.installment_import_deleted",
+        action: "credit_card.installment_deleted",
         entityType: "credit_card_installment_plan",
         entityId: plan.id,
-        metadata: { importedAmount: importedAmount.toString(), balanceMode: plan.importBalanceMode },
+        metadata: { transactionId: plan.transactionId },
       },
     });
     return { id: plan.id };
   });
 }
+
+export const deleteImportedCreditCardInstallment = deleteCreditCardInstallmentPlan;

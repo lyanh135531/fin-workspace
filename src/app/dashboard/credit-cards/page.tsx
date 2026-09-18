@@ -347,10 +347,11 @@ export default async function CreditCardsPage() {
         importBalanceMode: plan.importBalanceMode,
         status: plan.status,
         canDelete:
-          plan.origin === "imported" &&
-          plan.importedObligations.every(
-            (entry) => entry.paymentAllocations.length === 0 && entry.statementItems.length === 0,
-          ) &&
+          (plan.origin === "imported"
+            ? plan.importedObligations.every(
+                (entry) => entry.paymentAllocations.length === 0 && entry.statementItems.length === 0,
+              )
+            : true) &&
           plan.installments.every((installment) => installment.statementItems.length === 0),
         installments: plan.installments.map((installment) => ({
           number: installment.installmentNo,
