@@ -335,13 +335,15 @@ function SheetContent({
           "data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem]",
           "data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem]",
           placement === "inset"
-            ? "data-[side=left]:inset-y-2 data-[side=left]:left-2 data-[side=left]:h-[calc(100%-1rem)] data-[side=left]:rounded-2xl data-[side=left]:border data-[side=left]:border-[var(--border)] data-[side=right]:inset-y-2 data-[side=right]:right-2 data-[side=right]:h-[calc(100%-1rem)] data-[side=right]:rounded-2xl data-[side=right]:border data-[side=right]:border-[var(--border)] data-[side=bottom]:inset-x-2 data-[side=bottom]:bottom-2 data-[side=bottom]:border data-[side=bottom]:rounded-2xl data-[side=top]:inset-x-2 data-[side=top]:top-2 data-[side=top]:border data-[side=top]:rounded-2xl"
+            ? "data-[side=left]:inset-y-2 data-[side=left]:left-2 data-[side=left]:h-[calc(100%-1rem)] data-[side=left]:rounded-2xl data-[side=left]:border data-[side=left]:border-[var(--border)] data-[side=right]:inset-y-2 data-[side=right]:right-2 data-[side=right]:h-[calc(100%-1rem)] data-[side=right]:rounded-2xl data-[side=right]:border data-[side=right]:border-[var(--border)] data-[side=bottom]:inset-x-2 data-[side=bottom]:bottom-2 data-[side=bottom]:max-w-lg data-[side=bottom]:mx-auto data-[side=bottom]:border data-[side=bottom]:border-[var(--border)] data-[side=bottom]:rounded-2xl data-[side=top]:inset-x-2 data-[side=top]:top-2 data-[side=top]:border data-[side=top]:border-[var(--border)] data-[side=top]:rounded-2xl"
             : "data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:rounded-none data-[side=left]:border-r data-[side=left]:border-[var(--border)] data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:rounded-none data-[side=right]:border-l data-[side=right]:border-[var(--border)]",
           size === "wide" || size === "lg"
-            ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-[42rem] data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-[42rem] data-[side=right]:sm:max-w-[42rem]"
-            : size === "sm"
-              ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-sm data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm"
-              : "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-md data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md",
+            ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-[42rem] data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-[42rem] data-[side=right]:sm:max-w-[42rem] data-[side=bottom]:max-h-[85dvh]"
+            : size === "md"
+              ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-md data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md data-[side=bottom]:max-h-[68dvh]"
+              : size === "sm"
+                ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-sm data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm data-[side=bottom]:max-h-[50dvh]"
+                : "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-md data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md",
           spacing === "flush" ? "gap-0" : "gap-4",
           className,
         )}
