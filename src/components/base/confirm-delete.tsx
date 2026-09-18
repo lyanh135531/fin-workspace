@@ -4,6 +4,7 @@ import { LoaderCircle, Trash2 } from "lucide-react"
 import { useState, type ReactElement, type ReactNode } from "react"
 
 import { Button } from "@/components/base/button"
+import { cn } from "@/lib/utils"
 import {
   Sheet,
   SheetContent,
@@ -33,6 +34,7 @@ type ConfirmDeleteProps = {
   confirmDisabled?: boolean
   disabled?: boolean
   className?: string
+  contentClassName?: string
   trigger?: ReactElement | null
   presentation?: "popover" | "sheet"
   anchor?: React.RefObject<Element | null>
@@ -51,6 +53,7 @@ function ConfirmDelete({
   confirmDisabled = false,
   disabled,
   className,
+  contentClassName,
   trigger,
   presentation = "popover",
   anchor,
@@ -131,7 +134,7 @@ function ConfirmDelete({
         {resolvedTrigger && <SheetTrigger render={resolvedTrigger} />}
         <SheetContent
           side="bottom"
-          className="ledger-mobile-review-sheet pending-delete"
+          className={cn("ledger-mobile-review-sheet pending-delete", contentClassName)}
           aria-label={ariaLabel}
         >
           <SheetHeader
@@ -183,7 +186,7 @@ function ConfirmDelete({
         side="bottom"
         align="end"
         sideOffset={6}
-        className="w-72 gap-4 p-4"
+        className={cn("w-72 gap-4 p-4", contentClassName)}
       >
         <PopoverHeader className="gap-1.5">
           <PopoverTitle className="text-base font-semibold">

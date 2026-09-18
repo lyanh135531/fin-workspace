@@ -86,6 +86,7 @@ export const deleteCreditCardResolutionSchema = z.discriminatedUnion("action", [
 export const deleteCreditCardSchema = z.object({
   cardWalletId: idSchema,
   resolution: deleteCreditCardResolutionSchema.optional(),
+  confirmLoss: z.boolean().optional(),
 });
 
 export type InstallmentInput = z.output<typeof installmentInputSchema>;

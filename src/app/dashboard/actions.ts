@@ -130,8 +130,8 @@ export async function deleteCreditCardAction(workspaceId: string, input: unknown
   const requestId = crypto.randomUUID();
   try {
     const user = await workspaceActor(workspaceId);
-    const { cardWalletId, resolution } = deleteCreditCardSchema.parse(input);
-    await deleteCreditCard(user.userId, user.workspaceId, cardWalletId, resolution);
+    const { cardWalletId, resolution, confirmLoss } = deleteCreditCardSchema.parse(input);
+    await deleteCreditCard(user.userId, user.workspaceId, cardWalletId, resolution, confirmLoss);
     revalidatePath("/dashboard");
     revalidatePath("/wallets");
     revalidatePath("/dashboard/wallets");

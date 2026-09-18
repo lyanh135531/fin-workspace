@@ -160,6 +160,32 @@ describe("deleteCreditCard checks", () => {
     });
   });
 
+  it("deletes card and wipes all data when confirmLoss is true even with balance", async () => {
+    tx.workspaceWallet.findFirst.mockResolvedValue({
+      wallet: { currentBalance: new Decimal(500_000) },
+    });
+    tx.transaction.findMany.mockResolvedValue([
+      { id: "tx-2", type: "expense", amount: new Decimal(500_000), workflowStatus: "approved" },
+    ]);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id", undefined, true),
+    ).resolves.toEqual({ ok: true });
+
+    expect(tx.transaction.update).toHaveBeenCalledWith({
+      where: { id: "tx-2" },
+      data: { deletedAt: expect.any(Date) },
+    });
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "card-id" },
+      data: {
+        status: "deactive",
+        deletedAt: expect.any(Date),
+        currentBalance: new Decimal(0),
+      },
+    });
+  });
+
   it("migrates transactions to destination wallet and deletes card when migrate_transactions is provided", async () => {
     tx.workspaceWallet.findFirst
       .mockResolvedValueOnce({

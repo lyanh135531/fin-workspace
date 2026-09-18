@@ -41,6 +41,7 @@ import {
   Button,
   Card,
   CategoryTreeSelect,
+  Checkbox,
   ConfirmDelete,
   DatePicker,
   Input,
@@ -377,36 +378,7 @@ function CreditCardPanel({
   const [importFirstStatementDate, setImportFirstStatementDate] = useState("");
   const [menuActivityId, setMenuActivityId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleteResolutionOpen, setDeleteResolutionOpen] = useState(false);
-  const [confirmResolutionOpen, setConfirmResolutionOpen] = useState(false);
-  const [deleteAction, setDeleteAction] = useState<"void_transactions" | "migrate_transactions">("void_transactions");
-  const [deletePending, startDeleteTransition] = useTransition();
-
-  const destinationWallets = useMemo(() => {
-    if (wallets && wallets.length > 0) {
-      return wallets.filter((w) => w.kind !== "credit_card" && w.id !== card.id);
-    }
-    return fundingWallets
-      .filter((fw) => fw.id !== card.id)
-      .map((fw) => ({
-        id: fw.id,
-        name: fw.name,
-        kind: "asset",
-      }));
-  }, [wallets, fundingWallets, card.id]);
-
-  const [migrateWalletId, setMigrateWalletId] = useState<string>(destinationWallets[0]?.id ?? "");
-  const selectedMigrateWallet = destinationWallets.find((w) => w.id === migrateWalletId);
-
-  const hasPaidStatements = card.statements?.some((s) => s.status === "paid");
-  const hasActiveInstallments = card.installmentPlans?.some(
-    (p) => p.status === "active" || p.status === "completed"
-  );
-  const cannotDeleteReason = hasPaidStatements
-    ? "Thẻ đã có kỳ sao kê đã thanh toán. Để bảo đảm sổ sách kế toán, thẻ này không thể xóa."
-    : hasActiveInstallments
-      ? "Thẻ đang có kế hoạch trả góp đang chạy hoặc đã hoàn tất, không thể xóa trực tiếp."
-      : null;
+  const [confirmLossChecked, setConfirmLossChecked] = useState(false);
 
   const [paymentConfirmOpen, setPaymentConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -710,30 +682,20 @@ function CreditCardPanel({
     });
   }
 
-  async function handleDeleteCard(resolution?: DeleteCreditCardResolution) {
+  async function handleDeleteCard() {
     const result = await deleteCreditCardAction(workspaceId, {
       cardWalletId: card.id,
-      resolution,
+      confirmLoss: true,
+      resolution: { action: "void_transactions" },
     });
     if (!result.ok) {
       toast.error(result.message ?? "Không thể xóa thẻ tín dụng.");
       return false;
     }
     toast.success(`Đã xóa thẻ “${card.name}”.`);
-    setConfirmResolutionOpen(false);
-    setDeleteResolutionOpen(false);
     setConfirmDelete(false);
+    setConfirmLossChecked(false);
     return true;
-  }
-
-  function handleConfirmResolutionDelete() {
-    startDeleteTransition(async () => {
-      const resolution: DeleteCreditCardResolution =
-        deleteAction === "migrate_transactions"
-          ? { action: "migrate_transactions", targetWalletId: migrateWalletId }
-          : { action: "void_transactions" };
-      await handleDeleteCard(resolution);
-    });
   }
 
   function renderInstallmentCard(plan: InstallmentPlan) {
@@ -1229,15 +1191,8 @@ function CreditCardPanel({
                               <DropdownMenuItem
                                 variant="destructive"
                                 onClick={() => {
-                                  if (card.hasApprovedTransactions) {
-                                    setDeleteAction("void_transactions");
-                                    if (destinationWallets[0]?.id) {
-                                      setMigrateWalletId(destinationWallets[0].id);
-                                    }
-                                    setDeleteResolutionOpen(true);
-                                  } else {
-                                    setConfirmDelete(true);
-                                  }
+                                  setConfirmLossChecked(false);
+                                  setConfirmDelete(true);
                                 }}
                                 className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer"
                               >
@@ -2179,282 +2134,64 @@ function CreditCardPanel({
         </Sheet>
       </Card>
 
-      {canManage && <ConfirmDelete
-        open={confirmDelete}
-        onOpenChange={setConfirmDelete}
-        trigger={null}
-        ariaLabel={`Xóa thẻ ${card.name}`}
-        title={`Xóa thẻ “${card.name}”?`}
-        description={
-          !card.hasApprovedTransactions ? (
-            hasDebt ? (
-              `Thẻ chưa có giao dịch nào. Khoản dư nợ ban đầu (${formatAmount(card.debt)} ${currency}) sẽ bị hủy cùng với thẻ.`
-            ) : (
-              "Thẻ chưa có giao dịch nào. Bạn có chắc chắn muốn xóa thẻ này không?"
-            )
-          ) : hasDebt ? (
-            <span className="text-destructive block">
-              Thẻ vẫn còn dư nợ {formatAmount(card.debt)} {currency}. Bạn cần thanh toán hết toàn bộ dư nợ trước khi xóa thẻ.
-            </span>
-          ) : hasCredit ? (
-            <span className="text-destructive block">
-              Thẻ còn số dư có {formatAmount(card.creditBalance)} {currency}. Bạn cần sử dụng hết số dư trước khi xóa thẻ.
-            </span>
-          ) : pendingDecimal.gt(0) ? (
-            <span className="text-destructive block">
-              Thẻ còn khoản thanh toán đang chờ xử lý ({formatAmount(card.pendingPayment)} {currency}). Vui lòng chờ thanh toán hoàn tất trước khi xóa.
-            </span>
-          ) : (
-            "Thẻ sẽ bị xóa khỏi danh sách hoạt động. Toàn bộ lịch sử giao dịch đã phát sinh trước đây vẫn được bảo lưu nguyên vẹn."
-          )
-        }
-        confirmLabel="Xóa thẻ"
-        confirmDisabled={
-          (card.hasApprovedTransactions && (hasDebt || hasCredit)) ||
-          pendingDecimal.gt(0) ||
-          pending
-        }
-        disabled={pending}
-        presentation={isDesktop ? "popover" : "sheet"}
-        anchor={cardMenuTriggerRef}
-        onConfirm={handleDeleteCard}
-      />}
-
-      {canManage && (
-        <Sheet
-          open={deleteResolutionOpen}
-          onOpenChange={(nextOpen) => !deletePending && setDeleteResolutionOpen(nextOpen)}
-        >
-          <SheetContent
-            side={isDesktop ? "right" : "bottom"}
-            placement={isDesktop ? "inset" : "edge"}
-            size="default"
-            spacing="flush"
-            elevation="flat"
-            className={isDesktop ? undefined : "quick-transaction-sheet"}
-          >
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <SheetHeader>
-                <div className="flex items-center gap-3 sm:gap-3.5">
-                  <span
-                    className="grid size-9 shrink-0 place-items-center rounded-xl bg-destructive/10 text-destructive sm:size-10"
-                    aria-hidden="true"
-                  >
-                    <Trash2 size={18} />
-                  </span>
-                  <div className="min-w-0 flex-1 flex flex-col items-start text-left">
-                    <SheetTitle>Xóa thẻ “{card.name}”</SheetTitle>
-                    <SheetDescription>
-                      Thẻ đang có giao dịch phát sinh. Chọn phương án xử lý để hoàn tất xóa thẻ.
-                    </SheetDescription>
-                  </div>
-                </div>
-              </SheetHeader>
-
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-                {/* Thông tin tóm tắt thẻ */}
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 text-xs text-[var(--text-secondary)] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span>Tổng dư nợ hiện tại</span>
-                    <span className="font-semibold text-sm text-[var(--foreground)] tabular-nums">
-                      {formatAmount(card.debt)} {currency}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Số giao dịch trên thẻ</span>
-                    <span className="font-medium text-[var(--foreground)] tabular-nums">
-                      {card.activities.length} giao dịch
-                    </span>
-                  </div>
-                </div>
-
-                {cannotDeleteReason && (
-                  <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-xs text-destructive">
-                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
-                    <span>{cannotDeleteReason}</span>
-                  </div>
-                )}
-
-                {/* Danh sách 2 phương án */}
-                <div className="space-y-3">
-                  {/* Phương án 1: Tạo nhầm thẻ */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDeleteAction("void_transactions")}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setDeleteAction("void_transactions");
-                      }
-                    }}
-                    className={cn(
-                      "cursor-pointer rounded-xl border p-4 transition-all text-left outline-none",
-                      deleteAction === "void_transactions"
-                        ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_5%,var(--surface))]"
-                        : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)]"
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={cn(
-                          "mt-0.5 size-4.5 rounded-full border flex items-center justify-center shrink-0 transition-colors",
-                          deleteAction === "void_transactions"
-                            ? "border-[var(--primary)] bg-[var(--primary)] text-white"
-                            : "border-[var(--border)] bg-[var(--surface)]"
-                        )}
-                      >
-                        {deleteAction === "void_transactions" && <div className="size-1.5 rounded-full bg-white" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span className="font-semibold text-sm text-[var(--foreground)]">
-                            Hủy toàn bộ giao dịch
-                          </span>
-                          <span className="text-[11px] font-medium text-[var(--text-muted)] shrink-0">
-                            Tạo nhầm thẻ
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-[var(--text-secondary)] leading-relaxed">
-                          Dành cho thẻ tạo thử nghiệm hoặc nhập nhầm. Toàn bộ giao dịch sẽ bị hủy và hoàn trả tiền tạm giữ về ví thanh toán.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Phương án 2: Ghi nhầm ví */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDeleteAction("migrate_transactions")}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setDeleteAction("migrate_transactions");
-                      }
-                    }}
-                    className={cn(
-                      "cursor-pointer rounded-xl border p-4 transition-all text-left outline-none",
-                      deleteAction === "migrate_transactions"
-                        ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_5%,var(--surface))]"
-                        : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)]"
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={cn(
-                          "mt-0.5 size-4.5 rounded-full border flex items-center justify-center shrink-0 transition-colors",
-                          deleteAction === "migrate_transactions"
-                            ? "border-[var(--primary)] bg-[var(--primary)] text-white"
-                            : "border-[var(--border)] bg-[var(--surface)]"
-                        )}
-                      >
-                        {deleteAction === "migrate_transactions" && <div className="size-1.5 rounded-full bg-white" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span className="font-semibold text-sm text-[var(--foreground)]">
-                            Chuyển giao dịch sang ví khác
-                          </span>
-                          <span className="text-[11px] font-medium text-[var(--text-muted)] shrink-0">
-                            Ghi nhầm ví
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-[var(--text-secondary)] leading-relaxed">
-                          Dành cho chi tiêu thực tế nhưng chọn nhầm thẻ. Giao dịch sẽ chuyển sang ví bạn chọn và trừ tiền trực tiếp từ ví đó.
-                        </p>
-
-                        {deleteAction === "migrate_transactions" && (
-                          <div className="mt-3 pt-3 border-t border-[var(--border)]" onClick={(e) => e.stopPropagation()}>
-                            {destinationWallets.length > 0 ? (
-                              <Select
-                                label="Chuyển giao dịch sang ví"
-                                value={migrateWalletId}
-                                onValueChange={setMigrateWalletId}
-                                options={destinationWallets.map((w) => ({
-                                  value: w.id,
-                                  label: `${w.name}${w.kind === "credit_card" ? " (Thẻ tín dụng)" : ""}`,
-                                }))}
-                                placeholder="Chọn ví nhận giao dịch"
-                                required
-                              />
-                            ) : (
-                              <p className="text-xs text-[var(--destructive)]">
-                                Không tìm thấy ví tài sản nào khác trong sổ để chuyển giao dịch sang.
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <p className="flex items-center gap-2 text-xs text-[var(--text-muted)] pt-1">
-                  <AlertCircle className="size-3.5 shrink-0" />
-                  Hành động này sẽ xóa vĩnh viễn thẻ tín dụng khỏi hệ thống và không thể hoàn tác.
-                </p>
-              </div>
-
-              <SheetFooter
-                className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5"
-                onCancel={() => setDeleteResolutionOpen(false)}
-                cancelLabel="Hủy"
-                cancelDisabled={deletePending}
-                submitLabel={
-                  deleteAction === "void_transactions"
-                    ? "Hủy giao dịch & Xóa thẻ"
-                    : "Chuyển ví & Xóa thẻ"
-                }
-                submitVariant="destructive"
-                submitType="button"
-                submitDisabled={
-                  deletePending ||
-                  Boolean(cannotDeleteReason) ||
-                  (deleteAction === "migrate_transactions" && (!migrateWalletId || destinationWallets.length === 0))
-                }
-                onSubmit={() => {
-                  setDeleteResolutionOpen(false);
-                  setConfirmResolutionOpen(true);
-                }}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
-      )}
-
       {canManage && (
         <ConfirmDelete
-          open={confirmResolutionOpen}
-          onOpenChange={(open) => {
-            setConfirmResolutionOpen(open);
-            if (!open && !deletePending) {
-              setDeleteResolutionOpen(true);
-            }
+          open={confirmDelete}
+          onOpenChange={(nextOpen) => {
+            setConfirmDelete(nextOpen);
+            if (!nextOpen) setConfirmLossChecked(false);
           }}
           trigger={null}
-          ariaLabel={`Xác nhận xóa thẻ ${card.name}`}
+          ariaLabel={`Xóa thẻ ${card.name}`}
           title={`Xóa thẻ “${card.name}”?`}
-          description={
-            deleteAction === "void_transactions"
-              ? `Toàn bộ ${card.activities.length} giao dịch trên thẻ sẽ bị hủy vĩnh viễn và các khoản tiền tạm giữ sẽ được giải phóng về ví thanh toán.`
-              : `Toàn bộ ${card.activities.length} giao dịch sẽ được chuyển sang ví “${selectedMigrateWallet?.name ?? "được chọn"}” và trừ tiền trực tiếp từ ví đó.`
+          description="Hành động này sẽ xóa vĩnh viễn thẻ tín dụng khỏi hệ thống và không thể hoàn tác."
+          contentClassName="w-80 sm:w-96"
+          content={
+            <div className="space-y-3 pt-1">
+              <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive space-y-1.5">
+                <div className="flex items-center gap-2 font-semibold">
+                  <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
+                  <span>Dữ liệu sẽ bị xóa vĩnh viễn:</span>
+                </div>
+                <ul className="list-disc pl-4 space-y-1 text-[11px] text-[var(--foreground)]">
+                  <li>Toàn bộ {card.activities.length} giao dịch trên thẻ</li>
+                  {card.installmentPlans.length > 0 && (
+                    <li>{card.installmentPlans.length} kế hoạch trả góp liên quan</li>
+                  )}
+                  {card.statements && card.statements.length > 0 && (
+                    <li>{card.statements.length} kỳ sao kê đã tạo</li>
+                  )}
+                  {hasDebt && (
+                    <li>Khoản dư nợ {formatAmount(card.debt)} {currency}</li>
+                  )}
+                  {hasCredit && (
+                    <li>Số dư có {formatAmount(card.creditBalance)} {currency}</li>
+                  )}
+                  <li>Các liên kết nghĩa vụ tài chính và hạn mức của thẻ</li>
+                </ul>
+              </div>
+
+              <label
+                htmlFor={`confirm-loss-${card.id}`}
+                className="flex items-start gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 cursor-pointer select-none transition-colors hover:bg-[var(--surface-hover)]"
+              >
+                <Checkbox
+                  id={`confirm-loss-${card.id}`}
+                  checked={confirmLossChecked}
+                  onCheckedChange={(checked) => setConfirmLossChecked(Boolean(checked))}
+                  className="mt-0.5 shrink-0"
+                />
+                <span className="text-xs font-medium text-[var(--foreground)] leading-snug">
+                  Tôi hiểu và xác nhận rằng sẽ mất tất cả dữ liệu liên quan đến thẻ tín dụng này.
+                </span>
+              </label>
+            </div>
           }
-          confirmLabel={
-            deleteAction === "void_transactions"
-              ? "Hủy giao dịch & Xóa thẻ"
-              : "Chuyển ví & Xóa thẻ"
-          }
+          confirmLabel="Xóa thẻ"
+          confirmDisabled={!confirmLossChecked}
           presentation={isDesktop ? "popover" : "sheet"}
           anchor={cardMenuTriggerRef}
-          disabled={deletePending}
-          onConfirm={async () => {
-            const resolution: DeleteCreditCardResolution =
-              deleteAction === "migrate_transactions"
-                ? { action: "migrate_transactions", targetWalletId: migrateWalletId }
-                : { action: "void_transactions" };
-            return await handleDeleteCard(resolution);
-          }}
+          onConfirm={handleDeleteCard}
         />
       )}
 
