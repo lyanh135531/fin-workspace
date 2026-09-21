@@ -1,0 +1,484 @@
+import Decimal from "decimal.js";
+import { redirect } from "next/navigation";
+
+import {
+  CreditCardOverviewItem,
+  FundingWallet,
+} from "@/app/dashboard/wallets/credit-card-overview";
+import { firstStatementOnOrAfter } from "@/domain/credit-card/installments";
+import { workspaceCapabilities } from "@/domain/role-policy";
+import { getBusinessDateInTimeZone } from "@/lib/date";
+import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
+import { prisma } from "@/lib/prisma";
+import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { availableCategoryWhere } from "@/services/category-visibility";
+import { generateWorkspaceCreditCardStatements } from "@/services/credit-card-statement-service";
+
+const ZERO = new Decimal(0);
+
+export async function getCreditCardsData() {
+  const session = await requireAcceptedLegalPageSession();
+  const workspaceId = await resolveActiveWorkspaceId(session.user.id);
+  if (!workspaceId) redirect("/overview");
+
+  const membership = await prisma.workspaceMember.findFirst({
+    where: {
+      userId: session.user.id,
+      workspaceId,
+      status: "active",
+      deletedAt: null,
+      workspace: { status: "active", deletedAt: null },
+    },
+    include: { workspace: true, role: true },
+  });
+  if (!membership) redirect("/overview");
+
+  await generateWorkspaceCreditCardStatements(
+    workspaceId,
+    membership.workspace.timeZone,
+  );
+
+  const [links, allWalletLinks, categories] = await Promise.all([
+    prisma.workspaceWallet.findMany({
+      where: {
+        workspaceId,
+        wallet: { kind: "credit_card", deletedAt: null },
+      },
+      include: {
+        wallet: {
+          include: {
+            _count: {
+              select: {
+                sourceTransactions: {
+                  where: { workflowStatus: "approved" },
+                },
+              },
+            },
+            creditCardProfile: {
+              include: {
+                obligations: {
+                  include: {
+                    fundingWallet: { select: { name: true } },
+                    paymentAllocations: { select: { amount: true } },
+                    statementItems: { select: { id: true } },
+                  },
+                  orderBy: [{ postedDate: "asc" }, { id: "asc" }],
+                },
+                statements: {
+                  include: {
+                    items: true,
+                    payments: {
+                      where: {
+                        deletedAt: null,
+                        workflowStatus: { not: "rejected" },
+                      },
+                      select: { id: true },
+                    },
+                  },
+                  orderBy: { cycleEndDate: "desc" },
+                  take: 24,
+                },
+                installmentPlans: {
+                  include: {
+                    transaction: { select: { description: true, amount: true } },
+                    importedObligations: {
+                      include: {
+                        paymentAllocations: { select: { id: true } },
+                        statementItems: { select: { id: true } },
+                      },
+                    },
+                    installments: {
+                      include: {
+                        statementItems: {
+                          include: {
+                            statement: { select: { status: true } },
+                          },
+                        },
+                      },
+                      orderBy: { installmentNo: "asc" },
+                    },
+                  },
+                  orderBy: { createdAt: "desc" },
+                },
+              },
+            },
+            sourceTransactions: {
+              where: {
+                deletedAt: null,
+                purpose: {
+                  in: [
+                    "standard",
+                    "credit_card_payment",
+                    "credit_card_refund",
+                    "credit_card_installment_fee",
+                  ],
+                },
+              },
+              include: {
+                category: { select: { id: true, name: true } },
+                creditCardPaymentReservations: {
+                  where: { releasedAt: null },
+                  select: { sourceWalletId: true, amount: true },
+                },
+                installmentPlan: { select: { id: true } },
+                refundTransactions: {
+                  where: { deletedAt: null, workflowStatus: { not: "rejected" } },
+                  select: { amount: true },
+                },
+                creditCardObligationEntries: {
+                  include: {
+                    paymentAllocations: { select: { id: true } },
+                    statementItems: { select: { id: true } },
+                  },
+                },
+              },
+              orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+              take: 30,
+            },
+          },
+        },
+      },
+      orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
+    }),
+    prisma.workspaceWallet.findMany({
+      where: {
+        workspaceId,
+        wallet: { status: "active", deletedAt: null },
+      },
+      select: { wallet: { select: { id: true, name: true, kind: true } } },
+      orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
+    }),
+    prisma.category.findMany({
+      where: {
+        type: "expense",
+        ...availableCategoryWhere(workspaceId),
+      },
+      select: { id: true, name: true, icon: true, color: true, parentId: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
+  ]);
+
+  const fundingWallets: FundingWallet[] = allWalletLinks
+    .filter(({ wallet }) => wallet.kind === "asset")
+    .map(({ wallet }) => ({ id: wallet.id, name: wallet.name }));
+  const selectableWallets = allWalletLinks.map(({ wallet }) => wallet);
+
+  const refundTransactions = links.length
+    ? await prisma.transaction.findMany({
+        where: {
+          walletId: { in: links.map(({ wallet }) => wallet.id) },
+          type: "expense",
+          purpose: "standard",
+          workflowStatus: "approved",
+          deletedAt: null,
+          member: { workspaceId },
+        },
+        include: {
+          refundTransactions: {
+            where: { deletedAt: null, workflowStatus: { not: "rejected" } },
+            select: { amount: true },
+          },
+        },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      })
+    : [];
+
+  const refundCandidatesByCard = new Map<
+    string,
+    Array<{
+      id: string;
+      description: string | null;
+      date: string;
+      refundableAmount: string;
+    }>
+  >();
+
+  for (const transaction of refundTransactions) {
+    const refundable = Decimal.max(
+      new Decimal(transaction.amount.toString()).minus(
+        transaction.refundTransactions.reduce(
+          (sum, refund) => sum.plus(refund.amount.toString()),
+          ZERO,
+        ),
+      ),
+      ZERO,
+    );
+    if (!refundable.gt(0)) continue;
+    const candidates = refundCandidatesByCard.get(transaction.walletId) ?? [];
+    candidates.push({
+      id: transaction.id,
+      description: transaction.description,
+      date: transaction.date.toISOString().slice(0, 10),
+      refundableAmount: refundable.toString(),
+    });
+    refundCandidatesByCard.set(transaction.walletId, candidates);
+  }
+
+  const cards: CreditCardOverviewItem[] = links.flatMap(({ wallet }) => {
+    const profile = wallet.creditCardProfile;
+    if (!profile) return [];
+
+    const pendingByWallet = new Map<string, Decimal>();
+    for (const transaction of wallet.sourceTransactions) {
+      for (const reservation of transaction.creditCardPaymentReservations) {
+        pendingByWallet.set(
+          reservation.sourceWalletId,
+          (pendingByWallet.get(reservation.sourceWalletId) ?? ZERO).plus(
+            reservation.amount.toString(),
+          ),
+        );
+      }
+    }
+
+    const outstandingByWallet = new Map<
+      string,
+      { walletName: string; amount: Decimal }
+    >();
+    for (const obligation of profile.obligations) {
+      const paid = obligation.paymentAllocations.reduce(
+        (sum, item) => sum.plus(item.amount.toString()),
+        ZERO,
+      );
+      const current = outstandingByWallet.get(obligation.fundingWalletId)?.amount ?? ZERO;
+      outstandingByWallet.set(obligation.fundingWalletId, {
+        walletName: obligation.fundingWallet.name,
+        amount: current.plus(obligation.amount.toString()).minus(paid),
+      });
+    }
+
+    const oldestStatement = [...profile.statements]
+      .reverse()
+      .find((statement) => statement.status === "issued");
+    const statementSources = new Map<string, Decimal>();
+    for (const item of oldestStatement?.items ?? []) {
+      statementSources.set(
+        item.fundingWalletId,
+        (statementSources.get(item.fundingWalletId) ?? ZERO).plus(
+          item.amount.toString(),
+        ),
+      );
+    }
+
+    return [{
+      id: wallet.id,
+      name: wallet.name,
+      currency: membership.workspace.baseCurrency,
+      description: wallet.description,
+      balance: wallet.currentBalance.toString(),
+      remainingBalance: Decimal.max(
+        new Decimal(wallet.currentBalance.toString()).negated(),
+        ZERO,
+      ).toString(),
+      debt: Decimal.max(wallet.currentBalance.toString(), ZERO).toString(),
+      creditBalance: Decimal.max(
+        new Decimal(wallet.currentBalance.toString()).negated(),
+        ZERO,
+      ).toString(),
+      limit: profile.creditLimit.toString(),
+      availableCredit: new Decimal(profile.creditLimit.toString())
+        .minus(wallet.currentBalance.toString())
+        .toString(),
+      pendingPayment: [...pendingByWallet.values()]
+        .reduce((sum, amount) => sum.plus(amount), ZERO)
+        .toString(),
+      hasApprovedTransactions: wallet._count.sourceTransactions > 0,
+      defaultFundingWalletId: profile.defaultFundingWalletId,
+      statementClosingDay: profile.statementClosingDay,
+      paymentDueDay: profile.paymentDueDay,
+      statement: oldestStatement ? {
+        id: oldestStatement.id,
+        cycleEndDate: oldestStatement.cycleEndDate.toISOString().slice(0, 10),
+        dueDate: oldestStatement.dueDate.toISOString().slice(0, 10),
+        amount: oldestStatement.totalAmount.toString(),
+        status: oldestStatement.status,
+        overdue:
+          oldestStatement.dueDate.toISOString().slice(0, 10) <
+          getBusinessDateInTimeZone(membership.workspace.timeZone),
+        paymentPending: oldestStatement.payments.length > 0,
+        sources: [...statementSources.entries()]
+          .filter(([, amount]) => amount.gt(0))
+          .map(([walletId, amount]) => ({
+            walletId,
+            amount: amount.toString(),
+          })),
+      } : null,
+      statements: profile.statements.map((statement) => ({
+        id: statement.id,
+        cycleEndDate: statement.cycleEndDate.toISOString().slice(0, 10),
+        dueDate: statement.dueDate.toISOString().slice(0, 10),
+        amount: statement.totalAmount.toString(),
+        status: statement.status,
+      })),
+      installmentPlans: profile.installmentPlans.map((plan) => ({
+        id: plan.id,
+        origin: plan.origin,
+        description: plan.description ?? plan.transaction?.description ?? null,
+        principal: plan.transaction
+          ? plan.transaction.amount.toString()
+          : plan.importedObligations.reduce(
+              (sum, entry) => sum.plus(entry.amount.toString()),
+              ZERO,
+            ).toString(),
+        fee: plan.feeAmount.toString(),
+        termCount: plan.termCount,
+        paidTermCount: plan.paidTermCount,
+        monthlyPrincipal: plan.installments[0]?.principalAmount.toString() ?? "0",
+        monthlyFee: plan.installments[0]?.feeAmount.toString() ?? "0",
+        totalPerTerm: plan.installments[0]
+          ? new Decimal(plan.installments[0].principalAmount.toString())
+              .plus(plan.installments[0].feeAmount.toString())
+              .toString()
+          : "0",
+        remainingPrincipal: Decimal.max(
+          new Decimal(
+            plan.transaction
+              ? plan.transaction.amount.toString()
+              : plan.importedObligations.reduce(
+                  (sum, entry) => sum.plus(entry.amount.toString()),
+                  ZERO,
+                ).toString(),
+          ).minus(
+            plan.installments
+              .filter((i) => i.statementItems.some((s) => s.statement.status === "paid"))
+              .reduce((sum, i) => sum.plus(i.principalAmount.toString()), ZERO),
+          ),
+          ZERO,
+        ).toString(),
+        nextStatementDate: profile.statementClosingDay
+          ? firstStatementOnOrAfter(
+              getBusinessDateInTimeZone(membership.workspace.timeZone),
+              profile.statementClosingDay,
+            )
+          : null,
+        importBalanceMode: plan.importBalanceMode,
+        status: plan.status,
+        canDelete:
+          (plan.origin === "imported"
+            ? plan.importedObligations.every(
+                (entry) => entry.paymentAllocations.length === 0 && entry.statementItems.length === 0,
+              )
+            : true) &&
+          plan.installments.every((installment) => installment.statementItems.length === 0),
+        installments: plan.installments.map((installment) => ({
+          number: installment.installmentNo,
+          dueDate: installment.dueDate.toISOString().slice(0, 10),
+          amount: new Decimal(installment.principalAmount.toString())
+            .plus(installment.feeAmount.toString())
+            .toString(),
+          paid:
+            installment.statementItems.length > 0 &&
+            installment.statementItems.every(
+              (item) => item.statement.status === "paid",
+            ),
+        })),
+      })),
+      fundingShares: [...outstandingByWallet.entries()].map(
+        ([walletId, item]) => ({
+          walletId,
+          walletName: item.walletName,
+          outstanding: Decimal.max(
+            item.amount.minus(pendingByWallet.get(walletId) ?? ZERO),
+            ZERO,
+          ).toString(),
+        }),
+      ),
+      importableOpeningDebt: profile.obligations
+        .filter(
+          (entry) =>
+            entry.source === "opening_balance" &&
+            !entry.installmentPlanId &&
+            entry.paymentAllocations.length === 0 &&
+            entry.statementItems.length === 0 &&
+            new Decimal(entry.amount.toString()).gt(0),
+        )
+        .reduce<Array<{ walletId: string; amount: string }>>((items, entry) => {
+          const current = items.find((item) => item.walletId === entry.fundingWalletId);
+          if (current) {
+            current.amount = new Decimal(current.amount).plus(entry.amount.toString()).toString();
+          } else {
+            items.push({ walletId: entry.fundingWalletId, amount: entry.amount.toString() });
+          }
+          return items;
+        }, []),
+      reservedFunding: profile.obligations
+        .filter((entry) =>
+          new Decimal(entry.amount.toString())
+            .minus(
+              entry.paymentAllocations.reduce(
+                (sum, a) => sum.plus(a.amount.toString()),
+                ZERO,
+              ),
+            )
+            .gt(0),
+        )
+        .reduce<Array<{ walletId: string; amount: string }>>((items, entry) => {
+          const current = items.find((item) => item.walletId === entry.fundingWalletId);
+          if (current) {
+            current.amount = new Decimal(current.amount).plus(entry.amount.toString()).toString();
+          } else {
+            items.push({ walletId: entry.fundingWalletId, amount: entry.amount.toString() });
+          }
+          return items;
+        }, []),
+      activities: wallet.sourceTransactions.map((transaction) => {
+        const canModify =
+          transaction.purpose === "standard" &&
+          !transaction.installmentPlan &&
+          !transaction.creditCardStatementId &&
+          transaction.refundTransactions.length === 0 &&
+          transaction.creditCardObligationEntries.every(
+            (entry) =>
+              entry.paymentAllocations.length === 0 &&
+              entry.statementItems.length === 0,
+          );
+        return {
+          id: transaction.id,
+          purpose: transaction.purpose,
+          description: transaction.description,
+          amount: transaction.amount.toString(),
+          date: transaction.date.toISOString().slice(0, 10),
+          status: transaction.workflowStatus,
+          categoryId: transaction.categoryId ?? null,
+          category: transaction.category?.name ?? null,
+          walletId: transaction.walletId,
+          installmentEligible:
+            transaction.purpose === "standard" &&
+            transaction.workflowStatus === "approved" &&
+            !transaction.installmentPlan &&
+            transaction.creditCardObligationEntries.every(
+              (entry) =>
+                entry.paymentAllocations.length === 0 &&
+                entry.statementItems.length === 0,
+            ),
+          canDelete: canModify,
+          canEdit: canModify,
+          installmentPlanId: transaction.installmentPlan?.id ?? null,
+          refundableAmount: transaction.purpose === "standard"
+            ? Decimal.max(
+                new Decimal(transaction.amount.toString()).minus(
+                  transaction.refundTransactions.reduce(
+                    (sum, refund) => sum.plus(refund.amount.toString()),
+                    ZERO,
+                  ),
+                ),
+                ZERO,
+              ).toString()
+            : "0",
+        };
+      }),
+      refundCandidates: refundCandidatesByCard.get(wallet.id) ?? [],
+    }];
+  });
+
+  return {
+    workspaceId,
+    currency: membership.workspace.baseCurrency,
+    businessDate: getBusinessDateInTimeZone(membership.workspace.timeZone),
+    cards,
+    canManage: workspaceCapabilities(membership.role.code).canManageWallets,
+    canApprove: workspaceCapabilities(membership.role.code).canApproveTransactions,
+    fundingWallets,
+    selectableWallets,
+    categories,
+  };
+}
