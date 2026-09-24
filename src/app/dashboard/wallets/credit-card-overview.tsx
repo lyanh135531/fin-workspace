@@ -338,11 +338,6 @@ export function CreditCardVirtualCard({
     ? Math.min(100, Math.max(0, debtDecimal.div(limitDecimal).mul(100).toNumber()))
     : 0;
 
-  const cardTailDigits = useMemo(() => {
-    const alphanumeric = card.id.replace(/[^0-9a-zA-Z]/g, "");
-    return alphanumeric.slice(-4).toUpperCase() || "8824";
-  }, [card.id]);
-
   return (
     <div
       role={isInteractive ? "button" : undefined}
@@ -414,16 +409,13 @@ export function CreditCardVirtualCard({
         </div>
       </div>
 
-      {/* Middle row: Card Name + Clean Masked Number */}
-      <div className="relative z-[1] my-auto py-0.5">
+      {/* Middle row: Card Name */}
+      <div className="relative z-[1] my-auto py-1">
         <p
-          className="truncate text-sm sm:text-base font-bold tracking-tight text-[var(--foreground)]"
+          className="truncate text-base sm:text-lg font-bold tracking-tight text-[var(--foreground)]"
           title={card.name}
         >
           {card.name}
-        </p>
-        <p className="mt-0.5 font-mono text-[11px] sm:text-xs tracking-widest text-[var(--text-muted)]">
-          •••• •••• •••• <span className="font-semibold text-[var(--text-secondary)]">{cardTailDigits}</span>
         </p>
       </div>
 
@@ -627,10 +619,6 @@ function CreditCardPanel({
   const hasCredit = creditBalanceDecimal.gt(0);
   const hasDebt = debtDecimal.gt(0);
   const brand = useMemo(() => detectCardBrand(card.name), [card.name]);
-  const cardTailDigits = useMemo(() => {
-    const alphanumeric = card.id.replace(/[^0-9a-zA-Z]/g, "");
-    return alphanumeric.slice(-4).toUpperCase() || "8824";
-  }, [card.id]);
   const selectedRefundActivity = card.refundCandidates.find(
     (activity) => activity.id === refundTransactionId,
   );
@@ -1202,9 +1190,6 @@ function CreditCardPanel({
                   {card.name}
                 </h2>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-xs text-[var(--text-muted)] tracking-wider">
-                    •••• {cardTailDigits}
-                  </span>
                   <CardBrandBadge brand={brand} />
                 </div>
                 {card.statement?.overdue ? (
