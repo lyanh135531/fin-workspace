@@ -71,6 +71,12 @@ export async function WorkspaceDashboard({
         toWallet: { select: { name: true } },
         category: { select: { name: true, color: true, icon: true } },
         member: { include: { user: { select: { username: true } } } },
+        creditCardAllocations: {
+          select: {
+            fundingWalletId: true,
+            amount: true,
+          },
+        },
         changeRequests: {
           where: { status: "pending" },
           select: {
@@ -141,6 +147,10 @@ export async function WorkspaceDashboard({
       changeLookups,
     ),
     isRecurring: Boolean(item.recurringTransactionId),
+    allocations: item.creditCardAllocations.map((alloc) => ({
+      walletId: alloc.fundingWalletId,
+      amount: alloc.amount.toString(),
+    })),
   }));
   return (
     <DashboardLedgerWorkspace

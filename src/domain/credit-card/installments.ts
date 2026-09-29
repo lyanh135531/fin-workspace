@@ -46,7 +46,7 @@ export function dueDateAfterStatement(statementDate: string, dueDay: number) {
 
 export function installmentAmounts(total: Decimal.Value, count: number) {
   const principal = new Decimal(total);
-  const regular = principal.div(count).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+  const regular = principal.div(count).toDecimalPlaces(0, Decimal.ROUND_FLOOR);
   return Array.from({ length: count }, (_, index) =>
     index === count - 1 ? principal.minus(regular.times(count - 1)) : regular,
   );

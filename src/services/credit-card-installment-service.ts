@@ -26,7 +26,7 @@ function proportionalAmounts(total: Decimal, shares: Array<{ amount: { toString(
   return shares.map((share, index) => {
     const amount = index === shares.length - 1
       ? remaining
-      : total.times(share.amount.toString()).div(base).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      : total.times(share.amount.toString()).div(base).toDecimalPlaces(0, Decimal.ROUND_FLOOR);
     remaining = remaining.minus(amount);
     return amount;
   });

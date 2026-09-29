@@ -11,7 +11,7 @@ const defaultAmountFormat: Required<AmountFormatOptions> = {
   decimalSeparator: ",",
   groupSeparator: ".",
   minimumFractionDigits: 0,
-  maximumFractionDigits: 4,
+  maximumFractionDigits: 0,
 };
 
 const billion = new Decimal("1000000000");

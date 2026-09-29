@@ -17,7 +17,7 @@ describe("credit card installment schedule", () => {
 
   it("puts rounding remainder in the final installment", () => {
     const parts = installmentAmounts("100", 3);
-    expect(parts.map((part) => part.toFixed(4))).toEqual(["33.3333", "33.3333", "33.3334"]);
+    expect(parts.map((part) => part.toFixed(0))).toEqual(["33", "33", "34"]);
     expect(parts.reduce((sum, part) => sum.plus(part), new Decimal(0)).eq(100)).toBe(true);
   });
 

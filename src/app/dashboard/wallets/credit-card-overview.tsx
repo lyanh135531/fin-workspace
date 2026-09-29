@@ -16,6 +16,7 @@ import {
   Info,
   MoreHorizontal,
   Pencil,
+  ReceiptText,
   RotateCcw,
   Split,
   Trash2,
@@ -55,6 +56,11 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
+  Tabs,
+  TabsContent,
+  TabsCount,
+  TabsList,
+  TabsTrigger,
   Textarea,
 } from "@/components/base";
 import {
@@ -485,6 +491,7 @@ function CreditCardPanel({
   fundingWallets,
   wallets,
   categories,
+  isDesktopWorkspace = false,
 }: {
   workspaceId: string;
   currency: string;
@@ -501,6 +508,7 @@ function CreditCardPanel({
     color?: string | null;
     parentId?: string | null;
   }>;
+  isDesktopWorkspace?: boolean;
 }) {
   const isDesktop = useSyncExternalStore(
     subscribeDesktop,
@@ -879,11 +887,26 @@ function CreditCardPanel({
             </div>
           </div>
 
-          <div className="shrink-0 text-right">
-            <span className="text-sm font-bold tabular-nums text-[var(--foreground)] block">
-              {formatAmount(plan.principal, { maximumFractionDigits: 0 })} {currency}
-            </span>
-            <span className="text-[10px] text-[var(--text-muted)] font-normal">Tổng giá trị</span>
+          <div className="shrink-0 flex items-start gap-2.5">
+            <div className="text-right">
+              <span className="text-sm font-bold tabular-nums text-[var(--foreground)] block">
+                {formatAmount(plan.principal, { maximumFractionDigits: 0 })} {currency}
+              </span>
+              <span className="text-[10px] text-[var(--text-muted)] font-normal">Tổng giá trị</span>
+            </div>
+            {isDesktopWorkspace && canManage && plan.canDelete && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs text-[var(--destructive)] hover:text-[var(--destructive)] hover:bg-[var(--destructive)]/10 border-[var(--destructive)]/25 gap-1 shrink-0"
+                onClick={() => setDeletingPlan(plan)}
+                title="Hủy khoản trả góp này"
+              >
+                <Trash2 className="size-3.5 shrink-0" aria-hidden="true" />
+                <span>Hủy</span>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -934,6 +957,19 @@ function CreditCardPanel({
       </>
     );
 
+    {/* Trên desktop: hiển thị card tĩnh kèm nút bấm trực tiếp, không dùng menu context */}
+    if (isDesktopWorkspace) {
+      return (
+        <div
+          key={plan.id}
+          className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/25 p-3.5 space-y-2.5"
+        >
+          {cardContent}
+        </div>
+      );
+    }
+
+    {/* Trên mobile: giữ nguyên menu context spotlight khi chạm vào card */}
     if (canManage && plan.canDelete) {
       return (
         <DropdownMenu
@@ -1060,6 +1096,154 @@ function CreditCardPanel({
     const canRefundActivity = canManage && Boolean(refundCandidate && new Decimal(refundCandidate.refundableAmount).gt(0));
     const hasActivityMenu = activity.installmentEligible || canEditActivity || canRefundActivity || canDeleteActivity;
 
+    {/* Trên desktop: dùng Sheet khi click hàng hoặc bấm trực tiếp nút thao tác, không dùng menu context */}
+    if (isDesktopWorkspace) {
+      return (
+        <div
+          key={activity.id}
+          className={cn(
+            "group/activity flex items-center justify-between gap-3 py-2.5 px-2.5 -mx-2 rounded-xl transition-colors hover:bg-[var(--surface-secondary)]/50",
+            canEditActivity && "cursor-pointer",
+          )}
+          onClick={() => {
+            if (canEditActivity) {
+              startEditingActivity(activity);
+            }
+          }}
+          title={canEditActivity ? "Bấm để mở Sheet chỉnh sửa giao dịch" : undefined}
+        >
+          {/* Trái: Icon + Mô tả + Ngày */}
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div
+              className={`grid size-8 shrink-0 place-items-center rounded-lg ${
+                activity.purpose === "credit_card_refund"
+                  ? "bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] text-[var(--success)]"
+                  : activity.purpose === "credit_card_payment"
+                    ? "bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
+                    : "bg-[var(--surface-secondary)] text-[var(--text-secondary)]"
+              }`}
+            >
+              {activity.purpose === "credit_card_refund" ? (
+                <RotateCcw size={14} />
+              ) : activity.purpose === "credit_card_payment" ? (
+                <CheckCircle2 size={14} />
+              ) : (
+                <CreditCard size={14} />
+              )}
+            </div>
+
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium text-[var(--foreground)]">
+                {activity.description || activityLabel(activity)}
+              </p>
+              <p className="truncate text-[11px] text-[var(--text-muted)]">
+                {activity.description && activity.description !== activityLabel(activity)
+                  ? `${formatIsoDate(activity.date)} · ${activityLabel(activity)}`
+                  : formatIsoDate(activity.date)}
+              </p>
+            </div>
+          </div>
+
+          {/* Phải: Số tiền + Nút bấm thao tác trực tiếp trên Desktop */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="flex flex-col items-end">
+              <span
+                className={`text-xs font-semibold tabular-nums ${
+                  activity.purpose === "credit_card_refund"
+                    ? "text-[var(--success)]"
+                    : "text-[var(--foreground)]"
+                }`}
+              >
+                {activity.purpose === "credit_card_refund" ||
+                activity.purpose === "credit_card_payment"
+                  ? "−"
+                  : "+"}
+                {formatAmount(activity.amount, { maximumFractionDigits: 0 })} {currency}
+              </span>
+              {activity.installmentPlanId && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--primary)]">
+                  <Split size={9} aria-hidden="true" />
+                  <span>Đang trả góp</span>
+                </span>
+              )}
+            </div>
+
+            {/* Cụm nút thao tác trực tiếp trên Desktop */}
+            {hasActivityMenu && (
+              <div className="flex items-center gap-1 shrink-0">
+                {activity.installmentEligible && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs gap-1 text-[var(--primary)] hover:text-[var(--primary)]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setInstallmentTarget(activity);
+                    }}
+                    title="Đăng ký trả góp (mở Sheet)"
+                  >
+                    <Split className="size-3.5" aria-hidden="true" />
+                    <span>Trả góp</span>
+                  </Button>
+                )}
+                {canRefundActivity && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs gap-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRefundTransactionId(activity.id);
+                      setRefundDescription(`Hoàn tiền cho ${activity.description || "giao dịch"}`);
+                      setRefundAmount(refundCandidate?.refundableAmount ?? "");
+                      setRefundOpen(true);
+                    }}
+                    title="Hoàn tiền giao dịch (mở Sheet)"
+                  >
+                    <RotateCcw className="size-3.5" aria-hidden="true" />
+                    <span>Hoàn tiền</span>
+                  </Button>
+                )}
+                {canEditActivity && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-[var(--text-secondary)] hover:text-[var(--foreground)]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEditingActivity(activity);
+                    }}
+                    title="Chỉnh sửa giao dịch (mở Sheet)"
+                  >
+                    <Pencil className="size-3.5" aria-hidden="true" />
+                  </Button>
+                )}
+                {canDeleteActivity && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-[var(--text-muted)] hover:text-[var(--destructive)] hover:bg-[var(--destructive)]/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingActivity(activity);
+                    }}
+                    title="Xóa giao dịch"
+                  >
+                    <Trash2 className="size-3.5" aria-hidden="true" />
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    {/* Trên mobile: giữ nguyên menu context spotlight khi chạm vào hàng */}
     if (hasActivityMenu) {
       return (
         <DropdownMenu
@@ -1181,31 +1365,398 @@ function CreditCardPanel({
 
   return (
     <>
-      <div id={`credit-card-details-${card.id}`} className="space-y-5 sm:space-y-6">
-          {/* Active Card Header: Tên thẻ + Số đuôi + Thương hiệu + Chu kỳ & Menu */}
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3.5">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-xl font-bold text-[var(--foreground)] tracking-tight truncate">
-                  {card.name}
-                </h2>
-                <div className="flex items-center gap-1.5">
+      <div id={`credit-card-details-${card.id}`} className={cn("space-y-5 sm:space-y-6", isDesktopWorkspace && "space-y-4")}>
+        {isDesktopWorkspace ? (
+          <div className="space-y-4">
+            {/* 1. Header: Title + Brand + Cycle + Actions */}
+            <div className="flex items-center justify-between gap-4 pb-1">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h2 className="text-xl font-bold tracking-tight text-[var(--foreground)] truncate">
+                    {card.name}
+                  </h2>
                   <CardBrandBadge brand={brand} />
+                  {card.statement?.overdue ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--destructive)]/20 bg-[color-mix(in_srgb,var(--destructive)_12%,transparent)] px-2.5 py-0.5 text-xs font-semibold text-[var(--destructive)]">
+                      <span className="size-1.5 rounded-full bg-[var(--destructive)]" />
+                      Quá hạn
+                    </span>
+                  ) : card.statement ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--warning)]/20 bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] px-2.5 py-0.5 text-xs font-semibold text-[var(--warning)]">
+                      <span className="size-1.5 rounded-full bg-[var(--warning)]" />
+                      Hạn {formatShortDate(card.statement.dueDate)}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-secondary)]/50 px-2.5 py-0.5 text-xs font-medium text-[var(--text-muted)]">
+                      Bình thường
+                    </span>
+                  )}
                 </div>
-                {card.statement?.overdue ? (
-                  <span className="inline-flex items-center rounded-md bg-[color-mix(in_srgb,var(--destructive)_12%,transparent)] px-2 py-0.5 text-xs font-semibold text-[var(--destructive)] shrink-0 border border-[var(--destructive)]/20">
-                    Quá hạn
-                  </span>
-                ) : card.statement ? (
-                  <span className="inline-flex items-center rounded-md bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] px-2 py-0.5 text-xs font-semibold text-[var(--warning)] shrink-0 border border-[var(--warning)]/20">
-                    Đến hạn {formatShortDate(card.statement.dueDate)}
-                  </span>
-                ) : null}
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  Chốt ngày {card.statementClosingDay} · Hạn thanh toán ngày {card.paymentDueDay} hàng tháng
+                  {walletNames.get(card.defaultFundingWalletId) && ` · Ví trích nợ mặc định: ${walletNames.get(card.defaultFundingWalletId)}`}
+                </p>
               </div>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Chốt ngày {card.statementClosingDay} · Hạn thanh toán ngày {card.paymentDueDay} hàng tháng
-              </p>
+
+              {/* Desktop Action Toolbar */}
+              {canManage && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={openImportInstallment}
+                  >
+                    <History className="size-3.5 text-[var(--text-muted)]" aria-hidden="true" />
+                    <span>Nhập trả góp</span>
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="size-8"
+                          aria-label={`Tùy chọn khác thẻ ${card.name}`}
+                        />
+                      }
+                    >
+                      <MoreHorizontal className="size-4" aria-hidden="true" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      side="bottom"
+                      sideOffset={6}
+                      className="w-48 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
+                    >
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setRefundTransactionId("");
+                          setRefundDescription("");
+                          setRefundAmount("");
+                          setRefundOpen(true);
+                        }}
+                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                      >
+                        <RotateCcw className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                        <span>Hoàn tiền</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setEditOpen(true)}
+                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                      >
+                        <Pencil className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                        <span>Chỉnh sửa thẻ</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => {
+                          setConfirmLossChecked(false);
+                          setConfirmDelete(true);
+                        }}
+                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--destructive)]"
+                      >
+                        <Trash2 className="size-4 shrink-0" aria-hidden="true" />
+                        <span>Xóa thẻ</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
             </div>
+
+            {/* 2. Apple Card / Linear Hero Balance Card */}
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6 space-y-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    {hasCredit ? "Dư có hiện tại" : "Dư nợ hiện tại"}
+                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span
+                      className={cn(
+                        "text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums",
+                        hasCredit
+                          ? "text-[var(--success)]"
+                          : "text-[var(--foreground)]",
+                      )}
+                    >
+                      {formatAmount(hasCredit ? card.creditBalance : card.debt)}
+                    </span>
+                    <span className="text-sm font-semibold uppercase text-[var(--text-muted)]">
+                      {currency}
+                    </span>
+                  </div>
+                  {new Decimal(card.pendingPayment || 0).gt(0) && (
+                    <p className="text-xs text-[var(--text-muted)] pt-0.5">
+                      Đang chờ duyệt: <strong className="font-semibold tabular-nums text-[var(--foreground)]">{formatAmount(card.pendingPayment)} {currency}</strong>
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-6 sm:text-right">
+                  <div>
+                    <span className="text-[11px] font-medium text-[var(--text-muted)] block">Hạn mức khả dụng</span>
+                    <span className="mt-0.5 text-base font-bold tabular-nums text-[var(--foreground)] block">
+                      {formatAmount(card.availableCredit)} <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{currency}</span>
+                    </span>
+                  </div>
+                  <div className="h-8 w-px bg-[var(--border)]" />
+                  <div>
+                    <span className="text-[11px] font-medium text-[var(--text-muted)] block">Tổng hạn mức</span>
+                    <span className="mt-0.5 text-base font-bold tabular-nums text-[var(--foreground)] block">
+                      {formatAmount(card.limit)} <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{currency}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Utilization Progress Bar */}
+              <div className="space-y-2 pt-1 border-t border-[var(--border)]/60">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      utilizationPercent > 80
+                        ? "bg-[var(--destructive)]"
+                        : utilizationPercent > 50
+                          ? "bg-[var(--warning)]"
+                          : "bg-[var(--primary)]",
+                    )}
+                    style={{ width: `${Math.max(utilizationPercent, 2)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                  <span>
+                    Đã dùng <strong className="text-[var(--foreground)] font-semibold">{utilizationPercent}%</strong> hạn mức
+                  </span>
+                  <span>
+                    Còn lại <strong className="text-[var(--foreground)] font-semibold">{Math.max(100 - utilizationPercent, 0)}%</strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Statement alert banner (Only if statement exists) */}
+            {card.statement && (
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-[color-mix(in_srgb,var(--primary)_25%,var(--border))] bg-[color-mix(in_srgb,var(--primary)_4%,var(--surface))] p-4 sm:p-5">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--primary)_12%,var(--surface))] text-[var(--primary)]">
+                    <ReceiptText size={20} aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <span className="text-sm font-semibold text-[var(--foreground)]">
+                        Sao kê kỳ {formatShortDate(card.statement.cycleEndDate)}
+                      </span>
+                      <span
+                        className={cn(
+                          "rounded-full px-2.5 py-0.5 text-[10px] font-semibold",
+                          card.statement.overdue
+                            ? "bg-[var(--destructive)]/12 text-[var(--destructive)]"
+                            : card.statement.paymentPending
+                              ? "bg-[var(--warning)]/12 text-[var(--warning)]"
+                              : "bg-[var(--primary)]/10 text-[var(--primary)]",
+                        )}
+                      >
+                        {card.statement.overdue
+                          ? "Đã quá hạn"
+                          : card.statement.paymentPending
+                            ? "Chờ duyệt"
+                            : `Hạn ${formatShortDate(card.statement.dueDate)}`}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                      Cần thanh toán:{" "}
+                      <strong className="text-sm font-bold tabular-nums text-[var(--foreground)]">
+                        {formatAmount(card.statement.amount, { maximumFractionDigits: 0 })} {currency}
+                      </strong>
+                      {card.statement.sources.length > 0 && (
+                        <span className="text-[var(--text-muted)] ml-2">
+                          · Trích từ: {card.statement.sources.map((s) => `${walletNames.get(s.walletId) ?? "Ví"} (${formatAmount(s.amount)} ${currency})`).join(", ")}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-[var(--text-secondary)] hover:text-[var(--foreground)]"
+                    render={
+                      <Link href={`/credit-cards/${card.id}/statements/${card.statement.id}`} />
+                    }
+                  >
+                    Chi tiết
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    disabled={
+                      pending ||
+                      card.statement.paymentPending ||
+                      !new Decimal(card.statement.amount || 0).gt(0)
+                    }
+                    onClick={() => setPaymentConfirmOpen(true)}
+                    className="gap-1.5"
+                  >
+                    <CheckCircle2 size={14} aria-hidden="true" />
+                    <span>{card.statement.paymentPending ? "Đang chờ duyệt" : "Thanh toán ngay"}</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* 4. Unified Tabs: Giao dịch | Trả góp | Lịch sử sao kê */}
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+              <Tabs defaultValue="activities" className="w-full space-y-4">
+                <TabsList variant="underline">
+                  <TabsTrigger variant="underline" value="activities" className="gap-2">
+                    <span>Giao dịch gần đây</span>
+                    <TabsCount>{card.activities.length}</TabsCount>
+                  </TabsTrigger>
+                  <TabsTrigger variant="underline" value="installments" className="gap-2">
+                    <span>Khoản trả góp</span>
+                    <TabsCount>{card.installmentPlans.length}</TabsCount>
+                  </TabsTrigger>
+                  <TabsTrigger variant="underline" value="statements" className="gap-2">
+                    <span>Lịch sử sao kê</span>
+                    <TabsCount>{card.statements.length}</TabsCount>
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Tab 1: Giao dịch gần đây */}
+                <TabsContent value="activities" className="space-y-2 mt-0 outline-none">
+                  {card.activities.length ? (
+                    <div className="divide-y divide-[var(--border)]/60">
+                      {card.activities.map(renderActivityRow)}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-xs text-[var(--text-muted)]">
+                      Chưa có giao dịch thẻ phát sinh.
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Tab 2: Khoản trả góp */}
+                <TabsContent value="installments" className="space-y-4 mt-0 outline-none">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-[var(--text-muted)]">
+                      Theo dõi tiến độ thanh toán từng kỳ trả góp
+                    </span>
+                    {canManage && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={openImportInstallment}
+                      >
+                        <History size={14} className="text-[var(--text-muted)]" aria-hidden="true" />
+                        <span>Nhập trả góp có sẵn</span>
+                      </Button>
+                    )}
+                  </div>
+
+                  {card.installmentPlans.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {card.installmentPlans.map(renderInstallmentCard)}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-[var(--border)] p-8 text-center space-y-2">
+                      <p className="text-xs text-[var(--text-muted)]">
+                        Chưa có khoản trả góp nào cho thẻ này.
+                      </p>
+                      {canManage && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={openImportInstallment}
+                        >
+                          + Nhập trả góp có sẵn
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Tab 3: Lịch sử sao kê */}
+                <TabsContent value="statements" className="space-y-2 mt-0 outline-none">
+                  {card.statements.length > 0 ? (
+                    <div className="divide-y divide-[var(--border)]/60">
+                      {card.statements.map((statement) => (
+                        <Link
+                          key={statement.id}
+                          href={`/credit-cards/${card.id}/statements/${statement.id}`}
+                          className="flex items-center justify-between gap-4 py-2.5 px-2 hover:bg-[var(--surface-secondary)]/50 rounded-xl transition-colors"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-[var(--foreground)] truncate">
+                              Kỳ chốt {formatIsoDate(statement.cycleEndDate)}
+                            </p>
+                            <p className="text-[11px] text-[var(--text-muted)]">
+                              Hạn thanh toán: {formatIsoDate(statement.dueDate)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="tabular-nums font-semibold text-xs text-[var(--foreground)]">
+                              {formatAmount(statement.amount)} {currency}
+                            </span>
+                            <span
+                              className={cn(
+                                "rounded px-2 py-0.5 text-[10px] font-semibold",
+                                statement.status === "paid"
+                                  ? "bg-[var(--success)]/10 text-[var(--success)]"
+                                  : "bg-[var(--warning)]/10 text-[var(--warning)]",
+                              )}
+                            >
+                              {statement.status === "paid" ? "Đã thanh toán" : "Chưa trả"}
+                            </span>
+                            <ChevronRight size={14} className="text-[var(--text-muted)]" />
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-xs text-[var(--text-muted)]">
+                      Chưa có lịch sử sao kê nào.
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Active Card Header: Tên thẻ + Số đuôi + Thương hiệu + Chu kỳ & Menu */}
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3.5">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-base sm:text-xl font-bold text-[var(--foreground)] tracking-tight truncate">
+                    {card.name}
+                  </h2>
+                  <div className="flex items-center gap-1.5">
+                    <CardBrandBadge brand={brand} />
+                  </div>
+                  {card.statement?.overdue ? (
+                    <span className="inline-flex items-center rounded-md bg-[color-mix(in_srgb,var(--destructive)_12%,transparent)] px-2 py-0.5 text-xs font-semibold text-[var(--destructive)] shrink-0 border border-[var(--destructive)]/20">
+                      Quá hạn
+                    </span>
+                  ) : card.statement ? (
+                    <span className="inline-flex items-center rounded-md bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] px-2 py-0.5 text-xs font-semibold text-[var(--warning)] shrink-0 border border-[var(--warning)]/20">
+                      Đến hạn {formatShortDate(card.statement.dueDate)}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  Chốt ngày {card.statementClosingDay} · Hạn thanh toán ngày {card.paymentDueDay} hàng tháng
+                </p>
+              </div>
 
             <div className="flex items-center gap-2 shrink-0">
               {canManage && (
@@ -1564,7 +2115,9 @@ function CreditCardPanel({
                 )}
               </div>
             </div>
-          </div>
+          </>
+        )}
+      </div>
 
         <Sheet
           open={paymentConfirmOpen}
@@ -2636,127 +3189,330 @@ export function CreditCardOverview(props: {
     );
   }, [props.cards]);
 
+  const cardsWithDebtCount = useMemo(() => {
+    return props.cards.filter((c) => new Decimal(c.debt || 0).gt(0)).length;
+  }, [props.cards]);
+
+  const overdueCount = useMemo(() => {
+    return props.cards.filter((c) => c.statement?.overdue).length;
+  }, [props.cards]);
+
+  const dueStatementCount = useMemo(() => {
+    return props.cards.filter((c) => c.statement && !c.statement.overdue).length;
+  }, [props.cards]);
+
+  const availablePct = useMemo(() => {
+    if (totalLimit.lte(0)) return 0;
+    return Math.min(100, Math.max(0, Math.round(totalAvailable.div(totalLimit).mul(100).toNumber())));
+  }, [totalAvailable, totalLimit]);
+
+  const effectiveActiveCard = useMemo(() => {
+    if (selectedCardId) {
+      const found = props.cards.find((c) => c.id === selectedCardId);
+      if (found) return found;
+    }
+    return props.cards[0] ?? null;
+  }, [props.cards, selectedCardId]);
+
   return (
     <section className="space-y-4" aria-label="Quản lý thẻ tín dụng">
-      {/* Khi ở trang danh sách thẻ (chưa chọn thẻ nào) */}
-      {!activeCard ? (
-        <>
-          {/* 1. Tổng quan số liệu toàn bộ thẻ */}
-          {props.cards.length > 0 && (
-            <Card as="div" className="p-3 sm:p-4 rounded-2xl">
-              <div className="divide-y divide-[var(--border)]/40 sm:grid sm:grid-cols-3 sm:divide-y-0 sm:divide-x sm:text-center">
-                {/* 1. Tổng dư nợ */}
-                <div className="flex items-center justify-between pb-2.5 sm:pb-0 sm:px-3 sm:flex-col sm:justify-center">
-                  <span className="text-[11px] font-medium text-[var(--text-muted)]">
+      {/* 1. GIAO DIỆN MOBILE (< 901px): Giữ nguyên 100% logic và DOM hiện hữu */}
+      <div className="min-[901px]:hidden space-y-4">
+        {!activeCard ? (
+          <>
+            {/* Tổng quan số liệu toàn bộ thẻ */}
+            {props.cards.length > 0 && (
+              <Card as="div" className="p-3 sm:p-4 rounded-2xl">
+                <div className="divide-y divide-[var(--border)]/40 sm:grid sm:grid-cols-3 sm:divide-y-0 sm:divide-x sm:text-center">
+                  <div className="flex items-center justify-between pb-2.5 sm:pb-0 sm:px-3 sm:flex-col sm:justify-center">
+                    <span className="text-[11px] font-medium text-[var(--text-muted)]">
+                      Tổng dư nợ
+                    </span>
+                    <p
+                      className={cn(
+                        "font-bold tabular-nums text-sm sm:text-base tracking-tight sm:mt-1",
+                        totalDebt.gt(0)
+                          ? "text-[var(--destructive)]"
+                          : "text-[var(--foreground)]",
+                      )}
+                    >
+                      {formatAmount(totalDebt.toString())}{" "}
+                      <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">
+                        {props.currency}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between py-2.5 sm:py-0 sm:px-3 sm:flex-col sm:justify-center">
+                    <span className="text-[11px] font-medium text-[var(--text-muted)]">
+                      Tổng khả dụng
+                    </span>
+                    <p className="font-bold tabular-nums text-sm sm:text-base tracking-tight text-[var(--success)] sm:mt-1">
+                      {formatAmount(totalAvailable.toString())}{" "}
+                      <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">
+                        {props.currency}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2.5 sm:pt-0 sm:px-3 sm:flex-col sm:justify-center">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-medium text-[var(--text-muted)]">
+                        Tổng hạn mức
+                      </span>
+                      <span className="text-[10px] font-medium text-[var(--text-secondary)] bg-[var(--surface-secondary)] px-1.5 py-0.5 rounded border border-[var(--border)]/50">
+                        {props.cards.length} thẻ
+                      </span>
+                    </div>
+                    <p className="font-bold tabular-nums text-sm sm:text-base tracking-tight text-[var(--foreground)] sm:mt-1">
+                      {formatAmount(totalLimit.toString())}{" "}
+                      <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">
+                        {props.currency}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Danh sách thẻ */}
+            {props.cards.length ? (
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between px-0.5">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    Danh sách thẻ ({props.cards.length})
+                  </span>
+                  <span className="text-[11px] text-[var(--text-muted)]">
+                    Bấm vào thẻ để xem chi tiết
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                  {props.cards.map((card) => (
+                    <CreditCardVirtualCard
+                      key={card.id}
+                      card={card}
+                      currency={props.currency}
+                      isInteractive
+                      onClick={() => handleSelectCard(card.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <Card as="div" className="gap-2 p-6 text-center">
+                <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--surface-secondary)] text-[var(--text-muted)]">
+                  <CreditCard size={24} aria-hidden="true" />
+                </div>
+                <p className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+                  Chưa có thẻ tín dụng
+                </p>
+                <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto">
+                  Quản trị viên có thể thêm thẻ tín dụng để theo dõi chu kỳ sao kê, hạn mức và phân bổ ví trích nợ.
+                </p>
+              </Card>
+            )}
+          </>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleBackToList}
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--foreground)] transition-colors py-1.5 px-2.5 -ml-2 rounded-lg hover:bg-[var(--surface-secondary)] cursor-pointer"
+              >
+                <ArrowLeft className="size-4" aria-hidden="true" />
+                <span>Tất cả thẻ tín dụng</span>
+              </button>
+            </div>
+
+            <CreditCardPanel
+              key={activeCard.id}
+              {...props}
+              card={activeCard}
+              isDesktopWorkspace={false}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* 2. GIAO DIỆN DESKTOP (>= 901px): Desktop Credit Cards Workspace */}
+      <div className="hidden min-[901px]:block space-y-6">
+        {props.cards.length === 0 ? (
+          <Card as="div" className="gap-2 p-8 text-center">
+            <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--surface-secondary)] text-[var(--text-muted)]">
+              <CreditCard size={24} aria-hidden="true" />
+            </div>
+            <p className="mt-2 text-base font-semibold text-[var(--foreground)]">
+              Chưa có thẻ tín dụng
+            </p>
+            <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
+              Quản trị viên có thể thêm thẻ tín dụng để theo dõi chu kỳ sao kê, hạn mức và phân bổ ví trích nợ.
+            </p>
+          </Card>
+        ) : (
+          <>
+            {/* A. Dải tóm tắt danh mục thẻ (Fintech KPI Bar - Apple/Linear Style) */}
+            <div className="flex items-center justify-between gap-6 py-2.5 px-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+              <div className="flex items-center gap-6">
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
                     Tổng dư nợ
                   </span>
-                  <p
-                    className={cn(
-                      "font-bold tabular-nums text-sm sm:text-base tracking-tight sm:mt-1",
-                      totalDebt.gt(0)
-                        ? "text-[var(--destructive)]"
-                        : "text-[var(--foreground)]",
-                    )}
-                  >
+                  <span className={cn("text-base font-extrabold tabular-nums block", totalDebt.gt(0) ? "text-[var(--destructive)]" : "text-[var(--foreground)]")}>
                     {formatAmount(totalDebt.toString())}{" "}
-                    <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">
-                      {props.currency}
-                    </span>
-                  </p>
-                </div>
-
-                {/* 2. Tổng khả dụng */}
-                <div className="flex items-center justify-between py-2.5 sm:py-0 sm:px-3 sm:flex-col sm:justify-center">
-                  <span className="text-[11px] font-medium text-[var(--text-muted)]">
-                    Tổng khả dụng
+                    <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{props.currency}</span>
                   </span>
-                  <p className="font-bold tabular-nums text-sm sm:text-base tracking-tight text-[var(--success)] sm:mt-1">
+                </div>
+
+                <div className="h-7 w-px bg-[var(--border)]" />
+
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
+                    Khả dụng
+                  </span>
+                  <span className="text-base font-extrabold tabular-nums text-[var(--success)] block">
                     {formatAmount(totalAvailable.toString())}{" "}
-                    <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">
-                      {props.currency}
-                    </span>
-                  </p>
+                    <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{props.currency}</span>
+                  </span>
                 </div>
 
-                {/* 3. Tổng hạn mức */}
-                <div className="flex items-center justify-between pt-2.5 sm:pt-0 sm:px-3 sm:flex-col sm:justify-center">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-medium text-[var(--text-muted)]">
-                      Tổng hạn mức
-                    </span>
-                    <span className="text-[10px] font-medium text-[var(--text-secondary)] bg-[var(--surface-secondary)] px-1.5 py-0.5 rounded border border-[var(--border)]/50">
-                      {props.cards.length} thẻ
-                    </span>
-                  </div>
-                  <p className="font-bold tabular-nums text-sm sm:text-base tracking-tight text-[var(--foreground)] sm:mt-1">
+                <div className="h-7 w-px bg-[var(--border)]" />
+
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
+                    Tổng hạn mức ({props.cards.length} thẻ)
+                  </span>
+                  <span className="text-base font-extrabold tabular-nums text-[var(--foreground)] block">
                     {formatAmount(totalLimit.toString())}{" "}
-                    <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">
-                      {props.currency}
-                    </span>
-                  </p>
+                    <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{props.currency}</span>
+                  </span>
                 </div>
               </div>
-            </Card>
-          )}
 
-          {/* 2. Danh sách/Lưới các thẻ tín dụng */}
-          {props.cards.length ? (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between px-0.5">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                  Danh sách thẻ ({props.cards.length})
+              {overdueCount > 0 ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--destructive)_12%,transparent)] border border-[var(--destructive)]/20 px-3 py-1 text-xs font-semibold text-[var(--destructive)] shrink-0">
+                  <span className="size-1.5 rounded-full bg-[var(--destructive)] animate-pulse" />
+                  {overdueCount} thẻ quá hạn
                 </span>
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  Bấm vào thẻ để xem chi tiết
+              ) : dueStatementCount > 0 ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] border border-[var(--warning)]/20 px-3 py-1 text-xs font-semibold text-[var(--warning)] shrink-0">
+                  <span className="size-1.5 rounded-full bg-[var(--warning)]" />
+                  {dueStatementCount} sao kê chờ trả
                 </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--success)_10%,transparent)] px-3 py-1 text-xs font-medium text-[var(--success)] shrink-0">
+                  <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                  Đã thanh toán đủ
+                </span>
+              )}
+            </div>
+
+            {/* B. Split Workspace: Cột trái (col-4) Danh sách thẻ | Cột phải (col-8) Chi tiết thẻ đang chọn */}
+            <div className="grid grid-cols-12 gap-6 items-start">
+              {/* Cột trái: Danh sách thẻ trong 1 card duy nhất */}
+              <div className="col-span-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
+                <div className="flex items-center justify-between px-2.5 py-1.5 mb-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    Danh sách thẻ ({props.cards.length})
+                  </span>
+                  <span className="text-[11px] text-[var(--text-muted)]">
+                    Chọn để xem
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  {props.cards.map((card) => {
+                    const isSelected = effectiveActiveCard?.id === card.id;
+                    const cBrand = detectCardBrand(card.name);
+                    const cDebt = new Decimal(card.debt || 0);
+                    const cCredit = new Decimal(card.creditBalance || 0);
+                    const cHasCredit = cCredit.gt(0);
+                    const cHasDebt = cDebt.gt(0);
+
+                    return (
+                      <button
+                        key={card.id}
+                        type="button"
+                        onClick={() => handleSelectCard(card.id)}
+                        className={cn(
+                          "group relative flex w-full items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150 cursor-pointer select-none outline-none",
+                          isSelected
+                            ? "bg-[var(--surface-secondary)] ring-1 ring-[var(--border)] text-[var(--foreground)]"
+                            : "hover:bg-[var(--surface-secondary)]/50 text-[var(--text-secondary)] hover:text-[var(--foreground)]",
+                        )}
+                      >
+                        {/* Left: Brand + Name + Closing info */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <MiniVirtualCardVisual brand={cBrand} />
+                          <div className="min-w-0">
+                            <p
+                              className={cn(
+                                "truncate text-xs font-semibold transition-colors",
+                                isSelected
+                                  ? "text-[var(--foreground)] font-bold"
+                                  : "text-[var(--foreground)] group-hover:text-[var(--primary)]",
+                              )}
+                            >
+                              {card.name}
+                            </p>
+                            <p className="text-[11px] text-[var(--text-muted)] truncate">
+                              Chốt {card.statementClosingDay} · Hạn {card.paymentDueDay}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Right: Balance amount + status */}
+                        <div className="shrink-0 text-right">
+                          <p
+                            className={cn(
+                              "text-xs font-bold tabular-nums",
+                              cHasCredit
+                                ? "text-[var(--success)]"
+                                : cHasDebt
+                                  ? "text-[var(--destructive)]"
+                                  : "text-[var(--foreground)]",
+                            )}
+                          >
+                            {formatAmount(cHasCredit ? card.creditBalance : card.debt)}
+                            <span className="ml-0.5 text-[10px] font-normal uppercase text-[var(--text-muted)]">
+                              {props.currency}
+                            </span>
+                          </p>
+                          {card.statement?.overdue ? (
+                            <span className="inline-block text-[10px] font-semibold text-[var(--destructive)]">
+                              Quá hạn
+                            </span>
+                          ) : card.statement ? (
+                            <span className="inline-block text-[10px] font-semibold text-[var(--warning)]">
+                              Đến hạn {formatShortDate(card.statement.dueDate)}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-[var(--text-muted)]">
+                              K/d: {formatAmount(card.availableCredit)}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                {props.cards.map((card) => (
-                  <CreditCardVirtualCard
-                    key={card.id}
-                    card={card}
-                    currency={props.currency}
-                    isInteractive
-                    onClick={() => handleSelectCard(card.id)}
+
+              {/* Cột phải: Command Center của thẻ đang chọn */}
+              <div className="col-span-8 min-w-0">
+                {effectiveActiveCard && (
+                  <CreditCardPanel
+                    key={effectiveActiveCard.id}
+                    {...props}
+                    card={effectiveActiveCard}
+                    isDesktopWorkspace={true}
                   />
-                ))}
+                )}
               </div>
             </div>
-          ) : (
-            <Card as="div" className="gap-2 p-6 text-center">
-              <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--surface-secondary)] text-[var(--text-muted)]">
-                <CreditCard size={24} aria-hidden="true" />
-              </div>
-              <p className="mt-2 text-sm font-semibold text-[var(--foreground)]">
-                Chưa có thẻ tín dụng
-              </p>
-              <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto">
-                Quản trị viên có thể thêm thẻ tín dụng để theo dõi chu kỳ sao kê, hạn mức và phân bổ ví trích nợ.
-              </p>
-            </Card>
-          )}
-        </>
-      ) : (
-        /* Khi ở trang chi tiết thẻ đã chọn */
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={handleBackToList}
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--foreground)] transition-colors py-1.5 px-2.5 -ml-2 rounded-lg hover:bg-[var(--surface-secondary)] cursor-pointer"
-            >
-              <ArrowLeft className="size-4" aria-hidden="true" />
-              <span>Tất cả thẻ tín dụng</span>
-            </button>
-          </div>
-
-          <CreditCardPanel
-            key={activeCard.id}
-            {...props}
-            card={activeCard}
-          />
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </section>
   );
 }

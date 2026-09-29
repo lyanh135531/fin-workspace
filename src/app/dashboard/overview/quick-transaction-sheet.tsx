@@ -408,9 +408,9 @@ export function QuickTransactionSheet({
         )}
 
         {isCreditCardExpense && (
-          <div className="mt-3 grid gap-1.5">
+          <div className="mt-3">
             <Select
-              label="Ví nguồn thanh toán sao kê"
+              label="Ví thanh toán thẻ"
               value={allocationWalletId}
               onValueChange={setAllocationWalletId}
               options={workspace.wallets
@@ -432,9 +432,6 @@ export function QuickTransactionSheet({
                   ),
                 }))}
             />
-            <p className="text-xs leading-5 text-[var(--text-muted)]">
-              Chưa trừ tiền ngay. Số tiền được giữ chỗ và chỉ trích trừ khi bạn thanh toán sao kê thẻ.
-            </p>
           </div>
         )}
 

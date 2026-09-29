@@ -179,7 +179,7 @@ export function allocateLinkedRefundByFundingWallet(
         ? remainder
         : Decimal.min(
             item.amount,
-            refundAmount.mul(item.amount).div(total).toDecimalPlaces(4, Decimal.ROUND_DOWN),
+            refundAmount.mul(item.amount).div(total).toDecimalPlaces(0, Decimal.ROUND_FLOOR),
           );
       remainder = remainder.minus(amount);
       return [item.walletId, amount] as const;

@@ -72,11 +72,13 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleCheckBig,
+  CreditCard,
   FilterX,
   Pencil,
   Plus,
   SlidersHorizontal,
   Trash2,
+  Wallet,
   X,
 } from "lucide-react";
 import {
@@ -127,6 +129,7 @@ type LedgerItem = {
     proposed: string;
   }[];
   isRecurring: boolean;
+  allocations?: { walletId: string; amount: string }[];
 };
 type TransactionDraft = {
   description: string;
@@ -178,9 +181,9 @@ function TransactionTypeLabel({
   );
 }
 const transactionTypeTabs = [
-  { value: "expense", label: "Chi", icon: ArrowUpRight },
-  { value: "income", label: "Thu", icon: ArrowDownLeft },
-  { value: "transfer", label: "Chuyển", icon: ArrowLeftRight },
+  { value: "expense", label: "Chi tiêu", icon: ArrowUpRight },
+  { value: "income", label: "Thu nhập", icon: ArrowDownLeft },
+  { value: "transfer", label: "Chuyển tiền", icon: ArrowLeftRight },
 ] satisfies {
   value: TransactionType;
   label: string;
@@ -859,6 +862,13 @@ function draftFromTransaction(
   item: LedgerItem,
   wallets: Option[],
 ): TransactionDraft {
+  const selectedWallet = wallets.find((w) => w.id === item.walletId);
+  const isCreditCard =
+    item.type === "expense" && selectedWallet?.kind === "credit_card";
+  const defaultFundingId =
+    selectedWallet?.defaultFundingWalletId ??
+    wallets.find((w) => w.kind === "asset")?.id ??
+    "";
   return {
     description: item.description ?? "",
     type: item.type,
@@ -867,7 +877,12 @@ function draftFromTransaction(
     toWalletId: item.toWalletId ?? defaultDestination(wallets, item.walletId),
     date: item.date.slice(0, 10),
     amount: item.amount,
-    allocations: [],
+    allocations:
+      item.allocations && item.allocations.length > 0
+        ? item.allocations
+        : isCreditCard
+          ? [{ walletId: defaultFundingId, amount: item.amount }]
+          : [],
   };
 }
 
@@ -885,7 +900,7 @@ function transactionInput(draft: TransactionDraft) {
 }
 
 function isChanged(item: LedgerItem, draft: TransactionDraft) {
-  return (
+  const baseChanged =
     item.description !== (draft.description || null) ||
     item.type !== draft.type ||
     item.categoryId !==
@@ -893,8 +908,18 @@ function isChanged(item: LedgerItem, draft: TransactionDraft) {
     item.walletId !== draft.walletId ||
     item.toWalletId !== (draft.type === "transfer" ? draft.toWalletId : null) ||
     item.date.slice(0, 10) !== draft.date ||
-    item.amount !== draft.amount
-  );
+    item.amount !== draft.amount;
+  if (baseChanged) return true;
+  if (draft.type === "expense") {
+    const itemAllocs = item.allocations ?? [];
+    if (itemAllocs.length !== draft.allocations.length) return true;
+    return draft.allocations.some(
+      (alloc, idx) =>
+        alloc.walletId !== itemAllocs[idx]?.walletId ||
+        alloc.amount !== itemAllocs[idx]?.amount,
+    );
+  }
+  return false;
 }
 
 function requiresReview(item: LedgerItem): boolean {
@@ -2585,28 +2610,18 @@ function TransactionDraftSheetHeader({
   title?: string;
   disabled?: boolean;
 }) {
-  const Icon = mode === "create" ? Plus : Pencil;
-
   return (
-    <SheetHeader className="wallet-edit-header ledger-transaction-sheet-header">
-      <div className="wallet-edit-heading">
-        <span aria-hidden="true">
-          <Icon size={18} />
-        </span>
-        <div className="min-w-0">
-          <SheetTitle>
-            {mode === "create" ? "Tạo giao dịch" : "Chỉnh sửa giao dịch"}
-          </SheetTitle>
-          <SheetDescription>
-            {disabled
-              ? "Giao dịch đang có yêu cầu thay đổi chờ duyệt"
-              : mode === "create"
-                ? "Nhập số tiền và thông tin giao dịch"
-                : title || "Cập nhật thông tin giao dịch"}
-          </SheetDescription>
-        </div>
-      </div>
-    </SheetHeader>
+    <SheetHeader
+      icon={mode === "create" ? Plus : Pencil}
+      title={mode === "create" ? "Tạo giao dịch" : "Chỉnh sửa giao dịch"}
+      description={
+        disabled
+          ? "Giao dịch đang có yêu cầu thay đổi chờ duyệt"
+          : mode === "create"
+            ? "Nhập số tiền và thông tin giao dịch"
+            : title || "Giao dịch chưa có nội dung"
+      }
+    />
   );
 }
 
@@ -2886,16 +2901,22 @@ function MobileTransactionDraft({
   const quickSheetEdit = mode === "edit" && progressiveDetails;
   const [showDetails, setShowDetails] = useState(!progressiveDetails);
   function changeType(type: TransactionType) {
-    const nextWalletId = type !== "expense" && selectedWallet?.kind === "credit_card"
-      ? assetWallets[0]?.id ?? draft.walletId
-      : draft.walletId;
+    const nextWalletId =
+      type !== "expense" && selectedWallet?.kind === "credit_card"
+        ? assetWallets[0]?.id ?? draft.walletId
+        : draft.walletId;
+    const nextWallet = wallets.find((w) => w.id === nextWalletId);
+    const isCard = nextWallet?.kind === "credit_card";
+    const defaultFundingId =
+      nextWallet?.defaultFundingWalletId ?? assetWallets[0]?.id ?? "";
     onChange({
       type,
       walletId: nextWalletId,
       categoryId: "none",
-      allocations: type === "expense" && selectedWallet?.kind === "credit_card"
-        ? [{ walletId: selectedWallet.defaultFundingWalletId ?? assetWallets[0]?.id ?? "", amount: draft.amount }]
-        : [],
+      allocations:
+        type === "expense" && isCard
+          ? [{ walletId: defaultFundingId, amount: draft.amount }]
+          : [],
       toWalletId:
         type === "transfer"
           ? draft.toWalletId || defaultDestination(wallets, nextWalletId)
@@ -2988,17 +3009,30 @@ function MobileTransactionDraft({
           autoFocus={mode === "create"}
           disabled={locked}
           value={draft.amount}
-          onValueChange={(amount) => onChange({
-            amount,
-            allocations: isCreditCardExpense && draft.allocations.length === 1
-              ? [{ ...draft.allocations[0], amount }]
-              : draft.allocations,
-          })}
+          onValueChange={(amount) =>
+            onChange({
+              amount,
+              allocations:
+                isCreditCardExpense
+                  ? [
+                      {
+                        walletId:
+                          draft.allocations[0]?.walletId ||
+                          selectedWallet?.defaultFundingWalletId ||
+                          assetWallets[0]?.id ||
+                          "",
+                        amount,
+                      },
+                    ]
+                  : [],
+            })
+          }
           placeholder="0"
-          label="Số tiền"
+          label={quickSheetEdit ? undefined : "Số tiền"}
+          aria-label="Số tiền giao dịch"
           wrapperClassName={
             quickSheetEdit
-              ? "quick-amount-field"
+              ? "quick-amount-field mt-3.5 mb-1 sm:mt-4 sm:mb-2"
               : progressiveDetails
                 ? "ledger-create-money-input"
                 : undefined
@@ -3009,51 +3043,85 @@ function MobileTransactionDraft({
           value={draft.walletId}
           onValueChange={(walletId) => {
             const wallet = wallets.find((item) => item.id === walletId);
+            const isCard = wallet?.kind === "credit_card";
+            const defaultFundingId =
+              wallet?.defaultFundingWalletId || assetWallets[0]?.id || "";
             onChange({
               walletId,
               toWalletId:
                 draft.toWalletId === walletId
                   ? defaultDestination(wallets, walletId)
                   : draft.toWalletId,
-              allocations: draft.type === "expense" && wallet?.kind === "credit_card"
-                ? [{ walletId: wallet.defaultFundingWalletId ?? assetWallets[0]?.id ?? "", amount: draft.amount }]
-                : [],
+              allocations:
+                draft.type === "expense" && isCard
+                  ? [{ walletId: defaultFundingId, amount: draft.amount }]
+                  : [],
             });
           }}
-          label={isCreditCardExpense ? "Thanh toán bằng" : "Ví thực hiện"}
-          options={wallets.map((item) => ({
-            value: item.id,
-            label: item.name,
-            disabled: item.kind === "credit_card" && draft.type !== "expense",
-          }))}
+          label={
+            draft.type === "transfer"
+              ? "Ví gửi"
+              : isCreditCardExpense
+                ? "Thẻ thanh toán"
+                : "Ví"
+          }
+          options={wallets.map((wallet) => {
+            const isCard = wallet.kind === "credit_card";
+            return {
+              value: wallet.id,
+              label: wallet.name,
+              content: (
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 min-w-0">
+                    {isCard ? (
+                      <CreditCard
+                        className="size-4 shrink-0 text-[var(--primary)]"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <Wallet
+                        className="size-4 shrink-0 text-[var(--text-muted)]"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <span className="truncate">{wallet.name}</span>
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                      isCard
+                        ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                        : "bg-[var(--surface-secondary)] text-[var(--text-muted)]"
+                    }`}
+                  >
+                    {isCard ? "Thẻ tín dụng" : "Ví tài sản"}
+                  </span>
+                </div>
+              ),
+              selectedContent: (
+                <span className="flex items-center gap-2 min-w-0">
+                  {isCard ? (
+                    <CreditCard
+                      className="size-4 shrink-0 text-[var(--primary)]"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Wallet
+                      className="size-4 shrink-0 text-[var(--text-muted)]"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="truncate">{wallet.name}</span>
+                  {isCard && (
+                    <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
+                      Thẻ tín dụng
+                    </span>
+                  )}
+                </span>
+              ),
+              disabled: isCard && draft.type !== "expense",
+            };
+          })}
         />
-        {isCreditCardExpense && (
-          <fieldset className="grid gap-3 pt-1">
-            <legend className="text-sm font-medium text-[var(--foreground)]">Ví nguồn thanh toán sao kê</legend>
-            <p className="text-xs leading-5 text-[var(--text-muted)]">Chưa trừ tiền ngay. Tiền được giữ chỗ và chỉ trích trừ khi bạn thanh toán sao kê thẻ.</p>
-            {draft.allocations.map((allocation, index) => (
-              <div key={`${index}:${allocation.walletId}`} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
-                <Select
-                  label={`Ví nguồn ${index + 1}`}
-                  value={allocation.walletId}
-                  onValueChange={(walletId) => onChange({ allocations: draft.allocations.map((item, itemIndex) => itemIndex === index ? { ...item, walletId } : item) })}
-                  options={assetWallets.map((wallet) => ({ value: wallet.id, label: wallet.name, disabled: draft.allocations.some((item, itemIndex) => itemIndex !== index && item.walletId === wallet.id) }))}
-                />
-                <MoneyInput
-                  label="Số tiền"
-                  value={allocation.amount}
-                  onValueChange={(amount) => onChange({ allocations: draft.allocations.map((item, itemIndex) => itemIndex === index ? { ...item, amount } : item) })}
-                />
-                <Button type="button" variant="ghost" size="icon" aria-label={`Xóa phần ví nguồn ${index + 1}`} disabled={draft.allocations.length === 1} onClick={() => onChange({ allocations: draft.allocations.filter((_, itemIndex) => itemIndex !== index) })}>
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-            ))}
-            {draft.allocations.length < assetWallets.length && (
-              <Button type="button" variant="outline" onClick={() => onChange({ allocations: [...draft.allocations, { walletId: assetWallets.find((wallet) => !draft.allocations.some((item) => item.walletId === wallet.id))?.id ?? "", amount: "" }] })}>Chia thêm ví</Button>
-            )}
-          </fieldset>
-        )}
         {draft.type === "transfer" && (
           <Select
             disabled={locked}
@@ -3063,7 +3131,26 @@ function MobileTransactionDraft({
             options={wallets.map((item) => ({
               value: item.id,
               label: item.name,
-              disabled: item.id === draft.walletId || item.kind === "credit_card",
+              content: (
+                <div className="flex items-center gap-2 min-w-0">
+                  <Wallet
+                    className="size-4 shrink-0 text-[var(--text-muted)]"
+                    aria-hidden="true"
+                  />
+                  <span className="truncate">{item.name}</span>
+                </div>
+              ),
+              selectedContent: (
+                <span className="flex items-center gap-2 min-w-0">
+                  <Wallet
+                    className="size-4 shrink-0 text-[var(--text-muted)]"
+                    aria-hidden="true"
+                  />
+                  <span className="truncate">{item.name}</span>
+                </span>
+              ),
+              disabled:
+                item.id === draft.walletId || item.kind === "credit_card",
             }))}
           />
         )}
@@ -3080,6 +3167,45 @@ function MobileTransactionDraft({
                 ? undefined
                 : { value: "none", label: "Không chọn" }
             }
+          />
+        )}
+        {isCreditCardExpense && (
+          <Select
+            disabled={locked}
+            label="Ví thanh toán thẻ"
+            value={
+              draft.allocations[0]?.walletId ||
+              selectedWallet?.defaultFundingWalletId ||
+              assetWallets[0]?.id ||
+              ""
+            }
+            onValueChange={(walletId) =>
+              onChange({
+                allocations: [{ walletId, amount: draft.amount }],
+              })
+            }
+            options={assetWallets.map((wallet) => ({
+              value: wallet.id,
+              label: wallet.name,
+              content: (
+                <div className="flex items-center gap-2 min-w-0">
+                  <Wallet
+                    className="size-4 shrink-0 text-[var(--text-muted)]"
+                    aria-hidden="true"
+                  />
+                  <span className="truncate">{wallet.name}</span>
+                </div>
+              ),
+              selectedContent: (
+                <span className="flex items-center gap-2 min-w-0">
+                  <Wallet
+                    className="size-4 shrink-0 text-[var(--text-muted)]"
+                    aria-hidden="true"
+                  />
+                  <span className="truncate">{wallet.name}</span>
+                </span>
+              ),
+            }))}
           />
         )}
         {progressiveDetails ? (
@@ -3163,11 +3289,14 @@ function MobileTransactionDraft({
           disabled={locked}
           onClick={onSave}
         >
-          {busy
-            ? "Đang lưu"
-            : mode === "create"
-              ? "Lưu giao dịch"
-              : "Lưu thay đổi"}
+          {busy ? (
+            "Đang lưu..."
+          ) : (
+            <>
+              {quickSheetEdit && <Check size={17} />}
+              {mode === "create" ? "Lưu giao dịch" : "Lưu thay đổi"}
+            </>
+          )}
         </Button>
       </div>
     </section>
