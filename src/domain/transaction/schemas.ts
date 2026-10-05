@@ -59,11 +59,11 @@ export const createTransactionSchema = z
       });
     }
 
-    if (type !== "expense" && allocations) {
+    if (type === "income" && allocations) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["allocations"],
-        message: "Phân bổ nguồn trả thẻ chỉ áp dụng cho giao dịch chi tiêu.",
+        message: "Phân bổ nguồn trả thẻ không áp dụng cho thu nhập.",
       });
     }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getCategoryFilterIds,
+  getFilterPeriodLabel,
   getMonthDateRange,
   isDateInRange,
 } from "@/app/dashboard/dashboard-ledger-filters";
@@ -28,6 +29,15 @@ describe("ledger date filters", () => {
     expect(isDateInRange("2026-08-01", range)).toBe(true);
     expect(isDateInRange("2026-08-31", range)).toBe(true);
     expect(isDateInRange("2026-09-01", range)).toBe(false);
+  });
+
+  it("formats the period label correctly based on date filter", () => {
+    expect(getFilterPeriodLabel(null)).toBe("Tất cả thời gian");
+    expect(getFilterPeriodLabel({ from: "2026-10-01", to: "2026-10-31" })).toBe("Tháng 10/2026");
+    expect(getFilterPeriodLabel({ from: "2026-02-01", to: "2026-02-28" })).toBe("Tháng 02/2026");
+    expect(getFilterPeriodLabel({ from: "2024-02-01", to: "2024-02-29" })).toBe("Tháng 02/2024");
+    expect(getFilterPeriodLabel({ from: "2026-08-01", to: "2026-08-15" })).toBe("01/08/2026 – 15/08/2026");
+    expect(getFilterPeriodLabel({ from: "2026-09-10", to: "2026-09-10" })).toBe("10/09/2026");
   });
 });
 

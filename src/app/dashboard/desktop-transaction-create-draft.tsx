@@ -133,7 +133,7 @@ export function DesktopTransactionCreateDraft({
     ...wallets.filter((wallet) => wallet.kind !== "credit_card"),
     ...wallets.filter((wallet) => wallet.kind === "credit_card"),
   ];
-  const isCreditCardExpense = draft.type === "expense" && selectedWallet?.kind === "credit_card";
+  const isCreditCardTransaction = (draft.type === "expense" || draft.type === "transfer") && selectedWallet?.kind === "credit_card";
 
   function walletSelectOption(
     wallet: TransactionWalletOption,
@@ -202,14 +202,14 @@ export function DesktopTransactionCreateDraft({
 
   function changeType(type: TransactionType): void {
     const currentWallet = wallets.find((wallet) => wallet.id === draft.walletId);
-    const nextWallet = type !== "expense" && currentWallet?.kind === "credit_card"
+    const nextWallet = type === "income" && currentWallet?.kind === "credit_card"
       ? assetWallets[0]
       : currentWallet;
     onChange({
       type,
       walletId: nextWallet?.id ?? draft.walletId,
       categoryId: "none",
-      allocations: type === "expense" && currentWallet?.kind === "credit_card"
+      allocations: (type === "expense" || type === "transfer") && currentWallet?.kind === "credit_card"
         ? allocationForCard(currentWallet, draft.amount)
         : [],
       toWalletId:
@@ -302,7 +302,7 @@ export function DesktopTransactionCreateDraft({
               onValueChange={(amount) =>
                 onChange({
                   amount,
-                  allocations: isCreditCardExpense
+                  allocations: isCreditCardTransaction
                     ? [
                         {
                           walletId:
@@ -331,15 +331,21 @@ export function DesktopTransactionCreateDraft({
                     draft.toWalletId === walletId
                       ? defaultDestination(wallets, walletId)
                       : draft.toWalletId,
-                  allocations: draft.type === "expense" && wallet?.kind === "credit_card"
+                  allocations: (draft.type === "expense" || draft.type === "transfer") && wallet?.kind === "credit_card"
                     ? allocationForCard(wallet, draft.amount)
                     : [],
                 });
               }}
-              label="Thanh toán bằng"
+              label={
+                draft.type === "transfer"
+                  ? "Ví gửi"
+                  : isCreditCardTransaction
+                    ? "Thẻ thanh toán"
+                    : "Thanh toán bằng"
+              }
               options={sortedWallets.map((item) =>
                 walletSelectOption(item, {
-                  disabled: item.kind === "credit_card" && draft.type !== "expense",
+                  disabled: item.kind === "credit_card" && draft.type === "income",
                 }),
               )}
             />
@@ -358,7 +364,7 @@ export function DesktopTransactionCreateDraft({
               />
             )}
 
-            {isCreditCardExpense && (
+            {isCreditCardTransaction && (
               <Select
                 disabled={busy}
                 label="Ví thanh toán thẻ"

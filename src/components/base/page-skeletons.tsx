@@ -130,17 +130,23 @@ function DashboardPageSkeleton() {
           aria-busy="true"
           aria-label="Đang tải sổ giao dịch"
         >
-          <header className="ledger-page-hero rounded-xl">
-            <div className="ledger-page-intro">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="mt-3 h-8 w-44" />
-              <Skeleton className="mt-2 h-3.5 w-72" />
+          <Card
+            as="section"
+            size="sm"
+            className="gap-0 p-3 shrink-0"
+            aria-hidden="true"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="mt-1 h-3 w-32" />
+              </div>
+              <div className="flex flex-col items-end shrink-0">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="mt-1 h-3 w-16" />
+              </div>
             </div>
-            <div className="ledger-hero-balance ledger-skeleton-balance">
-              <Skeleton className="ledger-skeleton-period h-3 w-24" />
-              <Skeleton className="ledger-skeleton-amount h-6 w-36" />
-            </div>
-          </header>
+          </Card>
 
           <div className="ledger-table-viewport px-px">
             <section className="dashboard-ledger-card ledger-book ledger-skeleton-book">

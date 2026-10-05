@@ -88,13 +88,18 @@ export async function requireTransactionResources(
   // Older test doubles and pre-migration records have no explicit kind; asset is the migration default.
   const sourceKind = sourceLink.wallet?.kind ?? "asset";
   const destinationKind = destinationLink?.wallet?.kind ?? "asset";
-  if (input.type === "transfer" && (sourceKind !== "asset" || destinationKind !== "asset")) {
-    throw new AppError("VALIDATION_ERROR", "Chuyển tiền thông thường chỉ áp dụng giữa các ví tài sản.");
+  if (input.type === "transfer") {
+    if (destinationKind === "credit_card") {
+      throw new AppError("VALIDATION_ERROR", "Không thể chuyển tiền vào thẻ tín dụng bằng chuyển khoản thông thường; hãy dùng tính năng thanh toán sao kê.");
+    }
+    if (sourceKind !== "asset" && sourceKind !== "credit_card") {
+      throw new AppError("VALIDATION_ERROR", "Chuyển tiền chỉ áp dụng giữa các ví tài sản hoặc từ thẻ tín dụng sang ví tài sản.");
+    }
   }
   if (input.type === "income" && sourceKind === "credit_card") {
     throw new AppError("VALIDATION_ERROR", "Hãy ghi nhận hoàn tiền từ trang Thẻ tín dụng.");
   }
-  if (input.type === "expense" && sourceKind === "credit_card") {
+  if ((input.type === "expense" || input.type === "transfer") && sourceKind === "credit_card") {
     const profile = sourceLink.wallet.creditCardProfile;
     if (!profile) throw new AppError("CONFLICT", "Thẻ thiếu cấu hình hạn mức hoặc ví thanh toán mặc định.");
     const allocations = input.allocations?.length
@@ -121,7 +126,7 @@ export async function requireTransactionResources(
     const pending = await tx.transaction.aggregate({
       where: {
         walletId: input.walletId,
-        type: "expense",
+        type: { in: ["expense", "transfer"] },
         purpose: "standard",
         workflowStatus: { in: ["pending", "scheduled"] },
         deletedAt: null,
@@ -135,10 +140,13 @@ export async function requireTransactionResources(
     if (exposure.gt(profile.creditLimit.toString())) {
       throw new AppError("VALIDATION_ERROR", "Giao dịch vượt hạn mức khả dụng sau các giao dịch đang chờ.");
     }
-    if (!category?.jarCode) throw new AppError("VALIDATION_ERROR", "Danh mục chi tiêu chưa có hũ tài chính hợp lệ.");
-    return { jarCode: category.jarCode, walletKind: sourceKind, allocations };
+    if (input.type === "expense") {
+      if (!category?.jarCode) throw new AppError("VALIDATION_ERROR", "Danh mục chi tiêu chưa có hũ tài chính hợp lệ.");
+      return { jarCode: category.jarCode, walletKind: sourceKind, allocations };
+    }
+    return { jarCode: null, walletKind: sourceKind, allocations };
   }
-  if (input.type === "expense" && sourceKind === "asset" && input.allocations?.length) {
+  if (sourceKind === "asset" && input.allocations?.length) {
     throw new AppError("VALIDATION_ERROR", "Giao dịch từ ví tài sản không cần phân bổ nguồn trả thẻ.");
   }
   const expenseJarCode = input.type === "expense" ? category?.jarCode : null;
@@ -180,12 +188,25 @@ export async function applyBalance(tx: TransactionClient, record: Pick<Transacti
     return;
   }
   if (wallet.kind === "credit_card") {
-    if (record.type !== "expense") throw new AppError("VALIDATION_ERROR", "Loại giao dịch không hợp lệ cho thẻ tín dụng.");
-    if (!reverse && wallet.creditCardProfile && new Decimal(wallet.currentBalance.toString()).plus(amount).gt(wallet.creditCardProfile.creditLimit.toString())) {
-      throw new AppError("VALIDATION_ERROR", "Giao dịch vượt hạn mức thẻ tín dụng.");
+    if (record.type === "expense") {
+      if (!reverse && wallet.creditCardProfile && new Decimal(wallet.currentBalance.toString()).plus(amount).gt(wallet.creditCardProfile.creditLimit.toString())) {
+        throw new AppError("VALIDATION_ERROR", "Giao dịch vượt hạn mức thẻ tín dụng.");
+      }
+      await tx.wallet.update({ where: { id: record.walletId }, data: { currentBalance: reverse ? { decrement: amount } : { increment: amount } } });
+      return;
     }
-    await tx.wallet.update({ where: { id: record.walletId }, data: { currentBalance: reverse ? { decrement: amount } : { increment: amount } } });
-    return;
+    if (record.type === "transfer") {
+      if (!record.toWalletId) throw new AppError("VALIDATION_ERROR", "Giao dịch chuyển khoản thiếu ví nhận.");
+      if (!reverse && wallet.creditCardProfile && new Decimal(wallet.currentBalance.toString()).plus(amount).gt(wallet.creditCardProfile.creditLimit.toString())) {
+        throw new AppError("VALIDATION_ERROR", "Giao dịch vượt hạn mức thẻ tín dụng.");
+      }
+      // Credit card: increment debt
+      await tx.wallet.update({ where: { id: record.walletId }, data: { currentBalance: reverse ? { decrement: amount } : { increment: amount } } });
+      // Asset wallet: increment money
+      await tx.wallet.update({ where: { id: record.toWalletId }, data: { currentBalance: reverse ? { decrement: amount } : { increment: amount } } });
+      return;
+    }
+    throw new AppError("VALIDATION_ERROR", "Loại giao dịch không hợp lệ cho thẻ tín dụng.");
   }
   if (record.type === "income") {
     await tx.wallet.update({ where: { id: record.walletId }, data: { currentBalance: reverse ? { decrement: amount } : { increment: amount } } });

@@ -3475,6 +3475,8 @@ export function CreditCardOverview(props: {
   businessDate: string;
   cards: CreditCardOverviewItem[];
   initialCardId?: string | null;
+  isDetailPage?: boolean;
+  createCardAction?: React.ReactNode;
   canManage: boolean;
   canApprove: boolean;
   fundingWallets: FundingWallet[];
@@ -3571,6 +3573,22 @@ export function CreditCardOverview(props: {
 
   return (
     <section className="space-y-4" aria-label="Quản lý thẻ tín dụng">
+      <header className="mb-4 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold text-[var(--foreground)] truncate">
+            Thẻ tín dụng
+          </h1>
+          <p className="hidden sm:block mt-1 text-sm text-[var(--text-secondary)]">
+            Tạo thẻ, ghi nhận hoàn tiền, quản lý sao kê, trả góp và thanh toán tại một nơi.
+          </p>
+        </div>
+        {props.createCardAction && !props.isDetailPage && (
+          <div className={cn("shrink-0", activeCard ? "hidden min-[901px]:block" : "block")}>
+            {props.createCardAction}
+          </div>
+        )}
+      </header>
+
       {/* 1. GIAO DIỆN MOBILE (< 901px): Giữ nguyên 100% logic và DOM hiện hữu */}
       <div className="min-[901px]:hidden space-y-4">
         {!activeCard ? (

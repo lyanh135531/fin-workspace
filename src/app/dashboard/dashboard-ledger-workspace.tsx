@@ -1,44 +1,42 @@
 "use client";
 
 import { Ledger } from "@/app/dashboard/dashboard-actions";
+import {
+  getCategoryFilterIds,
+  getFilterPeriodLabel,
+  getMonthDateRange,
+  isDateInRange,
+} from "@/app/dashboard/dashboard-ledger-filters";
 import type { LedgerPeriodSummary } from "@/app/dashboard/dashboard-summary-data";
-import { Card, DashboardPageSkeleton, PageHeader } from "@/components/base";
+import {
+  Card,
+  DashboardPageSkeleton,
+  PageHeader,
+  type DateRangeValue,
+} from "@/components/base";
 import { formatAmount } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import Decimal from "decimal.js";
 import { BookOpenText, CalendarDays } from "lucide-react";
 import { useEffect, useMemo, useState, type ComponentProps } from "react";
 
 type LedgerProps = Omit<ComponentProps<typeof Ledger>, "isDesktop">;
 
-function periodLabel(period: string) {
-  if (period === "all") return "Tất cả thời gian";
-  const [year, month] = period.split("-");
-  return `Tháng ${month}/${year}`;
-}
-
 export function DashboardLedgerWorkspace({
-  initialMonth,
-  summaries,
+  initialMonth: _initialMonth,
+  summaries: _summaries,
   ledgerProps,
 }: {
   initialMonth: string;
   summaries: LedgerPeriodSummary[];
   ledgerProps: LedgerProps;
 }) {
-  const selectedMonth = initialMonth;
-  const summary = useMemo(
-    () =>
-      summaries.find((item) => item.period === selectedMonth) ?? {
-        period: selectedMonth,
-        income: "0",
-        expense: "0",
-        pending: 0,
-      },
-    [selectedMonth, summaries],
+  const [query, setQuery] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeValue | null>(() =>
+    getMonthDateRange(ledgerProps.businessDate),
   );
-  const label = periodLabel(selectedMonth);
-  const cashflow = new Decimal(summary.income).minus(summary.expense);
-  const cashflowTone = cashflow.isNegative() ? "negative" : "positive";
+  const [filterCategory, setFilterCategory] = useState("");
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
@@ -48,6 +46,62 @@ export function DashboardLedgerWorkspace({
     mediaQuery.addEventListener("change", syncViewport);
     return () => mediaQuery.removeEventListener("change", syncViewport);
   }, []);
+
+  const categoryFilterIds = useMemo(
+    () => getCategoryFilterIds(ledgerProps.categories, filterCategory),
+    [ledgerProps.categories, filterCategory],
+  );
+
+  const filteredRows = useMemo(
+    () =>
+      ledgerProps.transactions.filter((item) => {
+        const itemDate = item.date?.slice(0, 10) || "";
+        return (
+          isDateInRange(itemDate, dateRange) &&
+          (filterCategory === "" ||
+            (item.categoryId !== null &&
+              categoryFilterIds.has(item.categoryId))) &&
+          `${item.description ?? ""} ${item.category?.name ?? ""} ${item.wallet} ${item.member}`
+            .toLocaleLowerCase()
+            .includes(query.toLocaleLowerCase())
+        );
+      }),
+    [ledgerProps.transactions, dateRange, filterCategory, categoryFilterIds, query],
+  );
+
+  const summary = useMemo(() => {
+    let income = new Decimal(0);
+    let expense = new Decimal(0);
+    let pending = 0;
+
+    for (const item of filteredRows) {
+      if (item.status === "approved") {
+        if (item.type === "income") {
+          income = income.plus(item.amount);
+        } else if (item.type === "expense") {
+          expense = expense.plus(item.amount);
+        }
+      }
+      if (item.status === "pending") {
+        pending += 1;
+      }
+    }
+
+    return {
+      income: income.toString(),
+      expense: expense.toString(),
+      cashflow: income.minus(expense),
+      pending,
+    };
+  }, [filteredRows]);
+
+  const label = useMemo(() => getFilterPeriodLabel(dateRange), [dateRange]);
+  const cashflow = summary.cashflow;
+  const filterCategoryName = useMemo(() => {
+    if (!filterCategory) return "";
+    const cat = ledgerProps.categories.find((c) => c.id === filterCategory);
+    return cat?.name || "";
+  }, [ledgerProps.categories, filterCategory]);
 
   if (isDesktop) {
     return (
@@ -76,7 +130,7 @@ export function DashboardLedgerWorkspace({
               <dd
                 className={`mt-3 text-2xl font-semibold tracking-[-0.045em] tabular-nums ${cashflow.isNegative() ? "text-[var(--expense)]" : "text-[var(--foreground)]"}`}
               >
-                {cashflow.isPositive() ? "+" : ""}
+                {cashflow.gt(0) ? "+" : ""}
                 {formatAmount(cashflow)} {ledgerProps.currency}
               </dd>
               <p className="mt-2 flex items-center gap-1.5 text-[0.68rem] text-[var(--text-muted)]">
@@ -111,7 +165,18 @@ export function DashboardLedgerWorkspace({
         </Card>
 
         <Card as="section" className="min-h-0 gap-0 overflow-hidden p-0">
-          <Ledger {...ledgerProps} isDesktop />
+          <Ledger
+            {...ledgerProps}
+            isDesktop
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            filterCategory={filterCategory}
+            onFilterCategoryChange={setFilterCategory}
+            query={query}
+            onQueryChange={setQuery}
+            mobileFilterOpen={mobileFilterOpen}
+            onMobileFilterOpenChange={setMobileFilterOpen}
+          />
         </Card>
       </div>
     );
@@ -124,40 +189,74 @@ export function DashboardLedgerWorkspace({
       </div>
       <div className="h-full min-h-0 lg:hidden">
         <div className="ledger-page-shell">
-          <header className="ledger-page-hero rounded-xl">
-            <div className="ledger-page-intro">
-              <div className="ledger-page-kicker">
-                <span>
-                  <BookOpenText size={15} aria-hidden="true" />
-                </span>
-                Nhật ký dòng tiền
-              </div>
-              <h1>Sổ giao dịch</h1>
-              <p>Theo dõi toàn bộ khoản thu, chi và chuyển khoản.</p>
-            </div>
-            <div
-              className={`ledger-hero-balance ledger-hero-balance-${cashflowTone}`}
-            >
-              <div>
-                <span>Dòng tiền ròng</span>
-                <small>
-                  <CalendarDays size={14} aria-hidden="true" />
+          <Card
+            as="section"
+            size="sm"
+            className="gap-0 p-3 shrink-0"
+            aria-label="Tổng hợp dòng tiền"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+                  <BookOpenText
+                    className="size-3.5 text-[var(--primary)] shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span>Dòng tiền ròng</span>
+                </div>
+                <p className="mt-0.5 text-[0.72rem] text-[var(--text-muted)] truncate">
                   {label}
-                </small>
+                  {filterCategoryName ? ` · ${filterCategoryName}` : ""}
+                  {query.trim() ? ` · "${query.trim()}"` : ""}
+                </p>
               </div>
-              <strong>
-                {cashflow.isPositive() ? "+" : ""}
-                {formatAmount(cashflow)} {ledgerProps.currency}
-              </strong>
+
+              <div className="text-right shrink-0">
+                <strong
+                  className={cn(
+                    "block text-lg font-bold tracking-tight tabular-nums",
+                    cashflow.isNegative()
+                      ? "text-[var(--expense)]"
+                      : cashflow.gt(0)
+                        ? "text-[var(--income)]"
+                        : "text-[var(--foreground)]",
+                  )}
+                >
+                  {cashflow.gt(0) ? "+" : ""}
+                  {formatAmount(cashflow)}{" "}
+                  <span className="text-xs font-semibold text-[var(--text-muted)] tracking-normal">
+                    {ledgerProps.currency}
+                  </span>
+                </strong>
+                <span className="text-[0.68rem] text-[var(--text-muted)] tabular-nums">
+                  {filteredRows.length} giao dịch
+                  {summary.pending > 0 && (
+                    <span className="ml-1 text-[var(--warning)] font-medium">
+                      ({summary.pending} chờ duyệt)
+                    </span>
+                  )}
+                </span>
+              </div>
             </div>
-          </header>
+          </Card>
 
           <div className="ledger-table-viewport px-px">
             <Card
               as="section"
               className="dashboard-ledger-card ledger-book gap-0 p-0 overflow-hidden"
             >
-              <Ledger {...ledgerProps} isDesktop={false} />
+              <Ledger
+                {...ledgerProps}
+                isDesktop={false}
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                filterCategory={filterCategory}
+                onFilterCategoryChange={setFilterCategory}
+                query={query}
+                onQueryChange={setQuery}
+                mobileFilterOpen={mobileFilterOpen}
+                onMobileFilterOpenChange={setMobileFilterOpen}
+              />
             </Card>
           </div>
         </div>

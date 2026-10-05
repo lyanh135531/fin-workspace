@@ -60,6 +60,20 @@ describe("createTransactionSchema", () => {
     expect(value.allocations?.map((item) => item.amount.toString())).toEqual(["1000000", "500000"]);
   });
 
+  it("accepts wallet allocations for a transfer", () => {
+    const value = createTransactionSchema.parse({
+      walletId,
+      toWalletId: otherWalletId,
+      type: "transfer",
+      amount: "2000000",
+      date: "2026-07-17",
+      allocations: [
+        { walletId, amount: "2000000" },
+      ],
+    });
+    expect(value.allocations?.map((item) => item.amount.toString())).toEqual(["2000000"]);
+  });
+
   it("rejects allocations on income", () => {
     expect(() => createTransactionSchema.parse({
       walletId,

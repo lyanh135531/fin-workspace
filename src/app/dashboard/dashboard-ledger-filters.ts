@@ -19,6 +19,29 @@ export function getMonthDateRange(date: string): Exclude<DateRangeFilter, null> 
   };
 }
 
+export function getFilterPeriodLabel(dateRange: DateRangeFilter): string {
+  if (!dateRange || !dateRange.from || !dateRange.to) return "Tất cả thời gian";
+  const { from, to } = dateRange;
+  const fromParts = from.split("-");
+  const toParts = to.split("-");
+  if (fromParts.length !== 3 || toParts.length !== 3) return "Tất cả thời gian";
+
+  const [fromY, fromM, fromD] = fromParts.map(Number);
+  const [toY, toM, toD] = toParts.map(Number);
+
+  if (fromY === toY && fromM === toM && fromD === 1) {
+    const lastDay = new Date(Date.UTC(fromY, fromM, 0)).getUTCDate();
+    if (toD === lastDay) {
+      return `Tháng ${String(fromM).padStart(2, "0")}/${fromY}`;
+    }
+  }
+
+  if (from === to) {
+    return `${fromParts[2]}/${fromParts[1]}/${fromParts[0]}`;
+  }
+  return `${fromParts[2]}/${fromParts[1]}/${fromParts[0]} – ${toParts[2]}/${toParts[1]}/${toParts[0]}`;
+}
+
 export function isDateInRange(
   date: string,
   dateRange: DateRangeFilter,

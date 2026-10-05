@@ -6,6 +6,8 @@ import {
   approveTransaction,
   deleteOrRequestTransaction,
   updateTransaction,
+  applyBalance,
+  createTransaction,
 } from "@/services/transaction-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
@@ -394,5 +396,109 @@ describe("transaction deletion approval", () => {
       });
     });
   });
+
+  describe("credit card transfer", () => {
+    it("increments debt on card and increments balance on destination asset wallet in applyBalance", async () => {
+      const tx = {
+        wallet: {
+          findUniqueOrThrow: vi.fn().mockResolvedValue({
+            kind: "credit_card",
+            currentBalance: new Decimal(100000),
+            creditCardProfile: { creditLimit: new Decimal(20000000) },
+          }),
+          update: vi.fn().mockResolvedValue({}),
+        },
+      };
+
+      await applyBalance(
+        tx as any,
+        {
+          id: "tx-transfer-1",
+          type: "transfer",
+          purpose: "standard",
+          amount: new Decimal("500000"),
+          walletId: "card-1",
+          toWalletId: "wallet-asset-1",
+        } as any,
+      );
+
+      // Card debt increased
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { id: "card-1" },
+        data: { currentBalance: { increment: expect.any(Decimal) } },
+      });
+      // Asset wallet balance increased
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { id: "wallet-asset-1" },
+        data: { currentBalance: { increment: expect.any(Decimal) } },
+      });
+    });
+
+    it("reverses credit card transfer correctly by decrementing both", async () => {
+      const tx = {
+        wallet: {
+          findUniqueOrThrow: vi.fn().mockResolvedValue({
+            kind: "credit_card",
+            currentBalance: new Decimal(600000),
+            creditCardProfile: { creditLimit: new Decimal(20000000) },
+          }),
+          update: vi.fn().mockResolvedValue({}),
+        },
+      };
+
+      await applyBalance(
+        tx as any,
+        {
+          id: "tx-transfer-1",
+          type: "transfer",
+          purpose: "standard",
+          amount: new Decimal("500000"),
+          walletId: "card-1",
+          toWalletId: "wallet-asset-1",
+        } as any,
+        true, // reverse
+      );
+
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { id: "card-1" },
+        data: { currentBalance: { decrement: expect.any(Decimal) } },
+      });
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { id: "wallet-asset-1" },
+        data: { currentBalance: { decrement: expect.any(Decimal) } },
+      });
+    });
+
+    it("rejects transferring money into a credit card", async () => {
+      const tx = {
+        workspaceWallet: {
+          findMany: vi.fn().mockResolvedValue([
+            { walletId: "wallet-asset-1", wallet: { kind: "asset" } },
+            { walletId: "card-1", wallet: { kind: "credit_card" } },
+          ]),
+        },
+      };
+
+      (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: "member-1",
+        role: { code: "ADMIN" },
+        workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+      });
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (client: typeof tx) => unknown) => callback(tx),
+      );
+
+      await expect(
+        createTransaction("user-1", "workspace-1", {
+          walletId: "wallet-asset-1",
+          toWalletId: "card-1",
+          type: "transfer",
+          amount: new Decimal("500000"),
+          date: "2026-07-27",
+        }),
+      ).rejects.toThrow("Không thể chuyển tiền vào thẻ tín dụng bằng chuyển khoản thông thường; hãy dùng tính năng thanh toán sao kê.");
+    });
+  });
 });
+
 

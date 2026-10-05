@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { CalendarDays, CalendarX2, Check, X } from "lucide-react";
+import { CalendarDays, Check, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 
@@ -219,12 +219,6 @@ export function DateRangePicker({
           </div>
         </div>
         <div className="date-range-picker-actions">
-          {allowClear && value && (
-            <Button type="button" variant="ghost" onClick={clearSelection}>
-              <CalendarX2 aria-hidden="true" />
-              Bỏ lọc ngày
-            </Button>
-          )}
           <Button type="button" variant="ghost" onClick={cancelSelection}>
             <X aria-hidden="true" />
             Hủy

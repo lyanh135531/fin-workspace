@@ -163,7 +163,7 @@ export function QuickTransactionSheet({
 
   const workspace = initialWorkspace;
   const selectedWallet = workspace?.wallets.find((wallet) => wallet.id === walletId);
-  const isCreditCardExpense = type === "expense" && selectedWallet?.kind === "credit_card";
+  const isCreditCardTransaction = (type === "expense" || type === "transfer") && selectedWallet?.kind === "credit_card";
   const categories = useMemo(
     () =>
       workspace?.categories.filter((category) => category.type === type) ?? [],
@@ -174,7 +174,7 @@ export function QuickTransactionSheet({
     if (!workspace) return;
     setType(nextType);
     setCategoryId("none");
-    if (nextType !== "expense" && workspace.wallets.find((wallet) => wallet.id === walletId)?.kind === "credit_card") {
+    if (nextType === "income" && workspace.wallets.find((wallet) => wallet.id === walletId)?.kind === "credit_card") {
       setWalletId(workspace.wallets.find((wallet) => wallet.kind === "asset")?.id ?? "");
     }
     if (nextType === "transfer") {
@@ -200,7 +200,7 @@ export function QuickTransactionSheet({
       toast.error("Hãy chọn một ví nhận khác ví gửi.");
       return;
     }
-    if (isCreditCardExpense && !allocationWalletId) {
+    if (isCreditCardTransaction && !allocationWalletId) {
       toast.error("Hãy chọn ví nguồn thanh toán sao kê.");
       return;
     }
@@ -214,7 +214,7 @@ export function QuickTransactionSheet({
         amount,
         description: description || undefined,
         date,
-        allocations: isCreditCardExpense ? [{ walletId: allocationWalletId, amount }] : undefined,
+        allocations: isCreditCardTransaction ? [{ walletId: allocationWalletId, amount }] : undefined,
       });
       if (!result.ok) {
         toast.error(result.message ?? "Không thể lưu giao dịch.");
@@ -299,7 +299,7 @@ export function QuickTransactionSheet({
               label={
                 type === "transfer"
                   ? "Ví gửi"
-                  : isCreditCardExpense
+                  : isCreditCardTransaction
                     ? "Thẻ thanh toán"
                     : "Ví"
               }
@@ -307,7 +307,7 @@ export function QuickTransactionSheet({
               onValueChange={(nextWalletId) => {
                 setWalletId(nextWalletId);
                 const nextWallet = workspace.wallets.find((wallet) => wallet.id === nextWalletId);
-                if (type === "expense" && nextWallet?.kind === "credit_card") {
+                if ((type === "expense" || type === "transfer") && nextWallet?.kind === "credit_card") {
                   setAllocationWalletId(nextWallet.creditCardProfile?.defaultFundingWalletId ?? workspace.wallets.find((wallet) => wallet.kind === "asset")?.id ?? "");
                 }
                 if (nextWalletId === toWalletId) {
@@ -356,7 +356,7 @@ export function QuickTransactionSheet({
                       )}
                     </span>
                   ),
-                  disabled: isCard && type !== "expense",
+                  disabled: isCard && type === "income",
                 };
               })}
             />
@@ -382,7 +382,7 @@ export function QuickTransactionSheet({
                       <span className="truncate">{wallet.name}</span>
                     </span>
                   ),
-                  disabled: wallet.id === walletId,
+                  disabled: wallet.id === walletId || wallet.kind === "credit_card",
                 }))}
               />
             ) : (
@@ -407,7 +407,7 @@ export function QuickTransactionSheet({
           />
         )}
 
-        {isCreditCardExpense && (
+        {isCreditCardTransaction && (
           <div className="mt-3">
             <Select
               label="Ví thanh toán thẻ"

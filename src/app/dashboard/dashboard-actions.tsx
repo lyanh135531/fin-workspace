@@ -941,6 +941,14 @@ export function Ledger({
   isDesktop,
   readonly = false,
   startWithNewTransaction = false,
+  dateRange: controlledDateRange,
+  onDateRangeChange,
+  filterCategory: controlledFilterCategory,
+  onFilterCategoryChange,
+  query: controlledQuery,
+  onQueryChange,
+  mobileFilterOpen: controlledMobileFilterOpen,
+  onMobileFilterOpenChange,
 }: {
   workspaceId: string;
   businessDate: string;
@@ -956,12 +964,54 @@ export function Ledger({
   isDesktop: boolean;
   readonly?: boolean;
   startWithNewTransaction?: boolean;
+  dateRange?: DateRangeValue | null;
+  onDateRangeChange?: (value: DateRangeValue | null) => void;
+  filterCategory?: string;
+  onFilterCategoryChange?: (value: string) => void;
+  query?: string;
+  onQueryChange?: (value: string) => void;
+  mobileFilterOpen?: boolean;
+  onMobileFilterOpenChange?: (open: boolean) => void;
 }) {
-  const [query, setQuery] = useState("");
-  const [dateRange, setDateRange] = useState<DateRangeValue | null>(() =>
+  const [internalQuery, setInternalQuery] = useState("");
+  const query = controlledQuery !== undefined ? controlledQuery : internalQuery;
+  const setQuery = (value: string | ((prev: string) => string)) => {
+    const nextValue = typeof value === "function" ? value(query) : value;
+    setInternalQuery(nextValue);
+    onQueryChange?.(nextValue);
+  };
+
+  const [internalDateRange, setInternalDateRange] = useState<DateRangeValue | null>(() =>
     getMonthDateRange(businessDate),
   );
-  const [filterCategory, setFilterCategory] = useState("");
+  const dateRange = controlledDateRange !== undefined ? controlledDateRange : internalDateRange;
+  const setDateRange = (
+    value:
+      | DateRangeValue
+      | null
+      | ((prev: DateRangeValue | null) => DateRangeValue | null),
+  ) => {
+    const nextValue = typeof value === "function" ? value(dateRange) : value;
+    setInternalDateRange(nextValue);
+    onDateRangeChange?.(nextValue);
+  };
+
+  const [internalFilterCategory, setInternalFilterCategory] = useState("");
+  const filterCategory = controlledFilterCategory !== undefined ? controlledFilterCategory : internalFilterCategory;
+  const setFilterCategory = (value: string | ((prev: string) => string)) => {
+    const nextValue = typeof value === "function" ? value(filterCategory) : value;
+    setInternalFilterCategory(nextValue);
+    onFilterCategoryChange?.(nextValue);
+  };
+
+  const [internalMobileFilterOpen, setInternalMobileFilterOpen] = useState(false);
+  const mobileFilterOpen = controlledMobileFilterOpen !== undefined ? controlledMobileFilterOpen : internalMobileFilterOpen;
+  const setMobileFilterOpen = (value: boolean | ((prev: boolean) => boolean)) => {
+    const nextValue = typeof value === "function" ? value(mobileFilterOpen) : value;
+    setInternalMobileFilterOpen(nextValue);
+    onMobileFilterOpenChange?.(nextValue);
+  };
+
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleteReason, setDeleteReason] = useState("");
@@ -975,7 +1025,6 @@ export function Ledger({
   );
   const [mobileEditDraft, setMobileEditDraft] =
     useState<TransactionDraft | null>(null);
-  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [mobileBulkDeleteOpen, setMobileBulkDeleteOpen] = useState(false);
   const [mobileScheduledOpen, setMobileScheduledOpen] = useState(false);
   const [desktopScheduledOpen, setDesktopScheduledOpen] = useState(false);
