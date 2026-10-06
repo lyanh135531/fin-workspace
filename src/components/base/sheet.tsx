@@ -343,7 +343,7 @@ function SheetContent({
               ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-md data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md data-[side=bottom]:max-h-[68dvh]"
               : size === "sm"
                 ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-sm data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm data-[side=bottom]:max-h-[50dvh]"
-                : "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-md data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md",
+                : "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-md data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md data-[side=bottom]:max-h-[75dvh]",
           spacing === "flush" ? "gap-0" : "gap-4",
           className,
         )}

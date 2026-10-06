@@ -12248,7 +12248,7 @@ html[data-sidebar-collapsed="true"]
   border: 1px solid var(--border) !important;
   border-radius: 0.5rem 0.5rem 0 0;
   background: var(--surface) !important;
-  box-shadow: 0 -18px 50px var(--shadow);
+  box-shadow: none;
 }
 
 .quick-transaction-header {
@@ -12622,10 +12622,10 @@ html[data-sidebar-collapsed="true"]
     bottom: calc(0.5rem + var(--mobile-keyboard-inset, 0px)) !important;
     box-sizing: border-box;
     width: min(36rem, calc(100vw - 1rem)) !important;
-    max-height: min(calc(100dvh - 1rem), calc(var(--mobile-visual-height, 100dvh) - 1rem)) !important;
+    max-height: min(75dvh, calc(var(--mobile-visual-height, 100dvh) - 1rem)) !important;
     overflow: hidden !important;
     border-radius: 1.5rem;
-    box-shadow: 0 -20px 60px color-mix(in srgb, var(--shadow) 90%, transparent);
+    box-shadow: none !important;
   }
 
   .quick-transaction-form {
