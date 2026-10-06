@@ -367,7 +367,7 @@ export function CreditCardVirtualCard({
           "cursor-pointer transition-all duration-200 hover:border-[var(--primary)] hover:scale-[1.01] active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
         className,
       )}
-      aria-label={`Thẻ ${card.name}, ${hasCredit ? `Dư có ${formatAmount(card.creditBalance)}` : `Dư nợ ${formatAmount(card.debt)}`} ${currency}`}
+      aria-label={`Thẻ ${card.name}, ${hasCredit ? `Số dư thừa ${formatAmount(card.creditBalance)}` : `Dư nợ ${formatAmount(card.debt)}`} ${currency}`}
     >
       {/* Top row: Chip EMV & Contactless waves (left) + Brand Emblem / Cycle (right) */}
       <div className="relative z-[1] flex items-center justify-between gap-2">
@@ -432,7 +432,7 @@ export function CreditCardVirtualCard({
         <div className="flex items-baseline justify-between gap-2">
           <div className="min-w-0">
             <span className="block text-[8px] sm:text-[9px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
-              {hasCredit ? "Dư có" : "Dư nợ"}
+              {hasCredit ? "Dư thừa" : "Dư nợ"}
             </span>
             <span
               className={cn(
@@ -479,6 +479,113 @@ export function CreditCardVirtualCard({
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+const ACTIVITIES_PAGE_SIZE = 6;
+const INSTALLMENTS_PAGE_SIZE = 4;
+const STATEMENTS_PAGE_SIZE = 5;
+
+type TabPaginationProps = {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  itemLabel: string;
+};
+
+function getPageNumbers(current: number, totalPages: number): (number | "...")[] {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const pages: (number | "...")[] = [1];
+  if (current > 3) pages.push("...");
+  const start = Math.max(2, current - 1);
+  const end = Math.min(totalPages - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (current < totalPages - 2) pages.push("...");
+  pages.push(totalPages);
+  return pages;
+}
+
+function TabPagination({
+  currentPage,
+  totalPages,
+  totalItems,
+  pageSize,
+  onPageChange,
+  itemLabel,
+}: TabPaginationProps) {
+  if (totalItems === 0) return null;
+
+  const pageStart = (currentPage - 1) * pageSize + 1;
+  const pageEnd = Math.min(currentPage * pageSize, totalItems);
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 mt-2 border-t border-[var(--border)]/40 text-xs text-[var(--text-muted)]">
+      <div>
+        <span>
+          Hiển thị <strong className="font-semibold text-[var(--foreground)] tabular-nums">{pageStart}–{pageEnd}</strong> trên <strong className="font-semibold text-[var(--foreground)] tabular-nums">{totalItems}</strong> {itemLabel}
+        </span>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center gap-1.5 self-end sm:self-auto">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-7"
+            disabled={currentPage <= 1}
+            onClick={() => onPageChange(currentPage - 1)}
+            aria-label="Trang trước"
+            title="Trang trước"
+          >
+            <ChevronLeft size={14} />
+          </Button>
+
+          <div className="flex items-center gap-1">
+            {getPageNumbers(currentPage, totalPages).map((p, idx) =>
+              p === "..." ? (
+                <span key={`ellipsis-${idx}`} className="px-1 text-xs text-[var(--text-muted)] select-none">
+                  ...
+                </span>
+              ) : (
+                <Button
+                  key={p}
+                  type="button"
+                  variant={p === currentPage ? "default" : "ghost"}
+                  size="sm"
+                  className={cn(
+                    "size-7 p-0 text-xs tabular-nums font-medium",
+                    p === currentPage && "font-bold",
+                  )}
+                  onClick={() => onPageChange(p)}
+                  aria-label={`Trang ${p}`}
+                  aria-current={p === currentPage ? "page" : undefined}
+                >
+                  {p}
+                </Button>
+              ),
+            )}
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-7"
+            disabled={currentPage >= totalPages}
+            onClick={() => onPageChange(currentPage + 1)}
+            aria-label="Trang sau"
+            title="Trang sau"
+          >
+            <ChevronRight size={14} />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -554,6 +661,31 @@ function CreditCardPanel({
   const [allStatementsOpen, setAllStatementsOpen] = useState(false);
   const [statementDetailOpen, setStatementDetailOpen] = useState(false);
   const [menuPlanId, setMenuPlanId] = useState<string | null>(null);
+  const [activityPage, setActivityPage] = useState(1);
+  const [installmentPage, setInstallmentPage] = useState(1);
+  const [statementPage, setStatementPage] = useState(1);
+
+  // Phân trang danh sách 3 tab trên Desktop
+  const totalActivityPages = Math.max(1, Math.ceil(card.activities.length / ACTIVITIES_PAGE_SIZE));
+  const currentActivityPage = Math.min(activityPage, totalActivityPages);
+  const paginatedActivities = card.activities.slice(
+    (currentActivityPage - 1) * ACTIVITIES_PAGE_SIZE,
+    currentActivityPage * ACTIVITIES_PAGE_SIZE,
+  );
+
+  const totalInstallmentPages = Math.max(1, Math.ceil(card.installmentPlans.length / INSTALLMENTS_PAGE_SIZE));
+  const currentInstallmentPage = Math.min(installmentPage, totalInstallmentPages);
+  const paginatedInstallmentPlans = card.installmentPlans.slice(
+    (currentInstallmentPage - 1) * INSTALLMENTS_PAGE_SIZE,
+    currentInstallmentPage * INSTALLMENTS_PAGE_SIZE,
+  );
+
+  const totalStatementPages = Math.max(1, Math.ceil(card.statements.length / STATEMENTS_PAGE_SIZE));
+  const currentStatementPage = Math.min(statementPage, totalStatementPages);
+  const paginatedStatements = card.statements.slice(
+    (currentStatementPage - 1) * STATEMENTS_PAGE_SIZE,
+    currentStatementPage * STATEMENTS_PAGE_SIZE,
+  );
   const [deletingPlan, setDeletingPlan] = useState<InstallmentPlan | null>(null);
   const [deletingActivity, setDeletingActivity] = useState<CardActivity | null>(null);
   const [editingActivity, setEditingActivity] = useState<CardActivity | null>(null);
@@ -752,8 +884,8 @@ function CreditCardPanel({
       }
       toast.success(
         result.status === "approved"
-          ? "Đã thanh toán sao kê."
-          : "Đã tạo thanh toán chờ xử lý.",
+          ? "Thanh toán sao kê thành công."
+          : "Đã gửi yêu cầu thanh toán sao kê chờ duyệt.",
       );
       setPaymentConfirmOpen(false);
     });
@@ -771,7 +903,7 @@ function CreditCardPanel({
         toast.error(result.message ?? "Không thể đăng ký trả góp.");
         return;
       }
-      toast.success("Đã đăng ký trả góp.");
+      toast.success("Chuyển đổi trả góp thành công.");
       setInstallmentTarget(null);
       setFeeAmount("");
     });
@@ -794,9 +926,9 @@ function CreditCardPanel({
       toast.success(
         result.status === "approved"
           ? refundTransactionId
-            ? "Đã ghi nhận hoàn tiền giao dịch."
+            ? "Đã ghi nhận hoàn tiền cho giao dịch."
             : "Đã ghi nhận hoàn tiền vào thẻ."
-          : "Đã tạo khoản hoàn tiền chờ duyệt.",
+          : "Đã gửi yêu cầu hoàn tiền chờ duyệt.",
       );
       setRefundOpen(false);
       setRefundAmount("");
@@ -865,7 +997,7 @@ function CreditCardPanel({
         toast.error(result.message ?? "Không thể cập nhật thẻ tín dụng.");
         return;
       }
-      toast.success("Đã cập nhật thẻ tín dụng.");
+      toast.success("Đã cập nhật thông tin thẻ tín dụng.");
       setEditOpen(false);
     });
   }
@@ -909,7 +1041,7 @@ function CreditCardPanel({
             </h4>
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium bg-[var(--surface-secondary)] text-[var(--text-secondary)] shrink-0 border border-[var(--border)]/60">
-                {plan.origin === "imported" ? "Khoản có sẵn" : `${plan.termCount} tháng`}
+                {plan.origin === "imported" ? `${plan.termCount} tháng · Đã có sẵn` : `${plan.termCount} tháng`}
               </span>
               {hasFee && (
                 <span className="text-[11px] text-[var(--text-muted)] shrink-0">
@@ -929,14 +1061,14 @@ function CreditCardPanel({
             {isDesktopWorkspace && canManage && plan.canDelete && (
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 text-xs text-[var(--destructive)] hover:text-[var(--destructive)] hover:bg-[var(--destructive)]/10 border-[var(--destructive)]/25 gap-1 shrink-0"
+                variant="ghost"
+                size="icon"
+                className="size-7 text-[var(--text-muted)] hover:text-[var(--destructive)] hover:bg-[var(--destructive)]/10 shrink-0"
                 onClick={() => setDeletingPlan(plan)}
                 title="Hủy khoản trả góp này"
+                aria-label="Hủy khoản trả góp này"
               >
                 <Trash2 className="size-3.5 shrink-0" aria-hidden="true" />
-                <span>Hủy</span>
               </Button>
             )}
           </div>
@@ -967,7 +1099,7 @@ function CreditCardPanel({
           </div>
         </div>
 
-        {/* Hàng 3: Kỳ tới / Đã tất toán */}
+        {/* Hàng 3: Kỳ tới / Đã hoàn tất */}
         <div className="pt-0.5">
           {next ? (
             <div className="flex items-center justify-between gap-2 rounded-xl bg-[var(--surface-secondary)]/50 px-3 py-2 text-xs border border-[var(--border)]/40">
@@ -985,7 +1117,7 @@ function CreditCardPanel({
           ) : (
             <div className="flex items-center gap-1.5 rounded-xl bg-[color-mix(in_srgb,var(--success)_10%,transparent)] px-3 py-2 text-xs text-[var(--success)] border border-[var(--success)]/20">
               <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" />
-              <span className="font-medium">Đã tất toán toàn bộ kỳ trả góp</span>
+              <span className="font-medium">Đã hoàn tất toàn bộ kỳ trả góp</span>
             </div>
           )}
         </div>
@@ -997,7 +1129,7 @@ function CreditCardPanel({
       return (
         <div
           key={plan.id}
-          className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/25 p-3.5 space-y-2.5"
+          className="rounded-xl border border-[var(--border)]/70 bg-[var(--surface-secondary)]/20 p-3.5 space-y-2.5 hover:bg-[var(--surface-secondary)]/35 transition-colors"
         >
           {cardContent}
         </div>
@@ -1025,7 +1157,7 @@ function CreditCardPanel({
                     ? "bg-[var(--surface)]"
                     : "bg-[var(--surface-secondary)]/25 hover:bg-[var(--surface-secondary)]/45 active:bg-[var(--surface-secondary)]/60 focus-visible:ring-1 focus-visible:ring-ring",
                 )}
-                aria-label={`Khoản trả góp ${plan.description || "Giao dịch trả góp"}, ${formatAmount(plan.principal)} ${currency}. Bấm để mở menu context.`}
+                aria-label={`Khoản trả góp ${plan.description || "Giao dịch trả góp"}, ${formatAmount(plan.principal)} ${currency}. Bấm để xem tùy chọn.`}
               />
             }
             dismissLabel={`Đóng menu tùy chọn ${plan.description || "khoản trả góp"}`}
@@ -1051,7 +1183,7 @@ function CreditCardPanel({
               className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--destructive)]"
             >
               <Trash2 className="size-4 shrink-0" aria-hidden="true" />
-              <span>Hủy trả góp</span>
+              <span>Hủy gói trả góp</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -1131,13 +1263,13 @@ function CreditCardPanel({
     const canRefundActivity = canManage && Boolean(refundCandidate && new Decimal(refundCandidate.refundableAmount).gt(0));
     const hasActivityMenu = activity.installmentEligible || canEditActivity || canRefundActivity || canDeleteActivity;
 
-    {/* Trên desktop: dùng Sheet khi click hàng hoặc bấm trực tiếp nút thao tác, không dùng menu context */}
+    {/* Trên desktop: hiển thị dạng hàng bảng có cấu trúc phân cột cân đối */}
     if (isDesktopWorkspace) {
       return (
         <div
           key={activity.id}
           className={cn(
-            "group/activity flex items-center justify-between gap-3 py-2.5 px-2.5 -mx-2 rounded-xl transition-colors hover:bg-[var(--surface-secondary)]/50",
+            "group/activity grid grid-cols-12 gap-4 items-center py-2.5 px-3 rounded-xl transition-colors hover:bg-[var(--surface-secondary)]/50",
             canEditActivity && "cursor-pointer",
           )}
           onClick={() => {
@@ -1145,12 +1277,19 @@ function CreditCardPanel({
               startEditingActivity(activity);
             }
           }}
-          title={canEditActivity ? "Bấm để mở Sheet chỉnh sửa giao dịch" : undefined}
+          title={canEditActivity ? "Bấm để chỉnh sửa giao dịch" : undefined}
         >
-          {/* Trái: Icon + Mô tả + Ngày */}
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          {/* Cột 1: Thời gian (col-span-2) */}
+          <div className="col-span-2">
+            <span className="text-xs text-[var(--text-muted)] tabular-nums">
+              {formatIsoDate(activity.date)}
+            </span>
+          </div>
+
+          {/* Cột 2: Nội dung & Hạng mục (col-span-5) */}
+          <div className="col-span-5 flex items-center gap-2.5 min-w-0">
             <div
-              className={`grid size-8 shrink-0 place-items-center rounded-lg ${
+              className={`grid size-7 shrink-0 place-items-center rounded-lg ${
                 activity.purpose === "credit_card_refund"
                   ? "bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] text-[var(--success)]"
                   : activity.purpose === "credit_card_payment"
@@ -1159,11 +1298,11 @@ function CreditCardPanel({
               }`}
             >
               {activity.purpose === "credit_card_refund" ? (
-                <RotateCcw size={14} />
+                <RotateCcw size={13} />
               ) : activity.purpose === "credit_card_payment" ? (
-                <CheckCircle2 size={14} />
+                <CheckCircle2 size={13} />
               ) : (
-                <CreditCard size={14} />
+                <CreditCard size={13} />
               )}
             </div>
 
@@ -1171,106 +1310,124 @@ function CreditCardPanel({
               <p className="truncate text-xs font-medium text-[var(--foreground)]">
                 {activity.description || activityLabel(activity)}
               </p>
-              <p className="truncate text-[11px] text-[var(--text-muted)]">
-                {activity.description && activity.description !== activityLabel(activity)
-                  ? `${formatIsoDate(activity.date)} · ${activityLabel(activity)}`
-                  : formatIsoDate(activity.date)}
-              </p>
+              {activity.description && activity.description !== activityLabel(activity) && (
+                <p className="truncate text-[11px] text-[var(--text-muted)]">
+                  {activityLabel(activity)}
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Phải: Số tiền + Nút bấm thao tác trực tiếp trên Desktop */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="flex flex-col items-end">
-              <span
-                className={`text-xs font-semibold tabular-nums ${
-                  activity.purpose === "credit_card_refund"
-                    ? "text-[var(--success)]"
-                    : "text-[var(--foreground)]"
-                }`}
-              >
-                {activity.purpose === "credit_card_refund" ||
-                activity.purpose === "credit_card_payment"
-                  ? "−"
-                  : "+"}
-                {formatAmount(activity.amount, { maximumFractionDigits: 0 })} {currency}
+          {/* Cột 3: Phân loại (col-span-2) */}
+          <div className="col-span-2">
+            {activity.installmentPlanId ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]">
+                <Split size={9} aria-hidden="true" />
+                <span>Đang trả góp</span>
               </span>
-              {activity.installmentPlanId && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--primary)]">
-                  <Split size={9} aria-hidden="true" />
-                  <span>Đang trả góp</span>
-                </span>
-              )}
-            </div>
+            ) : activity.purpose === "credit_card_refund" ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--success)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+                Hoàn tiền
+              </span>
+            ) : activity.purpose === "credit_card_payment" ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--info,var(--primary))]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--info,var(--primary))]">
+                Thanh toán sao kê
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+                Chi tiêu thẻ
+              </span>
+            )}
+          </div>
 
-            {/* Cụm nút thao tác trực tiếp trên Desktop */}
+          {/* Cột 4: Số tiền (col-span-2 text-right) */}
+          <div className="col-span-2 text-right">
+            <span
+              className={`text-xs font-bold tabular-nums ${
+                activity.purpose === "credit_card_refund" || activity.purpose === "credit_card_payment"
+                  ? "text-[var(--success)]"
+                  : "text-[var(--foreground)]"
+              }`}
+            >
+              {activity.purpose === "credit_card_refund" || activity.purpose === "credit_card_payment"
+                ? "−"
+                : "+"}
+              {formatAmount(activity.amount, { maximumFractionDigits: 0 })}{" "}
+              <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{currency}</span>
+            </span>
+          </div>
+
+          {/* Cột 5: Thao tác (col-span-1 text-right) */}
+          <div className="col-span-1 flex justify-end">
             {hasActivityMenu && (
-              <div className="flex items-center gap-1 shrink-0">
-                {activity.installmentEligible && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2 text-xs gap-1 text-[var(--primary)] hover:text-[var(--primary)]"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setInstallmentTarget(activity);
-                    }}
-                    title="Đăng ký trả góp (mở Sheet)"
+              <div
+                className="flex items-center shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 text-[var(--text-muted)] hover:text-[var(--foreground)] opacity-70 group-hover/activity:opacity-100 transition-opacity"
+                        aria-label={`Thao tác cho giao dịch ${activity.description || activityLabel(activity)}`}
+                      />
+                    }
                   >
-                    <Split className="size-3.5" aria-hidden="true" />
-                    <span>Trả góp</span>
-                  </Button>
-                )}
-                {canRefundActivity && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2 text-xs gap-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setRefundTransactionId(activity.id);
-                      setRefundDescription(`Hoàn tiền cho ${activity.description || "giao dịch"}`);
-                      setRefundAmount(refundCandidate?.refundableAmount ?? "");
-                      setRefundOpen(true);
-                    }}
-                    title="Hoàn tiền giao dịch (mở Sheet)"
+                    <MoreHorizontal className="size-3.5" aria-hidden="true" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    side="bottom"
+                    sideOffset={4}
+                    className="w-48 !rounded-xl p-1 border border-[var(--border)] bg-[var(--surface)] shadow-none"
                   >
-                    <RotateCcw className="size-3.5" aria-hidden="true" />
-                    <span>Hoàn tiền</span>
-                  </Button>
-                )}
-                {canEditActivity && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-7 text-[var(--text-secondary)] hover:text-[var(--foreground)]"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startEditingActivity(activity);
-                    }}
-                    title="Chỉnh sửa giao dịch (mở Sheet)"
-                  >
-                    <Pencil className="size-3.5" aria-hidden="true" />
-                  </Button>
-                )}
-                {canDeleteActivity && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-7 text-[var(--text-muted)] hover:text-[var(--destructive)] hover:bg-[var(--destructive)]/10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeletingActivity(activity);
-                    }}
-                    title="Xóa giao dịch"
-                  >
-                    <Trash2 className="size-3.5" aria-hidden="true" />
-                  </Button>
-                )}
+                    {activity.installmentEligible && (
+                      <DropdownMenuItem
+                        onClick={() => setInstallmentTarget(activity)}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                      >
+                        <Split className="size-3.5 text-[var(--primary)]" aria-hidden="true" />
+                        <span>Đăng ký trả góp</span>
+                      </DropdownMenuItem>
+                    )}
+                    {canRefundActivity && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setRefundTransactionId(activity.id);
+                          setRefundDescription(`Hoàn tiền cho ${activity.description || "giao dịch"}`);
+                          setRefundAmount(refundCandidate?.refundableAmount ?? "");
+                          setRefundOpen(true);
+                        }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                      >
+                        <RotateCcw className="size-3.5 text-[var(--text-muted)]" aria-hidden="true" />
+                        <span>Hoàn tiền giao dịch</span>
+                      </DropdownMenuItem>
+                    )}
+                    {canEditActivity && (
+                      <DropdownMenuItem
+                        onClick={() => startEditingActivity(activity)}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                      >
+                        <Pencil className="size-3.5 text-[var(--text-muted)]" aria-hidden="true" />
+                        <span>Chỉnh sửa giao dịch</span>
+                      </DropdownMenuItem>
+                    )}
+                    {canDeleteActivity && (
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => setDeletingActivity(activity)}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-xs font-medium !rounded-lg cursor-pointer text-[var(--destructive)]"
+                      >
+                        <Trash2 className="size-3.5" aria-hidden="true" />
+                        <span>Xóa giao dịch</span>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
           </div>
@@ -1402,119 +1559,130 @@ function CreditCardPanel({
     <>
       <div id={`credit-card-details-${card.id}`} className={cn("space-y-5 sm:space-y-6", isDesktopWorkspace && "space-y-4")}>
         {isDesktopWorkspace ? (
-          <div className="space-y-4">
-            {/* 1. Header: Title + Brand + Cycle + Actions */}
-            <div className="flex items-center justify-between gap-4 pb-1">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h2 className="text-xl font-bold tracking-tight text-[var(--foreground)] truncate">
-                    {card.name}
-                  </h2>
-                  <CardBrandBadge brand={brand} />
-                  {card.statement?.overdue ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--destructive)]/20 bg-[color-mix(in_srgb,var(--destructive)_12%,transparent)] px-2.5 py-0.5 text-xs font-semibold text-[var(--destructive)]">
-                      <span className="size-1.5 rounded-full bg-[var(--destructive)]" />
-                      Quá hạn
-                    </span>
-                  ) : card.statement ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--warning)]/20 bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] px-2.5 py-0.5 text-xs font-semibold text-[var(--warning)]">
-                      <span className="size-1.5 rounded-full bg-[var(--warning)]" />
-                      Hạn {formatShortDate(card.statement.dueDate)}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-secondary)]/50 px-2.5 py-0.5 text-xs font-medium text-[var(--text-muted)]">
-                      Bình thường
-                    </span>
+          <div className="space-y-5">
+            {/* 1. KHỐI HERO HỢP NHẤT (APPLE CARD STYLE MASTER CARD) */}
+            <Card as="div" className="p-6 rounded-2xl space-y-6">
+              {/* Header: Tên thẻ + Brand + Chu kỳ + Thanh công cụ Action */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border)]/40">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h2 className="text-2xl font-bold tracking-tight text-[var(--foreground)] truncate">
+                      {card.name}
+                    </h2>
+                    <CardBrandBadge brand={brand} />
+                    {card.statement?.overdue ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--destructive)]/20 bg-[color-mix(in_srgb,var(--destructive)_12%,transparent)] px-2.5 py-0.5 text-xs font-semibold text-[var(--destructive)]">
+                        <span className="size-1.5 rounded-full bg-[var(--destructive)]" />
+                        Quá hạn
+                      </span>
+                    ) : card.statement ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--warning)]/20 bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] px-2.5 py-0.5 text-xs font-semibold text-[var(--warning)]">
+                        <span className="size-1.5 rounded-full bg-[var(--warning)]" />
+                        Hạn {formatShortDate(card.statement.dueDate)}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-secondary)]/50 px-2.5 py-0.5 text-xs font-medium text-[var(--text-muted)]">
+                        Chốt sao kê ngày {card.statementClosingDay}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    Chốt sao kê ngày {card.statementClosingDay} · Hạn thanh toán ngày {card.paymentDueDay} hàng tháng
+                    {walletNames.get(card.defaultFundingWalletId) && ` · Nguồn thanh toán mặc định: ${walletNames.get(card.defaultFundingWalletId)}`}
+                  </p>
+                </div>
+
+                {/* Toolbar các nút: Thanh toán sao kê (nổi bật nếu có) + Nhập trả góp + Menu 3 chấm */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {card.statement && card.statement.status !== "paid" && new Decimal(card.statement.amount || 0).gt(0) && (
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      disabled={pending || card.statement.paymentPending}
+                      onClick={() => setPaymentConfirmOpen(true)}
+                      className="gap-1.5 h-8 text-xs font-semibold"
+                    >
+                      <CheckCircle2 size={13} aria-hidden="true" />
+                      <span>{card.statement.paymentPending ? "Đang chờ duyệt thanh toán" : "Thanh toán sao kê"}</span>
+                    </Button>
+                  )}
+                  {canManage && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-8"
+                            aria-label={`Tùy chọn khác thẻ ${card.name}`}
+                          />
+                        }
+                      >
+                        <MoreHorizontal className="size-4" aria-hidden="true" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        side="bottom"
+                        sideOffset={6}
+                        className="w-52 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
+                      >
+                        <DropdownMenuItem
+                          onClick={openImportInstallment}
+                          className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                        >
+                          <History className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                          <span>Nhập khoản trả góp</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setRefundTransactionId("");
+                            setRefundDescription("");
+                            setRefundAmount("");
+                            setRefundOpen(true);
+                          }}
+                          className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                        >
+                          <RotateCcw className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                          <span>Hoàn tiền vào thẻ</span>
+                        </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setEditOpen(true)}
+                            className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
+                          >
+                            <Pencil className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                            <span>Chỉnh sửa thông tin thẻ</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="my-1 bg-[var(--border)]/60" />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => {
+                              setConfirmLossChecked(false);
+                              setConfirmDelete(true);
+                            }}
+                            className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--destructive)]"
+                          >
+                            <Trash2 className="size-4 shrink-0" aria-hidden="true" />
+                            <span>Xóa thẻ này</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                   )}
                 </div>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Chốt ngày {card.statementClosingDay} · Hạn thanh toán ngày {card.paymentDueDay} hàng tháng
-                  {walletNames.get(card.defaultFundingWalletId) && ` · Ví trích nợ mặc định: ${walletNames.get(card.defaultFundingWalletId)}`}
-                </p>
               </div>
 
-              {/* Desktop Action Toolbar */}
-              {canManage && (
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={openImportInstallment}
-                  >
-                    <History className="size-3.5 text-[var(--text-muted)]" aria-hidden="true" />
-                    <span>Nhập trả góp</span>
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="size-8"
-                          aria-label={`Tùy chọn khác thẻ ${card.name}`}
-                        />
-                      }
-                    >
-                      <MoreHorizontal className="size-4" aria-hidden="true" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      side="bottom"
-                      sideOffset={6}
-                      className="w-48 !rounded-xl p-1.5 border border-[var(--border)] bg-[var(--surface)] shadow-none"
-                    >
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setRefundTransactionId("");
-                          setRefundDescription("");
-                          setRefundAmount("");
-                          setRefundOpen(true);
-                        }}
-                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
-                      >
-                        <RotateCcw className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                        <span>Hoàn tiền</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => setEditOpen(true)}
-                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
-                      >
-                        <Pencil className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                        <span>Chỉnh sửa thẻ</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={() => {
-                          setConfirmLossChecked(false);
-                          setConfirmDelete(true);
-                        }}
-                        className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--destructive)]"
-                      >
-                        <Trash2 className="size-4 shrink-0" aria-hidden="true" />
-                        <span>Xóa thẻ</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )}
-            </div>
-
-            {/* 2. Apple Card / Linear Hero Balance Card */}
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6 space-y-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              {/* Dải chỉ số tài chính chính (Financial Health 3-Column Grid) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-1">
+                {/* Cột 1: Dư nợ hiện tại */}
                 <div className="space-y-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                    {hasCredit ? "Dư có hiện tại" : "Dư nợ hiện tại"}
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
+                    {hasCredit ? "Số dư thừa hiện tại" : "Dư nợ hiện tại"}
                   </span>
                   <div className="flex items-baseline gap-2">
                     <span
                       className={cn(
-                        "text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums",
-                        hasCredit
-                          ? "text-[var(--success)]"
-                          : "text-[var(--foreground)]",
+                        "text-3xl font-extrabold tracking-tight tabular-nums",
+                        hasCredit ? "text-[var(--success)]" : "text-[var(--foreground)]",
                       )}
                     >
                       {formatAmount(hasCredit ? card.creditBalance : card.debt)}
@@ -1523,44 +1691,88 @@ function CreditCardPanel({
                       {currency}
                     </span>
                   </div>
-                  {new Decimal(card.pendingPayment || 0).gt(0) && (
+                  {monthlyInstallmentTotal.gt(0) && (
                     <p className="text-xs text-[var(--text-muted)] pt-0.5">
+                      Trả góp: <strong className="font-semibold tabular-nums text-[var(--foreground)]">{formatAmount(monthlyInstallmentTotal.toString(), { maximumFractionDigits: 0 })} {currency}</strong>/tháng ({activeInstallmentPlans.length} gói)
+                    </p>
+                  )}
+                  {new Decimal(card.pendingPayment || 0).gt(0) && (
+                    <p className="text-xs text-[var(--text-muted)]">
                       Đang chờ duyệt: <strong className="font-semibold tabular-nums text-[var(--foreground)]">{formatAmount(card.pendingPayment)} {currency}</strong>
                     </p>
                   )}
-                  {monthlyInstallmentTotal.gt(0) && (
-                    <p className="text-xs text-[var(--text-muted)] pt-0.5 flex items-center gap-1.5 flex-wrap">
-                      <span>Trả góp hàng tháng:</span>
-                      <strong className="font-semibold tabular-nums text-[var(--foreground)]">
-                        {formatAmount(monthlyInstallmentTotal.toString(), { maximumFractionDigits: 0 })} {currency}
-                      </strong>
-                      <span className="text-[11px] text-[var(--text-muted)]">
-                        /tháng ({activeInstallmentPlans.length} gói)
-                      </span>
-                    </p>
-                  )}
                 </div>
 
-                <div className="flex items-center gap-6 sm:text-right">
-                  <div>
-                    <span className="text-[11px] font-medium text-[var(--text-muted)] block">Hạn mức khả dụng</span>
-                    <span className="mt-0.5 text-base font-bold tabular-nums text-[var(--foreground)] block">
-                      {formatAmount(card.availableCredit)} <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{currency}</span>
+                {/* Cột 2: Hạn mức khả dụng & Tổng hạn mức */}
+                <div className="space-y-1 border-l-0 md:border-l border-[var(--border)]/50 md:pl-6">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
+                    Hạn mức khả dụng
+                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold tabular-nums text-[var(--success)]">
+                      {formatAmount(card.availableCredit)}
+                    </span>
+                    <span className="text-xs font-semibold uppercase text-[var(--text-muted)]">
+                      {currency}
                     </span>
                   </div>
-                  <div className="h-8 w-px bg-[var(--border)]" />
-                  <div>
-                    <span className="text-[11px] font-medium text-[var(--text-muted)] block">Tổng hạn mức</span>
-                    <span className="mt-0.5 text-base font-bold tabular-nums text-[var(--foreground)] block">
-                      {formatAmount(card.limit)} <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{currency}</span>
-                    </span>
-                  </div>
+                  <p className="text-xs text-[var(--text-muted)] pt-0.5">
+                    Tổng hạn mức thẻ: <strong className="font-semibold tabular-nums text-[var(--foreground)]">{formatAmount(card.limit)} {currency}</strong>
+                  </p>
+                </div>
+
+                {/* Cột 3: Sao kê kỳ này */}
+                <div className="space-y-1 border-l-0 md:border-l border-[var(--border)]/50 md:pl-6">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
+                    Sao kê kỳ này
+                  </span>
+                  {card.statement ? (
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold tabular-nums text-[var(--foreground)]">
+                          {formatAmount(card.statement.amount, { maximumFractionDigits: 0 })}
+                        </span>
+                        <span className="text-xs font-semibold uppercase text-[var(--text-muted)]">
+                          {currency}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <p className="text-xs text-[var(--text-muted)]">
+                          Hạn thanh toán: <strong className="text-[var(--foreground)] font-semibold">{formatShortDate(card.statement.dueDate)}</strong>
+                        </p>
+                        <Link
+                          href={`/credit-cards/${card.id}/statements/${card.statement.id}`}
+                          className="text-xs text-[var(--primary)] hover:underline inline-flex items-center gap-0.5"
+                        >
+                          Xem sao kê <ChevronRight size={12} />
+                        </Link>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-[var(--text-secondary)] mt-1">
+                        Chưa có sao kê mới
+                      </p>
+                      <p className="text-xs text-[var(--text-muted)] pt-0.5">
+                        Kỳ sao kê tiếp theo chốt ngày {card.statementClosingDay}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Utilization Progress Bar */}
-              <div className="space-y-2 pt-1 border-t border-[var(--border)]/60">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+              {/* Inset Strip: Utilization progress + Allocation info */}
+              <div className="rounded-xl bg-[var(--surface-secondary)]/40 border border-[var(--border)]/50 p-3.5 space-y-2">
+                <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                  <span>
+                    Đã chi tiêu <strong className="text-[var(--foreground)] font-semibold">{utilizationPercent}%</strong> hạn mức
+                    <span className="ml-1 text-[var(--text-muted)]">({formatAmount(card.debt)} / {formatAmount(card.limit)} {currency})</span>
+                  </span>
+                  <span>
+                    Khả dụng còn lại <strong className="text-[var(--foreground)] font-semibold">{Math.max(100 - utilizationPercent, 0)}%</strong>
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
                   <div
                     className={cn(
                       "h-full rounded-full transition-all duration-500",
@@ -1573,92 +1785,16 @@ function CreditCardPanel({
                     style={{ width: `${Math.max(utilizationPercent, 2)}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-                  <span>
-                    Đã dùng <strong className="text-[var(--foreground)] font-semibold">{utilizationPercent}%</strong> hạn mức
-                  </span>
-                  <span>
-                    Còn lại <strong className="text-[var(--foreground)] font-semibold">{Math.max(100 - utilizationPercent, 0)}%</strong>
-                  </span>
-                </div>
+                {card.statement && card.statement.sources.length > 0 && (
+                  <p className="text-[11px] text-[var(--text-muted)] pt-0.5">
+                    Ví thanh toán sao kê: {card.statement.sources.map((s) => `${walletNames.get(s.walletId) ?? "Ví"} (${formatAmount(s.amount)} ${currency})`).join(", ")}
+                  </p>
+                )}
               </div>
-            </div>
+            </Card>
 
-            {/* 3. Statement alert banner (Only if statement exists) */}
-            {card.statement && (
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-[color-mix(in_srgb,var(--primary)_25%,var(--border))] bg-[color-mix(in_srgb,var(--primary)_4%,var(--surface))] p-4 sm:p-5">
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--primary)_12%,var(--surface))] text-[var(--primary)]">
-                    <ReceiptText size={20} aria-hidden="true" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className="text-sm font-semibold text-[var(--foreground)]">
-                        Sao kê kỳ {formatShortDate(card.statement.cycleEndDate)}
-                      </span>
-                      <span
-                        className={cn(
-                          "rounded-full px-2.5 py-0.5 text-[10px] font-semibold",
-                          card.statement.overdue
-                            ? "bg-[var(--destructive)]/12 text-[var(--destructive)]"
-                            : card.statement.paymentPending
-                              ? "bg-[var(--warning)]/12 text-[var(--warning)]"
-                              : "bg-[var(--primary)]/10 text-[var(--primary)]",
-                        )}
-                      >
-                        {card.statement.overdue
-                          ? "Đã quá hạn"
-                          : card.statement.paymentPending
-                            ? "Chờ duyệt"
-                            : `Hạn ${formatShortDate(card.statement.dueDate)}`}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                      Cần thanh toán:{" "}
-                      <strong className="text-sm font-bold tabular-nums text-[var(--foreground)]">
-                        {formatAmount(card.statement.amount, { maximumFractionDigits: 0 })} {currency}
-                      </strong>
-                      {card.statement.sources.length > 0 && (
-                        <span className="text-[var(--text-muted)] ml-2">
-                          · Trích từ: {card.statement.sources.map((s) => `${walletNames.get(s.walletId) ?? "Ví"} (${formatAmount(s.amount)} ${currency})`).join(", ")}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-[var(--text-secondary)] hover:text-[var(--foreground)]"
-                    render={
-                      <Link href={`/credit-cards/${card.id}/statements/${card.statement.id}`} />
-                    }
-                  >
-                    Chi tiết
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    disabled={
-                      pending ||
-                      card.statement.paymentPending ||
-                      !new Decimal(card.statement.amount || 0).gt(0)
-                    }
-                    onClick={() => setPaymentConfirmOpen(true)}
-                    className="gap-1.5"
-                  >
-                    <CheckCircle2 size={14} aria-hidden="true" />
-                    <span>{card.statement.paymentPending ? "Đang chờ duyệt" : "Thanh toán ngay"}</span>
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* 4. Unified Tabs: Giao dịch | Trả góp | Lịch sử sao kê */}
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+            {/* 2. DỮ LIỆU TOÀN MÀN HÌNH (Tabs: Giao dịch | Trả góp | Lịch sử sao kê) */}
+            <Card as="div" className="p-5 sm:p-6 rounded-2xl">
               <Tabs defaultValue="activities" className="w-full space-y-4">
                 <TabsList variant="underline">
                   <TabsTrigger variant="underline" value="activities" className="gap-2">
@@ -1675,15 +1811,35 @@ function CreditCardPanel({
                   </TabsTrigger>
                 </TabsList>
 
-                {/* Tab 1: Giao dịch gần đây */}
-                <TabsContent value="activities" className="space-y-2 mt-0 outline-none">
+                {/* Tab 1: Giao dịch gần đây dạng Desktop Table */}
+                <TabsContent value="activities" className="space-y-1 mt-0 outline-none">
                   {card.activities.length ? (
-                    <div className="divide-y divide-[var(--border)]/60">
-                      {card.activities.map(renderActivityRow)}
+                    <div className="space-y-1">
+                      {/* Desktop Table Header */}
+                      <div className="grid grid-cols-12 gap-4 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border)]/50">
+                        <div className="col-span-2">Thời gian</div>
+                        <div className="col-span-5">Nội dung giao dịch</div>
+                        <div className="col-span-2">Phân loại</div>
+                        <div className="col-span-2 text-right">Số tiền</div>
+                        <div className="col-span-1 text-right">Thao tác</div>
+                      </div>
+
+                      <div className="divide-y divide-[var(--border)]/30">
+                        {paginatedActivities.map(renderActivityRow)}
+                      </div>
+
+                      <TabPagination
+                        currentPage={currentActivityPage}
+                        totalPages={totalActivityPages}
+                        totalItems={card.activities.length}
+                        pageSize={ACTIVITIES_PAGE_SIZE}
+                        onPageChange={setActivityPage}
+                        itemLabel="giao dịch"
+                      />
                     </div>
                   ) : (
                     <div className="py-8 text-center text-xs text-[var(--text-muted)]">
-                      Chưa có giao dịch thẻ phát sinh.
+                      Chưa có giao dịch phát sinh nào từ thẻ này.
                     </div>
                   )}
                 </TabsContent>
@@ -1692,34 +1848,38 @@ function CreditCardPanel({
                 <TabsContent value="installments" className="space-y-4 mt-0 outline-none">
                   {card.installmentPlans.length > 0 ? (
                     <>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/40">
-                        <div className="flex items-center gap-6 divide-x divide-[var(--border)]">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--surface-secondary)]/30 border border-[var(--border)]/60">
+                        <div className="flex items-center gap-6">
                           <div>
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
-                              Tổng trả góp mỗi tháng
+                              Trả góp hàng tháng
                             </span>
-                            <span className="text-base font-extrabold tabular-nums text-[var(--foreground)] block">
+                            <span className="text-sm font-bold tabular-nums text-[var(--foreground)] block mt-0.5">
                               {formatAmount(monthlyInstallmentTotal.toString(), { maximumFractionDigits: 0 })}{" "}
                               <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{currency}</span>
-                              <span className="text-xs font-normal text-[var(--text-muted)]"> /tháng</span>
+                              <span className="text-[11px] font-normal text-[var(--text-muted)]"> /tháng</span>
                             </span>
                           </div>
 
-                          <div className="pl-6">
+                          <div className="h-6 w-px bg-[var(--border)]/60" />
+
+                          <div>
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
-                              Dư nợ trả góp còn lại
+                              Tổng nợ trả góp còn lại
                             </span>
-                            <span className="text-sm font-bold tabular-nums text-[var(--foreground)] block">
+                            <span className="text-sm font-bold tabular-nums text-[var(--foreground)] block mt-0.5">
                               {formatAmount(remainingInstallmentPrincipal.toString(), { maximumFractionDigits: 0 })}{" "}
                               <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{currency}</span>
                             </span>
                           </div>
 
-                          <div className="pl-6">
+                          <div className="h-6 w-px bg-[var(--border)]/60" />
+
+                          <div>
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
-                              Gói đang trả
+                              Gói đang trả góp
                             </span>
-                            <span className="text-sm font-bold tabular-nums text-[var(--foreground)] block">
+                            <span className="text-sm font-bold tabular-nums text-[var(--foreground)] block mt-0.5">
                               {activeInstallmentPlans.length} gói
                             </span>
                           </div>
@@ -1728,34 +1888,45 @@ function CreditCardPanel({
                         {canManage && (
                           <Button
                             type="button"
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            className="gap-1.5 shrink-0 self-start sm:self-auto"
+                            className="gap-1.5 shrink-0 h-8 text-xs text-[var(--text-secondary)] hover:text-[var(--foreground)]"
                             onClick={openImportInstallment}
                           >
                             <History size={14} className="text-[var(--text-muted)]" aria-hidden="true" />
-                            <span>Nhập trả góp có sẵn</span>
+                            <span>Nhập khoản trả góp</span>
                           </Button>
                         )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {card.installmentPlans.map(renderInstallmentCard)}
+                        {paginatedInstallmentPlans.map(renderInstallmentCard)}
                       </div>
+
+                      <TabPagination
+                        currentPage={currentInstallmentPage}
+                        totalPages={totalInstallmentPages}
+                        totalItems={card.installmentPlans.length}
+                        pageSize={INSTALLMENTS_PAGE_SIZE}
+                        onPageChange={setInstallmentPage}
+                        itemLabel="gói trả góp"
+                      />
                     </>
                   ) : (
-                    <div className="rounded-xl border border-dashed border-[var(--border)] p-8 text-center space-y-2">
+                    <div className="rounded-xl border border-dashed border-[var(--border)]/60 p-8 text-center space-y-2">
                       <p className="text-xs text-[var(--text-muted)]">
                         Chưa có khoản trả góp nào cho thẻ này.
                       </p>
                       {canManage && (
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           onClick={openImportInstallment}
+                          className="text-xs gap-1.5"
                         >
-                          + Nhập trả góp có sẵn
+                          <History size={14} />
+                          <span>Thêm khoản trả góp có sẵn</span>
                         </Button>
                       )}
                     </div>
@@ -1763,50 +1934,70 @@ function CreditCardPanel({
                 </TabsContent>
 
                 {/* Tab 3: Lịch sử sao kê */}
-                <TabsContent value="statements" className="space-y-2 mt-0 outline-none">
+                <TabsContent value="statements" className="space-y-1 mt-0 outline-none">
                   {card.statements.length > 0 ? (
-                    <div className="divide-y divide-[var(--border)]/60">
-                      {card.statements.map((statement) => (
-                        <Link
-                          key={statement.id}
-                          href={`/credit-cards/${card.id}/statements/${statement.id}`}
-                          className="flex items-center justify-between gap-4 py-2.5 px-2 hover:bg-[var(--surface-secondary)]/50 rounded-xl transition-colors"
-                        >
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium text-[var(--foreground)] truncate">
+                    <div className="space-y-1">
+                      {/* Header */}
+                      <div className="grid grid-cols-12 gap-4 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border)]/50">
+                        <div className="col-span-3">Kỳ sao kê</div>
+                        <div className="col-span-3">Hạn thanh toán</div>
+                        <div className="col-span-3 text-right">Số tiền sao kê</div>
+                        <div className="col-span-2 text-center">Trạng thái</div>
+                        <div className="col-span-1 text-right">Chi tiết</div>
+                      </div>
+
+                      <div className="divide-y divide-[var(--border)]/30">
+                        {paginatedStatements.map((statement) => (
+                          <Link
+                            key={statement.id}
+                            href={`/credit-cards/${card.id}/statements/${statement.id}`}
+                            className="grid grid-cols-12 gap-4 items-center py-2.5 px-3 rounded-xl transition-colors hover:bg-[var(--surface-secondary)]/50 text-xs"
+                          >
+                            <div className="col-span-3 font-medium text-[var(--foreground)]">
                               Kỳ chốt {formatIsoDate(statement.cycleEndDate)}
-                            </p>
-                            <p className="text-[11px] text-[var(--text-muted)]">
-                              Hạn thanh toán: {formatIsoDate(statement.dueDate)}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <span className="tabular-nums font-semibold text-xs text-[var(--foreground)]">
+                            </div>
+                            <div className="col-span-3 text-[var(--text-muted)] tabular-nums">
+                              {formatIsoDate(statement.dueDate)}
+                            </div>
+                            <div className="col-span-3 text-right font-bold tabular-nums text-[var(--foreground)]">
                               {formatAmount(statement.amount)} {currency}
-                            </span>
-                            <span
-                              className={cn(
-                                "rounded px-2 py-0.5 text-[10px] font-semibold",
-                                statement.status === "paid"
-                                  ? "bg-[var(--success)]/10 text-[var(--success)]"
-                                  : "bg-[var(--warning)]/10 text-[var(--warning)]",
-                              )}
-                            >
-                              {statement.status === "paid" ? "Đã thanh toán" : "Chưa trả"}
-                            </span>
-                            <ChevronRight size={14} className="text-[var(--text-muted)]" />
-                          </div>
-                        </Link>
-                      ))}
+                            </div>
+                            <div className="col-span-2 text-center">
+                              <span
+                                className={cn(
+                                  "rounded px-2 py-0.5 text-[10px] font-semibold inline-block",
+                                  statement.status === "paid"
+                                    ? "bg-[var(--success)]/10 text-[var(--success)]"
+                                    : "bg-[var(--warning)]/10 text-[var(--warning)]",
+                                )}
+                              >
+                                {statement.status === "paid" ? "Đã thanh toán" : "Chưa thanh toán"}
+                              </span>
+                            </div>
+                            <div className="col-span-1 flex justify-end text-[var(--text-muted)]">
+                              <ChevronRight size={14} />
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+
+                      <TabPagination
+                        currentPage={currentStatementPage}
+                        totalPages={totalStatementPages}
+                        totalItems={card.statements.length}
+                        pageSize={STATEMENTS_PAGE_SIZE}
+                        onPageChange={setStatementPage}
+                        itemLabel="kỳ sao kê"
+                      />
                     </div>
                   ) : (
                     <div className="py-8 text-center text-xs text-[var(--text-muted)]">
-                      Chưa có lịch sử sao kê nào.
+                      Chưa có lịch sử sao kê nào cho thẻ này.
                     </div>
                   )}
                 </TabsContent>
               </Tabs>
-            </div>
+            </Card>
           </div>
         ) : (
           <>
@@ -1891,7 +2082,7 @@ function CreditCardPanel({
                         className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
                       >
                         <Pencil className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                        <span>Chỉnh sửa thẻ</span>
+                        <span>Chỉnh sửa thông tin thẻ</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onSelect={openImportInstallment}
@@ -1899,7 +2090,7 @@ function CreditCardPanel({
                         className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
                       >
                         <History className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                        <span>Nhập trả góp có sẵn</span>
+                        <span>Nhập khoản trả góp</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
@@ -1911,7 +2102,7 @@ function CreditCardPanel({
                         className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
                       >
                         <RotateCcw className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                        <span>Ghi nhận hoàn tiền</span>
+                        <span>Hoàn tiền vào thẻ</span>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="my-1 -mx-1 bg-[var(--border)]" />
                       <DropdownMenuItem
@@ -1923,7 +2114,7 @@ function CreditCardPanel({
                         className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer"
                       >
                         <Trash2 className="size-4 shrink-0" aria-hidden="true" />
-                        <span>Xóa thẻ</span>
+                        <span>Xóa thẻ này</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -1990,7 +2181,7 @@ function CreditCardPanel({
                       hasCredit ? "bg-[var(--success)]" : hasDebt ? "bg-[var(--primary)]" : "bg-[var(--text-muted)]"
                     )} />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
-                      {hasCredit ? "Dư có hiện tại" : "Dư nợ hiện tại"}
+                      {hasCredit ? "Số dư thừa hiện tại" : "Dư nợ hiện tại"}
                     </span>
                   </div>
                   <div className="flex items-baseline gap-2">
@@ -2144,7 +2335,7 @@ function CreditCardPanel({
                       <div className="flex items-center gap-1.5 text-[var(--text-secondary)] min-w-0">
                         <Wallet className="size-3.5 text-[var(--text-muted)] shrink-0" aria-hidden="true" />
                         <span className="truncate text-[11px]">
-                          Nguồn trích:{" "}
+                          Nguồn thanh toán:{" "}
                           <strong className="font-semibold text-[var(--foreground)]">
                             {card.statement.sources.length > 0
                               ? card.statement.sources.map((s) => walletNames.get(s.walletId) ?? "Ví").join(", ")
@@ -2299,26 +2490,26 @@ function CreditCardPanel({
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <SheetHeader
                 icon={WalletCards}
-                title={canApprove ? "Xác nhận thanh toán" : "Gửi yêu cầu thanh toán"}
+                title={canApprove ? "Xác nhận thanh toán sao kê" : "Gửi yêu cầu thanh toán"}
                 description={canApprove
-                  ? `Kiểm tra các ví sẽ bị trừ trước khi thanh toán ${card.name}.`
+                  ? `Kiểm tra số tiền trích từ các ví để thanh toán cho thẻ ${card.name}.`
                   : "Giao dịch sẽ chờ quản trị viên duyệt trước khi thay đổi số dư."}
               />
               <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
                 <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-4 text-center">
-                  <p className="text-xs text-[var(--text-muted)]">Tổng thanh toán sao kê</p>
+                  <p className="text-xs text-[var(--text-muted)]">Tổng tiền thanh toán sao kê</p>
                   <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--foreground)]">
                     {formatAmount(card.statement?.amount ?? 0)} {currency}
                   </p>
                   {card.statement && (
                     <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                      Hạn {formatIsoDate(card.statement.dueDate)}
+                      Hạn thanh toán: {formatIsoDate(card.statement.dueDate)}
                     </p>
                   )}
                 </div>
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                    Ví sẽ bị trừ
+                    Nguồn tiền trích thanh toán
                   </h3>
                   <div className="mt-2 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] px-3">
                     {card.statement?.sources.map((source) => (
@@ -2381,8 +2572,8 @@ function CreditCardPanel({
                 title={refundTransactionId ? "Hoàn tiền giao dịch" : "Ghi nhận hoàn tiền"}
                 description={
                   refundTransactionId
-                    ? `Hoàn tiền chi tiêu vào thẻ ${card.name}`
-                    : `Cộng tiền hoàn hoặc cashback vào thẻ ${card.name}`
+                    ? `Hoàn lại tiền chi tiêu vào thẻ ${card.name}`
+                    : `Ghi nhận tiền hoàn hoặc cashback vào thẻ ${card.name}`
                 }
               />
 
@@ -2400,7 +2591,7 @@ function CreditCardPanel({
                     <strong className="font-semibold tabular-nums text-[var(--foreground)]">
                       {formatAmount(hasCredit ? card.creditBalance : card.debt)} {currency}
                     </strong>
-                    {hasCredit && <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium ml-1">(Dư có)</span>}
+                    {hasCredit && <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium ml-1">(Dư thừa)</span>}
                   </div>
                 </div>
 
@@ -2436,7 +2627,7 @@ function CreditCardPanel({
                   {selectedRefundActivity && refundAmount && new Decimal(refundAmount || 0).gt(selectedRefundActivity.refundableAmount) && (
                     <p role="alert" className="mt-1 flex items-center gap-1.5 text-xs text-[var(--destructive)]">
                       <AlertCircle className="size-3.5" aria-hidden="true" />
-                      Chỉ còn có thể hoàn tối đa {formatAmount(selectedRefundActivity.refundableAmount)} {currency}.
+                      Số tiền hoàn không được vượt quá {formatAmount(selectedRefundActivity.refundableAmount)} {currency}.
                     </p>
                   )}
                 </div>
@@ -2469,8 +2660,8 @@ function CreditCardPanel({
                   <Info className="size-3.5 shrink-0 text-[var(--primary)] mt-0.5" aria-hidden="true" />
                   <span>
                     {refundTransactionId
-                      ? "Tiền hoàn sẽ giảm dư nợ thẻ và đảo lại phần tiền phân bổ từ ví bảo lãnh của giao dịch gốc."
-                      : "Tiền hoàn sẽ tự động cấn trừ vào dư nợ thẻ hoặc cộng vào hạn mức khả dụng của bạn."}
+                      ? "Số tiền hoàn sẽ giảm trực tiếp dư nợ thẻ và hoàn trả lại hạn mức cho nguồn thanh toán ban đầu."
+                      : "Số tiền hoàn sẽ tự động giảm trừ vào dư nợ thẻ hoặc cộng vào hạn mức khả dụng của thẻ."}
                   </span>
                 </div>
               </div>
@@ -2601,7 +2792,7 @@ function CreditCardPanel({
                 <div className="flex items-start gap-2 rounded-xl bg-[var(--surface-secondary)]/30 p-2.5 text-[11px] text-[var(--text-muted)] leading-relaxed border border-[var(--border)]/40">
                   <Info className="size-3.5 shrink-0 text-[var(--primary)] mt-0.5" aria-hidden="true" />
                   <span>
-                    Tiền gốc chia đều các kỳ. Phí chuyển đổi (nếu có) tính vào kỳ đầu tiên. Không thể hoàn tác sau khi đăng ký.
+                    Tiền gốc được chia đều cho các kỳ. Phí chuyển đổi (nếu có) sẽ được tính vào kỳ đầu tiên theo quy định của ngân hàng.
                   </span>
                 </div>
               </div>
@@ -2753,7 +2944,7 @@ function CreditCardPanel({
                   </div>
                   <div>
                     <Select
-                      label="Ví dùng để thanh toán"
+                      label="Ví trích tiền thanh toán"
                       value={importFundingWalletId}
                       onValueChange={setImportFundingWalletId}
                       options={fundingWallets.map((wallet) => ({ value: wallet.id, label: wallet.name }))}
@@ -2777,7 +2968,7 @@ function CreditCardPanel({
                       <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                       {exceedsImportableOpeningDebt
                         ? "Số tiền vượt quá phần nợ ban đầu còn lại của thẻ. Bạn hãy giảm số tiền hoặc chọn 'Chưa tính (cộng thêm vào nợ thẻ)'."
-                        : "Nếu nợ ban đầu đã lên sao kê hoặc đã thanh toán, app sẽ chặn để đảm bảo sổ sách chính xác."}
+                        : "Hệ thống sẽ giữ an toàn số liệu nếu nợ ban đầu đã được lên sao kê hoặc thanh toán trước đó."}
                     </p>
                   )}
                 </div>
@@ -2948,9 +3139,9 @@ function CreditCardPanel({
                     <li>Khoản dư nợ {formatAmount(card.debt)} {currency}</li>
                   )}
                   {hasCredit && (
-                    <li>Số dư có {formatAmount(card.creditBalance)} {currency}</li>
+                    <li>Số tiền nộp thừa {formatAmount(card.creditBalance)} {currency}</li>
                   )}
-                  <li>Các liên kết nghĩa vụ tài chính và hạn mức của thẻ</li>
+                  <li>Các liên kết nguồn tiền thanh toán và hạn mức của thẻ</li>
                 </ul>
               </div>
 
@@ -3081,7 +3272,7 @@ function CreditCardPanel({
                           statement.status === "paid" ? "text-[var(--success)]" : "text-[var(--warning)]"
                         )}
                       >
-                        {statement.status === "paid" ? "Đã trả đủ" : "Chưa trả"}
+                        {statement.status === "paid" ? "Đã thanh toán" : "Chưa thanh toán"}
                       </span>
                     </div>
                   </Link>
@@ -3152,12 +3343,12 @@ function CreditCardPanel({
                 {/* 2. Nguồn phân bổ ví thanh toán */}
                 <div className="space-y-2">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] px-0.5">
-                    Phân bổ nguồn trích nợ
+                    Nguồn ví trích thanh toán
                   </h4>
                   {card.statement.sources.length > 0 ? (
                     <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] divide-y divide-[var(--border)]/60 overflow-hidden">
                       {card.statement.sources.map((source, idx) => {
-                        const wName = walletNames.get(source.walletId) ?? "Ví trích nợ";
+                        const wName = walletNames.get(source.walletId) ?? "Ví thanh toán";
                         return (
                           <div key={idx} className="flex items-center justify-between p-3 text-xs">
                             <div className="flex items-center gap-2.5">
@@ -3175,7 +3366,7 @@ function CreditCardPanel({
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--text-muted)]">
-                      Chưa gán phân bổ ví trích nợ cụ thể.
+                      Chưa chỉ định ví thanh toán cụ thể.
                     </div>
                   )}
                 </div>
@@ -3219,7 +3410,7 @@ function CreditCardPanel({
                       ? "Đang chờ duyệt thanh toán"
                       : new Decimal(card.statement.amount || 0).gt(0)
                         ? "Thanh toán ngay"
-                        : "Đã thanh toán đủ"}
+                        : "Đã thanh toán đầy đủ"}
                   </span>
                 </Button>
               </SheetFooter>
@@ -3438,7 +3629,7 @@ function CreditCardPanel({
                     />
                     <Input
                       label="Nội dung"
-                      placeholder="Ăn trưa, nhận lương..."
+                      placeholder="Ăn uống, mua sắm, hóa đơn..."
                       value={editActivityDescription}
                       onChange={(e) => setEditActivityDescription(e.target.value)}
                     />
@@ -3579,7 +3770,7 @@ export function CreditCardOverview(props: {
             Thẻ tín dụng
           </h1>
           <p className="hidden sm:block mt-1 text-sm text-[var(--text-secondary)]">
-            Tạo thẻ, ghi nhận hoàn tiền, quản lý sao kê, trả góp và thanh toán tại một nơi.
+            Theo dõi chi tiêu thẻ, kế hoạch trả góp và nhắc lịch thanh toán sao kê đúng hạn.
           </p>
         </div>
         {props.createCardAction && !props.isDetailPage && (
@@ -3677,10 +3868,10 @@ export function CreditCardOverview(props: {
                   <CreditCard size={24} aria-hidden="true" />
                 </div>
                 <p className="mt-2 text-sm font-semibold text-[var(--foreground)]">
-                  Chưa có thẻ tín dụng
+                  Chưa có thẻ tín dụng nào
                 </p>
                 <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto">
-                  Quản trị viên có thể thêm thẻ tín dụng để theo dõi chu kỳ sao kê, hạn mức và phân bổ ví trích nợ.
+                  Thêm thẻ tín dụng để theo dõi hạn mức chi tiêu, nhắc lịch sao kê và quản lý các khoản trả góp dễ dàng.
                 </p>
               </Card>
             )}
@@ -3706,172 +3897,139 @@ export function CreditCardOverview(props: {
               <CreditCard size={24} aria-hidden="true" />
             </div>
             <p className="mt-2 text-base font-semibold text-[var(--foreground)]">
-              Chưa có thẻ tín dụng
+              Chưa có thẻ tín dụng nào
             </p>
             <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
-              Quản trị viên có thể thêm thẻ tín dụng để theo dõi chu kỳ sao kê, hạn mức và phân bổ ví trích nợ.
+              Thêm thẻ tín dụng để theo dõi hạn mức chi tiêu, nhắc lịch sao kê và quản lý các khoản trả góp dễ dàng.
             </p>
           </Card>
         ) : (
           <>
-            {/* A. Dải tóm tắt danh mục thẻ (Fintech KPI Bar - Apple/Linear Style) */}
-            <div className="flex items-center justify-between gap-6 py-2.5 px-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-              <div className="flex items-center gap-6">
-                <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
-                    Tổng dư nợ
-                  </span>
-                  <span className={cn("text-base font-extrabold tabular-nums block", totalDebt.gt(0) ? "text-[var(--destructive)]" : "text-[var(--foreground)]")}>
-                    {formatAmount(totalDebt.toString())}{" "}
-                    <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{props.currency}</span>
-                  </span>
-                </div>
-
-                <div className="h-7 w-px bg-[var(--border)]" />
-
-                <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
-                    Khả dụng
-                  </span>
-                  <span className="text-base font-extrabold tabular-nums text-[var(--success)] block">
-                    {formatAmount(totalAvailable.toString())}{" "}
-                    <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{props.currency}</span>
-                  </span>
-                </div>
-
-                <div className="h-7 w-px bg-[var(--border)]" />
-
-                <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
-                    Tổng hạn mức ({props.cards.length} thẻ)
-                  </span>
-                  <span className="text-base font-extrabold tabular-nums text-[var(--foreground)] block">
-                    {formatAmount(totalLimit.toString())}{" "}
-                    <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{props.currency}</span>
-                  </span>
-                </div>
-              </div>
-
-              {overdueCount > 0 ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--destructive)_12%,transparent)] border border-[var(--destructive)]/20 px-3 py-1 text-xs font-semibold text-[var(--destructive)] shrink-0">
-                  <span className="size-1.5 rounded-full bg-[var(--destructive)] animate-pulse" />
-                  {overdueCount} thẻ quá hạn
-                </span>
-              ) : dueStatementCount > 0 ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] border border-[var(--warning)]/20 px-3 py-1 text-xs font-semibold text-[var(--warning)] shrink-0">
-                  <span className="size-1.5 rounded-full bg-[var(--warning)]" />
-                  {dueStatementCount} sao kê chờ trả
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--success)_10%,transparent)] px-3 py-1 text-xs font-medium text-[var(--success)] shrink-0">
-                  <CheckCircle2 className="size-3.5" aria-hidden="true" />
-                  Đã thanh toán đủ
-                </span>
-              )}
-            </div>
-
-            {/* B. Split Workspace: Cột trái (col-4) Danh sách thẻ | Cột phải (col-8) Chi tiết thẻ đang chọn */}
-            <div className="grid grid-cols-12 gap-6 items-start">
-              {/* Cột trái: Danh sách thẻ trong 1 card duy nhất */}
-              <div className="col-span-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
-                <div className="flex items-center justify-between px-2.5 py-1.5 mb-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            {/* A. Dải thẻ tín dụng (Apple Card Deck / Selector) & Portfolio Summary Bar */}
+            <div className="space-y-3">
+              {/* Header tóm tắt danh mục: Gọn gàng, không tạo hộp trống 100% */}
+              <div className="flex items-center justify-between gap-4 px-1">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                     Danh sách thẻ ({props.cards.length})
                   </span>
-                  <span className="text-[11px] text-[var(--text-muted)]">
-                    Chọn để xem
+                  <div className="h-3.5 w-px bg-[var(--border)]" />
+                  <div className="flex items-center gap-3.5 text-xs">
+                    <span className="text-[var(--text-secondary)]">
+                      Tổng dư nợ: <strong className={cn("font-bold tabular-nums", totalDebt.gt(0) ? "text-[var(--destructive)]" : "text-[var(--foreground)]")}>{formatAmount(totalDebt.toString())} {props.currency}</strong>
+                    </span>
+                    <span className="text-[var(--text-muted)]">·</span>
+                    <span className="text-[var(--text-secondary)]">
+                      Hạn mức khả dụng: <strong className="font-bold tabular-nums text-[var(--success)]">{formatAmount(totalAvailable.toString())} {props.currency}</strong>
+                    </span>
+                    <span className="text-[var(--text-muted)]">·</span>
+                    <span className="text-[var(--text-secondary)]">
+                      Tổng hạn mức: <strong className="font-bold tabular-nums text-[var(--foreground)]">{formatAmount(totalLimit.toString())} {props.currency}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                {overdueCount > 0 ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--destructive)_12%,transparent)] border border-[var(--destructive)]/20 px-2.5 py-0.5 text-xs font-semibold text-[var(--destructive)] shrink-0">
+                    <span className="size-1.5 rounded-full bg-[var(--destructive)] animate-pulse" />
+                    {overdueCount} thẻ quá hạn
                   </span>
-                </div>
-
-                <div className="space-y-1">
-                  {props.cards.map((card) => {
-                    const isSelected = effectiveActiveCard?.id === card.id;
-                    const cBrand = detectCardBrand(card.name);
-                    const cDebt = new Decimal(card.debt || 0);
-                    const cCredit = new Decimal(card.creditBalance || 0);
-                    const cHasCredit = cCredit.gt(0);
-                    const cHasDebt = cDebt.gt(0);
-
-                    return (
-                      <button
-                        key={card.id}
-                        type="button"
-                        onClick={() => handleSelectCard(card.id)}
-                        className={cn(
-                          "group relative flex w-full items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150 cursor-pointer select-none outline-none",
-                          isSelected
-                            ? "bg-[var(--surface-secondary)] ring-1 ring-[var(--border)] text-[var(--foreground)]"
-                            : "hover:bg-[var(--surface-secondary)]/50 text-[var(--text-secondary)] hover:text-[var(--foreground)]",
-                        )}
-                      >
-                        {/* Left: Brand + Name + Closing info */}
-                        <div className="flex items-center gap-3 min-w-0">
-                          <MiniVirtualCardVisual brand={cBrand} />
-                          <div className="min-w-0">
-                            <p
-                              className={cn(
-                                "truncate text-xs font-semibold transition-colors",
-                                isSelected
-                                  ? "text-[var(--foreground)] font-bold"
-                                  : "text-[var(--foreground)] group-hover:text-[var(--primary)]",
-                              )}
-                            >
-                              {card.name}
-                            </p>
-                            <p className="text-[11px] text-[var(--text-muted)] truncate">
-                              Chốt {card.statementClosingDay} · Hạn {card.paymentDueDay}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Right: Balance amount + status */}
-                        <div className="shrink-0 text-right">
-                          <p
-                            className={cn(
-                              "text-xs font-bold tabular-nums",
-                              cHasCredit
-                                ? "text-[var(--success)]"
-                                : cHasDebt
-                                  ? "text-[var(--destructive)]"
-                                  : "text-[var(--foreground)]",
-                            )}
-                          >
-                            {formatAmount(cHasCredit ? card.creditBalance : card.debt)}
-                            <span className="ml-0.5 text-[10px] font-normal uppercase text-[var(--text-muted)]">
-                              {props.currency}
-                            </span>
-                          </p>
-                          {card.statement?.overdue ? (
-                            <span className="inline-block text-[10px] font-semibold text-[var(--destructive)]">
-                              Quá hạn
-                            </span>
-                          ) : card.statement ? (
-                            <span className="inline-block text-[10px] font-semibold text-[var(--warning)]">
-                              Đến hạn {formatShortDate(card.statement.dueDate)}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-[var(--text-muted)]">
-                              K/d: {formatAmount(card.availableCredit)}
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Cột phải: Command Center của thẻ đang chọn */}
-              <div className="col-span-8 min-w-0">
-                {effectiveActiveCard && (
-                  <CreditCardPanel
-                    key={effectiveActiveCard.id}
-                    {...props}
-                    card={effectiveActiveCard}
-                    isDesktopWorkspace={true}
-                  />
+                ) : dueStatementCount > 0 ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] border border-[var(--warning)]/20 px-2.5 py-0.5 text-xs font-semibold text-[var(--warning)] shrink-0">
+                    <span className="size-1.5 rounded-full bg-[var(--warning)]" />
+                    {dueStatementCount} kỳ sao kê chờ thanh toán
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--success)_10%,transparent)] px-2.5 py-0.5 text-xs font-medium text-[var(--success)] shrink-0">
+                    <CheckCircle2 className="size-3" aria-hidden="true" />
+                    Đã thanh toán đầy đủ
+                  </span>
                 )}
               </div>
+
+              {/* Dải thẻ Card Deck nằm ngang phong cách Apple Card */}
+              <div className="flex items-stretch gap-3 overflow-x-auto pb-1 scrollbar-none">
+                {props.cards.map((card) => {
+                  const isSelected = effectiveActiveCard?.id === card.id;
+                  const cBrand = detectCardBrand(card.name);
+                  const cDebt = new Decimal(card.debt || 0);
+                  const cCredit = new Decimal(card.creditBalance || 0);
+                  const cHasCredit = cCredit.gt(0);
+                  const cHasDebt = cDebt.gt(0);
+
+                  return (
+                    <button
+                      key={card.id}
+                      type="button"
+                      onClick={() => handleSelectCard(card.id)}
+                      className={cn(
+                        "group relative w-64 shrink-0 p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none outline-none flex flex-col justify-between min-h-[110px]",
+                        isSelected
+                          ? "bg-[var(--surface-secondary)] border-[var(--primary)] ring-1 ring-[var(--primary)]/30 text-[var(--foreground)]"
+                          : "bg-[var(--surface)] border-[var(--border)] hover:bg-[var(--surface-secondary)]/50 text-[var(--text-secondary)] hover:text-[var(--foreground)]",
+                      )}
+                    >
+                      {/* Top: Brand Visual & Active Badge */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <MiniVirtualCardVisual brand={cBrand} />
+                          <span className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                            {cBrand}
+                          </span>
+                        </div>
+                        {isSelected && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--primary)]/15 px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]">
+                            <span className="size-1.5 rounded-full bg-[var(--primary)]" />
+                            Đang xem
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Middle: Card Name & Cycle */}
+                      <div className="my-1.5">
+                        <p className={cn(
+                          "truncate text-sm font-bold transition-colors",
+                          isSelected ? "text-[var(--foreground)]" : "text-[var(--foreground)] group-hover:text-[var(--primary)]"
+                        )}>
+                          {card.name}
+                        </p>
+                        <p className="text-[11px] text-[var(--text-muted)] truncate">
+                          Chốt {card.statementClosingDay} · Hạn {card.paymentDueDay}
+                        </p>
+                      </div>
+
+                      {/* Bottom: Debt amount & status */}
+                      <div className="flex items-baseline justify-between pt-1 border-t border-[var(--border)]/40 text-xs">
+                        <span className={cn(
+                          "font-bold tabular-nums",
+                          cHasCredit ? "text-[var(--success)]" : cHasDebt ? "text-[var(--destructive)]" : "text-[var(--foreground)]"
+                        )}>
+                          {formatAmount(cHasCredit ? card.creditBalance : card.debt)} <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">{props.currency}</span>
+                        </span>
+                        {card.statement?.overdue ? (
+                          <span className="text-[10px] font-bold text-[var(--destructive)]">Quá hạn</span>
+                        ) : card.statement ? (
+                          <span className="text-[10px] font-medium text-[var(--warning)]">Hạn {formatShortDate(card.statement.dueDate)}</span>
+                        ) : (
+                          <span className="text-[10px] text-[var(--text-muted)]">Còn {formatAmount(card.availableCredit)}</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* B. Full-width Command Center của thẻ đang chọn */}
+            <div className="w-full min-w-0">
+              {effectiveActiveCard && (
+                <CreditCardPanel
+                  key={effectiveActiveCard.id}
+                  {...props}
+                  card={effectiveActiveCard}
+                  isDesktopWorkspace={true}
+                />
+              )}
             </div>
           </>
         )}

@@ -388,7 +388,7 @@ export function CreditCardCreate({
       {/* Default Funding Wallet */}
       <div className="space-y-1">
         <Select
-          label="Ví trích nợ sao kê"
+          label="Ví thanh toán sao kê mặc định"
           value={fundingWalletId}
           onValueChange={setFundingWalletId}
           options={fundingWallets.map((wallet) => ({
@@ -469,11 +469,11 @@ export function CreditCardCreate({
       <Button
         type="button"
         disabled={unavailable}
-        title={unavailable ? "Cần có ít nhất một ví tài sản đang hoạt động" : undefined}
+        title={unavailable ? "Cần có ít nhất một ví thanh toán đang hoạt động" : undefined}
         onClick={() => setOpen(true)}
       >
         <Plus aria-hidden="true" />
-        Thêm thẻ
+        Thêm thẻ tín dụng
       </Button>
 
       <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && close()}>
