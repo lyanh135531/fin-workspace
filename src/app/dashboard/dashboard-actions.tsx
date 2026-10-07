@@ -2485,6 +2485,7 @@ export function Ledger({
               wallets={wallets}
               categories={categories}
               busy={busy}
+              disabled={!isAdmin && mobileEditTarget.hasPendingChange}
               requiresApproval={!isAdmin}
               onChange={(patch) =>
                 setMobileEditDraft((current) =>
@@ -2680,6 +2681,7 @@ function DesktopTransactionEditDraft({
   wallets,
   categories,
   busy,
+  disabled = false,
   requiresApproval,
   onChange,
   onSave,
@@ -2690,47 +2692,56 @@ function DesktopTransactionEditDraft({
   wallets: Option[];
   categories: CategoryOption[];
   busy: boolean;
+  disabled?: boolean;
   requiresApproval: boolean;
   onChange: (patch: Partial<TransactionDraft>) => void;
   onSave: () => void;
   onCancel: () => void;
 }) {
+  const locked = Boolean(disabled || busy);
   const hasChanges = isChanged(item, draft);
+  const selectedWallet = wallets.find((wallet) => wallet.id === draft.walletId);
+  const isCreditCardExpense =
+    draft.type === "expense" && selectedWallet?.kind === "credit_card";
+  const assetWallets = wallets.filter((wallet) => wallet.kind !== "credit_card");
 
   function changeType(type: TransactionType): void {
+    const nextWalletId =
+      type !== "expense" && selectedWallet?.kind === "credit_card"
+        ? assetWallets[0]?.id ?? draft.walletId
+        : draft.walletId;
+    const nextWallet = wallets.find((w) => w.id === nextWalletId);
+    const isCard = nextWallet?.kind === "credit_card";
+    const defaultFundingId =
+      nextWallet?.defaultFundingWalletId ?? assetWallets[0]?.id ?? "";
     onChange({
       type,
+      walletId: nextWalletId,
       categoryId: "none",
+      allocations:
+        type === "expense" && isCard
+          ? [{ walletId: defaultFundingId, amount: draft.amount }]
+          : [],
       toWalletId:
         type === "transfer"
-          ? draft.toWalletId || defaultDestination(wallets, draft.walletId)
+          ? draft.toWalletId || defaultDestination(wallets, nextWalletId)
           : draft.toWalletId,
     });
   }
 
   return (
     <>
-      <SheetHeader className="px-6 py-5">
-        <div className="flex items-start gap-3">
-          <span
-            className="grid size-10 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--info)_12%,var(--surface))] text-[var(--info)]"
-            aria-hidden="true"
-          >
-            <Pencil size={17} />
-          </span>
-          <div className="min-w-0 pt-0.5">
-            <SheetTitle className="text-lg font-semibold">
-              Chỉnh sửa giao dịch
-            </SheetTitle>
-            <SheetDescription className="mt-1 truncate text-xs">
-              {item.description || "Giao dịch chưa có nội dung"} · {item.wallet}
-              · {formatLedgerDate(item.date)}
-            </SheetDescription>
-          </div>
-        </div>
-      </SheetHeader>
+      <SheetHeader
+        icon={Pencil}
+        title="Chỉnh sửa giao dịch"
+        description={
+          disabled
+            ? "Giao dịch đang có yêu cầu thay đổi chờ duyệt"
+            : `${item.description || "Giao dịch chưa có nội dung"} · ${item.wallet} · ${formatLedgerDate(item.date)}`
+        }
+      />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
         <Tabs
           value={draft.type}
           onValueChange={(value) => changeType(value as TransactionType)}
@@ -2738,7 +2749,7 @@ function DesktopTransactionEditDraft({
         >
           <TabsList
             variant="navigation"
-            className="grid-cols-3"
+            className="grid-cols-3 gap-1"
             aria-label="Loại giao dịch"
           >
             {transactionTypeTabs.map((tab) => {
@@ -2756,7 +2767,7 @@ function DesktopTransactionEditDraft({
                         : undefined
                   }
                   disabled={
-                    busy || (tab.value === "transfer" && wallets.length < 2)
+                    locked || (tab.value === "transfer" && wallets.length < 2)
                   }
                 >
                   <Icon aria-hidden="true" />
@@ -2767,70 +2778,238 @@ function DesktopTransactionEditDraft({
           </TabsList>
         </Tabs>
 
-        <div className="mt-5 grid grid-cols-2 gap-4">
+        <div className="mt-6 grid grid-cols-[1fr_1fr] gap-7">
           <section
-            className="space-y-4 rounded-xl bg-[var(--surface-secondary)] p-5"
-            aria-labelledby="edit-transaction-value-title"
+            className="space-y-4"
+            aria-labelledby="edit-transaction-source-title"
           >
             <div>
               <h3
-                id="edit-transaction-value-title"
-                className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]"
+                id="edit-transaction-source-title"
+                className="flex items-center gap-2 text-xs font-semibold text-[var(--foreground)]"
               >
                 <ArrowLeftRight
                   className="text-[var(--primary)]"
                   size={15}
                   aria-hidden="true"
                 />
-                Giá trị giao dịch
+                Giao dịch & Nguồn tiền
               </h3>
-              <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
-                Điều chỉnh số tiền, ví và danh mục liên quan.
+              <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">
+                Số tiền và phương thức thanh toán.
               </p>
             </div>
+
             <MoneyInput
               autoFocus
               required
-              disabled={busy}
+              disabled={locked}
               value={draft.amount}
-              onValueChange={(amount) => onChange({ amount })}
+              onValueChange={(amount) =>
+                onChange({
+                  amount,
+                  allocations: isCreditCardExpense
+                    ? [
+                        {
+                          walletId:
+                            draft.allocations[0]?.walletId ||
+                            selectedWallet?.defaultFundingWalletId ||
+                            assetWallets[0]?.id ||
+                            "",
+                          amount,
+                        },
+                      ]
+                    : [],
+                })
+              }
               placeholder="0"
               label="Số tiền"
             />
+
             <Select
-              disabled={busy || !wallets.length}
+              disabled={locked || !wallets.length}
               value={draft.walletId}
-              onValueChange={(walletId) =>
+              onValueChange={(walletId) => {
+                const wallet = wallets.find((item) => item.id === walletId);
+                const isCard = wallet?.kind === "credit_card";
+                const defaultFundingId =
+                  wallet?.defaultFundingWalletId || assetWallets[0]?.id || "";
                 onChange({
                   walletId,
                   toWalletId:
                     draft.toWalletId === walletId
                       ? defaultDestination(wallets, walletId)
                       : draft.toWalletId,
-                })
+                  allocations:
+                    draft.type === "expense" && isCard
+                      ? [{ walletId: defaultFundingId, amount: draft.amount }]
+                      : [],
+                });
+              }}
+              label={
+                draft.type === "transfer"
+                  ? "Ví gửi"
+                  : isCreditCardExpense
+                    ? "Thẻ thanh toán"
+                    : "Ví thực hiện"
               }
-              label="Ví thực hiện"
-              options={wallets.map((wallet) => ({
-                value: wallet.id,
-                label: wallet.name,
-              }))}
+              options={wallets.map((wallet) => {
+                const isCard = wallet.kind === "credit_card";
+                return {
+                  value: wallet.id,
+                  label: wallet.name,
+                  content: (
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <span className="flex items-center gap-2 min-w-0">
+                        {isCard ? (
+                          <CreditCard
+                            className="size-4 shrink-0 text-[var(--primary)]"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <Wallet
+                            className="size-4 shrink-0 text-[var(--text-muted)]"
+                            aria-hidden="true"
+                          />
+                        )}
+                        <span className="truncate">{wallet.name}</span>
+                      </span>
+                      <span
+                        className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                          isCard
+                            ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                            : "bg-[var(--surface-secondary)] text-[var(--text-muted)]"
+                        }`}
+                      >
+                        {isCard ? "Thẻ tín dụng" : "Ví tài sản"}
+                      </span>
+                    </div>
+                  ),
+                  selectedContent: (
+                    <span className="flex items-center gap-2 min-w-0">
+                      {isCard ? (
+                        <CreditCard
+                          className="size-4 shrink-0 text-[var(--primary)]"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <Wallet
+                          className="size-4 shrink-0 text-[var(--text-muted)]"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span className="truncate">{wallet.name}</span>
+                      {isCard && (
+                        <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
+                          Thẻ tín dụng
+                        </span>
+                      )}
+                    </span>
+                  ),
+                  disabled: isCard && draft.type !== "expense",
+                };
+              })}
             />
-            {draft.type === "transfer" ? (
+
+            {draft.type === "transfer" && (
               <Select
-                disabled={busy || !wallets.length}
+                disabled={locked || !wallets.length}
                 value={draft.toWalletId}
                 onValueChange={(toWalletId) => onChange({ toWalletId })}
                 label="Ví nhận"
-                options={wallets.map((wallet) => ({
-                  value: wallet.id,
-                  label: wallet.name,
-                  disabled: wallet.id === draft.walletId,
+                options={wallets.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                  content: (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Wallet
+                        className="size-4 shrink-0 text-[var(--text-muted)]"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">{item.name}</span>
+                    </div>
+                  ),
+                  selectedContent: (
+                    <span className="flex items-center gap-2 min-w-0">
+                      <Wallet
+                        className="size-4 shrink-0 text-[var(--text-muted)]"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">{item.name}</span>
+                    </span>
+                  ),
+                  disabled:
+                    item.id === draft.walletId || item.kind === "credit_card",
                 }))}
               />
-            ) : (
+            )}
+
+            {isCreditCardExpense && (
+              <Select
+                disabled={locked}
+                label="Ví thanh toán thẻ"
+                value={
+                  draft.allocations[0]?.walletId ||
+                  selectedWallet?.defaultFundingWalletId ||
+                  assetWallets[0]?.id ||
+                  ""
+                }
+                onValueChange={(walletId) =>
+                  onChange({
+                    allocations: [{ walletId, amount: draft.amount }],
+                  })
+                }
+                options={assetWallets.map((wallet) => ({
+                  value: wallet.id,
+                  label: wallet.name,
+                  content: (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Wallet
+                        className="size-4 shrink-0 text-[var(--text-muted)]"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">{wallet.name}</span>
+                    </div>
+                  ),
+                  selectedContent: (
+                    <span className="flex items-center gap-2 min-w-0">
+                      <Wallet
+                        className="size-4 shrink-0 text-[var(--text-muted)]"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">{wallet.name}</span>
+                    </span>
+                  ),
+                }))}
+              />
+            )}
+          </section>
+
+          <section
+            className="space-y-4 border-l border-[var(--border)] pl-7"
+            aria-labelledby="edit-transaction-detail-title"
+          >
+            <div>
+              <h3
+                id="edit-transaction-detail-title"
+                className="flex items-center gap-2 text-xs font-semibold text-[var(--foreground)]"
+              >
+                <CalendarDays
+                  className="text-[var(--primary)]"
+                  size={15}
+                  aria-hidden="true"
+                />
+                Thông tin ghi nhận
+              </h3>
+              <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">
+                Danh mục phân loại, thời gian và ghi chú.
+              </p>
+            </div>
+
+            {draft.type !== "transfer" && (
               <CategoryTreeSelect
                 disabled={
-                  busy ||
+                  locked ||
                   !categoriesForTransactionType(categories, draft.type).length
                 }
                 value={draft.categoryId}
@@ -2848,37 +3027,17 @@ function DesktopTransactionEditDraft({
                 }
               />
             )}
-          </section>
 
-          <section
-            className="space-y-4 rounded-xl bg-[var(--surface-secondary)] p-5"
-            aria-labelledby="edit-transaction-detail-title"
-          >
-            <div>
-              <h3
-                id="edit-transaction-detail-title"
-                className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]"
-              >
-                <CalendarDays
-                  className="text-[var(--primary)]"
-                  size={15}
-                  aria-hidden="true"
-                />
-                Thông tin ghi nhận
-              </h3>
-              <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
-                Cập nhật ngày phát sinh và nội dung nhận diện.
-              </p>
-            </div>
             <DatePicker
-              disabled={busy}
+              disabled={locked}
               label="Ngày giao dịch"
               value={draft.date}
               onValueChange={(date) => onChange({ date })}
               required
             />
+
             <Input
-              disabled={busy}
+              disabled={locked}
               value={draft.description}
               onChange={(event) =>
                 onChange({ description: event.target.value })
@@ -2890,20 +3049,19 @@ function DesktopTransactionEditDraft({
         </div>
       </div>
 
-      <SheetFooter className="flex-row items-center justify-between px-6 py-5">
+      <SheetFooter className="flex-row items-center justify-between border-t border-[var(--border)] px-6 py-4">
         <p className="max-w-sm text-xs leading-5 text-[var(--text-muted)]">
           {requiresApproval
             ? "Thay đổi sẽ được gửi đến Admin để phê duyệt."
             : "Số dư ví sẽ được cập nhật nếu thay đổi ảnh hưởng giao dịch đã ghi nhận."}
         </p>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>
+          <Button variant="ghost" disabled={busy} onClick={onCancel}>
             Hủy
           </Button>
           <Button
             variant="default"
-            size="sm"
-            disabled={busy || !hasChanges}
+            disabled={locked || !hasChanges}
             onClick={onSave}
           >
             {busy ? "Đang lưu" : "Lưu thay đổi"}
