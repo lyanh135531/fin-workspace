@@ -35,7 +35,7 @@ export function shareForImportedInstallment(
   return shareForInstallment(amount, termCount - paidTermCount, installmentNo - paidTermCount);
 }
 
-async function createStatementForCycle(
+export async function createStatementForCycle(
   tx: Tx,
   workspaceId: string,
   cardWalletId: string,
@@ -89,9 +89,24 @@ async function createStatementForCycle(
     carriedByWallet.set(source.sourceWalletId, (carriedByWallet.get(source.sourceWalletId) ?? ZERO).minus(source.amount.toString()));
   }
   for (const [fundingWalletId, balance] of carriedByWallet) {
-    if (!balance.lt(0)) continue;
-    const credit = await tx.creditCardObligationEntry.findFirst({ where: { cardWalletId, fundingWalletId, amount: { lt: 0 } }, orderBy: { postedDate: "asc" }, select: { id: true } });
-    if (credit) items.push({ obligationEntryId: credit.id, fundingWalletId, amount: balance, isCarry: true });
+    if (balance.isZero()) continue;
+    if (balance.lt(0)) {
+      const credit = await tx.creditCardObligationEntry.findFirst({
+        where: { cardWalletId, fundingWalletId, amount: { lt: 0 } },
+        orderBy: { postedDate: "asc" },
+        select: { id: true },
+      });
+      if (credit) items.push({ obligationEntryId: credit.id, fundingWalletId, amount: balance, isCarry: true });
+    } else {
+      const obligation = await tx.creditCardObligationEntry.findFirst({
+        where: { cardWalletId, fundingWalletId, amount: { gt: 0 } },
+        orderBy: [{ postedDate: "asc" }, { id: "asc" }],
+        select: { id: true },
+      });
+      if (obligation) {
+        items.push({ obligationEntryId: obligation.id, fundingWalletId, amount: balance, isCarry: true });
+      }
+    }
   }
   for (const entry of regular) {
     const paid = entry.paymentAllocations.reduce((sum, allocation) => sum.plus(allocation.amount.toString()), ZERO);
@@ -140,7 +155,7 @@ async function createStatementForCycle(
   for (const item of items) totalsByWallet.set(item.fundingWalletId, (totalsByWallet.get(item.fundingWalletId) ?? ZERO).plus(item.amount));
   const totalAmount = [...totalsByWallet.values()].reduce((sum, amount) => sum.plus(Decimal.max(amount, ZERO)), ZERO);
   const status = totalAmount.gt(0) ? "issued" as const : "paid" as const;
-  return tx.creditCardStatement.create({
+  const created = await tx.creditCardStatement.create({
     data: {
       workspaceId,
       cardWalletId,
@@ -153,6 +168,27 @@ async function createStatementForCycle(
       items: items.length ? { create: items } : undefined,
     },
   });
+
+  const rolledOverStatements = await tx.creditCardStatement.findMany({
+    where: {
+      workspaceId,
+      cardWalletId,
+      status: "issued",
+      cycleEndDate: { lt: dbDate(cycleEnd) },
+    },
+    select: { id: true },
+  });
+  if (rolledOverStatements.length > 0) {
+    await tx.creditCardStatement.updateMany({
+      where: { id: { in: rolledOverStatements.map((s) => s.id) } },
+      data: { status: "paid", paidAt: new Date() },
+    });
+    for (const rolled of rolledOverStatements) {
+      await completePaidInstallmentPlansInTransaction(tx, rolled.id);
+    }
+  }
+
+  return created;
 }
 
 export async function generateCardStatementsInTransaction(tx: Tx, workspaceId: string, cardWalletId: string, today: string) {
@@ -215,30 +251,114 @@ export async function generateWorkspaceCreditCardStatements(workspaceId: string,
   return generated;
 }
 
-export async function statementPaymentDetails(tx: Tx, statementId: string) {
-  const statement = await tx.creditCardStatement.findUnique({
-    where: { id: statementId },
-    include: { items: { orderBy: { createdAt: "asc" } } },
-  });
-  if (!statement) throw new AppError("NOT_FOUND", "Không tìm thấy sao kê.");
-  const dueByWallet = new Map<string, Decimal>();
-  for (const item of statement.items) dueByWallet.set(item.fundingWalletId, (dueByWallet.get(item.fundingWalletId) ?? ZERO).plus(item.amount.toString()));
-  const normalizedDue = new Map([...dueByWallet].map(([walletId, amount]) => [walletId, Decimal.max(amount, ZERO)]));
-
+export function allocateStatementPaymentSources(
+  items: Array<{ obligationEntryId: string; fundingWalletId: string; amount: Decimal | Decimal.Value }>,
+  existingAllocations: Map<string, Decimal>,
+  sources: Array<{ walletId: string; amount: Decimal | Decimal.Value }>,
+) {
   const allocations = new Map<string, Decimal>();
-  for (const [walletId] of normalizedDue) {
-    const walletItems = statement.items.filter((item) => item.fundingWalletId === walletId);
-    let credit = walletItems.reduce((sum, item) => item.amount.isNegative() ? sum.plus(item.amount.abs()) : sum, ZERO);
+  for (const source of sources) {
+    let paymentRemaining = new Decimal(source.amount.toString());
+    if (!paymentRemaining.gt(0)) continue;
+    const walletItems = items.filter((item) => item.fundingWalletId === source.walletId);
+    let credit = walletItems.reduce(
+      (sum, item) => new Decimal(item.amount.toString()).isNegative() ? sum.plus(new Decimal(item.amount.toString()).abs()) : sum,
+      ZERO,
+    );
     for (const item of walletItems) {
-      let amount = new Decimal(item.amount.toString());
-      if (!amount.gt(0)) continue;
-      const offset = Decimal.min(credit, amount);
-      amount = amount.minus(offset);
+      let itemGross = new Decimal(item.amount.toString());
+      if (!itemGross.gt(0)) continue;
+      const offset = Decimal.min(credit, itemGross);
+      itemGross = itemGross.minus(offset);
       credit = credit.minus(offset);
-      if (amount.gt(0)) allocations.set(item.obligationEntryId, (allocations.get(item.obligationEntryId) ?? ZERO).plus(amount));
+      if (!itemGross.gt(0)) continue;
+
+      const alreadyAllocated = existingAllocations.get(item.obligationEntryId) ?? ZERO;
+      const itemRemaining = Decimal.max(itemGross.minus(alreadyAllocated), ZERO);
+      if (!itemRemaining.gt(0)) continue;
+
+      const toAllocate = Decimal.min(paymentRemaining, itemRemaining);
+      allocations.set(
+        item.obligationEntryId,
+        (allocations.get(item.obligationEntryId) ?? ZERO).plus(toAllocate),
+      );
+      paymentRemaining = paymentRemaining.minus(toAllocate);
+      if (paymentRemaining.isZero()) break;
     }
   }
-  return { statement, dueByWallet: normalizedDue, allocations };
+  return allocations;
+}
+
+export async function statementPaymentDetails(
+  tx: Tx,
+  statementId: string,
+  sources?: Array<{ walletId: string; amount: Decimal | Decimal.Value }>,
+) {
+  const statement = await tx.creditCardStatement.findUnique({
+    where: { id: statementId },
+    include: {
+      items: { orderBy: { createdAt: "asc" } },
+      payments: {
+        where: { workflowStatus: "approved", deletedAt: null },
+        include: { creditCardPaymentSources: true, creditCardPaymentAllocations: true },
+      },
+    },
+  });
+  if (!statement) throw new AppError("NOT_FOUND", "Không tìm thấy sao kê.");
+
+  const paidByWallet = new Map<string, Decimal>();
+  const existingAllocations = new Map<string, Decimal>();
+  for (const payment of statement.payments ?? []) {
+    for (const source of payment.creditCardPaymentSources ?? []) {
+      paidByWallet.set(
+        source.sourceWalletId,
+        (paidByWallet.get(source.sourceWalletId) ?? ZERO).plus(source.amount.toString()),
+      );
+    }
+    for (const alloc of payment.creditCardPaymentAllocations ?? []) {
+      existingAllocations.set(
+        alloc.obligationEntryId,
+        (existingAllocations.get(alloc.obligationEntryId) ?? ZERO).plus(alloc.amount.toString()),
+      );
+    }
+  }
+
+  const dueByWallet = new Map<string, Decimal>();
+  for (const item of statement.items) {
+    dueByWallet.set(
+      item.fundingWalletId,
+      (dueByWallet.get(item.fundingWalletId) ?? ZERO).plus(item.amount.toString()),
+    );
+  }
+
+  const remainingByWallet = new Map<string, Decimal>();
+  for (const [walletId, due] of dueByWallet) {
+    const paid = paidByWallet.get(walletId) ?? ZERO;
+    const remaining = Decimal.max(due.minus(paid), ZERO);
+    if (remaining.gt(0)) {
+      remainingByWallet.set(walletId, remaining);
+    }
+  }
+
+  const totalRemaining = [...remainingByWallet.values()].reduce(
+    (sum, amount) => sum.plus(amount),
+    ZERO,
+  );
+
+  const effectiveSources = sources ?? [...remainingByWallet.entries()].map(([walletId, amount]) => ({ walletId, amount }));
+  const allocations = allocateStatementPaymentSources(
+    statement.items,
+    existingAllocations,
+    effectiveSources,
+  );
+
+  return {
+    statement,
+    dueByWallet: remainingByWallet,
+    totalRemaining,
+    paidByWallet,
+    allocations,
+  };
 }
 
 export async function completePaidInstallmentPlansInTransaction(tx: Tx, statementId: string) {
@@ -267,11 +387,11 @@ export async function recalculateUnpaidStatementTotal(tx: Tx, statementId: strin
       items: true,
       payments: {
         where: { deletedAt: null, workflowStatus: { not: "rejected" } },
-        select: { id: true },
+        select: { id: true, amount: true },
       },
     },
   });
-  if (!statement || statement.status !== "issued" || statement.payments.length > 0) return;
+  if (!statement || statement.status !== "issued") return;
 
   const totalsByWallet = new Map<string, Decimal>();
   for (const item of statement.items) {
@@ -280,15 +400,20 @@ export async function recalculateUnpaidStatementTotal(tx: Tx, statementId: strin
       (totalsByWallet.get(item.fundingWalletId) ?? ZERO).plus(item.amount.toString()),
     );
   }
-  const totalAmount = [...totalsByWallet.values()].reduce(
+  const totalItemsAmount = [...totalsByWallet.values()].reduce(
     (sum, amount) => sum.plus(Decimal.max(amount, ZERO)),
     ZERO,
   );
-  const isPaid = totalAmount.lte(0);
+  const totalPaid = statement.payments.reduce(
+    (sum, payment) => sum.plus(payment.amount.toString()),
+    ZERO,
+  );
+  const remaining = totalItemsAmount.minus(totalPaid);
+  const isPaid = remaining.lte(0);
   await tx.creditCardStatement.update({
     where: { id: statementId },
     data: {
-      totalAmount: Decimal.max(totalAmount, ZERO),
+      totalAmount: Decimal.max(totalItemsAmount, ZERO),
       status: isPaid ? "paid" : "issued",
       paidAt: isPaid ? (statement.paidAt ?? new Date()) : null,
     },

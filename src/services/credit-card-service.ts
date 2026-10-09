@@ -85,22 +85,35 @@ export async function createCreditCardPayment(
       select: { id: true },
     });
     if (!oldest || oldest.id !== input.statementId) throw new AppError("CONFLICT", "Hãy thanh toán sao kê cũ nhất trước.");
-    const { statement, dueByWallet, allocations } = await statementPaymentDetails(tx, input.statementId);
+    const { statement, dueByWallet, totalRemaining, allocations } = await statementPaymentDetails(tx, input.statementId, input.sources);
     if (statement.status !== "issued" || statement.cardWalletId !== input.cardWalletId || statement.workspaceId !== workspaceId) {
       throw new AppError("CONFLICT", "Sao kê không còn khả dụng để thanh toán.");
     }
     const pendingPayment = await tx.transaction.findFirst({
-      where: { creditCardStatementId: statement.id, workflowStatus: { in: ["pending", "scheduled", "approved"] }, deletedAt: null },
+      where: { creditCardStatementId: statement.id, workflowStatus: { in: ["pending", "scheduled"] }, deletedAt: null },
       select: { id: true },
     });
-    if (pendingPayment) throw new AppError("CONFLICT", "Sao kê đã có thanh toán đang chờ hoặc đã hoàn tất.");
-    const supplied = new Map(input.sources.map((source) => [source.walletId, new Decimal(source.amount)]));
-    const expected = [...dueByWallet].filter(([, amount]) => amount.gt(0));
-    if (supplied.size !== expected.length || expected.some(([walletId, amount]) => !supplied.get(walletId)?.eq(amount))) {
-      throw new AppError("VALIDATION_ERROR", "Nguồn thanh toán phải khớp chính xác số còn thiếu của sao kê.");
+    if (pendingPayment) throw new AppError("CONFLICT", "Sao kê đang có giao dịch thanh toán chờ duyệt.");
+    if (!totalRemaining.gt(0)) {
+      throw new AppError("CONFLICT", "Sao kê đã được thanh toán đầy đủ.");
     }
-    const total = expected.reduce((sum, [, amount]) => sum.plus(amount), ZERO);
-    if (!total.eq(statement.totalAmount)) throw new AppError("CONFLICT", "Tổng sao kê không khớp chi tiết nghĩa vụ.");
+    const supplied = new Map(input.sources.map((source) => [source.walletId, new Decimal(source.amount)]));
+    for (const [walletId, amount] of supplied) {
+      if (!amount.gt(0)) {
+        throw new AppError("VALIDATION_ERROR", "Số tiền thanh toán từ mỗi ví phải lớn hơn 0.");
+      }
+      const maxDue = dueByWallet.get(walletId) ?? ZERO;
+      if (amount.gt(maxDue)) {
+        throw new AppError("VALIDATION_ERROR", `Số tiền trích từ ví vượt quá số còn thiếu của ví (${maxDue.toString()}).`);
+      }
+    }
+    const total = [...supplied.values()].reduce((sum, amount) => sum.plus(amount), ZERO);
+    if (!total.gt(0) || total.gt(totalRemaining)) {
+      throw new AppError("VALIDATION_ERROR", "Tổng số tiền thanh toán không hợp lệ.");
+    }
+
+    const isFullPayment = total.gte(totalRemaining);
+    const defaultDescription = isFullPayment ? "Thanh toán sao kê thẻ tín dụng" : "Thanh toán trước một phần sao kê";
 
     const record = await tx.transaction.create({
       data: {
@@ -109,7 +122,7 @@ export async function createCreditCardPayment(
         type: "transfer",
         purpose: "credit_card_payment",
         amount: total,
-        description: input.description ?? "Thanh toán dư nợ thẻ tín dụng",
+        description: input.description ?? defaultDescription,
         date: databaseDate(input.date),
         postedDate: databaseDate(input.date),
         workflowStatus,
@@ -124,8 +137,10 @@ export async function createCreditCardPayment(
         data: [...allocations].map(([obligationEntryId, amount]) => ({ paymentTransactionId: record.id, obligationEntryId, amount })),
       });
       await applyBalance(tx, record);
-      await tx.creditCardStatement.update({ where: { id: statement.id }, data: { status: "paid", paidAt: new Date() } });
-      await completePaidInstallmentPlansInTransaction(tx, statement.id);
+      if (isFullPayment) {
+        await tx.creditCardStatement.update({ where: { id: statement.id }, data: { status: "paid", paidAt: new Date() } });
+        await completePaidInstallmentPlansInTransaction(tx, statement.id);
+      }
       await assertCardBalanceReconciled(tx, input.cardWalletId);
     } else {
       await tx.creditCardPaymentReservation.createMany({

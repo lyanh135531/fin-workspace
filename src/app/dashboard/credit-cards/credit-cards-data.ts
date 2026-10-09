@@ -72,7 +72,14 @@ export async function getCreditCardsData() {
                         deletedAt: null,
                         workflowStatus: { not: "rejected" },
                       },
-                      select: { id: true },
+                      select: {
+                        id: true,
+                        amount: true,
+                        workflowStatus: true,
+                        creditCardPaymentSources: {
+                          select: { sourceWalletId: true, amount: true },
+                        },
+                      },
                     },
                   },
                   orderBy: { cycleEndDate: "desc" },
@@ -254,6 +261,10 @@ export async function getCreditCardsData() {
     const oldestStatement = [...profile.statements]
       .reverse()
       .find((statement) => statement.status === "issued");
+
+    const approvedPayments = oldestStatement?.payments.filter((p) => p.workflowStatus === "approved") ?? [];
+    const pendingPayment = oldestStatement?.payments.some((p) => p.workflowStatus === "pending" || p.workflowStatus === "scheduled") ?? false;
+
     const statementSources = new Map<string, Decimal>();
     for (const item of oldestStatement?.items ?? []) {
       statementSources.set(
@@ -263,6 +274,38 @@ export async function getCreditCardsData() {
         ),
       );
     }
+
+    const paidByWallet = new Map<string, Decimal>();
+    for (const payment of approvedPayments) {
+      for (const source of payment.creditCardPaymentSources) {
+        paidByWallet.set(
+          source.sourceWalletId,
+          (paidByWallet.get(source.sourceWalletId) ?? ZERO).plus(source.amount.toString()),
+        );
+      }
+    }
+
+    const remainingSources = new Map<string, Decimal>();
+    for (const [walletId, amount] of statementSources) {
+      const paid = paidByWallet.get(walletId) ?? ZERO;
+      const remaining = Decimal.max(amount.minus(paid), ZERO);
+      if (remaining.gt(0)) {
+        remainingSources.set(walletId, remaining);
+      }
+    }
+
+    const statementTotalPaid = approvedPayments.reduce(
+      (sum, p) => sum.plus(p.amount.toString()),
+      ZERO,
+    );
+    const statementTotalAmount = new Decimal(oldestStatement?.totalAmount.toString() ?? 0);
+    const statementTotalRemaining = Decimal.max(statementTotalAmount.minus(statementTotalPaid), ZERO);
+    const isPartiallyPaid = statementTotalPaid.gt(0) && statementTotalRemaining.gt(0);
+    const hasCarriedBalance = oldestStatement?.items.some((item) => item.isCarry) ?? false;
+    const carriedAmount = oldestStatement?.items
+      .filter((item) => item.isCarry)
+      .reduce((sum, item) => sum.plus(item.amount.toString()), ZERO)
+      .toString() ?? "0";
 
     return [{
       id: wallet.id,
@@ -296,25 +339,38 @@ export async function getCreditCardsData() {
         cycleEndDate: oldestStatement.cycleEndDate.toISOString().slice(0, 10),
         dueDate: oldestStatement.dueDate.toISOString().slice(0, 10),
         amount: oldestStatement.totalAmount.toString(),
+        paidAmount: statementTotalPaid.toString(),
+        remainingAmount: statementTotalRemaining.toString(),
+        isPartiallyPaid,
+        hasCarriedBalance,
+        carriedAmount,
         status: oldestStatement.status,
         overdue:
           oldestStatement.dueDate.toISOString().slice(0, 10) <
           getBusinessDateInTimeZone(membership.workspace.timeZone),
-        paymentPending: oldestStatement.payments.length > 0,
-        sources: [...statementSources.entries()]
+        paymentPending: pendingPayment,
+        sources: [...remainingSources.entries()]
           .filter(([, amount]) => amount.gt(0))
           .map(([walletId, amount]) => ({
             walletId,
             amount: amount.toString(),
           })),
       } : null,
-      statements: profile.statements.map((statement) => ({
-        id: statement.id,
-        cycleEndDate: statement.cycleEndDate.toISOString().slice(0, 10),
-        dueDate: statement.dueDate.toISOString().slice(0, 10),
-        amount: statement.totalAmount.toString(),
-        status: statement.status,
-      })),
+      statements: profile.statements.map((statement) => {
+        const approved = statement.payments.filter((p) => p.workflowStatus === "approved");
+        const paid = approved.reduce((sum, p) => sum.plus(p.amount.toString()), ZERO);
+        const remaining = Decimal.max(new Decimal(statement.totalAmount.toString()).minus(paid), ZERO);
+        return {
+          id: statement.id,
+          cycleEndDate: statement.cycleEndDate.toISOString().slice(0, 10),
+          dueDate: statement.dueDate.toISOString().slice(0, 10),
+          amount: statement.totalAmount.toString(),
+          paidAmount: paid.toString(),
+          remainingAmount: remaining.toString(),
+          isPartiallyPaid: paid.gt(0) && remaining.gt(0),
+          status: statement.status,
+        };
+      }),
       installmentPlans: profile.installmentPlans.map((plan) => ({
         id: plan.id,
         origin: plan.origin,

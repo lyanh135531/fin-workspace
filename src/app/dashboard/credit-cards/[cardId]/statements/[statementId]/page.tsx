@@ -75,6 +75,11 @@ export default async function CreditCardStatementPage({
     );
   }
 
+  const approvedPayments = statement.payments.filter((p) => p.workflowStatus === "approved");
+  const totalPaid = approvedPayments.reduce((sum, p) => sum.plus(p.amount.toString()), new Decimal(0));
+  const remainingDebt = Decimal.max(new Decimal(statement.totalAmount.toString()).minus(totalPaid), 0);
+  const isPartiallyPaid = statement.status !== "paid" && totalPaid.gt(0) && remainingDebt.gt(0);
+
   return (
     <PageContainer>
       <div className="mx-auto max-w-5xl space-y-4">
@@ -104,6 +109,11 @@ export default async function CreditCardStatementPage({
               <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--foreground)]">
                 {formatAmount(statement.totalAmount)} {currency}
               </p>
+              {isPartiallyPaid && (
+                <p className="mt-1 text-sm font-medium text-[var(--foreground)]">
+                  Còn lại: <span className="font-bold text-[var(--warning)]">{formatAmount(remainingDebt)} {currency}</span> · Đã trả trước: {formatAmount(totalPaid)} {currency}
+                </p>
+              )}
               <p className="mt-1 text-xs text-[var(--text-muted)]">
                 Hạn thanh toán {formatDate(statement.dueDate)}
               </p>
@@ -111,10 +121,16 @@ export default async function CreditCardStatementPage({
             <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-[var(--surface-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]">
               {statement.status === "paid" ? (
                 <CheckCircle2 className="size-3.5 text-[var(--success)]" aria-hidden="true" />
+              ) : isPartiallyPaid ? (
+                <Clock3 className="size-3.5 text-[var(--primary)]" aria-hidden="true" />
               ) : (
                 <Clock3 className="size-3.5 text-[var(--warning)]" aria-hidden="true" />
               )}
-              {statement.status === "paid" ? "Đã thanh toán" : "Chưa thanh toán"}
+              {statement.status === "paid"
+                ? "Đã thanh toán"
+                : isPartiallyPaid
+                  ? "Đã trả một phần"
+                  : "Chưa thanh toán"}
             </span>
           </div>
 
