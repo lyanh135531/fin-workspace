@@ -123,23 +123,6 @@ export async function requireTransactionResources(
     const total = allocations.reduce((sum, allocation) => sum.plus(allocation.amount), new Decimal(0));
     const amount = input.amount === undefined ? null : new Decimal(input.amount);
     if (amount && !total.eq(amount)) throw new AppError("VALIDATION_ERROR", "Tổng phân bổ phải bằng số tiền giao dịch.");
-    const pending = await tx.transaction.aggregate({
-      where: {
-        walletId: input.walletId,
-        type: { in: ["expense", "transfer"] },
-        purpose: "standard",
-        workflowStatus: { in: ["pending", "scheduled"] },
-        deletedAt: null,
-        id: input.transactionId ? { not: input.transactionId } : undefined,
-      },
-      _sum: { amount: true },
-    });
-    const exposure = new Decimal(sourceLink.wallet.currentBalance.toString())
-      .plus(pending._sum.amount?.toString() ?? 0)
-      .plus(input.amount ?? 0);
-    if (exposure.gt(profile.creditLimit.toString())) {
-      throw new AppError("VALIDATION_ERROR", "Giao dịch vượt hạn mức khả dụng sau các giao dịch đang chờ.");
-    }
     if (input.type === "expense") {
       if (!category?.jarCode) throw new AppError("VALIDATION_ERROR", "Danh mục chi tiêu chưa có hũ tài chính hợp lệ.");
       return { jarCode: category.jarCode, walletKind: sourceKind, allocations };
@@ -189,17 +172,11 @@ export async function applyBalance(tx: TransactionClient, record: Pick<Transacti
   }
   if (wallet.kind === "credit_card") {
     if (record.type === "expense") {
-      if (!reverse && wallet.creditCardProfile && new Decimal(wallet.currentBalance.toString()).plus(amount).gt(wallet.creditCardProfile.creditLimit.toString())) {
-        throw new AppError("VALIDATION_ERROR", "Giao dịch vượt hạn mức thẻ tín dụng.");
-      }
       await tx.wallet.update({ where: { id: record.walletId }, data: { currentBalance: reverse ? { decrement: amount } : { increment: amount } } });
       return;
     }
     if (record.type === "transfer") {
       if (!record.toWalletId) throw new AppError("VALIDATION_ERROR", "Giao dịch chuyển khoản thiếu ví nhận.");
-      if (!reverse && wallet.creditCardProfile && new Decimal(wallet.currentBalance.toString()).plus(amount).gt(wallet.creditCardProfile.creditLimit.toString())) {
-        throw new AppError("VALIDATION_ERROR", "Giao dịch vượt hạn mức thẻ tín dụng.");
-      }
       // Credit card: increment debt
       await tx.wallet.update({ where: { id: record.walletId }, data: { currentBalance: reverse ? { decrement: amount } : { increment: amount } } });
       // Asset wallet: increment money

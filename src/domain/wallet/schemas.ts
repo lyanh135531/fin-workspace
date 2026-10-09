@@ -57,9 +57,6 @@ export const createWalletSchema = z.object({
     return;
   }
   if (!creditCard) return;
-  if (creditCard.openingDebt.gt(creditCard.creditLimit)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["creditCard", "openingDebt"], message: "Dư nợ ban đầu không được vượt hạn mức." });
-  }
   const allocations = creditCard.openingAllocations;
   if (new Set(allocations.map((item) => item.walletId)).size !== allocations.length) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["creditCard", "openingAllocations"], message: "Mỗi ví chỉ được phân bổ một lần." });

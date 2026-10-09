@@ -67,6 +67,24 @@ describe("wallet schemas", () => {
     expect(result.creditCard?.openingAllocations).toEqual([]);
   });
 
+  it("allows opening debt to exceed the credit limit", () => {
+    const fundingWalletId = "00000000-0000-4000-8000-000000000010";
+    const result = createWalletSchema.parse({
+      name: "Thẻ vượt hạn mức",
+      kind: "credit_card",
+      creditCard: {
+        creditLimit: "20000000",
+        defaultFundingWalletId: fundingWalletId,
+        statementClosingDay: 25,
+        paymentDueDay: 10,
+        openingDebt: "25000000",
+        openingAllocations: [{ walletId: fundingWalletId, amount: "25000000" }],
+      },
+    });
+    expect(result.creditCard?.openingDebt.toString()).toBe("25000000");
+    expect(result.creditCard?.creditLimit.toString()).toBe("20000000");
+  });
+
   it("accepts zero for the default income flow", () => {
     const result = createWalletSchema.parse({
       name: "Ví mới",

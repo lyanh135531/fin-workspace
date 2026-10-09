@@ -649,7 +649,7 @@ describe("transaction deletion approval", () => {
       };
 
       await applyBalance(
-        tx as any,
+        tx as unknown as Parameters<typeof applyBalance>[0],
         {
           id: "tx-transfer-1",
           type: "transfer",
@@ -657,7 +657,7 @@ describe("transaction deletion approval", () => {
           amount: new Decimal("500000"),
           walletId: "card-1",
           toWalletId: "wallet-asset-1",
-        } as any,
+        } as unknown as Parameters<typeof applyBalance>[1],
       );
 
       // Card debt increased
@@ -685,7 +685,7 @@ describe("transaction deletion approval", () => {
       };
 
       await applyBalance(
-        tx as any,
+        tx as unknown as Parameters<typeof applyBalance>[0],
         {
           id: "tx-transfer-1",
           type: "transfer",
@@ -693,7 +693,7 @@ describe("transaction deletion approval", () => {
           amount: new Decimal("500000"),
           walletId: "card-1",
           toWalletId: "wallet-asset-1",
-        } as any,
+        } as unknown as Parameters<typeof applyBalance>[1],
         true, // reverse
       );
 
@@ -735,6 +735,73 @@ describe("transaction deletion approval", () => {
           date: "2026-07-27",
         }),
       ).rejects.toThrow("Không thể chuyển tiền vào thẻ tín dụng bằng chuyển khoản thông thường; hãy dùng tính năng thanh toán sao kê.");
+    });
+
+    it("allows credit card expense exceeding credit limit", async () => {
+      const tx = {
+        wallet: {
+          findUniqueOrThrow: vi.fn().mockResolvedValue({
+            kind: "credit_card",
+            currentBalance: new Decimal(19000000),
+            creditCardProfile: { creditLimit: new Decimal(20000000) },
+          }),
+          update: vi.fn().mockResolvedValue({}),
+        },
+      };
+
+      await expect(
+        applyBalance(
+          tx as unknown as Parameters<typeof applyBalance>[0],
+          {
+            id: "tx-overlimit-1",
+            type: "expense",
+            purpose: "standard",
+            amount: new Decimal("3000000"), // 19M + 3M = 22M > 20M limit
+            walletId: "card-1",
+          } as unknown as Parameters<typeof applyBalance>[1],
+        ),
+      ).resolves.toBeUndefined();
+
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { id: "card-1" },
+        data: { currentBalance: { increment: expect.any(Decimal) } },
+      });
+    });
+
+    it("allows credit card transfer exceeding credit limit", async () => {
+      const tx = {
+        wallet: {
+          findUniqueOrThrow: vi.fn().mockResolvedValue({
+            kind: "credit_card",
+            currentBalance: new Decimal(19500000),
+            creditCardProfile: { creditLimit: new Decimal(20000000) },
+          }),
+          update: vi.fn().mockResolvedValue({}),
+        },
+      };
+
+      await expect(
+        applyBalance(
+          tx as unknown as Parameters<typeof applyBalance>[0],
+          {
+            id: "tx-overlimit-transfer-1",
+            type: "transfer",
+            purpose: "standard",
+            amount: new Decimal("2000000"), // 19.5M + 2M = 21.5M > 20M limit
+            walletId: "card-1",
+            toWalletId: "wallet-asset-1",
+          } as unknown as Parameters<typeof applyBalance>[1],
+        ),
+      ).resolves.toBeUndefined();
+
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { id: "card-1" },
+        data: { currentBalance: { increment: expect.any(Decimal) } },
+      });
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { id: "wallet-asset-1" },
+        data: { currentBalance: { increment: expect.any(Decimal) } },
+      });
     });
   });
 });

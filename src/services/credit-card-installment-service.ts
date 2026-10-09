@@ -62,9 +62,6 @@ export async function activateInstallmentPlanInTransaction(tx: Tx, workspaceId: 
 
   let feeTransactionId: string | null = null;
   if (new Decimal(plan.feeAmount.toString()).gt(0)) {
-    if (new Decimal(plan.card.wallet.currentBalance.toString()).plus(plan.feeAmount.toString()).gt(plan.card.creditLimit.toString())) {
-      throw new AppError("VALIDATION_ERROR", "Phí trả góp làm vượt hạn mức thẻ tín dụng.");
-    }
     const feeCategory = await tx.category.findFirst({
       where: { workspaceId, code: "EXPENSE_INSTALLMENT_FEE", status: "active", deletedAt: null },
       select: { id: true, jarCode: true },
@@ -269,12 +266,6 @@ export async function importCreditCardInstallment(
       profile.statementClosingDay,
       latestClosed,
     );
-    if (
-      input.balanceMode === "add_to_balance"
-      && new Decimal(card.wallet.currentBalance.toString()).plus(input.remainingAmount).gt(profile.creditLimit.toString())
-    ) {
-      throw new AppError("VALIDATION_ERROR", "Khoản trả góp nhập vào làm vượt hạn mức thẻ tín dụng.");
-    }
 
     const plan = await tx.creditCardInstallmentPlan.create({
       data: {

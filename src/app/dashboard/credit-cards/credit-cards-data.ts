@@ -283,6 +283,7 @@ export async function getCreditCardsData() {
       availableCredit: new Decimal(profile.creditLimit.toString())
         .minus(wallet.currentBalance.toString())
         .toString(),
+      isOverLimit: new Decimal(wallet.currentBalance.toString()).gt(profile.creditLimit.toString()),
       pendingPayment: [...pendingByWallet.values()]
         .reduce((sum, amount) => sum.plus(amount), ZERO)
         .toString(),

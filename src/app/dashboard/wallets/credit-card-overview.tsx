@@ -162,6 +162,7 @@ export type CreditCardOverviewItem = {
   creditBalance: string;
   limit: string;
   availableCredit: string;
+  isOverLimit?: boolean;
   pendingPayment: string;
   hasApprovedTransactions: boolean;
   defaultFundingWalletId: string;
@@ -342,6 +343,7 @@ export function CreditCardVirtualCard({
   const hasCredit = creditBalanceDecimal.gt(0);
   const hasDebt = debtDecimal.gt(0);
   const limitDecimal = new Decimal(card.limit || 0);
+  const isOverLimit = card.isOverLimit ?? (limitDecimal.gt(0) && debtDecimal.gt(limitDecimal));
   const utilizationPercent = limitDecimal.gt(0)
     ? Math.min(100, Math.max(0, debtDecimal.div(limitDecimal).mul(100).toNumber()))
     : 0;
@@ -453,9 +455,12 @@ export function CreditCardVirtualCard({
 
           <div className="text-right shrink-0">
             <span className="block text-[8px] sm:text-[9px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
-              Khả dụng
+              {isOverLimit ? "Vượt hạn mức" : "Khả dụng"}
             </span>
-            <span className="block text-[11px] sm:text-xs font-semibold tabular-nums text-[var(--text-secondary)]">
+            <span className={cn(
+              "block text-[11px] sm:text-xs font-semibold tabular-nums",
+              isOverLimit ? "text-[var(--destructive)]" : "text-[var(--text-secondary)]"
+            )}>
               {formatAmount(card.availableCredit, { maximumFractionDigits: 0 })}{" "}
               <span className="text-[9px] sm:text-[10px] font-normal uppercase text-[var(--text-muted)]">
                 {currency}
@@ -469,7 +474,7 @@ export function CreditCardVirtualCard({
           <div
             className={cn(
               "h-full rounded-full transition-all duration-300",
-              utilizationPercent > 80
+              isOverLimit || utilizationPercent > 80
                 ? "bg-[var(--destructive)]"
                 : utilizationPercent > 50
                   ? "bg-[var(--warning)]"
@@ -838,6 +843,10 @@ function CreditCardPanel({
   }, [installmentTarget, feeAmount, termCount]);
 
   // Credit limit utilization percentage (0 - 100%)
+  const isOverLimit = card.isOverLimit ?? (limitDecimal.gt(0) && debtDecimal.gt(limitDecimal));
+  const rawUtilizationPercent = limitDecimal.gt(0) && debtDecimal.gt(0)
+    ? Math.round(debtDecimal.div(limitDecimal).mul(100).toNumber())
+    : 0;
   const utilizationPercent = useMemo(() => {
     if (!limitDecimal.gt(0) || !debtDecimal.gt(0)) return 0;
     const pct = debtDecimal.div(limitDecimal).mul(100).toNumber();
@@ -1706,10 +1715,13 @@ function CreditCardPanel({
                 {/* Cột 2: Hạn mức khả dụng & Tổng hạn mức */}
                 <div className="space-y-1 border-l-0 md:border-l border-[var(--border)]/50 md:pl-6">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
-                    Hạn mức khả dụng
+                    {isOverLimit ? "Vượt hạn mức" : "Hạn mức khả dụng"}
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold tabular-nums text-[var(--success)]">
+                    <span className={cn(
+                      "text-2xl font-bold tabular-nums",
+                      isOverLimit ? "text-[var(--destructive)]" : "text-[var(--success)]"
+                    )}>
                       {formatAmount(card.availableCredit)}
                     </span>
                     <span className="text-xs font-semibold uppercase text-[var(--text-muted)]">
@@ -1765,24 +1777,30 @@ function CreditCardPanel({
               <div className="rounded-xl bg-[var(--surface-secondary)]/40 border border-[var(--border)]/50 p-3.5 space-y-2">
                 <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
                   <span>
-                    Đã chi tiêu <strong className="text-[var(--foreground)] font-semibold">{utilizationPercent}%</strong> hạn mức
+                    Đã chi tiêu <strong className={cn("font-semibold", isOverLimit ? "text-[var(--destructive)]" : "text-[var(--foreground)]")}>{rawUtilizationPercent}%</strong> hạn mức
                     <span className="ml-1 text-[var(--text-muted)]">({formatAmount(card.debt)} / {formatAmount(card.limit)} {currency})</span>
                   </span>
-                  <span>
-                    Khả dụng còn lại <strong className="text-[var(--foreground)] font-semibold">{Math.max(100 - utilizationPercent, 0)}%</strong>
-                  </span>
+                  {isOverLimit ? (
+                    <span className="text-[var(--destructive)] font-semibold">
+                      Đang vượt hạn mức
+                    </span>
+                  ) : (
+                    <span>
+                      Khả dụng còn lại <strong className="text-[var(--foreground)] font-semibold">{Math.max(100 - utilizationPercent, 0)}%</strong>
+                    </span>
+                  )}
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
                   <div
                     className={cn(
                       "h-full rounded-full transition-all duration-500",
-                      utilizationPercent > 80
+                      isOverLimit || utilizationPercent > 80
                         ? "bg-[var(--destructive)]"
                         : utilizationPercent > 50
                           ? "bg-[var(--warning)]"
                           : "bg-[var(--primary)]",
                     )}
-                    style={{ width: `${Math.max(utilizationPercent, 2)}%` }}
+                    style={{ width: `${Math.min(Math.max(rawUtilizationPercent, 2), 100)}%` }}
                   />
                 </div>
                 {card.statement && card.statement.sources.length > 0 && (
@@ -2217,18 +2235,21 @@ function CreditCardPanel({
                       <span
                         className={cn(
                           "size-1.5 rounded-full",
-                          utilizationPercent > 80
+                          isOverLimit || utilizationPercent > 80
                             ? "bg-[var(--destructive)]"
                             : utilizationPercent > 50
                               ? "bg-[var(--warning)]"
                               : "bg-[var(--primary)]",
                         )}
                       />
-                      Đã dùng <strong className="font-bold text-[var(--foreground)]">{utilizationPercent}%</strong>
+                      Đã dùng <strong className={cn("font-bold", isOverLimit ? "text-[var(--destructive)]" : "text-[var(--foreground)]")}>{rawUtilizationPercent}%</strong>
                     </span>
                     <span className="font-medium text-[var(--text-secondary)]">
-                      Khả dụng:{" "}
-                      <strong className="font-bold tabular-nums text-[var(--success)]">
+                      {isOverLimit ? "Vượt hạn mức: " : "Khả dụng: "}
+                      <strong className={cn(
+                        "font-bold tabular-nums",
+                        isOverLimit ? "text-[var(--destructive)]" : "text-[var(--success)]"
+                      )}>
                         {formatAmount(card.availableCredit)} {currency}
                       </strong>
                     </span>
@@ -2238,13 +2259,13 @@ function CreditCardPanel({
                     <div
                       className={cn(
                         "h-full rounded-full transition-all duration-500",
-                        utilizationPercent > 80
+                        isOverLimit || utilizationPercent > 80
                           ? "bg-[var(--destructive)]"
                           : utilizationPercent > 50
                             ? "bg-[var(--warning)]"
                             : "bg-[var(--primary)]",
                       )}
-                      style={{ width: `${Math.max(utilizationPercent, 2)}%` }}
+                      style={{ width: `${Math.min(Math.max(rawUtilizationPercent, 2), 100)}%` }}
                     />
                   </div>
                 </div>
@@ -3052,9 +3073,9 @@ function CreditCardPanel({
                     required
                   />
                   {editLimit && new Decimal(editLimit || 0).lt(card.debt) && (
-                    <p role="alert" className="flex items-center gap-1.5 text-xs text-[var(--destructive)]">
+                    <p role="status" className="flex items-center gap-1.5 text-xs text-[var(--warning)]">
                       <AlertCircle className="size-3.5" aria-hidden="true" />
-                      Hạn mức không được thấp hơn dư nợ {formatAmount(card.debt)} {currency}.
+                      Hạn mức mới thấp hơn dư nợ hiện tại ({formatAmount(card.debt)} {currency}). Thẻ sẽ chuyển sang trạng thái vượt hạn mức.
                     </p>
                   )}
                 </div>
@@ -3100,7 +3121,6 @@ function CreditCardPanel({
                   !editFundingWalletId ||
                   !editLimit ||
                   !new Decimal(editLimit || 0).gt(0) ||
-                  new Decimal(editLimit || 0).lt(card.debt) ||
                   (card.installmentPlans.some((plan) => plan.status === "pending" || plan.status === "active") && editClosingDay !== String(card.statementClosingDay))
                 }
               />
@@ -3691,12 +3711,12 @@ export function CreditCardOverview(props: {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(
     () => props.initialCardId ?? null,
   );
+  const [prevInitialCardId, setPrevInitialCardId] = useState(() => props.initialCardId);
 
-  useEffect(() => {
-    if (props.initialCardId !== undefined) {
-      setSelectedCardId(props.initialCardId);
-    }
-  }, [props.initialCardId]);
+  if (props.initialCardId !== prevInitialCardId) {
+    setPrevInitialCardId(props.initialCardId);
+    setSelectedCardId(props.initialCardId ?? null);
+  }
 
   useEffect(() => {
     const onPopState = () => {
@@ -3819,7 +3839,10 @@ export function CreditCardOverview(props: {
                     <span className="text-[11px] font-medium text-[var(--text-muted)]">
                       Tổng khả dụng
                     </span>
-                    <p className="font-bold tabular-nums text-sm sm:text-base tracking-tight text-[var(--success)] sm:mt-1">
+                    <p className={cn(
+                      "font-bold tabular-nums text-sm sm:text-base tracking-tight sm:mt-1",
+                      totalAvailable.lt(0) ? "text-[var(--destructive)]" : "text-[var(--success)]"
+                    )}>
                       {formatAmount(totalAvailable.toString())}{" "}
                       <span className="text-[10px] font-normal uppercase text-[var(--text-muted)]">
                         {props.currency}
@@ -3928,7 +3951,7 @@ export function CreditCardOverview(props: {
                     </span>
                     <span className="text-[var(--text-muted)]">·</span>
                     <span className="text-[var(--text-secondary)]">
-                      Hạn mức khả dụng: <strong className="font-bold tabular-nums text-[var(--success)]">{formatAmount(totalAvailable.toString())} {props.currency}</strong>
+                      Hạn mức khả dụng: <strong className={cn("font-bold tabular-nums", totalAvailable.lt(0) ? "text-[var(--destructive)]" : "text-[var(--success)]")}>{formatAmount(totalAvailable.toString())} {props.currency}</strong>
                     </span>
                     <span className="text-[var(--text-muted)]">·</span>
                     <span className="text-[var(--text-secondary)]">
@@ -4018,6 +4041,8 @@ export function CreditCardOverview(props: {
                           <span className="text-[10px] font-bold text-[var(--destructive)]">Quá hạn</span>
                         ) : card.statement ? (
                           <span className="text-[10px] font-medium text-[var(--warning)]">Hạn {formatShortDate(card.statement.dueDate)}</span>
+                        ) : new Decimal(card.availableCredit || 0).lt(0) ? (
+                          <span className="text-[10px] font-medium text-[var(--destructive)]">Vượt {formatAmount(card.availableCredit)}</span>
                         ) : (
                           <span className="text-[10px] text-[var(--text-muted)]">Còn {formatAmount(card.availableCredit)}</span>
                         )}

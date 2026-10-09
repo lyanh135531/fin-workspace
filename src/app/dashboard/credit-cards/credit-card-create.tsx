@@ -248,7 +248,6 @@ export function CreditCardCreate({
     !isStep1Valid ||
     !fundingWalletId ||
     isInvalidDays ||
-    isDebtExceeded ||
     unavailable;
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -438,11 +437,11 @@ export function CreditCardCreate({
             />
             {isDebtExceeded && (
               <div
-                role="alert"
-                className="flex items-center gap-1.5 text-xs text-[var(--destructive)]"
+                role="status"
+                className="flex items-center gap-1.5 text-xs text-[var(--warning)]"
               >
                 <AlertCircle size={14} className="shrink-0" aria-hidden="true" />
-                <span>Dư nợ ban đầu không được vượt quá hạn mức thẻ.</span>
+                <span>Dư nợ ban đầu vượt quá hạn mức thẻ (thẻ sẽ bắt đầu ở trạng thái vượt hạn mức).</span>
               </div>
             )}
           </div>

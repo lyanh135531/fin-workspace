@@ -314,12 +314,17 @@ describe("updateCreditCard checks", () => {
     tx.creditCardInstallmentPlan.count.mockResolvedValue(0);
   });
 
-  it("rejects a credit limit below current debt", async () => {
+  it("allows setting a credit limit below current debt (over-limit state)", async () => {
     await expect(updateCreditCard("user-id", "workspace-id", {
       ...validInput,
       creditLimit: new Decimal(10_000_000),
-    })).rejects.toThrow("thấp hơn dư nợ hiện tại");
-    expect(tx.creditCardProfile.update).not.toHaveBeenCalled();
+    })).resolves.toEqual({ ok: true });
+    expect(tx.creditCardProfile.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { walletId: "card-id" },
+      data: expect.objectContaining({
+        creditLimit: new Decimal(10_000_000),
+      }),
+    }));
   });
 
   it("updates card metadata and future billing configuration", async () => {

@@ -278,10 +278,6 @@ export async function updateCreditCard(
     if (!fundingWallet) {
       throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Ví thanh toán mặc định không khả dụng trong nhóm này.");
     }
-    const balance = Decimal.max(card.wallet.currentBalance.toString(), ZERO);
-    if (input.creditLimit.lt(balance)) {
-      throw new AppError("VALIDATION_ERROR", "Hạn mức mới không được thấp hơn dư nợ hiện tại.");
-    }
     if (input.statementClosingDay !== card.wallet.creditCardProfile.statementClosingDay) {
       const activeInstallments = await tx.creditCardInstallmentPlan.count({
         where: { cardWalletId: input.cardWalletId, status: { in: ["pending", "active"] } },
