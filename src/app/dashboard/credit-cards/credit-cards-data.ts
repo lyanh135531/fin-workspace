@@ -128,7 +128,12 @@ export async function getCreditCardsData() {
                 creditCardObligationEntries: {
                   include: {
                     paymentAllocations: { select: { id: true } },
-                    statementItems: { select: { id: true } },
+                    statementItems: {
+                      select: {
+                        id: true,
+                        statement: { select: { status: true } },
+                      },
+                    },
                   },
                 },
               },
@@ -421,16 +426,20 @@ export async function getCreditCardsData() {
           return items;
         }, []),
       activities: wallet.sourceTransactions.map((transaction) => {
+        const isPaidOrClosed = transaction.creditCardObligationEntries.some(
+          (entry) =>
+            entry.paymentAllocations.length > 0 ||
+            entry.statementItems.some((item) => item.statement.status === "paid"),
+        );
         const canModify =
           transaction.purpose === "standard" &&
           !transaction.installmentPlan &&
           !transaction.creditCardStatementId &&
           transaction.refundTransactions.length === 0 &&
-          transaction.creditCardObligationEntries.every(
-            (entry) =>
-              entry.paymentAllocations.length === 0 &&
-              entry.statementItems.length === 0,
-          );
+          !isPaidOrClosed;
+        const canDelete =
+          canModify ||
+          (transaction.purpose === "credit_card_refund" && !isPaidOrClosed);
         return {
           id: transaction.id,
           purpose: transaction.purpose,
@@ -450,7 +459,7 @@ export async function getCreditCardsData() {
                 entry.paymentAllocations.length === 0 &&
                 entry.statementItems.length === 0,
             ),
-          canDelete: canModify,
+          canDelete,
           canEdit: canModify,
           installmentPlanId: transaction.installmentPlan?.id ?? null,
           refundableAmount: transaction.purpose === "standard"

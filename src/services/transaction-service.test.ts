@@ -322,6 +322,244 @@ describe("transaction deletion approval", () => {
       ).rejects.toThrow("Giao dịch đã vào kế hoạch trả góp hoặc sao kê và không thể xóa.");
     });
 
+    it("allows admin to delete credit card expense in an unpaid (issued) statement and recalculates statement total", async () => {
+      const issuedStatementItem = {
+        ...creditCardTransaction,
+        creditCardObligationEntries: [
+          {
+            id: "obl-1",
+            paymentAllocations: [],
+            statementItems: [
+              {
+                id: "item-1",
+                statementId: "stmt-issued-1",
+                statement: { id: "stmt-issued-1", status: "issued" as const },
+              },
+            ],
+          },
+        ],
+      };
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockResolvedValue(issuedStatementItem),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        wallet: {
+          update: vi.fn().mockResolvedValue({}),
+          findUniqueOrThrow: vi.fn().mockResolvedValue({ kind: "credit_card", currentBalance: new Decimal(0) }),
+        },
+        creditCardStatementItem: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        creditCardStatement: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: "stmt-issued-1",
+            status: "issued",
+            items: [],
+            payments: [],
+          }),
+          update: vi.fn().mockResolvedValue({}),
+        },
+        creditCardObligationEntry: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        creditCardAllocation: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        auditLog: { create: vi.fn().mockResolvedValue({}) },
+      };
+
+      (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: "admin-member",
+        role: { code: "ADMIN" },
+        workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+      });
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (client: typeof tx) => unknown) => callback(tx),
+      );
+
+      const result = await deleteOrRequestTransaction("admin-user", "workspace-1", "transaction-1", "Xóa");
+      expect(result).toEqual({ kind: "deleted", id: "transaction-1" });
+      expect(tx.creditCardStatementItem.deleteMany).toHaveBeenCalledWith({
+        where: { obligationEntry: { transactionId: "transaction-1" } },
+      });
+      expect(tx.creditCardStatement.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "stmt-issued-1" },
+        }),
+      );
+    });
+
+    it("prevents deleting credit card transaction if in a paid statement", async () => {
+      const paidStatementItem = {
+        ...creditCardTransaction,
+        creditCardObligationEntries: [
+          {
+            id: "obl-1",
+            paymentAllocations: [],
+            statementItems: [
+              {
+                id: "item-1",
+                statementId: "stmt-paid-1",
+                statement: { id: "stmt-paid-1", status: "paid" as const },
+              },
+            ],
+          },
+        ],
+      };
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockResolvedValue(paidStatementItem),
+        },
+      };
+
+      (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: "admin-member",
+        role: { code: "ADMIN" },
+        workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+      });
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (client: typeof tx) => unknown) => callback(tx),
+      );
+
+      await expect(
+        deleteOrRequestTransaction("admin-user", "workspace-1", "transaction-1", "Xóa"),
+      ).rejects.toThrow("Giao dịch thuộc kỳ sao kê đã thanh toán và không thể xóa.");
+    });
+
+    it("allows admin to delete accidental credit_card_refund when unpaid", async () => {
+      const refundTx = {
+        ...creditCardTransaction,
+        id: "refund-1",
+        type: "income" as const,
+        purpose: "credit_card_refund",
+        amount: "50000",
+        creditCardObligationEntries: [
+          {
+            id: "obl-refund-1",
+            paymentAllocations: [],
+            statementItems: [],
+          },
+        ],
+      };
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockResolvedValue(refundTx),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        wallet: {
+          update: vi.fn().mockResolvedValue({}),
+          findUniqueOrThrow: vi.fn().mockResolvedValue({ kind: "credit_card", currentBalance: new Decimal(50000) }),
+        },
+        creditCardStatementItem: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        },
+        creditCardObligationEntry: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+          findMany: vi.fn().mockResolvedValue([
+            { id: "obl-orig", fundingWalletId: "asset-1", amount: new Decimal(50000), paymentAllocations: [] },
+          ]),
+        },
+        creditCardAllocation: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        auditLog: { create: vi.fn().mockResolvedValue({}) },
+      };
+
+      (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: "admin-member",
+        role: { code: "ADMIN" },
+        workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+      });
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (client: typeof tx) => unknown) => callback(tx),
+      );
+
+      const result = await deleteOrRequestTransaction("admin-user", "workspace-1", "refund-1", "Bấm nhầm hoàn tiền");
+      expect(result).toEqual({ kind: "deleted", id: "refund-1" });
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { id: "card-1" },
+        data: { currentBalance: { increment: expect.any(Decimal) } },
+      });
+    });
+
+    it("prevents updating credit card transaction if in a paid statement", async () => {
+      const paidStatementItem = {
+        ...creditCardTransaction,
+        creditCardObligationEntries: [
+          {
+            id: "obl-1",
+            paymentAllocations: [],
+            statementItems: [
+              {
+                id: "item-1",
+                statementId: "stmt-paid-1",
+                statement: { id: "stmt-paid-1", status: "paid" as const },
+              },
+            ],
+          },
+        ],
+      };
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockResolvedValue(paidStatementItem),
+          aggregate: vi.fn().mockResolvedValue({ _sum: { amount: null } }),
+        },
+        workspaceWallet: {
+          findMany: vi.fn().mockImplementation(({ where }: { where: { walletId: { in: string[] } } }) => {
+            const inIds = where.walletId.in;
+            const all = [
+              {
+                walletId: "card-1",
+                wallet: {
+                  kind: "credit_card",
+                  currentBalance: new Decimal(0),
+                  creditCardProfile: { creditLimit: new Decimal(10000000), defaultFundingWalletId: "wallet-asset-1" },
+                },
+              },
+              {
+                walletId: "wallet-asset-1",
+                wallet: {
+                  kind: "asset",
+                  status: "active",
+                  deletedAt: null,
+                },
+              },
+            ];
+            return Promise.resolve(all.filter((item) => inIds.includes(item.walletId)));
+          }),
+        },
+        category: {
+          findFirst: vi.fn().mockResolvedValue({ id: "cat-1", type: "expense", jarCode: "NEC" }),
+        },
+      };
+
+      (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: "admin-member",
+        role: { code: "ADMIN" },
+        workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+      });
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (client: typeof tx) => unknown) => callback(tx),
+      );
+
+      await expect(
+        updateTransaction("admin-user", "workspace-1", "transaction-1", {
+          walletId: "card-1",
+          categoryId: "cat-1",
+          amount: new Decimal("200000"),
+          date: "2026-07-20",
+          type: "expense",
+          allocations: [{ walletId: "wallet-asset-1", amount: new Decimal("200000") }],
+        }, "Sửa"),
+      ).rejects.toThrow("Giao dịch thuộc kỳ sao kê đã thanh toán và không thể sửa.");
+    });
+
     it("allows admin to update credit card transaction to an asset wallet", async () => {
       const tx = {
         $queryRaw: vi.fn().mockResolvedValue([]),

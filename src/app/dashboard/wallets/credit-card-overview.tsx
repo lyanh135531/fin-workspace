@@ -3457,11 +3457,19 @@ function CreditCardPanel({
           trigger={null}
           ariaLabel={`Xóa giao dịch ${deletingActivity.description || "chi tiêu thẻ"}`}
           title={
-            deletingActivity.description
-              ? `Xóa giao dịch “${deletingActivity.description}”?`
-              : "Xóa giao dịch chi tiêu này?"
+            deletingActivity.purpose === "credit_card_refund"
+              ? (deletingActivity.description
+                  ? `Xóa khoản hoàn tiền “${deletingActivity.description}”?`
+                  : "Xóa khoản hoàn tiền này?")
+              : (deletingActivity.description
+                  ? `Xóa giao dịch “${deletingActivity.description}”?`
+                  : "Xóa giao dịch chi tiêu này?")
           }
-          description={`Giao dịch ${formatAmount(deletingActivity.amount)} ${currency} sẽ bị xóa và dư nợ thẻ sẽ được giảm trừ số tiền tương ứng.`}
+          description={
+            deletingActivity.purpose === "credit_card_refund"
+              ? `Khoản hoàn tiền ${formatAmount(deletingActivity.amount)} ${currency} sẽ bị xóa và dư nợ thẻ sẽ được khôi phục số tiền tương ứng.`
+              : `Giao dịch ${formatAmount(deletingActivity.amount)} ${currency} sẽ bị xóa và dư nợ thẻ sẽ được giảm trừ số tiền tương ứng.`
+          }
           confirmLabel="Xóa giao dịch"
           presentation={isDesktop ? "popover" : "sheet"}
           disabled={pending}

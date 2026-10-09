@@ -259,3 +259,38 @@ export async function completePaidInstallmentPlansInTransaction(tx: Tx, statemen
     }
   }
 }
+
+export async function recalculateUnpaidStatementTotal(tx: Tx, statementId: string) {
+  const statement = await tx.creditCardStatement.findUnique({
+    where: { id: statementId },
+    include: {
+      items: true,
+      payments: {
+        where: { deletedAt: null, workflowStatus: { not: "rejected" } },
+        select: { id: true },
+      },
+    },
+  });
+  if (!statement || statement.status !== "issued" || statement.payments.length > 0) return;
+
+  const totalsByWallet = new Map<string, Decimal>();
+  for (const item of statement.items) {
+    totalsByWallet.set(
+      item.fundingWalletId,
+      (totalsByWallet.get(item.fundingWalletId) ?? ZERO).plus(item.amount.toString()),
+    );
+  }
+  const totalAmount = [...totalsByWallet.values()].reduce(
+    (sum, amount) => sum.plus(Decimal.max(amount, ZERO)),
+    ZERO,
+  );
+  const isPaid = totalAmount.lte(0);
+  await tx.creditCardStatement.update({
+    where: { id: statementId },
+    data: {
+      totalAmount: Decimal.max(totalAmount, ZERO),
+      status: isPaid ? "paid" : "issued",
+      paidAt: isPaid ? (statement.paidAt ?? new Date()) : null,
+    },
+  });
+}
