@@ -15,7 +15,7 @@ import { availableCategoryWhere } from "@/services/category-visibility";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 import { assertCardBalanceReconciled, normalizeApprovedRefundAllocations, syncCreditCardObligationsForTransaction } from "@/services/credit-card-ledger";
 import { activateInstallmentPlanInTransaction } from "@/services/credit-card-installment-service";
-import { completePaidInstallmentPlansInTransaction, recalculateUnpaidStatementTotal, statementPaymentDetails } from "@/services/credit-card-statement-service";
+import { completePaidInstallmentPlansInTransaction, recalculateUnpaidStatementTotal, refreshHistoricalCardStatements, reopenUnpaidInstallmentPlansInTransaction, statementPaymentDetails } from "@/services/credit-card-statement-service";
 
 type TransactionClient = Prisma.TransactionClient;
 type ResolvedTransactionInput = CreateTransactionInput & { timing: TransactionTiming };
@@ -245,6 +245,7 @@ export async function createApprovedTransactionInTransaction(
   await applyBalance(tx, record);
   if (resources.walletKind === "credit_card") {
     await syncCreditCardObligationsForTransaction(tx, workspaceId, record.id);
+    await refreshHistoricalCardStatements(tx, workspaceId, record.walletId, input.date);
     await assertCardBalanceReconciled(tx, record.walletId);
   }
   return record;
@@ -332,37 +333,10 @@ async function applyUpdate(
   if (current.refundTransactions?.length) {
     throw new AppError("CONFLICT", "Giao dịch đã có hoàn tiền và không thể sửa; hãy kiểm tra lại các khoản hoàn tiền liên kết.");
   }
-  if (current.creditCardObligationEntries?.some((entry) => entry.paymentAllocations.length > 0)) {
-    throw new AppError("CONFLICT", "Giao dịch đã được thanh toán và không thể sửa.");
-  }
-  if (current.creditCardObligationEntries?.some((entry) => entry.statementItems.some((item) => item.statement.status === "paid"))) {
-    throw new AppError("CONFLICT", "Giao dịch thuộc kỳ sao kê đã thanh toán và không thể sửa.");
+  for (const walletId of [...new Set([current.walletId, input.walletId, current.toWalletId, input.toWalletId].filter((id): id is string => Boolean(id)))].sort()) {
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "WALLETS" WHERE "id" = CAST(${walletId} AS uuid) FOR UPDATE`);
   }
   const resources = await requireTransactionResources(tx, workspaceId, input);
-  if (resources.walletKind === "credit_card") {
-    const targetDate = asDatabaseDate(input.postedDate ?? input.date);
-    const paidStatement = await tx.creditCardStatement.findFirst({
-      where: {
-        workspaceId,
-        cardWalletId: input.walletId,
-        status: "paid",
-        cycleStartDate: { lte: targetDate },
-        cycleEndDate: { gte: targetDate },
-      },
-    });
-    if (paidStatement) {
-      throw new AppError("CONFLICT", "Không thể chuyển giao dịch vào kỳ sao kê đã thanh toán.");
-    }
-  }
-
-  const affectedUnpaidStatementIds = new Set<string>();
-  for (const entry of current.creditCardObligationEntries ?? []) {
-    for (const item of entry.statementItems ?? []) {
-      if (item.statement.status === "issued") {
-        affectedUnpaidStatementIds.add(item.statement.id);
-      }
-    }
-  }
 
   if (current.workflowStatus === "approved") {
     await applyBalance(tx, current, true);
@@ -370,7 +344,16 @@ async function applyUpdate(
       await tx.creditCardStatementItem?.deleteMany?.({
         where: { obligationEntry: { transactionId: current.id } },
       });
-      await tx.creditCardObligationEntry.deleteMany({ where: { transactionId: current.id } });
+      for (const entry of current.creditCardObligationEntries ?? []) {
+        if (!entry.paymentAllocations.length) continue;
+        // Preserve actual payments on the original card and funding wallet.
+        await tx.creditCardObligationEntry.update({ where: { id: entry.id }, data: {
+          amount: new Decimal(0), idempotencyKey: `retired:${entry.id}`,
+        } });
+      }
+      await tx.creditCardObligationEntry.deleteMany({ where: {
+        transactionId: current.id, paymentAllocations: { none: {} },
+      } });
       await tx.creditCardAllocation.deleteMany({ where: { transactionId: current.id } });
     }
   }
@@ -402,32 +385,7 @@ async function applyUpdate(
     if (resources.walletKind === "credit_card") {
       await syncCreditCardObligationsForTransaction(tx, workspaceId, updated.id);
 
-      const targetDate = updated.postedDate ?? updated.date;
-      const unpaidStatement = await tx.creditCardStatement?.findFirst?.({
-        where: {
-          workspaceId,
-          cardWalletId: updated.walletId,
-          status: "issued",
-          cycleStartDate: { lte: targetDate },
-          cycleEndDate: { gte: targetDate },
-        },
-      });
-      if (unpaidStatement) {
-        affectedUnpaidStatementIds.add(unpaidStatement.id);
-        const newObligations = await tx.creditCardObligationEntry.findMany({
-          where: { transactionId: updated.id },
-        });
-        for (const obl of newObligations) {
-          await tx.creditCardStatementItem?.create?.({
-            data: {
-              statementId: unpaidStatement.id,
-              obligationEntryId: obl.id,
-              fundingWalletId: obl.fundingWalletId,
-              amount: obl.amount,
-            },
-          });
-        }
-      }
+      await refreshHistoricalCardStatements(tx, workspaceId, updated.walletId, getBusinessDateInTimeZone(timeZone, now));
 
       await assertCardBalanceReconciled(tx, updated.walletId);
     }
@@ -436,14 +394,56 @@ async function applyUpdate(
     await assertCardBalanceReconciled(tx, current.walletId);
   }
 
-  for (const stmtId of affectedUnpaidStatementIds) {
-    await recalculateUnpaidStatementTotal(tx, stmtId);
+  if (current.workflowStatus === "approved" && current.wallet?.kind === "credit_card" && (current.walletId !== updated.walletId || workflowStatus !== "approved")) {
+    await refreshHistoricalCardStatements(tx, workspaceId, current.walletId, getBusinessDateInTimeZone(timeZone, now));
   }
 
   return updated;
 }
 
-async function softDelete(tx: TransactionClient, record: Transaction) {
+async function softDeleteCardPayment(tx: TransactionClient, workspaceId: string, record: Transaction) {
+  const sources = await tx.creditCardPaymentSource.findMany({ where: { paymentTransactionId: record.id } });
+  const walletIds = [...new Set([record.walletId, ...sources.map((source) => source.sourceWalletId)])].sort();
+  for (const walletId of walletIds) {
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "WALLETS" WHERE "id" = CAST(${walletId} AS uuid) FOR UPDATE`);
+  }
+  const links = await tx.workspaceWallet.findMany({
+    where: { workspaceId, walletId: { in: walletIds } },
+    select: { walletId: true },
+  });
+  if (links.length !== walletIds.length) {
+    throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Thẻ hoặc ví thanh toán không thuộc nhóm này.");
+  }
+  await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "CREDIT_CARD_OBLIGATION_ENTRY" WHERE "card_wallet_id" = CAST(${record.walletId} AS uuid) FOR UPDATE`);
+  const deletedAt = new Date();
+  const claimed = await tx.transaction.updateMany({
+    where: { id: record.id, deletedAt: null },
+    data: { deletedAt },
+  });
+  if (claimed.count !== 1) throw new AppError("CONFLICT", "Giao dịch đã được xóa trước đó.");
+  if (record.workflowStatus === "approved") await applyBalance(tx, record, true);
+  await tx.creditCardPaymentAllocation.deleteMany({ where: { paymentTransactionId: record.id } });
+  await tx.creditCardPaymentReservation.updateMany({
+    where: { paymentTransactionId: record.id, releasedAt: null },
+    data: { releasedAt: deletedAt },
+  });
+  if (record.workflowStatus === "approved") {
+    if (record.creditCardStatementId) {
+      const { totalRemaining } = await statementPaymentDetails(tx, record.creditCardStatementId);
+      if (totalRemaining.gt(0)) {
+        await tx.creditCardStatement.update({
+          where: { id: record.creditCardStatementId },
+          data: { status: "issued", paidAt: null },
+        });
+        await reopenUnpaidInstallmentPlansInTransaction(tx, record.creditCardStatementId);
+      }
+    }
+    await refreshHistoricalCardStatements(tx, workspaceId, record.walletId, asBusinessDate(record.date));
+    await assertCardBalanceReconciled(tx, record.walletId);
+  }
+}
+
+async function softDelete(tx: TransactionClient, workspaceId: string, record: Transaction) {
   await lockTransaction(tx, record.id);
   const current = await tx.transaction.findFirst({
     where: { id: record.id, deletedAt: null },
@@ -467,6 +467,10 @@ async function softDelete(tx: TransactionClient, record: Transaction) {
     },
   });
   if (!current) throw new AppError("NOT_FOUND", "Giao dịch không còn tồn tại.");
+  if (current.purpose === "credit_card_payment") {
+    await softDeleteCardPayment(tx, workspaceId, current);
+    return;
+  }
   if (current.installmentPlan?.status === "active" || current.installmentPlan?.status === "completed" || current.creditCardStatement) {
     throw new AppError("CONFLICT", "Giao dịch đã vào kế hoạch trả góp hoặc sao kê và không thể xóa.");
   }
@@ -558,6 +562,7 @@ export async function createTransaction(userId: string, workspaceId: string, inp
       await applyBalance(tx, record);
       if (resources.walletKind === "credit_card") {
         await syncCreditCardObligationsForTransaction(tx, workspaceId, record.id);
+        await refreshHistoricalCardStatements(tx, workspaceId, record.walletId, getBusinessDateInTimeZone(member.workspace.timeZone, now));
         await assertCardBalanceReconciled(tx, record.walletId);
       }
     }
@@ -626,6 +631,7 @@ export async function approveTransaction(userId: string, workspaceId: string, tr
       if (resources.walletKind === "credit_card" && record.purpose === "standard") {
         await syncCreditCardObligationsForTransaction(tx, workspaceId, record.id);
         if (record.installmentPlan?.status === "pending") await activateInstallmentPlanInTransaction(tx, workspaceId, record.installmentPlan.id);
+        await refreshHistoricalCardStatements(tx, workspaceId, record.walletId, today);
         await assertCardBalanceReconciled(tx, record.walletId);
       }
       if (record.purpose === "credit_card_payment") {
@@ -713,6 +719,7 @@ export async function activateDueScheduledTransactions(workspaceId: string, now 
         if (current.purpose === "credit_card_refund") await normalizeApprovedRefundAllocations(tx, current.id);
         await syncCreditCardObligationsForTransaction(tx, workspaceId, current.id);
         if (current.purpose === "standard" && current.installmentPlan?.status === "pending") await activateInstallmentPlanInTransaction(tx, workspaceId, current.installmentPlan.id);
+        if (current.purpose === "standard") await refreshHistoricalCardStatements(tx, workspaceId, current.walletId, asBusinessDate(dueDate));
       }
       if (resources.walletKind === "credit_card") await assertCardBalanceReconciled(tx, current.walletId);
       await tx.auditLog.create({ data: { workspaceId, action: "transaction.scheduled_activated", entityType: "transaction", entityId: current.id, metadata: { dueDate: asBusinessDate(current.date), jarCode: resources.jarCode } } });
@@ -765,12 +772,12 @@ export async function deleteOrRequestTransaction(userId: string, workspaceId: st
     if (!isAdminRole(member.role.code) && record.memberId !== member.id) {
       throw new AppError("FORBIDDEN", "Bạn chỉ có thể gửi yêu cầu xóa giao dịch do mình tạo.");
     }
-    if (record.purpose && record.purpose !== "standard" && record.purpose !== "credit_card_refund") throw new AppError("VALIDATION_ERROR", "Giao dịch thẻ chuyên biệt không thể xóa trực tiếp.");
     if (isAdminRole(member.role.code)) {
-      await softDelete(tx, record);
+      await softDelete(tx, workspaceId, record);
       await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.deleted", entityType: "transaction", entityId: record.id, metadata: { workflowStatus: record.workflowStatus, balanceReversed: record.workflowStatus === "approved" } } });
       return { kind: "deleted" as const, id: record.id };
     }
+    if (record.purpose && record.purpose !== "standard" && record.purpose !== "credit_card_refund") throw new AppError("VALIDATION_ERROR", "Giao dịch thẻ chuyên biệt không thể xóa trực tiếp.");
     if (!reason.trim()) {
       throw new AppError(
         "VALIDATION_ERROR",
@@ -818,7 +825,7 @@ export async function approveTransactionChange(userId: string, workspaceId: stri
     const claimed = await tx.transactionChangeRequest.updateMany({ where: { id: request.id, status: "pending" }, data: { status: "approved", reviewerMemberId: reviewer.id, reviewedAt: now } });
     if (claimed.count !== 1) throw new AppError("CONFLICT", "Yêu cầu thay đổi đã được xử lý.");
     const proposed = readProposedData(request.proposedData);
-    if (proposed.action === "delete") await softDelete(tx, request.transaction);
+    if (proposed.action === "delete") await softDelete(tx, workspaceId, request.transaction);
     if (proposed.action === "update") {
       await applyUpdate(tx, workspaceId, request.transaction, proposed.transaction, reviewer.workspace.timeZone, now);
     }

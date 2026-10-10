@@ -238,6 +238,98 @@ export async function generateDueCreditCardStatements(now = new Date()) {
   return { cards: cards.length, generated };
 }
 
+/** Rebuild billing snapshots after a historical purchase changes; actual payments stay intact. */
+export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: string, cardWalletId: string, today: string) {
+  await generateCardStatementsInTransaction(tx, workspaceId, cardWalletId, today);
+  const obligations = await tx.creditCardObligationEntry.findMany({
+    where: {
+      workspaceId, cardWalletId, source: "transaction",
+      transaction: { installmentPlan: null, installmentFeePlan: null },
+    },
+    orderBy: [{ postedDate: "asc" }, { id: "asc" }],
+  });
+  const profile = await tx.creditCardProfile.findUniqueOrThrow({ where: { walletId: cardWalletId } });
+  const first = await tx.creditCardStatement.findFirst({
+    where: { workspaceId, cardWalletId }, orderBy: { cycleEndDate: "asc" },
+  });
+  // A newly entered purchase can predate the first statement already on file.
+  if (first && obligations[0]) {
+    let cycleStart = isoDate(obligations[0].postedDate);
+    let cycleEnd = firstStatementOnOrAfter(cycleStart, profile.statementClosingDay);
+    while (cycleEnd < isoDate(first.cycleEndDate)) {
+      await tx.creditCardStatement.create({ data: {
+        workspaceId, cardWalletId, cycleStartDate: dbDate(cycleStart), cycleEndDate: dbDate(cycleEnd),
+        dueDate: dbDate(dueDateAfterStatement(cycleEnd, profile.paymentDueDay)), totalAmount: ZERO,
+        status: "issued",
+      } });
+      cycleStart = nextDay(cycleEnd);
+      cycleEnd = nextStatementDate(cycleEnd, profile.statementClosingDay);
+    }
+    if (cycleStart < isoDate(first.cycleStartDate)) {
+      await tx.creditCardStatement.update({ where: { id: first.id }, data: { cycleStartDate: dbDate(cycleStart) } });
+    }
+  }
+  const statements = await tx.creditCardStatement.findMany({
+    where: { workspaceId, cardWalletId }, orderBy: { cycleEndDate: "asc" },
+    include: {
+      items: { where: { isCarry: false }, orderBy: { createdAt: "asc" } },
+      payments: {
+        where: { workflowStatus: "approved", deletedAt: null },
+        include: { creditCardPaymentSources: true },
+      },
+    },
+  });
+  if (!statements.length) return;
+  const regularIds = obligations.map((entry) => entry.id);
+  const regularIdSet = new Set(regularIds);
+  await tx.creditCardStatementItem.deleteMany({ where: {
+    statement: { workspaceId, cardWalletId },
+    OR: [{ isCarry: true }, { obligationEntryId: { in: regularIds }, installmentId: null }],
+  } });
+  const itemsByStatement = new Map(statements.map((statement) => [
+    statement.id, statement.items.filter((item) => !regularIdSet.has(item.obligationEntryId) || item.installmentId !== null),
+  ]));
+  for (const obligation of obligations) {
+    const target = statements.find((statement) => statement.cycleEndDate >= obligation.postedDate);
+    if (!target) continue; // An open cycle is billed when its closing date arrives.
+    const item = await tx.creditCardStatementItem.create({ data: {
+      statementId: target.id, obligationEntryId: obligation.id,
+      fundingWalletId: obligation.fundingWalletId, amount: obligation.amount,
+    } });
+    itemsByStatement.get(target.id)!.push(item);
+  }
+  const carried = new Map<string, Decimal>();
+  const representative = new Map<string, string>();
+  for (const statement of statements) {
+    const totals = new Map(carried);
+    for (const [fundingWalletId, amount] of carried) {
+      if (amount.isZero()) continue;
+      await tx.creditCardStatementItem.create({ data: {
+        statementId: statement.id, obligationEntryId: representative.get(fundingWalletId)!,
+        fundingWalletId, amount, isCarry: true,
+      } });
+    }
+    for (const item of itemsByStatement.get(statement.id)!) {
+      totals.set(item.fundingWalletId, (totals.get(item.fundingWalletId) ?? ZERO).plus(item.amount.toString()));
+      representative.set(item.fundingWalletId, item.obligationEntryId);
+    }
+    const totalAmount = [...totals.values()].reduce((sum, amount) => sum.plus(Decimal.max(amount, ZERO)), ZERO);
+    for (const payment of statement.payments) for (const source of payment.creditCardPaymentSources) {
+      totals.set(source.sourceWalletId, (totals.get(source.sourceWalletId) ?? ZERO).minus(source.amount.toString()));
+    }
+    const remaining = [...totals.values()].reduce((sum, amount) => sum.plus(Decimal.max(amount, ZERO)), ZERO);
+    const rolledOver = statement.id !== statements[statements.length - 1].id;
+    const status = rolledOver || remaining.isZero() ? "paid" : "issued";
+    await tx.creditCardStatement.update({ where: { id: statement.id }, data: {
+      totalAmount, status, paidAt: status === "paid" ? (statement.paidAt ?? new Date()) : null,
+    } });
+    if (status === "issued") await reopenUnpaidInstallmentPlansInTransaction(tx, statement.id);
+    else await completePaidInstallmentPlansInTransaction(tx, statement.id);
+    carried.clear();
+    for (const [walletId, amount] of totals) carried.set(walletId, amount);
+  }
+}
+
 export async function generateWorkspaceCreditCardStatements(workspaceId: string, timeZone: string, now = new Date()) {
   const cards = await prisma.workspaceWallet.findMany({
     where: { workspaceId, wallet: { kind: "credit_card", status: "active", deletedAt: null } },
@@ -378,6 +470,16 @@ export async function completePaidInstallmentPlansInTransaction(tx: Tx, statemen
       });
     }
   }
+}
+
+export async function reopenUnpaidInstallmentPlansInTransaction(tx: Tx, statementId: string) {
+  await tx.creditCardInstallmentPlan.updateMany({
+    where: {
+      status: "completed",
+      installments: { some: { statementItems: { some: { statementId, statement: { status: "issued" } } } } },
+    },
+    data: { status: "active", completedAt: null },
+  });
 }
 
 export async function recalculateUnpaidStatementTotal(tx: Tx, statementId: string) {

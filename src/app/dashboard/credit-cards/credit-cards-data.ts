@@ -492,10 +492,10 @@ export async function getCreditCardsData() {
           transaction.purpose === "standard" &&
           !transaction.installmentPlan &&
           !transaction.creditCardStatementId &&
-          transaction.refundTransactions.length === 0 &&
-          !isPaidOrClosed;
+          transaction.refundTransactions.length === 0;
         const canDelete =
-          canModify ||
+          transaction.purpose === "credit_card_payment" ||
+          (canModify && !isPaidOrClosed) ||
           (transaction.purpose === "credit_card_refund" && !isPaidOrClosed);
         return {
           id: transaction.id,

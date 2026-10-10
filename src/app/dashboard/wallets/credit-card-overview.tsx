@@ -3945,7 +3945,9 @@ function CreditCardPanel({
           trigger={null}
           ariaLabel={`Xóa giao dịch ${deletingActivity.description || "chi tiêu thẻ"}`}
           title={
-            deletingActivity.purpose === "credit_card_refund"
+            deletingActivity.purpose === "credit_card_payment"
+              ? "Xóa giao dịch thanh toán thẻ?"
+              : deletingActivity.purpose === "credit_card_refund"
               ? (deletingActivity.description
                   ? `Xóa khoản hoàn tiền “${deletingActivity.description}”?`
                   : "Xóa khoản hoàn tiền này?")
@@ -3954,7 +3956,11 @@ function CreditCardPanel({
                   : "Xóa giao dịch chi tiêu này?")
           }
           description={
-            deletingActivity.purpose === "credit_card_refund"
+            deletingActivity.purpose === "credit_card_payment" && deletingActivity.status !== "approved"
+              ? "Giao dịch sẽ bị xóa và phần tiền giữ chỗ sẽ được giải phóng. Số dư thẻ và ví nguồn không thay đổi."
+              : deletingActivity.purpose === "credit_card_payment"
+              ? `Khoản thanh toán ${formatAmount(deletingActivity.amount)} ${currency} sẽ bị xóa, tiền được trả lại các ví nguồn và dư nợ thẻ tăng lại tương ứng. Sao kê và khoản trả góp liên quan sẽ được cập nhật lại.`
+              : deletingActivity.purpose === "credit_card_refund"
               ? `Khoản hoàn tiền ${formatAmount(deletingActivity.amount)} ${currency} sẽ bị xóa và dư nợ thẻ sẽ được khôi phục số tiền tương ứng.`
               : `Giao dịch ${formatAmount(deletingActivity.amount)} ${currency} sẽ bị xóa và dư nợ thẻ sẽ được giảm trừ số tiền tương ứng.`
           }
@@ -3968,6 +3974,7 @@ function CreditCardPanel({
               setDeletingActivity(null);
             } else {
               toast.error(res.message ?? "Không thể xóa giao dịch.");
+              return false;
             }
           }}
         />
