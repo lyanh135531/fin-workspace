@@ -294,11 +294,12 @@ export async function getCreditCardsData() {
       }
     }
 
-    const statementTotalPaid = approvedPayments.reduce(
+    const rawStatementPaid = approvedPayments.reduce(
       (sum, p) => sum.plus(p.amount.toString()),
       ZERO,
     );
     const statementTotalAmount = new Decimal(oldestStatement?.totalAmount.toString() ?? 0);
+    const statementTotalPaid = Decimal.min(statementTotalAmount, rawStatementPaid);
     const statementTotalRemaining = Decimal.max(statementTotalAmount.minus(statementTotalPaid), ZERO);
     const isPartiallyPaid = statementTotalPaid.gt(0) && statementTotalRemaining.gt(0);
     const hasCarriedBalance = oldestStatement?.items.some((item) => item.isCarry) ?? false;
@@ -358,8 +359,10 @@ export async function getCreditCardsData() {
       } : null,
       statements: profile.statements.map((statement) => {
         const approved = statement.payments.filter((p) => p.workflowStatus === "approved");
-        const paid = approved.reduce((sum, p) => sum.plus(p.amount.toString()), ZERO);
-        const remaining = Decimal.max(new Decimal(statement.totalAmount.toString()).minus(paid), ZERO);
+        const rawPaid = approved.reduce((sum, p) => sum.plus(p.amount.toString()), ZERO);
+        const stmtAmount = new Decimal(statement.totalAmount.toString());
+        const paid = Decimal.min(stmtAmount, rawPaid);
+        const remaining = Decimal.max(stmtAmount.minus(paid), ZERO);
         return {
           id: statement.id,
           cycleEndDate: statement.cycleEndDate.toISOString().slice(0, 10),

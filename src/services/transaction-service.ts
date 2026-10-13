@@ -13,7 +13,13 @@ import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { requireWorkspaceMember } from "@/services/workspace-access";
-import { assertCardBalanceReconciled, normalizeApprovedRefundAllocations, syncCreditCardObligationsForTransaction } from "@/services/credit-card-ledger";
+import {
+  allocateOldestObligations,
+  assertCardBalanceReconciled,
+  getCardObligationBalances,
+  normalizeApprovedRefundAllocations,
+  syncCreditCardObligationsForTransaction,
+} from "@/services/credit-card-ledger";
 import { activateInstallmentPlanInTransaction } from "@/services/credit-card-installment-service";
 import { completePaidInstallmentPlansInTransaction, recalculateUnpaidStatementTotal, refreshHistoricalCardStatements, reopenUnpaidInstallmentPlansInTransaction, statementPaymentDetails } from "@/services/credit-card-statement-service";
 
@@ -602,17 +608,15 @@ export async function approveTransaction(userId: string, workspaceId: string, tr
     });
     if (claimed.count !== 1) throw new AppError("CONFLICT", "Giao dịch đã được xử lý.");
     if (nextStatus === "approved") {
-      let paymentDetails: Awaited<ReturnType<typeof statementPaymentDetails>> | null = null;
       if (record.purpose === "credit_card_payment") {
         const sources = await tx.creditCardPaymentSource.findMany({ where: { paymentTransactionId: record.id } });
         for (const walletId of [...new Set([record.walletId, ...sources.map((source) => source.sourceWalletId)])].sort()) {
           await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "WALLETS" WHERE "id" = CAST(${walletId} AS uuid) FOR UPDATE`);
         }
         await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "CREDIT_CARD_OBLIGATION_ENTRY" WHERE "card_wallet_id" = CAST(${record.walletId} AS uuid) FOR UPDATE`);
-        if (!record.creditCardStatementId) throw new AppError("CONFLICT", "Thanh toán thẻ chưa gắn với sao kê.");
-        const paymentSources = sources.map((source) => ({ walletId: source.sourceWalletId, amount: source.amount }));
-        paymentDetails = await statementPaymentDetails(tx, record.creditCardStatementId, paymentSources);
-        const allocations = [...paymentDetails.allocations].map(([obligationEntryId, amount]) => ({ obligationEntryId, amount }));
+        const paymentSources = sources.map((source) => ({ walletId: source.sourceWalletId, amount: new Decimal(source.amount.toString()) }));
+        const entries = await getCardObligationBalances(tx, record.walletId);
+        const allocations = allocateOldestObligations(entries, paymentSources);
         await tx.creditCardPaymentAllocation.createMany({
           data: allocations.map((allocation) => ({ paymentTransactionId: record.id, ...allocation })),
         });
@@ -622,8 +626,9 @@ export async function approveTransaction(userId: string, workspaceId: string, tr
         });
       }
       await applyBalance(tx, record);
-      if (record.purpose === "credit_card_payment" && record.creditCardStatementId && paymentDetails) {
-        if (paymentDetails.totalRemaining.minus(record.amount.toString()).lte(0)) {
+      if (record.purpose === "credit_card_payment" && record.creditCardStatementId) {
+        const statementDetails = await statementPaymentDetails(tx, record.creditCardStatementId);
+        if (statementDetails.totalRemaining.lte(0)) {
           await tx.creditCardStatement.update({ where: { id: record.creditCardStatementId }, data: { status: "paid", paidAt: new Date() } });
           await completePaidInstallmentPlansInTransaction(tx, record.creditCardStatementId);
         }
@@ -694,23 +699,22 @@ export async function activateDueScheduledTransactions(workspaceId: string, now 
         : { jarCode: current.jarCode, walletKind: "credit_card" as const };
       const claimed = await tx.transaction.updateMany({ where: { id: current.id, workflowStatus: "scheduled", deletedAt: null }, data: { workflowStatus: "approved", jarCode: resources.jarCode } });
       if (claimed.count !== 1) continue;
-      let scheduledPaymentDetails: Awaited<ReturnType<typeof statementPaymentDetails>> | null = null;
       if (current.purpose === "credit_card_payment") {
         const sources = await tx.creditCardPaymentSource.findMany({ where: { paymentTransactionId: current.id } });
         for (const walletId of [...new Set([current.walletId, ...sources.map((source) => source.sourceWalletId)])].sort()) {
           await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "WALLETS" WHERE "id" = CAST(${walletId} AS uuid) FOR UPDATE`);
         }
         await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "CREDIT_CARD_OBLIGATION_ENTRY" WHERE "card_wallet_id" = CAST(${current.walletId} AS uuid) FOR UPDATE`);
-        if (!current.creditCardStatementId) throw new AppError("CONFLICT", "Thanh toán thẻ chưa gắn với sao kê.");
-        const paymentSources = sources.map((source) => ({ walletId: source.sourceWalletId, amount: source.amount }));
-        scheduledPaymentDetails = await statementPaymentDetails(tx, current.creditCardStatementId, paymentSources);
-        const allocations = [...scheduledPaymentDetails.allocations].map(([obligationEntryId, amount]) => ({ obligationEntryId, amount }));
+        const paymentSources = sources.map((source) => ({ walletId: source.sourceWalletId, amount: new Decimal(source.amount.toString()) }));
+        const entries = await getCardObligationBalances(tx, current.walletId);
+        const allocations = allocateOldestObligations(entries, paymentSources);
         await tx.creditCardPaymentAllocation.createMany({ data: allocations.map((allocation) => ({ paymentTransactionId: current.id, ...allocation })) });
         await tx.creditCardPaymentReservation.updateMany({ where: { paymentTransactionId: current.id, releasedAt: null }, data: { releasedAt: new Date() } });
       }
       await applyBalance(tx, current);
-      if (current.purpose === "credit_card_payment" && current.creditCardStatementId && scheduledPaymentDetails) {
-        if (scheduledPaymentDetails.totalRemaining.minus(current.amount.toString()).lte(0)) {
+      if (current.purpose === "credit_card_payment" && current.creditCardStatementId) {
+        const statementDetails = await statementPaymentDetails(tx, current.creditCardStatementId);
+        if (statementDetails.totalRemaining.lte(0)) {
           await tx.creditCardStatement.update({ where: { id: current.creditCardStatementId }, data: { status: "paid", paidAt: new Date() } });
           await completePaidInstallmentPlansInTransaction(tx, current.creditCardStatementId);
         }

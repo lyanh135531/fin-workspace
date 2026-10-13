@@ -217,6 +217,51 @@ describe("admin credit card payment deletion", () => {
     expect(tx.wallet.update).toHaveBeenCalledTimes(3);
   });
 
+  it("approves a pending credit card current-debt payment without statement", async () => {
+    const record = {
+      ...transaction, id: "payment-curr-1", memberId: "member-1", walletId: "card-1",
+      purpose: "credit_card_payment", type: "transfer", workflowStatus: "pending",
+      amount: new Decimal("50"), creditCardStatementId: null,
+      wallet: { kind: "credit_card", currentBalance: new Decimal("50") },
+    };
+    const sources = [
+      { sourceWalletId: "source-1", amount: new Decimal("50") },
+    ];
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      transaction: {
+        findFirst: vi.fn().mockResolvedValue(record),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue({ id: "payment-curr-1", workflowStatus: "approved" }),
+      },
+      wallet: {
+        findUniqueOrThrow: vi.fn().mockResolvedValue({ kind: "credit_card", currentBalance: new Decimal("50") }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      creditCardPaymentSource: { findMany: vi.fn().mockResolvedValue(sources) },
+      creditCardPaymentAllocation: { createMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      creditCardPaymentReservation: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      creditCardObligationEntry: {
+        findMany: vi.fn().mockResolvedValue([{
+          id: "obl-1", fundingWalletId: "source-1", amount: new Decimal("50"), paymentAllocations: [], postedDate: new Date("2026-08-01"),
+        }]),
+      },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+    };
+    vi.mocked(requireWorkspaceMember).mockResolvedValue({
+      id: "admin-member", role: { code: "ADMIN" }, workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+    } as Awaited<ReturnType<typeof requireWorkspaceMember>>);
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback) =>
+      (callback as (client: unknown) => Promise<unknown>)(tx));
+    await expect(approveTransaction("admin-user", "workspace-1", "payment-curr-1")).resolves.toEqual({
+      id: "payment-curr-1", workflowStatus: "approved",
+    });
+    expect(tx.creditCardPaymentAllocation.createMany).toHaveBeenCalledWith({
+      data: [{ paymentTransactionId: "payment-curr-1", obligationEntryId: "obl-1", amount: new Decimal("50") }],
+    });
+    expect(tx.creditCardPaymentReservation.updateMany).toHaveBeenCalled();
+  });
+
   it("rejects a reversal that would leave the cached debt inconsistent with obligations", async () => {
     const tx = paymentClient();
     tx.wallet.findUniqueOrThrow.mockResolvedValue({ kind: "credit_card", currentBalance: new Decimal("999") });

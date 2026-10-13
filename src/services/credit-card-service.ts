@@ -12,7 +12,10 @@ import { getBusinessDateInTimeZone } from "@/lib/date";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import {
+  allocateOldestObligations,
   assertCardBalanceReconciled,
+  cardOutstanding,
+  getCardObligationBalances,
   normalizeApprovedRefundAllocations,
   syncCreditCardObligationsForTransaction,
 } from "@/services/credit-card-ledger";
@@ -79,41 +82,103 @@ export async function createCreditCardPayment(
       throw new AppError("WORKSPACE_ISOLATION_VIOLATION", "Nguồn thanh toán phải là ví tài sản đang hoạt động trong nhóm này.");
     }
 
-    const oldest = await tx.creditCardStatement.findFirst({
-      where: { workspaceId, cardWalletId: input.cardWalletId, status: "issued" },
-      orderBy: [{ cycleEndDate: "asc" }, { createdAt: "asc" }],
-      select: { id: true },
-    });
-    if (!oldest || oldest.id !== input.statementId) throw new AppError("CONFLICT", "Hãy thanh toán sao kê cũ nhất trước.");
-    const { statement, dueByWallet, totalRemaining, allocations } = await statementPaymentDetails(tx, input.statementId, input.sources);
-    if (statement.status !== "issued" || statement.cardWalletId !== input.cardWalletId || statement.workspaceId !== workspaceId) {
-      throw new AppError("CONFLICT", "Sao kê không còn khả dụng để thanh toán.");
-    }
-    const pendingPayment = await tx.transaction.findFirst({
-      where: { creditCardStatementId: statement.id, workflowStatus: { in: ["pending", "scheduled"] }, deletedAt: null },
-      select: { id: true },
-    });
-    if (pendingPayment) throw new AppError("CONFLICT", "Sao kê đang có giao dịch thanh toán chờ duyệt.");
-    if (!totalRemaining.gt(0)) {
-      throw new AppError("CONFLICT", "Sao kê đã được thanh toán đầy đủ.");
-    }
-    const supplied = new Map(input.sources.map((source) => [source.walletId, new Decimal(source.amount)]));
-    for (const [walletId, amount] of supplied) {
-      if (!amount.gt(0)) {
-        throw new AppError("VALIDATION_ERROR", "Số tiền thanh toán từ mỗi ví phải lớn hơn 0.");
-      }
-      const maxDue = dueByWallet.get(walletId) ?? ZERO;
-      if (amount.gt(maxDue)) {
-        throw new AppError("VALIDATION_ERROR", `Số tiền trích từ ví vượt quá số còn thiếu của ví (${maxDue.toString()}).`);
-      }
-    }
-    const total = [...supplied.values()].reduce((sum, amount) => sum.plus(amount), ZERO);
-    if (!total.gt(0) || total.gt(totalRemaining)) {
-      throw new AppError("VALIDATION_ERROR", "Tổng số tiền thanh toán không hợp lệ.");
-    }
+    const isPayingCurrentDebt = input.target === "current_debt" || !input.statementId;
 
-    const isFullPayment = total.gte(totalRemaining);
-    const defaultDescription = isFullPayment ? "Thanh toán sao kê thẻ tín dụng" : "Thanh toán trước một phần sao kê";
+    let statementIdToLink: string | null = null;
+    let isFullPayment = false;
+    let defaultDescription = "";
+    let total = ZERO;
+    let allocationsToCreate: Array<{ obligationEntryId: string; amount: Decimal }> = [];
+    let statementToComplete: string | null = null;
+
+    if (!isPayingCurrentDebt) {
+      const oldest = await tx.creditCardStatement.findFirst({
+        where: { workspaceId, cardWalletId: input.cardWalletId, status: "issued" },
+        orderBy: [{ cycleEndDate: "asc" }, { createdAt: "asc" }],
+        select: { id: true },
+      });
+      if (!oldest || oldest.id !== input.statementId) throw new AppError("CONFLICT", "Hãy thanh toán sao kê cũ nhất trước.");
+      const { statement, dueByWallet, totalRemaining, allocations } = await statementPaymentDetails(tx, input.statementId!, input.sources);
+      if (statement.status !== "issued" || statement.cardWalletId !== input.cardWalletId || statement.workspaceId !== workspaceId) {
+        throw new AppError("CONFLICT", "Sao kê không còn khả dụng để thanh toán.");
+      }
+      const pendingPayment = await tx.transaction.findFirst({
+        where: { creditCardStatementId: statement.id, workflowStatus: { in: ["pending", "scheduled"] }, deletedAt: null },
+        select: { id: true },
+      });
+      if (pendingPayment) throw new AppError("CONFLICT", "Sao kê đang có giao dịch thanh toán chờ duyệt.");
+      if (!totalRemaining.gt(0)) {
+        throw new AppError("CONFLICT", "Sao kê đã được thanh toán đầy đủ.");
+      }
+      const supplied = new Map(input.sources.map((source) => [source.walletId, new Decimal(source.amount)]));
+      for (const [walletId, amount] of supplied) {
+        if (!amount.gt(0)) {
+          throw new AppError("VALIDATION_ERROR", "Số tiền thanh toán từ mỗi ví phải lớn hơn 0.");
+        }
+        const maxDue = dueByWallet.get(walletId) ?? ZERO;
+        if (amount.gt(maxDue)) {
+          throw new AppError("VALIDATION_ERROR", `Số tiền trích từ ví vượt quá số còn thiếu của ví (${maxDue.toString()}).`);
+        }
+      }
+      total = [...supplied.values()].reduce((sum, amount) => sum.plus(amount), ZERO);
+      if (!total.gt(0) || total.gt(totalRemaining)) {
+        throw new AppError("VALIDATION_ERROR", "Tổng số tiền thanh toán không hợp lệ.");
+      }
+      isFullPayment = total.gte(totalRemaining);
+      defaultDescription = isFullPayment ? "Thanh toán sao kê thẻ tín dụng" : "Thanh toán trước một phần sao kê";
+      statementIdToLink = statement.id;
+      if (isFullPayment) {
+        statementToComplete = statement.id;
+      }
+      allocationsToCreate = [...allocations].map(([obligationEntryId, amount]) => ({ obligationEntryId, amount }));
+    } else {
+      const pendingPayment = await tx.transaction.findFirst({
+        where: {
+          walletId: input.cardWalletId,
+          purpose: "credit_card_payment",
+          workflowStatus: { in: ["pending", "scheduled"] },
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+      if (pendingPayment) throw new AppError("CONFLICT", "Thẻ đang có giao dịch thanh toán chờ duyệt.");
+
+      const totalOutstanding = await cardOutstanding(tx, input.cardWalletId);
+      if (!totalOutstanding.gt(0)) {
+        throw new AppError("CONFLICT", "Thẻ không có dư nợ cần thanh toán.");
+      }
+
+      const entries = await getCardObligationBalances(tx, input.cardWalletId);
+      const supplied = new Map(input.sources.map((source) => [source.walletId, new Decimal(source.amount)]));
+      for (const [, amount] of supplied) {
+        if (!amount.gt(0)) {
+          throw new AppError("VALIDATION_ERROR", "Số tiền thanh toán từ mỗi ví phải lớn hơn 0.");
+        }
+      }
+      total = [...supplied.values()].reduce((sum, amount) => sum.plus(amount), ZERO);
+      if (!total.gt(0) || total.gt(totalOutstanding)) {
+        throw new AppError("VALIDATION_ERROR", "Tổng số tiền thanh toán không hợp lệ.");
+      }
+
+      const paymentSources = input.sources.map((source) => ({ walletId: source.walletId, amount: new Decimal(source.amount) }));
+      allocationsToCreate = allocateOldestObligations(entries, paymentSources);
+
+      const oldestStatement = await tx.creditCardStatement.findFirst({
+        where: { workspaceId, cardWalletId: input.cardWalletId, status: "issued" },
+        orderBy: [{ cycleEndDate: "asc" }, { createdAt: "asc" }],
+        select: { id: true },
+      });
+      statementIdToLink = oldestStatement?.id ?? null;
+      if (oldestStatement) {
+        const { totalRemaining: statementRemaining } = await statementPaymentDetails(tx, oldestStatement.id);
+        if (total.gte(statementRemaining)) {
+          statementToComplete = oldestStatement.id;
+        }
+      }
+
+      isFullPayment = total.gte(totalOutstanding);
+      defaultDescription = isFullPayment ? "Thanh toán toàn bộ dư nợ hiện tại" : "Thanh toán một phần dư nợ thẻ";
+    }
 
     const record = await tx.transaction.create({
       data: {
@@ -126,7 +191,7 @@ export async function createCreditCardPayment(
         date: databaseDate(input.date),
         postedDate: databaseDate(input.date),
         workflowStatus,
-        creditCardStatementId: statement.id,
+        creditCardStatementId: statementIdToLink,
         creditCardPaymentSources: {
           create: input.sources.map((source) => ({ sourceWalletId: source.walletId, amount: source.amount })),
         },
@@ -134,12 +199,18 @@ export async function createCreditCardPayment(
     });
     if (workflowStatus === "approved") {
       await tx.creditCardPaymentAllocation.createMany({
-        data: [...allocations].map(([obligationEntryId, amount]) => ({ paymentTransactionId: record.id, obligationEntryId, amount })),
+        data: allocationsToCreate.map((allocation) => ({ paymentTransactionId: record.id, ...allocation })),
       });
       await applyBalance(tx, record);
-      if (isFullPayment) {
-        await tx.creditCardStatement.update({ where: { id: statement.id }, data: { status: "paid", paidAt: new Date() } });
-        await completePaidInstallmentPlansInTransaction(tx, statement.id);
+      if (statementToComplete) {
+        await tx.creditCardStatement.update({ where: { id: statementToComplete }, data: { status: "paid", paidAt: new Date() } });
+        await completePaidInstallmentPlansInTransaction(tx, statementToComplete);
+      } else if (statementIdToLink) {
+        const { totalRemaining } = await statementPaymentDetails(tx, statementIdToLink);
+        if (totalRemaining.lte(0)) {
+          await tx.creditCardStatement.update({ where: { id: statementIdToLink }, data: { status: "paid", paidAt: new Date() } });
+          await completePaidInstallmentPlansInTransaction(tx, statementIdToLink);
+        }
       }
       await assertCardBalanceReconciled(tx, input.cardWalletId);
     } else {

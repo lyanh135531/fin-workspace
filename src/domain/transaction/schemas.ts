@@ -81,14 +81,22 @@ export type CreateTransactionInput = z.output<typeof createTransactionSchema>;
 
 export const createCreditCardPaymentSchema = z.object({
   cardWalletId: idSchema,
-  statementId: idSchema,
+  statementId: idSchema.optional().nullable(),
+  target: z.enum(["statement", "current_debt"]).optional(),
   date: businessDateSchema,
   description: optionalTrimmedTextSchema,
   sources: z.array(z.object({
     walletId: idSchema,
     amount: positiveMoneySchema,
   })).min(1).max(50),
-}).superRefine(({ sources }, ctx) => {
+}).superRefine(({ sources, target, statementId }, ctx) => {
+  if (target === "statement" && !statementId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["statementId"],
+      message: "Vui lòng chọn sao kê để thanh toán.",
+    });
+  }
   const keys = sources.map((source) => source.walletId);
   if (new Set(keys).size !== keys.length) {
     ctx.addIssue({

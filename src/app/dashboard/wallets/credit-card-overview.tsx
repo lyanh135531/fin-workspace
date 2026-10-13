@@ -659,7 +659,7 @@ function CreditCardPanel({
   const [confirmLossChecked, setConfirmLossChecked] = useState(false);
 
   const [paymentConfirmOpen, setPaymentConfirmOpen] = useState(false);
-  const [paymentMode, setPaymentMode] = useState<"full" | "partial">("full");
+  const [paymentTargetMode, setPaymentTargetMode] = useState<"statement" | "current_debt" | "custom">("statement");
   const [partialPaymentAmount, setPartialPaymentAmount] = useState<string>("");
   const [customSourcesMode, setCustomSourcesMode] = useState(false);
   const [customSourcesMap, setCustomSourcesMap] = useState<Record<string, string>>({});
@@ -887,12 +887,36 @@ function CreditCardPanel({
     }, new Decimal(0));
   }, [activeInstallmentPlans]);
 
-  const hasMultipleSources = (card.statement?.sources.length ?? 0) > 1;
-
   const statementRemaining = useMemo(() => {
     if (!card.statement) return new Decimal(0);
     return new Decimal(card.statement.remainingAmount ?? card.statement.amount ?? 0);
   }, [card.statement]);
+
+  const hasStatementDebt = useMemo(() => {
+    return Boolean(card.statement && card.statement.status !== "paid" && statementRemaining.gt(0));
+  }, [card.statement, statementRemaining]);
+
+  const targetMaxAmount = useMemo(() => {
+    if (paymentTargetMode === "statement") return statementRemaining;
+    return debtDecimal.gt(0) ? debtDecimal : statementRemaining;
+  }, [paymentTargetMode, statementRemaining, debtDecimal]);
+
+  const unbilledAmount = useMemo(() => {
+    return Decimal.max(debtDecimal.minus(statementRemaining), 0);
+  }, [debtDecimal, statementRemaining]);
+
+  const basePaymentSources = useMemo(() => {
+    if (paymentTargetMode === "statement") {
+      return card.statement?.sources ?? [];
+    }
+    const shares = card.fundingShares
+      .map((s) => ({ walletId: s.walletId, amount: s.outstanding }))
+      .filter((s) => new Decimal(s.amount).gt(0));
+    if (shares.length > 0) return shares;
+    return card.statement?.sources ?? [];
+  }, [paymentTargetMode, card.statement, card.fundingShares]);
+
+  const hasMultipleSources = basePaymentSources.length > 1;
 
   const customSourcesTotal = useMemo(() => {
     if (!customSourcesMode) return new Decimal(0);
@@ -909,21 +933,22 @@ function CreditCardPanel({
   }, [customSourcesMode, customSourcesMap]);
 
   const effectivePaymentAmount = useMemo(() => {
-    if (paymentMode === "full") return statementRemaining;
     if (customSourcesMode) return customSourcesTotal;
+    if (paymentTargetMode === "statement") return statementRemaining;
+    if (paymentTargetMode === "current_debt") return debtDecimal;
     try {
       const val = new Decimal(partialPaymentAmount || 0);
       return val.gt(0) ? val : new Decimal(0);
     } catch {
       return new Decimal(0);
     }
-  }, [paymentMode, customSourcesMode, customSourcesTotal, partialPaymentAmount, statementRemaining]);
+  }, [customSourcesMode, customSourcesTotal, paymentTargetMode, statementRemaining, debtDecimal, partialPaymentAmount]);
 
   const isCustomSourcesValid = useMemo(() => {
     if (!customSourcesMode) return true;
-    if (!card.statement) return false;
+    if (basePaymentSources.length === 0) return false;
     let anyPositive = false;
-    for (const src of card.statement.sources) {
+    for (const src of basePaymentSources) {
       const valStr = customSourcesMap[src.walletId] ?? "";
       if (!valStr || valStr === "0") continue;
       try {
@@ -935,27 +960,25 @@ function CreditCardPanel({
         return false;
       }
     }
-    return anyPositive && customSourcesTotal.gt(0) && customSourcesTotal.lte(statementRemaining);
-  }, [customSourcesMode, card.statement, customSourcesMap, customSourcesTotal, statementRemaining]);
+    return anyPositive && customSourcesTotal.gt(0) && customSourcesTotal.lte(targetMaxAmount);
+  }, [customSourcesMode, basePaymentSources, customSourcesMap, customSourcesTotal, targetMaxAmount]);
 
-  const isPartialPaymentValid = useMemo(() => {
-    if (paymentMode === "full") return statementRemaining.gt(0);
+  const isPaymentValid = useMemo(() => {
     if (customSourcesMode) return isCustomSourcesValid;
-    return effectivePaymentAmount.gt(0) && effectivePaymentAmount.lte(statementRemaining);
-  }, [paymentMode, customSourcesMode, isCustomSourcesValid, effectivePaymentAmount, statementRemaining]);
+    if (paymentTargetMode === "statement") return statementRemaining.gt(0);
+    if (paymentTargetMode === "current_debt") return debtDecimal.gt(0);
+    return effectivePaymentAmount.gt(0) && effectivePaymentAmount.lte(targetMaxAmount);
+  }, [customSourcesMode, isCustomSourcesValid, paymentTargetMode, statementRemaining, debtDecimal, effectivePaymentAmount, targetMaxAmount]);
 
   const remainingAfterPayment = useMemo(() => {
-    return Decimal.max(statementRemaining.minus(effectivePaymentAmount), 0);
-  }, [statementRemaining, effectivePaymentAmount]);
+    return Decimal.max(targetMaxAmount.minus(effectivePaymentAmount), 0);
+  }, [targetMaxAmount, effectivePaymentAmount]);
 
   const computedPaymentSources = useMemo(() => {
-    if (!card.statement) return [];
-    if (paymentMode === "full" || effectivePaymentAmount.gte(statementRemaining)) {
-      return card.statement.sources;
-    }
+    if (basePaymentSources.length === 0) return [];
     if (customSourcesMode) {
       const result: Array<{ walletId: string; amount: string }> = [];
-      for (const src of card.statement.sources) {
+      for (const src of basePaymentSources) {
         const valStr = customSourcesMap[src.walletId] ?? "";
         try {
           const d = new Decimal(valStr || 0);
@@ -968,10 +991,16 @@ function CreditCardPanel({
       }
       return result;
     }
+    if (paymentTargetMode === "statement") {
+      return card.statement?.sources ?? [];
+    }
+    if (paymentTargetMode === "current_debt" || effectivePaymentAmount.gte(targetMaxAmount)) {
+      return basePaymentSources;
+    }
     if (!effectivePaymentAmount.gt(0)) return [];
     let allocated = new Decimal(0);
     const result: Array<{ walletId: string; amount: string }> = [];
-    const validSources = card.statement.sources.filter((s) => new Decimal(s.amount).gt(0));
+    const validSources = basePaymentSources.filter((s) => new Decimal(s.amount).gt(0));
     for (let i = 0; i < validSources.length; i++) {
       const src = validSources[i];
       if (i === validSources.length - 1) {
@@ -980,7 +1009,7 @@ function CreditCardPanel({
           result.push({ walletId: src.walletId, amount: finalAmt.toFixed(0) });
         }
       } else {
-        const share = effectivePaymentAmount.mul(new Decimal(src.amount)).div(statementRemaining).floor();
+        const share = effectivePaymentAmount.mul(new Decimal(src.amount)).div(targetMaxAmount).floor();
         allocated = allocated.plus(share);
         if (share.gt(0)) {
           result.push({ walletId: src.walletId, amount: share.toFixed(0) });
@@ -988,10 +1017,9 @@ function CreditCardPanel({
       }
     }
     return result;
-  }, [card.statement, paymentMode, customSourcesMode, customSourcesMap, effectivePaymentAmount, statementRemaining]);
+  }, [basePaymentSources, customSourcesMode, paymentTargetMode, effectivePaymentAmount, targetMaxAmount, card.statement, customSourcesMap]);
 
   function enableCustomSources() {
-    if (!card.statement) return;
     const initialMap: Record<string, string> = {};
     for (const src of computedPaymentSources) {
       initialMap[src.walletId] = src.amount;
@@ -1008,19 +1036,19 @@ function CreditCardPanel({
   }
 
   function applyQuickChip(fraction: number) {
-    const amt = statementRemaining.mul(fraction).floor();
+    const amt = targetMaxAmount.mul(fraction).floor();
     setPartialPaymentAmount(amt.toString());
     if (customSourcesMode) {
       let allocated = new Decimal(0);
       const newMap: Record<string, string> = {};
-      const validSources = card.statement?.sources.filter((s) => new Decimal(s.amount).gt(0)) ?? [];
+      const validSources = basePaymentSources.filter((s) => new Decimal(s.amount).gt(0));
       for (let i = 0; i < validSources.length; i++) {
         const src = validSources[i];
         if (i === validSources.length - 1) {
           const finalAmt = amt.minus(allocated);
           newMap[src.walletId] = Decimal.max(finalAmt, 0).toFixed(0);
         } else {
-          const share = amt.mul(new Decimal(src.amount)).div(statementRemaining).floor();
+          const share = amt.mul(new Decimal(src.amount)).div(targetMaxAmount).floor();
           allocated = allocated.plus(share);
           newMap[src.walletId] = share.toFixed(0);
         }
@@ -1030,31 +1058,38 @@ function CreditCardPanel({
   }
 
   function payStatement() {
-    if (!card.statement || !isPartialPaymentValid) return;
+    if (!isPaymentValid) return;
     const sourcesToPay = computedPaymentSources;
     if (sourcesToPay.length === 0) return;
-    const isFull = paymentMode === "full" || effectivePaymentAmount.gte(statementRemaining);
+    const target = paymentTargetMode === "statement" ? "statement" : "current_debt";
+    const isFull = (paymentTargetMode === "statement" && effectivePaymentAmount.gte(statementRemaining)) ||
+      (paymentTargetMode === "current_debt" && effectivePaymentAmount.gte(debtDecimal));
+    const description = paymentTargetMode === "statement"
+      ? (isFull ? "Thanh toán toàn bộ sao kê kỳ này" : `Thanh toán một phần sao kê (${formatAmount(effectivePaymentAmount)} ${currency})`)
+      : (isFull ? "Thanh toán toàn bộ dư nợ hiện tại" : `Thanh toán một phần dư nợ thẻ (${formatAmount(effectivePaymentAmount)} ${currency})`);
+
     startTransition(async () => {
       const result = await payCreditCardAction(workspaceId, {
         cardWalletId: card.id,
-        statementId: card.statement!.id,
+        statementId: target === "statement" && card.statement ? card.statement.id : undefined,
+        target,
         date: businessDate,
         sources: sourcesToPay,
-        description: isFull
-          ? "Thanh toán toàn bộ sao kê kỳ này"
-          : `Thanh toán trước một phần (${formatAmount(effectivePaymentAmount)} ${currency})`,
+        description,
       });
       if (!result.ok) {
-        toast.error(result.message ?? "Không thể thanh toán sao kê.");
+        toast.error(result.message ?? "Không thể thanh toán nợ thẻ.");
         return;
       }
       toast.success(
         result.status === "approved"
-          ? (isFull ? "Thanh toán sao kê thành công." : "Thanh toán trước một phần thành công.")
-          : "Đã gửi yêu cầu thanh toán sao kê chờ duyệt.",
+          ? (isFull
+              ? (target === "statement" ? "Thanh toán sao kê thành công." : "Thanh toán toàn bộ dư nợ thẻ thành công.")
+              : "Thanh toán một phần thành công.")
+          : "Đã gửi yêu cầu thanh toán thẻ chờ duyệt.",
       );
       setPaymentConfirmOpen(false);
-      setPaymentMode("full");
+      setPaymentTargetMode(hasStatementDebt ? "statement" : "current_debt");
       setPartialPaymentAmount("");
       setCustomSourcesMode(false);
       setCustomSourcesMap({});
@@ -1764,21 +1799,31 @@ function CreditCardPanel({
 
                 {/* Toolbar các nút: Thanh toán sao kê (nổi bật nếu có) + Nhập trả góp + Menu 3 chấm */}
                 <div className="flex items-center gap-2 shrink-0">
-                  {card.statement && card.statement.status !== "paid" && new Decimal(card.statement.remainingAmount ?? card.statement.amount ?? 0).gt(0) && (
+                  {(hasStatementDebt || hasDebt) && (
                     <Button
                       type="button"
                       variant="default"
                       size="sm"
-                      disabled={pending || card.statement.paymentPending}
+                      disabled={pending || Boolean(card.statement?.paymentPending) || pendingDecimal.gt(0)}
                       onClick={() => {
-                        setPaymentMode("full");
+                        setPaymentTargetMode(hasStatementDebt ? "statement" : "current_debt");
                         setPartialPaymentAmount("");
+                        setCustomSourcesMode(false);
+                        setCustomSourcesMap({});
                         setPaymentConfirmOpen(true);
                       }}
                       className="gap-1.5 h-8 text-xs font-semibold"
                     >
                       <CheckCircle2 size={13} aria-hidden="true" />
-                      <span>{card.statement.paymentPending ? "Đang chờ duyệt thanh toán" : card.statement.isPartiallyPaid ? "Tiếp tục thanh toán sao kê" : "Thanh toán sao kê"}</span>
+                      <span>
+                        {Boolean(card.statement?.paymentPending) || pendingDecimal.gt(0)
+                          ? "Đang chờ duyệt thanh toán"
+                          : card.statement?.isPartiallyPaid
+                            ? "Tiếp tục thanh toán"
+                            : hasStatementDebt
+                              ? "Thanh toán sao kê"
+                              : "Thanh toán nợ thẻ"}
+                      </span>
                     </Button>
                   )}
                   {canManage && (
@@ -2259,18 +2304,32 @@ function CreditCardPanel({
                     >
                       {card.statement && (
                         <>
-                          <DropdownMenuItem
-                            disabled={
-                              pending ||
-                              card.statement.paymentPending ||
-                              !new Decimal(card.statement.amount || 0).gt(0)
-                            }
-                            onClick={() => setPaymentConfirmOpen(true)}
-                            className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-semibold !rounded-lg cursor-pointer text-[var(--primary)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10"
-                          >
-                            <CheckCircle2 className="size-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
-                            <span>{card.statement.paymentPending ? "Đang chờ duyệt thanh toán" : "Thanh toán sao kê"}</span>
-                          </DropdownMenuItem>
+                      {(hasStatementDebt || hasDebt) && (
+                        <DropdownMenuItem
+                          disabled={
+                            pending ||
+                            Boolean(card.statement?.paymentPending) ||
+                            pendingDecimal.gt(0)
+                          }
+                          onClick={() => {
+                            setPaymentTargetMode(hasStatementDebt ? "statement" : "current_debt");
+                            setPartialPaymentAmount("");
+                            setCustomSourcesMode(false);
+                            setCustomSourcesMap({});
+                            setPaymentConfirmOpen(true);
+                          }}
+                          className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-semibold !rounded-lg cursor-pointer text-[var(--primary)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10"
+                        >
+                          <CheckCircle2 className="size-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                          <span>
+                            {Boolean(card.statement?.paymentPending) || pendingDecimal.gt(0)
+                              ? "Đang chờ duyệt thanh toán"
+                              : hasStatementDebt
+                                ? "Thanh toán sao kê"
+                                : "Thanh toán nợ thẻ"}
+                          </span>
+                        </DropdownMenuItem>
+                      )}
                           <DropdownMenuItem
                             onClick={() => setStatementDetailOpen(true)}
                             className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium !rounded-lg cursor-pointer text-[var(--foreground)]"
@@ -2537,18 +2596,21 @@ function CreditCardPanel({
                       size="default"
                       disabled={
                         pending ||
-                        card.statement.paymentPending ||
-                        !new Decimal(card.statement.remainingAmount ?? card.statement.amount ?? 0).gt(0)
+                        Boolean(card.statement.paymentPending) ||
+                        pendingDecimal.gt(0) ||
+                        !statementRemaining.gt(0)
                       }
                       onClick={() => {
-                        setPaymentMode("full");
+                        setPaymentTargetMode("statement");
                         setPartialPaymentAmount("");
+                        setCustomSourcesMode(false);
+                        setCustomSourcesMap({});
                         setPaymentConfirmOpen(true);
                       }}
                       className="w-full gap-2 font-semibold"
                     >
                       <CheckCircle2 size={16} aria-hidden="true" />
-                      <span>{card.statement.paymentPending ? "Đang chờ duyệt thanh toán" : card.statement.isPartiallyPaid ? "Tiếp tục thanh toán" : "Thanh toán ngay"}</span>
+                      <span>{Boolean(card.statement.paymentPending) || pendingDecimal.gt(0) ? "Đang chờ duyệt thanh toán" : card.statement.isPartiallyPaid ? "Tiếp tục thanh toán" : "Thanh toán ngay"}</span>
                     </Button>
 
                     {/* Footer: Funding Source + Statement Details Link */}
@@ -2576,6 +2638,39 @@ function CreditCardPanel({
                     </div>
                   </div>
                 </section>
+              ) : hasDebt ? (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/20 p-4 text-xs">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 font-semibold text-[var(--foreground)]">
+                      <Wallet className="size-4 text-[var(--primary)] shrink-0" aria-hidden="true" />
+                      <span>Dư nợ hiện tại: {formatAmount(card.debt)} {currency}</span>
+                    </div>
+                    <p className="text-[11px] text-[var(--text-muted)]">
+                      Chưa chốt sao kê · Kỳ sao kê chốt ngày {card.statementClosingDay} hàng tháng
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    disabled={pending || pendingDecimal.gt(0)}
+                    onClick={() => {
+                      setPaymentTargetMode("current_debt");
+                      setPartialPaymentAmount("");
+                      setCustomSourcesMode(false);
+                      setCustomSourcesMap({});
+                      setPaymentConfirmOpen(true);
+                    }}
+                    className="shrink-0 gap-1.5 font-semibold text-xs h-8"
+                  >
+                    <CheckCircle2 size={14} aria-hidden="true" />
+                    <span>
+                      {pendingDecimal.gt(0)
+                        ? "Đang chờ duyệt thanh toán"
+                        : "Thanh toán nợ ngay"}
+                    </span>
+                  </Button>
+                </div>
               ) : (
                 <div className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/20 px-4 py-3 text-xs">
                   <span className="flex items-center gap-2 font-medium text-[var(--text-secondary)]">
@@ -2702,7 +2797,7 @@ function CreditCardPanel({
             if (!pending) {
               setPaymentConfirmOpen(nextOpen);
               if (!nextOpen) {
-                setPaymentMode("full");
+                setPaymentTargetMode(hasStatementDebt ? "statement" : "current_debt");
                 setPartialPaymentAmount("");
                 setCustomSourcesMode(false);
                 setCustomSourcesMap({});
@@ -2713,83 +2808,179 @@ function CreditCardPanel({
           <SheetContent
             side={isDesktop ? "right" : "bottom"}
             placement={isDesktop ? "inset" : "edge"}
-            size={isDesktop ? "sm" : "default"}
+            size={isDesktop ? "md" : "default"}
             spacing="flush"
             elevation="flat"
             className={isDesktop ? undefined : "quick-transaction-sheet"}
           >
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <SheetHeader
-                icon={WalletCards}
-                title="Thanh toán sao kê"
+                icon={CreditCard}
+                title={
+                  paymentTargetMode === "statement"
+                    ? "Thanh toán sao kê"
+                    : paymentTargetMode === "current_debt"
+                      ? "Thanh toán toàn bộ nợ thẻ"
+                      : "Thanh toán nợ thẻ"
+                }
                 description={
                   card.statement
                     ? `Thẻ ${card.name} · Hạn ${formatIsoDate(card.statement.dueDate)}`
-                    : `Thẻ ${card.name}`
+                    : `Thẻ ${card.name} · Dư nợ tính đến hiện tại`
                 }
               />
               <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5 overscroll-contain">
-                {/* 1. Mode Selector */}
-                <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border)] select-none">
+                {/* A. Thẻ tóm tắt thông tin & kỳ sao kê */}
+                <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/35 p-3.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--surface)] text-[var(--primary)] border border-[var(--border)]">
+                      <CreditCard size={18} />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-[var(--foreground)] truncate">
+                          {card.name}
+                        </span>
+                        {card.statement && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-[var(--surface)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)] border border-[var(--border)] shrink-0">
+                            <CalendarClock size={11} className="text-[var(--primary)]" />
+                            Hạn {formatIsoDate(card.statement.dueDate)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">
+                        Hạn mức: {formatAmount(card.limit)} {currency} · Tổng nợ: {formatAmount(debtDecimal)} {currency}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* B. Bộ chọn chế độ thanh toán (Segmented Tabs) */}
+                <div className={cn(
+                  "grid gap-1.5 p-1.5 rounded-2xl bg-[var(--surface-secondary)] border border-[var(--border)] select-none",
+                  hasStatementDebt ? "grid-cols-3" : "grid-cols-2"
+                )}>
+                  {hasStatementDebt && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentTargetMode("statement");
+                        setCustomSourcesMode(false);
+                      }}
+                      className={cn(
+                        "flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all cursor-pointer text-center relative",
+                        paymentTargetMode === "statement"
+                          ? "bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)] font-semibold"
+                          : "text-[var(--text-secondary)] hover:text-[var(--foreground)] font-medium border border-transparent hover:bg-[var(--surface)]/40"
+                      )}
+                    >
+                      <span className="text-xs font-semibold leading-tight">Dư nợ sao kê</span>
+                      <span className="text-[10px] tabular-nums mt-0.5 opacity-75 truncate max-w-full">
+                        {formatAmount(statementRemaining)} {currency}
+                      </span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
-                      setPaymentMode("full");
+                      setPaymentTargetMode("current_debt");
                       setCustomSourcesMode(false);
                     }}
                     className={cn(
-                      "py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer text-center",
-                      paymentMode === "full"
-                        ? "bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)]"
-                        : "text-[var(--text-secondary)] hover:text-[var(--foreground)] border border-transparent"
+                      "flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all cursor-pointer text-center relative",
+                      paymentTargetMode === "current_debt"
+                        ? "bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)] font-semibold"
+                        : "text-[var(--text-secondary)] hover:text-[var(--foreground)] font-medium border border-transparent hover:bg-[var(--surface)]/40"
                     )}
                   >
-                    Trả hết
+                    <span className="text-xs font-semibold leading-tight">Toàn bộ dư nợ</span>
+                    <span className="text-[10px] tabular-nums mt-0.5 opacity-75 truncate max-w-full">
+                      {formatAmount(debtDecimal)} {currency}
+                    </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      setPaymentMode("partial");
-                      if (!partialPaymentAmount && statementRemaining.gt(0)) {
-                        setPartialPaymentAmount(statementRemaining.mul(0.5).floor().toString());
+                      setPaymentTargetMode("custom");
+                      if (!partialPaymentAmount && targetMaxAmount.gt(0)) {
+                        setPartialPaymentAmount(targetMaxAmount.mul(0.5).floor().toString());
                       }
                     }}
                     className={cn(
-                      "py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer text-center",
-                      paymentMode === "partial"
-                        ? "bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)]"
-                        : "text-[var(--text-secondary)] hover:text-[var(--foreground)] border border-transparent"
+                      "flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all cursor-pointer text-center relative",
+                      paymentTargetMode === "custom"
+                        ? "bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)] font-semibold"
+                        : "text-[var(--text-secondary)] hover:text-[var(--foreground)] font-medium border border-transparent hover:bg-[var(--surface)]/40"
                     )}
                   >
-                    Trả một phần
+                    <span className="text-xs font-semibold leading-tight">Tùy chọn</span>
+                    <span className="text-[10px] tabular-nums mt-0.5 opacity-75 truncate max-w-full">
+                      {paymentTargetMode === "custom" && effectivePaymentAmount.gt(0)
+                        ? `${formatAmount(effectivePaymentAmount)} ${currency}`
+                        : "Tự nhập"}
+                    </span>
                   </button>
                 </div>
 
-                {/* 2. Amount Hero */}
-                <div className="py-2 text-center">
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {paymentMode === "full" ? "Số tiền cần thanh toán" : "Tổng dư nợ kỳ này"}
-                  </p>
-                  <p className="mt-1 text-3xl font-extrabold tabular-nums tracking-tight text-[var(--foreground)]">
-                    {formatAmount(statementRemaining)}{" "}
-                    <span className="text-base font-normal text-[var(--text-muted)]">{currency}</span>
-                  </p>
-                  {card.statement?.isPartiallyPaid && (
-                    <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                      Đã trả trước: {formatAmount(card.statement.paidAmount ?? 0)} {currency}
-                    </p>
+                {/* C. Amount Hero Card (Điểm nhấn thị giác) */}
+                <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/35 p-5 text-center">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] border border-[var(--border)] mb-2.5">
+                    <WalletCards size={13} className="text-[var(--primary)] shrink-0" />
+                    <span>
+                      {paymentTargetMode === "statement"
+                        ? "Dư nợ sao kê cần thanh toán"
+                        : paymentTargetMode === "current_debt"
+                          ? "Toàn bộ dư nợ cho đến hiện tại"
+                          : "Số tiền thanh toán"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline justify-center gap-1.5">
+                    <span className="text-3xl sm:text-4xl font-extrabold tabular-nums tracking-tight text-[var(--foreground)]">
+                      {formatAmount(effectivePaymentAmount)}
+                    </span>
+                    <span className="text-base font-semibold text-[var(--text-muted)]">{currency}</span>
+                  </div>
+
+                  {paymentTargetMode === "current_debt" && hasStatementDebt && unbilledAmount.gt(0) && (
+                    <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-xs text-[var(--text-secondary)]">
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-[var(--surface)] px-2.5 py-1 border border-[var(--border)]">
+                        Sao kê: <strong className="text-[var(--foreground)] tabular-nums">{formatAmount(statementRemaining)} {currency}</strong>
+                      </span>
+                      <span className="text-[var(--text-muted)]">+</span>
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-[var(--surface)] px-2.5 py-1 border border-[var(--border)]">
+                        Chi tiêu mới: <strong className="text-[var(--foreground)] tabular-nums">{formatAmount(unbilledAmount)} {currency}</strong>
+                      </span>
+                    </div>
+                  )}
+
+                  {paymentTargetMode === "statement" && card.statement?.isPartiallyPaid && (
+                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <CheckCircle2 size={13} className="shrink-0" />
+                      <span>Đã thanh toán trước: {formatAmount(card.statement.paidAmount ?? 0)} {currency}</span>
+                    </div>
+                  )}
+
+                  {paymentTargetMode === "custom" && targetMaxAmount.gt(0) && effectivePaymentAmount.gt(0) && (
+                    <div className="mt-3 flex items-center justify-center gap-2 text-xs text-[var(--text-secondary)]">
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-[var(--surface)] px-2.5 py-1 border border-[var(--border)]">
+                        Chiếm <strong className="text-[var(--foreground)]">{Math.min(100, Math.round(effectivePaymentAmount.div(targetMaxAmount).mul(100).toNumber()))}%</strong> dư nợ
+                      </span>
+                      <span className="text-[var(--text-muted)]">·</span>
+                      <span>Còn lại: <strong className="text-[var(--foreground)] tabular-nums">{formatAmount(remainingAfterPayment)} {currency}</strong></span>
+                    </div>
                   )}
                 </div>
 
-                {/* 3. Partial amount input (Auto Mode) */}
-                {paymentMode === "partial" && !customSourcesMode && (
-                  <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3.5">
+                {/* D. Nhập số tiền tùy chọn & Phím chọn nhanh */}
+                {paymentTargetMode === "custom" && !customSourcesMode && (
+                  <div className="space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
                     <div className="flex items-center justify-between text-xs">
                       <label htmlFor="partial-amount-input" className="font-semibold text-[var(--foreground)]">
-                        Số tiền muốn trả
+                        Nhập số tiền muốn trả
                       </label>
                       <span className="text-[11px] text-[var(--text-muted)] tabular-nums">
-                        Tối đa: {formatAmount(statementRemaining)} {currency}
+                        Tối đa: {formatAmount(targetMaxAmount)} {currency}
                       </span>
                     </div>
 
@@ -2802,7 +2993,7 @@ function CreditCardPanel({
                     />
 
                     {/* Quick percentage chips */}
-                    <div className="grid grid-cols-4 gap-1.5">
+                    <div className="grid grid-cols-4 gap-2">
                       {[
                         { fraction: 0.25, label: "25%" },
                         { fraction: 0.5, label: "50%" },
@@ -2812,7 +3003,7 @@ function CreditCardPanel({
                         const isCurrent = (() => {
                           try {
                             const currentDec = new Decimal(partialPaymentAmount || 0);
-                            const targetDec = statementRemaining.mul(fraction).floor();
+                            const targetDec = targetMaxAmount.mul(fraction).floor();
                             return currentDec.gt(0) && currentDec.equals(targetDec);
                           } catch {
                             return false;
@@ -2825,7 +3016,7 @@ function CreditCardPanel({
                             type="button"
                             onClick={() => applyQuickChip(fraction)}
                             className={cn(
-                              "py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer text-center",
+                              "py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer text-center",
                               isCurrent
                                 ? "bg-[var(--primary)] text-white border-[var(--primary)]"
                                 : "bg-[var(--surface-secondary)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
@@ -2837,34 +3028,49 @@ function CreditCardPanel({
                       })}
                     </div>
 
-                    <p className="text-[11px] text-[var(--text-muted)]">
-                      Dư nợ còn lại (
-                      <strong className="text-[var(--foreground)] font-medium tabular-nums">
-                        {formatAmount(remainingAfterPayment)} {currency}
-                      </strong>
-                      ) sẽ chuyển sang kỳ sau.
-                    </p>
+                    {/* Visual debt repayment bar */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+                        <span>Tiến độ thanh toán</span>
+                        <span className="tabular-nums font-semibold text-[var(--foreground)]">
+                          {targetMaxAmount.gt(0) ? Math.min(100, Math.round(effectivePaymentAmount.div(targetMaxAmount).mul(100).toNumber())) : 0}%
+                        </span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-[var(--surface-secondary)] overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-[var(--primary)] transition-all duration-300"
+                          style={{
+                            width: `${targetMaxAmount.gt(0) ? Math.min(100, Math.max(0, effectivePaymentAmount.div(targetMaxAmount).mul(100).toNumber())) : 0}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] pt-0.5">
+                        <span>Đang trả: <strong className="text-[var(--foreground)] tabular-nums">{formatAmount(effectivePaymentAmount)} {currency}</strong></span>
+                        <span>Còn lại: <strong className="text-[var(--foreground)] tabular-nums">{formatAmount(remainingAfterPayment)} {currency}</strong></span>
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {/* 4. Custom per-wallet allocation mode */}
-                {paymentMode === "partial" && customSourcesMode && (
-                  <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3.5">
+                {/* E. Chế độ phân bổ chi tiết theo từng ví nguồn ("Chỉnh từng ví") */}
+                {customSourcesMode && (
+                  <div className="space-y-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-semibold text-[var(--foreground)]">
-                        Số tiền trích từng ví
+                        Phân bổ chi tiết theo từng ví nguồn
                       </span>
                       <button
                         type="button"
                         onClick={disableCustomSources}
-                        className="text-xs font-medium text-[var(--primary)] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                        className="text-xs font-semibold text-[var(--primary)] hover:underline inline-flex items-center gap-1 cursor-pointer"
                       >
                         <RotateCcw size={12} aria-hidden="true" />
                         <span>Chia tự động</span>
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-1.5">
+                    {/* Quick percentage chips */}
+                    <div className="grid grid-cols-4 gap-2">
                       {[
                         { fraction: 0.25, label: "25%" },
                         { fraction: 0.5, label: "50%" },
@@ -2875,15 +3081,15 @@ function CreditCardPanel({
                           key={fraction}
                           type="button"
                           onClick={() => applyQuickChip(fraction)}
-                          className="py-1.5 px-2 rounded-lg text-xs font-semibold border bg-[var(--surface-secondary)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] transition-all cursor-pointer text-center"
+                          className="py-2 px-2.5 rounded-xl text-xs font-semibold border bg-[var(--surface-secondary)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] transition-all cursor-pointer text-center"
                         >
                           {label}
                         </button>
                       ))}
                     </div>
 
-                    <div className="space-y-2 pt-0.5">
-                      {card.statement?.sources.map((source) => {
+                    <div className="space-y-2.5 pt-1">
+                      {basePaymentSources.map((source) => {
                         const wName = walletNames.get(source.walletId) ?? "Ví nguồn";
                         const maxDue = new Decimal(source.amount);
                         const currentVal = customSourcesMap[source.walletId] ?? "";
@@ -2899,16 +3105,21 @@ function CreditCardPanel({
                           <div
                             key={source.walletId}
                             className={cn(
-                              "rounded-lg border p-2.5 transition-colors",
+                              "rounded-xl border p-3 transition-colors",
                               isExceeded
                                 ? "border-[var(--destructive)] bg-[var(--destructive)]/5"
                                 : "border-[var(--border)] bg-[var(--surface-secondary)]/30"
                             )}
                           >
-                            <div className="flex items-center justify-between text-xs mb-1.5">
-                              <span className="font-semibold text-[var(--foreground)] truncate">{wName}</span>
+                            <div className="flex items-center justify-between text-xs mb-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="grid size-6 shrink-0 place-items-center rounded-md bg-[var(--surface)] text-[var(--primary)] border border-[var(--border)]">
+                                  <Wallet size={12} />
+                                </span>
+                                <span className="font-semibold text-[var(--foreground)] truncate">{wName}</span>
+                              </div>
                               <span className="text-[11px] text-[var(--text-muted)] tabular-nums shrink-0">
-                                Tối đa: {formatAmount(maxDue)} {currency}
+                                Nợ tối đa: <strong className="text-[var(--foreground)]">{formatAmount(maxDue)} {currency}</strong>
                               </span>
                             </div>
                             <MoneyInput
@@ -2920,8 +3131,9 @@ function CreditCardPanel({
                               aria-label={`Số tiền trích từ ${wName}`}
                             />
                             {isExceeded && (
-                              <p className="mt-1 text-[11px] font-medium text-[var(--destructive)]">
-                                Vượt quá số nợ của ví ({formatAmount(maxDue)} {currency})
+                              <p className="mt-1.5 text-[11px] font-medium text-[var(--destructive)] flex items-center gap-1">
+                                <AlertCircle size={12} />
+                                <span>Vượt quá số nợ cần trả của ví ({formatAmount(maxDue)} {currency})</span>
                               </p>
                             )}
                           </div>
@@ -2929,76 +3141,107 @@ function CreditCardPanel({
                       })}
                     </div>
 
-                    <p className="text-[11px] text-[var(--text-muted)]">
-                      Dư nợ còn lại (
-                      <strong className="text-[var(--foreground)] font-medium tabular-nums">
-                        {formatAmount(remainingAfterPayment)} {currency}
-                      </strong>
-                      ) sẽ chuyển sang kỳ sau cho từng ví tương ứng.
-                    </p>
+                    {/* Total summary of per-wallet allocation */}
+                    <div className="flex items-center justify-between rounded-xl bg-[var(--surface-secondary)]/50 p-2.5 text-xs border border-[var(--border)]">
+                      <span className="text-[var(--text-muted)]">Tổng phân bổ các ví:</span>
+                      <span className="font-bold tabular-nums text-[var(--foreground)]">
+                        {formatAmount(customSourcesTotal)} / {formatAmount(targetMaxAmount)} {currency}
+                      </span>
+                    </div>
                   </div>
                 )}
 
-                {/* 5. Source Wallets (Clean & lean list) */}
-                {(!customSourcesMode || paymentMode === "full") && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between px-0.5 text-xs">
-                      <span className="font-semibold text-[var(--text-muted)]">
-                        Trích từ ví
-                      </span>
-                      {paymentMode === "partial" && hasMultipleSources && !customSourcesMode && (
+                {/* F. Danh sách ví nguồn trích nợ (Chế độ tự động) */}
+                {!customSourcesMode && (
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between px-1 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-[var(--foreground)]">
+                          Nguồn tiền trích thanh toán
+                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--surface-secondary)] text-[var(--text-secondary)] border border-[var(--border)]">
+                          {computedPaymentSources.length} ví
+                        </span>
+                      </div>
+                      {hasMultipleSources && (
                         <button
                           type="button"
                           onClick={enableCustomSources}
-                          className="font-medium text-[var(--primary)] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                          className="font-semibold text-[var(--primary)] hover:underline inline-flex items-center gap-1.5 cursor-pointer text-xs"
                         >
                           <Pencil size={11} aria-hidden="true" />
                           <span>Chỉnh từng ví</span>
                         </button>
                       )}
                     </div>
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] divide-y divide-[var(--border)]">
+
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] divide-y divide-[var(--border)] overflow-hidden">
                       {computedPaymentSources.length > 0 ? (
                         computedPaymentSources.map((source) => {
                           const wName = walletNames.get(source.walletId) ?? "Ví nguồn";
+                          const srcAmount = new Decimal(source.amount);
+                          const pct = effectivePaymentAmount.gt(0)
+                            ? Math.round(srcAmount.div(effectivePaymentAmount).mul(100).toNumber())
+                            : 0;
+
                           return (
-                            <div key={source.walletId} className="flex items-center justify-between gap-3 p-3 text-sm">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]">
-                                  <Wallet size={15} />
+                            <div key={source.walletId} className="flex items-center justify-between gap-3 p-3.5 text-sm transition-colors hover:bg-[var(--surface-hover)]/30">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)] text-[var(--primary)] border border-[var(--border)]">
+                                  <Wallet size={16} />
                                 </span>
-                                <span className="font-medium text-[var(--foreground)] truncate">
-                                  {wName}
-                                </span>
+                                <div className="min-w-0 flex flex-col">
+                                  <span className="font-semibold text-[var(--foreground)] truncate">
+                                    {wName}
+                                  </span>
+                                  <span className="text-[11px] text-[var(--text-muted)] truncate">
+                                    Trích tự động từ ví tài sản
+                                  </span>
+                                </div>
                               </div>
-                              <span className="font-bold tabular-nums text-[var(--foreground)] shrink-0">
-                                {formatAmount(source.amount)}{" "}
-                                <span className="text-xs font-normal text-[var(--text-muted)]">{currency}</span>
-                              </span>
+                              <div className="flex flex-col items-end shrink-0">
+                                <span className="font-bold tabular-nums text-[var(--foreground)]">
+                                  {formatAmount(source.amount)}{" "}
+                                  <span className="text-xs font-normal text-[var(--text-muted)]">{currency}</span>
+                                </span>
+                                {hasMultipleSources && pct > 0 && (
+                                  <span className="text-[10px] font-medium text-[var(--text-muted)] tabular-nums mt-0.5">
+                                    Chiếm {pct}%
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           );
                         })
                       ) : (
-                        <div className="p-3 text-center text-xs text-[var(--text-muted)]">
-                          Nhập số tiền hợp lệ
+                        <div className="p-4 text-center text-xs text-[var(--text-muted)]">
+                          Vui lòng nhập số tiền hợp lệ để phân bổ nguồn trích
                         </div>
                       )}
                     </div>
                   </div>
                 )}
+
+                {/* G. Ghi chú tài chính minh bạch */}
+                <div className="flex items-start gap-2.5 rounded-xl bg-[var(--surface-secondary)]/40 p-3 text-[11px] text-[var(--text-muted)] border border-[var(--border)]">
+                  <Info size={15} className="shrink-0 mt-0.5 text-[var(--primary)]" />
+                  <p className="leading-relaxed">
+                    Khoản thanh toán sẽ được trừ trực tiếp từ ví nguồn tương ứng và ghi nhận giảm nợ thẻ tín dụng ngay sau khi thực hiện.
+                  </p>
+                </div>
               </div>
               <SheetFooter
-                className="p-4 sm:px-6 sm:py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] bg-[var(--surface)]"
+                className="p-4 sm:px-6 sm:py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] bg-[var(--surface)] border-t border-[var(--border)]"
                 onCancel={() => setPaymentConfirmOpen(false)}
                 cancelLabel="Hủy"
                 submitLabel={
                   canApprove
-                    ? `Thanh toán ${formatAmount(effectivePaymentAmount)} ${currency}`
-                    : "Gửi yêu cầu thanh toán"
+                    ? `Thanh toán ngay · ${formatAmount(effectivePaymentAmount)} ${currency}`
+                    : `Gửi yêu cầu thanh toán (${formatAmount(effectivePaymentAmount)} ${currency})`
                 }
                 isSubmitting={pending}
                 submittingLabel="Đang xử lý..."
-                submitDisabled={pending || !card.statement || !isPartialPaymentValid}
+                submitDisabled={pending || !isPaymentValid || effectivePaymentAmount.lte(0)}
                 onSubmit={payStatement}
                 submitType="button"
               />
@@ -3887,6 +4130,7 @@ function CreditCardPanel({
                     !new Decimal(card.statement.amount || 0).gt(0)
                   }
                   onClick={() => {
+                    setPaymentTargetMode("statement");
                     setStatementDetailOpen(false);
                     setPaymentConfirmOpen(true);
                   }}
