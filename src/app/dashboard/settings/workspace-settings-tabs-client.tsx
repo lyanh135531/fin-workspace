@@ -1,6 +1,12 @@
 "use client";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/base";
+import {
+  Tabs,
+  TabsContent,
+  TabsCount,
+  TabsList,
+  TabsTrigger,
+} from "@/components/base";
 import { useState } from "react";
 import { Sliders, Folders, UsersRound } from "lucide-react";
 import { WorkspaceSettings } from "./workspace-settings";
@@ -67,38 +73,71 @@ export function WorkspaceSettingsTabsClient({
   const tabs: {
     key: TabKey;
     label: string;
+    mobileLabel: string;
     icon: typeof Sliders;
+    count?: string | number;
+    highlightCount?: boolean;
   }[] = [
-      { key: "general", label: "Cài đặt nhóm", icon: Sliders },
-      {
-        key: "categories",
-        label: "Danh mục thu chi",
-        icon: Folders,
-      },
-      {
-        key: "members",
-        label: "Thành viên",
-        icon: UsersRound,
-      },
-    ];
+    {
+      key: "general",
+      label: "Cài đặt nhóm",
+      mobileLabel: "Cài đặt",
+      icon: Sliders,
+    },
+    {
+      key: "categories",
+      label: "Danh mục thu chi",
+      mobileLabel: "Danh mục",
+      icon: Folders,
+      count: categories.length,
+    },
+    {
+      key: "members",
+      label: "Thành viên",
+      mobileLabel: "Thành viên",
+      icon: UsersRound,
+      count:
+        joinRequests.length > 0
+          ? `${members.length}+${joinRequests.length}`
+          : members.length,
+      highlightCount: joinRequests.length > 0,
+    },
+  ];
 
   return (
     <Tabs
       value={activeTab}
       onValueChange={(value) => setActiveTab(value as TabKey)}
-      className="workspace-settings-tabs md:gap-5"
+      className="workspace-settings-tabs gap-3.5 md:gap-5"
     >
       <TabsList
         variant="navigation"
-        className="w-full md:w-fit"
+        className="grid w-full grid-cols-3 md:inline-flex md:w-fit"
         aria-label="Các mục cài đặt nhóm tài chính"
       >
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
-            <TabsTrigger key={tab.key} value={tab.key} variant="navigation">
+            <TabsTrigger
+              key={tab.key}
+              value={tab.key}
+              variant="navigation"
+              className="w-full gap-1 px-1.5 text-xs [&_svg]:size-3.5 md:w-auto md:gap-1.5 md:px-3.5 md:text-sm md:[&_svg]:size-4"
+            >
               <Icon />
-              <span>{tab.label}</span>
+              <span className="md:hidden">{tab.mobileLabel}</span>
+              <span className="hidden md:inline">{tab.label}</span>
+              {tab.count !== undefined && (
+                <TabsCount
+                  className={
+                    tab.highlightCount
+                      ? "h-4 min-w-4 bg-[var(--warning-soft)] px-1 text-[10px] text-[var(--warning)] md:h-5 md:min-w-5 md:px-1.5 md:text-[11px]"
+                      : "h-4 min-w-4 px-1 text-[10px] md:h-5 md:min-w-5 md:px-1.5 md:text-[11px]"
+                  }
+                >
+                  {tab.count}
+                </TabsCount>
+              )}
             </TabsTrigger>
           );
         })}
@@ -106,7 +145,7 @@ export function WorkspaceSettingsTabsClient({
 
       {/* General settings */}
       <TabsContent value="general" className="workspace-settings-tab-content">
-        <div className="grid items-start gap-3 pt-4 md:grid-cols-12 md:gap-5 md:pt-0">
+        <div className="grid items-start gap-3 md:grid-cols-12 md:gap-5">
           <div className="workspace-general-main md:col-span-12">
             <WorkspaceSettings workspace={workspace} isAdmin={isAdmin} />
           </div>
@@ -118,7 +157,7 @@ export function WorkspaceSettingsTabsClient({
         value="categories"
         className="workspace-settings-tab-content"
       >
-        <div className="grid items-start gap-3 pt-4 md:gap-5 md:pt-0">
+        <div className="grid items-start gap-3 md:gap-5">
           <div className="workspace-category-manager min-w-0 md:order-1">
             <CategoryManagement categories={categories} />
           </div>
@@ -127,7 +166,7 @@ export function WorkspaceSettingsTabsClient({
 
       {/* Members */}
       <TabsContent value="members" className="workspace-settings-tab-content">
-        <div className="workspace-members-stack space-y-3 pt-4 md:space-y-5 md:pt-0">
+        <div className="workspace-members-stack space-y-3.5 md:space-y-5">
           <SettingsClient roles={roles} members={members} isAdmin={isAdmin} />
           <JoinRequestsClient roles={roles} requests={joinRequests} />
         </div>

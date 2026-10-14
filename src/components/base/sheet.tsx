@@ -66,7 +66,7 @@ function SheetOverlay({ className, style, ...props }: SheetPrimitive.Backdrop.Pr
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-[var(--overlay)] transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-xs",
+        "fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-md transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
         className,
       )}
       style={{
@@ -86,11 +86,29 @@ function dismissKeyboard(): void {
   }
 }
 
+const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
+
+function subscribeMobileViewport(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const mql = window.matchMedia(MOBILE_MEDIA_QUERY);
+  mql.addEventListener("change", callback);
+  return () => mql.removeEventListener("change", callback);
+}
+
+function getMobileViewportSnapshot(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
+}
+
+function getMobileViewportServerSnapshot(): boolean {
+  return false;
+}
+
 function SheetContent({
   className,
   children,
   side = "right",
-  placement = "edge",
+  placement = "inset",
   size = "default",
   spacing = "default",
   elevation = "flat",
@@ -114,7 +132,13 @@ function SheetContent({
   const [isSnapping, setIsSnapping] = React.useState(false);
   const [keyboardInset, setKeyboardInset] = React.useState(0);
   const [visualHeight, setVisualHeight] = React.useState<number | null>(null);
-  const isBottomSheet = side === "bottom";
+  const isMobileViewport = React.useSyncExternalStore(
+    subscribeMobileViewport,
+    getMobileViewportSnapshot,
+    getMobileViewportServerSnapshot,
+  );
+  const resolvedSide: SheetSide = side === "right" && isMobileViewport ? "bottom" : side;
+  const isBottomSheet = resolvedSide === "bottom";
 
   const getSheetStyle = (state: SheetPrimitive.Popup.State): MobileSheetStyle => ({
     ...(typeof style === "function" ? style(state) : style),
@@ -123,8 +147,8 @@ function SheetContent({
     "--mobile-visual-height": visualHeight ? `${visualHeight}px` : "100dvh",
     ...(isBottomSheet && keyboardInset > 0
       ? {
-          bottom: `${keyboardInset}px`,
-          maxHeight: visualHeight ? `${visualHeight - 8}px` : undefined,
+          bottom: `${keyboardInset + 12}px`,
+          maxHeight: visualHeight ? `${visualHeight - 24}px` : undefined,
         }
       : {}),
     ...(dragging
@@ -316,7 +340,7 @@ function SheetContent({
       <SheetOverlay />
       <SheetPrimitive.Popup
         data-slot="sheet-content"
-        data-side={side}
+        data-side={resolvedSide}
         data-placement={placement}
         data-size={size}
         data-spacing={spacing}
@@ -324,21 +348,20 @@ function SheetContent({
         data-mobile-sheet-dragging={dragging || undefined}
         className={cn(
           "fixed z-50 flex min-h-0 flex-col overflow-hidden bg-[var(--surface)] bg-clip-padding text-sm text-[var(--foreground)] transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0",
-          "data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=bottom]:border-[var(--border)] data-[side=bottom]:rounded-t-2xl sm:data-[side=bottom]:rounded-t-3xl data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem]",
-          "data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=top]:border-[var(--border)] data-[side=top]:rounded-b-2xl sm:data-[side=top]:rounded-b-3xl data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem]",
-          "data-[side=center]:left-1/2 data-[side=center]:top-1/2 data-[side=center]:-translate-x-1/2 data-[side=center]:-translate-y-1/2 data-[side=center]:border data-[side=center]:border-[var(--border)] data-[side=center]:rounded-2xl data-[side=center]:max-h-[90dvh]",
+          "data-[side=bottom]:inset-x-3 data-[side=bottom]:bottom-[max(0.75rem,env(safe-area-inset-bottom))] data-[side=bottom]:mx-auto data-[side=bottom]:h-auto data-[side=bottom]:max-w-lg data-[side=bottom]:rounded-3xl data-[side=bottom]:border data-[side=bottom]:border-[var(--border)] data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem]",
+          "data-[side=top]:inset-x-3 data-[side=top]:top-3 data-[side=top]:mx-auto data-[side=top]:h-auto data-[side=top]:max-w-lg data-[side=top]:rounded-3xl data-[side=top]:border data-[side=top]:border-[var(--border)] data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem]",
+          "data-[side=center]:left-1/2 data-[side=center]:top-1/2 data-[side=center]:-translate-x-1/2 data-[side=center]:-translate-y-1/2 data-[side=center]:border data-[side=center]:border-[var(--border)] data-[side=center]:rounded-3xl data-[side=center]:max-h-[86dvh]",
           "data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem]",
           "data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem]",
-          placement === "inset"
-            ? "data-[side=left]:inset-y-2 data-[side=left]:left-2 data-[side=left]:h-[calc(100%-1rem)] data-[side=left]:rounded-2xl data-[side=left]:border data-[side=left]:border-[var(--border)] data-[side=right]:inset-y-2 data-[side=right]:right-2 data-[side=right]:h-[calc(100%-1rem)] data-[side=right]:rounded-2xl data-[side=right]:border data-[side=right]:border-[var(--border)] data-[side=bottom]:inset-x-2 data-[side=bottom]:bottom-2 data-[side=bottom]:max-w-lg data-[side=bottom]:mx-auto data-[side=bottom]:border data-[side=bottom]:border-[var(--border)] data-[side=bottom]:rounded-2xl data-[side=top]:inset-x-2 data-[side=top]:top-2 data-[side=top]:border data-[side=top]:border-[var(--border)] data-[side=top]:rounded-2xl"
-            : "data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:rounded-none data-[side=left]:border-r data-[side=left]:border-[var(--border)] data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:rounded-none data-[side=right]:border-l data-[side=right]:border-[var(--border)]",
+          "max-md:data-[side=right]:inset-x-3 max-md:data-[side=right]:bottom-[max(0.75rem,env(safe-area-inset-bottom))] max-md:data-[side=right]:top-auto max-md:data-[side=right]:h-auto max-md:data-[side=right]:max-h-[82dvh] max-md:data-[side=right]:w-auto max-md:data-[side=right]:rounded-3xl max-md:data-[side=right]:border max-md:data-[side=right]:border-[var(--border)]",
+          "data-[side=left]:inset-y-3 data-[side=left]:left-3 data-[side=left]:h-[calc(100dvh-1.5rem)] data-[side=left]:rounded-3xl md:data-[side=left]:rounded-2xl data-[side=left]:border data-[side=left]:border-[var(--border)] md:data-[side=right]:inset-y-3 md:data-[side=right]:right-3 md:data-[side=right]:h-[calc(100dvh-1.5rem)] md:data-[side=right]:rounded-2xl md:data-[side=right]:border md:data-[side=right]:border-[var(--border)]",
           size === "wide" || size === "lg"
-            ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-[42rem] data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-[34rem] data-[side=right]:sm:max-w-[34rem] data-[side=bottom]:max-h-[88dvh]"
+            ? "data-[side=center]:w-[calc(100%-1.5rem)] data-[side=center]:max-w-[42rem] data-[side=left]:w-[calc(100vw-1.5rem)] md:data-[side=right]:w-full data-[side=left]:md:max-w-[34rem] data-[side=right]:md:max-w-[34rem] data-[side=bottom]:max-h-[82dvh]"
             : size === "md"
-              ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-md data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md data-[side=bottom]:max-h-[82dvh]"
+              ? "data-[side=center]:w-[calc(100%-1.5rem)] data-[side=center]:max-w-md data-[side=left]:w-[calc(100vw-1.5rem)] md:data-[side=right]:w-full data-[side=left]:md:max-w-md data-[side=right]:md:max-w-md data-[side=bottom]:max-h-[78dvh]"
               : size === "sm"
-                ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-sm data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm data-[side=bottom]:max-h-[65dvh]"
-                : "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-md data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md data-[side=bottom]:max-h-[85dvh]",
+                ? "data-[side=center]:w-[calc(100%-1.5rem)] data-[side=center]:max-w-sm data-[side=left]:w-[calc(100vw-1.5rem)] md:data-[side=right]:w-full data-[side=left]:md:max-w-sm data-[side=right]:md:max-w-sm data-[side=bottom]:max-h-[65dvh]"
+                : "data-[side=center]:w-[calc(100%-1.5rem)] data-[side=center]:max-w-md data-[side=left]:w-[calc(100vw-1.5rem)] data-[side=left]:max-w-[20.5rem] md:data-[side=right]:w-full data-[side=left]:md:max-w-md data-[side=right]:md:max-w-md data-[side=bottom]:max-h-[80dvh]",
           spacing === "flush" ? "gap-0" : "gap-0",
           className,
         )}
@@ -375,7 +398,7 @@ function SheetContent({
           <div
             data-slot="mobile-sheet-drag-handle"
             onClick={dismissKeyboard}
-            className="flex w-full shrink-0 items-center justify-center pt-2.5 pb-1 sm:hidden cursor-grab active:cursor-grabbing touch-none select-none"
+            className="flex w-full shrink-0 items-center justify-center pt-2.5 pb-1 md:hidden cursor-grab active:cursor-grabbing touch-none select-none"
             aria-hidden="true"
           >
             <span className="h-1 w-9 rounded-full bg-[var(--border-strong)]" />
@@ -477,7 +500,7 @@ function SheetFooter({
     <div
       data-slot="sheet-footer"
       className={cn(
-        "mt-auto shrink-0 flex items-center justify-end gap-2.5 border-t border-[var(--border)] bg-[var(--surface)] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5",
+        "mt-auto shrink-0 flex items-center justify-end gap-2.5 border-t border-[var(--border)] bg-[var(--surface)] px-4 py-3.5 sm:px-6",
         className,
       )}
       {...props}

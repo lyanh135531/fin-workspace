@@ -124,13 +124,10 @@ function CreditCardLivePreview({
         <CardBrandBadge brand={brand} />
       </div>
 
-      {/* Card Name and masked number */}
+      {/* Card Name */}
       <div className="my-2.5 min-w-0">
         <p className="break-words text-base font-semibold leading-snug tracking-wide text-[var(--foreground)]">
           {name.trim() || "Tên thẻ của bạn"}
-        </p>
-        <p className="mt-0.5 font-mono text-[11px] tracking-widest text-[var(--text-muted)]">
-          ••••  ••••  ••••  ••••
         </p>
       </div>
 

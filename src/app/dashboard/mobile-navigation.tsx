@@ -62,7 +62,7 @@ function MobileNavigationDrawer({
         </SheetTrigger>
         <SheetContent
           side="left"
-          className="flex h-full w-[min(20rem,86vw)] flex-col gap-0 border-r border-[var(--border)] bg-[var(--surface)] p-0"
+          className="flex flex-col gap-0 bg-[var(--surface)] p-0"
         >
           <SheetHeader className="border-b border-[var(--border)] px-4 py-3.5">
             <div className="flex items-center gap-3 pr-8">

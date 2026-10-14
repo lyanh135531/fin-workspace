@@ -259,6 +259,15 @@ function Select({
       </SelectValue>
     </SelectTrigger>
   );
+  const normalizedItems = React.useMemo(
+    () =>
+      options.map((option) => ({
+        value: option.value,
+        label: typeof option.label === "string" ? option.label : option.value,
+        disabled: option.disabled,
+      })),
+    [options],
+  );
   const select = (
     <SelectRoot
       id={selectId}
@@ -267,7 +276,7 @@ function Select({
       onValueChange={(nextValue) => {
         if (nextValue !== null) onValueChange?.(String(nextValue));
       }}
-      items={options}
+      items={normalizedItems}
       name={name}
       required={required}
       disabled={disabled}

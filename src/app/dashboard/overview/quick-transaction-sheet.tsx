@@ -303,6 +303,7 @@ export function QuickTransactionSheet({
 
         <MoneyInput
           wrapperClassName="quick-amount-field mt-3.5 mb-1 sm:mt-4 sm:mb-2"
+          className="border-0! bg-transparent! ring-0! focus-visible:border-0! focus-visible:ring-0!"
           autoFocus
           value={amount}
           onValueChange={setAmount}

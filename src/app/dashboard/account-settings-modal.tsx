@@ -90,7 +90,8 @@ export function AccountSettingsModal({
       {/* Persistent overlay during back transition to prevent background flash */}
       {isTransitioning && (
         <div
-          className="fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs"
+          data-slot="sheet-overlay"
+          className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-md"
           aria-hidden="true"
         />
       )}

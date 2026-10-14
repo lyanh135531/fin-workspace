@@ -29,8 +29,16 @@ function PopoverContent({
   > & {
     elevation?: "raised" | "flat";
   }) {
+  const showBackdrop = props.role === "dialog" || props.role === "alertdialog";
+
   return (
     <PopoverPrimitive.Portal>
+      {showBackdrop && (
+        <PopoverPrimitive.Backdrop
+          data-slot="popover-overlay"
+          className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-md transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0"
+        />
+      )}
       <PopoverPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}

@@ -354,8 +354,6 @@ export function CreditCardVirtualCard({
     new Decimal(card.pendingPayment || 0),
   );
 
-  const last4 = card.id.replace(/[^a-zA-Z0-9]/g, "").slice(-4).toUpperCase() || "8888";
-
   function handleMenuOpenChange(nextOpen: boolean) {
     if (
       nextOpen &&
@@ -370,47 +368,47 @@ export function CreditCardVirtualCard({
 
   const cardInnerContent = (
     <>
-      {/* Row 1: Card Name + Bank/Last 4 digits + Statement/Due Date Badge */}
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
+      {/* Row 1: Card Name + Brand/Cycle + Statement/Due Date Badge */}
+      <div className="flex items-start justify-between gap-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
           <MiniVirtualCardVisual brand={brand} />
           <div className="min-w-0 flex-1">
-            <h3 className="break-words text-base font-semibold leading-snug text-[var(--foreground)]">
+            <h3 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)] md:text-base">
               {card.name}
             </h3>
-            <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
-              {brand} •••• {last4} · Chốt ngày {card.statementClosingDay}
+            <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
+              {brand} · Chốt ngày {card.statementClosingDay} · Hạn ngày {card.paymentDueDay}
             </p>
           </div>
         </div>
 
         <div className="shrink-0">
           {card.statement?.overdue ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--destructive)]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--destructive)] md:px-2.5 md:text-[11px]">
               Quá hạn · {formatShortDate(card.statement.dueDate)}
             </span>
           ) : card.statement && card.statement.status !== "paid" ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--warning)]/30 bg-[var(--warning)]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--warning)]">
-              Sao kê kỳ này · Hạn {formatShortDate(card.statement.dueDate)}
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--warning)]/30 bg-[var(--warning)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--warning)] md:px-2.5 md:text-[11px]">
+              Hạn {formatShortDate(card.statement.dueDate)}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)] md:px-2.5 md:text-[11px]">
               Hạn ngày {card.paymentDueDay}
             </span>
           )}
         </div>
       </div>
 
-      {/* Row 2: Dư nợ hiện tại & Hạn mức còn lại + Utilization Progress Bar */}
-      <div className="space-y-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
+      {/* Row 2: Side-by-side Dư nợ hiện tại & Hạn mức còn lại + Sleek Progress Bar */}
+      <div className="space-y-2.5 border-t border-[var(--border)] pt-3">
+        <div className="grid grid-cols-2 gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-medium text-[var(--text-secondary)]">
               {hasCredit ? "Số dư nộp thừa" : "Dư nợ hiện tại"}
             </p>
             <p
               className={cn(
-                "mt-0.5 break-words text-lg font-bold tabular-nums tracking-tight",
+                "mt-0.5 break-words text-base font-bold tabular-nums tracking-tight md:text-lg",
                 hasCredit
                   ? "text-[var(--success)]"
                   : hasDebt
@@ -419,29 +417,29 @@ export function CreditCardVirtualCard({
               )}
             >
               {formatAmount(hasCredit ? card.creditBalance : card.debt)}{" "}
-              <span className="text-xs font-medium text-[var(--text-secondary)]">{currency}</span>
+              <span className="text-[11px] font-medium text-[var(--text-secondary)]">{currency}</span>
             </p>
           </div>
 
-          <div className="min-w-0 sm:text-right">
+          <div className="min-w-0 text-right">
             <p className="text-[11px] font-medium text-[var(--text-secondary)]">
               {isOverLimit ? "Vượt hạn mức" : "Hạn mức còn lại"}
             </p>
             <p
               className={cn(
-                "mt-0.5 break-words text-sm font-semibold tabular-nums",
+                "mt-0.5 break-words text-sm font-semibold tabular-nums md:text-base",
                 isOverLimit ? "text-[var(--destructive)]" : "text-[var(--foreground)]",
               )}
             >
               {formatAmount(card.availableCredit, { maximumFractionDigits: 0 })}{" "}
-              <span className="text-xs font-normal text-[var(--text-muted)]">{currency}</span>
+              <span className="text-[11px] font-normal text-[var(--text-muted)]">{currency}</span>
             </p>
           </div>
         </div>
 
-        {/* Clean Progress Bar */}
+        {/* Clean Progress Bar + 1-line Meta */}
         <div className="space-y-1.5">
-          <div className="h-1.5 w-full overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface)]">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-300",
@@ -454,27 +452,28 @@ export function CreditCardVirtualCard({
               style={{ width: `${utilizationPercent}%` }}
             />
           </div>
-          <div className="flex flex-col gap-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
             <span className="break-words">
-              Đã dùng <strong className="font-semibold text-[var(--foreground)] tabular-nums">{utilizationPercent}%</strong> hạn mức ({formatAmount(card.limit, { maximumFractionDigits: 0 })} {currency})
+              Đã dùng <strong className="font-semibold tabular-nums text-[var(--foreground)]">{utilizationPercent}%</strong> / {formatAmount(card.limit, { maximumFractionDigits: 0 })} {currency}
             </span>
-            <span
-              className={cn(
-                "break-words tabular-nums",
-                reservedAmount.lte(0) && "hidden md:block",
-              )}
-            >
-              Tiền chờ thanh toán thẻ: <strong className="font-semibold text-[var(--foreground)]">{formatAmount(reservedAmount.toString(), { maximumFractionDigits: 0 })} {currency}</strong>
-            </span>
+            {reservedAmount.gt(0) && (
+              <span className="break-words tabular-nums">
+                Tiền chờ thanh toán thẻ: <strong className="font-semibold text-[var(--primary)]">{formatAmount(reservedAmount.toString(), { maximumFractionDigits: 0 })} {currency}</strong>
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Row 3: Sleek Footer Info & Desktop-Only Icon Quick Actions */}
+      {/* Row 3: Sleek Footer Info & Quick Actions */}
       {isInteractive && (
-        <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-3">
-          <span className="min-w-0 break-words text-xs leading-snug text-[var(--text-muted)]">
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2.5">
+          <span className="min-w-0 break-words text-[11px] leading-snug text-[var(--text-muted)]">
             {card.activities.length} giao dịch · {card.installmentPlans.length} trả góp
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] font-medium text-[var(--text-secondary)] lg:hidden">
+            <span>Thao tác</span>
+            <ChevronRight size={13} className="text-[var(--text-muted)]" aria-hidden="true" />
           </span>
           <div
             className="hidden shrink-0 items-center gap-1.5 lg:flex"
@@ -525,7 +524,7 @@ export function CreditCardVirtualCard({
       <Card
         as="article"
         className={cn(
-          "gap-4 p-4 md:p-5 transition-colors hover:border-[var(--border-hover)]",
+          "gap-3 p-3.5 md:gap-4 md:p-5 transition-colors hover:border-[var(--border-hover)]",
           className,
         )}
         aria-label={`Thẻ ${card.name}, ${hasCredit ? `Số dư thừa ${formatAmount(card.creditBalance)}` : `Dư nợ hiện tại ${formatAmount(card.debt)}`} ${currency}`}
@@ -549,7 +548,7 @@ export function CreditCardVirtualCard({
             tabIndex={0}
             aria-label={`Thẻ ${card.name}, ${hasCredit ? `Số dư thừa ${formatAmount(card.creditBalance)}` : `Dư nợ hiện tại ${formatAmount(card.debt)}`} ${currency}. Chạm để mở menu thao tác.`}
             className={cn(
-              "cursor-pointer select-none gap-4 p-4 text-left transition-all duration-150 hover:border-[var(--border-hover)] active:scale-[0.99] active:bg-[var(--surface-hover)] md:p-5 lg:cursor-default lg:select-auto lg:active:scale-100 lg:active:bg-[var(--surface)]",
+              "cursor-pointer select-none gap-3 p-3.5 text-left transition-all duration-150 hover:border-[var(--border-hover)] active:scale-[0.99] active:bg-[var(--surface-hover)] md:gap-4 md:p-5 lg:cursor-default lg:select-auto lg:active:scale-100 lg:active:bg-[var(--surface)]",
               className,
             )}
           />
@@ -854,10 +853,6 @@ function CreditCardPanel({
   const hasCredit = creditBalanceDecimal.gt(0);
   const hasDebt = debtDecimal.gt(0);
   const brand = useMemo(() => detectCardBrand(card.name), [card.name]);
-  const last4 = useMemo(
-    () => card.id.replace(/[^a-zA-Z0-9]/g, "").slice(-4).toUpperCase() || "8888",
-    [card.id],
-  );
 
   const statementRemaining = useMemo(() => {
     if (!card.statement) return new Decimal(0);
@@ -1620,13 +1615,14 @@ function CreditCardPanel({
       )}
 
       {/* Detail Header Bar */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
+      <div className="flex items-start justify-between gap-2.5 md:items-center">
+        <div className="flex min-w-0 items-center gap-2.5 md:gap-3">
           {onBack ? (
             <Button
               type="button"
               variant="outline"
               size="icon"
+              className="size-8 shrink-0 md:size-9"
               onClick={onBack}
               aria-label="Quay lại danh sách thẻ"
               title="Quay lại danh sách thẻ"
@@ -1637,21 +1633,24 @@ function CreditCardPanel({
             <Button
               variant="outline"
               size="icon"
+              className="size-8 shrink-0 md:size-9"
               render={<Link href="/credit-cards" aria-label="Quay lại danh sách thẻ" />}
             >
               <ArrowLeft size={16} aria-hidden="true" />
             </Button>
           )}
-          <MiniVirtualCardVisual brand={brand} />
+          <div className="hidden sm:block">
+            <MiniVirtualCardVisual brand={brand} />
+          </div>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="break-words text-lg font-semibold leading-snug text-[var(--foreground)] md:text-xl">
+            <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+              <h2 className="break-words text-base font-semibold leading-snug text-[var(--foreground)] md:text-xl">
                 {card.name}
               </h2>
               <CardBrandBadge brand={brand} />
             </div>
-            <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-secondary)]">
-              •••• {last4} · Chốt sao kê ngày {card.statementClosingDay} · Hạn thanh toán ngày {card.paymentDueDay}
+            <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-secondary)] md:text-xs">
+              Chốt ngày {card.statementClosingDay} · Hạn ngày {card.paymentDueDay}
             </p>
           </div>
         </div>
@@ -1661,6 +1660,7 @@ function CreditCardPanel({
             type="button"
             variant="default"
             size="icon"
+            className="size-8 md:size-9"
             disabled={pending || Boolean(card.statement?.paymentPending) || !hasDebt}
             onClick={() => openPaymentSheet()}
             aria-label={
@@ -1678,13 +1678,14 @@ function CreditCardPanel({
                   : "Thanh toán dư nợ"
             }
           >
-            <CheckCircle2 size={16} aria-hidden="true" />
+            <CheckCircle2 size={15} aria-hidden="true" />
           </Button>
 
           <Button
             type="button"
             variant="outline"
             size="icon"
+            className="size-8 md:size-9"
             onClick={() => {
               setRefundTransactionId("");
               setRefundAmount("");
@@ -1703,6 +1704,7 @@ function CreditCardPanel({
                 type="button"
                 variant="outline"
                 size="icon"
+                className="hidden size-9 md:inline-flex"
                 onClick={openImportInstallment}
                 aria-label="Thêm trả góp có sẵn"
                 title="Thêm trả góp có sẵn"
@@ -1713,7 +1715,7 @@ function CreditCardPanel({
               <DropdownMenu>
                 <DropdownMenuTrigger
                   ref={cardMenuTriggerRef}
-                  className="inline-flex size-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)] cursor-pointer"
+                  className="inline-flex size-8 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)] cursor-pointer md:size-9"
                   aria-label="Tùy chọn quản lý thẻ"
                   title="Tùy chọn quản lý thẻ"
                 >
@@ -1749,18 +1751,145 @@ function CreditCardPanel({
       {/* 1 Clean Top Summary Strip for Card Detail */}
       <Card
         as="section"
-        className="p-4 md:p-5"
+        className="p-3.5 md:p-5"
         aria-label="Tóm tắt hạn mức và sao kê thẻ"
       >
-        <div className="divide-y divide-[var(--border)] md:grid md:grid-cols-3 md:divide-x md:divide-y-0">
+        {/* Mobile Compact Layout (<768px) */}
+        <div className="space-y-3 md:hidden">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="min-w-0">
+              <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+                {hasCredit ? "Số dư nộp thừa" : "Dư nợ hiện tại"}
+              </span>
+              <p
+                className={cn(
+                  "mt-0.5 break-words text-lg font-bold tabular-nums tracking-tight",
+                  hasCredit
+                    ? "text-[var(--success)]"
+                    : hasDebt
+                      ? "text-[var(--destructive)]"
+                      : "text-[var(--foreground)]",
+                )}
+              >
+                {formatAmount(hasCredit ? card.creditBalance : card.debt)}{" "}
+                <span className="text-[11px] font-semibold text-[var(--text-secondary)]">{currency}</span>
+              </p>
+            </div>
+
+            <div className="min-w-0 text-right">
+              <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+                {isOverLimit ? "Vượt hạn mức" : "Hạn mức còn lại"}
+              </span>
+              <p
+                className={cn(
+                  "mt-0.5 break-words text-base font-bold tabular-nums tracking-tight",
+                  isOverLimit ? "text-[var(--destructive)]" : "text-[var(--foreground)]",
+                )}
+              >
+                {formatAmount(card.availableCredit, { maximumFractionDigits: 0 })}{" "}
+                <span className="text-[11px] font-semibold text-[var(--text-secondary)]">{currency}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-300",
+                  isOverLimit || utilizationPercent > 80
+                    ? "bg-[var(--destructive)]"
+                    : utilizationPercent > 50
+                      ? "bg-[var(--warning)]"
+                      : "bg-[var(--primary)]",
+                )}
+                style={{ width: `${utilizationPercent}%` }}
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[11px] text-[var(--text-muted)]">
+              <span>
+                Đã dùng <strong className="font-semibold tabular-nums text-[var(--foreground)]">{utilizationPercent}%</strong> / {formatAmount(card.limit, { maximumFractionDigits: 0 })} {currency}
+              </span>
+              <span>
+                Tiền chờ thanh toán thẻ: <strong className="font-semibold tabular-nums text-[var(--primary)]">{formatAmount(totalReservedForCard.toString(), { maximumFractionDigits: 0 })} {currency}</strong>
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2.5">
+            <div className="min-w-0 flex-1">
+              {card.statement ? (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="font-medium text-[var(--text-secondary)]">Sao kê kỳ này:</span>
+                  <strong className="font-bold tabular-nums text-[var(--foreground)]">
+                    {formatAmount(statementRemaining.toString())} {currency}
+                  </strong>
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                      card.statement.overdue
+                        ? "bg-[var(--destructive)]/10 text-[var(--destructive)]"
+                        : card.statement.status === "paid"
+                          ? "bg-[var(--success)]/10 text-[var(--success)]"
+                          : "bg-[var(--warning)]/10 text-[var(--warning)]",
+                    )}
+                  >
+                    {card.statement.overdue
+                      ? "Quá hạn"
+                      : card.statement.status === "paid"
+                        ? "Đã thanh toán"
+                        : `Hạn ${formatShortDate(card.statement.dueDate)}`}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs text-[var(--text-muted)]">
+                  Sao kê kỳ này: Chốt ngày {card.statementClosingDay} hàng tháng
+                </span>
+              )}
+            </div>
+
+            {card.statement && (
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 text-[var(--text-secondary)] hover:text-[var(--primary)]"
+                  onClick={() => setStatementDetailOpen(true)}
+                  aria-label="Tóm tắt kỳ sao kê"
+                  title="Tóm tắt kỳ sao kê"
+                >
+                  <Info size={13} aria-hidden="true" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 text-[var(--text-secondary)] hover:text-[var(--primary)]"
+                  render={
+                    <Link
+                      href={`/credit-cards/${card.id}/statements/${card.statement.id}`}
+                      aria-label="Chi tiết sao kê"
+                      title="Chi tiết sao kê"
+                    />
+                  }
+                >
+                  <ReceiptText size={13} aria-hidden="true" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Tablet & Desktop 3-Column Layout (md:grid) */}
+        <div className="hidden md:grid md:grid-cols-3 md:divide-x md:divide-[var(--border)]">
           {/* Col 1: Dư nợ hiện tại */}
-          <div className="pb-3 md:pb-0 md:pr-5">
+          <div className="pr-5">
             <span className="text-xs font-medium text-[var(--text-secondary)]">
               {hasCredit ? "Số dư nộp thừa" : "Dư nợ hiện tại"}
             </span>
             <p
               className={cn(
-                "mt-1 break-words text-xl font-bold tabular-nums tracking-tight md:text-2xl",
+                "mt-1 break-words text-2xl font-bold tabular-nums tracking-tight",
                 hasCredit
                   ? "text-[var(--success)]"
                   : hasDebt
@@ -1781,7 +1910,7 @@ function CreditCardPanel({
           </div>
 
           {/* Col 2: Hạn mức còn lại & Utilization */}
-          <div className="py-3 md:px-5 md:py-0">
+          <div className="px-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-[var(--text-secondary)]">
                 {isOverLimit ? "Vượt hạn mức tín dụng" : "Hạn mức còn lại"}
@@ -1792,14 +1921,14 @@ function CreditCardPanel({
             </div>
             <p
               className={cn(
-                "mt-1 break-words text-xl font-bold tabular-nums tracking-tight md:text-2xl",
+                "mt-1 break-words text-2xl font-bold tabular-nums tracking-tight",
                 isOverLimit ? "text-[var(--destructive)]" : "text-[var(--foreground)]",
               )}
             >
               {formatAmount(card.availableCredit, { maximumFractionDigits: 0 })}{" "}
               <span className="text-xs font-semibold text-[var(--text-secondary)]">{currency}</span>
             </p>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-secondary)]">
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
               <div
                 className={cn(
                   "h-full rounded-full transition-all duration-300",
@@ -1818,7 +1947,7 @@ function CreditCardPanel({
           </div>
 
           {/* Col 3: Sao kê kỳ này */}
-          <div className="pt-3 md:pl-5 md:pt-0">
+          <div className="pl-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-[var(--text-secondary)]">
                 Sao kê kỳ này
@@ -1872,7 +2001,7 @@ function CreditCardPanel({
 
             {card.statement ? (
               <>
-                <p className="mt-1 break-words text-xl font-bold tabular-nums tracking-tight text-[var(--foreground)] md:text-2xl">
+                <p className="mt-1 break-words text-2xl font-bold tabular-nums tracking-tight text-[var(--foreground)]">
                   {formatAmount(statementRemaining.toString())}{" "}
                   <span className="text-xs font-semibold text-[var(--text-secondary)]">{currency}</span>
                 </p>
@@ -1895,38 +2024,43 @@ function CreditCardPanel({
       </Card>
 
       {/* Main Progressive Disclosure Tabs: Giao dịch gần đây | Sao kê kỳ này & Lịch sử | Khoản trả góp */}
-      <Card as="section" className="gap-4 p-4 md:p-5">
-        <Tabs defaultValue="activities" className="w-full space-y-4">
-          <div className="flex flex-col gap-3 border-b border-[var(--border)] pb-3 md:flex-row md:items-center md:justify-between">
-            <TabsList className="w-full justify-start overflow-x-auto md:w-auto">
-              <TabsTrigger value="activities">
-                <span>Giao dịch gần đây</span>
+      <Card as="section" className="gap-3.5 p-3.5 md:gap-4 md:p-5">
+        <Tabs defaultValue="activities" className="w-full space-y-3.5 md:space-y-4">
+          <div className="flex flex-col gap-2.5 border-b border-[var(--border)] pb-3 md:flex-row md:items-center md:justify-between">
+            <TabsList className="grid w-full grid-cols-3 md:inline-flex md:w-auto">
+              <TabsTrigger value="activities" className="px-2 text-xs md:px-3 md:text-sm">
+                <span className="md:hidden">Giao dịch</span>
+                <span className="hidden md:inline">Giao dịch gần đây</span>
                 <TabsCount>{card.activities.length}</TabsCount>
               </TabsTrigger>
-              <TabsTrigger value="statements">
-                <span>Sao kê kỳ này & Lịch sử</span>
+              <TabsTrigger value="statements" className="px-2 text-xs md:px-3 md:text-sm">
+                <span className="md:hidden">Sao kê</span>
+                <span className="hidden md:inline">Sao kê kỳ này & Lịch sử</span>
                 <TabsCount>{card.statements.length}</TabsCount>
               </TabsTrigger>
-              <TabsTrigger value="installments">
-                <span>Khoản trả góp</span>
+              <TabsTrigger value="installments" className="px-2 text-xs md:px-3 md:text-sm">
+                <span className="md:hidden">Trả góp</span>
+                <span className="hidden md:inline">Khoản trả góp</span>
                 <TabsCount>{activeInstallmentPlans.length}</TabsCount>
               </TabsTrigger>
             </TabsList>
 
-            {card.fundingShares.length > 0 && (
+            {card.fundingShares.some((s) => new Decimal(s.outstanding || 0).gt(0)) && (
               <div className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--text-secondary)]">
-                <span className="text-[var(--text-muted)]">Tiền chờ thanh toán thẻ:</span>
-                {card.fundingShares.map((share) => (
-                  <span
-                    key={share.walletId}
-                    className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-0.5 text-[11px]"
-                  >
-                    <span className="break-words">{share.walletName}:</span>
-                    <strong className="font-semibold tabular-nums text-[var(--foreground)]">
-                      {formatAmount(share.outstanding, { maximumFractionDigits: 0 })} {currency}
-                    </strong>
-                  </span>
-                ))}
+                <span className="text-[11px] text-[var(--text-muted)]">Ví chờ trả:</span>
+                {card.fundingShares
+                  .filter((share) => new Decimal(share.outstanding || 0).gt(0))
+                  .map((share) => (
+                    <span
+                      key={share.walletId}
+                      className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-0.5 text-[11px]"
+                    >
+                      <span className="break-words">{share.walletName}:</span>
+                      <strong className="font-semibold tabular-nums text-[var(--foreground)]">
+                        {formatAmount(share.outstanding, { maximumFractionDigits: 0 })} {currency}
+                      </strong>
+                    </span>
+                  ))}
               </div>
             )}
           </div>
@@ -2334,24 +2468,24 @@ function CreditCardPanel({
           </TabsContent>
 
           {/* TAB 3: KHOẢN TRẢ GÓP */}
-          <TabsContent value="installments" className="space-y-4">
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
-              <div className="flex flex-wrap items-center gap-4 text-xs">
-                <div>
-                  <span className="text-[var(--text-muted)]">Đang trả góp: </span>
-                  <strong className="font-semibold tabular-nums text-[var(--foreground)]">
+          <TabsContent value="installments" className="space-y-3.5 md:space-y-4">
+            <div className="flex items-center justify-between gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 md:p-3.5">
+              <div className="grid min-w-0 flex-1 grid-cols-3 gap-2 text-xs md:flex md:flex-wrap md:items-center md:gap-4">
+                <div className="min-w-0">
+                  <span className="block text-[10px] text-[var(--text-muted)] md:inline md:text-xs">Đang trả góp: </span>
+                  <strong className="block font-semibold tabular-nums text-[var(--foreground)] md:inline">
                     {activeInstallmentPlans.length} khoản
                   </strong>
                 </div>
-                <div>
-                  <span className="text-[var(--text-muted)]">Mỗi kỳ tiếp theo: </span>
-                  <strong className="font-semibold tabular-nums text-[var(--primary)]">
+                <div className="min-w-0 border-l border-[var(--border)] pl-2 md:border-l-0 md:pl-0">
+                  <span className="block text-[10px] text-[var(--text-muted)] md:inline md:text-xs">Kỳ tiếp theo: </span>
+                  <strong className="block font-semibold tabular-nums text-[var(--primary)] md:inline">
                     {formatAmount(monthlyInstallmentTotal.toString(), { maximumFractionDigits: 0 })} {currency}
                   </strong>
                 </div>
-                <div>
-                  <span className="text-[var(--text-muted)]">Dư nợ trả góp còn lại: </span>
-                  <strong className="font-semibold tabular-nums text-[var(--foreground)]">
+                <div className="min-w-0 border-l border-[var(--border)] pl-2 md:border-l-0 md:pl-0">
+                  <span className="block text-[10px] text-[var(--text-muted)] md:inline md:text-xs">Còn lại: </span>
+                  <strong className="block font-semibold tabular-nums text-[var(--foreground)] md:inline">
                     {formatAmount(remainingInstallmentPrincipal.toString(), { maximumFractionDigits: 0 })} {currency}
                   </strong>
                 </div>
@@ -3531,9 +3665,9 @@ export function CreditCardOverview(props: {
   }, [props.cards]);
 
   return (
-    <section className="space-y-4" aria-label="Quản lý thẻ tín dụng">
-      {/* Overview Header (shown when in list mode) */}
-      {!activeCard && !props.isDetailPage && (
+    <section className="space-y-3.5 md:space-y-4" aria-label="Quản lý thẻ tín dụng">
+      {/* Overview Header when empty list */}
+      {!activeCard && !props.isDetailPage && props.cards.length === 0 && (
         <header className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="break-words text-xl font-semibold leading-snug text-[var(--foreground)]">
@@ -3551,21 +3685,26 @@ export function CreditCardOverview(props: {
 
       {!activeCard ? (
         <>
-          {/* 1 Clean Top Summary Strip */}
+          {/* Unified Header + Top Summary Strip when cards exist */}
           {props.cards.length > 0 && (
             <Card
               as="section"
-              className="p-4 md:p-5"
+              className="p-3.5 md:p-5"
               aria-label="Tổng quan dư nợ thẻ tín dụng"
             >
-              <div className="divide-y divide-[var(--border)] md:grid md:grid-cols-3 md:divide-x md:divide-y-0">
-                <div className="flex items-center justify-between pb-3 md:flex-col md:items-start md:justify-center md:pb-0 md:pr-5">
-                  <span className="text-xs font-medium text-[var(--text-secondary)]">
-                    Tổng dư nợ thẻ
-                  </span>
+              {/* Top Bar: Mobile shows Primary Debt + Create Button; Desktop shows Title/Subtitle + Create Button */}
+              <div className="flex items-start justify-between gap-3 md:items-center md:border-b md:border-[var(--border)] md:pb-4">
+                <div className="min-w-0">
+                  <h1 className="break-words text-xs font-medium text-[var(--text-secondary)] md:text-lg md:font-semibold md:text-[var(--foreground)]">
+                    <span className="md:hidden">Tổng dư nợ thẻ ({props.cards.length} thẻ)</span>
+                    <span className="hidden md:inline">Thẻ tín dụng</span>
+                  </h1>
+                  <p className="mt-0.5 hidden text-xs text-[var(--text-secondary)] md:block">
+                    Theo dõi dư nợ, hạn mức còn lại và tiền chờ thanh toán thẻ đúng hạn.
+                  </p>
                   <p
                     className={cn(
-                      "text-base font-bold tabular-nums tracking-tight md:mt-1 md:text-2xl",
+                      "mt-0.5 text-xl font-bold tabular-nums tracking-tight md:hidden",
                       totalDebt.gt(0) ? "text-[var(--destructive)]" : "text-[var(--foreground)]",
                     )}
                   >
@@ -3574,18 +3713,41 @@ export function CreditCardOverview(props: {
                       {props.currency}
                     </span>
                   </p>
-                  <span className="mt-1 hidden text-[11px] text-[var(--text-muted)] md:block">
+                </div>
+                {!props.isDetailPage && props.createCardAction && (
+                  <div className="shrink-0">{props.createCardAction}</div>
+                )}
+              </div>
+
+              {/* Mobile 2-Col Secondary Strip (<768px) & Desktop 3-Col Summary Strip (md:grid) */}
+              <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-2.5 md:mt-4 md:grid-cols-3 md:gap-0 md:divide-x md:divide-[var(--border)] md:border-t-0 md:pt-0">
+                <div className="hidden md:flex md:flex-col md:items-start md:justify-center md:pr-5">
+                  <span className="text-xs font-medium text-[var(--text-secondary)]">
+                    Tổng dư nợ thẻ
+                  </span>
+                  <p
+                    className={cn(
+                      "mt-1 text-2xl font-bold tabular-nums tracking-tight",
+                      totalDebt.gt(0) ? "text-[var(--destructive)]" : "text-[var(--foreground)]",
+                    )}
+                  >
+                    {formatAmount(totalDebt.toString())}{" "}
+                    <span className="text-xs font-semibold text-[var(--text-secondary)]">
+                      {props.currency}
+                    </span>
+                  </p>
+                  <span className="mt-1 text-[11px] text-[var(--text-muted)]">
                     Trên tổng số {props.cards.length} thẻ tín dụng
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between py-3 md:flex-col md:items-start md:justify-center md:px-5 md:py-0">
-                  <span className="text-xs font-medium text-[var(--text-secondary)]">
+                <div className="min-w-0 md:flex md:flex-col md:items-start md:justify-center md:px-5">
+                  <span className="block text-[11px] font-medium text-[var(--text-muted)] md:text-xs md:text-[var(--text-secondary)]">
                     Tiền đã chuẩn bị trả thẻ
                   </span>
-                  <p className="text-base font-bold tabular-nums tracking-tight text-[var(--primary)] md:mt-1 md:text-2xl">
+                  <p className="mt-0.5 text-sm font-bold tabular-nums tracking-tight text-[var(--primary)] md:mt-1 md:text-2xl">
                     {formatAmount(totalPrepared.toString())}{" "}
-                    <span className="text-xs font-semibold text-[var(--text-secondary)]">
+                    <span className="text-[11px] font-semibold text-[var(--text-secondary)] md:text-xs">
                       {props.currency}
                     </span>
                   </p>
@@ -3594,20 +3756,20 @@ export function CreditCardOverview(props: {
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 md:flex-col md:items-start md:justify-center md:pl-5 md:pt-0">
-                  <span className="text-xs font-medium text-[var(--text-secondary)]">
+                <div className="min-w-0 border-l border-[var(--border)] pl-3 md:flex md:flex-col md:items-start md:justify-center md:border-l-0 md:pl-5">
+                  <span className="block text-[11px] font-medium text-[var(--text-muted)] md:text-xs md:text-[var(--text-secondary)]">
                     Cần thanh toán thêm
                   </span>
                   <p
                     className={cn(
-                      "text-base font-bold tabular-nums tracking-tight md:mt-1 md:text-2xl",
+                      "mt-0.5 text-sm font-bold tabular-nums tracking-tight md:mt-1 md:text-2xl",
                       totalAdditionalNeeded.gt(0)
                         ? "text-[var(--warning)]"
                         : "text-[var(--success)]",
                     )}
                   >
                     {formatAmount(totalAdditionalNeeded.toString())}{" "}
-                    <span className="text-xs font-semibold text-[var(--text-secondary)]">
+                    <span className="text-[11px] font-semibold text-[var(--text-secondary)] md:text-xs">
                       {props.currency}
                     </span>
                   </p>

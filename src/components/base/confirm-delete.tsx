@@ -1,7 +1,7 @@
 "use client"
 
 import { LoaderCircle, Trash2 } from "lucide-react"
-import { useState, type ReactElement, type ReactNode } from "react"
+import { useState, useSyncExternalStore, type ReactElement, type ReactNode } from "react"
 
 import { Button } from "@/components/base/button"
 import { cn } from "@/lib/utils"
@@ -20,6 +20,24 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover"
+
+const MOBILE_MEDIA_QUERY = "(max-width: 767px)"
+
+function subscribeMobileViewport(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => {}
+  const mql = window.matchMedia(MOBILE_MEDIA_QUERY)
+  mql.addEventListener("change", callback)
+  return () => mql.removeEventListener("change", callback)
+}
+
+function getMobileViewportSnapshot(): boolean {
+  if (typeof window === "undefined") return false
+  return window.matchMedia(MOBILE_MEDIA_QUERY).matches
+}
+
+function getMobileViewportServerSnapshot(): boolean {
+  return false
+}
 
 type ConfirmDeleteProps = {
   ariaLabel: string
@@ -55,11 +73,17 @@ function ConfirmDelete({
   className,
   contentClassName,
   trigger,
-  presentation = "popover",
+  presentation,
   anchor,
 }: ConfirmDeleteProps) {
   const [internalOpen, setInternalOpen] = useState<boolean>(false)
   const [isPending, setIsPending] = useState<boolean>(false)
+  const isMobileViewport = useSyncExternalStore(
+    subscribeMobileViewport,
+    getMobileViewportSnapshot,
+    getMobileViewportServerSnapshot,
+  )
+  const resolvedPresentation = presentation ?? (isMobileViewport ? "sheet" : "popover")
   const open = controlledOpen ?? internalOpen
 
   function handleOpenChange(nextOpen: boolean): void {
@@ -128,7 +152,7 @@ function ConfirmDelete({
     )
   }
 
-  if (presentation === "sheet") {
+  if (resolvedPresentation === "sheet" || isMobileViewport) {
     return (
       <Sheet open={open} onOpenChange={handleOpenChange}>
         {resolvedTrigger && <SheetTrigger render={resolvedTrigger} />}

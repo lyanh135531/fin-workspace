@@ -7,9 +7,6 @@ import {
   Input,
   MoneyInput,
   PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
   Select,
   Tabs,
   TabsList,
@@ -221,7 +218,10 @@ export function DesktopTransactionCreateDraft({
 
   return (
     <section aria-label="Tạo giao dịch mới">
-      <PopoverHeader className="flex-row items-start gap-3 border-b border-[var(--border)] px-2 pb-4 pt-1">
+      <div
+        data-slot="popover-header"
+        className="flex flex-row items-start gap-3 border-b border-[var(--border)] px-2 pb-4 pt-1 text-sm"
+      >
         <span
           className="grid size-10 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] text-[var(--primary)]"
           aria-hidden="true"
@@ -229,14 +229,20 @@ export function DesktopTransactionCreateDraft({
           <Plus size={17} />
         </span>
         <div className="min-w-0 pt-0.5">
-          <PopoverTitle className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+          <h3
+            data-slot="popover-title"
+            className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]"
+          >
             Tạo giao dịch mới
-          </PopoverTitle>
-          <PopoverDescription className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+          </h3>
+          <p
+            data-slot="popover-description"
+            className="mt-1 text-xs leading-5 text-[var(--text-muted)]"
+          >
             Ghi nhận khoản thu, chi hoặc chuyển khoản vào sổ giao dịch.
-          </PopoverDescription>
+          </p>
         </div>
-      </PopoverHeader>
+      </div>
 
       <div className="px-2 py-4">
         <Tabs

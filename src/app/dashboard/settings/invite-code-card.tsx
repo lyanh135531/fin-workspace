@@ -47,29 +47,58 @@ export function InviteCodeCard({
 
   if (compact) {
     return (
-      <div className="inline-flex items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-1 py-0.5">
-        <Button
-          variant="ghost"
-          size="auto"
-          type="button"
-          className="group gap-2.5 px-2.5 py-1.5 text-left"
-          onClick={copy}
-          disabled={copied}
-          title={copied ? "Đã sao chép mã mời" : `Sao chép mã mời ${code}`}
-          aria-label={copied ? "Đã sao chép mã mời" : `Sao chép mã mời ${code}`}
-        >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]">
-            {copied ? <Check size={14} /> : <KeyRound size={14} />}
+      <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 md:w-auto md:px-3 md:py-1.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]"
+            aria-hidden="true"
+          >
+            <KeyRound size={15} />
           </span>
-          <span className="grid gap-0.5">
-            <span className="text-[10px] font-medium leading-none text-[var(--text-muted)]">
-              Mã mời nhóm
+          <div className="min-w-0">
+            <span className="block text-[10px] font-medium leading-none text-[var(--text-muted)]">
+              Mã mời tham gia nhóm
             </span>
-            <code className="font-mono text-xs md:text-sm font-semibold leading-none tracking-[0.14em] text-[var(--foreground)] tabular-nums">
+            <code className="mt-1 block whitespace-nowrap font-mono text-sm font-bold leading-none tracking-[0.14em] text-[var(--foreground)] tabular-nums">
               {formattedDisplay}
             </code>
-          </span>
-        </Button>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            variant="icon"
+            size="icon"
+            type="button"
+            className={copied ? "size-8 text-[var(--success)]" : "size-8"}
+            onClick={copy}
+            disabled={copied}
+            title={copied ? "Đã sao chép mã mời" : `Sao chép mã mời ${code}`}
+            aria-label={copied ? "Đã sao chép mã mời" : `Sao chép mã mời ${code}`}
+          >
+            {copied ? (
+              <Check size={15} strokeWidth={2.5} />
+            ) : (
+              <Copy size={15} />
+            )}
+          </Button>
+
+          <Button
+            variant="icon"
+            size="icon"
+            type="button"
+            className="size-8"
+            disabled={pending}
+            onClick={handleRegenerate}
+            title="Đổi mã mới"
+            aria-label="Đổi mã mới"
+          >
+            <RefreshCw
+              size={15}
+              className={pending ? "animate-spin text-[var(--primary)]" : ""}
+            />
+          </Button>
+        </div>
       </div>
     );
   }
@@ -77,37 +106,37 @@ export function InviteCodeCard({
   return (
     <Card
       as="section"
-      className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(16rem,0.9fr)] md:items-center md:gap-5"
+      className="grid gap-3.5 p-4 md:grid-cols-[minmax(0,1fr)_minmax(16rem,0.9fr)] md:items-center md:gap-5 md:p-5"
     >
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--primary-soft)] text-[var(--primary)]">
-            <KeyRound size={17} strokeWidth={2} />
+          <div className="flex size-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--primary-soft)] text-[var(--primary)] md:size-9">
+            <KeyRound size={16} strokeWidth={2} />
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--primary)]">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--primary)]">
             <Sparkles size={11} />
             Mã chia sẻ
           </span>
         </div>
 
         <div className="space-y-1">
-          <h2 className="text-base font-semibold tracking-tight text-[var(--foreground)]">
+          <h2 className="text-sm font-semibold tracking-tight text-[var(--foreground)] md:text-base">
             Mã mời tham gia nhóm
           </h2>
           <p className="max-w-md text-xs leading-relaxed text-[var(--text-secondary)]">
             Gửi mã 6 chữ số này cho thành viên mới để họ gửi yêu cầu tham gia
-            không gian tài chính của bạn.
+            nhóm tài chính của bạn.
           </p>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-3">
-          <code className="select-all break-words font-mono text-lg md:text-xl font-semibold leading-snug tracking-[0.18em] text-[var(--foreground)] tabular-nums">
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5 md:px-4 md:py-3">
+          <code className="select-all whitespace-nowrap font-mono text-base font-bold leading-snug tracking-[0.16em] text-[var(--foreground)] tabular-nums md:text-xl">
             {formattedDisplay}
           </code>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex shrink-0 items-center gap-1.5">
             <Button
               variant="icon"
               size="icon"
@@ -142,7 +171,7 @@ export function InviteCodeCard({
           </div>
         </div>
 
-        <p className="text-right text-[11px] text-[var(--text-muted)]">
+        <p className="hidden text-right text-[11px] text-[var(--text-muted)] md:block">
           Có thể tạo mã mới bất kỳ lúc nào để bảo mật quyền truy cập.
         </p>
       </div>

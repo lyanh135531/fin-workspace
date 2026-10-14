@@ -63,24 +63,25 @@
 .wallet-create-sheet,
 .wallet-operation-sheet,
 .wallet-edit-sheet {
-  left: 50% !important;
-  bottom: calc(0.5rem + var(--mobile-keyboard-inset, 0px)) !important;
+  inset-inline: 0.75rem !important;
+  bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + var(--mobile-keyboard-inset, 0px)) !important;
   box-sizing: border-box;
-  width: min(38rem, calc(100vw - 1rem)) !important;
-  max-width: none !important;
-  max-height: min(calc(100dvh - 1rem), calc(var(--mobile-visual-height, 100dvh) - 1rem)) !important;
+  width: auto !important;
+  max-width: 38rem !important;
+  max-height: min(82dvh, calc(var(--mobile-visual-height, 100dvh) - 1.5rem)) !important;
+  margin-inline: auto !important;
   gap: 0 !important;
   overflow: hidden !important;
-  transform: translateX(-50%);
+  transform: none;
   border: 1px solid var(--border) !important;
-  border-radius: 1.25rem !important;
+  border-radius: 1.5rem !important;
   background: var(--surface) !important;
   padding: 0 !important;
   box-shadow: none;
 }
 
 .wallet-operation-sheet {
-  width: min(34rem, calc(100vw - 1rem)) !important;
+  max-width: 34rem !important;
 }
 
 .wallet-operation-sheet .ledger-mobile-review-header {
@@ -1683,18 +1684,18 @@
   }
 
   .notifications-mobile-sheet {
-    inset-inline: 0 !important;
-    bottom: 0.5rem !important;
+    inset-inline: 0.75rem !important;
+    bottom: max(0.75rem, env(safe-area-inset-bottom)) !important;
     box-sizing: border-box;
-    width: min(36rem, calc(100vw - 1rem)) !important;
+    width: min(36rem, calc(100vw - 1.5rem)) !important;
     max-width: none !important;
-    height: min(44rem, calc(100svh - 1rem)) !important;
-    max-height: calc(100svh - 1rem) !important;
+    height: min(42rem, calc(100dvh - 1.5rem)) !important;
+    max-height: min(82dvh, calc(100dvh - 1.5rem)) !important;
     margin-inline: auto;
     gap: 0 !important;
     overflow: hidden !important;
     border: 1px solid var(--border) !important;
-    border-radius: 1.25rem !important;
+    border-radius: 1.5rem !important;
     background: var(--surface) !important;
     padding: 0 !important;
     box-shadow: none;
@@ -1873,17 +1874,16 @@
 @media (min-width: 768px) {
   .wallet-create-sheet[data-desktop-side="right"],
   .wallet-edit-sheet[data-desktop-side="right"] {
-    inset: 0 0 0 auto !important;
+    inset: 0.75rem 0.75rem 0.75rem auto !important;
     box-sizing: border-box;
     width: min(36rem, calc(100vw - 3rem)) !important;
-    height: 100vh !important;
-    height: 100dvh !important;
+    height: calc(100vh - 1.5rem) !important;
+    height: calc(100dvh - 1.5rem) !important;
     max-width: none !important;
     max-height: none !important;
     transform: none;
-    border: 0 !important;
-    border-left: 1px solid var(--border) !important;
-    border-radius: 1.2rem 0 0 1.2rem !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 1.25rem !important;
     background: var(--surface) !important;
     box-shadow: none;
   }

@@ -114,34 +114,32 @@ export function WorkspaceSettings({
   }
 
   return (
-    <div className="space-y-4 md:space-y-5">
+    <div className="space-y-3.5 md:space-y-5">
       {/* Main configuration */}
-      <Card as="section" className="flex flex-col gap-4 md:gap-5">
-        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
-          <div className="flex max-w-xl items-start gap-3">
-            <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--primary)]"
-              aria-hidden="true"
-            >
-              <Building2 size={18} strokeWidth={1.8} />
-            </span>
-            <div className="space-y-0.5">
-              <h2 className="text-base font-semibold tracking-tight text-[var(--foreground)]">
-                Thông tin nhóm tài chính
-              </h2>
-              <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
-                Cập nhật tên, mô tả và trạng thái hoạt động của nhóm tài chính.
-              </p>
-            </div>
+      <Card as="section" className="flex flex-col gap-3.5 p-4 md:gap-5 md:p-5">
+        <div className="flex items-center gap-2.5 md:items-start md:gap-3">
+          <span
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--primary)] md:size-9"
+            aria-hidden="true"
+          >
+            <Building2 size={17} strokeWidth={1.8} />
+          </span>
+          <div className="min-w-0 space-y-0.5">
+            <h2 className="text-sm font-semibold tracking-tight text-[var(--foreground)] md:text-base">
+              Thông tin nhóm tài chính
+            </h2>
+            <p className="hidden text-xs leading-relaxed text-[var(--text-secondary)] md:block">
+              Cập nhật tên, mô tả và trạng thái hoạt động của nhóm tài chính.
+            </p>
           </div>
         </div>
 
         <form
           onSubmit={save}
-          className="space-y-4 md:space-y-5"
+          className="space-y-3.5 md:space-y-5"
           aria-busy={pending}
         >
-          <div className="grid gap-4 md:grid-cols-2 md:gap-5">
+          <div className="grid gap-3.5 md:grid-cols-2 md:gap-5">
             {/* Workspace name */}
             <div className="space-y-1.5">
               <Input
@@ -164,7 +162,8 @@ export function WorkspaceSettings({
                 options={[
                   {
                     value: "active",
-                    label: (
+                    label: "Đang hoạt động",
+                    content: (
                       <span className="flex items-center gap-2">
                         <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--success)]" />
                         <span>Đang hoạt động</span>
@@ -173,7 +172,8 @@ export function WorkspaceSettings({
                   },
                   {
                     value: "deactive",
-                    label: (
+                    label: "Tạm ngưng",
+                    content: (
                       <span className="flex items-center gap-2">
                         <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--warning)]" />
                         <span>Tạm ngưng</span>
@@ -190,7 +190,7 @@ export function WorkspaceSettings({
                 label="Mô tả nhóm"
                 id="ws-desc"
                 name="description"
-                rows={3}
+                rows={2}
                 maxLength={500}
                 defaultValue={workspace.description ?? ""}
                 placeholder="Mục đích hoặc phạm vi quản lý thu chi của nhóm"
@@ -199,8 +199,13 @@ export function WorkspaceSettings({
             </div>
           </div>
 
-          <div className="flex items-center justify-end border-t border-[var(--border)] pt-4">
-            <Button type="submit" disabled={pending} variant="default">
+          <div className="flex items-center justify-end border-t border-[var(--border)] pt-3.5 md:pt-4">
+            <Button
+              type="submit"
+              disabled={pending}
+              variant="default"
+              className="w-full md:w-auto"
+            >
               {pending ? (
                 <>
                   <span className="btn-spinner mr-2" aria-hidden />
@@ -215,23 +220,25 @@ export function WorkspaceSettings({
       </Card>
 
       {/* Danger zone */}
-      <Card as="section">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--danger)]">
-              <AlertTriangle size={20} strokeWidth={1.9} />
+      <Card as="section" className="p-4 md:p-5">
+        <div className="flex items-center justify-between gap-3 md:gap-4">
+          <div className="flex min-w-0 items-center gap-3 md:items-start md:gap-3.5">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--danger)] md:size-10">
+              <AlertTriangle size={18} strokeWidth={1.9} />
             </div>
-            <div className="min-w-0 space-y-1">
+            <div className="min-w-0 space-y-0.5">
               <h3 className="text-sm font-semibold text-[var(--foreground)]">
                 Khu vực nguy hiểm
               </h3>
-              <p className="max-w-lg text-xs leading-relaxed text-[var(--text-secondary)]">
-                Vô hiệu hóa nhóm tài chính{" "}
-                <strong className="break-words font-semibold leading-snug text-[var(--foreground)]">
+              <p className="max-w-lg text-xs leading-snug text-[var(--text-secondary)]">
+                Vô hiệu hóa nhóm{" "}
+                <strong className="break-words font-semibold text-[var(--foreground)]">
                   {workspace.name}
                 </strong>
-                . Mọi dữ liệu sẽ bị ẩn và nhóm bị gỡ khỏi danh sách của tất cả
-                thành viên.
+                <span className="hidden md:inline">
+                  {" "}và gỡ khỏi danh sách của tất cả thành viên
+                </span>
+                .
               </p>
             </div>
           </div>

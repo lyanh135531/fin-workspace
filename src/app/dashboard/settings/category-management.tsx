@@ -344,19 +344,19 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       aria-busy={pending}
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]">
-            <FolderTree size={18} />
+      <div className="flex items-center justify-between gap-3 md:items-start">
+        <div className="flex min-w-0 items-center gap-2.5 md:items-start md:gap-3">
+          <div className="grid size-8 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)] md:size-9">
+            <FolderTree size={17} />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-[var(--primary)]">
+            <p className="hidden text-xs font-semibold text-[var(--primary)] md:block">
               Danh mục thu chi
             </p>
-            <h2 className="mt-0.5 text-base font-semibold tracking-tight text-[var(--foreground)]">
+            <h2 className="text-sm font-semibold tracking-tight text-[var(--foreground)] md:mt-0.5 md:text-base">
               Quản lý danh mục
             </h2>
-            <p className="mt-0.5 text-xs leading-relaxed text-[var(--text-secondary)]">
+            <p className="mt-0.5 hidden text-xs leading-relaxed text-[var(--text-secondary)] md:block">
               Tổ chức danh mục cha, danh mục con và sắp xếp theo cấu trúc phù hợp với nhóm tài chính.
             </p>
           </div>
@@ -378,7 +378,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       </div>
 
       {/* Tabs: Chi tiêu & Thu nhập */}
-      <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between md:border-t md:border-[var(--border)] md:pt-4">
         <Tabs
           value={filterType}
           className="w-full md:max-w-sm"
@@ -410,7 +410,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           </TabsList>
         </Tabs>
 
-        <p className="text-xs text-[var(--text-muted)]">
+        <p className="hidden text-xs text-[var(--text-muted)] md:block">
           <span className="hidden lg:inline">
             Kéo thả để thay đổi thứ tự trong cùng một cấp
           </span>
@@ -431,7 +431,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       >
         <SheetContent
           side={isMobile ? "bottom" : "right"}
-          placement={isDesktop ? "inset" : "edge"}
+          placement="inset"
           size={isDesktop ? "wide" : "default"}
           spacing="flush"
           elevation="flat"
@@ -1154,7 +1154,7 @@ function CategoryForm({
 
       <div
         className={cn(
-          "flex flex-1 flex-col gap-4 overflow-y-auto p-4 md:p-5",
+          "flex flex-1 flex-col gap-3.5 overflow-y-auto p-4 md:gap-4 md:p-5",
           isDesktop &&
             "lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] lg:content-start lg:items-start lg:gap-x-6 lg:p-6",
         )}
@@ -1275,7 +1275,7 @@ function CategoryForm({
 
           <div className="grid gap-1.5">
             <Label>Chọn biểu tượng</Label>
-            <div className="grid max-h-48 grid-cols-4 gap-2 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 lg:max-h-[22rem]">
+            <div className="grid max-h-36 grid-cols-4 gap-2 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 md:max-h-48 lg:max-h-[22rem]">
               {ICON_LIST.map((item) => {
                 const IconComp = ICON_MAP[item.id] ?? Tag;
                 const isSelected = selectedIcon === item.id;

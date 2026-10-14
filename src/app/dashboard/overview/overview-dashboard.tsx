@@ -9,6 +9,9 @@ import {
   PageHeader,
   Popover,
   PopoverTrigger,
+  Sheet,
+  SheetContent,
+  SheetTrigger,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -38,6 +41,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
+  DesktopTransactionCreateDraft,
   DesktopTransactionCreatePopoverContent,
   createTransactionDraft,
   transactionDraftInput,
@@ -968,42 +972,85 @@ export function OverviewDashboard({
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
-              <Popover
-                open={Boolean(transferDraft)}
-                onOpenChange={(open) => {
-                  if (open) beginTransfer();
-                  else if (!busy) setTransferDraft(null);
-                }}
-              >
-                <PopoverTrigger
-                  render={
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={busy || wallets.length < 2}
-                      aria-label="Chuyển tiền giữa các ví"
-                      title="Chuyển tiền giữa các ví"
-                    />
-                  }
+              {isMobile ? (
+                <Sheet
+                  open={Boolean(transferDraft)}
+                  onOpenChange={(open) => {
+                    if (open) beginTransfer();
+                    else if (!busy) setTransferDraft(null);
+                  }}
                 >
-                  <ArrowLeftRight className="size-4" />
-                </PopoverTrigger>
-                {transferDraft && (
-                  <DesktopTransactionCreatePopoverContent
-                    draft={transferDraft}
-                    wallets={walletOptions}
-                    categories={categoryOptions}
-                    busy={busy}
-                    onChange={(patch) =>
-                      setTransferDraft((current) =>
-                        current ? { ...current, ...patch } : current,
-                      )
+                  <SheetTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={busy || wallets.length < 2}
+                        aria-label="Chuyển tiền giữa các ví"
+                        title="Chuyển tiền giữa các ví"
+                      />
                     }
-                    onSave={saveTransfer}
-                    onCancel={() => setTransferDraft(null)}
-                  />
-                )}
-              </Popover>
+                  >
+                    <ArrowLeftRight className="size-4" />
+                  </SheetTrigger>
+                  {transferDraft && (
+                    <SheetContent side="bottom" className="p-0">
+                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+                        <DesktopTransactionCreateDraft
+                          draft={transferDraft}
+                          wallets={walletOptions}
+                          categories={categoryOptions}
+                          busy={busy}
+                          onChange={(patch) =>
+                            setTransferDraft((current) =>
+                              current ? { ...current, ...patch } : current,
+                            )
+                          }
+                          onSave={saveTransfer}
+                          onCancel={() => setTransferDraft(null)}
+                        />
+                      </div>
+                    </SheetContent>
+                  )}
+                </Sheet>
+              ) : (
+                <Popover
+                  open={Boolean(transferDraft)}
+                  onOpenChange={(open) => {
+                    if (open) beginTransfer();
+                    else if (!busy) setTransferDraft(null);
+                  }}
+                >
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={busy || wallets.length < 2}
+                        aria-label="Chuyển tiền giữa các ví"
+                        title="Chuyển tiền giữa các ví"
+                      />
+                    }
+                  >
+                    <ArrowLeftRight className="size-4" />
+                  </PopoverTrigger>
+                  {transferDraft && (
+                    <DesktopTransactionCreatePopoverContent
+                      draft={transferDraft}
+                      wallets={walletOptions}
+                      categories={categoryOptions}
+                      busy={busy}
+                      onChange={(patch) =>
+                        setTransferDraft((current) =>
+                          current ? { ...current, ...patch } : current,
+                        )
+                      }
+                      onSave={saveTransfer}
+                      onCancel={() => setTransferDraft(null)}
+                    />
+                  )}
+                </Popover>
+              )}
               <Link
                 href="/wallets"
                 onClick={(event) => {
@@ -1221,42 +1268,85 @@ export function OverviewDashboard({
                   title="Chưa có giao dịch"
                   description="Các giao dịch mới phát sinh sẽ hiển thị tại đây."
                 />
-                <Popover
-                  open={Boolean(emptyCreateDraft)}
-                  onOpenChange={(open) => {
-                    if (open) beginEmptyCreate();
-                    else if (!busy) setEmptyCreateDraft(null);
-                  }}
-                >
-                  <PopoverTrigger
-                    render={
-                      <Button
-                        size="icon"
-                        disabled={busy || !wallets.length}
-                        className="mt-3"
-                        aria-label="Tạo giao dịch đầu tiên"
-                        title="Tạo giao dịch đầu tiên"
-                      />
-                    }
+                {isMobile ? (
+                  <Sheet
+                    open={Boolean(emptyCreateDraft)}
+                    onOpenChange={(open) => {
+                      if (open) beginEmptyCreate();
+                      else if (!busy) setEmptyCreateDraft(null);
+                    }}
                   >
-                    <Plus className="size-4" />
-                  </PopoverTrigger>
-                  {emptyCreateDraft && (
-                    <DesktopTransactionCreatePopoverContent
-                      draft={emptyCreateDraft}
-                      wallets={walletOptions}
-                      categories={categoryOptions}
-                      busy={busy}
-                      onChange={(patch) =>
-                        setEmptyCreateDraft((current) =>
-                          current ? { ...current, ...patch } : current,
-                        )
+                    <SheetTrigger
+                      render={
+                        <Button
+                          size="icon"
+                          disabled={busy || !wallets.length}
+                          className="mt-3"
+                          aria-label="Tạo giao dịch đầu tiên"
+                          title="Tạo giao dịch đầu tiên"
+                        />
                       }
-                      onSave={saveEmptyCreate}
-                      onCancel={() => setEmptyCreateDraft(null)}
-                    />
-                  )}
-                </Popover>
+                    >
+                      <Plus className="size-4" />
+                    </SheetTrigger>
+                    {emptyCreateDraft && (
+                      <SheetContent side="bottom" className="p-0">
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+                          <DesktopTransactionCreateDraft
+                            draft={emptyCreateDraft}
+                            wallets={walletOptions}
+                            categories={categoryOptions}
+                            busy={busy}
+                            onChange={(patch) =>
+                              setEmptyCreateDraft((current) =>
+                                current ? { ...current, ...patch } : current,
+                              )
+                            }
+                            onSave={saveEmptyCreate}
+                            onCancel={() => setEmptyCreateDraft(null)}
+                          />
+                        </div>
+                      </SheetContent>
+                    )}
+                  </Sheet>
+                ) : (
+                  <Popover
+                    open={Boolean(emptyCreateDraft)}
+                    onOpenChange={(open) => {
+                      if (open) beginEmptyCreate();
+                      else if (!busy) setEmptyCreateDraft(null);
+                    }}
+                  >
+                    <PopoverTrigger
+                      render={
+                        <Button
+                          size="icon"
+                          disabled={busy || !wallets.length}
+                          className="mt-3"
+                          aria-label="Tạo giao dịch đầu tiên"
+                          title="Tạo giao dịch đầu tiên"
+                        />
+                      }
+                    >
+                      <Plus className="size-4" />
+                    </PopoverTrigger>
+                    {emptyCreateDraft && (
+                      <DesktopTransactionCreatePopoverContent
+                        draft={emptyCreateDraft}
+                        wallets={walletOptions}
+                        categories={categoryOptions}
+                        busy={busy}
+                        onChange={(patch) =>
+                          setEmptyCreateDraft((current) =>
+                            current ? { ...current, ...patch } : current,
+                          )
+                        }
+                        onSave={saveEmptyCreate}
+                        onCancel={() => setEmptyCreateDraft(null)}
+                      />
+                    )}
+                  </Popover>
+                )}
               </div>
             )}
           </div>

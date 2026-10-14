@@ -17,7 +17,12 @@ type SidebarContextValue = {
   toggleSidebar: () => void;
 };
 
-const SidebarContext = React.createContext<SidebarContextValue | null>(null);
+type SidebarContextConfig = {
+  defaultOpen: boolean;
+  setOpen: (open: boolean) => void;
+};
+
+const SidebarContext = React.createContext<SidebarContextConfig | null>(null);
 
 function getStoredSidebarState(): boolean {
   return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
@@ -33,8 +38,44 @@ function subscribeToSidebarState(listener: () => void): () => void {
   };
 }
 
+function subscribeToDesktopMedia(listener: () => void): () => void {
+  const mql = window.matchMedia("(min-width: 1024px)");
+  mql.addEventListener("change", listener);
+  return () => mql.removeEventListener("change", listener);
+}
+
+function getDesktopMediaSnapshot(): boolean {
+  return window.matchMedia("(min-width: 1024px)").matches;
+}
+
 function useOptionalSidebar(): SidebarContextValue | null {
-  return React.useContext(SidebarContext);
+  const config = React.useContext(SidebarContext);
+  const defaultOpen = config?.defaultOpen ?? true;
+
+  const storedCollapsed = React.useSyncExternalStore(
+    subscribeToSidebarState,
+    getStoredSidebarState,
+    () => !defaultOpen,
+  );
+  const isDesktop = React.useSyncExternalStore(
+    subscribeToDesktopMedia,
+    getDesktopMediaSnapshot,
+    () => true,
+  );
+
+  return React.useMemo<SidebarContextValue | null>(() => {
+    if (!config) return null;
+
+    // Tablet (768px–1023px) uses compact icon-rail mode automatically; Desktop (>=1024px) respects user toggle
+    const open = isDesktop ? !storedCollapsed : false;
+
+    return {
+      state: open ? "expanded" : "collapsed",
+      open,
+      setOpen: config.setOpen,
+      toggleSidebar: () => config.setOpen(storedCollapsed),
+    };
+  }, [config, isDesktop, storedCollapsed]);
 }
 
 function useSidebar(): SidebarContextValue {
@@ -47,16 +88,6 @@ function useSidebar(): SidebarContextValue {
   return context;
 }
 
-function subscribeToDesktopMedia(listener: () => void): () => void {
-  const mql = window.matchMedia("(min-width: 1024px)");
-  mql.addEventListener("change", listener);
-  return () => mql.removeEventListener("change", listener);
-}
-
-function getDesktopMediaSnapshot(): boolean {
-  return window.matchMedia("(min-width: 1024px)").matches;
-}
-
 function SidebarProvider({
   defaultOpen = true,
   className,
@@ -64,28 +95,10 @@ function SidebarProvider({
   children,
   ...props
 }: React.ComponentProps<"div"> & { defaultOpen?: boolean }) {
-  const storedCollapsed = React.useSyncExternalStore(
-    subscribeToSidebarState,
-    getStoredSidebarState,
-    () => !defaultOpen,
-  );
-  const isDesktop = React.useSyncExternalStore(
-    subscribeToDesktopMedia,
-    getDesktopMediaSnapshot,
-    () => true,
-  );
-
-  // Tablet (768px–1023px) uses compact icon-rail mode automatically; Desktop (>=1024px) respects user toggle
-  const open = isDesktop ? !storedCollapsed : false;
-
   const setOpen = React.useCallback((nextOpen: boolean): void => {
     window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(!nextOpen));
     window.dispatchEvent(new Event(SIDEBAR_STATE_EVENT));
   }, []);
-
-  const toggleSidebar = React.useCallback((): void => {
-    setOpen(storedCollapsed);
-  }, [storedCollapsed, setOpen]);
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -94,26 +107,24 @@ function SidebarProvider({
         (event.metaKey || event.ctrlKey)
       ) {
         event.preventDefault();
-        toggleSidebar();
+        setOpen(getStoredSidebarState());
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleSidebar]);
+  }, [setOpen]);
 
-  const value = React.useMemo<SidebarContextValue>(
+  const config = React.useMemo<SidebarContextConfig>(
     () => ({
-      state: open ? "expanded" : "collapsed",
-      open,
+      defaultOpen,
       setOpen,
-      toggleSidebar,
     }),
-    [open, setOpen, toggleSidebar],
+    [defaultOpen, setOpen],
   );
 
   return (
-    <SidebarContext.Provider value={value}>
+    <SidebarContext.Provider value={config}>
       <div
         data-slot="sidebar-wrapper"
         style={
