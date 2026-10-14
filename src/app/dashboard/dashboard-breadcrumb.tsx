@@ -233,20 +233,20 @@ export function DashboardBreadcrumb({
 
   return (
     <Breadcrumb aria-label="Đường dẫn trang">
-      <BreadcrumbList className="flex-nowrap gap-1 overflow-hidden text-xs sm:gap-1.5 sm:text-sm">
+      <BreadcrumbList className="flex-wrap gap-1 text-xs md:gap-1.5 md:text-sm">
         {trail.map((entry, index) => (
           <Fragment key={`${entry.label}-${index}`}>
             {index > 0 && <BreadcrumbSeparator className="shrink-0 text-muted-foreground/55" />}
             <BreadcrumbItem className="min-w-0">
               {entry.href ? (
                 <BreadcrumbLink
-                  className="truncate font-medium hover:text-primary"
+                  className="break-words font-medium leading-snug hover:text-primary"
                   render={<Link href={entry.href} />}
                 >
                   {entry.label}
                 </BreadcrumbLink>
               ) : (
-                <BreadcrumbPage className="truncate font-semibold">
+                <BreadcrumbPage className="break-words font-semibold leading-snug">
                   {entry.label}
                 </BreadcrumbPage>
               )}

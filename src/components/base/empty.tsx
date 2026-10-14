@@ -31,8 +31,8 @@ function Empty({
       data-variant={variant}
       className={cn(
         "flex h-full w-full flex-1 flex-col items-center justify-center text-center",
-        variant === "default" && "min-h-44 p-8",
-        variant === "compact" && "min-h-32 p-6",
+        variant === "default" && "min-h-44 p-6 md:p-8",
+        variant === "compact" && "min-h-32 p-5 md:p-6",
         variant === "inline" && "min-h-20 p-4",
         className,
       )}
@@ -41,7 +41,7 @@ function Empty({
       <span
         data-slot="empty-icon"
         className={cn(
-          "grid shrink-0 place-items-center rounded-xl border border-border bg-background text-muted-foreground shadow-sm",
+          "grid shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--text-secondary)]",
           variant === "default" ? "size-11" : "size-9",
         )}
       >
@@ -53,8 +53,8 @@ function Empty({
       <h3
         data-slot="empty-title"
         className={cn(
-          "font-semibold tracking-tight text-foreground text-balance",
-          variant === "default" ? "mt-4 text-base" : "mt-3 text-sm",
+          "font-semibold tracking-tight text-[var(--foreground)] text-balance",
+          variant === "default" ? "mt-3.5 text-sm md:text-base" : "mt-2.5 text-sm",
         )}
       >
         {title}
@@ -62,7 +62,7 @@ function Empty({
       {description && (
         <p
           data-slot="empty-description"
-          className="mt-1.5 max-w-sm text-sm leading-relaxed text-muted-foreground text-pretty"
+          className="mt-1 max-w-sm text-xs md:text-sm leading-relaxed text-[var(--text-secondary)] text-pretty"
         >
           {description}
         </p>

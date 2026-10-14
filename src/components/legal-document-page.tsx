@@ -44,7 +44,7 @@ export function LegalDocumentPage({
     >
       {/* Sticky Header */}
       <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md">
-        <div className="mx-auto flex min-h-14 max-w-4xl items-center justify-between gap-4 px-4 sm:min-h-16 sm:px-6">
+        <div className="mx-auto flex min-h-14 max-w-4xl items-center justify-between gap-4 px-4 md:min-h-16 md:px-6">
           <div className="flex items-center gap-3">
             <Link
               href={returnHref}
@@ -52,7 +52,7 @@ export function LegalDocumentPage({
               aria-label={returnLabel}
             >
               <ArrowLeft className="size-4" aria-hidden="true" />
-              <span className="hidden sm:inline">{returnLabel}</span>
+              <span className="hidden md:inline">{returnLabel}</span>
             </Link>
             <span className="text-[var(--border-strong)]">/</span>
             <Link href="/" aria-label="Felix, trang chủ">
@@ -63,11 +63,11 @@ export function LegalDocumentPage({
         </div>
       </header>
 
-      <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10 lg:py-12">
+      <div className="mx-auto max-w-4xl px-4 py-6 md:px-6 md:py-10 lg:py-12">
         {/* Hero Section */}
         <section className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-2xl bg-[var(--primary-soft)] text-[var(--primary)] ring-1 ring-[color-mix(in_srgb,var(--primary)_20%,transparent)]">
+            <div className="flex size-11 items-center justify-center rounded-2xl border border-[color-mix(in_srgb,var(--primary)_20%,transparent)] bg-[var(--primary-soft)] text-[var(--primary)]">
               {isPrivacy ? (
                 <ShieldCheck className="size-6" aria-hidden="true" />
               ) : (
@@ -85,10 +85,10 @@ export function LegalDocumentPage({
           </div>
 
           <div>
-            <h1 className="text-balance font-serif text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+            <h1 className="text-balance font-serif text-2xl font-bold tracking-tight text-[var(--foreground)] md:text-4xl">
               {document.title}
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base sm:leading-7">
+            <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)] md:text-base md:leading-7">
               {document.summary}
             </p>
           </div>
@@ -97,104 +97,104 @@ export function LegalDocumentPage({
         {/* 4 Core Pillars / Quick Highlights */}
         <section
           aria-label="Tóm tắt cam kết cốt lõi"
-          className="mt-6 grid grid-cols-2 gap-2.5 sm:gap-3"
+          className="mt-6 grid grid-cols-2 gap-2.5 md:gap-3"
         >
           {isPrivacy ? (
             <>
-              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4">
+              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 md:p-4">
                 <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]">
                   <Lock className="size-3.5" aria-hidden="true" />
                 </div>
-                <h2 className="text-xs font-semibold text-[var(--foreground)] sm:text-sm">
+                <h2 className="text-xs font-semibold text-[var(--foreground)] md:text-sm">
                   Phân lập theo nhóm
                 </h2>
-                <p className="text-[11px] leading-4 text-[var(--text-muted)] sm:text-xs">
+                <p className="text-[11px] leading-4 text-[var(--text-muted)] md:text-xs">
                   Mỗi nhóm được bảo mật độc lập, không rò rỉ.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4">
+              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 md:p-4">
                 <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]">
                   <ShieldCheck className="size-3.5" aria-hidden="true" />
                 </div>
-                <h2 className="text-xs font-semibold text-[var(--foreground)] sm:text-sm">
+                <h2 className="text-xs font-semibold text-[var(--foreground)] md:text-sm">
                   Không bán dữ liệu
                 </h2>
-                <p className="text-[11px] leading-4 text-[var(--text-muted)] sm:text-xs">
+                <p className="text-[11px] leading-4 text-[var(--text-muted)] md:text-xs">
                   Tuyệt đối không chia sẻ cho bên thứ ba vì thương mại.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4">
+              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 md:p-4">
                 <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]">
                   <CheckCircle2 className="size-3.5" aria-hidden="true" />
                 </div>
-                <h2 className="text-xs font-semibold text-[var(--foreground)] sm:text-sm">
+                <h2 className="text-xs font-semibold text-[var(--foreground)] md:text-sm">
                   Mã hóa đa tầng
                 </h2>
-                <p className="text-[11px] leading-4 text-[var(--text-muted)] sm:text-xs">
+                <p className="text-[11px] leading-4 text-[var(--text-muted)] md:text-xs">
                   Mật khẩu băm an toàn, truyền tải qua HTTPS.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4">
+              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 md:p-4">
                 <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]">
                   <UserCheck className="size-3.5" aria-hidden="true" />
                 </div>
-                <h2 className="text-xs font-semibold text-[var(--foreground)] sm:text-sm">
+                <h2 className="text-xs font-semibold text-[var(--foreground)] md:text-sm">
                   Toàn quyền kiểm soát
                 </h2>
-                <p className="text-[11px] leading-4 text-[var(--text-muted)] sm:text-xs">
+                <p className="text-[11px] leading-4 text-[var(--text-muted)] md:text-xs">
                   Dễ dàng yêu cầu chỉnh sửa hoặc xóa dữ liệu.
                 </p>
               </div>
             </>
           ) : (
             <>
-              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4">
+              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 md:p-4">
                 <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]">
                   <FileText className="size-3.5" aria-hidden="true" />
                 </div>
-                <h2 className="text-xs font-semibold text-[var(--foreground)] sm:text-sm">
+                <h2 className="text-xs font-semibold text-[var(--foreground)] md:text-sm">
                   Quản lý minh bạch
                 </h2>
-                <p className="text-[11px] leading-4 text-[var(--text-muted)] sm:text-xs">
+                <p className="text-[11px] leading-4 text-[var(--text-muted)] md:text-xs">
                   Hỗ trợ theo dõi ngân sách và thu chi rõ ràng.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4">
+              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 md:p-4">
                 <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]">
                   <UserCheck className="size-3.5" aria-hidden="true" />
                 </div>
-                <h2 className="text-xs font-semibold text-[var(--foreground)] sm:text-sm">
+                <h2 className="text-xs font-semibold text-[var(--foreground)] md:text-sm">
                   Phân quyền linh hoạt
                 </h2>
-                <p className="text-[11px] leading-4 text-[var(--text-muted)] sm:text-xs">
+                <p className="text-[11px] leading-4 text-[var(--text-muted)] md:text-xs">
                   Quản trị viên chủ động quản lý thành viên & vai trò.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4">
+              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 md:p-4">
                 <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]">
                   <Lock className="size-3.5" aria-hidden="true" />
                 </div>
-                <h2 className="text-xs font-semibold text-[var(--foreground)] sm:text-sm">
+                <h2 className="text-xs font-semibold text-[var(--foreground)] md:text-sm">
                   Bảo mật tài khoản
                 </h2>
-                <p className="text-[11px] leading-4 text-[var(--text-muted)] sm:text-xs">
+                <p className="text-[11px] leading-4 text-[var(--text-muted)] md:text-xs">
                   Người dùng tự quản lý và bảo vệ mật khẩu cá nhân.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4">
+              <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 md:p-4">
                 <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]">
                   <ShieldCheck className="size-3.5" aria-hidden="true" />
                 </div>
-                <h2 className="text-xs font-semibold text-[var(--foreground)] sm:text-sm">
+                <h2 className="text-xs font-semibold text-[var(--foreground)] md:text-sm">
                   Tuân thủ pháp luật
                 </h2>
-                <p className="text-[11px] leading-4 text-[var(--text-muted)] sm:text-xs">
+                <p className="text-[11px] leading-4 text-[var(--text-muted)] md:text-xs">
                   Cam kết sử dụng dịch vụ trung thực và hợp pháp.
                 </p>
               </div>
@@ -203,17 +203,17 @@ export function LegalDocumentPage({
         </section>
 
         {/* Detailed Sections */}
-        <div className="mt-8 space-y-4 sm:mt-10 sm:space-y-5">
+        <div className="mt-8 space-y-4 md:mt-10 md:space-y-5">
           {document.sections.map((section, index) => (
             <Card
               as="section"
               key={section.title}
               aria-labelledby={`section-${index}`}
-              className="gap-3.5 p-4 sm:p-6"
+              className="gap-3.5 p-4 md:p-6"
             >
               <h2
                 id={`section-${index}`}
-                className="text-base font-semibold tracking-tight text-[var(--foreground)] sm:text-lg"
+                className="text-base font-semibold tracking-tight text-[var(--foreground)] md:text-lg"
               >
                 {section.title}
               </h2>
@@ -221,14 +221,14 @@ export function LegalDocumentPage({
               {section.paragraphs?.map((paragraph, pIdx) => (
                 <p
                   key={pIdx}
-                  className="text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base sm:leading-7"
+                  className="text-sm leading-relaxed text-[var(--text-secondary)] md:text-base md:leading-7"
                 >
                   {paragraph}
                 </p>
               ))}
 
               {section.bullets && (
-                <ul className="space-y-2.5 pt-1 text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base sm:leading-7">
+                <ul className="space-y-2.5 pt-1 text-sm leading-relaxed text-[var(--text-secondary)] md:text-base md:leading-7">
                   {section.bullets.map((item, bIdx) => (
                     <li key={bIdx} className="flex items-start gap-2.5">
                       <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[var(--primary)]" aria-hidden="true" />
@@ -244,9 +244,9 @@ export function LegalDocumentPage({
         {/* Footer Navigation & Contact */}
         <section
           aria-label="Liên hệ và liên kết bổ sung"
-          className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-4 sm:mt-10 sm:p-6"
+          className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-4 md:mt-10 md:p-6"
         >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="space-y-1">
               <h2 className="text-sm font-semibold text-[var(--foreground)]">
                 Bạn có câu hỏi hoặc cần hỗ trợ?
@@ -257,10 +257,10 @@ export function LegalDocumentPage({
             </div>
             <a
               href={`mailto:${contactEmail}`}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--primary)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
-              <Mail className="size-4" aria-hidden="true" />
-              <span>{contactEmail}</span>
+              <Mail className="size-4 shrink-0" aria-hidden="true" />
+              <span className="break-words leading-snug">{contactEmail}</span>
             </a>
           </div>
 

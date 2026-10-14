@@ -30,15 +30,15 @@ function PortalMobileHeaderInner({ username }: PortalMobileHeaderProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-10 flex min-h-14 items-center gap-3 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-4 backdrop-blur-md min-[640px]:hidden">
+    <header className="sticky top-0 z-10 flex min-h-14 items-center gap-3 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-4 backdrop-blur-md md:hidden">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger
           render={
             <Button
-              variant="unstyled"
-              size="auto"
+              variant="icon"
+              size="icon"
               type="button"
-              className="grid size-9 place-items-center rounded-lg text-[var(--text-secondary)] transition-colors hover:text-[var(--foreground)]"
+              title="Mở điều hướng portal"
               aria-label="Mở điều hướng portal"
             />
           }
@@ -66,10 +66,10 @@ function PortalMobileHeaderInner({ username }: PortalMobileHeaderProps) {
           </div>
 
           <div className="border-t border-[var(--border)] px-5 py-3">
-            <p className="truncate text-sm font-semibold text-[var(--foreground)]">
+            <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
               {username}
             </p>
-            <p className="text-xs text-[var(--text-muted)]">Portal Admin</p>
+            <p className="text-xs text-[var(--text-muted)]">Quản trị hệ thống</p>
           </div>
         </SheetContent>
       </Sheet>

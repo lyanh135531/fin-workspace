@@ -63,12 +63,12 @@ export function DashboardNavigation({
 
   return (
     <nav
-      className="flex min-h-0 flex-1 flex-col min-[901px]:px-0.5"
+      className="flex min-h-0 flex-1 flex-col gap-2"
       aria-label="Điều hướng chính"
     >
       {currentId && (
-        <div className="mobile-workspace-block px-2 pb-1 min-[901px]:px-1 min-[901px]:pb-3 group-data-[collapsible=icon]:px-2 min-[901px]:group-data-[collapsible=icon]:px-0">
-          <span className="dashboard-nav-section-label min-[901px]:mb-2 min-[901px]:block! min-[901px]:px-2 min-[901px]:text-[0.65rem] min-[901px]:font-semibold min-[901px]:tracking-[0.08em] min-[901px]:text-[var(--text-muted)] min-[901px]:group-data-[collapsible=icon]:hidden!">
+        <div className="mobile-workspace-block px-1 pb-2 group-data-[collapsible=icon]:px-0">
+          <span className="dashboard-nav-section-label mb-1.5 block px-2 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] group-data-[collapsible=icon]:hidden!">
             Nhóm tài chính
           </span>
           <WorkspaceSwitcher
@@ -80,9 +80,9 @@ export function DashboardNavigation({
         </div>
       )}
 
-      <SidebarGroup className="min-[901px]:pt-2">
-        <span className="dashboard-nav-section-label min-[901px]:mb-2 min-[901px]:block! min-[901px]:px-2 min-[901px]:text-[0.65rem] min-[901px]:font-semibold min-[901px]:tracking-[0.08em] min-[901px]:text-[var(--text-muted)] min-[901px]:group-data-[collapsible=icon]:hidden!">
-          Điều hướng
+      <SidebarGroup className="pt-1">
+        <span className="dashboard-nav-section-label mb-1.5 block px-2 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] group-data-[collapsible=icon]:hidden!">
+          Danh mục
         </span>
         <SidebarGroupContent>
           <NavigationMenu
@@ -92,7 +92,6 @@ export function DashboardNavigation({
           />
         </SidebarGroupContent>
       </SidebarGroup>
-
     </nav>
   );
 }
@@ -120,14 +119,14 @@ function NavigationMenu({
         return (
           <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
-              className="dashboard-primary-nav-link group/nav min-[901px]:h-10! min-[901px]:rounded-xl! min-[901px]:px-2! min-[901px]:group-data-[collapsible=icon]:mx-auto! min-[901px]:group-data-[collapsible=icon]:size-10! min-[901px]:group-data-[collapsible=icon]:justify-center! min-[901px]:group-data-[collapsible=icon]:p-1!"
+              className="dashboard-primary-nav-link group/nav h-10 rounded-lg px-2.5 group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!"
               render={
                 <Link
                   href={item.href}
                   aria-current={item.active ? "page" : undefined}
                   aria-busy={isPending || undefined}
                   aria-label={item.description}
-                  title={item.description}
+                  title={item.label}
                   onNavigate={(event) => {
                     event.preventDefault();
                     onNavigate(item.href);
@@ -136,14 +135,10 @@ function NavigationMenu({
               }
               isActive={isVisuallyActive}
             >
-              <Icon
-                className="min-[901px]:hidden!"
-                strokeWidth={1.8}
-              />
-              <span className="hidden! min-[901px]:flex! min-[901px]:shrink-0 min-[901px]:items-center min-[901px]:justify-center min-[901px]:text-[var(--text-muted)] min-[901px]:transition-colors min-[901px]:group-hover/nav:text-[var(--foreground)] min-[901px]:group-data-[active]/nav:text-[var(--primary)]">
-                <Icon strokeWidth={1.8} />
+              <span className="flex shrink-0 items-center justify-center text-[var(--text-secondary)] transition-colors group-hover/nav:text-[var(--foreground)] group-data-[active]/nav:text-[var(--primary)]">
+                <Icon size={18} strokeWidth={1.85} />
               </span>
-              <span className="min-[901px]:font-medium min-[901px]:group-data-[collapsible=icon]:hidden!">
+              <span className="min-w-0 break-words font-medium leading-snug group-data-[collapsible=icon]:hidden!">
                 {item.label}
               </span>
             </SidebarMenuButton>

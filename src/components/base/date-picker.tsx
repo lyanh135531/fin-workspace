@@ -135,8 +135,8 @@ export function DatePicker({
       aria-label={ariaLabel ?? label}
       disabled={disabled}
       className={cn(
-        "date-picker border border-input shadow-none hover:bg-transparent w-full justify-between px-3 font-normal tabular-nums bg-transparent dark:bg-input/30 dark:hover:bg-input/50",
-        !selectedDate && "text-muted-foreground",
+        "date-picker w-full justify-between px-3 font-normal tabular-nums",
+        !selectedDate && "text-[var(--text-muted)]",
         className,
       )}
     />
@@ -144,15 +144,15 @@ export function DatePicker({
   const triggerContent = (
     <>
       <span className="flex min-w-0 items-center gap-2">
-        <CalendarDays className="size-3.5 text-primary" aria-hidden="true" />
-        <span className="truncate">
+        <CalendarDays className="size-4 text-[var(--primary)]" aria-hidden="true" />
+        <span className="tabular-nums">
           {selectedDate
             ? format(selectedDate, "dd/MM/yyyy", { locale: vi })
             : placeholder}
         </span>
       </span>
       <ChevronDown
-        className="size-3.5 text-muted-foreground"
+        className="size-4 text-[var(--text-muted)]"
         aria-hidden="true"
       />
     </>
@@ -179,6 +179,7 @@ export function DatePicker({
       <PopoverContent
         align="start"
         sideOffset={6}
+        elevation="flat"
         className="w-auto gap-0 overflow-hidden p-0"
       >
         <Calendar
@@ -206,12 +207,12 @@ export function DatePicker({
         />
 
         {allowClear && selectedDate && (
-          <div className="border-t border-border p-1.5">
+          <div className="border-t border-[var(--border)] p-1.5">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 w-full justify-center text-xs text-muted-foreground"
+              className="h-8 w-full justify-center text-xs text-[var(--text-secondary)]"
               onClick={() => {
                 updateValue(undefined);
                 setOpen(false);
@@ -238,7 +239,7 @@ export function DatePicker({
   if (!label) return picker;
 
   return (
-    <div className="grid gap-1">
+    <div className="grid gap-1.5">
       <Label required={required}>{label}</Label>
       {picker}
     </div>

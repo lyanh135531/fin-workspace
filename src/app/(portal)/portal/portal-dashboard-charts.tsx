@@ -41,7 +41,7 @@ const activityConfig: ChartConfig = {
     color: "var(--primary)",
   },
   dau: {
-    label: "User hoạt động (DAU)",
+    label: "Người dùng hoạt động (DAU)",
     color: "var(--success)",
   },
 };
@@ -85,7 +85,7 @@ export function PortalDashboardCharts({
     <>
       {/* Registration by Month */}
       <Card className="gap-0 p-0 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-5">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 md:px-5">
           <div>
             <h2 className="font-semibold text-[var(--foreground)]">
               Đăng ký theo tháng
@@ -99,7 +99,7 @@ export function PortalDashboardCharts({
             <span>Tài khoản mới</span>
           </div>
         </div>
-        <div className="p-4 sm:p-5">
+        <div className="p-4 md:p-5">
           {registrations.length === 0 ? (
             <div className="grid min-h-40 place-items-center text-sm text-[var(--text-muted)]">
               Chưa có dữ liệu đăng ký.
@@ -145,7 +145,7 @@ export function PortalDashboardCharts({
 
       {/* System Activity + DAU by Day */}
       <Card className="gap-0 p-0 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-5">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 md:px-5">
           <div>
             <h2 className="font-semibold text-[var(--foreground)]">
               Hoạt động hệ thống
@@ -154,18 +154,18 @@ export function PortalDashboardCharts({
               30 ngày gần nhất · Thao tác & Người dùng hoạt động
             </p>
           </div>
-          <div className="hidden flex-wrap items-center gap-3 text-xs sm:flex">
+          <div className="hidden flex-wrap items-center gap-3 text-xs md:flex">
             <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
               <span className="size-2 rounded-full bg-[var(--primary)]" aria-hidden />
               Thao tác
             </span>
             <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
               <span className="size-2 rounded-full bg-[var(--success)]" aria-hidden />
-              User hoạt động (DAU)
+              Người dùng hoạt động (DAU)
             </span>
           </div>
         </div>
-        <div className="p-4 sm:p-5">
+        <div className="p-4 md:p-5">
           {mergedActivity.length === 0 ? (
             <div className="grid min-h-40 place-items-center text-sm text-[var(--text-muted)]">
               Chưa có dữ liệu hoạt động.

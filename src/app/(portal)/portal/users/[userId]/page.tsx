@@ -62,20 +62,25 @@ export default async function PortalUserDetailPage({
   }
 
   const fields = [
-    ["Username", user.username],
+    ["Tên đăng nhập", user.username],
     ["Ngày tạo", dateTimeFormatter.format(user.createdAt)],
     ["Thao tác lần cuối", lastActivity ? dateTimeFormatter.format(lastActivity) : "Chưa có"],
   ] as const;
 
   return (
-    <PageContainer className="flex-1 min-h-0 space-y-6 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <PageContainer className="flex-1 min-h-0 space-y-6 overflow-y-auto px-4 py-6 md:px-6 md:py-8 lg:px-8">
       <PageHeader
         title={user.username}
-        description="Thông tin tài khoản, workspace và lịch sử hoạt động."
+        description="Thông tin tài khoản, nhóm tài chính và lịch sử hoạt động."
       >
-        <Button variant="ghost" render={<Link href="/portal/users" />}>
+        <Button
+          variant="icon"
+          size="icon"
+          title="Danh sách người dùng"
+          aria-label="Danh sách người dùng"
+          render={<Link href="/portal/users" aria-label="Danh sách người dùng" title="Danh sách người dùng" />}
+        >
           <ArrowLeft aria-hidden />
-          Danh sách user
         </Button>
       </PageHeader>
 
@@ -87,20 +92,20 @@ export default async function PortalUserDetailPage({
         </div>
 
         <dl className="divide-y divide-[var(--border)]">
-          <div className="grid gap-1 py-4 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-6">
+          <div className="grid gap-1 py-4 md:grid-cols-[11rem_minmax(0,1fr)] md:gap-6">
             <dt className="text-sm font-medium text-[var(--text-muted)]">
               Trạng thái
             </dt>
-            <dd className="text-sm sm:text-right">
+            <dd className="text-sm md:text-right">
               <Badge variant={user.status === "active" ? "outline" : "destructive"}>
                 {user.status === "active" ? "Đang hoạt động" : "Đã vô hiệu hóa"}
               </Badge>
             </dd>
           </div>
           {fields.map(([label, value]) => (
-            <div key={label} className="grid gap-1 py-4 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-6">
+            <div key={label} className="grid gap-1 py-4 md:grid-cols-[11rem_minmax(0,1fr)] md:gap-6">
               <dt className="text-sm font-medium text-[var(--text-muted)]">{label}</dt>
-              <dd className="[overflow-wrap:anywhere] text-sm text-[var(--foreground)] sm:text-right">
+              <dd className="break-words text-sm leading-snug text-[var(--foreground)] md:text-right">
                 {value}
               </dd>
             </div>
@@ -110,28 +115,28 @@ export default async function PortalUserDetailPage({
 
       {/* Workspaces */}
       <Card className="gap-0 p-0">
-        <div className="border-b border-[var(--border)] px-4 py-3 sm:px-5">
+        <div className="border-b border-[var(--border)] px-4 py-3 md:px-5">
           <h2 className="font-semibold text-[var(--foreground)]">
-            Workspace ({workspaces.length})
+            Nhóm tài chính ({workspaces.length})
           </h2>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-            Các workspace mà user tham gia
+            Các nhóm tài chính mà người dùng tham gia
           </p>
         </div>
 
         {workspaces.length === 0 ? (
           <div className="grid min-h-32 place-items-center p-6 text-sm text-[var(--text-muted)]">
-            User chưa tham gia workspace nào.
+            Người dùng chưa tham gia nhóm tài chính nào.
           </div>
         ) : (
           <>
             {/* Desktop table */}
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full border-collapse text-left text-sm">
-                <caption className="sr-only">Workspace của {user.username}</caption>
+                <caption className="sr-only">Nhóm tài chính của {user.username}</caption>
                 <thead className="bg-[var(--surface-secondary)] text-xs text-[var(--text-muted)]">
                   <tr>
-                    <th scope="col" className="px-5 py-3 font-medium">Workspace</th>
+                    <th scope="col" className="px-5 py-3 font-medium">Nhóm tài chính</th>
                     <th scope="col" className="px-5 py-3 font-medium">Vai trò</th>
                     <th scope="col" className="px-5 py-3 font-medium">Trạng thái</th>
                     <th scope="col" className="px-5 py-3 text-right font-medium">Ngày tham gia</th>
@@ -143,7 +148,7 @@ export default async function PortalUserDetailPage({
                       key={ws.id}
                       className="border-t border-[var(--border)] transition-colors hover:bg-[var(--surface-hover)]"
                     >
-                      <td className="px-5 py-3 font-medium text-[var(--foreground)]">
+                      <td className="px-5 py-3 break-words font-medium leading-snug text-[var(--foreground)]">
                         {ws.workspace.name}
                       </td>
                       <td className="px-5 py-3 text-[var(--text-secondary)]">
@@ -173,7 +178,7 @@ export default async function PortalUserDetailPage({
                   className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-semibold text-[var(--foreground)]">
+                    <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
                       {ws.workspace.name}
                     </p>
                     <Badge variant={ws.status === "active" ? "outline" : "destructive"}>
@@ -195,7 +200,7 @@ export default async function PortalUserDetailPage({
 
       {/* Activity Log */}
       <Card className="gap-0 p-0">
-        <div className="flex items-center justify-between gap-4 border-b border-[var(--border)] px-4 py-3 sm:px-5">
+        <div className="flex items-center justify-between gap-4 border-b border-[var(--border)] px-4 py-3 md:px-5">
           <div>
             <h2 className="font-semibold text-[var(--foreground)]">
               Lịch sử hoạt động
@@ -221,7 +226,7 @@ export default async function PortalUserDetailPage({
                 <thead className="bg-[var(--surface-secondary)] text-xs text-[var(--text-muted)]">
                   <tr>
                     <th scope="col" className="px-5 py-3 font-medium">Thao tác</th>
-                    <th scope="col" className="px-5 py-3 font-medium">Workspace</th>
+                    <th scope="col" className="px-5 py-3 font-medium">Nhóm tài chính</th>
                     <th scope="col" className="px-5 py-3 text-right font-medium">Thời gian</th>
                   </tr>
                 </thead>
@@ -231,10 +236,10 @@ export default async function PortalUserDetailPage({
                       key={log.id}
                       className="border-t border-[var(--border)] transition-colors hover:bg-[var(--surface-hover)]"
                     >
-                      <td className="px-5 py-3 font-medium text-[var(--foreground)]">
+                      <td className="px-5 py-3 break-words font-medium leading-snug text-[var(--foreground)]">
                         {formatActionLabel(log.action)}
                       </td>
-                      <td className="px-5 py-3 text-[var(--text-secondary)]">
+                      <td className="px-5 py-3 break-words leading-snug text-[var(--text-secondary)]">
                         {log.workspace.name}
                       </td>
                       <td className="px-5 py-3 text-right tabular-nums text-[var(--text-muted)]">
@@ -253,11 +258,11 @@ export default async function PortalUserDetailPage({
                   key={log.id}
                   className="space-y-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
                 >
-                  <p className="text-sm font-medium text-[var(--foreground)]">
+                  <p className="break-words text-sm font-medium leading-snug text-[var(--foreground)]">
                     {formatActionLabel(log.action)}
                   </p>
-                  <div className="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
-                    <span>{log.workspace.name}</span>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
+                    <span className="break-words leading-snug">{log.workspace.name}</span>
                     <span className="tabular-nums">
                       {shortDateTimeFormatter.format(log.createdAt)}
                     </span>

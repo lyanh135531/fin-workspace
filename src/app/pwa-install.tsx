@@ -57,7 +57,7 @@ type PwaInstallContextValue = {
 };
 
 const PwaInstallContext = createContext<PwaInstallContextValue | null>(null);
-const MOBILE_INSTALL_SHEET_QUERY = "(max-width: 760px)";
+const MOBILE_INSTALL_SHEET_QUERY = "(max-width: 767px)";
 
 function subscribeToMobileInstallSheet(callback: () => void): () => void {
   const mediaQuery = window.matchMedia(MOBILE_INSTALL_SHEET_QUERY);

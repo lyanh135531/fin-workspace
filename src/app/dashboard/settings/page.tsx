@@ -71,12 +71,12 @@ export default async function SettingsPage({
 
   return (
     <PageContainer className="workspace-settings-page">
-      <div className="workspace-settings-container workspace-admin-settings-container space-y-6 min-[901px]:mx-auto min-[901px]:max-w-[76rem] min-[901px]:space-y-0">
+      <div className="workspace-settings-container workspace-admin-settings-container space-y-6 md:mx-auto md:max-w-[76rem] md:space-y-0">
         <section className="workspace-mobile-overview md:hidden rounded-2xl">
           <div className="workspace-mobile-overview-head">
             <div className="workspace-mobile-overview-copy">
-              <p>Quản trị nhóm</p>
-              <h1>{membership.workspace.name}</h1>
+              <p>Cài đặt nhóm</p>
+              <h1 className="break-words leading-snug">{membership.workspace.name}</h1>
               <span>
                 <i data-active={membership.workspace.status === "active"} />
                 {membership.workspace.status === "active"
@@ -104,9 +104,9 @@ export default async function SettingsPage({
 
         <PageHeader
           title="Cài đặt nhóm tài chính"
-          description="Cấu hình thông tin chung, quản lý danh mục thu chi và thành viên trong nhóm của bạn."
-          eyebrow="Quản trị nhóm"
-          className="max-md:hidden min-[901px]:mb-6 min-[901px]:pb-0"
+          description="Thiết lập thông tin chung, quản lý danh mục thu chi và thành viên trong nhóm của bạn."
+          eyebrow="Cài đặt nhóm"
+          className="max-md:hidden md:mb-6 md:pb-0"
           border={false}
         >
           <InviteCodeCard code={inviteCode} compact />

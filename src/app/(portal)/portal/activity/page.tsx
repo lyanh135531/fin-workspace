@@ -58,16 +58,16 @@ export default async function PortalActivityPage({
   }
 
   return (
-    <PageContainer className="flex flex-1 min-h-0 flex-col h-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <PageContainer className="flex flex-1 min-h-0 flex-col h-full px-4 py-6 md:px-6 md:py-8 lg:px-8">
       <PageHeader
         title="Nhật ký hoạt động"
-        description="Toàn bộ audit log trên hệ thống Felix."
+        description="Toàn bộ nhật ký hoạt động trên hệ thống Felix."
         className="shrink-0"
       />
 
       <Card className="flex flex-1 min-h-0 flex-col gap-0 p-0 overflow-hidden">
         {/* Filters Header (Fixed top) */}
-        <div className="shrink-0 space-y-4 border-b border-[var(--border)] p-4 sm:p-5">
+        <div className="shrink-0 space-y-4 border-b border-[var(--border)] p-4 md:p-5">
           <PortalActivityFilters
             key={`${filters.q}:${filters.dateFrom ?? ""}:${filters.dateTo ?? ""}`}
             q={filters.q}
@@ -94,11 +94,11 @@ export default async function PortalActivityPage({
               <div className="hidden min-w-full md:block">
                 <table className="w-full border-collapse text-left text-sm">
                   <caption className="sr-only">Nhật ký hoạt động hệ thống</caption>
-                  <thead className="sticky top-0 z-10 bg-[var(--surface-secondary)] text-xs text-[var(--text-muted)] shadow-[0_1px_0_0_var(--border)]">
+                  <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--surface-secondary)] text-xs text-[var(--text-muted)]">
                     <tr>
                       <th scope="col" className="px-5 py-3 font-medium">Thao tác</th>
                       <th scope="col" className="px-5 py-3 font-medium">Người thực hiện</th>
-                      <th scope="col" className="px-5 py-3 font-medium">Workspace</th>
+                      <th scope="col" className="px-5 py-3 font-medium">Nhóm tài chính</th>
                       <th scope="col" className="px-5 py-3 text-right font-medium">Thời gian</th>
                     </tr>
                   </thead>
@@ -108,7 +108,7 @@ export default async function PortalActivityPage({
                         key={entry.id}
                         className="border-t border-[var(--border)] transition-colors hover:bg-[var(--surface-hover)]"
                       >
-                        <td className="px-5 py-3 font-medium text-[var(--foreground)]">
+                        <td className="px-5 py-3 break-words font-medium leading-snug text-[var(--foreground)]">
                           {formatActionLabel(entry.action)}
                         </td>
                         <td className="px-5 py-3 text-[var(--text-secondary)]">
@@ -116,10 +116,10 @@ export default async function PortalActivityPage({
                             <div className="grid size-6 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--primary)_15%,var(--surface))] text-[0.65rem] font-bold text-[var(--primary)]">
                               {(entry.actor?.username ?? "H").slice(0, 1).toUpperCase()}
                             </div>
-                            <span>{entry.actor?.username ?? "Hệ thống"}</span>
+                            <span className="break-words leading-snug">{entry.actor?.username ?? "Hệ thống"}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-3 text-[var(--text-secondary)]">
+                        <td className="px-5 py-3 break-words leading-snug text-[var(--text-secondary)]">
                           {entry.workspace.name}
                         </td>
                         <td className="px-5 py-3 text-right tabular-nums text-[var(--text-muted)]">
@@ -138,18 +138,18 @@ export default async function PortalActivityPage({
                     key={entry.id}
                     className="space-y-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
                   >
-                    <p className="text-sm font-medium text-[var(--foreground)]">
+                    <p className="break-words text-sm font-medium leading-snug text-[var(--foreground)]">
                       {formatActionLabel(entry.action)}
                     </p>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
-                      <span className="flex items-center gap-1.5">
-                        <span className="grid size-5 place-items-center rounded-full bg-[color-mix(in_srgb,var(--primary)_15%,var(--surface))] text-[0.6rem] font-bold text-[var(--primary)]">
+                      <span className="flex items-center gap-1.5 break-words leading-snug">
+                        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--primary)_15%,var(--surface))] text-[0.6rem] font-bold text-[var(--primary)]">
                           {(entry.actor?.username ?? "H").slice(0, 1).toUpperCase()}
                         </span>
                         {entry.actor?.username ?? "Hệ thống"}
                       </span>
                       <span>·</span>
-                      <span>{entry.workspace.name}</span>
+                      <span className="break-words leading-snug">{entry.workspace.name}</span>
                     </div>
                     <p className="text-xs tabular-nums text-[var(--text-muted)]">
                       {dateTimeFormatter.format(entry.createdAt)}

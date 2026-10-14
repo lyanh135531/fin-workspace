@@ -5,7 +5,6 @@ import {
   Building2,
   Check,
   KeyRound,
-  Plus,
   ShieldCheck,
   Sparkles,
   Wallet,
@@ -16,12 +15,6 @@ import { createWorkspaceAction } from "@/app/dashboard/settings/actions";
 import { Button, Card, Input, Loading } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-
-const NAME_SUGGESTIONS = [
-  "Chi tiêu gia đình",
-  "Tài chính cá nhân",
-  "Quản lý dự án",
-];
 
 const WORKSPACE_BENEFITS = [
   {

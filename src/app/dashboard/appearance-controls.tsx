@@ -26,11 +26,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const APPEARANCE_THEMES = [
-  { value: "sunrise", label: "Sunrise Family", shortLabel: "Sunrise", color: "#FF5B3D" },
-  { value: "ocean", label: "Ocean Calm", shortLabel: "Ocean", color: "#1677B8" },
-  { value: "forest", label: "Forest Home", shortLabel: "Forest", color: "#2F7D5B" },
-  { value: "lavender", label: "Lavender Dream", shortLabel: "Lavender", color: "#7959C8" },
-  { value: "midnight", label: "Midnight Finance", shortLabel: "Midnight", color: "#334E8C" },
+  { value: "sunrise", label: "Bình minh (Mặc định)", shortLabel: "Bình minh", color: "#E85538" },
+  { value: "ocean", label: "Đại dương", shortLabel: "Đại dương", color: "#0F6CBD" },
+  { value: "forest", label: "Rừng xanh", shortLabel: "Rừng xanh", color: "#246E4F" },
+  { value: "lavender", label: "Oải hương", shortLabel: "Oải hương", color: "#6D48C7" },
+  { value: "midnight", label: "Đêm tối", shortLabel: "Đêm tối", color: "#254482" },
 ] as const;
 
 type AppearanceTheme = (typeof APPEARANCE_THEMES)[number]["value"];
@@ -283,7 +283,7 @@ export function MobileAppearanceSheet() {
                       {selected && (
                         <Check
                           size={18}
-                          className="text-white drop-shadow-none"
+                          className="text-white"
                           strokeWidth={2.5}
                           aria-hidden="true"
                         />
@@ -291,7 +291,7 @@ export function MobileAppearanceSheet() {
                     </span>
                     <span
                       className={cn(
-                        "text-[0.68rem] tracking-tight transition-colors truncate max-w-full",
+                        "text-[0.68rem] leading-tight tracking-tight transition-colors",
                         selected
                           ? "font-semibold text-[var(--foreground)]"
                           : "font-medium text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]",

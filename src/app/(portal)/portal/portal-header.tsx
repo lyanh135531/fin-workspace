@@ -55,19 +55,19 @@ function PortalHeaderInner({
   const breadcrumbItems = getBreadcrumb(pathname);
 
   return (
-    <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 sm:px-6">
+    <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 md:px-6">
       {/* Left section: Breadcrumbs (Desktop) / Mobile Drawer */}
       <div className="flex items-center gap-3">
         {/* Mobile Hamburger Drawer */}
-        <div className="min-[640px]:hidden">
+        <div className="md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
               render={
                 <Button
-                  variant="unstyled"
-                  size="auto"
+                  variant="icon"
+                  size="icon"
                   type="button"
-                  className="grid size-9 place-items-center rounded-lg text-[var(--text-secondary)] transition-colors hover:text-[var(--foreground)]"
+                  title="Mở điều hướng portal"
                   aria-label="Mở điều hướng portal"
                 />
               }
@@ -95,10 +95,10 @@ function PortalHeaderInner({
               </div>
 
               <div className="border-t border-[var(--border)] px-5 py-3">
-                <p className="truncate text-sm font-semibold text-[var(--foreground)]">
+                <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
                   {username}
                 </p>
-                <p className="text-xs text-[var(--text-muted)]">Portal Admin</p>
+                <p className="text-xs text-[var(--text-muted)]">Quản trị hệ thống</p>
               </div>
             </SheetContent>
           </Sheet>
@@ -107,7 +107,7 @@ function PortalHeaderInner({
         {/* Mobile Logo link */}
         <Link
           href="/portal"
-          className="flex items-center gap-2 text-[var(--foreground)] min-[640px]:hidden"
+          className="flex items-center gap-2 text-[var(--foreground)] md:hidden"
           aria-label="Felix Portal"
         >
           <FinLogo size={28} />
@@ -115,7 +115,7 @@ function PortalHeaderInner({
         </Link>
 
         {/* Desktop Breadcrumbs */}
-        <nav aria-label="Breadcrumb" className="hidden items-center gap-1.5 text-xs min-[640px]:flex">
+        <nav aria-label="Breadcrumb" className="hidden items-center gap-1.5 text-xs md:flex">
           {breadcrumbItems.map((item, idx) => {
             const isLast = idx === breadcrumbItems.length - 1;
             return (

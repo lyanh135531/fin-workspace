@@ -134,7 +134,7 @@ function ConfirmDelete({
         {resolvedTrigger && <SheetTrigger render={resolvedTrigger} />}
         <SheetContent
           side="bottom"
-          className={cn("ledger-mobile-review-sheet pending-delete", contentClassName)}
+          className={cn(contentClassName)}
           aria-label={ariaLabel}
         >
           <SheetHeader
@@ -142,13 +142,12 @@ function ConfirmDelete({
             title={title}
             description={description}
           />
-          {content && <div className="ledger-mobile-review-body">{content}</div>}
-          <SheetFooter className="ledger-mobile-review-actions">
+          {content && <div className="p-4 overflow-y-auto">{content}</div>}
+          <SheetFooter>
             <Button
               type="button"
               variant="outline"
-              className="ledger-mobile-review-reject"
-              data-delete
+              className="flex-1 sm:flex-none"
               disabled={isPending}
               onClick={() => handleOpenChange(false)}
             >
@@ -156,9 +155,8 @@ function ConfirmDelete({
             </Button>
             <Button
               type="button"
-              variant="outline"
-              className="ledger-mobile-review-approve"
-              data-delete
+              variant="destructive"
+              className="flex-1 sm:flex-none"
               aria-busy={isPending}
               disabled={isPending || confirmDisabled}
               onClick={handleConfirm}

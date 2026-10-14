@@ -290,7 +290,7 @@ function DashboardPageSkeleton() {
 function OverviewPageSkeleton() {
   return (
     <div aria-busy="true" aria-label="Đang tải tổng quan tài chính">
-      {/* 1. MOBILE SKELETON (< 901px) */}
+      {/* 1. MOBILE SKELETON (< 768px) */}
       <div className="mobile-page-skeleton flex flex-col gap-3 pb-8">
         {/* Header: Tên workspace & thao tác nhanh */}
         <header className="space-y-2.5 pt-1">
@@ -488,7 +488,7 @@ function OverviewPageSkeleton() {
         </Card>
       </div>
 
-      {/* 2. DESKTOP SKELETON (>= 901px) */}
+      {/* 2. DESKTOP SKELETON (>= 768px) */}
       <div className="desktop-page-skeleton">
         <div className="mx-auto max-w-[76rem] space-y-5 pb-10 pt-2">
           {/* Header máy tính */}

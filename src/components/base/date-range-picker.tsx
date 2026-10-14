@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { CalendarDays, Check, X } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 
@@ -66,8 +66,8 @@ function fromCalendarRange(
 function formatRange(value: DateRangeValue): string {
   const range = toCalendarRange(value);
   const isSameYear = range.from.getFullYear() === range.to.getFullYear();
-  const fromFormat = isSameYear ? "dd MMM" : "dd MMM yyyy";
-  return `${format(range.from, fromFormat, { locale: vi })} – ${format(range.to, "dd MMM yyyy", { locale: vi })}`;
+  const fromFormat = isSameYear ? "dd/MM" : "dd/MM/yyyy";
+  return `${format(range.from, fromFormat, { locale: vi })} – ${format(range.to, "dd/MM/yyyy", { locale: vi })}`;
 }
 
 function formatDraftDate(value: Date | undefined): string {
@@ -144,17 +144,20 @@ export function DateRangePicker({
       aria-expanded={open}
       disabled={disabled}
       className={cn(
-        "date-range-picker-trigger border border-input shadow-none transition-colors hover:bg-white outline-none select-none bg-white",
+        "date-range-picker-trigger justify-between gap-2 font-normal",
         className,
       )}
     />
   );
   const triggerContent = (
     <>
-      <span className="truncate tabular-nums">
-        {value ? formatRange(value) : "Tất cả thời gian"}
+      <span className="flex min-w-0 items-center gap-2">
+        <CalendarDays className="size-4 text-[var(--primary)]" aria-hidden="true" />
+        <span className="tabular-nums">
+          {value ? formatRange(value) : "Tất cả thời gian"}
+        </span>
       </span>
-      <CalendarDays aria-hidden="true" />
+      <ChevronDown className="size-4 text-[var(--text-muted)]" aria-hidden="true" />
     </>
   );
 
@@ -179,7 +182,8 @@ export function DateRangePicker({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="date-range-picker-popover"
+        elevation="flat"
+        className="w-auto max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
       >
         <Calendar
           mode="range"
@@ -205,32 +209,49 @@ export function DateRangePicker({
           }}
           numberOfMonths={1}
           autoFocus
-          className="date-range-picker-calendar [--cell-radius:0.5rem] [--cell-size:2.15rem]"
+          className="px-3 pt-3 pb-2 [--cell-radius:0.5rem] [--cell-size:2.15rem]"
         />
-        <div className="date-range-picker-summary" aria-live="polite">
-          <div>
-            <span>Từ ngày</span>
-            <strong>{formatDraftDate(draft?.from)}</strong>
+        <div
+          className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5 text-xs"
+          aria-live="polite"
+        >
+          <div className="min-w-0">
+            <span className="block text-[11px] text-[var(--text-muted)]">Từ ngày</span>
+            <strong className="block font-semibold text-[var(--foreground)] tabular-nums">
+              {formatDraftDate(draft?.from)}
+            </strong>
           </div>
-          <span aria-hidden="true">→</span>
-          <div>
-            <span>Đến ngày</span>
-            <strong>{formatDraftDate(draft?.to)}</strong>
+          <span className="text-[var(--text-muted)]" aria-hidden="true">→</span>
+          <div className="min-w-0 text-right">
+            <span className="block text-[11px] text-[var(--text-muted)]">Đến ngày</span>
+            <strong className="block font-semibold text-[var(--foreground)] tabular-nums">
+              {formatDraftDate(draft?.to)}
+            </strong>
           </div>
         </div>
-        <div className="date-range-picker-actions">
-          <Button type="button" variant="ghost" onClick={cancelSelection}>
-            <X aria-hidden="true" />
-            Hủy
-          </Button>
-          <Button
-            type="button"
-            onClick={applyRange}
-            disabled={!draft?.from || !draft.to}
-          >
-            <Check aria-hidden="true" />
-            Áp dụng
-          </Button>
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-3 py-2.5">
+          {allowClear && value ? (
+            <Button type="button" variant="ghost" size="sm" onClick={clearSelection}>
+              Mặc định
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={cancelSelection}>
+              <X aria-hidden="true" />
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={applyRange}
+              disabled={!draft?.from || !draft.to}
+            >
+              <Check aria-hidden="true" />
+              Áp dụng
+            </Button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>

@@ -66,7 +66,7 @@ function SheetOverlay({ className, style, ...props }: SheetPrimitive.Backdrop.Pr
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/10 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-xs",
+        "fixed inset-0 z-50 bg-[var(--overlay)] transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-xs",
         className,
       )}
       style={{
@@ -93,8 +93,8 @@ function SheetContent({
   placement = "edge",
   size = "default",
   spacing = "default",
-  elevation = "raised",
-  showClose,
+  elevation = "flat",
+  showClose = true,
   style,
   ...props
 }: SheetPrimitive.Popup.Props & {
@@ -115,7 +115,6 @@ function SheetContent({
   const [keyboardInset, setKeyboardInset] = React.useState(0);
   const [visualHeight, setVisualHeight] = React.useState<number | null>(null);
   const isBottomSheet = side === "bottom";
-  const shouldShowClose = showClose ?? (side !== "bottom");
 
   const getSheetStyle = (state: SheetPrimitive.Popup.State): MobileSheetStyle => ({
     ...(typeof style === "function" ? style(state) : style),
@@ -141,7 +140,6 @@ function SheetContent({
         : {}),
   });
 
-  // Track virtual keyboard appearance via window.visualViewport
   React.useEffect(() => {
     if (!isBottomSheet || typeof window === "undefined") return;
     const vv = window.visualViewport;
@@ -242,7 +240,6 @@ function SheetContent({
       const sheetHeight = event.currentTarget.getBoundingClientRect().height || 400;
       setDragProgress(Math.min(1, deltaY / (sheetHeight * 0.6)));
     } else {
-      // Elastic rubber-band resistance when pulled upward
       const dampedY = -Math.pow(Math.abs(deltaY), 0.72) * 1.5;
       setDragOffset(dampedY);
       setDragProgress(0);
@@ -266,7 +263,6 @@ function SheetContent({
 
     const distance = Math.max(0, event.clientY - dragStart.y);
 
-    // Instantaneous velocity over the last few tracking frames (flick gesture)
     const recent = recentPositionsRef.current;
     let velocity = 0;
     if (recent.length >= 2) {
@@ -293,7 +289,6 @@ function SheetContent({
       setDragProgress(1);
       closeButtonRef.current?.click();
     } else {
-      // Fluid spring snap-back
       setDragging(false);
       setIsSnapping(true);
       setDragOffset(0);
@@ -328,23 +323,23 @@ function SheetContent({
         data-elevation={elevation}
         data-mobile-sheet-dragging={dragging || undefined}
         className={cn(
-          "fixed z-50 flex min-h-0 flex-col overflow-hidden bg-[var(--surface)] bg-clip-padding text-sm text-[var(--foreground)] shadow-none transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0",
+          "fixed z-50 flex min-h-0 flex-col overflow-hidden bg-[var(--surface)] bg-clip-padding text-sm text-[var(--foreground)] transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0",
           "data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=bottom]:border-[var(--border)] data-[side=bottom]:rounded-t-2xl sm:data-[side=bottom]:rounded-t-3xl data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem]",
           "data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=top]:border-[var(--border)] data-[side=top]:rounded-b-2xl sm:data-[side=top]:rounded-b-3xl data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem]",
-          "data-[side=center]:left-1/2 data-[side=center]:top-1/2 data-[side=center]:-translate-x-1/2 data-[side=center]:-translate-y-1/2 data-[side=center]:border data-[side=center]:border-[var(--border)] data-[side=center]:rounded-2xl",
+          "data-[side=center]:left-1/2 data-[side=center]:top-1/2 data-[side=center]:-translate-x-1/2 data-[side=center]:-translate-y-1/2 data-[side=center]:border data-[side=center]:border-[var(--border)] data-[side=center]:rounded-2xl data-[side=center]:max-h-[90dvh]",
           "data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem]",
           "data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem]",
           placement === "inset"
             ? "data-[side=left]:inset-y-2 data-[side=left]:left-2 data-[side=left]:h-[calc(100%-1rem)] data-[side=left]:rounded-2xl data-[side=left]:border data-[side=left]:border-[var(--border)] data-[side=right]:inset-y-2 data-[side=right]:right-2 data-[side=right]:h-[calc(100%-1rem)] data-[side=right]:rounded-2xl data-[side=right]:border data-[side=right]:border-[var(--border)] data-[side=bottom]:inset-x-2 data-[side=bottom]:bottom-2 data-[side=bottom]:max-w-lg data-[side=bottom]:mx-auto data-[side=bottom]:border data-[side=bottom]:border-[var(--border)] data-[side=bottom]:rounded-2xl data-[side=top]:inset-x-2 data-[side=top]:top-2 data-[side=top]:border data-[side=top]:border-[var(--border)] data-[side=top]:rounded-2xl"
             : "data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:rounded-none data-[side=left]:border-r data-[side=left]:border-[var(--border)] data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:rounded-none data-[side=right]:border-l data-[side=right]:border-[var(--border)]",
           size === "wide" || size === "lg"
-            ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-[42rem] data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-[42rem] data-[side=right]:sm:max-w-[42rem] data-[side=bottom]:max-h-[85dvh]"
+            ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-[42rem] data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-[34rem] data-[side=right]:sm:max-w-[34rem] data-[side=bottom]:max-h-[88dvh]"
             : size === "md"
-              ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-md data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md data-[side=bottom]:max-h-[68dvh]"
+              ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-md data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md data-[side=bottom]:max-h-[82dvh]"
               : size === "sm"
-                ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-sm data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm data-[side=bottom]:max-h-[50dvh]"
-                : "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-md data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md data-[side=bottom]:max-h-[75dvh]",
-          spacing === "flush" ? "gap-0" : "gap-4",
+                ? "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-sm data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm data-[side=bottom]:max-h-[65dvh]"
+                : "data-[side=center]:w-[calc(100%-2rem)] data-[side=center]:max-w-md data-[side=left]:w-full data-[side=right]:w-full data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md data-[side=bottom]:max-h-[85dvh]",
+          spacing === "flush" ? "gap-0" : "gap-0",
           className,
         )}
         style={getSheetStyle}
@@ -355,28 +350,18 @@ function SheetContent({
         onPointerUp={handleDragEnd}
         onPointerCancel={handleDragCancel}
       >
-        {shouldShowClose && (
+        {showClose && (
           <SheetPrimitive.Close
+            ref={closeButtonRef}
             data-slot="sheet-close"
-            className="hidden sm:grid absolute right-4 top-4 z-20 size-8 place-items-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--focus-ring)] cursor-pointer disabled:pointer-events-none"
+            className="grid absolute right-3.5 top-3.5 z-20 size-8 place-items-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] cursor-pointer disabled:pointer-events-none"
             aria-label="Đóng"
           >
             <X size={18} aria-hidden="true" />
             <span className="sr-only">Đóng</span>
           </SheetPrimitive.Close>
         )}
-        {isBottomSheet && (
-          <div
-            data-slot="mobile-sheet-drag-handle"
-            onClick={dismissKeyboard}
-            className="flex w-full shrink-0 items-center justify-center pt-2.5 pb-1 sm:hidden cursor-grab active:cursor-grabbing touch-none select-none"
-            aria-hidden="true"
-          >
-            <span className="h-1 w-9 rounded-full bg-[var(--text-muted)]/30" />
-          </div>
-        )}
-        {children}
-        {isBottomSheet && (
+        {!showClose && isBottomSheet && (
           <SheetPrimitive.Close
             ref={closeButtonRef}
             className="sr-only"
@@ -386,6 +371,17 @@ function SheetContent({
             Đóng
           </SheetPrimitive.Close>
         )}
+        {isBottomSheet && (
+          <div
+            data-slot="mobile-sheet-drag-handle"
+            onClick={dismissKeyboard}
+            className="flex w-full shrink-0 items-center justify-center pt-2.5 pb-1 sm:hidden cursor-grab active:cursor-grabbing touch-none select-none"
+            aria-hidden="true"
+          >
+            <span className="h-1 w-9 rounded-full bg-[var(--border-strong)]" />
+          </div>
+        )}
+        {children}
       </SheetPrimitive.Popup>
     </SheetPortal>
   );
@@ -419,16 +415,16 @@ function SheetHeader({
       data-slot="sheet-header"
       onClick={dismissKeyboard}
       className={cn(
-        "shrink-0 px-5 pt-2.5 pb-3.5 sm:px-6 sm:py-5 sm:pr-14 border-b border-[var(--border)] select-none",
+        "shrink-0 px-4 pt-2.5 pb-3.5 pr-12 sm:px-6 sm:py-4 sm:pr-14 border-b border-[var(--border)] select-none",
         className,
       )}
       {...props}
     >
       {isStructured ? (
-        <div className="flex items-center gap-3 sm:gap-3.5">
+        <div className="flex items-center gap-3">
           {Icon && (
             <span
-              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)] sm:size-10"
+              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
               aria-hidden="true"
             >
               {renderIcon(Icon)}
@@ -481,7 +477,7 @@ function SheetFooter({
     <div
       data-slot="sheet-footer"
       className={cn(
-        "mt-auto shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 border-t border-[var(--border)] bg-[var(--surface)] px-6 py-3.5",
+        "mt-auto shrink-0 flex items-center justify-end gap-2.5 border-t border-[var(--border)] bg-[var(--surface)] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5",
         className,
       )}
       {...props}
@@ -494,7 +490,7 @@ function SheetFooter({
               variant="outline"
               disabled={cancelDisabled || isSubmitting}
               onClick={onCancel}
-              className="hidden sm:inline-flex"
+              className="flex-1 sm:flex-none"
             >
               {cancelLabel}
             </Button>
@@ -505,7 +501,7 @@ function SheetFooter({
               variant={submitVariant}
               disabled={submitDisabled || isSubmitting}
               onClick={onSubmit}
-              className="w-full sm:w-auto gap-2"
+              className="flex-1 sm:flex-none gap-2"
             >
               {isSubmitting && (
                 <LoaderCircle
@@ -531,7 +527,7 @@ function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
     <SheetPrimitive.Title
       data-slot="sheet-title"
       className={cn(
-        "font-heading text-base sm:text-xl font-semibold tracking-tight text-[var(--foreground)] text-left",
+        "font-heading text-base sm:text-lg font-semibold tracking-tight text-[var(--foreground)] text-left",
         className,
       )}
       {...props}
@@ -547,7 +543,7 @@ function SheetDescription({
     <SheetPrimitive.Description
       data-slot="sheet-description"
       className={cn(
-        "text-xs sm:text-sm text-[var(--text-muted)] mt-0.5 leading-snug text-left",
+        "text-xs text-[var(--text-secondary)] mt-0.5 leading-snug text-left",
         className,
       )}
       {...props}
@@ -573,7 +569,7 @@ function SheetBackButton({
       onClick={onBack}
       aria-label={label}
       className={cn(
-        "grid size-8 shrink-0 place-items-center rounded-lg text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--focus-ring)] cursor-pointer",
+        "grid size-8 shrink-0 place-items-center rounded-lg text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] cursor-pointer",
         className,
       )}
       {...props}

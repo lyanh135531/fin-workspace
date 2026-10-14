@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { RotateCcw } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
@@ -60,13 +61,19 @@ export function PortalUserFilters({ q, status }: PortalUserFiltersProps) {
         <Search
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Tìm theo username..."
-          aria-label="Tìm người dùng theo username"
-          containerClassName="w-full sm:w-80"
+          placeholder="Tìm theo tên đăng nhập..."
+          aria-label="Tìm người dùng theo tên đăng nhập"
+          containerClassName="w-full md:w-80"
         />
         {hasFilters && (
-          <Button variant="ghost" render={<Link href="/portal/users" />}>
-            Xóa lọc
+          <Button
+            variant="icon"
+            size="icon"
+            title="Xóa lọc"
+            aria-label="Xóa lọc"
+            render={<Link href="/portal/users" aria-label="Xóa lọc" title="Xóa lọc" />}
+          >
+            <RotateCcw className="size-4" aria-hidden />
           </Button>
         )}
       </div>

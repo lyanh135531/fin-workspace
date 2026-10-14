@@ -55,7 +55,7 @@ export function PortalPagination({
 
   return (
     <div
-      className="flex flex-col gap-3 border-t border-[var(--border)] p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+      className="flex flex-col gap-3 border-t border-[var(--border)] p-4 md:flex-row md:items-center md:justify-between md:px-5"
       aria-label="Phân trang"
     >
       <p className="text-xs text-[var(--text-muted)] tabular-nums">
@@ -68,21 +68,28 @@ export function PortalPagination({
           {/* Previous page button */}
           {page > 1 ? (
             <Button
-              variant="ghost"
-              render={<Link href={buildHref(page - 1)} aria-label="Trang trước" />}
+              variant="icon"
+              size="icon"
+              title="Trang trước"
+              aria-label="Trang trước"
+              render={<Link href={buildHref(page - 1)} aria-label="Trang trước" title="Trang trước" />}
             >
               <ChevronLeft className="size-4" aria-hidden />
-              <span className="sr-only sm:not-sr-only sm:inline">Trước</span>
             </Button>
           ) : (
-            <Button variant="ghost" disabled aria-label="Trang trước">
+            <Button
+              variant="icon"
+              size="icon"
+              disabled
+              title="Trang trước"
+              aria-label="Trang trước"
+            >
               <ChevronLeft className="size-4" aria-hidden />
-              <span className="sr-only sm:not-sr-only sm:inline">Trước</span>
             </Button>
           )}
 
           {/* Page numbers (Desktop) */}
-          <div className="hidden items-center gap-1 sm:flex">
+          <div className="hidden items-center gap-1 md:flex">
             {pageNumbers.map((item, idx) =>
               item === "..." ? (
                 <span
@@ -95,11 +102,15 @@ export function PortalPagination({
                 <Button
                   key={`page-${item}`}
                   variant={item === page ? "info" : "ghost"}
+                  size="icon"
+                  title={`Trang ${item}`}
+                  aria-label={`Trang ${item}`}
                   render={
                     <Link
                       href={buildHref(item)}
                       aria-current={item === page ? "page" : undefined}
                       aria-label={`Trang ${item}`}
+                      title={`Trang ${item}`}
                     />
                   }
                 >
@@ -110,22 +121,29 @@ export function PortalPagination({
           </div>
 
           {/* Current page indicator (Mobile) */}
-          <span className="text-xs text-[var(--text-muted)] tabular-nums sm:hidden">
+          <span className="text-xs text-[var(--text-muted)] tabular-nums md:hidden">
             Trang {page}/{totalPages}
           </span>
 
           {/* Next page button */}
           {page < totalPages ? (
             <Button
-              variant="ghost"
-              render={<Link href={buildHref(page + 1)} aria-label="Trang sau" />}
+              variant="icon"
+              size="icon"
+              title="Trang sau"
+              aria-label="Trang sau"
+              render={<Link href={buildHref(page + 1)} aria-label="Trang sau" title="Trang sau" />}
             >
-              <span className="sr-only sm:not-sr-only sm:inline">Sau</span>
               <ChevronRight className="size-4" aria-hidden />
             </Button>
           ) : (
-            <Button variant="ghost" disabled aria-label="Trang sau">
-              <span className="sr-only sm:not-sr-only sm:inline">Sau</span>
+            <Button
+              variant="icon"
+              size="icon"
+              disabled
+              title="Trang sau"
+              aria-label="Trang sau"
+            >
               <ChevronRight className="size-4" aria-hidden />
             </Button>
           )}

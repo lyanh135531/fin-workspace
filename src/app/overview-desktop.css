@@ -16,8 +16,7 @@
     border-radius: 1.35rem 1.35rem 0.72rem 1.35rem;
     background: var(--surface);
     padding: 1.8rem 2rem 1.95rem;
-    box-shadow: 0 1.2rem 3.4rem
-      color-mix(in srgb, var(--shadow) 52%, transparent);
+    box-shadow: none;
   }
 
   .overview-shell > .page-header > div:first-child {
@@ -92,7 +91,7 @@
     background: transparent !important;
     padding-inline: 0.82rem;
     color: var(--text-secondary);
-    box-shadow: none !important;
+    box-shadow: none;
     transition:
       background-color 180ms ease,
       color 180ms ease,
@@ -114,7 +113,7 @@
 
   .overview-shell .overview-filter-trigger:focus-visible,
   .overview-shell .overview-date-range-trigger:focus-visible {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 22%, transparent) !important;
+    box-shadow: none;
   }
 
   .overview-shell .overview-filter-count {
@@ -137,8 +136,7 @@
     border-radius: 0.85rem 1.15rem 1.15rem 1.15rem;
     background: var(--surface);
     padding: 1.15rem 1.2rem 1.05rem;
-    box-shadow: 0 0.85rem 2.5rem
-      color-mix(in srgb, var(--shadow) 48%, transparent);
+    box-shadow: none;
     transition:
       border-color 180ms ease,
       box-shadow 180ms ease,
@@ -147,8 +145,7 @@
 
   .overview-shell .overview-metric:hover {
     border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
-    box-shadow: 0 1.1rem 2.8rem
-      color-mix(in srgb, var(--shadow) 62%, transparent);
+    box-shadow: none;
     transform: translateY(-2px);
   }
 
@@ -277,7 +274,7 @@
     border-radius: 1.15rem;
     background: var(--surface);
     padding: 0;
-    box-shadow: 0 1rem 3rem color-mix(in srgb, var(--shadow) 50%, transparent);
+    box-shadow: none;
   }
 
   .overview-shell .overview-card > header {

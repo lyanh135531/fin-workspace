@@ -10,21 +10,25 @@ import {
 import type { LedgerPeriodSummary } from "@/app/dashboard/dashboard-summary-data";
 import {
   Card,
-  DashboardPageSkeleton,
   PageHeader,
   type DateRangeValue,
 } from "@/components/base";
 import { formatAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import Decimal from "decimal.js";
-import { BookOpenText, CalendarDays } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  CalendarDays,
+  CircleAlert,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { useEffect, useMemo, useState, type ComponentProps } from "react";
 
 type LedgerProps = Omit<ComponentProps<typeof Ledger>, "isDesktop">;
 
 export function DashboardLedgerWorkspace({
-  initialMonth: _initialMonth,
-  summaries: _summaries,
   ledgerProps,
 }: {
   initialMonth: string;
@@ -36,6 +40,9 @@ export function DashboardLedgerWorkspace({
     getMonthDateRange(ledgerProps.businessDate),
   );
   const [filterCategory, setFilterCategory] = useState("");
+  const [filterType, setFilterType] = useState<string>("");
+  const [filterWallet, setFilterWallet] = useState<string>("");
+  const [filterReviewOnly, setFilterReviewOnly] = useState<boolean>(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -56,8 +63,15 @@ export function DashboardLedgerWorkspace({
     () =>
       ledgerProps.transactions.filter((item) => {
         const itemDate = item.date?.slice(0, 10) || "";
+        const needsReview =
+          item.status === "pending" || item.pendingChangeRequestId !== null;
         return (
           isDateInRange(itemDate, dateRange) &&
+          (filterType === "" || item.type === filterType) &&
+          (filterWallet === "" ||
+            item.walletId === filterWallet ||
+            item.toWalletId === filterWallet) &&
+          (!filterReviewOnly || needsReview) &&
           (filterCategory === "" ||
             (item.categoryId !== null &&
               categoryFilterIds.has(item.categoryId))) &&
@@ -66,7 +80,16 @@ export function DashboardLedgerWorkspace({
             .includes(query.toLocaleLowerCase())
         );
       }),
-    [ledgerProps.transactions, dateRange, filterCategory, categoryFilterIds, query],
+    [
+      ledgerProps.transactions,
+      dateRange,
+      filterType,
+      filterWallet,
+      filterReviewOnly,
+      filterCategory,
+      categoryFilterIds,
+      query,
+    ],
   );
 
   const summary = useMemo(() => {
@@ -82,7 +105,7 @@ export function DashboardLedgerWorkspace({
           expense = expense.plus(item.amount);
         }
       }
-      if (item.status === "pending") {
+      if (item.status === "pending" || item.pendingChangeRequestId !== null) {
         pending += 1;
       }
     }
@@ -97,197 +120,133 @@ export function DashboardLedgerWorkspace({
 
   const label = useMemo(() => getFilterPeriodLabel(dateRange), [dateRange]);
   const cashflow = summary.cashflow;
-  const filterCategoryName = useMemo(() => {
-    if (!filterCategory) return "";
-    const cat = ledgerProps.categories.find((c) => c.id === filterCategory);
-    return cat?.name || "";
-  }, [ledgerProps.categories, filterCategory]);
-
-  if (isDesktop) {
-    return (
-      <div className="mx-auto grid h-full min-h-0 w-full max-w-[76rem] grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden px-px py-2">
-        <PageHeader
-          className="mb-0"
-          title="Sổ giao dịch"
-          description="Theo dõi, tìm kiếm và quản lý toàn bộ khoản thu, chi và chuyển khoản."
-        />
-
-        <Card
-          as="section"
-          className="gap-0 mb-5"
-          aria-label="Tổng hợp giao dịch"
-        >
-          <dl className="grid grid-cols-[1.35fr_repeat(3,minmax(0,1fr))] items-stretch">
-            <div className="pr-6">
-              <dt className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
-                <BookOpenText
-                  className="text-[var(--primary)]"
-                  size={15}
-                  aria-hidden="true"
-                />
-                Dòng tiền ròng
-              </dt>
-              <dd
-                className={`mt-3 text-2xl font-semibold tracking-[-0.045em] tabular-nums ${cashflow.isNegative() ? "text-[var(--expense)]" : "text-[var(--foreground)]"}`}
-              >
-                {cashflow.gt(0) ? "+" : ""}
-                {formatAmount(cashflow)} {ledgerProps.currency}
-              </dd>
-              <p className="mt-2 flex items-center gap-1.5 text-[0.68rem] text-[var(--text-muted)]">
-                <CalendarDays size={13} aria-hidden="true" />
-                {label}
-              </p>
-            </div>
-            <LedgerSummaryMetric
-              label="Thu nhập"
-              value={summary.income}
-              currency={ledgerProps.currency}
-              tone="income"
-            />
-            <LedgerSummaryMetric
-              label="Chi tiêu"
-              value={summary.expense}
-              currency={ledgerProps.currency}
-              tone="expense"
-            />
-            <div className="border-l border-[var(--border)] pl-6">
-              <dt className="text-xs font-medium text-[var(--text-muted)]">
-                Chờ duyệt
-              </dt>
-              <dd className="mt-3 text-xl font-semibold text-[var(--foreground)] tabular-nums">
-                {summary.pending}
-              </dd>
-              <p className="mt-2 text-[0.68rem] text-[var(--text-muted)]">
-                giao dịch cần xử lý
-              </p>
-            </div>
-          </dl>
-        </Card>
-
-        <Card as="section" className="min-h-0 gap-0 overflow-hidden p-0">
-          <Ledger
-            {...ledgerProps}
-            isDesktop
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
-            filterCategory={filterCategory}
-            onFilterCategoryChange={setFilterCategory}
-            query={query}
-            onQueryChange={setQuery}
-            mobileFilterOpen={mobileFilterOpen}
-            onMobileFilterOpenChange={setMobileFilterOpen}
-          />
-        </Card>
-      </div>
-    );
-  }
 
   return (
-    <>
-      <div className="hidden h-full lg:block">
-        <DashboardPageSkeleton />
-      </div>
-      <div className="h-full min-h-0 lg:hidden">
-        <div className="ledger-page-shell">
-          <Card
-            as="section"
-            size="sm"
-            className="gap-0 p-3 shrink-0"
-            aria-label="Tổng hợp dòng tiền"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
-                  <BookOpenText
-                    className="size-3.5 text-[var(--primary)] shrink-0"
-                    aria-hidden="true"
-                  />
-                  <span>Dòng tiền ròng</span>
-                </div>
-                <p className="mt-0.5 text-[0.72rem] text-[var(--text-muted)] truncate">
-                  {label}
-                  {filterCategoryName ? ` · ${filterCategoryName}` : ""}
-                  {query.trim() ? ` · "${query.trim()}"` : ""}
-                </p>
-              </div>
-
-              <div className="text-right shrink-0">
-                <strong
-                  className={cn(
-                    "block text-lg font-bold tracking-tight tabular-nums",
-                    cashflow.isNegative()
-                      ? "text-[var(--expense)]"
-                      : cashflow.gt(0)
-                        ? "text-[var(--income)]"
-                        : "text-[var(--foreground)]",
-                  )}
-                >
-                  {cashflow.gt(0) ? "+" : ""}
-                  {formatAmount(cashflow)}{" "}
-                  <span className="text-xs font-semibold text-[var(--text-muted)] tracking-normal">
-                    {ledgerProps.currency}
-                  </span>
-                </strong>
-                <span className="text-[0.68rem] text-[var(--text-muted)] tabular-nums">
-                  {filteredRows.length} giao dịch
-                  {summary.pending > 0 && (
-                    <span className="ml-1 text-[var(--warning)] font-medium">
-                      ({summary.pending} chờ duyệt)
-                    </span>
-                  )}
-                </span>
-              </div>
-            </div>
-          </Card>
-
-          <div className="ledger-table-viewport px-px">
-            <Card
-              as="section"
-              className="dashboard-ledger-card ledger-book gap-0 p-0 overflow-hidden"
-            >
-              <Ledger
-                {...ledgerProps}
-                isDesktop={false}
-                dateRange={dateRange}
-                onDateRangeChange={setDateRange}
-                filterCategory={filterCategory}
-                onFilterCategoryChange={setFilterCategory}
-                query={query}
-                onQueryChange={setQuery}
-                mobileFilterOpen={mobileFilterOpen}
-                onMobileFilterOpenChange={setMobileFilterOpen}
-              />
-            </Card>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function LedgerSummaryMetric({
-  label,
-  value,
-  currency,
-  tone,
-}: {
-  label: string;
-  value: string;
-  currency: string;
-  tone: "income" | "expense";
-}) {
-  return (
-    <div className="border-l border-[var(--border)] px-6">
-      <dt className="text-xs font-medium text-[var(--text-muted)]">{label}</dt>
-      <dd
-        className={`mt-3 truncate text-xl font-semibold tracking-[-0.025em] tabular-nums ${tone === "income" ? "text-[var(--income)]" : "text-[var(--expense)]"}`}
-        title={`${formatAmount(value)} ${currency}`}
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-[76rem] flex-col gap-3 md:gap-4">
+      <PageHeader
+        className="mb-0 shrink-0 pb-3 md:pb-4"
+        title="Sổ giao dịch"
+        description="Theo dõi, tìm kiếm và quản lý toàn bộ khoản thu, chi và chuyển khoản."
       >
-        {formatAmount(value)} {currency}
-      </dd>
-      <p className="mt-2 text-[0.68rem] text-[var(--text-muted)]">
-        giao dịch đã ghi nhận
-      </p>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 font-medium tabular-nums">
+            <CalendarDays
+              size={13}
+              className="shrink-0 text-[var(--primary)]"
+              aria-hidden="true"
+            />
+            <span className="break-words leading-snug">{label}</span>
+          </span>
+          {summary.pending > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] px-2.5 py-1 font-medium text-[var(--warning)] tabular-nums">
+              <CircleAlert size={13} className="shrink-0" aria-hidden="true" />
+              <span>{summary.pending} cần duyệt</span>
+            </span>
+          )}
+        </div>
+      </PageHeader>
+
+      {/* Compact 3-Metric Summary Strip */}
+      <section
+        className="grid shrink-0 grid-cols-3 gap-2 md:gap-4"
+        aria-label="Tổng hợp giao dịch"
+      >
+        <Card as="article" size="sm" className="min-w-0 gap-1">
+          <div className="flex min-w-0 items-center justify-between gap-1 text-[0.7rem] font-medium text-[var(--text-secondary)] md:text-xs">
+            <span className="break-words leading-snug">Tổng thu</span>
+            <ArrowDownLeft
+              className="hidden size-3.5 shrink-0 text-[var(--income)] md:block"
+              aria-hidden="true"
+            />
+          </div>
+          <strong
+            className="block break-words text-sm font-bold leading-snug tracking-tight text-[var(--income)] tabular-nums md:text-lg"
+            title={`+${formatAmount(summary.income)} ${ledgerProps.currency}`}
+          >
+            +{formatAmount(summary.income)}{" "}
+            <span className="text-[0.68rem] font-medium text-[var(--text-muted)] md:text-xs">
+              {ledgerProps.currency}
+            </span>
+          </strong>
+        </Card>
+
+        <Card as="article" size="sm" className="min-w-0 gap-1">
+          <div className="flex min-w-0 items-center justify-between gap-1 text-[0.7rem] font-medium text-[var(--text-secondary)] md:text-xs">
+            <span className="break-words leading-snug">Tổng chi</span>
+            <ArrowUpRight
+              className="hidden size-3.5 shrink-0 text-[var(--expense)] md:block"
+              aria-hidden="true"
+            />
+          </div>
+          <strong
+            className="block break-words text-sm font-bold leading-snug tracking-tight text-[var(--expense)] tabular-nums md:text-lg"
+            title={`−${formatAmount(summary.expense)} ${ledgerProps.currency}`}
+          >
+            −{formatAmount(summary.expense)}{" "}
+            <span className="text-[0.68rem] font-medium text-[var(--text-muted)] md:text-xs">
+              {ledgerProps.currency}
+            </span>
+          </strong>
+        </Card>
+
+        <Card as="article" size="sm" className="min-w-0 gap-1">
+          <div className="flex min-w-0 items-center justify-between gap-1 text-[0.7rem] font-medium text-[var(--text-secondary)] md:text-xs">
+            <span className="break-words leading-snug">Chênh lệch thu chi</span>
+            {cashflow.isNegative() ? (
+              <TrendingDown
+                className="hidden size-3.5 shrink-0 text-[var(--expense)] md:block"
+                aria-hidden="true"
+              />
+            ) : (
+              <TrendingUp
+                className="hidden size-3.5 shrink-0 text-[var(--income)] md:block"
+                aria-hidden="true"
+              />
+            )}
+          </div>
+          <strong
+            className={cn(
+              "block break-words text-sm font-bold leading-snug tracking-tight tabular-nums md:text-lg",
+              cashflow.isNegative()
+                ? "text-[var(--expense)]"
+                : cashflow.gt(0)
+                  ? "text-[var(--income)]"
+                  : "text-[var(--foreground)]",
+            )}
+            title={`${cashflow.gt(0) ? "+" : cashflow.isNegative() ? "−" : ""}${formatAmount(cashflow.abs())} ${ledgerProps.currency}`}
+          >
+            {cashflow.gt(0) ? "+" : cashflow.isNegative() ? "−" : ""}
+            {formatAmount(cashflow.abs())}{" "}
+            <span className="text-[0.68rem] font-medium text-[var(--text-muted)] md:text-xs">
+              {ledgerProps.currency}
+            </span>
+          </strong>
+        </Card>
+      </section>
+
+      <Card
+        as="section"
+        className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden p-0"
+      >
+        <Ledger
+          {...ledgerProps}
+          isDesktop={isDesktop}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          filterCategory={filterCategory}
+          onFilterCategoryChange={setFilterCategory}
+          filterType={filterType}
+          onFilterTypeChange={setFilterType}
+          filterWallet={filterWallet}
+          onFilterWalletChange={setFilterWallet}
+          filterReviewOnly={filterReviewOnly}
+          onFilterReviewOnlyChange={setFilterReviewOnly}
+          query={query}
+          onQueryChange={setQuery}
+          mobileFilterOpen={mobileFilterOpen}
+          onMobileFilterOpenChange={setMobileFilterOpen}
+        />
+      </Card>
     </div>
   );
 }

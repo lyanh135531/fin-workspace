@@ -67,7 +67,7 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
   }
 
   return (
-    <PageContainer className="flex flex-1 min-h-0 flex-col h-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <PageContainer className="flex flex-1 min-h-0 flex-col h-full px-4 py-6 md:px-6 md:py-8 lg:px-8">
       <PageHeader
         title="Người dùng"
         description="Tra cứu tài khoản hệ thống."
@@ -76,7 +76,7 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
 
       <Card className="flex flex-1 min-h-0 flex-col gap-0 p-0 overflow-hidden">
         {/* Search header (Fixed top) */}
-        <div className="shrink-0 space-y-4 border-b border-[var(--border)] p-4 sm:p-5">
+        <div className="shrink-0 space-y-4 border-b border-[var(--border)] p-4 md:p-5">
           <PortalUserFilters
             key={`${filters.q}:${filters.status}`}
             q={filters.q}
@@ -92,7 +92,7 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
                 <SearchX className="mx-auto size-6 text-[var(--text-muted)]" aria-hidden />
                 <h2 className="mt-3 font-semibold">Không tìm thấy người dùng</h2>
                 <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">
-                  Thử tìm kiếm với username khác.
+                  Thử tìm kiếm với tên đăng nhập khác.
                 </p>
               </div>
             </div>
@@ -102,9 +102,9 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
               <div className="hidden min-w-full md:block">
                 <table className="w-full border-collapse text-left text-sm">
                   <caption className="sr-only">Danh sách tài khoản người dùng Felix</caption>
-                  <thead className="sticky top-0 z-10 bg-[var(--surface-secondary)] text-xs text-[var(--text-muted)] shadow-[0_1px_0_0_var(--border)]">
+                  <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--surface-secondary)] text-xs text-[var(--text-muted)]">
                     <tr>
-                      <th scope="col" className="px-5 py-3 font-medium">Username</th>
+                      <th scope="col" className="px-5 py-3 font-medium">Tên đăng nhập</th>
                       <th scope="col" className="px-5 py-3 font-medium">Trạng thái</th>
                       <th scope="col" className="px-5 py-3 font-medium">Ngày tạo</th>
                       <th scope="col" className="px-5 py-3 font-medium">Thao tác lần cuối</th>
@@ -122,7 +122,7 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
                             <div className="grid size-7 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--primary)_15%,var(--surface))] text-xs font-bold text-[var(--primary)] border border-[color-mix(in_srgb,var(--primary)_25%,transparent)]">
                               {(user.username ?? "?").slice(0, 1).toUpperCase()}
                             </div>
-                            <span className="font-medium text-[var(--foreground)]">{user.username ?? "Chưa hoàn tất"}</span>
+                            <span className="break-words font-medium leading-snug text-[var(--foreground)]">{user.username ?? "Chưa hoàn tất"}</span>
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
@@ -136,10 +136,12 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           <Button
-                            variant="ghost"
-                            render={<Link href={`/portal/users/${user.id}`} />}
+                            variant="icon"
+                            size="icon"
+                            title={`Xem chi tiết ${user.username ?? "tài khoản"}`}
+                            aria-label={`Xem chi tiết ${user.username ?? "tài khoản"}`}
+                            render={<Link href={`/portal/users/${user.id}`} aria-label={`Xem chi tiết ${user.username ?? "tài khoản"}`} title={`Xem chi tiết ${user.username ?? "tài khoản"}`} />}
                           >
-                            Xem
                             <ChevronRight aria-hidden />
                           </Button>
                         </td>
@@ -159,21 +161,25 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
                           <div className="grid size-6 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--primary)_15%,var(--surface))] text-[0.65rem] font-bold text-[var(--primary)]">
                             {(user.username ?? "?").slice(0, 1).toUpperCase()}
                           </div>
-                          <p className="truncate font-semibold text-[var(--foreground)]" title={user.username ?? undefined}>{user.username ?? "Chưa hoàn tất"}</p>
+                          <p className="break-words font-semibold leading-snug text-[var(--foreground)]" title={user.username ?? undefined}>{user.username ?? "Chưa hoàn tất"}</p>
                         </div>
                         <p className="mt-2 text-xs tabular-nums text-[var(--text-muted)]">
                           Tạo {formatDateTime(user.createdAt)}
                         </p>
                       </div>
-                      <UserStatusBadge status={user.status} />
+                      <div className="flex shrink-0 items-center gap-2">
+                        <UserStatusBadge status={user.status} />
+                        <Button
+                          variant="icon"
+                          size="icon"
+                          title={`Xem chi tiết ${user.username ?? "tài khoản"}`}
+                          aria-label={`Xem chi tiết ${user.username ?? "tài khoản"}`}
+                          render={<Link href={`/portal/users/${user.id}`} aria-label={`Xem chi tiết ${user.username ?? "tài khoản"}`} title={`Xem chi tiết ${user.username ?? "tài khoản"}`} />}
+                        >
+                          <ChevronRight aria-hidden />
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      render={<Link href={`/portal/users/${user.id}`} />}
-                    >
-                      Xem chi tiết
-                      <ChevronRight aria-hidden />
-                    </Button>
                   </Card>
                 ))}
               </div>

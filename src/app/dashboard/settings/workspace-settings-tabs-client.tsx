@@ -69,10 +69,10 @@ export function WorkspaceSettingsTabsClient({
     label: string;
     icon: typeof Sliders;
   }[] = [
-      { key: "general", label: "Cấu hình & Vận hành", icon: Sliders },
+      { key: "general", label: "Cài đặt nhóm", icon: Sliders },
       {
         key: "categories",
-        label: "Danh mục thu/chi",
+        label: "Danh mục thu chi",
         icon: Folders,
       },
       {
@@ -86,7 +86,7 @@ export function WorkspaceSettingsTabsClient({
     <Tabs
       value={activeTab}
       onValueChange={(value) => setActiveTab(value as TabKey)}
-      className="workspace-settings-tabs min-[901px]:gap-5"
+      className="workspace-settings-tabs md:gap-5"
     >
       <TabsList
         variant="navigation"
@@ -98,10 +98,10 @@ export function WorkspaceSettingsTabsClient({
           return (
             <TabsTrigger key={tab.key} value={tab.key} variant="navigation">
               <Icon />
-              <span className="max-md:hidden">{tab.label}</span>
-              <span className="md:hidden">
+              <span className="max-md:hidden break-words leading-snug">{tab.label}</span>
+              <span className="md:hidden break-words leading-snug">
                 {tab.key === "general"
-                  ? "Chung"
+                  ? "Cài đặt nhóm"
                   : tab.key === "categories"
                     ? "Danh mục"
                     : "Thành viên"}
@@ -113,8 +113,8 @@ export function WorkspaceSettingsTabsClient({
 
       {/* General settings */}
       <TabsContent value="general" className="workspace-settings-tab-content">
-        <div className="grid items-start gap-3 pt-4 sm:gap-8 min-[901px]:grid-cols-12 min-[901px]:gap-5 min-[901px]:pt-0">
-          <div className="workspace-general-main min-[901px]:col-span-12">
+        <div className="grid items-start gap-3 pt-4 md:grid-cols-12 md:gap-5 md:pt-0">
+          <div className="workspace-general-main md:col-span-12">
             <WorkspaceSettings workspace={workspace} isAdmin={isAdmin} />
           </div>
         </div>
@@ -125,8 +125,8 @@ export function WorkspaceSettingsTabsClient({
         value="categories"
         className="workspace-settings-tab-content"
       >
-        <div className="grid items-start gap-3 pt-4 sm:gap-6 min-[901px]:gap-5 min-[901px]:pt-0">
-          <div className="workspace-category-manager min-w-0 min-[901px]:order-1">
+        <div className="grid items-start gap-3 pt-4 md:gap-5 md:pt-0">
+          <div className="workspace-category-manager min-w-0 md:order-1">
             <CategoryManagement categories={categories} />
           </div>
         </div>
@@ -134,7 +134,7 @@ export function WorkspaceSettingsTabsClient({
 
       {/* Members */}
       <TabsContent value="members" className="workspace-settings-tab-content">
-        <div className="workspace-members-stack space-y-3 sm:space-y-6 sm:pt-4 min-[901px]:space-y-5 min-[901px]:pt-0">
+        <div className="workspace-members-stack space-y-3 pt-4 md:space-y-5 md:pt-0">
           <SettingsClient roles={roles} members={members} isAdmin={isAdmin} />
           <JoinRequestsClient roles={roles} requests={joinRequests} />
         </div>

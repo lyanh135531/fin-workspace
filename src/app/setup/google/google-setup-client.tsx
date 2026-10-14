@@ -28,7 +28,7 @@ export function GoogleSetupClient({ email }: { email: string }) {
       redirect: false,
     });
     if (!authenticated?.ok || authenticated.error) {
-      setError("Đã lưu username nhưng chưa làm mới được phiên đăng nhập. Hãy đăng nhập lại bằng Google.");
+      setError("Đã lưu tên đăng nhập nhưng chưa làm mới được phiên đăng nhập. Hãy đăng nhập lại bằng Google.");
       setPending(false);
       return;
     }
@@ -44,7 +44,7 @@ export function GoogleSetupClient({ email }: { email: string }) {
             Chọn tên đăng nhập Felix
           </h1>
           <p className="mt-2 leading-6 text-[var(--text-secondary)]">
-            Google đã xác minh <strong className="font-semibold text-[var(--foreground)]">{email}</strong>. Username dùng để hiển thị trong các nhóm tài chính.
+            Google đã xác minh <strong className="break-words font-semibold leading-snug text-[var(--foreground)]">{email}</strong>. Tên đăng nhập dùng để hiển thị trong các nhóm tài chính.
           </p>
         </header>
 

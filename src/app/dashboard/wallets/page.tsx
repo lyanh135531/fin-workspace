@@ -62,7 +62,7 @@ export default async function WalletsPage() {
 
   return (
     <PageContainer className="wallets-page-container">
-      <div className="min-[901px]:mx-auto min-[901px]:max-w-[76rem]">
+      <div className="md:mx-auto md:max-w-7xl">
         <WalletManagement
           key={links
             .map(

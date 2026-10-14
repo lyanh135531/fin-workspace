@@ -211,7 +211,7 @@ function CalendarDropdown({
         label: option.label,
         disabled: option.disabled,
       }))}
-      className="h-7 w-auto min-w-0 gap-1 border-0 bg-transparent px-1.5 text-xs font-semibold shadow-none hover:bg-accent focus-visible:ring-1 dark:bg-transparent dark:hover:bg-accent"
+      className="h-7 w-auto min-w-0 gap-1 border-0 bg-transparent px-1.5 text-xs font-semibold hover:bg-accent focus-visible:ring-1 dark:bg-transparent dark:hover:bg-accent"
       contentClassName={options.length > 12 ? "max-h-72" : undefined}
       size="sm"
     />

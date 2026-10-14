@@ -22,10 +22,10 @@ function Card<T extends ElementType = "div">({
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex p-6 flex-col gap-(--card-spacing) overflow-hidden rounded-2xl text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-2xl border p-4 text-sm text-[var(--foreground)] md:p-5 lg:p-6 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:p-3.5 md:data-[size=sm]:p-4 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         tone === "primarySoft"
-          ? "bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))] ring-[color-mix(in_srgb,var(--primary)_24%,var(--border))]"
-          : "bg-card",
+          ? "border-[color-mix(in_srgb,var(--primary)_22%,var(--border))] bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))]"
+          : "border-[var(--border)] bg-[var(--surface)]",
         className,
       )}
       {...props}
@@ -51,7 +51,7 @@ function CardTitle({ className, ...props }: ComponentPropsWithRef<"div">) {
     <div
       data-slot="card-title"
       className={cn(
-        "font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",
+        "font-heading text-base leading-snug font-semibold text-[var(--foreground)] group-data-[size=sm]/card:text-sm",
         className,
       )}
       {...props}
@@ -66,7 +66,7 @@ function CardDescription({
   return (
     <div
       data-slot="card-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-xs md:text-sm text-[var(--text-secondary)]", className)}
       {...props}
     />
   );
@@ -94,7 +94,7 @@ function CardFooter({ className, ...props }: ComponentPropsWithRef<"div">) {
     <div
       data-slot="card-footer"
       className={cn(
-        "flex items-center rounded-b-xl border-t py-(--card-spacing)",
+        "flex items-center rounded-b-xl border-t border-[var(--border)] py-(--card-spacing)",
         className,
       )}
       {...props}

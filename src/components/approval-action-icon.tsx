@@ -38,14 +38,13 @@ export function ApprovalActionButton({
 
   return (
     <Button
-      size="sm"
+      size="icon"
       variant={decision === "approve" ? "success" : "destructive"}
       title={label}
       aria-label={label}
       {...props}
     >
       <ApprovalActionIcon decision={decision} />
-      {label}
     </Button>
   );
 }

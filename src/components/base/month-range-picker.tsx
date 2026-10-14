@@ -57,7 +57,7 @@ function lastDayOfMonth(month: string): string {
 
 function formatMonth(month: string): string {
   const [year, monthNumber] = month.split("-");
-  return `Tháng ${Number(monthNumber)}, ${year}`;
+  return `Tháng ${Number(monthNumber)}/${year}`;
 }
 
 function formatMonthRange(value: DateRangeValue): string {
@@ -68,7 +68,7 @@ function formatMonthRange(value: DateRangeValue): string {
   const [fromYear, fromMonth] = from.split("-");
   const [toYear, toMonthNumber] = to.split("-");
   if (fromYear === toYear) {
-    return `Tháng ${Number(fromMonth)} – ${Number(toMonthNumber)}, ${toYear}`;
+    return `Tháng ${Number(fromMonth)} – ${Number(toMonthNumber)}/${toYear}`;
   }
 
   return `${formatMonth(from)} – ${formatMonth(to)}`;
@@ -141,7 +141,7 @@ export function MonthRangePicker({
       aria-expanded={open}
       disabled={disabled}
       className={cn(
-        "date-range-picker-trigger group",
+        "date-range-picker-trigger group justify-between gap-2",
         className,
       )}
     />
@@ -150,11 +150,11 @@ export function MonthRangePicker({
   const triggerContent = (
     <>
       <span className="flex min-w-0 items-center gap-2">
-        <CalendarRange className="size-3.5 text-primary" aria-hidden="true" />
-        <span className="truncate tabular-nums">{formatMonthRange(value)}</span>
+        <CalendarRange className="size-4 text-[var(--primary)]" aria-hidden="true" />
+        <span className="tabular-nums">{formatMonthRange(value)}</span>
       </span>
       <ChevronDown
-        className="size-3.5 text-muted-foreground transition-transform duration-200 group-aria-expanded:rotate-180"
+        className="size-4 text-[var(--text-muted)] transition-transform duration-200 group-aria-expanded:rotate-180"
         aria-hidden="true"
       />
     </>
@@ -182,14 +182,15 @@ export function MonthRangePicker({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[22rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
+        elevation="flat"
+        className="w-[21rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
       >
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2 border-b border-border">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-[var(--border)] bg-[var(--surface-secondary)] px-3 py-2 text-center">
           <RangeSummary
-            value={draftFrom ? formatMonth(draftFrom) : "Chọn tháng"}
+            value={draftFrom ? formatMonth(draftFrom) : "Từ tháng"}
           />
-          <span className="font-medium"> - </span>
-          <RangeSummary value={draftTo ? formatMonth(draftTo) : "Chọn tháng"} />
+          <span className="text-xs font-medium text-[var(--text-muted)]">→</span>
+          <RangeSummary value={draftTo ? formatMonth(draftTo) : "Đến tháng"} />
         </div>
 
         <div className="px-3 pb-3 pt-2.5">
@@ -201,7 +202,7 @@ export function MonthRangePicker({
               aria-label="Năm trước"
               disabled={displayYear <= minimumYear}
               onClick={() => setDisplayYear((year) => year - 1)}
-              className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+              className="size-8 rounded-lg"
             >
               <ChevronLeft className="size-4" aria-hidden="true" />
             </Button>
@@ -215,14 +216,14 @@ export function MonthRangePicker({
               aria-label="Năm sau"
               disabled={displayYear >= maximumYear}
               onClick={() => setDisplayYear((year) => year + 1)}
-              className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+              className="size-8 rounded-lg"
             >
               <ChevronRight className="size-4" aria-hidden="true" />
             </Button>
           </div>
 
           <div
-            className="grid grid-cols-4 gap-1"
+            className="grid grid-cols-3 gap-1.5"
             role="grid"
             aria-label={`Các tháng năm ${displayYear}`}
           >
@@ -243,20 +244,14 @@ export function MonthRangePicker({
                 <Button
                   key={current}
                   type="button"
-                  variant="ghost"
-                  size="auto"
+                  variant={isEdge ? "default" : isInRange ? "selected" : "ghost"}
+                  size="sm"
                   role="gridcell"
                   aria-label={formatMonth(current)}
                   aria-selected={isEdge || isInRange}
                   disabled={isDisabled}
                   onClick={() => selectMonth(current)}
-                  className={cn(
-                    "relative h-10 rounded-lg px-1 text-xs font-medium tabular-nums transition-[background-color,color,transform] duration-150 hover:bg-accent hover:text-accent-foreground active:scale-[0.97] focus-visible:z-10",
-                    isInRange &&
-                      "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
-                    isEdge &&
-                      "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground",
-                  )}
+                  className="justify-center tabular-nums"
                 >
                   Tháng {month}
                 </Button>
@@ -265,21 +260,20 @@ export function MonthRangePicker({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-border bg-muted/25 px-3 py-2.5">
+        <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] bg-[var(--surface-secondary)] px-3 py-2.5">
           <p
-            className="pl-1 text-[0.68rem] leading-4 text-muted-foreground"
+            className="pl-1 text-xs text-[var(--text-secondary)]"
             aria-live="polite"
           >
             {selectingEnd
               ? "Chọn tháng kết thúc"
-              : "Chọn một tháng để bắt đầu khoảng mới"}
+              : "Chọn tháng bắt đầu"}
           </p>
           <Button
             type="button"
             size="sm"
             onClick={applyRange}
             disabled={!isComplete || selectingEnd}
-            className="min-w-[5.5rem] shadow-sm"
           >
             <Check aria-hidden="true" />
             Áp dụng
@@ -291,16 +285,13 @@ export function MonthRangePicker({
 }
 
 function RangeSummary({ value }: { value: string }) {
+  const isPlaceholder = value === "Từ tháng" || value === "Đến tháng";
   return (
-    <div
-      className={cn(
-        "min-w-0 rounded-lg border border-transparent px-2.5 py-2 transition-colors",
-      )}
-    >
+    <div className="min-w-0 rounded-lg px-2 py-1">
       <strong
         className={cn(
-          "mt-0.5 block truncate text-xs font-semibold tabular-nums",
-          value === "Chọn tháng" && "font-medium text-muted-foreground",
+          "block text-xs font-semibold tabular-nums",
+          isPlaceholder && "font-normal text-[var(--text-muted)]",
         )}
       >
         {value}

@@ -17,7 +17,10 @@ import {
 import { MobileBottomNavigation } from "@/app/dashboard/mobile-bottom-navigation";
 import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
 import { MobileNavigation } from "@/app/dashboard/mobile-navigation";
-import { QuickTransactionSheet } from "@/app/dashboard/overview/quick-transaction-sheet";
+import {
+  QuickTransactionHeaderButton,
+  QuickTransactionSheet,
+} from "@/app/dashboard/overview/quick-transaction-sheet";
 import {
   PwaInstallBanner,
   PwaInstallProvider,
@@ -74,7 +77,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
           <PwaInstallBanner />
 
-          <main id="main-content" className="dashboard-content" tabIndex={-1}>
+          <main
+            id="main-content"
+            className="dashboard-content flex-1 min-h-0 min-w-0 w-full overflow-y-auto px-4 pt-4 pb-24 md:px-6 md:py-5 lg:px-8 lg:py-6"
+            tabIndex={-1}
+          >
             {children}
           </main>
 
@@ -212,7 +219,7 @@ async function DashboardSidebar({ dataPromise }: DashboardShellDataProps) {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="min-[901px]:pb-3">
+      <SidebarHeader className="pb-2">
         <BrandLink />
       </SidebarHeader>
 
@@ -230,7 +237,7 @@ async function DashboardSidebar({ dataPromise }: DashboardShellDataProps) {
         />
       </SidebarContent>
 
-      <SidebarFooter className="min-[901px]:pt-3">
+      <SidebarFooter className="pt-2">
         <SidebarUserMenu username={username} role={userRole} />
       </SidebarFooter>
     </Sidebar>
@@ -248,35 +255,38 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
   } = await dataPromise;
 
   return (
-    <header className="dashboard-header">
-      <div className="dashboard-header-leading">
-        <MobileNavigation
-          currentId={membership?.workspaceId}
-          workspaces={workspaces.map((item) => ({
-            id: item.workspace.id,
-            name: item.workspace.name,
-            role: item.role.code,
-          }))}
-          pendingJoinCount={pendingJoinCount}
-          isAdmin={isAdmin}
-          username={username}
-          role={userRole}
-        />
-        <div className="hidden min-[1024px]:flex">
+    <header className="dashboard-header sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)]/95 px-4 backdrop-blur-md md:px-6 lg:px-8">
+      <div className="dashboard-header-leading flex min-w-0 flex-1 items-center gap-2.5">
+        <div className="flex shrink-0 md:hidden">
+          <MobileNavigation
+            currentId={membership?.workspaceId}
+            workspaces={workspaces.map((item) => ({
+              id: item.workspace.id,
+              name: item.workspace.name,
+              role: item.role.code,
+            }))}
+            pendingJoinCount={pendingJoinCount}
+            isAdmin={isAdmin}
+            username={username}
+            role={userRole}
+          />
+        </div>
+        <div className="hidden shrink-0 lg:flex">
           <SidebarToggle />
         </div>
-        <div className="dashboard-header-copy">
+        <div className="dashboard-header-copy min-w-0 flex-1">
           <DashboardHeaderSubtitle
             fallback={membership?.workspace.name ?? "Felix"}
           />
         </div>
       </div>
 
-      <div className="header-action-group">
-        <div className="min-[901px]:hidden">
+      <div className="header-action-group flex shrink-0 items-center gap-1.5">
+        {membership && <QuickTransactionHeaderButton />}
+        <div className="md:hidden">
           <MobileAppearanceSheet />
         </div>
-        <div className="hidden min-[901px]:block">
+        <div className="hidden md:block">
           <AppearanceMenu />
         </div>
         {membership && (
@@ -341,7 +351,7 @@ async function DashboardMobileBottomNavigation({
 function DashboardSidebarFallback() {
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader>
+      <SidebarHeader className="pb-2">
         <BrandLink />
       </SidebarHeader>
 
@@ -350,7 +360,7 @@ function DashboardSidebarFallback() {
         <FallbackNavigation />
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="pt-2">
         <SidebarUserMenu username="User" role="none" />
       </SidebarFooter>
     </Sidebar>
@@ -359,19 +369,23 @@ function DashboardSidebarFallback() {
 
 function DashboardHeaderFallback() {
   return (
-    <header className="dashboard-header">
-      <div className="dashboard-header-leading">
-        <MobileNavigation
-          workspaces={[]}
-          pendingJoinCount={0}
-          isAdmin={false}
-          username="User"
-          role="none"
-        />
-        <div className="hidden min-[1024px]:flex">
+    <header className="dashboard-header sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)]/95 px-4 backdrop-blur-md md:px-6 lg:px-8">
+      <div className="dashboard-header-leading flex min-w-0 flex-1 items-center gap-2.5">
+        <div className="flex shrink-0 md:hidden">
+          <MobileNavigation
+            workspaces={[]}
+            pendingJoinCount={0}
+            isAdmin={false}
+            username="User"
+            role="none"
+          />
+        </div>
+        <div className="hidden shrink-0 lg:flex">
           <SidebarToggle />
         </div>
-        <div className="dashboard-header-copy">Felix</div>
+        <div className="dashboard-header-copy min-w-0 flex-1 text-sm font-semibold text-[var(--foreground)]">
+          Felix
+        </div>
       </div>
     </header>
   );
@@ -381,11 +395,11 @@ function BrandLink() {
   return (
     <Link
       href="/overview"
-      className="flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-md px-1 text-[var(--foreground)] outline-none transition-[width,height,padding,color,gap] duration-200 hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[901px]:h-11 min-[901px]:justify-start min-[901px]:gap-3 min-[901px]:rounded-xl min-[901px]:px-2 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:self-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0! min-[901px]:group-data-[collapsible=icon]:size-10!"
+      className="flex h-10 w-full min-w-0 items-center justify-start gap-2.5 rounded-lg px-2 text-[var(--foreground)] outline-none transition-colors duration-150 hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0!"
       aria-label="Felix - về trang tổng quan"
     >
-      <FinLogo size={36} />
-      <span className="max-w-24 truncate text-base font-semibold tracking-[-0.02em] transition-[max-width,opacity] duration-200 group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0">
+      <FinLogo size={32} />
+      <span className="text-base font-bold tracking-[-0.02em] transition-opacity duration-150 group-data-[collapsible=icon]:hidden!">
         Felix
       </span>
     </Link>

@@ -260,7 +260,7 @@ function TransactionNotificationCard({
         </NotificationTypeIcon>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <p className="min-w-0 truncate text-sm font-semibold text-[var(--foreground)]">
+            <p className="min-w-0 break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
               {item.description || item.category || "Giao dịch chưa ghi chú"}
             </p>
             <span
@@ -270,7 +270,7 @@ function TransactionNotificationCard({
             </span>
           </div>
 
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
+          <p className="mt-1 break-words text-xs leading-snug text-[var(--text-muted)]">
             {item.username} · {item.wallet}
           </p>
           <div className="mt-2 flex items-center justify-between gap-3">
@@ -306,12 +306,14 @@ function TransactionNotificationCard({
                 />
               ) : (
                 <Button
-                  size="sm"
+                  size="icon"
                   variant="success"
                   disabled={pending}
+                  aria-label="Ghi nhận sớm"
+                  title="Ghi nhận sớm"
                   onClick={() => onReview(true)}
                 >
-                  Ghi nhận sớm
+                  <CircleCheckBig size={16} aria-hidden="true" />
                 </Button>
               )}
             </div>
@@ -360,10 +362,10 @@ function ChangeNotificationCard({
             </span>
           </div>
 
-          <p className="mt-2 truncate text-sm font-medium text-[var(--foreground)]">
+          <p className="mt-2 break-words text-sm font-medium leading-snug text-[var(--foreground)]">
             {item.description || "Giao dịch chưa ghi chú"}
           </p>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
+          <p className="mt-1 break-words text-xs leading-snug text-[var(--text-muted)]">
             {item.username} · {item.wallet} · {transactionTypeLabel[item.type]}
           </p>
           <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-[var(--foreground)]">
@@ -462,12 +464,12 @@ function RecurringNotificationCard({
         </NotificationTypeIcon>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <p className="truncate text-sm font-semibold text-[var(--foreground)]">
+            <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
               {item.description || "Giao dịch định kỳ"}
             </p>
             <span className={`shrink-0 text-xs font-semibold ${color}`}>{label}</span>
           </div>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
+          <p className="mt-1 break-words text-xs leading-snug text-[var(--text-muted)]">
             {item.username} · {transactionTypeLabel[item.type]}
           </p>
           <p className="mt-2 font-mono text-sm font-semibold tabular-nums text-[var(--foreground)]">
@@ -510,7 +512,7 @@ function GoalFundingNotificationCard({ item, currency, pending, canReview, onRev
         <NotificationTypeIcon className={color}><CircleDollarSign size={17} aria-hidden="true" /></NotificationTypeIcon>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <p className="truncate text-sm font-semibold text-[var(--foreground)]">{item.goalName}</p>
+            <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">{item.goalName}</p>
             <span className={`shrink-0 text-xs font-semibold ${color}`}>{label}</span>
           </div>
           <p className="mt-1 text-xs text-[var(--text-muted)]">{item.username} · Đóng góp mục tiêu</p>
@@ -550,7 +552,7 @@ export function NotificationsMenu({
     "MEMBER";
   const [joinRoles, setJoinRoles] = useState<Record<string, string>>({});
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 760px)");
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
     const update = () => setIsMobile(mediaQuery.matches);
     update();
     mediaQuery.addEventListener("change", update);
@@ -734,9 +736,9 @@ export function NotificationsMenu({
           render={
             <Button
               variant="icon"
-              size="auto"
+              size="icon"
               type="button"
-              className="size-10 min-h-10 min-w-10"
+              className="relative"
               aria-label={
                 items.length > 0
                   ? `Thông báo, ${items.length} mục mới`
@@ -792,9 +794,9 @@ export function NotificationsMenu({
         render={
           <Button
             variant="icon"
-            size="auto"
+            size="icon"
             type="button"
-            className="size-10 min-h-10 min-w-10"
+            className="relative"
             aria-label={
               items.length > 0
                 ? `Thông báo, ${items.length} mục mới`

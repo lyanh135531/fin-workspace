@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Check,
   CreditCard,
+  Plus,
   Wallet,
   WalletCards,
 } from "lucide-react";
@@ -61,17 +62,33 @@ export type QuickWorkspace = {
 };
 
 function subscribeDesktop(callback: () => void) {
-  const mediaQuery = window.matchMedia("(min-width: 1024px)");
+  const mediaQuery = window.matchMedia("(min-width: 768px)");
   mediaQuery.addEventListener("change", callback);
   return () => mediaQuery.removeEventListener("change", callback);
 }
 
 function getDesktopSnapshot() {
-  return window.matchMedia("(min-width: 1024px)").matches;
+  return window.matchMedia("(min-width: 768px)").matches;
 }
 
 function getDesktopServerSnapshot() {
   return false;
+}
+
+export function QuickTransactionHeaderButton() {
+  return (
+    <Button
+      variant="default"
+      size="icon"
+      type="button"
+      className="hidden md:inline-flex"
+      aria-label="Nhập nhanh giao dịch"
+      title="Nhập nhanh giao dịch"
+      onClick={() => window.dispatchEvent(new CustomEvent("open-quick-transaction"))}
+    >
+      <Plus size={17} strokeWidth={2.2} aria-hidden="true" />
+    </Button>
+  );
 }
 
 const transactionTypes: {
@@ -328,7 +345,7 @@ export function QuickTransactionSheet({
                         ) : (
                           <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
                         )}
-                        <span className="truncate">{wallet.name}</span>
+                        <span className="break-words leading-snug">{wallet.name}</span>
                       </span>
                       <span
                         className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
@@ -348,7 +365,7 @@ export function QuickTransactionSheet({
                       ) : (
                         <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
                       )}
-                      <span className="truncate">{wallet.name}</span>
+                      <span className="break-words leading-snug">{wallet.name}</span>
                       {isCard && (
                         <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
                           Thẻ tín dụng
@@ -373,13 +390,13 @@ export function QuickTransactionSheet({
                   content: (
                     <div className="flex items-center gap-2 min-w-0">
                       <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                      <span className="truncate">{wallet.name}</span>
+                      <span className="break-words leading-snug">{wallet.name}</span>
                     </div>
                   ),
                   selectedContent: (
                     <span className="flex items-center gap-2 min-w-0">
                       <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                      <span className="truncate">{wallet.name}</span>
+                      <span className="break-words leading-snug">{wallet.name}</span>
                     </span>
                   ),
                   disabled: wallet.id === walletId || wallet.kind === "credit_card",
@@ -421,13 +438,13 @@ export function QuickTransactionSheet({
                   content: (
                     <div className="flex items-center gap-2 min-w-0">
                       <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                      <span className="truncate">{wallet.name}</span>
+                      <span className="break-words leading-snug">{wallet.name}</span>
                     </div>
                   ),
                   selectedContent: (
                     <span className="flex items-center gap-2 min-w-0">
                       <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                      <span className="truncate">{wallet.name}</span>
+                      <span className="break-words leading-snug">{wallet.name}</span>
                     </span>
                   ),
                 }))}

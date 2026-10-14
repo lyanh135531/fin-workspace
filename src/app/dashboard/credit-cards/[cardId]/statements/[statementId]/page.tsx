@@ -134,10 +134,10 @@ export default async function CreditCardStatementPage({
             </span>
           </div>
 
-          <div className="grid gap-2 border-t border-[var(--border)] pt-4 sm:grid-cols-2">
+          <div className="grid gap-2 border-t border-[var(--border)] pt-4 md:grid-cols-2">
             {[...byWallet].map(([name, amount]) => (
-              <div key={name} className="flex items-center justify-between gap-3 text-sm">
-                <span className="min-w-0 truncate text-[var(--text-secondary)]">{name}</span>
+              <div key={name} className="flex items-start justify-between gap-3 text-sm">
+                <span className="min-w-0 break-words leading-snug text-[var(--text-secondary)]">{name}</span>
                 <span className="shrink-0 font-semibold tabular-nums text-[var(--foreground)]">
                   {formatAmount(Decimal.max(amount, 0))} {currency}
                 </span>
@@ -146,7 +146,7 @@ export default async function CreditCardStatementPage({
           </div>
         </Card>
 
-        <Card as="section" className="gap-0 p-4 sm:p-6" aria-labelledby="statement-items">
+        <Card as="section" className="gap-0 p-4 md:p-6" aria-labelledby="statement-items">
           <div className="mb-3 flex items-center gap-2">
             <ReceiptText className="size-4 text-[var(--primary)]" aria-hidden="true" />
             <h2 id="statement-items" className="text-sm font-semibold text-[var(--foreground)]">
@@ -159,7 +159,7 @@ export default async function CreditCardStatementPage({
               return (
                 <div key={item.id} className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-[var(--foreground)]">
+                    <p className="break-words text-sm font-medium leading-snug text-[var(--foreground)]">
                       {transaction?.description ?? (item.isCarry ? "Dư chuyển kỳ trước" : "Điều chỉnh thẻ")}
                     </p>
                     <p className="mt-0.5 text-xs text-[var(--text-muted)]">

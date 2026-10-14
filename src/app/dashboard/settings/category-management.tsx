@@ -45,7 +45,6 @@ import {
   Empty,
   Input,
   Label,
-  Loading,
   Select,
   Sheet,
   SheetContent,
@@ -164,8 +163,8 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   const [pending, start] = useTransition();
 
   useEffect(() => {
-    const mobileQuery = window.matchMedia("(max-width: 760px)");
-    const desktopQuery = window.matchMedia("(min-width: 901px)");
+    const mobileQuery = window.matchMedia("(max-width: 767px)");
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
     const updateViewport = () => {
       setIsMobile(mobileQuery.matches);
       setIsDesktop(desktopQuery.matches);
@@ -341,46 +340,48 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   return (
     <Card
       as="section"
-      className="workspace-category-section gap-0 max-sm:p-4 max-sm:ring-0"
+      className="gap-4 md:gap-5"
       aria-busy={pending}
     >
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-8.5 w-8.5 place-items-center rounded-lg text-[var(--primary)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]">
             <FolderTree size={18} />
           </div>
-          <div>
-            <p className="settings-eyebrow">Danh mục của nhóm</p>
-            <h2 className="mt-0.5 text-base font-bold tracking-tight">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-[var(--primary)]">
+              Danh mục thu chi
+            </p>
+            <h2 className="mt-0.5 text-base font-semibold tracking-tight text-[var(--foreground)]">
               Quản lý danh mục
             </h2>
-            <p className="mt-1 hidden text-xs leading-5 text-[var(--text-muted)] min-[901px]:block">
-              Tổ chức danh mục thu chi và sắp xếp theo cấu trúc phù hợp với
-              nhóm tài chính.
+            <p className="mt-0.5 text-xs leading-relaxed text-[var(--text-secondary)]">
+              Tổ chức danh mục cha, danh mục con và sắp xếp theo cấu trúc phù hợp với nhóm tài chính.
             </p>
           </div>
         </div>
         <Button
           variant="default"
-          size="default"
-          className="max-sm:hidden"
+          size="icon"
+          className="shrink-0"
+          aria-label="Thêm danh mục"
+          title="Thêm danh mục"
           onClick={() => {
             setCreating(true);
             setEditing(null);
           }}
           disabled={pending}
         >
-          <Plus size={15} />
-          <span>Thêm danh mục</span>
+          <Plus size={16} />
         </Button>
       </div>
 
       {/* Tabs: Chi tiêu & Thu nhập */}
-      <div className="flex items-center justify-between gap-3 py-4">
+      <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 md:flex-row md:items-center md:justify-between">
         <Tabs
           value={filterType}
-          className="category-type-tabs max-sm:w-full min-[901px]:w-full min-[901px]:max-w-sm"
+          className="w-full md:max-w-sm"
           onValueChange={(value) => {
             setFilterType(value as "expense" | "income");
             setCreating(false);
@@ -392,47 +393,32 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             className="w-full"
             aria-label="Loại danh mục"
           >
-            <TabsTrigger
-              tone="expense"
-              value="expense"
-            >
+            <TabsTrigger tone="expense" value="expense">
               <ArrowUpRight size={14} strokeWidth={2.5} />
               <span>Chi tiêu</span>
-              <TabsCount className="bg-red-100 text-red-700 transition-colors dark:bg-red-950/80 dark:text-red-400">
+              <TabsCount className="bg-[color-mix(in_srgb,var(--expense)_14%,var(--surface))] text-[var(--expense)]">
                 {categories.filter((c) => c.type === "expense").length}
               </TabsCount>
             </TabsTrigger>
-            <TabsTrigger
-              tone="income"
-              value="income"
-            >
+            <TabsTrigger tone="income" value="income">
               <ArrowDownLeft size={14} strokeWidth={2.5} />
               <span>Thu nhập</span>
-              <TabsCount className="bg-emerald-100 text-emerald-700 transition-colors dark:bg-emerald-950/80 dark:text-emerald-400">
+              <TabsCount className="bg-[color-mix(in_srgb,var(--income)_14%,var(--surface))] text-[var(--income)]">
                 {categories.filter((c) => c.type === "income").length}
               </TabsCount>
             </TabsTrigger>
           </TabsList>
         </Tabs>
 
-        <p className="hidden text-xs font-medium text-[var(--text-muted)] sm:block">
-          Kéo thả để thay đổi thứ tự trong cùng một cấp
+        <p className="text-xs text-[var(--text-muted)]">
+          <span className="hidden lg:inline">
+            Kéo thả để thay đổi thứ tự trong cùng một cấp
+          </span>
+          <span className="lg:hidden">
+            Chạm vào danh mục để chỉnh sửa hoặc kéo biểu tượng để sắp xếp
+          </span>
         </p>
       </div>
-
-      <Button
-        variant="default"
-        size="default"
-        className="mb-3 w-full sm:hidden"
-        onClick={() => {
-          setCreating(true);
-          setEditing(null);
-        }}
-        disabled={pending}
-      >
-        <Plus size={15} />
-        Tạo danh mục mới
-      </Button>
 
       <Sheet
         open={creating || editing !== null}
@@ -444,19 +430,11 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
         }}
       >
         <SheetContent
-          side={isDesktop ? "right" : isMobile ? "bottom" : "right"}
+          side={isMobile ? "bottom" : "right"}
           placement={isDesktop ? "inset" : "edge"}
           size={isDesktop ? "wide" : "default"}
-          spacing={isDesktop ? "flush" : "default"}
-          elevation={isDesktop ? "flat" : "raised"}
-          className={
-            isDesktop
-              ? undefined
-              : cn(
-                  "workspace-category-editor-sheet general-category-sheet flex h-full w-full flex-col bg-[var(--surface)] p-0 text-[var(--foreground)] sm:max-w-md",
-                  isMobile && "quick-transaction-sheet",
-                )
-          }
+          spacing="flush"
+          elevation="flat"
         >
           <SheetHeader
             icon={FolderTree}
@@ -468,7 +446,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             description={
               editingCategory
                 ? "Cập nhật thông tin, màu sắc và biểu tượng của danh mục."
-                : "Tạo danh mục mới để sử dụng trong nhóm này."
+                : "Tạo danh mục mới để sử dụng trong nhóm tài chính này."
             }
           />
           {(creating || editingCategory) && (
@@ -495,11 +473,6 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       </Sheet>
 
       {/* Tree list */}
-      {rootCategories.length > 0 && (
-        <p className="mb-1 text-center text-[11px] font-medium text-[var(--text-muted)] min-[901px]:hidden">
-          Chạm vào danh mục để quản lý
-        </p>
-      )}
       <div>
         {rootCategories.length === 0 ? (
           <Empty
@@ -522,11 +495,11 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
               );
 
               return (
-                <section key={group.key} aria-labelledby={groupId}>
+                <section key={group.key} aria-labelledby={groupId} className="space-y-2">
                   <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
                     <PiggyBank
                       size={16}
-                      className="text-[var(--text-secondary)]"
+                      className="text-[var(--primary)]"
                       aria-hidden="true"
                     />
                     <h3
@@ -535,11 +508,11 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
                     >
                       {group.label}
                     </h3>
-                    <span className="ml-auto text-[11px] tabular-nums text-[var(--text-muted)]">
+                    <span className="ml-auto rounded-md bg-[var(--surface-secondary)] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[var(--text-secondary)]">
                       {categoryCount} danh mục
                     </span>
                   </div>
-                  <div>
+                  <div className="space-y-1.5">
                     {group.categories.map((category) => (
                       <CategoryNode
                         key={category.id}
@@ -570,30 +543,32 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             })}
           </div>
         ) : (
-          rootCategories.map((category) => (
-            <CategoryNode
-              key={category.id}
-              category={category}
-              categories={currentCategories}
-              pending={pending}
-              isMobile={isMobile}
-              isDesktop={isDesktop}
-              showJarLabel
-              draggedCategory={draggedCategory}
-              dropTargetId={dropTargetId}
-              onEdit={setEditing}
-              onStatus={setStatus}
-              onDelete={deleteCategory}
-              onDragStart={setDraggedCategory}
-              onDragOver={setDropTargetId}
-              onDragEnd={() => {
-                setDraggedCategory(null);
-                setDropTargetId(null);
-              }}
-              onDrop={handleDrop}
-              onPointerDrop={handlePointerDrop}
-            />
-          ))
+          <div className="space-y-1.5">
+            {rootCategories.map((category) => (
+              <CategoryNode
+                key={category.id}
+                category={category}
+                categories={currentCategories}
+                pending={pending}
+                isMobile={isMobile}
+                isDesktop={isDesktop}
+                showJarLabel
+                draggedCategory={draggedCategory}
+                dropTargetId={dropTargetId}
+                onEdit={setEditing}
+                onStatus={setStatus}
+                onDelete={deleteCategory}
+                onDragStart={setDraggedCategory}
+                onDragOver={setDropTargetId}
+                onDragEnd={() => {
+                  setDraggedCategory(null);
+                  setDropTargetId(null);
+                }}
+                onDrop={handleDrop}
+                onPointerDrop={handlePointerDrop}
+              />
+            ))}
+          </div>
         )}
       </div>
     </Card>
@@ -672,7 +647,7 @@ function WorkspaceCategoryActionsMenu({
           align={isMobile ? "center" : "end"}
           side="bottom"
           sideOffset={4}
-          className="category-context-menu !w-52 p-1.5 [&_[data-slot=dropdown-menu-item]]:min-h-10 [&_[data-slot=dropdown-menu-item]]:gap-2 [&_[data-slot=dropdown-menu-item]]:px-2.5"
+          className="w-52 p-1.5 [&_[data-slot=dropdown-menu-item]]:min-h-10 [&_[data-slot=dropdown-menu-item]]:gap-2 [&_[data-slot=dropdown-menu-item]]:px-2.5"
         >
           <DropdownMenuItem
             disabled={pending}
@@ -711,47 +686,40 @@ function WorkspaceCategoryActionsMenu({
 
       {isMobile ? (
         <Sheet open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-          <SheetContent
-            side="bottom"
-            className="ledger-mobile-review-sheet pending-delete"
-          >
+          <SheetContent side="bottom" spacing="flush" elevation="flat">
             <SheetHeader
               icon={Trash2}
               title="Xóa danh mục?"
               description="Hành động này không thể hoàn tác."
             />
-            <div className="ledger-mobile-review-body">
-              <div className="ledger-mobile-review-transaction">
-                <div>
-                  <span>{category.name}</span>
-                  <small>{category.transactionCount} giao dịch</small>
+            <div className="p-4">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                    {category.name}
+                  </p>
+                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                    {category.transactionCount} giao dịch
+                  </p>
                 </div>
-                <strong style={{ color: category.color }}>
+                <strong
+                  className="shrink-0 text-xs font-semibold"
+                  style={{ color: category.color }}
+                >
                   {category.type === "expense" ? "Chi tiêu" : "Thu nhập"}
                 </strong>
               </div>
             </div>
-            <SheetFooter className="ledger-mobile-review-actions">
-              <Button
-                variant="outline"
-                className="ledger-mobile-review-reject"
-                data-delete
-                disabled={pending}
-                onClick={() => setDeleteConfirmOpen(false)}
-              >
-                Hủy
-              </Button>
-              <Button
-                variant="outline"
-                className="ledger-mobile-review-approve"
-                data-delete
-                disabled={pending}
-                onClick={deleteAction}
-              >
-                <Trash2 size={16} />
-                Xóa danh mục
-              </Button>
-            </SheetFooter>
+            <SheetFooter
+              onCancel={() => setDeleteConfirmOpen(false)}
+              cancelLabel="Hủy"
+              cancelDisabled={pending}
+              onSubmit={deleteAction}
+              submitLabel="Xóa danh mục"
+              submitVariant="destructive"
+              submitType="button"
+              isSubmitting={pending}
+            />
           </SheetContent>
         </Sheet>
       ) : (
@@ -761,7 +729,7 @@ function WorkspaceCategoryActionsMenu({
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogMedia className="bg-rose-500/10 text-rose-500">
+              <AlertDialogMedia className="bg-[color-mix(in_srgb,var(--danger)_12%,var(--surface))] text-[var(--danger)]">
                 <Trash2 />
               </AlertDialogMedia>
               <AlertDialogTitle>Xóa danh mục?</AlertDialogTitle>
@@ -806,7 +774,7 @@ function WorkspaceDesktopCategoryActions({
 
   return (
     <div
-      className="absolute right-1 top-1/2 hidden -translate-y-1/2 items-center gap-2 opacity-0 transition-opacity group-hover/category-actions:opacity-100 group-focus-within/category-actions:opacity-100 min-[901px]:flex"
+      className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center gap-1.5 opacity-0 transition-opacity group-hover/category-actions:opacity-100 group-focus-within/category-actions:opacity-100 lg:flex"
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
@@ -814,6 +782,7 @@ function WorkspaceDesktopCategoryActions({
         variant="icon"
         size="icon"
         type="button"
+        title={`Chỉnh sửa ${category.name}`}
         aria-label={`Chỉnh sửa ${category.name}`}
         disabled={pending}
         onClick={() => onEdit(category.id)}
@@ -824,6 +793,7 @@ function WorkspaceDesktopCategoryActions({
         variant="icon"
         size="icon"
         type="button"
+        title={`${isActive ? "Tắt" : "Bật"} danh mục ${category.name}`}
         aria-label={`${isActive ? "Tắt" : "Bật"} danh mục ${category.name}`}
         disabled={pending}
         onClick={() => onStatus(category.id, isActive ? "deactive" : "active")}
@@ -846,6 +816,7 @@ function WorkspaceDesktopCategoryActions({
             variant="destructiveIcon"
             size="icon"
             type="button"
+            title={`Xóa danh mục ${category.name}`}
             aria-label={`Xóa danh mục ${category.name}`}
             disabled={pending}
           >
@@ -897,10 +868,10 @@ function CategoryNode({
   const isChild = category.parentId !== null;
   const hasChildren = children.length > 0;
 
-  // Root category = mini-card
+  // Root category
   if (!isChild) {
     return (
-      <div className="mt-1 rounded-xl bg-[var(--surface)] transition-all duration-200">
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] transition-colors">
         <WorkspaceCategoryActionsMenu
           category={category}
           childCount={children.length}
@@ -913,10 +884,10 @@ function CategoryNode({
           trigger={
             <div
               className={cn(
-                "group flex cursor-pointer items-center justify-between gap-3 rounded-lg px-1 py-3 transition-opacity min-[901px]:cursor-grab min-[901px]:pr-32 min-[901px]:active:cursor-grabbing",
+                "group flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-[var(--surface-hover)] md:px-3.5 md:py-3 lg:cursor-grab lg:pr-32 lg:active:cursor-grabbing",
                 category.status === "deactive" && "opacity-50",
                 draggedCategory?.id === category.id && "opacity-50",
-                dropTargetId === category.id && "ring-2 ring-primary/60",
+                dropTargetId === category.id && "ring-2 ring-[var(--primary)]",
               )}
               data-category-sort-id={category.id}
               data-category-sort-parent="root"
@@ -965,20 +936,27 @@ function CategoryNode({
               />
             </span>
             <span
-              className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl transition-transform duration-200 group-hover:scale-105"
+              className="grid size-9 shrink-0 place-items-center rounded-xl"
               style={{
                 backgroundColor: `${category.color}18`,
                 color: category.color,
               }}
             >
-              <IconComponent size={20} />
+              <IconComponent size={18} />
             </span>
 
             <div className="min-w-0">
-              <strong className="block truncate text-sm font-semibold text-[var(--foreground)]">
-                {category.name}
-              </strong>
-              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+              <div className="flex flex-wrap items-center gap-2">
+                <strong className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                  {category.name}
+                </strong>
+                {category.status === "deactive" && (
+                  <span className="rounded bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+                    Đã tắt
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                 {category.transactionCount} giao dịch
                 {hasChildren && (
                   <span className="ml-1 text-[var(--text-muted)]">
@@ -994,40 +972,41 @@ function CategoryNode({
               )}
             </div>
           </div>
-
         </WorkspaceCategoryActionsMenu>
 
-        {/* Children — tree branch from parent */}
+        {/* Children — cleanly indented tree branch from parent */}
         {hasChildren && (
-          <div className="relative ml-2 min-[901px]:ml-7">
-            {children.map((child) => (
-              <CategoryNode
-                key={child.id}
-                category={child}
-                categories={categories}
-                pending={pending}
-                isMobile={isMobile}
-                isDesktop={isDesktop}
-                showJarLabel={showJarLabel}
-                draggedCategory={draggedCategory}
-                dropTargetId={dropTargetId}
-                onEdit={onEdit}
-                onStatus={onStatus}
-                onDelete={onDelete}
-                onDragStart={onDragStart}
-                onDragOver={onDragOver}
-                onDragEnd={onDragEnd}
-                onDrop={onDrop}
-                onPointerDrop={onPointerDrop}
-              />
-            ))}
+          <div className="border-t border-[var(--border)] bg-[var(--surface-secondary)]/35 px-3 py-2 md:px-4">
+            <div className="ml-3 space-y-1 border-l border-[var(--border-strong)] pl-3 md:ml-5 md:pl-4">
+              {children.map((child) => (
+                <CategoryNode
+                  key={child.id}
+                  category={child}
+                  categories={categories}
+                  pending={pending}
+                  isMobile={isMobile}
+                  isDesktop={isDesktop}
+                  showJarLabel={showJarLabel}
+                  draggedCategory={draggedCategory}
+                  dropTargetId={dropTargetId}
+                  onEdit={onEdit}
+                  onStatus={onStatus}
+                  onDelete={onDelete}
+                  onDragStart={onDragStart}
+                  onDragOver={onDragOver}
+                  onDragEnd={onDragEnd}
+                  onDrop={onDrop}
+                  onPointerDrop={onPointerDrop}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
     );
   }
 
-  // Child category — compact row with tree connector
+  // Child category — compact row with clean indentation
   return (
     <WorkspaceCategoryActionsMenu
       category={category}
@@ -1041,10 +1020,10 @@ function CategoryNode({
       trigger={
         <article
           className={cn(
-            "group relative flex cursor-pointer items-center justify-between gap-3 rounded-xl py-2 pl-9 pr-1 transition-[background-color,opacity] min-[901px]:cursor-grab min-[901px]:pl-1 min-[901px]:pr-32 min-[901px]:active:cursor-grabbing",
+            "group relative flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2.5 py-2 transition-colors hover:bg-[var(--surface)] lg:cursor-grab lg:pr-32 lg:active:cursor-grabbing",
             category.status === "deactive" && "opacity-50",
             draggedCategory?.id === category.id && "opacity-50",
-            dropTargetId === category.id && "ring-2 ring-primary/60",
+            dropTargetId === category.id && "ring-2 ring-[var(--primary)]",
           )}
           data-category-sort-id={category.id}
           data-category-sort-parent={category.parentId ?? "root"}
@@ -1093,31 +1072,30 @@ function CategoryNode({
           />
         </span>
         <span
-          className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-md transition-transform duration-200 group-hover:scale-105"
+          className="grid size-7 shrink-0 place-items-center rounded-lg"
           style={{
-            backgroundColor: `${category.color}12`,
+            backgroundColor: `${category.color}16`,
             color: category.color,
           }}
         >
-          <IconComponent size={13} />
+          <IconComponent size={14} />
         </span>
 
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="text-[12.5px] font-medium text-[var(--foreground)]/90 truncate">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className="break-words text-xs font-medium leading-snug text-[var(--foreground)] md:text-sm">
             {category.name}
           </span>
-          <span className="flex-shrink-0 text-[10px] font-medium text-[var(--text-muted)]">
-            {category.transactionCount} giao dịch
+          <span className="shrink-0 text-[11px] text-[var(--text-muted)]">
+            · {category.transactionCount} giao dịch
           </span>
           {showJarLabel && category.jarCode && (
-            <span className="inline-flex flex-shrink-0 items-center gap-1 text-[10px] font-medium text-[var(--text-secondary)]">
+            <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-[var(--text-secondary)]">
               <PiggyBank size={11} aria-hidden="true" />
               {FINANCIAL_JAR_LABELS[category.jarCode]}
             </span>
           )}
         </div>
       </div>
-
     </WorkspaceCategoryActionsMenu>
   );
 }
@@ -1127,7 +1105,6 @@ function CategoryForm({
   categories,
   category,
   pending,
-  isMobile,
   isDesktop,
   onCancel,
   onSubmit,
@@ -1152,9 +1129,10 @@ function CategoryForm({
     category?.jarCode ?? "",
   );
   const categoryType = category?.type ?? defaultType;
-  const inheritedJarCode = parentId === "none"
-    ? null
-    : categories.find((item) => item.id === parentId)?.jarCode ?? null;
+  const inheritedJarCode =
+    parentId === "none"
+      ? null
+      : (categories.find((item) => item.id === parentId)?.jarCode ?? null);
 
   function handleNameChange(val: string) {
     setName(val);
@@ -1169,24 +1147,20 @@ function CategoryForm({
         e.preventDefault();
         onSubmit(new FormData(e.currentTarget));
       }}
-      className={cn(
-        "mt-0 flex min-h-0 flex-1 flex-col overflow-hidden border-0 bg-transparent",
-        isMobile && "quick-transaction-form",
-      )}
+      className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden border-0 bg-transparent"
     >
       <input type="hidden" name="type" value={category?.type ?? defaultType} />
       <input type="hidden" name="code" value={code} />
 
       <div
         className={cn(
-          "flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6",
-          isMobile && "quick-transaction-scroll",
+          "flex flex-1 flex-col gap-4 overflow-y-auto p-4 md:p-5",
           isDesktop &&
-            "grid grid-cols-[minmax(0,1fr)_16rem] content-start items-start gap-x-8 px-8 pt-6 pb-8",
+            "lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] lg:content-start lg:items-start lg:gap-x-6 lg:p-6",
         )}
       >
-        <div className="contents min-[901px]:block min-[901px]:space-y-5">
-          <div className="hidden min-[901px]:block">
+        <div className="contents lg:block lg:space-y-4">
+          <div className="hidden lg:block">
             <h3 className="text-sm font-semibold text-[var(--foreground)]">
               Thông tin danh mục
             </h3>
@@ -1212,7 +1186,7 @@ function CategoryForm({
               value={parentId}
               onValueChange={setParentId}
               label="Danh mục cha"
-              emptyOption={{ value: "none", label: "Không có" }}
+              emptyOption={{ value: "none", label: "Không có (Danh mục gốc)" }}
               categories={categories.filter(
                 (item) =>
                   item.status === "active" &&
@@ -1223,13 +1197,15 @@ function CategoryForm({
             />
           </div>
 
-          {categoryType === "expense" && (
-            parentId === "none" ? (
+          {categoryType === "expense" &&
+            (parentId === "none" ? (
               <div>
                 <Select
                   name="jarCode"
                   value={selectedJarCode || undefined}
-                  onValueChange={(value) => setSelectedJarCode(value as FinancialJarCode)}
+                  onValueChange={(value) =>
+                    setSelectedJarCode(value as FinancialJarCode)
+                  }
                   label="Hũ tài chính"
                   placeholder="Chọn hũ tài chính"
                   options={FINANCIAL_JAR_OPTIONS}
@@ -1240,34 +1216,40 @@ function CategoryForm({
                 </p>
               </div>
             ) : (
-              <div className="grid gap-1">
+              <div className="grid gap-1.5">
                 <Label>Hũ tài chính</Label>
                 <div
-                  className="flex min-h-8 items-center gap-2 px-3 text-sm text-[var(--foreground)]"
+                  className="flex min-h-9 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-3 text-sm text-[var(--foreground)]"
                   aria-label={`Kế thừa hũ ${inheritedJarCode ? FINANCIAL_JAR_LABELS[inheritedJarCode] : "chưa xác định"} từ danh mục cha`}
                 >
-                  <PiggyBank size={15} className="text-[var(--text-secondary)]" aria-hidden="true" />
+                  <PiggyBank
+                    size={15}
+                    className="text-[var(--text-secondary)]"
+                    aria-hidden="true"
+                  />
                   <span>
                     {inheritedJarCode
                       ? FINANCIAL_JAR_LABELS[inheritedJarCode]
                       : "Chưa xác định"}
                   </span>
-                  <span className="text-xs text-[var(--text-muted)]">Kế thừa từ danh mục cha</span>
+                  <span className="ml-auto text-xs text-[var(--text-muted)]">
+                    Kế thừa từ danh mục cha
+                  </span>
                 </div>
               </div>
-            )
-          )}
+            ))}
 
-          <div className="grid gap-1">
+          <div className="grid gap-1.5">
             <Label>Màu đại diện</Label>
-            <div className="mb-2 flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {CATEGORY_COLOR_PRESETS.map((color) => (
                 <Button
                   variant="unstyled"
                   size="auto"
                   key={color}
                   type="button"
-                  className={`h-7 w-7 rounded-full border-2 transition-transform ${
+                  aria-label={`Chọn màu ${color}`}
+                  className={`size-7 rounded-full border-2 transition-transform cursor-pointer ${
                     selectedColor === color
                       ? "scale-110 border-[var(--surface)] ring-2 ring-[var(--primary)]"
                       : "border-transparent"
@@ -1281,8 +1263,8 @@ function CategoryForm({
           </div>
         </div>
 
-        <div className="contents min-[901px]:block min-[901px]:space-y-5">
-          <div className="hidden min-[901px]:block">
+        <div className="contents lg:block lg:space-y-4">
+          <div className="hidden lg:block">
             <h3 className="text-sm font-semibold text-[var(--foreground)]">
               Biểu tượng
             </h3>
@@ -1291,9 +1273,9 @@ function CategoryForm({
             </p>
           </div>
 
-          <div className="grid gap-1">
-            <Label>Chọn Biểu tượng</Label>
-            <div className="category-icon-picker grid max-h-48 grid-cols-4 gap-2 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 min-[901px]:max-h-[22rem]">
+          <div className="grid gap-1.5">
+            <Label>Chọn biểu tượng</Label>
+            <div className="grid max-h-48 grid-cols-4 gap-2 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 lg:max-h-[22rem]">
               {ICON_LIST.map((item) => {
                 const IconComp = ICON_MAP[item.id] ?? Tag;
                 const isSelected = selectedIcon === item.id;
@@ -1304,15 +1286,16 @@ function CategoryForm({
                     key={item.id}
                     type="button"
                     onClick={() => setSelectedIcon(item.id)}
-                    className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all text-xs gap-1 ${
+                    className={`flex flex-col items-center justify-center gap-1 rounded-lg border p-2 text-xs transition-colors cursor-pointer ${
                       isSelected
-                        ? "border-[var(--primary)] bg-[var(--primary)]/10 font-bold text-[var(--primary)]"
-                        : "border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+                        ? "border-[var(--primary)] bg-[var(--primary-soft)] font-semibold text-[var(--primary)]"
+                        : "border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
                     }`}
                     title={item.label}
+                    aria-label={item.label}
                   >
                     <IconComp size={18} />
-                    <span className="text-[10px] truncate max-w-full">
+                    <span className="max-w-full break-words text-center text-[10px] leading-snug">
                       {item.label}
                     </span>
                   </Button>

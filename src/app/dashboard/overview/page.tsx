@@ -80,7 +80,7 @@ export default async function OverviewPage() {
 
   return (
     <PageContainer>
-      <div className="min-[901px]:mx-auto min-[901px]:max-w-[76rem]">
+      <div className="md:mx-auto md:max-w-7xl">
         <OverviewDashboard
           workspace={{ id: workspaceId, name: membership.workspace.name, currency: membership.workspace.baseCurrency }}
           reportPeriod={reportPeriod}

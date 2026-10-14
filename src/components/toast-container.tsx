@@ -111,12 +111,12 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: () => void }) 
 
   return (
     <div
-      className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl border shadow-xl backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-3 duration-200 ${
+      className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl border backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-3 duration-200 ${
         isSuccess
-          ? "bg-emerald-950/90 text-emerald-100 border-emerald-500/30 dark:bg-emerald-950/95 shadow-emerald-950/20"
+          ? "bg-emerald-950/90 text-emerald-100 border-emerald-500/30 dark:bg-emerald-950/95"
           : isError
-          ? "bg-rose-950/90 text-rose-100 border-rose-500/30 dark:bg-rose-950/95 shadow-rose-950/20"
-          : "bg-slate-900/90 text-slate-100 border-slate-700/50 dark:bg-slate-900/95 shadow-slate-950/20"
+          ? "bg-rose-950/90 text-rose-100 border-rose-500/30 dark:bg-rose-950/95"
+          : "bg-slate-900/90 text-slate-100 border-slate-700/50 dark:bg-slate-900/95"
       }`}
     >
       <span className="mt-0.5 shrink-0">

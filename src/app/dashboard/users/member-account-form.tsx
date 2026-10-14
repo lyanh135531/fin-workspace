@@ -34,28 +34,28 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
         <span className="settings-section-icon"><UserPlus size={18}/></span>
         <div>
           <p className="settings-eyebrow">Quản lý tài khoản</p>
-          <h1 className="mt-1 text-2xl font-semibold">Tạo tài khoản thành viên</h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-500">
+          <h1 className="mt-1 text-2xl font-semibold text-[var(--foreground)]">Tạo tài khoản thành viên</h1>
+          <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
             Tài khoản mới sẽ là thành viên. Bạn chỉ có thể cấp quyền vào nhóm mình quản trị.
           </p>
         </div>
       </div>
       <form id="member-account-form" action={submit} className="mt-6 grid gap-4 md:grid-cols-2" aria-busy={pending}>
         <div className="grid gap-2">
-          <Input id="member-username" label="Username" required name="username" minLength={3} maxLength={80} autoComplete="username" placeholder="minh"/>
+          <Input id="member-username" label="Tên đăng nhập" required name="username" minLength={3} maxLength={80} autoComplete="username" placeholder="minh"/>
         </div>
         <div className="grid gap-2">
           <Input id="member-password" label="Mật khẩu ban đầu" required name="password" type="password" minLength={6} maxLength={128} autoComplete="new-password" placeholder="Tối thiểu 6 ký tự"/>
         </div>
         <fieldset className="rounded-xl border border-[var(--border)] p-4 md:col-span-2">
-          <legend className="px-1 text-sm font-medium">Nhóm được quyền tham gia</legend>
-          <p className="mt-1 text-sm text-slate-500">Chọn một hoặc nhiều nhóm tài chính.</p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <legend className="px-1 text-sm font-medium text-[var(--foreground)]">Nhóm được quyền tham gia</legend>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">Chọn một hoặc nhiều nhóm tài chính.</p>
+          <div className="mt-4 grid gap-2 md:grid-cols-2">
             {workspaces.map((workspace) => (
-              <Label key={workspace.id} className="min-h-12 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3">
+              <Label key={workspace.id} className="min-h-12 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-3 py-2">
                 <Checkbox name="workspaceIds" value={workspace.id} aria-label={`Cấp quyền truy cập ${workspace.name}`}/>
-                <span>{workspace.name}</span>
-                <small className="ml-auto text-slate-500">Member</small>
+                <span className="break-words leading-snug text-[var(--foreground)]">{workspace.name}</span>
+                <small className="ml-auto shrink-0 text-[var(--text-muted)]">Thành viên</small>
               </Label>
             ))}
           </div>

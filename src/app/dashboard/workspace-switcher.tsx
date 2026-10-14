@@ -154,7 +154,7 @@ export function WorkspaceSwitcher({
             variant="unstyled"
             size="auto"
             type="button"
-            className="sidebar-workspace-selector-card flex h-12 w-full min-w-0 items-center gap-2 rounded-2xl px-2.5 py-2 text-left outline-none transition-[width,height,padding,gap,background-color,transform] duration-300 ease-in-out hover:bg-[var(--surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[901px]:h-[3.25rem]! min-[901px]:gap-3! min-[901px]:rounded-xl! min-[901px]:border-0! min-[901px]:bg-[var(--surface)]! min-[901px]:px-2.5! min-[901px]:shadow-none! min-[901px]:hover:bg-[var(--surface-hover)]! min-[901px]:hover:shadow-none! group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:min-h-8! group-data-[collapsible=icon]:translate-x-2 group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center min-[901px]:group-data-[collapsible=icon]:mx-auto! min-[901px]:group-data-[collapsible=icon]:size-10! min-[901px]:group-data-[collapsible=icon]:min-h-10! min-[901px]:group-data-[collapsible=icon]:translate-x-0 min-[901px]:group-data-[collapsible=icon]:bg-transparent!"
+            className="sidebar-workspace-selector-card flex h-12 w-full min-w-0 items-center gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-left outline-none transition-colors duration-150 hover:bg-[var(--surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:min-h-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0!"
             aria-expanded={open}
             aria-label={`Nhóm tài chính: ${currentWorkspace?.name}. Nhấn để chuyển nhóm.`}
           />
@@ -163,17 +163,17 @@ export function WorkspaceSwitcher({
       >
         {(spotlightTrigger) => (
           <PopoverTrigger render={spotlightTrigger}>
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)] text-sm font-semibold text-[var(--text-on-primary)]">
               <span>{activeInitial}</span>
             </div>
-            <div className="min-w-0 flex-1 overflow-hidden opacity-100 transition-[max-width,opacity] duration-200 ease-in-out group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0 min-[901px]:group-data-[collapsible=icon]:hidden!">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="sidebar-ws-title truncate">
+            <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden!">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="sidebar-ws-title break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
                   {currentWorkspace?.name}
                 </span>
               </div>
-              <span className="sidebar-ws-sub">
-                <span className="sidebar-ws-dot" aria-hidden />
+              <span className="sidebar-ws-sub flex items-center gap-1.5 text-xs leading-snug text-[var(--text-muted)]">
+                <span className="sidebar-ws-dot size-1.5 shrink-0 rounded-full bg-[var(--success)]" aria-hidden />
                 {currentWorkspace?.role === "ADMIN"
                   ? "Quản trị viên"
                   : "Thành viên"}
@@ -181,19 +181,19 @@ export function WorkspaceSwitcher({
             </div>
             <ChevronsUpDown
               size={15}
-              className="shrink-0 text-[var(--text-muted)] opacity-100 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0 min-[901px]:group-data-[collapsible=icon]:hidden!"
+              className="shrink-0 text-[var(--text-muted)] group-data-[collapsible=icon]:hidden!"
             />
           </PopoverTrigger>
         )}
       </SpotlightTrigger>
 
       <PopoverContent
-        side="right"
+        side="bottom"
         align="start"
         sideOffset={6}
-        className="sidebar-ws-popover w-[var(--anchor-width)]! min-w-[var(--anchor-width)]! max-w-[var(--anchor-width)]! min-[901px]:w-72! min-[901px]:min-w-72! min-[901px]:max-w-72!"
+        className="sidebar-ws-popover w-80 min-w-64 max-w-[calc(100vw-2rem)] p-2"
       >
-        <div className="sidebar-ws-popover-list">
+        <div className="sidebar-ws-popover-list flex flex-col gap-1">
           {workspaces.map((ws) => {
             const isSelected = ws.id === currentId;
             return (
@@ -204,48 +204,48 @@ export function WorkspaceSwitcher({
                 key={ws.id}
                 disabled={pending}
                 onClick={() => choose(ws.id)}
-                className={`sidebar-ws-item rounded-xl ${isSelected ? "sidebar-ws-item-active" : ""}`}
+                className={`sidebar-ws-item flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--surface-hover)] ${isSelected ? "sidebar-ws-item-active bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))]" : ""}`}
               >
-                <div className="sidebar-ws-avatar">
+                <div className="sidebar-ws-avatar flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-xs font-bold text-[var(--foreground)]">
                   {ws.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="sidebar-ws-info">
-                  <span className="sidebar-ws-name">{ws.name}</span>
-                  <span className="sidebar-ws-role">
+                <div className="sidebar-ws-info flex min-w-0 flex-1 flex-col">
+                  <span className="sidebar-ws-name break-words text-sm font-medium leading-snug text-[var(--foreground)]">
+                    {ws.name}
+                  </span>
+                  <span className="sidebar-ws-role text-xs text-[var(--text-muted)]">
                     {ws.role === "ADMIN" ? "Quản trị viên" : "Thành viên"}
                   </span>
                 </div>
                 {isSelected && (
-                  <Check size={14} className="text-[var(--primary)]" />
+                  <Check size={15} className="shrink-0 text-[var(--primary)]" />
                 )}
               </Button>
             );
           })}
         </div>
-        {error && <p className="sidebar-ws-error">{error}</p>}
-        <div className="sidebar-ws-popover-footer">
+        {error && <p className="sidebar-ws-error mt-2 px-2 text-xs text-[var(--danger)]">{error}</p>}
+        <div className="sidebar-ws-popover-footer mt-2 flex flex-col gap-1 border-t border-[var(--border)] pt-2">
           <Link
             href="/workspaces/create"
             onClick={() => setOpen(false)}
-            className="sidebar-ws-footer-link rounded-md"
+            className="sidebar-ws-footer-link flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
           >
             <PlusCircle size={14} />
             <span>Tạo nhóm mới</span>
           </Link>
 
-          {/* Pending join requests indicator */}
           {pendingJoinCount > 0 && (
             <Link
               href="/settings/join"
               onClick={() => setOpen(false)}
-              className="sidebar-ws-footer-link ws-pending-link"
+              className="sidebar-ws-footer-link ws-pending-link flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--warning)] transition-colors hover:bg-[var(--surface-hover)]"
             >
               <Clock size={14} />
               <span>Đang chờ duyệt ({pendingJoinCount})</span>
             </Link>
           )}
 
-          {/* Inline Join Form */}
           <InlineJoinForm onSuccess={() => router.refresh()} />
         </div>
       </PopoverContent>

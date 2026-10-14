@@ -84,7 +84,7 @@ export function SettingsClient({
     selectedMember !== undefined && isAdmin && !selectedMember.isSelf;
 
   useEffect(() => {
-    const query = window.matchMedia("(min-width: 901px)");
+    const query = window.matchMedia("(min-width: 768px)");
     const updateViewport = () => setIsDesktop(query.matches);
     updateViewport();
     query.addEventListener("change", updateViewport);
@@ -124,23 +124,23 @@ export function SettingsClient({
     <>
       <Card
         as="section"
-        className="workspace-members-section gap-4 overflow-hidden min-[901px]:gap-0"
+        className="workspace-members-section gap-4 overflow-hidden md:gap-0"
         aria-busy={pending || removingId !== null}
       >
         {/* Header */}
-        <header className="member-management-header flex items-center gap-3 min-[901px]:pb-5">
+        <header className="member-management-header flex items-center gap-3 md:pb-5">
           <div className="settings-section-icon">
             <UsersRound size={18} />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="mt-0.5 text-lg font-bold tracking-tight text-[var(--foreground)] min-[901px]:text-base min-[901px]:font-semibold">
+            <h2 className="mt-0.5 text-lg font-bold tracking-tight text-[var(--foreground)] md:text-base md:font-semibold">
               Thành viên của nhóm
             </h2>
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">
               Quản lý vai trò và quyền hoạt động của từng tài khoản.
             </p>
           </div>
-          <span className="ws-fixed-pill rounded-2xl min-[901px]:text-xs min-[901px]:font-medium min-[901px]:text-[var(--text-muted)]">
+          <span className="ws-fixed-pill rounded-2xl md:text-xs md:font-medium md:text-[var(--text-muted)]">
             <strong>{members.length}</strong> người
           </span>
         </header>
@@ -157,7 +157,7 @@ export function SettingsClient({
                   type="button"
                   variant="unstyled"
                   size="auto"
-                  className="member-mobile-row workspace-member-mobile-row"
+                  className="member-mobile-row workspace-member-mobile-row md:hidden"
                   onClick={() => {
                     setConfirmingRemove(false);
                     setSelectedMemberId(member.id);
@@ -171,21 +171,21 @@ export function SettingsClient({
                   >
                     {member.username.slice(0, 1)}
                   </span>
-                  <span className="member-identity">
-                    <span className="flex items-center gap-2">
-                      <strong>{member.username}</strong>
+                  <span className="member-identity min-w-0">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <strong className="break-words leading-snug">{member.username}</strong>
                       {member.isSelf && (
                         <span className="text-[10px] font-semibold text-[var(--primary)] bg-[var(--primary-soft)] px-1.5 py-0.5 rounded-md">
                           Bạn
                         </span>
                       )}
                     </span>
-                    <small className="member-mobile-summary">{roleName}</small>
+                    <small className="member-mobile-summary break-words leading-snug">{roleName}</small>
                   </span>
                   <ChevronRight size={17} aria-hidden="true" />
                 </Button>
 
-                <article className="settings-member-row workspace-member-desktop-row min-[901px]:grid-cols-[2.5rem_minmax(0,1fr)_10rem_2.5rem] min-[901px]:gap-4 min-[901px]:py-3.5">
+                <article className="settings-member-row workspace-member-desktop-row max-md:hidden md:grid md:grid-cols-[2.5rem_minmax(0,1fr)_10rem_2.5rem] md:items-center md:gap-4 md:py-3.5">
                   {/* Avatar */}
                   <div
                     className="ws-member-avatar bg-[var(--primary-soft)] text-[var(--primary)]"
@@ -195,9 +195,9 @@ export function SettingsClient({
                   </div>
 
                   {/* Identity */}
-                  <div className="member-identity">
-                    <div className="flex items-center gap-2">
-                      <strong>{member.username}</strong>
+                  <div className="member-identity min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <strong className="break-words leading-snug">{member.username}</strong>
                       {member.isSelf && (
                         <span className="text-[10px] font-semibold text-[var(--primary)] bg-[var(--primary-soft)] px-1.5 py-0.5 rounded-md">
                           Bạn
@@ -209,7 +209,7 @@ export function SettingsClient({
                         ? "Tài khoản của bạn"
                         : "Đang có quyền truy cập"}
                     </span>
-                    <small className="member-mobile-summary">{roleName}</small>
+                    <small className="member-mobile-summary break-words leading-snug">{roleName}</small>
                   </div>
 
                   {/* Role */}
@@ -227,11 +227,11 @@ export function SettingsClient({
                           value: role.code,
                           label: role.name,
                         }))}
-                        className="member-role-select min-w-34 min-[901px]:w-40"
+                        className="member-role-select min-w-34 md:w-40"
                       />
                     ) : (
                       <span
-                        className={`${roleBadgeClass(member.roleCode)} min-[901px]:w-40 min-[901px]:justify-center`}
+                        className={`${roleBadgeClass(member.roleCode)} md:w-40 md:justify-center`}
                       >
                         <ShieldCheck size={13} />
                         {roleName}
@@ -245,7 +245,7 @@ export function SettingsClient({
                       ? null
                       : isAdmin && (
                           <>
-                            <div className="min-[901px]:hidden">
+                            <div className="md:hidden">
                               <Button
                                 type="button"
                                 disabled={pending || removingId !== null}
@@ -261,7 +261,7 @@ export function SettingsClient({
                                 <UserRoundX size={16} />
                               </Button>
                             </div>
-                            <div className="hidden min-[901px]:block">
+                            <div className="hidden md:block">
                               <ConfirmDelete
                                 ariaLabel={`Gỡ ${member.username} khỏi nhóm`}
                                 title="Gỡ thành viên?"

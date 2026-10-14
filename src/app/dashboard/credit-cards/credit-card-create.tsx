@@ -37,13 +37,13 @@ import { formatAmount } from "@/lib/format";
 type FundingWallet = { id: string; name: string };
 
 function subscribeDesktop(callback: () => void) {
-  const query = window.matchMedia("(min-width: 901px)");
+  const query = window.matchMedia("(min-width: 768px)");
   query.addEventListener("change", callback);
   return () => query.removeEventListener("change", callback);
 }
 
 function desktopSnapshot() {
-  return window.matchMedia("(min-width: 901px)").matches;
+  return window.matchMedia("(min-width: 768px)").matches;
 }
 
 function serverDesktopSnapshot() {
@@ -94,17 +94,12 @@ function CreditCardLivePreview({
   return (
     <div
       aria-hidden="true"
-      className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-gradient-to-br from-[var(--surface-secondary)] via-[var(--surface)] to-[var(--surface-secondary)] p-4 text-[var(--foreground)] transition-all select-none"
+      className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-4 text-[var(--foreground)] select-none"
     >
-      {/* Subtle ambient gradients */}
-      <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[var(--primary)]/10 blur-xl" />
-      <div className="pointer-events-none absolute -left-8 -bottom-8 h-28 w-28 rounded-full bg-[var(--primary)]/5 blur-xl" />
-
       {/* Top row: Chip + Contactless + Brand tag */}
-      <div className="relative z-10 flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          {/* EMV Chip graphic */}
-          <div className="grid h-5 w-7 place-items-center rounded border border-[var(--border)] bg-amber-500/15">
+          <div className="grid h-5 w-7 shrink-0 place-items-center rounded border border-[var(--border)] bg-amber-500/15">
             <div className="grid h-3 w-4.5 grid-cols-2 grid-rows-2 gap-0.5 opacity-70">
               <span className="rounded-tl border-b border-r border-amber-600/50" />
               <span className="rounded-tr border-b border-l border-amber-600/50" />
@@ -112,9 +107,8 @@ function CreditCardLivePreview({
               <span className="rounded-br border-t border-l border-amber-600/50" />
             </div>
           </div>
-          {/* Contactless waves */}
           <svg
-            className="h-3.5 w-3.5 text-[var(--text-muted)]"
+            className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -131,8 +125,8 @@ function CreditCardLivePreview({
       </div>
 
       {/* Card Name and masked number */}
-      <div className="relative z-10 my-2.5">
-        <p className="truncate text-base font-semibold tracking-wide text-[var(--foreground)]">
+      <div className="my-2.5 min-w-0">
+        <p className="break-words text-base font-semibold leading-snug tracking-wide text-[var(--foreground)]">
           {name.trim() || "Tên thẻ của bạn"}
         </p>
         <p className="mt-0.5 font-mono text-[11px] tracking-widest text-[var(--text-muted)]">
@@ -141,18 +135,18 @@ function CreditCardLivePreview({
       </div>
 
       {/* Bottom row: Limit & Cycle */}
-      <div className="relative z-10 flex items-end justify-between border-t border-[var(--border)] pt-2 text-xs">
-        <div>
-          <span className="block text-[9px] uppercase tracking-wider text-[var(--text-muted)]">
-            Hạn mức
+      <div className="flex items-end justify-between gap-3 border-t border-[var(--border)] pt-2 text-xs">
+        <div className="min-w-0">
+          <span className="block text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+            Hạn mức tín dụng
           </span>
-          <span className="font-semibold tabular-nums text-[var(--foreground)]">
+          <span className="block font-semibold tabular-nums text-[var(--foreground)]">
             {displayLimit}
           </span>
         </div>
-        <div className="text-right">
-          <span className="block text-[9px] uppercase tracking-wider text-[var(--text-muted)]">
-            Chu kỳ
+        <div className="shrink-0 text-right">
+          <span className="block text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+            Sao kê kỳ này
           </span>
           <span className="font-medium text-[var(--text-secondary)] tabular-nums text-[11px]">
             Chốt: {statementClosingDay || "--"} · Hạn: {paymentDueDay || "--"}
@@ -396,23 +390,23 @@ export function CreditCardCreate({
           }))}
           required
         />
-        <p className="text-[11px] text-[var(--text-muted)] px-0.5">
-          Chỉ trừ tiền ví khi bạn bấm &ldquo;Thanh toán sao kê&rdquo;, không trừ khi quẹt thẻ.
+        <p className="px-0.5 text-[11px] text-[var(--text-muted)]">
+          Khi quẹt thẻ, khoản chi sẽ được ghi nhận vào Tiền chờ thanh toán thẻ để tính Số dư có thể dùng. Số dư thực tế của ví chỉ trừ khi bạn bấm &ldquo;Thanh toán sao kê&rdquo;.
         </p>
       </div>
 
       {/* Progressive Disclosure: Opening Debt */}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 space-y-2">
+      <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
         <label
           htmlFor={debtToggleId}
-          className="flex items-center justify-between gap-3 cursor-pointer select-none"
+          className="flex cursor-pointer items-center justify-between gap-3 select-none"
         >
-          <div className="space-y-0.5">
-            <p className="text-xs font-medium text-[var(--foreground)]">
-              Thẻ đã có dư nợ từ trước?
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-xs font-medium leading-snug text-[var(--foreground)]">
+              Thẻ đã có dư nợ ban đầu?
             </p>
-            <p className="text-[11px] text-[var(--text-muted)]">
-              Dành cho thẻ đang chi tiêu trước khi nhập vào Felix.
+            <p className="text-[11px] leading-snug text-[var(--text-muted)]">
+              Dành cho thẻ đang có dư nợ trước khi thêm vào hệ thống.
             </p>
           </div>
           <input
@@ -423,12 +417,12 @@ export function CreditCardCreate({
               setHasOpeningDebt(e.target.checked);
               if (!e.target.checked) setOpeningDebt("");
             }}
-            className="size-4 rounded border-[var(--border)] text-[var(--primary)] focus:ring-[var(--focus-ring)] cursor-pointer shrink-0"
+            className="size-4 shrink-0 cursor-pointer rounded border-[var(--border)] text-[var(--primary)] focus:ring-[var(--focus-ring)]"
           />
         </label>
 
         {hasOpeningDebt && (
-          <div className="pt-2 border-t border-[var(--border)] space-y-1.5">
+          <div className="space-y-1.5 border-t border-[var(--border)] pt-2">
             <MoneyInput
               label={`Dư nợ ban đầu (${currency})`}
               value={openingDebt}
@@ -467,12 +461,18 @@ export function CreditCardCreate({
     <>
       <Button
         type="button"
+        variant="default"
+        size="icon"
         disabled={unavailable}
-        title={unavailable ? "Cần có ít nhất một ví thanh toán đang hoạt động" : undefined}
+        aria-label="Thêm thẻ tín dụng"
+        title={
+          unavailable
+            ? "Cần có ít nhất một ví thanh toán đang hoạt động"
+            : "Thêm thẻ tín dụng"
+        }
         onClick={() => setOpen(true)}
       >
-        <Plus aria-hidden="true" />
-        Thêm thẻ tín dụng
+        <Plus size={17} aria-hidden="true" />
       </Button>
 
       <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && close()}>
@@ -480,9 +480,8 @@ export function CreditCardCreate({
           side={isDesktop ? "right" : "bottom"}
           placement={isDesktop ? "inset" : "edge"}
           size={isDesktop ? "wide" : "default"}
-          spacing={isDesktop ? "flush" : "default"}
-          elevation={isDesktop ? "flat" : "raised"}
-          className={isDesktop ? undefined : "quick-transaction-sheet"}
+          spacing="flush"
+          elevation="flat"
         >
           <form
             className="flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -495,9 +494,8 @@ export function CreditCardCreate({
               description="Thiết lập hạn mức, chu kỳ sao kê và ví thanh toán mặc định."
             />
 
-            {/* Mobile Layout: Uses standard Base Tabs with TabsContent (matching financial-plans-manager) */}
             {!isDesktop ? (
-              <div className="flex-1 overflow-y-auto p-4 overscroll-contain pb-6">
+              <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-6">
                 <Tabs
                   value={activeTab}
                   onValueChange={(val) => setActiveTab(val as "card" | "billing")}
@@ -534,20 +532,18 @@ export function CreditCardCreate({
                 </Tabs>
               </div>
             ) : (
-              /* Desktop Layout: 2-column side-by-side */
-              <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-4 sm:p-6 md:grid-cols-2 md:gap-8 overscroll-contain">
+              <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto overscroll-contain p-4 md:grid-cols-2 md:gap-6 md:p-5">
                 <div className="space-y-4">
                   {cardFields}
                 </div>
-                <div className="space-y-4 md:border-l md:border-[var(--border)] md:pl-8">
+                <div className="space-y-4 md:border-l md:border-[var(--border)] md:pl-6">
                   {billingFields}
                 </div>
               </div>
             )}
 
-            {/* Standard SheetFooter (Mobile: Single action, Cancel hidden by base SheetFooter convention) */}
             <SheetFooter
-              className="pb-[max(1.25rem,env(safe-area-inset-bottom))] px-4 sm:px-6 py-3 sm:py-3.5"
+              className="px-4 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-5 md:py-3.5"
               onCancel={close}
               cancelLabel="Hủy"
               submitLabel={

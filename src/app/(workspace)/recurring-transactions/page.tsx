@@ -53,7 +53,7 @@ export default async function RecurringTransactionsPage() {
 
   return (
     <PageContainer className="recurring-transactions-page">
-      <div className="min-[901px]:mx-auto min-[901px]:max-w-[76rem]">
+      <div className="md:mx-auto md:max-w-7xl">
         <RecurringTransactionsManager
           currentMemberId={membership.id}
           canCreate={capabilities.canCreateRecurringTransactions}

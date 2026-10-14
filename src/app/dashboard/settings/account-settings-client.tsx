@@ -145,13 +145,13 @@ export function AccountSettingsClient({
 
         {/* Name + badge */}
         <div className="flex flex-col items-center gap-1.5 text-center">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold tracking-tight text-[var(--foreground)]">
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <h2 className="break-words text-base font-semibold leading-snug tracking-tight text-[var(--foreground)]">
               {username}
             </h2>
             <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--success)]">
               <BadgeCheck size={11} />
-              Active
+              Hoạt động
             </span>
           </div>
           <p className="text-xs text-[var(--text-muted)]">
@@ -166,7 +166,7 @@ export function AccountSettingsClient({
           Bảo mật
         </p>
 
-        <div className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl ring-1 ring-[var(--border)] bg-[var(--surface)]">
+        <div className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
           {/* ── Google Auth Row ────────────────────── */}
           <button
             type="button"
@@ -189,7 +189,7 @@ export function AccountSettingsClient({
           >
             <div className="flex items-center gap-3 min-w-0">
               <span
-                className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)] ring-1 ring-[var(--border)]"
+                className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]"
                 aria-hidden="true"
               >
                 <GoogleMark className="size-4.5" />
@@ -198,7 +198,7 @@ export function AccountSettingsClient({
                 <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
                   Google
                 </h3>
-                <p className="text-[11px] text-[var(--text-muted)] truncate leading-relaxed">
+                <p className="break-words text-[11px] leading-snug text-[var(--text-muted)]">
                   {security === null ? (
                     "Đang tải…"
                   ) : security.googleAccount ? (
@@ -248,7 +248,7 @@ export function AccountSettingsClient({
                   <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
                     Mật khẩu
                   </h3>
-                  <p className="text-[11px] text-[var(--text-muted)] truncate leading-relaxed">
+                  <p className="break-words text-[11px] leading-snug text-[var(--text-muted)]">
                     Đã thiết lập
                   </p>
                 </div>
@@ -329,6 +329,7 @@ export function ChangePasswordSheet({
       type="button"
       className="absolute inset-y-0 right-0"
       onClick={toggle}
+      title={visible ? `Ẩn ${label}` : `Hiện ${label}`}
       aria-label={visible ? `Ẩn ${label}` : `Hiện ${label}`}
       aria-pressed={visible}
     >
@@ -353,7 +354,7 @@ export function ChangePasswordSheet({
         placement="inset"
         size={isMobile ? "default" : "wide"}
         spacing="flush"
-        elevation={isMobile ? "raised" : "flat"}
+        elevation="flat"
       >
         <SheetHeader className="border-b border-[var(--border)] px-5 py-4">
           <div className="flex items-center gap-3">
@@ -389,6 +390,11 @@ export function ChangePasswordSheet({
             placeholder="Nhập mật khẩu hiện tại"
             className="pr-10"
             autoFocus
+            endAdornment={passwordToggle(
+              showCurrent,
+              () => setShowCurrent((value) => !value),
+              "mật khẩu hiện tại",
+            )}
           />
 
           <div className="space-y-1.5">
@@ -537,7 +543,7 @@ export function GoogleConfirmSheet({
         placement="inset"
         size={isMobile ? "default" : "wide"}
         spacing="flush"
-        elevation={isMobile ? "raised" : "flat"}
+        elevation="flat"
       >
         <SheetHeader className="border-b border-[var(--border)] px-5 py-4">
           <div className="flex items-center gap-3">
@@ -555,7 +561,7 @@ export function GoogleConfirmSheet({
               />
             )}
             <span
-              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)] ring-1 ring-[var(--border)]"
+              className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]"
               aria-hidden="true"
             >
               <GoogleMark className="size-4.5" />
@@ -586,7 +592,7 @@ export function GoogleConfirmSheet({
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div
-                    className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)] ring-1 ring-[var(--border)]"
+                    className="grid size-11 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]"
                     aria-hidden="true"
                   >
                     <GoogleMark className="size-5.5" />
@@ -609,7 +615,7 @@ export function GoogleConfirmSheet({
               {/* Email Pill */}
               <div className="flex items-center gap-2.5 rounded-xl bg-[var(--surface-secondary)] px-3 py-2 text-xs text-[var(--foreground)]">
                 <Mail size={14} className="text-[var(--text-muted)] shrink-0" aria-hidden="true" />
-                <span className="font-medium truncate select-all">{googleEmail ?? "Tài khoản Google"}</span>
+                <span className="break-words font-medium leading-snug select-all">{googleEmail ?? "Tài khoản Google"}</span>
               </div>
             </div>
 
@@ -685,6 +691,7 @@ export function GoogleConfirmSheet({
                   type="button"
                   className="absolute inset-y-0 right-0"
                   onClick={() => setShowPassword((prev) => !prev)}
+                  title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                   aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                   aria-pressed={showPassword}
                 >

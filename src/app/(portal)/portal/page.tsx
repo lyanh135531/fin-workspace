@@ -22,7 +22,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat("vi-VN", {
 });
 
 const statCards = [
-  { key: "total" as const, label: "Tổng user", icon: Users, color: "var(--primary)" },
+  { key: "total" as const, label: "Tổng người dùng", icon: Users, color: "var(--primary)" },
   { key: "active" as const, label: "Đang hoạt động", icon: UserCheck, color: "var(--success)" },
   { key: "deactive" as const, label: "Vô hiệu hóa", icon: UserX, color: "var(--destructive)" },
   { key: "newLast30" as const, label: "Mới (30 ngày)", icon: UserPlus, color: "var(--info, var(--primary))" },
@@ -42,7 +42,7 @@ export default async function PortalDashboardPage() {
     ]);
 
   return (
-    <PageContainer className="flex-1 min-h-0 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <PageContainer className="flex-1 min-h-0 overflow-y-auto px-4 py-6 md:px-6 md:py-8 lg:px-8">
       <PageHeader
         title="Tổng quan hệ thống"
         description="Thống kê người dùng và hoạt động hệ thống."
@@ -84,14 +84,14 @@ export default async function PortalDashboardPage() {
       </div>
 
       {/* Top 10 Active Users & Recent Activity */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
         {/* Top 10 Active Users */}
         <Card className="gap-0 p-0 overflow-hidden">
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-5">
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 md:px-5">
             <div>
               <h2 className="flex items-center gap-2 font-semibold text-[var(--foreground)]">
                 <Flame className="size-4 text-[var(--warning,#f59e0b)]" aria-hidden />
-                Top 10 user sử dụng nhiều nhất
+                Top 10 người dùng hoạt động nhiều nhất
               </h2>
               <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                 Xếp hạng theo tổng số thao tác
@@ -108,7 +108,7 @@ export default async function PortalDashboardPage() {
               {topUsers.map((user, index) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 transition-colors hover:bg-[var(--surface-hover)]"
+                  className="flex items-center justify-between gap-3 px-4 py-3 md:px-5 transition-colors hover:bg-[var(--surface-hover)]"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span
@@ -127,7 +127,7 @@ export default async function PortalDashboardPage() {
                     <div className="min-w-0">
                       <Link
                         href={`/portal/users/${user.id}`}
-                        className="truncate text-sm font-semibold text-[var(--foreground)] hover:underline"
+                        className="break-words text-sm font-semibold leading-snug text-[var(--foreground)] hover:underline"
                         title={user.username}
                       >
                         {user.username}
@@ -150,7 +150,7 @@ export default async function PortalDashboardPage() {
 
         {/* Recent Activity */}
         <Card className="gap-0 p-0 overflow-hidden">
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-5">
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 md:px-5">
             <div>
               <h2 className="font-semibold text-[var(--foreground)]">
                 Hoạt động gần đây
@@ -160,10 +160,12 @@ export default async function PortalDashboardPage() {
               </p>
             </div>
             <Button
-              variant="ghost"
-              render={<Link href="/portal/activity" />}
+              variant="icon"
+              size="icon"
+              title="Xem tất cả hoạt động"
+              aria-label="Xem tất cả hoạt động"
+              render={<Link href="/portal/activity" aria-label="Xem tất cả hoạt động" title="Xem tất cả hoạt động" />}
             >
-              Xem tất cả
               <ChevronRight aria-hidden />
             </Button>
           </div>
@@ -182,7 +184,7 @@ export default async function PortalDashboardPage() {
                     <tr>
                       <th scope="col" className="px-5 py-3 font-medium">Thao tác</th>
                       <th scope="col" className="px-5 py-3 font-medium">Người thực hiện</th>
-                      <th scope="col" className="px-5 py-3 font-medium">Workspace</th>
+                      <th scope="col" className="px-5 py-3 font-medium">Nhóm tài chính</th>
                       <th scope="col" className="px-5 py-3 text-right font-medium">Thời gian</th>
                     </tr>
                   </thead>
@@ -192,7 +194,7 @@ export default async function PortalDashboardPage() {
                         key={entry.id}
                         className="border-t border-[var(--border)] transition-colors hover:bg-[var(--surface-hover)]"
                       >
-                        <td className="px-5 py-3 font-medium text-[var(--foreground)]">
+                        <td className="px-5 py-3 break-words font-medium leading-snug text-[var(--foreground)]">
                           {formatActionLabel(entry.action)}
                         </td>
                         <td className="px-5 py-3 text-[var(--text-secondary)]">
@@ -200,10 +202,10 @@ export default async function PortalDashboardPage() {
                             <div className="grid size-6 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--primary)_15%,var(--surface))] text-[0.65rem] font-bold text-[var(--primary)]">
                               {(entry.actor?.username ?? "H").slice(0, 1).toUpperCase()}
                             </div>
-                            <span>{entry.actor?.username ?? "Hệ thống"}</span>
+                            <span className="break-words leading-snug">{entry.actor?.username ?? "Hệ thống"}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-3 text-[var(--text-secondary)]">
+                        <td className="px-5 py-3 break-words leading-snug text-[var(--text-secondary)]">
                           {entry.workspace.name}
                         </td>
                         <td className="px-5 py-3 text-right tabular-nums text-[var(--text-muted)]">
@@ -222,11 +224,11 @@ export default async function PortalDashboardPage() {
                     key={entry.id}
                     className="space-y-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
                   >
-                    <p className="text-sm font-medium text-[var(--foreground)]">
+                    <p className="break-words text-sm font-medium leading-snug text-[var(--foreground)]">
                       {formatActionLabel(entry.action)}
                     </p>
-                    <div className="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
-                      <span>{entry.actor?.username ?? "Hệ thống"} · {entry.workspace.name}</span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
+                      <span className="break-words leading-snug">{entry.actor?.username ?? "Hệ thống"} · {entry.workspace.name}</span>
                       <span className="tabular-nums">{dateTimeFormatter.format(entry.createdAt)}</span>
                     </div>
                   </div>

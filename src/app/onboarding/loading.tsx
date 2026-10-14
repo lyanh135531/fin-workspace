@@ -3,10 +3,10 @@ import { Card, Skeleton } from "@/components/base";
 export default function OnboardingLoading() {
   return (
     <main id="main-content" className="min-h-dvh bg-[var(--surface)]" tabIndex={-1}>
-      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 md:px-6 lg:px-8">
         <Skeleton className="h-9 w-28" />
       </div>
-      <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 pb-12 pt-12 sm:px-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(32rem,1.2fr)] lg:gap-16 lg:px-8 lg:pt-20">
+      <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 pb-12 pt-12 md:px-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(32rem,1.2fr)] lg:gap-16 lg:px-8 lg:pt-20">
         <section className="space-y-4">
           <Skeleton className="h-4 w-32" />
           <Skeleton className="h-12 w-full max-w-md" />

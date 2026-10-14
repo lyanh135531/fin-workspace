@@ -66,8 +66,11 @@ export function MobileBottomNavigation({
   }
 
   return (
-    <nav className="mobile-bottom-navigation" aria-label="Điều hướng nhanh">
-      <div className="mobile-bottom-navigation-inner">
+    <nav
+      className="mobile-bottom-navigation fixed inset-x-0 bottom-0 z-40 flex h-16 items-center border-t border-[var(--border)] bg-[var(--surface)]/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+      aria-label="Điều hướng nhanh"
+    >
+      <div className="mobile-bottom-navigation-inner mx-auto grid w-full max-w-md grid-cols-5 items-center gap-1">
         {left.map((item) => {
           const Icon = item.icon;
           const isActive = item.active(pathname);
@@ -85,27 +88,33 @@ export function MobileBottomNavigation({
                 beginNavigation(item.href);
               }}
               className={cn(
-                "mobile-bottom-navigation-item",
-                isVisuallyActive && "is-active",
+                "mobile-bottom-navigation-item flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg py-1.5 text-[0.68rem] font-medium transition-colors",
+                isVisuallyActive
+                  ? "is-active font-semibold text-[var(--primary)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
               )}
             >
-              <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
-              <span>{item.label}</span>
+              <Icon size={19} strokeWidth={isVisuallyActive ? 2.1 : 1.8} aria-hidden="true" />
+              <span className="max-w-full px-0.5 text-center leading-tight">{item.label}</span>
             </Link>
           );
         })}
 
-        {currentWorkspaceId && (
-          <button
-            type="button"
-            className="mobile-bottom-navigation-fab"
-            onClick={handleFabClick}
-            aria-label="Nhập nhanh giao dịch"
-          >
-            <span className="mobile-bottom-navigation-fab-icon">
-              <Plus size={22} strokeWidth={2.4} aria-hidden="true" />
-            </span>
-          </button>
+        {currentWorkspaceId ? (
+          <div className="flex items-center justify-center">
+            <button
+              type="button"
+              className="mobile-bottom-navigation-fab flex size-11 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--text-on-primary)] transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              onClick={handleFabClick}
+              aria-label="Nhập nhanh giao dịch"
+            >
+              <span className="mobile-bottom-navigation-fab-icon flex items-center justify-center">
+                <Plus size={22} strokeWidth={2.4} aria-hidden="true" />
+              </span>
+            </button>
+          </div>
+        ) : (
+          <div aria-hidden="true" />
         )}
 
         {right.map((item) => {
@@ -125,12 +134,14 @@ export function MobileBottomNavigation({
                 beginNavigation(item.href);
               }}
               className={cn(
-                "mobile-bottom-navigation-item",
-                isVisuallyActive && "is-active",
+                "mobile-bottom-navigation-item flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg py-1.5 text-[0.68rem] font-medium transition-colors",
+                isVisuallyActive
+                  ? "is-active font-semibold text-[var(--primary)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
               )}
             >
-              <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
-              <span>{item.label}</span>
+              <Icon size={19} strokeWidth={isVisuallyActive ? 2.1 : 1.8} aria-hidden="true" />
+              <span className="max-w-full px-0.5 text-center leading-tight">{item.label}</span>
             </Link>
           );
         })}

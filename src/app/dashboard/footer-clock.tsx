@@ -16,10 +16,12 @@ export function FooterClock() {
   const [time, setTime] = useState<string>("");
 
   useEffect(() => {
-    // Initial render after mount (avoids hydration mismatch)
-    setTime(formatTime(new Date()));
+    const initId = setTimeout(() => setTime(formatTime(new Date())), 0);
     const id = setInterval(() => setTime(formatTime(new Date())), 1000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(initId);
+      clearInterval(id);
+    };
   }, []);
 
   if (!time) return null;

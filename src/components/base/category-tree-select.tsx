@@ -22,7 +22,10 @@ function CategoryIcon({ category, size, className }: { category: Pick<CategoryTr
   const Icon = CATEGORY_ICON_MAP[category.icon as keyof typeof CATEGORY_ICON_MAP] ?? Tag
   return (
     <span
-      className={cn("category-tree-icon", className)}
+      className={cn(
+        "inline-grid size-6 shrink-0 place-items-center rounded-lg bg-[color-mix(in_srgb,var(--category-color)_14%,var(--surface-secondary))]",
+        className,
+      )}
       style={{ "--category-color": category.color ?? "var(--primary)" } as React.CSSProperties}
       aria-hidden
     >
@@ -77,10 +80,17 @@ function categoryPaths(categories: CategoryTreeOption[]) {
 function TreeItems({ nodes, depth = 0 }: { nodes: TreeNode[]; depth?: number }) {
   return nodes.map((category) => (
     <React.Fragment key={category.id}>
-      <SelectItem value={category.id} disabled={category.disabled} className={cn("category-tree-item", depth === 0 ? "category-tree-item-root" : "category-tree-item-child")} style={{ paddingLeft: `${0.75 + depth * 1}rem` }}>
-        {depth > 0 && <span className="category-tree-branch" aria-hidden />}
+      <SelectItem
+        value={category.id}
+        disabled={category.disabled}
+        className={cn(
+          "min-h-9",
+          depth === 0 ? "font-medium" : "text-[var(--text-secondary)]",
+        )}
+        style={{ paddingLeft: `${0.625 + depth * 0.875}rem` }}
+      >
         <CategoryIcon category={category} size={depth === 0 ? 14 : 13} />
-        <span className="category-tree-name">{category.name}</span>
+        <span className="break-words leading-snug">{category.name}</span>
       </SelectItem>
       {category.children.length > 0 && <TreeItems nodes={category.children} depth={depth + 1} />}
     </React.Fragment>
@@ -94,15 +104,15 @@ function CategoryTreeSelect({ id, value, defaultValue, onValueChange, name, labe
   const generatedId = React.useId()
   const selectId = id ?? (label ? generatedId : undefined)
   const trigger = (
-    <SelectTrigger id={selectId} className={cn("category-tree-trigger", className)} aria-label={ariaLabel ?? label}>
-      <SelectValue placeholder={placeholder ?? label} className="category-tree-trigger-value">
+    <SelectTrigger id={selectId} className={cn("w-full", className)} aria-label={ariaLabel ?? label}>
+      <SelectValue placeholder={placeholder ?? label} className="flex items-center gap-2 min-w-0">
         {(selectedValue: string | null) => {
           const selectedCategory = categories.find((category) => category.id === selectedValue)
           if (selectedCategory) {
             return (
               <>
-                <CategoryIcon category={selectedCategory} size={13} className="category-tree-trigger-icon" />
-                <span className="category-tree-name">{selectedCategory.name}</span>
+                <CategoryIcon category={selectedCategory} size={13} className="size-5 rounded-md" />
+                <span className="break-words leading-snug">{selectedCategory.name}</span>
               </>
             )
           }
@@ -124,18 +134,18 @@ function CategoryTreeSelect({ id, value, defaultValue, onValueChange, name, labe
           {(spotlightTrigger) => spotlightTrigger}
         </SpotlightTrigger>
       ) : trigger}
-      <SelectContent align="start" className="category-tree-content max-w-[calc(100vw-2rem)] max-h-[min(24rem,var(--available-height))] overflow-y-auto">
-        <SelectGroup className="category-tree-group">
-          {emptyOption && <SelectItem value={emptyOption.value} className="category-tree-empty h-8 p-3 text-sm">{emptyOption.label}</SelectItem>}
-          {emptyOption && tree.length > 0 && <SelectSeparator className="category-tree-separator" />}
-          {tree.length > 0 ? <TreeItems nodes={tree} /> : <p className="px-2.5 py-5 text-center text-xs leading-5 text-muted-foreground">Chưa có danh mục để chọn.</p>}
+      <SelectContent align="start" className="max-w-[calc(100vw-2rem)] max-h-[min(22rem,var(--available-height))] overflow-y-auto">
+        <SelectGroup>
+          {emptyOption && <SelectItem value={emptyOption.value} className="min-h-8.5 text-sm">{emptyOption.label}</SelectItem>}
+          {emptyOption && tree.length > 0 && <SelectSeparator />}
+          {tree.length > 0 ? <TreeItems nodes={tree} /> : <p className="px-2.5 py-5 text-center text-xs leading-5 text-[var(--text-muted)]">Chưa có danh mục để chọn.</p>}
         </SelectGroup>
       </SelectContent>
     </SelectRoot>
   )
   if (!label) return select
   return (
-    <div className="grid gap-1">
+    <div className="grid gap-1.5">
       <Label required={required}>{label}</Label>
       {select}
     </div>

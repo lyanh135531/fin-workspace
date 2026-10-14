@@ -48,7 +48,7 @@ function monthValue(year: number, month: number): string {
 
 function formatMonth(value: string): string {
   const parsed = parseMonth(value);
-  return `Tháng ${parsed?.month}, ${parsed?.year}`;
+  return `Tháng ${parsed?.month}/${parsed?.year}`;
 }
 
 export function MonthPicker({
@@ -111,13 +111,13 @@ export function MonthPicker({
         }
       >
         <span className="flex min-w-0 items-center gap-2">
-          <CalendarDays className="size-3.5 text-primary" aria-hidden="true" />
-          <span className="truncate tabular-nums">
+          <CalendarDays className="size-4 text-[var(--primary)]" aria-hidden="true" />
+          <span className="tabular-nums">
             {currentValue ? formatMonth(currentValue) : placeholder}
           </span>
         </span>
         <ChevronDown
-          className="size-3.5 text-muted-foreground"
+          className="size-4 text-[var(--text-muted)]"
           aria-hidden="true"
         />
       </PopoverTrigger>
@@ -126,9 +126,9 @@ export function MonthPicker({
         align="start"
         sideOffset={6}
         elevation="flat"
-        className="w-80 max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
+        className="w-72 max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
       >
-        <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-2">
           <Button
             type="button"
             variant="icon"
@@ -155,7 +155,7 @@ export function MonthPicker({
         </div>
 
         <div
-          className="grid grid-cols-4 gap-1 p-3"
+          className="grid grid-cols-3 gap-1.5 p-3"
           aria-label={`Các tháng năm ${displayYear}`}
         >
           {MONTHS.map((month) => {
@@ -170,11 +170,12 @@ export function MonthPicker({
                 key={optionValue}
                 type="button"
                 variant={isSelected ? "selected" : "ghost"}
-                size="lg"
+                size="sm"
                 aria-label={formatMonth(optionValue)}
                 aria-pressed={isSelected}
                 disabled={isDisabled}
                 onClick={() => selectMonth(optionValue)}
+                className="justify-center"
               >
                 Tháng {month}
               </Button>
@@ -197,7 +198,7 @@ export function MonthPicker({
   if (!label) return picker;
 
   return (
-    <div className="grid gap-1">
+    <div className="grid gap-1.5">
       <Label htmlFor={monthPickerId} required={required}>
         {label}
       </Label>

@@ -14,31 +14,31 @@ const TabsListContext = React.createContext<{ variant: TabsVariant }>({
 
 const tabsListVariantClasses: Record<TabsVariant, string> = {
   default:
-    "h-10 md:h-8 w-fit gap-0.5 rounded-xl md:rounded-lg bg-[var(--surface-secondary)] p-0.5",
+    "h-10 md:h-9 w-fit gap-1 rounded-xl md:rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] p-1",
   segmented:
-    "grid h-10 md:h-8 w-full grid-cols-2 gap-0.5 rounded-xl md:rounded-lg bg-[var(--surface-secondary)] p-0.5",
+    "grid h-10 md:h-9 w-full grid-cols-2 gap-1 rounded-xl md:rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] p-1",
   navigation:
-    "grid h-10 md:h-8 w-full gap-0.5 rounded-xl md:rounded-lg bg-[var(--surface-secondary)] p-0.5",
+    "grid h-10 md:h-9 w-full gap-1 rounded-xl md:rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] p-1",
   underline:
     "h-10 w-full gap-6 border-b border-[var(--border)] bg-transparent p-0",
 };
 
 const tabsTriggerVariantClasses: Record<TabsVariant, string> = {
   default:
-    "h-full flex-none rounded-lg md:rounded-md px-3 md:px-2.5 py-1 text-xs md:text-sm font-medium data-active:bg-[var(--surface)] data-active:text-[var(--foreground)]",
+    "h-full flex-none rounded-lg md:rounded-md px-3 md:px-3 py-1 text-xs md:text-sm font-medium text-[var(--text-secondary)] data-active:bg-[var(--surface)] data-active:text-[var(--foreground)] data-active:font-semibold",
   segmented:
-    "h-full w-full rounded-lg md:rounded-md px-3 md:px-2.5 py-1 text-xs md:text-sm font-medium data-active:bg-[var(--surface)] data-active:text-[var(--foreground)]",
+    "h-full w-full rounded-lg md:rounded-md px-3 md:px-3 py-1 text-xs md:text-sm font-medium text-[var(--text-secondary)] data-active:bg-[var(--surface)] data-active:text-[var(--foreground)] data-active:font-semibold",
   navigation:
-    "h-full w-full rounded-lg md:rounded-md px-3 md:px-2.5 py-1 text-xs md:text-sm font-medium data-active:bg-[var(--surface)] data-active:text-primary",
+    "h-full w-full rounded-lg md:rounded-md px-3 md:px-3 py-1 text-xs md:text-sm font-medium text-[var(--text-secondary)] data-active:bg-[var(--surface)] data-active:text-[var(--primary)] data-active:font-semibold",
   underline:
     "h-10 rounded-none border-b-2 border-transparent px-1 pb-3 pt-2 text-sm font-medium text-[var(--text-secondary)] data-active:border-[var(--primary)] data-active:text-[var(--foreground)] data-active:font-semibold hover:text-[var(--foreground)]",
 };
 
 const tabsTriggerToneClasses: Record<TabsTone, string> = {
   expense:
-    "text-[var(--expense)] hover:text-[var(--expense)] data-active:bg-[color-mix(in_srgb,var(--expense)_9%,var(--surface))] data-active:text-[var(--expense)]",
+    "text-[var(--expense)] hover:text-[var(--expense)] data-active:bg-[color-mix(in_srgb,var(--expense)_12%,var(--surface))] data-active:text-[var(--expense)]",
   income:
-    "text-[var(--income)] hover:text-[var(--income)] data-active:bg-[color-mix(in_srgb,var(--income)_9%,var(--surface))] data-active:text-[var(--income)]",
+    "text-[var(--income)] hover:text-[var(--income)] data-active:bg-[color-mix(in_srgb,var(--income)_12%,var(--surface))] data-active:text-[var(--income)]",
 };
 
 function Tabs({
@@ -51,7 +51,7 @@ function Tabs({
       data-slot="tabs"
       data-orientation={orientation}
       className={cn(
-        "group/tabs flex gap-6 data-horizontal:flex-col",
+        "group/tabs flex gap-4 md:gap-5 data-horizontal:flex-col",
         className,
       )}
       {...props}
@@ -69,7 +69,7 @@ function TabsList({ className, variant = "default", children, ...props }: TabsLi
       <TabsPrimitive.List
         data-slot="tabs-list"
         className={cn(
-          "inline-flex max-w-full items-center justify-start overflow-x-auto overflow-y-hidden text-muted-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          "inline-flex max-w-full items-center justify-start overflow-x-auto overflow-y-hidden text-[var(--text-muted)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           tabsListVariantClasses[variant],
           className,
         )}
@@ -99,8 +99,8 @@ function TabsTrigger({
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 whitespace-nowrap text-xs md:text-sm font-medium text-muted-foreground transition-colors touch-manipulation select-none",
-        "hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+        "inline-flex items-center justify-center gap-1.5 whitespace-nowrap text-xs md:text-sm font-medium text-[var(--text-secondary)] transition-colors touch-manipulation select-none cursor-pointer",
+        "hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
         tabsTriggerVariantClasses[variant],
         tone && tabsTriggerToneClasses[tone],
         "disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50",
@@ -117,7 +117,7 @@ function TabsCount({ className, ...props }: React.ComponentProps<"span">) {
     <span
       data-slot="tabs-count"
       className={cn(
-        "inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-foreground/8 px-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground",
+        "inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-[var(--surface-secondary)] px-1.5 text-[11px] font-semibold tabular-nums text-[var(--text-secondary)]",
         className,
       )}
       {...props}

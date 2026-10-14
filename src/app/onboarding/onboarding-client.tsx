@@ -86,7 +86,7 @@ export function OnboardingClient({
       className="min-h-dvh bg-[var(--surface)] text-[var(--foreground)]"
       tabIndex={-1}
     >
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 md:px-6 lg:px-8">
         <div className="flex items-center gap-3" aria-label="Felix">
           <FinLogo size={34} />
           <span className="text-base font-semibold tracking-[-0.02em]">Felix</span>
@@ -96,32 +96,33 @@ export function OnboardingClient({
           <ThemeToggle />
           <Button
             type="button"
-            variant="ghost"
-            size="sm"
+            variant="icon"
+            size="icon"
+            title="Đăng xuất"
+            aria-label="Đăng xuất"
             onClick={() => signOut({ callbackUrl: "/sign-in" })}
           >
             <LogOut aria-hidden="true" />
-            <span className="hidden sm:inline">Đăng xuất</span>
           </Button>
         </div>
       </header>
 
       <PwaInstallBanner />
 
-      <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 pb-12 pt-6 sm:px-6 sm:pt-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(32rem,1.2fr)] lg:gap-16 lg:px-8 lg:pb-20 lg:pt-20">
+      <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 pb-12 pt-6 md:px-6 md:pt-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(32rem,1.2fr)] lg:gap-16 lg:px-8 lg:pb-20 lg:pt-20">
         <section aria-labelledby="onboarding-title" className="lg:pt-5">
           <p className="text-sm font-medium text-[var(--primary)]">Thiết lập lần đầu</p>
           <h1
             id="onboarding-title"
-            className="mt-3 max-w-xl text-3xl font-semibold leading-tight tracking-[-0.04em] text-balance sm:text-4xl lg:text-5xl"
+            className="mt-3 max-w-xl text-3xl font-semibold leading-tight tracking-[-0.04em] text-balance md:text-4xl lg:text-5xl"
           >
             Bạn muốn bắt đầu với Felix thế nào?
           </h1>
-          <p className="mt-5 max-w-lg text-base leading-7 text-[var(--text-secondary)]">
+          <p className="mt-5 max-w-lg break-words text-base leading-7 text-[var(--text-secondary)]">
             Chào {username}. Chọn mục đích gần nhất với bạn; mọi thiết lập đều có thể thay đổi sau.
           </p>
 
-          <div className="mt-8 grid gap-3 text-sm text-[var(--text-secondary)] sm:grid-cols-2 lg:grid-cols-1">
+          <div className="mt-8 grid gap-3 text-sm text-[var(--text-secondary)] md:grid-cols-2 lg:grid-cols-1">
             <div className="flex items-start gap-3">
               <span className="grid size-9 shrink-0 place-items-center rounded-md bg-[var(--surface-secondary)] text-[var(--primary)]">
                 <WalletCards size={18} aria-hidden="true" />
@@ -148,7 +149,7 @@ export function OnboardingClient({
                   <h2 className="font-semibold">Yêu cầu đang chờ duyệt</h2>
                   <ul className="mt-2 space-y-1 text-sm text-[var(--text-secondary)]">
                     {pendingRequests.map((request) => (
-                      <li key={request.id}>{request.workspaceName}</li>
+                      <li key={request.id} className="break-words leading-snug">{request.workspaceName}</li>
                     ))}
                   </ul>
                   <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
@@ -161,7 +162,7 @@ export function OnboardingClient({
 
           {choice === null && (
             <div className="grid gap-4">
-              <Card as="article" tone="primarySoft" className="p-5 sm:p-6">
+              <Card as="article" tone="primarySoft" className="p-5 md:p-6">
                 <div className="flex items-start gap-4">
                   <span className="grid size-11 shrink-0 place-items-center rounded-md bg-[var(--surface)] text-[var(--primary)]">
                     <UserRound size={21} aria-hidden="true" />
@@ -185,7 +186,7 @@ export function OnboardingClient({
                 </Button>
               </Card>
 
-              <Card as="article" className="p-5 sm:p-6">
+              <Card as="article" className="p-5 md:p-6">
                 <div className="flex items-start gap-4">
                   <span className="grid size-11 shrink-0 place-items-center rounded-md bg-[var(--surface-secondary)] text-[var(--text-secondary)]">
                     <KeyRound size={21} aria-hidden="true" />
@@ -212,7 +213,7 @@ export function OnboardingClient({
           )}
 
           {choice === "personal" && (
-            <Card as="section" tone="primarySoft" className="p-5 sm:p-6">
+            <Card as="section" tone="primarySoft" className="p-5 md:p-6">
               <Button
                 type="button"
                 variant="ghost"
@@ -261,7 +262,7 @@ export function OnboardingClient({
           )}
 
           {choice === "join" && (
-            <Card as="section" className="p-5 sm:p-6">
+            <Card as="section" className="p-5 md:p-6">
               <Button
                 type="button"
                 variant="ghost"

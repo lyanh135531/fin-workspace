@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { RotateCcw } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
@@ -76,14 +77,14 @@ export function PortalActivityFilters({
   const hasFilters = Boolean(q) || Boolean(dateFrom) || Boolean(dateTo);
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
         <Search
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
-          placeholder="Tìm theo username..."
-          aria-label="Tìm hoạt động theo username"
-          containerClassName="w-full sm:w-72"
+          placeholder="Tìm theo tên đăng nhập..."
+          aria-label="Tìm hoạt động theo tên đăng nhập"
+          containerClassName="w-full md:w-72"
         />
 
         <DateRangePicker
@@ -91,13 +92,19 @@ export function PortalActivityFilters({
           onValueChange={handleDateRangeChange}
           allowClear
           ariaLabel="Lọc theo khoảng thời gian"
-          className="w-full sm:w-auto"
+          className="w-full md:w-auto"
         />
       </div>
 
       {hasFilters && (
-        <Button variant="ghost" render={<Link href="/portal/activity" />}>
-          Xóa lọc
+        <Button
+          variant="icon"
+          size="icon"
+          title="Xóa lọc"
+          aria-label="Xóa lọc"
+          render={<Link href="/portal/activity" aria-label="Xóa lọc" title="Xóa lọc" />}
+        >
+          <RotateCcw className="size-4" aria-hidden />
         </Button>
       )}
     </div>

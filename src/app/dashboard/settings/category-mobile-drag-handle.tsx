@@ -134,7 +134,7 @@ export function CategoryMobileDragHandle({
 
   return (
     <span
-      className="category-mobile-drag-handle -m-2 inline-grid size-10 shrink-0 touch-none select-none place-items-center text-[var(--text-muted)] sm:m-0 sm:size-auto"
+      className="category-mobile-drag-handle -m-2 inline-grid size-10 shrink-0 touch-none select-none place-items-center text-[var(--text-muted)] md:m-0 md:size-auto"
       onClick={(event) => {
         if (!isMobile) return;
         event.preventDefault();

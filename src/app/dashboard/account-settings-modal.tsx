@@ -41,20 +41,18 @@ export function AccountSettingsModal({
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 760px)");
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
     const updateViewport = () => setIsMobile(mediaQuery.matches);
     updateViewport();
     mediaQuery.addEventListener("change", updateViewport);
     return () => mediaQuery.removeEventListener("change", updateViewport);
   }, []);
 
-  // Reset to main view whenever modal is re-opened
-  useEffect(() => {
-    if (open) {
-      setActiveView("main");
-      setIsTransitioning(false);
-    }
-  }, [open]);
+  const handleClose = useCallback(() => {
+    setActiveView("main");
+    setIsTransitioning(false);
+    onClose();
+  }, [onClose]);
 
   // Clean up transition timer
   useEffect(() => {
@@ -101,7 +99,7 @@ export function AccountSettingsModal({
       <Sheet
         open={isMainOpen}
         onOpenChange={(isOpen) => {
-          if (!isOpen) onClose();
+          if (!isOpen) handleClose();
         }}
       >
         <SheetContent
@@ -109,7 +107,7 @@ export function AccountSettingsModal({
           placement="inset"
           size={isMobile ? "default" : "wide"}
           spacing="flush"
-          elevation={isMobile ? "raised" : "flat"}
+          elevation="flat"
         >
           <SheetHeader className="border-b border-[var(--border)] px-5 py-4">
             <div className="flex items-center gap-3">
@@ -127,7 +125,7 @@ export function AccountSettingsModal({
               </div>
             </div>
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-8 sm:px-6 sm:py-5">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-8 md:px-6 md:py-5">
             <AccountSettingsClient
               username={username}
               onOpenPasswordChange={() => setActiveView("password")}
@@ -144,7 +142,7 @@ export function AccountSettingsModal({
         open={isPasswordOpen}
         isMobile={isMobile}
         onBack={handleBackToMain}
-        onClose={onClose}
+        onClose={handleClose}
       />
 
       {googleMode && (
@@ -154,7 +152,7 @@ export function AccountSettingsModal({
           googleEmail={googleEmail}
           isMobile={isMobile}
           onBack={handleBackToMain}
-          onClose={onClose}
+          onClose={handleClose}
         />
       )}
     </>

@@ -53,9 +53,9 @@ export type TransactionCategoryOption = TransactionWalletOption & {
 };
 
 const transactionTypeTabs = [
-  { value: "expense", label: "Chi", icon: ArrowUpRight },
-  { value: "income", label: "Thu", icon: ArrowDownLeft },
-  { value: "transfer", label: "Chuyển", icon: ArrowLeftRight },
+  { value: "expense", label: "Chi tiêu", icon: ArrowUpRight },
+  { value: "income", label: "Thu nhập", icon: ArrowDownLeft },
+  { value: "transfer", label: "Chuyển khoản", icon: ArrowLeftRight },
 ] satisfies {
   value: TransactionType;
   label: string;
@@ -144,7 +144,7 @@ export function DesktopTransactionCreateDraft({
       value: wallet.id,
       label: wallet.name,
       content: (
-        <div className="flex w-full items-center justify-between gap-2">
+        <div className="flex w-full min-w-0 items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-2">
             {isCard ? (
               <CreditCard
@@ -157,7 +157,7 @@ export function DesktopTransactionCreateDraft({
                 aria-hidden="true"
               />
             )}
-            <span className="truncate">{wallet.name}</span>
+            <span className="break-words leading-snug">{wallet.name}</span>
           </span>
           <span
             className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
@@ -183,7 +183,7 @@ export function DesktopTransactionCreateDraft({
               aria-hidden="true"
             />
           )}
-          <span className="truncate">{wallet.name}</span>
+          <span className="break-words leading-snug">{wallet.name}</span>
           {isCard && (
             <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
               Thẻ tín dụng
@@ -229,11 +229,11 @@ export function DesktopTransactionCreateDraft({
           <Plus size={17} />
         </span>
         <div className="min-w-0 pt-0.5">
-          <PopoverTitle className="text-sm font-semibold text-[var(--foreground)]">
+          <PopoverTitle className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
             Tạo giao dịch mới
           </PopoverTitle>
           <PopoverDescription className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
-            Ghi nhận khoản thu, chi hoặc chuyển tiền vào sổ giao dịch.
+            Ghi nhận khoản thu, chi hoặc chuyển khoản vào sổ giao dịch.
           </PopoverDescription>
         </div>
       </PopoverHeader>
@@ -275,8 +275,8 @@ export function DesktopTransactionCreateDraft({
           </TabsList>
         </Tabs>
 
-        <div className="mt-6 grid grid-cols-[1fr_1fr] gap-7">
-          <section className="space-y-4" aria-labelledby="transaction-core-title">
+        <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
+          <section className="min-w-0 space-y-4" aria-labelledby="transaction-core-title">
             <div>
               <h3
                 id="transaction-core-title"
@@ -287,10 +287,10 @@ export function DesktopTransactionCreateDraft({
                   size={15}
                   aria-hidden="true"
                 />
-                Giao dịch & Nguồn tiền
+                Số tiền & Ví thực hiện
               </h3>
               <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">
-                Số tiền và phương thức thanh toán.
+                Nhập số tiền và chọn ví hoặc thẻ thanh toán.
               </p>
             </div>
 
@@ -387,7 +387,7 @@ export function DesktopTransactionCreateDraft({
           </section>
 
           <section
-            className="space-y-4 border-l border-[var(--border)] pl-7"
+            className="min-w-0 space-y-4 border-t border-[var(--border)] pt-4 md:border-l md:border-t-0 md:pl-6 md:pt-0"
             aria-labelledby="transaction-detail-title"
           >
             <div>
@@ -400,10 +400,10 @@ export function DesktopTransactionCreateDraft({
                   size={15}
                   aria-hidden="true"
                 />
-                Thông tin ghi nhận
+                Chi tiết phân loại
               </h3>
               <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">
-                Danh mục phân loại, thời gian và ghi chú.
+                Danh mục, ngày giao dịch và ghi chú.
               </p>
             </div>
 
@@ -449,16 +449,16 @@ export function DesktopTransactionCreateDraft({
         </div>
       </div>
 
-      <footer className="flex items-center justify-between gap-4 border-t border-[var(--border)] px-2 pt-3">
-        <span className="text-xs text-[var(--text-muted)]">
-          Thay đổi số dư được xử lý theo trạng thái giao dịch.
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-2 pt-3">
+        <span className="min-w-0 break-words text-xs leading-snug text-[var(--text-muted)]">
+          Số dư ví sẽ cập nhật khi giao dịch được ghi nhận.
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Button variant="ghost" disabled={busy} onClick={onCancel}>
             Hủy
           </Button>
           <Button variant="default" disabled={busy} onClick={onSave}>
-            {busy ? "Đang lưu" : "Lưu giao dịch"}
+            {busy ? "Đang lưu..." : "Lưu giao dịch"}
           </Button>
         </div>
       </footer>

@@ -62,7 +62,7 @@ export function JoinRequestsClient({
   );
 
   useEffect(() => {
-    const query = window.matchMedia("(min-width: 901px)");
+    const query = window.matchMedia("(min-width: 768px)");
     const updateViewport = () => setIsDesktop(query.matches);
     updateViewport();
     query.addEventListener("change", updateViewport);
@@ -86,23 +86,23 @@ export function JoinRequestsClient({
     <>
       <Card
         as="section"
-        className="workspace-join-section gap-4 overflow-hidden min-[901px]:gap-0"
+        className="workspace-join-section gap-4 overflow-hidden md:gap-0"
         data-empty={requests.length === 0}
         aria-busy={pending}
       >
-        <header className="member-management-header flex items-center gap-3 min-[901px]:pb-5">
+        <header className="member-management-header flex items-center gap-3 md:pb-5">
           <div className="settings-section-icon">
             <UserPlus size={18} />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)] min-[901px]:text-base min-[901px]:font-semibold">
+            <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)] md:text-base md:font-semibold">
               Yêu cầu tham gia
             </h2>
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">
               Chọn vai trò trước khi cấp quyền truy cập nhóm.
             </p>
           </div>
-          <span className="ws-fixed-pill rounded-2xl min-[901px]:text-xs min-[901px]:font-medium min-[901px]:text-[var(--text-muted)]">
+          <span className="ws-fixed-pill rounded-2xl md:text-xs md:font-medium md:text-[var(--text-muted)]">
             <strong>{requests.length}</strong> đang chờ
           </span>
         </header>
@@ -113,7 +113,7 @@ export function JoinRequestsClient({
                 type="button"
                 variant="unstyled"
                 size="auto"
-                className="member-mobile-row join-request-mobile-row"
+                className="member-mobile-row join-request-mobile-row md:hidden"
                 onClick={() => setSelectedRequestId(r.id)}
                 aria-label={`Xử lý yêu cầu của ${r.username}`}
               >
@@ -124,14 +124,14 @@ export function JoinRequestsClient({
                 >
                   {r.username.slice(0, 1)}
                 </span>
-                <span className="member-identity">
-                  <strong>{r.username}</strong>
+                <span className="member-identity min-w-0">
+                  <strong className="break-words leading-snug">{r.username}</strong>
                   <small className="member-mobile-summary">Chờ duyệt</small>
                 </span>
                 <ChevronRight size={17} aria-hidden="true" />
               </Button>
 
-              <article className="settings-member-row join-request-desktop-row min-[901px]:grid-cols-[2.5rem_minmax(0,1fr)_10rem_5.5rem] min-[901px]:gap-4 min-[901px]:py-3.5">
+              <article className="settings-member-row join-request-desktop-row max-md:hidden md:grid md:grid-cols-[2.5rem_minmax(0,1fr)_10rem_5.5rem] md:items-center md:gap-4 md:py-3.5">
                 {/* Avatar */}
                 <div
                   className="member-avatar bg-[var(--primary-soft)] text-[var(--primary)]"
@@ -141,8 +141,8 @@ export function JoinRequestsClient({
                 </div>
 
                 {/* Identity */}
-                <div className="member-identity">
-                  <strong>{r.username}</strong>
+                <div className="member-identity min-w-0">
+                  <strong className="break-words leading-snug">{r.username}</strong>
                   <span>Đang chờ được phê duyệt</span>
                   <small className="member-mobile-summary">Chờ duyệt</small>
                 </div>
@@ -163,7 +163,7 @@ export function JoinRequestsClient({
                       value: role.code,
                       label: role.name,
                     }))}
-                    className="member-role-select w-auto min-w-34 min-[901px]:w-40"
+                    className="member-role-select w-auto min-w-34 md:w-40"
                   />
                 </div>
 
@@ -197,7 +197,7 @@ export function JoinRequestsClient({
           ))}
           {requests.length === 0 && (
             <>
-              <div className="min-[901px]:hidden">
+              <div className="md:hidden">
                 <Empty
                   variant="compact"
                   icon={UserPlus}
@@ -206,7 +206,7 @@ export function JoinRequestsClient({
                   className="rounded-none border-x-0 border-b-0"
                 />
               </div>
-              <div className="hidden items-center gap-3 border-t border-[var(--border)] py-4 min-[901px]:flex">
+              <div className="hidden items-center gap-3 border-t border-[var(--border)] py-4 md:flex">
                 <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--text-muted)]">
                   <UserPlus size={16} aria-hidden="true" />
                 </span>

@@ -34,8 +34,6 @@ export function ConsentClient({ session, ...props }: ConsentClientProps) {
 }
 
 function ConsentForm({
-  privacyVersion,
-  termsVersion,
   effectiveDate,
   callbackUrl,
 }: Omit<ConsentClientProps, "session">) {

@@ -41,7 +41,7 @@ export default async function JoinPage() {
                 <h2 className="font-semibold text-[var(--foreground)]">
                   Mã mời hoạt động thế nào?
                 </h2>
-                <div className="mt-3 grid gap-3 sm:grid-cols">
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <div className="flex items-start gap-2.5">
                     <ShieldCheck
                       className="mt-0.5 shrink-0 text-[var(--primary)]"

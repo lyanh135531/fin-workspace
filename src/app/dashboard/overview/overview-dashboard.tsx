@@ -5,7 +5,6 @@ import {
   buttonVariants,
   Card,
   CategoryIcon,
-  DashboardPeriodFilter,
   Empty,
   PageHeader,
   Popover,
@@ -14,6 +13,7 @@ import {
   TabsList,
   TabsTrigger,
   type DashboardPeriod,
+  type DateRangeValue,
 } from "@/components/base";
 import Decimal from "decimal.js";
 import Link from "next/link";
@@ -21,11 +21,11 @@ import {
   ArrowDownLeft,
   ArrowLeftRight,
   ArrowUpRight,
-  CheckCircle2,
+  CalendarClock,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
-  Clock,
+  CreditCard,
   PiggyBank,
   Plus,
   RotateCcw,
@@ -51,13 +51,9 @@ import {
   Area,
   AreaChart,
   Bar,
-  BarChart,
   CartesianGrid,
-  Cell,
   ComposedChart,
   Line,
-  Pie,
-  PieChart,
   ReferenceLine,
   XAxis,
   YAxis,
@@ -66,14 +62,11 @@ import {
   buildDailyBalances,
   buildDailyCashflow,
   buildMonthlyBalances,
-  buildMemberMonthlyTotals,
   buildMonthlyCashflow,
   getDashboardPeriodDateRange,
   getVisibleCashflowTypes,
   type CashflowRange,
-  type CashflowType,
 } from "@/app/dashboard/overview/overview-chart-data";
-import type { DateRangeValue } from "@/components/base";
 import {
   ChartContainer,
   ChartLegend,
@@ -104,9 +97,14 @@ type Transaction = {
   category: { name: string; color: string; icon: string | null } | null;
   memberId: string;
   member: string;
-  purpose?: "standard" | "credit_card_payment" | "credit_card_refund" | "credit_card_installment_fee";
+  purpose?:
+    | "standard"
+    | "credit_card_payment"
+    | "credit_card_refund"
+    | "credit_card_installment_fee";
   paymentSources?: { walletId: string; amount: string }[];
 };
+
 type UpcomingRecurring = {
   id: string;
   amount: string;
@@ -138,14 +136,17 @@ type Props = {
   categories?: TransactionCategoryOption[];
   businessDate?: string;
 };
+
+type MainChartTab = "cashflow" | "balance" | "category" | "member";
+
 const money = (value: Decimal.Value, currency: string) =>
   `${formatAmount(value)} ${currency}`;
-const axisUnitLabel = (scale: AmountScale, currency: string) =>
-  scale.label ? `${scale.label} ${currency}` : currency;
+
 const monthlyChartConfig = {
   income: { label: "Thu nhập", color: "var(--income)" },
   expense: { label: "Chi tiêu", color: "var(--expense)" },
 } satisfies ChartConfig;
+
 const memberChartColors = [
   "var(--chart-1)",
   "var(--chart-2)",
@@ -156,11 +157,11 @@ const memberChartColors = [
   "var(--chart-7)",
   "var(--chart-8)",
 ];
-const memberSeriesKey = (memberId: string) =>
-  `member_${memberId.replaceAll("-", "_")}`;
+
 const memberSeriesColor = (index: number) =>
   memberChartColors[index] ??
   `hsl(${Math.round((index * 137.508) % 360)} 58% 52%)`;
+
 const balanceChartConfig = {
   total: { label: "Tổng số dư", color: "var(--primary)" },
 } satisfies ChartConfig;
@@ -272,14 +273,14 @@ function calculatePeriodProgress(
   }
 
   const totalDays = 365;
-  if (year < currentYear) return { elapsed: 365, total: 365 };
-  if (year > currentYear) return { elapsed: 1, total: 365 };
+  if (year < currentYear) return { elapsed: totalDays, total: totalDays };
+  if (year > currentYear) return { elapsed: 1, total: totalDays };
   const startOfYear = new Date(Date.UTC(year, 0, 1));
   const diffDays = Math.max(
     1,
     Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)),
   );
-  return { elapsed: Math.min(diffDays, 365), total: 365 };
+  return { elapsed: Math.min(diffDays, totalDays), total: totalDays };
 }
 
 export function OverviewDashboard({
@@ -289,7 +290,6 @@ export function OverviewDashboard({
   totalByCurrency,
   members,
   transactions,
-  userRole,
   upcomingRecurring,
   categories,
   businessDate,
@@ -304,7 +304,13 @@ export function OverviewDashboard({
   const [busy, startTransition] = useTransition();
 
   const walletOptions = useMemo<TransactionWalletOption[]>(
-    () => wallets.map((w) => ({ id: w.id, name: w.name, kind: w.kind, defaultFundingWalletId: w.defaultFundingWalletId })),
+    () =>
+      wallets.map((w) => ({
+        id: w.id,
+        name: w.name,
+        kind: w.kind,
+        defaultFundingWalletId: w.defaultFundingWalletId,
+      })),
     [wallets],
   );
 
@@ -313,10 +319,12 @@ export function OverviewDashboard({
     [categories],
   );
 
-  const defaultDate = businessDate ?? reportPeriod + "-01";
+  const defaultDate = businessDate ?? `${reportPeriod}-01`;
 
   function beginCreate() {
-    setCreateDraft(createTransactionDraft(walletOptions, categoryOptions, defaultDate));
+    setCreateDraft(
+      createTransactionDraft(walletOptions, categoryOptions, defaultDate),
+    );
   }
 
   function saveCreate() {
@@ -343,7 +351,11 @@ export function OverviewDashboard({
   }
 
   function beginTransfer() {
-    const draft = createTransactionDraft(walletOptions, categoryOptions, defaultDate);
+    const draft = createTransactionDraft(
+      walletOptions,
+      categoryOptions,
+      defaultDate,
+    );
     draft.type = "transfer";
     setTransferDraft(draft);
   }
@@ -361,18 +373,20 @@ export function OverviewDashboard({
             ? "Đã gửi giao dịch quá khứ để Admin duyệt."
             : result.status === "scheduled"
               ? "Đã lên lịch giao dịch tương lai."
-              : "Đã ghi nhận giao dịch chuyển tiền.",
+              : "Đã ghi nhận giao dịch chuyển khoản.",
         );
         setTransferDraft(null);
         router.refresh();
       } else {
-        toast.error(result.message ?? "Không thể chuyển tiền.");
+        toast.error(result.message ?? "Không thể chuyển khoản.");
       }
     });
   }
 
   function beginEmptyCreate() {
-    setEmptyCreateDraft(createTransactionDraft(walletOptions, categoryOptions, defaultDate));
+    setEmptyCreateDraft(
+      createTransactionDraft(walletOptions, categoryOptions, defaultDate),
+    );
   }
 
   function saveEmptyCreate() {
@@ -398,31 +412,50 @@ export function OverviewDashboard({
     });
   }
 
-  // Desktop global period states
   const [globalPeriod, setGlobalPeriod] = useState<DashboardPeriod>("quarter");
-  const [activeReportPeriod, setActiveReportPeriod] = useState<string>(reportPeriod);
-  const [chartTab, setChartTab] = useState<"cashflow" | "balance">("cashflow");
-  const [mobileBreakdownTab, setMobileBreakdownTab] = useState<"category" | "member">("category");
-  const [mobileActivityTab, setMobileActivityTab] = useState<"recent" | "recurring">("recent");
+  const [activeReportPeriod, setActiveReportPeriod] =
+    useState<string>(reportPeriod);
+  const [chartTab, setChartTab] = useState<MainChartTab>("cashflow");
+
   const activeDateRange = getDashboardPeriodDateRange(
     activeReportPeriod,
     globalPeriod,
   );
   const activeTotals = summarizeTransactions(transactions, activeDateRange);
   const activeNetCashflow = activeTotals.income.minus(activeTotals.expense);
-  const periodProgress = calculatePeriodProgress(activeReportPeriod, globalPeriod);
+  const periodProgress = calculatePeriodProgress(
+    activeReportPeriod,
+    globalPeriod,
+  );
   const dailyBurnRate = activeTotals.expense.div(periodProgress.elapsed);
+
   const totalBalanceDecimal = wallets.reduce(
-    (sum, w) => w.kind === "credit_card" ? sum : sum.plus(new Decimal(w.balance)),
+    (sum, w) =>
+      w.kind === "credit_card" ? sum : sum.plus(new Decimal(w.balance)),
     new Decimal(0),
   );
+  const totalAvailableDecimal = wallets.reduce(
+    (sum, w) =>
+      w.kind === "credit_card" ? sum : sum.plus(new Decimal(w.available)),
+    new Decimal(0),
+  );
+  const totalCommittedDecimal = wallets.reduce(
+    (sum, w) =>
+      w.kind === "credit_card" ? sum : sum.plus(new Decimal(w.committed)),
+    new Decimal(0),
+  );
+
   const savingsRate = activeTotals.income.gt(0)
     ? activeNetCashflow.div(activeTotals.income).times(100).toNumber()
     : activeTotals.expense.gt(0)
       ? -100
       : 0;
-  const pendingTransactions = transactions.filter((t) => t.status === "pending");
-  const recentTransactions = transactions.slice(0, 5);
+
+  const pendingTransactions = transactions.filter(
+    (t) => t.status === "pending",
+  );
+  const recentTransactions = transactions.slice(0, 6);
+
   const memberExpenses = members
     .map((m) => {
       const memberSpent = transactions
@@ -444,7 +477,8 @@ export function OverviewDashboard({
       };
     })
     .sort((a, b) => b.spent.comparedTo(a.spent));
-  const desktopExpenseByCategory = (() => {
+
+  const expenseByCategory = (() => {
     const rows = new Map<
       string,
       { name: string; color: string; icon: string | null; amount: Decimal }
@@ -453,9 +487,9 @@ export function OverviewDashboard({
       .filter(
         (item) =>
           item.status === "approved" &&
-          isInDateRange(item.date, activeDateRange),
+          isInDateRange(item.date, activeDateRange) &&
+          item.type === "expense",
       )
-      .filter((item) => item.type === "expense")
       .forEach((item) => {
         const key = item.categoryId ?? "uncategorized";
         const prior = rows.get(key);
@@ -475,681 +509,47 @@ export function OverviewDashboard({
       .join(" · ") || money(0, workspace.currency);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 760px)");
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
     const syncViewport = (): void => setIsMobile(mediaQuery.matches);
     syncViewport();
     mediaQuery.addEventListener("change", syncViewport);
     return () => mediaQuery.removeEventListener("change", syncViewport);
   }, []);
 
+  const chartTitle =
+    chartTab === "cashflow"
+      ? globalPeriod === "month"
+        ? "Biến động thu chi theo ngày"
+        : "Biến động thu chi theo tháng"
+      : chartTab === "balance"
+        ? globalPeriod === "month"
+          ? "Số dư lũy kế theo ngày"
+          : "Số dư lũy kế theo tháng"
+        : chartTab === "category"
+          ? "Cơ cấu chi tiêu theo danh mục"
+          : "Chi tiêu theo thành viên";
+
   return (
-    <>
-      {/* ─── GIAO DIỆN MOBILE (< 768px / md:hidden) ─── */}
-      <div className="space-y-3 md:hidden">
-        {/* 1. Header & Điều hướng kỳ */}
-        <header className="space-y-2 pt-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                {workspace.name}
-              </span>
-              <h1 className="text-xl font-bold tracking-tight text-[var(--foreground)]">
-                Tổng quan tài chính
-              </h1>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {activeReportPeriod !== reportPeriod && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveReportPeriod(reportPeriod)}
-                  className="h-7 px-2.5 rounded-lg text-xs font-medium text-[var(--primary)] border-[var(--primary)]/20 bg-[var(--primary-soft)] hover:bg-[var(--primary-soft)]/80 gap-1 touch-manipulation cursor-pointer"
-                >
-                  <RotateCcw className="size-3" />
-                  <span>Hiện tại</span>
-                </Button>
-              )}
-              {pendingTransactions.length > 0 && (
-                <Link
-                  href={`${ledgerHref}?status=pending`}
-                  onClick={(event) => {
-                    if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                      event.preventDefault();
-                      beginNavigation(`${ledgerHref}?status=pending`);
-                    }
-                  }}
-                  className="inline-flex items-center gap-1 rounded-full bg-[var(--warning)]/10 px-2.5 py-1 text-[0.7rem] font-medium text-[var(--warning)]"
-                >
-                  <CircleAlert className="size-3" />
-                  <span>{pendingTransactions.length} chờ duyệt</span>
-                </Link>
-              )}
-            </div>
-          </div>
-
-          {/* Tầng 1: Segment chọn chế độ xem (Tháng / Quý / Năm) */}
-          <Tabs
-            value={globalPeriod}
-            onValueChange={(val) => setGlobalPeriod(val as DashboardPeriod)}
-            className="w-full gap-0"
-          >
-            <TabsList
-              variant="navigation"
-              className="grid w-full grid-cols-3"
-              aria-label="Chọn kỳ xem dữ liệu"
-            >
-              <TabsTrigger value="month">Tháng</TabsTrigger>
-              <TabsTrigger value="quarter">Quý</TabsTrigger>
-              <TabsTrigger value="year">Năm</TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {/* Tầng 2: Thanh điều hướng thời gian (Time Pager) */}
-          <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--foreground)] touch-manipulation"
-              onClick={() =>
-                setActiveReportPeriod((prev) =>
-                  shiftReportPeriod(prev, -1, globalPeriod),
-                )
-              }
-              aria-label="Kỳ trước"
-            >
-              <ChevronLeft className="size-4.5" />
-            </Button>
-
-            <span className="text-xs font-bold tracking-tight text-[var(--foreground)] tabular-nums select-none">
-              {formatPeriodLabel(activeReportPeriod, globalPeriod)}
-            </span>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--foreground)] touch-manipulation"
-              onClick={() =>
-                setActiveReportPeriod((prev) =>
-                  shiftReportPeriod(prev, 1, globalPeriod),
-                )
-              }
-              aria-label="Kỳ sau"
-            >
-              <ChevronRight className="size-4.5" />
-            </Button>
-          </div>
-        </header>
-
-        {/* 2. Hero Card: Tổng số dư & Dòng tiền ròng tích hợp */}
-        <Card as="article" className="gap-0 p-4">
-          <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-            <span className="flex items-center gap-1.5 font-medium text-[var(--text-secondary)]">
-              <WalletCards className="size-4 text-[var(--primary)]" />
-              Tổng số dư khả dụng
-            </span>
-            <span className="text-[0.7rem] tabular-nums">
-              {wallets.length} ví hoạt động
-            </span>
-          </div>
-
-          <strong className="mt-2 block text-2xl font-bold tracking-tight text-[var(--foreground)] tabular-nums">
-            {balanceLabel}
-          </strong>
-
-          <div className="mt-3 divide-y divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)]/40 text-xs">
-            {/* Tầng 1: Dòng tiền ròng toàn hàng, phân cấp rõ nét và không bị tràn chữ */}
-            <div className="flex items-center justify-between px-3 py-2">
-              <span className="text-[0.7rem] font-medium text-[var(--text-secondary)]">
-                Dòng tiền ròng
-              </span>
-              <strong
-                className={cn(
-                  "font-semibold tabular-nums",
-                  activeNetCashflow.isNegative()
-                    ? "text-[var(--expense)]"
-                    : "text-[var(--income)]",
-                )}
-              >
-                {activeNetCashflow.isNegative() ? "−" : "+"}
-                {money(activeNetCashflow.abs(), workspace.currency)}
-              </strong>
-            </div>
-
-            {/* Tầng 2: Thu nhập & Chi phí chia 2 cột rộng rãi */}
-            <div className="grid grid-cols-2 divide-x divide-[var(--border)] py-2 text-center">
-              <div className="px-2">
-                <span className="block text-[0.65rem] text-[var(--text-muted)]">Thu nhập</span>
-                <strong className="mt-0.5 block font-semibold text-[var(--income)] tabular-nums truncate">
-                  +{money(activeTotals.income, workspace.currency)}
-                </strong>
-              </div>
-              <div className="px-2">
-                <span className="block text-[0.65rem] text-[var(--text-muted)]">Chi phí</span>
-                <strong className="mt-0.5 block font-semibold text-[var(--expense)] tabular-nums truncate">
-                  −{money(activeTotals.expense, workspace.currency)}
-                </strong>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* 3. Lưới 2 cột cho 2 chỉ số phụ (Tốc độ chi & Tỷ lệ tích lũy) */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <Card as="article" className="gap-0 p-3">
-            <div className="flex items-center justify-between text-[0.72rem] text-[var(--text-muted)]">
-              <span className="truncate font-medium text-[var(--text-secondary)]">Tốc độ chi</span>
-              <Clock className="size-3.5 shrink-0 text-[var(--text-muted)]" />
-            </div>
-            <strong className="mt-1.5 block text-base font-semibold tracking-tight text-[var(--foreground)] tabular-nums">
-              ~{money(dailyBurnRate.round(), workspace.currency)}
-              <span className="text-[0.65rem] font-normal text-[var(--text-muted)]">/ngày</span>
-            </strong>
-            <div className="mt-2 border-t border-[var(--border)] pt-1.5 text-[0.65rem] text-[var(--text-muted)] tabular-nums truncate">
-              Tiến độ: {periodProgress.elapsed}/{periodProgress.total} ngày
-            </div>
-          </Card>
-
-          <Card as="article" className="gap-0 p-3">
-            <div className="flex items-center justify-between text-[0.72rem] text-[var(--text-muted)]">
-              <span className="truncate font-medium text-[var(--text-secondary)]">Tích lũy</span>
-              <PiggyBank className="size-3.5 shrink-0 text-[var(--primary)]" />
-            </div>
-            <strong
-              className={cn(
-                "mt-1.5 block text-base font-semibold tracking-tight tabular-nums",
-                savingsRate > 0 && "text-[var(--income)]",
-                savingsRate < 0 && "text-[var(--expense)]",
-                savingsRate === 0 && "text-[var(--foreground)]",
-              )}
-            >
-              {savingsRate > 0 ? "+" : ""}
-              {savingsRate.toFixed(1)}%
-            </strong>
-            <div className="mt-2 border-t border-[var(--border)] pt-1.5 text-[0.65rem] text-[var(--text-muted)] tabular-nums truncate">
-              {savingsRate >= 0 ? "Thặng dư" : "Bội chi"}:{" "}
-              <span
-                className={cn(
-                  "font-medium",
-                  savingsRate >= 0 ? "text-[var(--income)]" : "text-[var(--expense)]",
-                )}
-              >
-                {savingsRate >= 0 ? "+" : "−"}
-                {money(activeNetCashflow.abs(), workspace.currency)}
-              </span>
-            </div>
-          </Card>
-        </div>
-
-        {/* 4. Biểu đồ Thu & Chi / Số dư */}
-        <Card as="section" className="gap-0 p-0">
-          <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2.5">
-            <div>
-              <h2 className="text-xs font-semibold text-[var(--foreground)]">
-                {chartTab === "cashflow"
-                  ? (globalPeriod === "month" ? "Dòng tiền theo ngày" : "Dòng tiền")
-                  : (globalPeriod === "month" ? "Số dư lũy kế theo ngày" : "Số dư lũy kế")}
-              </h2>
-              <p className="text-[0.65rem] text-[var(--text-muted)]">
-                {formatDateRangeLabel(activeDateRange)}
-              </p>
-            </div>
-            <Tabs
-              value={chartTab}
-              onValueChange={(val) => setChartTab(val as "cashflow" | "balance")}
-              className="gap-0"
-            >
-              <TabsList
-                variant="navigation"
-                className="inline-grid w-auto grid-cols-2 gap-0.5"
-              >
-                <TabsTrigger value="cashflow">
-                  Thu & Chi
-                </TabsTrigger>
-                <TabsTrigger value="balance">
-                  Số dư
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </header>
-          <div className="p-2 pt-3">
-            {chartTab === "cashflow" ? (
-              <MonthlyFinancialChart
-                transactions={transactions}
-                currency={workspace.currency}
-                month={activeReportPeriod}
-                range={12}
-                walletId="all"
-                categoryId="all"
-                memberId="all"
-                transactionType="all"
-                dateRange={activeDateRange}
-                axisScale={getAmountScale(
-                  (globalPeriod === "month"
-                    ? buildDailyCashflow(transactions, {
-                      endPeriod: activeReportPeriod,
-                      walletId: "all",
-                      categoryId: "all",
-                      memberId: "all",
-                      transactionType: "all",
-                      dateRange: activeDateRange,
-                    })
-                    : buildMonthlyCashflow(transactions, {
-                      endPeriod: activeReportPeriod,
-                      range: 12,
-                      walletId: "all",
-                      categoryId: "all",
-                      memberId: "all",
-                      transactionType: "all",
-                      dateRange: activeDateRange,
-                    })
-                  ).flatMap((row) => [row.income, row.expense]),
-                )}
-                isMobile={true}
-                period={globalPeriod}
-              />
-            ) : (
-              <BalanceHistoryChart
-                wallets={wallets}
-                transactions={transactions}
-                currency={workspace.currency}
-                reportPeriod={activeReportPeriod}
-                periodOverride={globalPeriod}
-                isMobile={true}
-                hideCard
-              />
-            )}
-          </div>
-        </Card>
-
-        {/* 5. Ví tài khoản */}
-        <Card as="section" className="gap-0 p-0">
-          <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2.5">
-            <div className="flex items-center gap-1.5">
-              <Wallet className="size-3.5 text-[var(--primary)]" />
-              <h2 className="text-xs font-semibold text-[var(--foreground)]">
-                Ví tài khoản ({wallets.length})
-              </h2>
-            </div>
-            <Link
-              href="/wallets"
-              onClick={(event) => {
-                if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                  event.preventDefault();
-                  beginNavigation("/wallets");
-                }
-              }}
-              className="inline-flex items-center gap-0.5 text-xs font-medium text-[var(--primary)] hover:underline whitespace-nowrap"
-            >
-              <span>Xem ví</span>
-              <ChevronRight className="size-3" />
-            </Link>
-          </header>
-          <div className="divide-y divide-[var(--border)]">
-            {wallets.length ? (
-              wallets.map((wallet) => {
-                const balanceDec = new Decimal(wallet.balance);
-                const percent =
-                  wallet.kind === "asset" && totalBalanceDecimal.isPositive() && !totalBalanceDecimal.isZero()
-                    ? Math.max(
-                        0,
-                        balanceDec.div(totalBalanceDecimal).times(100).toNumber(),
-                      )
-                    : 0;
-                return (
-                  <div
-                    key={wallet.id}
-                    className="flex items-center justify-between gap-3 px-4 py-3 text-xs"
-                  >
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--surface-secondary)] text-[var(--foreground)]">
-                        <Wallet className="size-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <span className="block truncate font-semibold text-[var(--foreground)]">
-                          {wallet.name}
-                        </span>
-                        {wallet.kind === "credit_card" ? (
-                          <p className="mt-0.5 text-[0.6875rem] text-[var(--text-muted)]">Dư nợ thẻ tín dụng</p>
-                        ) : new Decimal(wallet.committed).gt(0) ? (
-                          <p className="mt-0.5 text-[0.6875rem] text-[var(--text-muted)]">
-                            Khả dụng {money(wallet.available, workspace.currency)} · đã dành {money(wallet.committed, workspace.currency)}
-                          </p>
-                        ) : wallets.length > 1 && (
-                          <p className="mt-0.5 text-[0.6875rem] text-[var(--text-muted)]">
-                            {percent.toFixed(0)}% tổng tài sản
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <strong className="shrink-0 text-right font-semibold tabular-nums text-[var(--foreground)]">
-                      {money(wallet.balance, workspace.currency)}
-                    </strong>
-                  </div>
-                );
-              })
-            ) : (
-              <Empty
-                variant="compact"
-                title="Chưa có ví"
-                description="Thêm ví để bắt đầu theo dõi."
-              />
-            )}
-          </div>
-        </Card>
-
-        {/* 6. Chi tiêu theo Hạng mục & Thành viên (Tab Switcher Clean Full-Width) */}
-        <Card as="section" className="gap-0 p-0">
-          <div className="border-b border-[var(--border)] p-2">
-            <Tabs
-              value={mobileBreakdownTab}
-              onValueChange={(val) => setMobileBreakdownTab(val as "category" | "member")}
-              className="w-full gap-0"
-            >
-              <TabsList variant="navigation" className="grid w-full grid-cols-2">
-                <TabsTrigger value="category">
-                  Theo hạng mục
-                </TabsTrigger>
-                <TabsTrigger value="member">
-                  Theo thành viên
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-          <div className="p-4">
-            {mobileBreakdownTab === "category" ? (
-              desktopExpenseByCategory.length ? (
-                <div className="space-y-3">
-                  {desktopExpenseByCategory.slice(0, 5).map((item) => {
-                    const percentage = activeTotals.expense.isZero()
-                      ? new Decimal(0)
-                      : item.amount.div(activeTotals.expense).times(100);
-                    return (
-                      <div key={item.name} className="space-y-1">
-                        <div className="flex items-center justify-between gap-3 text-xs">
-                          <span className="flex min-w-0 items-center gap-2">
-                            <CategoryIcon category={item} size={14} />
-                            <strong className="truncate font-medium text-[var(--foreground)]">
-                              {item.name}
-                            </strong>
-                          </span>
-                          <div className="text-right shrink-0">
-                            <span className="font-semibold tabular-nums text-[var(--foreground)]">
-                              {money(item.amount, workspace.currency)}
-                            </span>
-                            <span className="ml-1.5 text-[0.65rem] text-[var(--text-muted)] tabular-nums">
-                              ({percentage.toFixed(0)}%)
-                            </span>
-                          </div>
-                        </div>
-                        <div className="h-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
-                          <span
-                            className="block h-full rounded-full"
-                            style={{
-                              width: `${percentage}%`,
-                              background: item.color,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <Empty
-                  variant="compact"
-                  title="Chưa có chi tiêu"
-                  description="Dữ liệu hạng mục sẽ xuất hiện khi có giao dịch chi."
-                />
-              )
-            ) : (
-              memberExpenses.length ? (
-                <div className="space-y-3">
-                  {memberExpenses.map((m, idx) => (
-                    <div key={m.id} className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-3 text-xs">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--surface-secondary)] text-[0.68rem] font-semibold uppercase text-[var(--foreground)]">
-                            {m.name.slice(0, 2)}
-                          </span>
-                          <div className="min-w-0">
-                            <strong className="block truncate font-medium text-[var(--foreground)]">
-                              {m.name}
-                            </strong>
-                            {activeTotals.expense.gt(0) && (
-                              <span className="text-[0.65rem] text-[var(--text-muted)] tabular-nums">
-                                {m.percent.toFixed(0)}% tổng chi
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <span className="shrink-0 font-semibold tabular-nums text-[var(--foreground)]">
-                          {money(m.spent, workspace.currency)}
-                        </span>
-                      </div>
-                      {activeTotals.expense.gt(0) && m.spent.gt(0) && (
-                        <div className="h-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
-                          <span
-                            className="block h-full rounded-full"
-                            style={{
-                              width: `${Math.min(100, m.percent)}%`,
-                              backgroundColor: memberSeriesColor(idx),
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <Empty
-                  variant="compact"
-                  title="Chưa có dữ liệu"
-                  description="Chưa có chi tiêu nào từ các thành viên."
-                />
-              )
-            )}
-          </div>
-          {mobileBreakdownTab === "member" && (
-            <footer className="border-t border-[var(--border)] p-2.5 text-center">
-              <Link
-                href="/settings/workspace?tab=members"
-                onClick={(event) => {
-                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                    event.preventDefault();
-                    beginNavigation("/settings/workspace?tab=members");
-                  }
-                }}
-                className="inline-flex items-center justify-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline"
-              >
-                <span>Quản lý thành viên</span>
-                <ChevronRight className="size-3.5" />
-              </Link>
-            </footer>
-          )}
-        </Card>
-
-        {/* 7. Biến động gần đây & Định kỳ sắp tới (Tab Switcher Clean Full-Width) */}
-        <Card as="section" className="gap-0 p-0">
-          <div className="border-b border-[var(--border)] p-2">
-            <Tabs
-              value={mobileActivityTab}
-              onValueChange={(val) => setMobileActivityTab(val as "recent" | "recurring")}
-              className="w-full gap-0"
-            >
-              <TabsList variant="navigation" className="grid w-full grid-cols-2">
-                <TabsTrigger value="recent">
-                  Gần đây ({recentTransactions.length})
-                </TabsTrigger>
-                <TabsTrigger value="recurring">
-                  Định kỳ sắp tới
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-          <div className="divide-y divide-[var(--border)]">
-            {mobileActivityTab === "recent" ? (
-              recentTransactions.length ? (
-                recentTransactions.map((tx) => {
-                  const isIncome = tx.type === "income";
-                  const isExpense = tx.type === "expense";
-                  const dateStr = tx.date.slice(0, 10);
-                  const [y, m, d] = dateStr.split("-");
-                  const formattedDate = `${d}/${m}`;
-                  return (
-                    <div
-                      key={tx.id}
-                      className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs"
-                    >
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <div
-                          className={cn(
-                            "flex size-7 shrink-0 items-center justify-center rounded-lg",
-                            isIncome && "bg-[var(--income)]/10 text-[var(--income)]",
-                            isExpense && "bg-[var(--expense)]/10 text-[var(--expense)]",
-                            !isIncome && !isExpense && "bg-[var(--primary)]/10 text-[var(--primary)]",
-                          )}
-                        >
-                          {isIncome && <ArrowDownLeft className="size-3.5" />}
-                          {isExpense && <ArrowUpRight className="size-3.5" />}
-                          {!isIncome && !isExpense && <ArrowLeftRight className="size-3.5" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-[var(--foreground)]">
-                            {tx.description || tx.category?.name || (isIncome ? "Khoản thu" : "Khoản chi")}
-                          </p>
-                          <p className="mt-0.5 truncate text-[0.65rem] text-[var(--text-muted)]">
-                            {tx.member} · {tx.wallet} · {formattedDate}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span
-                          className={cn(
-                            "font-semibold tabular-nums",
-                            isIncome && "text-[var(--income)]",
-                            isExpense && "text-[var(--expense)]",
-                            !isIncome && !isExpense && "text-[var(--foreground)]",
-                          )}
-                        >
-                          {isIncome ? "+" : isExpense ? "−" : ""}
-                          {money(tx.amount, workspace.currency)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="p-4 text-center">
-                  <Empty
-                    variant="compact"
-                    title="Chưa có giao dịch"
-                    description="Các giao dịch mới phát sinh sẽ hiển thị tại đây."
-                  />
-                </div>
-              )
-            ) : (
-              upcomingRecurring && upcomingRecurring.length ? (
-                upcomingRecurring.slice(0, 4).map((rec) => {
-                  const dateStr = rec.nextExecutionDate.slice(0, 10);
-                  const [y, m, d] = dateStr.split("-");
-                  return (
-                    <div
-                      key={rec.id}
-                      className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs"
-                    >
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <div className="flex size-7 shrink-0 flex-col items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] text-[0.6rem] font-semibold leading-none text-[var(--foreground)] tabular-nums">
-                          <span>{d}</span>
-                          <span className="text-[0.55rem] text-[var(--text-muted)]">T{m}</span>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-[var(--foreground)]">
-                            {rec.description || rec.category?.name || "Giao dịch định kỳ"}
-                          </p>
-                          <p className="mt-0.5 truncate text-[0.65rem] text-[var(--text-muted)]">
-                            Ví: {rec.wallet}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span
-                          className={cn(
-                            "font-semibold tabular-nums",
-                            rec.type === "income" && "text-[var(--income)]",
-                            rec.type === "expense" && "text-[var(--expense)]",
-                          )}
-                        >
-                          {rec.type === "income" ? "+" : rec.type === "expense" ? "−" : ""}
-                          {money(rec.amount, workspace.currency)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="p-4 text-center">
-                  <Empty
-                    variant="compact"
-                    title="Chưa có khoản định kỳ"
-                    description="Thiết lập giao dịch định kỳ để tự động dự báo dòng tiền."
-                  />
-                </div>
-              )
-            )}
-          </div>
-          <footer className="border-t border-[var(--border)] p-2.5 text-center">
-            {mobileActivityTab === "recent" ? (
-              <Link
-                href={ledgerHref}
-                onClick={(event) => {
-                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                    event.preventDefault();
-                    beginNavigation(ledgerHref);
-                  }
-                }}
-                className="inline-flex items-center justify-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline"
-              >
-                <span>Xem tất cả giao dịch</span>
-                <ChevronRight className="size-3.5" />
-              </Link>
-            ) : (
-              <Link
-                href="/recurring-transactions"
-                onClick={(event) => {
-                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                    event.preventDefault();
-                    beginNavigation("/recurring-transactions");
-                  }
-                }}
-                className="inline-flex items-center justify-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline"
-              >
-                <span>Quản lý giao dịch định kỳ</span>
-                <ChevronRight className="size-3.5" />
-              </Link>
-            )}
-          </footer>
-        </Card>
-      </div>
-
-      {/* ─── GIAO DIỆN DESKTOP (>= 768px / hidden md:block) ─── */}
-      <div className="hidden space-y-6 md:block">
-        <PageHeader
-          title="Tổng quan tài chính"
-          description={`${workspace.name} · Thu nhập, chi tiêu, dòng tiền và vận hành.`}
-        >
-          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-            <div className="inline-flex h-8 items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-0.5 select-none">
+    <div className="space-y-4 md:space-y-5">
+      {/* 1. Header & Period Controls */}
+      <PageHeader
+        eyebrow={workspace.name}
+        title="Tổng quan tài chính"
+        description="Theo dõi tài sản, thu chi và lịch thanh toán định kỳ."
+      >
+        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+          <div className="flex items-center justify-between gap-2 md:justify-start">
+            <div className="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
               <Button
-                variant="ghost"
-                size="sm"
-                className="size-7 p-0 rounded-md text-[var(--text-secondary)] hover:text-[var(--foreground)] touch-manipulation"
+                variant="icon"
+                size="icon"
                 onClick={() =>
                   setActiveReportPeriod((prev) =>
                     shiftReportPeriod(prev, -1, globalPeriod),
                   )
                 }
                 aria-label="Kỳ trước"
+                title="Kỳ trước"
               >
                 <ChevronLeft className="size-4" />
               </Button>
@@ -1164,287 +564,241 @@ export function OverviewDashboard({
                     : undefined
                 }
                 className={cn(
-                  "min-w-[6rem] sm:min-w-[6.5rem] px-1.5 sm:px-2 text-center text-xs font-medium tabular-nums select-none transition-colors",
+                  "min-w-[6.25rem] px-2 text-center text-xs font-semibold tabular-nums select-none",
                   activeReportPeriod !== reportPeriod
-                    ? "cursor-pointer text-[var(--foreground)] hover:text-[var(--primary)]"
-                    : "cursor-default text-[var(--foreground)]",
+                    ? "cursor-pointer text-[var(--primary)]"
+                    : "text-[var(--foreground)]",
                 )}
               >
                 {formatPeriodLabel(activeReportPeriod, globalPeriod)}
               </span>
               <Button
-                variant="ghost"
-                size="sm"
-                className="size-7 p-0 rounded-md text-[var(--text-secondary)] hover:text-[var(--foreground)] touch-manipulation"
+                variant="icon"
+                size="icon"
                 onClick={() =>
                   setActiveReportPeriod((prev) =>
                     shiftReportPeriod(prev, 1, globalPeriod),
                   )
                 }
                 aria-label="Kỳ sau"
+                title="Kỳ sau"
               >
                 <ChevronRight className="size-4" />
               </Button>
             </div>
 
+            {activeReportPeriod !== reportPeriod && (
+              <Button
+                type="button"
+                variant="selected"
+                size="icon"
+                onClick={() => setActiveReportPeriod(reportPeriod)}
+                aria-label="Về kỳ hiện tại"
+                title="Về kỳ hiện tại"
+              >
+                <RotateCcw className="size-4" />
+              </Button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
             <Tabs
               value={globalPeriod}
               onValueChange={(val) => setGlobalPeriod(val as DashboardPeriod)}
-              className="gap-0"
+              className="min-w-0 flex-1 gap-0 md:flex-initial"
             >
               <TabsList
                 variant="navigation"
-                className="inline-grid w-auto grid-cols-3 gap-0.5"
+                className="grid w-full grid-cols-3 md:inline-grid md:w-auto"
                 aria-label="Chọn kỳ xem dữ liệu"
               >
-                <TabsTrigger value="month">
-                  Tháng
-                </TabsTrigger>
-                <TabsTrigger value="quarter">
-                  Quý
-                </TabsTrigger>
-                <TabsTrigger value="year">
-                  Năm
-                </TabsTrigger>
+                <TabsTrigger value="month">Tháng</TabsTrigger>
+                <TabsTrigger value="quarter">Quý</TabsTrigger>
+                <TabsTrigger value="year">Năm</TabsTrigger>
               </TabsList>
             </Tabs>
 
-            <Popover
-              open={Boolean(createDraft)}
-              onOpenChange={(open) => {
-                if (open) beginCreate();
-                else if (!busy) setCreateDraft(null);
-              }}
-            >
-              <PopoverTrigger
-                render={
-                  <Button
-                    size="sm"
-                    disabled={busy || !wallets.length}
-                    aria-label="Tạo giao dịch mới"
-                  />
-                }
+            <div className="hidden md:block">
+              <Popover
+                open={Boolean(createDraft)}
+                onOpenChange={(open) => {
+                  if (open) beginCreate();
+                  else if (!busy) setCreateDraft(null);
+                }}
               >
-                <Plus className="size-3.5" />
-                <span className="text-sm">Giao dịch</span>
-              </PopoverTrigger>
-              {createDraft && (
-                <DesktopTransactionCreatePopoverContent
-                  draft={createDraft}
-                  wallets={walletOptions}
-                  categories={categoryOptions}
-                  busy={busy}
-                  onChange={(patch) =>
-                    setCreateDraft((current) =>
-                      current ? { ...current, ...patch } : current,
-                    )
+                <PopoverTrigger
+                  render={
+                    <Button
+                      size="icon"
+                      disabled={busy || !wallets.length}
+                      aria-label="Tạo giao dịch mới"
+                      title="Tạo giao dịch mới"
+                    />
                   }
-                  onSave={saveCreate}
-                  onCancel={() => setCreateDraft(null)}
-                />
-              )}
-            </Popover>
-          </div>
-        </PageHeader>
-
-        {/* TẦNG 1: 4 KPI CARDS */}
-        <section
-          className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4"
-          aria-label="Chỉ số tài chính chính"
-        >
-          {/* Card 1: Tổng số dư khả dụng */}
-          <Card as="article" className="gap-0 p-4 sm:p-5">
-            <div className="flex items-center justify-between text-xs font-medium text-[var(--text-secondary)]">
-              <span>Tổng số dư khả dụng</span>
-              <WalletCards className="size-4 text-[var(--primary)]" aria-hidden="true" />
-            </div>
-            <strong className="mt-2.5 block text-2xl font-semibold tracking-tight text-[var(--foreground)] tabular-nums">
-              {balanceLabel}
-            </strong>
-            <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs">
-              <span className="text-[var(--text-muted)]">
-                {wallets.length} ví hoạt động
-              </span>
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1 font-medium tabular-nums",
-                  activeNetCashflow.isNegative()
-                    ? "text-[var(--expense)]"
-                    : "text-[var(--income)]",
-                )}
-              >
-                {activeNetCashflow.isNegative() ? (
-                  <TrendingDown size={13} aria-hidden="true" />
-                ) : (
-                  <TrendingUp size={13} aria-hidden="true" />
-                )}
-                {activeNetCashflow.isNegative() ? "−" : "+"}
-                {money(activeNetCashflow.abs(), workspace.currency)} trong kỳ
-              </span>
-            </div>
-          </Card>
-
-          {/* Card 2: Dòng tiền trong kỳ */}
-          <Card as="article" className="gap-0 p-4 sm:p-5">
-            <div className="flex items-center justify-between text-xs font-medium text-[var(--text-secondary)]">
-              <span>Dòng tiền ròng trong kỳ</span>
-              <TrendingUp className="size-4 text-[var(--income)]" aria-hidden="true" />
-            </div>
-            <strong
-              className={cn(
-                "mt-2.5 block text-2xl font-semibold tracking-tight tabular-nums",
-                activeNetCashflow.isNegative()
-                  ? "text-[var(--expense)]"
-                  : "text-[var(--income)]",
-              )}
-            >
-              {activeNetCashflow.isNegative() ? "−" : "+"}
-              {money(activeNetCashflow.abs(), workspace.currency)}
-            </strong>
-            <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs text-[var(--text-muted)]">
-              <span>
-                Thu:{" "}
-                <span className="font-medium text-[var(--income)] tabular-nums">
-                  +{money(activeTotals.income, workspace.currency)}
-                </span>
-              </span>
-              <span>
-                Chi:{" "}
-                <span className="font-medium text-[var(--expense)] tabular-nums">
-                  −{money(activeTotals.expense, workspace.currency)}
-                </span>
-              </span>
-            </div>
-          </Card>
-
-          {/* Card 3: Nhịp chi tiêu / ngày */}
-          <Card as="article" className="gap-0 p-4 sm:p-5">
-            <div className="flex items-center justify-between text-xs font-medium text-[var(--text-secondary)]">
-              <span>Tốc độ chi tiêu</span>
-              <Clock className="size-4 text-[var(--text-secondary)]" aria-hidden="true" />
-            </div>
-            <strong className="mt-2.5 block text-2xl font-semibold tracking-tight text-[var(--foreground)] tabular-nums">
-              ~{money(dailyBurnRate.round(), workspace.currency)}
-              <span className="text-xs font-normal text-[var(--text-muted)]"> / ngày</span>
-            </strong>
-            <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs text-[var(--text-muted)]">
-              <span>Tiến độ kỳ</span>
-              <span className="font-medium text-[var(--foreground)] tabular-nums">
-                {periodProgress.elapsed}/{periodProgress.total} ngày ({Math.round((periodProgress.elapsed / periodProgress.total) * 100)}%)
-              </span>
-            </div>
-          </Card>
-
-          {/* Card 4: Tỷ lệ tích lũy / Tiết kiệm */}
-          <Card as="article" className="gap-0 p-4 sm:p-5">
-            <div className="flex items-center justify-between text-xs font-medium text-[var(--text-secondary)]">
-              <span>Tỷ lệ tích lũy</span>
-              <PiggyBank className="size-4 text-[var(--primary)]" aria-hidden="true" />
-            </div>
-            <strong
-              className={cn(
-                "mt-2.5 block text-2xl font-semibold tracking-tight tabular-nums",
-                savingsRate > 0 && "text-[var(--income)]",
-                savingsRate < 0 && "text-[var(--expense)]",
-                savingsRate === 0 && "text-[var(--foreground)]",
-              )}
-            >
-              {savingsRate > 0 ? "+" : ""}
-              {savingsRate.toFixed(1)}%
-            </strong>
-            <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs">
-              <span className="text-[var(--text-muted)]">
-                {savingsRate >= 0 ? "Thặng dư" : "Bội chi"}:{" "}
-                <span
-                  className={cn(
-                    "font-medium tabular-nums",
-                    savingsRate >= 0 ? "text-[var(--income)]" : "text-[var(--expense)]",
-                  )}
                 >
-                  {savingsRate >= 0 ? "+" : "−"}
-                  {money(activeNetCashflow.abs(), workspace.currency)}
-                </span>
-              </span>
-              {pendingTransactions.length > 0 ? (
-                <Link
-                  href={`${ledgerHref}?status=pending`}
-                  onClick={(event) => {
-                    if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                      event.preventDefault();
-                      beginNavigation(`${ledgerHref}?status=pending`);
+                  <Plus className="size-4" />
+                </PopoverTrigger>
+                {createDraft && (
+                  <DesktopTransactionCreatePopoverContent
+                    draft={createDraft}
+                    wallets={walletOptions}
+                    categories={categoryOptions}
+                    busy={busy}
+                    onChange={(patch) =>
+                      setCreateDraft((current) =>
+                        current ? { ...current, ...patch } : current,
+                      )
                     }
-                  }}
-                  className="inline-flex items-center gap-1 font-medium text-[var(--warning)] hover:underline cursor-pointer"
-                >
-                  <CircleAlert className="size-3.5" aria-hidden="true" />
-                  <span>{pendingTransactions.length} chờ duyệt</span>
-                </Link>
-              ) : (
-                <span className="text-[var(--text-muted)]">
-                  {savingsRate >= 20
-                    ? "Tích lũy tốt"
-                    : savingsRate > 0
-                      ? "Cần tối ưu thêm"
-                      : savingsRate < 0
-                        ? "Vượt thu nhập"
-                        : "Chưa phát sinh"}
-                </span>
-              )}
+                    onSave={saveCreate}
+                    onCancel={() => setCreateDraft(null)}
+                  />
+                )}
+              </Popover>
             </div>
-          </Card>
-        </section>
+          </div>
+        </div>
+      </PageHeader>
 
-        {/* TẦNG 2: BIỂU ĐỒ DÒNG TIỀN (8 cols) & DANH SÁCH VÍ TÀI KHOẢN (4 cols) */}
-        <section className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-12">
-          {/* Card Biểu đồ Phân tích */}
-          <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-8 h-full">
-            <header className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 border-b border-[var(--border)] px-4 py-3 sm:px-6 sm:py-4">
-              <div>
-                <h2 className="text-sm font-semibold text-[var(--foreground)]">
-                  {chartTab === "cashflow"
-                    ? (globalPeriod === "month" ? "Thu nhập và chi tiêu theo ngày" : "Thu nhập và chi tiêu theo tháng")
-                    : (globalPeriod === "month" ? "Biến động tổng số dư theo ngày" : "Biến động tổng số dư")}
-                </h2>
-                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                  Giao dịch đã ghi nhận · {formatDateRangeLabel(activeDateRange)}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Tabs
-                  value={chartTab}
-                  onValueChange={(val) => setChartTab(val as "cashflow" | "balance")}
-                  className="gap-0"
-                >
-                  <TabsList
-                    variant="navigation"
-                    className="inline-grid w-auto grid-cols-2 gap-0.5"
-                    aria-label="Chọn chế độ biểu đồ"
-                  >
-                    <TabsTrigger value="cashflow">
-                      Thu & Chi
-                    </TabsTrigger>
-                    <TabsTrigger value="balance">
-                      Số dư lũy kế
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-            </header>
-            <div className="flex-1 p-3 sm:p-5 flex flex-col justify-center">
-              {chartTab === "cashflow" ? (
-                <MonthlyFinancialChart
-                  transactions={transactions}
-                  currency={workspace.currency}
-                  month={activeReportPeriod}
-                  range={12}
-                  walletId="all"
-                  categoryId="all"
-                  memberId="all"
-                  transactionType="all"
-                  dateRange={activeDateRange}
-                  axisScale={getAmountScale(
-                    (globalPeriod === "month"
-                      ? buildDailyCashflow(transactions, {
+      {/* 2. Unified 4-Metric Summary Strip */}
+      <section
+        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+        aria-label="Chỉ số tài chính chính"
+      >
+        {/* Card 1: Tổng tài sản */}
+        <Card as="article" size="sm" className="min-w-0 gap-1.5">
+          <div className="flex min-w-0 items-start justify-between gap-2 text-xs font-medium text-[var(--text-secondary)]">
+            <span className="break-words leading-snug">Tổng tài sản</span>
+            <WalletCards
+              className="size-4 shrink-0 text-[var(--primary)]"
+              aria-hidden="true"
+            />
+          </div>
+          <strong className="block break-words text-base font-bold leading-snug tracking-tight text-[var(--foreground)] tabular-nums md:text-xl">
+            {balanceLabel}
+          </strong>
+          <p className="break-words border-t border-[var(--border)] pt-2 text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
+            Số dư có thể dùng: {money(totalAvailableDecimal, workspace.currency)}
+          </p>
+        </Card>
+
+        {/* Card 2: Thu nhập kỳ này */}
+        <Card as="article" size="sm" className="min-w-0 gap-1.5">
+          <div className="flex min-w-0 items-start justify-between gap-2 text-xs font-medium text-[var(--text-secondary)]">
+            <span className="break-words leading-snug">Thu nhập kỳ này</span>
+            <ArrowDownLeft
+              className="size-4 shrink-0 text-[var(--income)]"
+              aria-hidden="true"
+            />
+          </div>
+          <strong className="block break-words text-base font-bold leading-snug tracking-tight text-[var(--income)] tabular-nums md:text-xl">
+            +{money(activeTotals.income, workspace.currency)}
+          </strong>
+          <p className="break-words border-t border-[var(--border)] pt-2 text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
+            {formatPeriodLabel(activeReportPeriod, globalPeriod)}
+          </p>
+        </Card>
+
+        {/* Card 3: Chi tiêu kỳ này */}
+        <Card as="article" size="sm" className="min-w-0 gap-1.5">
+          <div className="flex min-w-0 items-start justify-between gap-2 text-xs font-medium text-[var(--text-secondary)]">
+            <span className="break-words leading-snug">Chi tiêu kỳ này</span>
+            <ArrowUpRight
+              className="size-4 shrink-0 text-[var(--expense)]"
+              aria-hidden="true"
+            />
+          </div>
+          <strong className="block break-words text-base font-bold leading-snug tracking-tight text-[var(--expense)] tabular-nums md:text-xl">
+            −{money(activeTotals.expense, workspace.currency)}
+          </strong>
+          <p className="break-words border-t border-[var(--border)] pt-2 text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
+            Trung bình ~{money(dailyBurnRate.round(), workspace.currency)}/ngày
+          </p>
+        </Card>
+
+        {/* Card 4: Chênh lệch thu chi */}
+        <Card as="article" size="sm" className="min-w-0 gap-1.5">
+          <div className="flex min-w-0 items-start justify-between gap-2 text-xs font-medium text-[var(--text-secondary)]">
+            <span className="break-words leading-snug">Chênh lệch thu chi</span>
+            {activeNetCashflow.isNegative() ? (
+              <TrendingDown
+                className="size-4 shrink-0 text-[var(--expense)]"
+                aria-hidden="true"
+              />
+            ) : (
+              <TrendingUp
+                className="size-4 shrink-0 text-[var(--income)]"
+                aria-hidden="true"
+              />
+            )}
+          </div>
+          <strong
+            className={cn(
+              "block break-words text-base font-bold leading-snug tracking-tight tabular-nums md:text-xl",
+              activeNetCashflow.isNegative()
+                ? "text-[var(--expense)]"
+                : "text-[var(--income)]",
+            )}
+          >
+            {activeNetCashflow.isNegative() ? "−" : "+"}
+            {money(activeNetCashflow.abs(), workspace.currency)}
+          </strong>
+          <p className="break-words border-t border-[var(--border)] pt-2 text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
+            <PiggyBank className="mr-1 inline size-3 text-[var(--primary)]" />
+            Tích lũy {savingsRate > 0 ? "+" : ""}
+            {savingsRate.toFixed(1)}% ({periodProgress.elapsed}/{periodProgress.total} ngày)
+          </p>
+        </Card>
+      </section>
+
+      {/* 3. Main Tabbed Chart Card & Wallets */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        {/* Main Chart Card (Thu chi / Số dư / Danh mục / Thành viên) */}
+        <Card
+          as="section"
+          className="flex min-w-0 flex-col gap-0 p-0 lg:col-span-8"
+        >
+          <header className="flex flex-col gap-3 border-b border-[var(--border)] p-4 md:flex-row md:items-center md:justify-between md:p-5">
+            <div className="min-w-0">
+              <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                {chartTitle}
+              </h2>
+              <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
+                Đã ghi nhận · {formatDateRangeLabel(activeDateRange)}
+              </p>
+            </div>
+            <Tabs
+              value={chartTab}
+              onValueChange={(val) => setChartTab(val as MainChartTab)}
+              className="w-full gap-0 md:w-auto"
+            >
+              <TabsList
+                variant="navigation"
+                className="grid w-full grid-cols-4 md:inline-grid md:w-auto"
+                aria-label="Chọn biểu đồ phân tích"
+              >
+                <TabsTrigger value="cashflow">Thu chi</TabsTrigger>
+                <TabsTrigger value="balance">Số dư</TabsTrigger>
+                <TabsTrigger value="category">Danh mục</TabsTrigger>
+                <TabsTrigger value="member">Thành viên</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </header>
+
+          <div className="flex-1 p-4 md:p-5">
+            {chartTab === "cashflow" && (
+              <MonthlyFinancialChart
+                transactions={transactions}
+                currency={workspace.currency}
+                month={activeReportPeriod}
+                range={12}
+                walletId="all"
+                categoryId="all"
+                memberId="all"
+                transactionType="all"
+                dateRange={activeDateRange}
+                axisScale={getAmountScale(
+                  (globalPeriod === "month"
+                    ? buildDailyCashflow(transactions, {
                         endPeriod: activeReportPeriod,
                         walletId: "all",
                         categoryId: "all",
@@ -1452,7 +806,7 @@ export function OverviewDashboard({
                         transactionType: "all",
                         dateRange: activeDateRange,
                       })
-                      : buildMonthlyCashflow(transactions, {
+                    : buildMonthlyCashflow(transactions, {
                         endPeriod: activeReportPeriod,
                         range: 12,
                         walletId: "all",
@@ -1461,93 +815,159 @@ export function OverviewDashboard({
                         transactionType: "all",
                         dateRange: activeDateRange,
                       })
-                    ).flatMap((row) => [row.income, row.expense]),
-                  )}
-                  isMobile={isMobile}
-                  period={globalPeriod}
-                />
-              ) : (
-                <BalanceHistoryChart
-                  wallets={wallets}
-                  transactions={transactions}
-                  currency={workspace.currency}
-                  reportPeriod={activeReportPeriod}
-                  periodOverride={globalPeriod}
-                  isMobile={isMobile}
-                  hideCard
-                />
-              )}
-            </div>
-          </Card>
+                  ).flatMap((row) => [row.income, row.expense]),
+                )}
+                isMobile={isMobile}
+                period={globalPeriod}
+              />
+            )}
 
-          {/* Card Danh sách Ví */}
-          <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-4 h-full">
-            <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-6 sm:py-4">
-              <div>
-                <h2 className="text-sm font-semibold text-[var(--foreground)]">
-                  Ví tài khoản
-                </h2>
-                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                  {wallets.length} tài khoản đang hoạt động
-                </p>
-              </div>
-              <Link
-                href="/wallets"
-                onClick={(event) => {
-                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                    event.preventDefault();
-                    beginNavigation("/wallets");
-                  }
-                }}
-                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 px-2 text-xs text-[var(--primary)] hover:text-[var(--primary)] cursor-pointer")}
-              >
-                Xem ví →
-              </Link>
-            </header>
-            <div className="flex-1 space-y-3 p-4 sm:p-5 overflow-y-auto">
-              {wallets.length ? (
-                wallets.map((wallet) => {
-                  const balanceDec = new Decimal(wallet.balance);
-                  const percent = totalBalanceDecimal.isPositive() && !totalBalanceDecimal.isZero()
-                    && wallet.kind === "asset" ? Math.max(0, balanceDec.div(totalBalanceDecimal).times(100).toNumber())
-                    : 0;
-                  return (
-                    <div
-                      key={wallet.id}
-                      className="rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)]/40 p-3"
-                    >
-                      <div className="flex items-center justify-between gap-3 text-xs">
-                        <span className="flex items-center gap-2 font-medium text-[var(--foreground)] truncate">
-                          <Wallet className="size-3.5 shrink-0 text-[var(--primary)]" />
-                          <span className="truncate">{wallet.name}</span>
-                        </span>
-                        <strong className="shrink-0 font-semibold tabular-nums text-[var(--foreground)]">
-                          {money(wallet.balance, workspace.currency)}
-                        </strong>
-                      </div>
-                      {wallet.kind === "asset" ? <div className="mt-2.5 flex items-center gap-2">
-                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+            {chartTab === "balance" && (
+              <BalanceHistoryChart
+                wallets={wallets}
+                transactions={transactions}
+                currency={workspace.currency}
+                reportPeriod={activeReportPeriod}
+                periodOverride={globalPeriod}
+                isMobile={isMobile}
+              />
+            )}
+
+            {chartTab === "category" && (
+              <div className="space-y-3.5">
+                {expenseByCategory.length ? (
+                  expenseByCategory.slice(0, 6).map((item) => {
+                    const percentage = activeTotals.expense.isZero()
+                      ? new Decimal(0)
+                      : item.amount.div(activeTotals.expense).times(100);
+                    return (
+                      <div key={item.name} className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-3 text-xs">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <CategoryIcon category={item} size={14} />
+                            <strong className="break-words font-medium leading-snug text-[var(--foreground)]">
+                              {item.name}
+                            </strong>
+                          </span>
+                          <div className="shrink-0 text-right tabular-nums">
+                            <span className="font-semibold text-[var(--foreground)]">
+                              {money(item.amount, workspace.currency)}
+                            </span>
+                            <span className="ml-1.5 text-[0.7rem] text-[var(--text-muted)]">
+                              ({percentage.toFixed(0)}%)
+                            </span>
+                          </div>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
                           <span
-                            className="block h-full rounded-full bg-[var(--primary)]"
-                            style={{ width: `${Math.min(100, percent)}%` }}
+                            className="block h-full rounded-full"
+                            style={{
+                              width: `${Math.min(100, percentage.toNumber())}%`,
+                              background: item.color,
+                            }}
                           />
                         </div>
-                        <span className="shrink-0 text-[0.68rem] text-[var(--text-muted)] tabular-nums">
-                          {percent.toFixed(0)}%
-                        </span>
-                      </div> : <p className="mt-2 text-[0.68rem] text-[var(--text-muted)]">Dư nợ chưa thanh toán</p>}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <Empty
+                    variant="compact"
+                    title="Chưa có chi tiêu"
+                    description="Dữ liệu danh mục sẽ hiển thị khi có giao dịch chi tiêu đã ghi nhận."
+                  />
+                )}
+              </div>
+            )}
+
+            {chartTab === "member" && (
+              <div className="space-y-3.5">
+                {memberExpenses.length ? (
+                  <>
+                    {memberExpenses.map((m, idx) => (
+                      <div key={m.id} className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-3 text-xs">
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--surface-secondary)] text-[0.68rem] font-semibold uppercase text-[var(--foreground)]">
+                              {m.name.slice(0, 2)}
+                            </span>
+                            <div className="min-w-0">
+                              <strong className="block break-words font-medium leading-snug text-[var(--foreground)]">
+                                {m.name}
+                              </strong>
+                              <span className="text-[0.68rem] text-[var(--text-muted)] tabular-nums">
+                                {m.percent.toFixed(0)}% tổng chi tiêu
+                              </span>
+                            </div>
+                          </div>
+                          <span className="shrink-0 font-semibold text-[var(--foreground)] tabular-nums">
+                            {money(m.spent, workspace.currency)}
+                          </span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                          <span
+                            className="block h-full rounded-full"
+                            style={{
+                              width: `${Math.min(100, m.percent)}%`,
+                              backgroundColor: memberSeriesColor(idx),
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <div className="pt-2 text-right">
+                      <Link
+                        href="/settings/workspace?tab=members"
+                        onClick={(event) => {
+                          if (
+                            !event.ctrlKey &&
+                            !event.metaKey &&
+                            event.button === 0
+                          ) {
+                            event.preventDefault();
+                            beginNavigation("/settings/workspace?tab=members");
+                          }
+                        }}
+                        aria-label="Quản lý thành viên"
+                        title="Quản lý thành viên"
+                        className={buttonVariants({
+                          variant: "ghost",
+                          size: "icon",
+                        })}
+                      >
+                        <ChevronRight className="size-4" />
+                      </Link>
                     </div>
-                  );
-                })
-              ) : (
-                <Empty
-                  variant="compact"
-                  title="Chưa có ví"
-                  description="Thêm ví để bắt đầu theo dõi."
-                />
-              )}
+                  </>
+                ) : (
+                  <Empty
+                    variant="compact"
+                    title="Chưa có dữ liệu thành viên"
+                    description="Chưa có chi tiêu nào từ các thành viên trong kỳ."
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Wallets Summary Card */}
+        <Card
+          as="section"
+          className="flex min-w-0 flex-col gap-0 p-0 lg:col-span-4"
+        >
+          <header className="flex items-start justify-between gap-2 border-b border-[var(--border)] p-4 md:p-5">
+            <div className="min-w-0">
+              <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                Ví & Thẻ ({wallets.length})
+              </h2>
+              <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
+                {totalCommittedDecimal.gt(0)
+                  ? `Tiền chờ thanh toán thẻ: ${money(totalCommittedDecimal, workspace.currency)}`
+                  : "Số dư thực tế và số dư có thể dùng"}
+              </p>
             </div>
-            <div className="mt-auto border-t border-[var(--border)] p-3 sm:p-4">
+            <div className="flex shrink-0 items-center gap-1.5">
               <Popover
                 open={Boolean(transferDraft)}
                 onOpenChange={(open) => {
@@ -1559,15 +979,14 @@ export function OverviewDashboard({
                   render={
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="icon"
                       disabled={busy || wallets.length < 2}
-                      className="w-full text-xs cursor-pointer"
                       aria-label="Chuyển tiền giữa các ví"
+                      title="Chuyển tiền giữa các ví"
                     />
                   }
                 >
-                  <ArrowLeftRight className="mr-1.5 size-3.5" />
-                  Chuyển tiền giữa các ví
+                  <ArrowLeftRight className="size-4" />
                 </PopoverTrigger>
                 {transferDraft && (
                   <DesktopTransactionCreatePopoverContent
@@ -1585,503 +1004,406 @@ export function OverviewDashboard({
                   />
                 )}
               </Popover>
-            </div>
-          </Card>
-        </section>
-
-        {/* TẦNG 3: CHI TIÊU THEO DANH MỤC (7 cols) & THÀNH VIÊN (5 cols) */}
-        <section className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-12">
-          {/* Card Danh mục */}
-          <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-7 h-full">
-            <header className="flex items-start justify-between border-b border-[var(--border)] px-4 py-3 sm:px-6 sm:py-4">
-              <div>
-                <h2 className="text-sm font-semibold text-[var(--foreground)]">
-                  Chi tiêu theo danh mục
-                </h2>
-                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                  Tỷ trọng trong kỳ · Tổng chi {money(activeTotals.expense, workspace.currency)}
-                </p>
-              </div>
-            </header>
-            <div className="flex-1 p-4 sm:p-5">
-              {desktopExpenseByCategory.length ? (
-                <div className="space-y-4">
-                  {desktopExpenseByCategory.slice(0, 5).map((item) => {
-                    const percentage = activeTotals.expense.isZero()
-                      ? new Decimal(0)
-                      : item.amount.div(activeTotals.expense).times(100);
-                    return (
-                      <div key={item.name}>
-                        <div className="flex items-center justify-between gap-4 text-xs">
-                          <span className="flex min-w-0 items-center gap-2.5">
-                            <CategoryIcon category={item} size={14} />
-                            <strong className="truncate font-medium text-[var(--foreground)]">
-                              {item.name}
-                            </strong>
-                          </span>
-                          <span className="shrink-0 text-[var(--text-muted)] tabular-nums">
-                            {percentage.toFixed(0)}%
-                          </span>
-                        </div>
-                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
-                          <span
-                            className="block h-full rounded-full"
-                            style={{
-                              width: `${percentage}%`,
-                              background: item.color,
-                            }}
-                          />
-                        </div>
-                        <p className="mt-1.5 text-right text-[0.68rem] text-[var(--text-muted)] tabular-nums">
-                          {money(item.amount, workspace.currency)}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <Empty
-                  variant="compact"
-                  title="Chưa có chi tiêu"
-                  description="Dữ liệu theo danh mục sẽ xuất hiện khi có giao dịch chi."
-                />
-              )}
-            </div>
-          </Card>
-
-          {/* Card Thành viên */}
-          <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-5 h-full">
-            <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-6 sm:py-4">
-              <div>
-                <h2 className="text-sm font-semibold text-[var(--foreground)]">
-                  Chi tiêu theo thành viên
-                </h2>
-                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                  Mức chi tiêu của {members.length} thành viên trong kỳ
-                </p>
-              </div>
               <Link
-                href="/settings/workspace?tab=members"
+                href="/wallets"
                 onClick={(event) => {
                   if (!event.ctrlKey && !event.metaKey && event.button === 0) {
                     event.preventDefault();
-                    beginNavigation("/settings/workspace?tab=members");
+                    beginNavigation("/wallets");
                   }
                 }}
-                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 px-2 text-xs text-[var(--primary)] hover:text-[var(--primary)] cursor-pointer")}
+                aria-label="Xem danh sách ví"
+                title="Xem danh sách ví"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "icon" }),
+                  "shrink-0",
+                )}
               >
-                Thành viên →
+                <ChevronRight className="size-4" />
               </Link>
-            </header>
-            <div className="flex-1 space-y-3 sm:space-y-4 p-4 sm:p-5">
-              {memberExpenses.length ? (
-                memberExpenses.map((m, idx) => (
-                  <div key={m.id} className="space-y-2">
-                    <div className="flex items-center justify-between gap-3 text-xs">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--surface-secondary)] text-[0.65rem] font-semibold text-[var(--foreground)] uppercase">
-                          {m.name.slice(0, 2)}
-                        </span>
-                        <strong className="truncate font-medium text-[var(--foreground)]">
-                          {m.name}
-                        </strong>
-                      </div>
-                      <span className="shrink-0 font-semibold tabular-nums text-[var(--foreground)]">
-                        {money(m.spent, workspace.currency)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
-                        <span
-                          className="block h-full rounded-full"
-                          style={{
-                            width: `${Math.min(100, m.percent)}%`,
-                            backgroundColor: memberSeriesColor(idx),
-                          }}
-                        />
-                      </div>
-                      <span className="shrink-0 text-[0.68rem] text-[var(--text-muted)] tabular-nums">
-                        {m.percent.toFixed(0)}%
-                      </span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <Empty
-                  variant="compact"
-                  title="Chưa có dữ liệu"
-                  description="Chưa có chi tiêu nào từ các thành viên."
-                />
-              )}
             </div>
-          </Card>
-        </section>
+          </header>
 
-        {/* TẦNG 4: GIAO DỊCH GẦN NHẤT (7 cols) & ĐỊNH KỲ SẮP TỚI (5 cols) */}
-        <section className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-12">
-          {/* Card Giao dịch gần đây */}
-          <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-7 h-full">
-            <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-6 sm:py-4">
-              <div>
-                <h2 className="text-sm font-semibold text-[var(--foreground)]">
-                  Giao dịch gần đây
-                </h2>
-                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                  5 biến động gần nhất trong workspace
-                </p>
-              </div>
-              <Link
-                href={ledgerHref}
-                onClick={(event) => {
-                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                    event.preventDefault();
-                    beginNavigation(ledgerHref);
-                  }
-                }}
-                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 px-2 text-xs text-[var(--primary)] hover:text-[var(--primary)] cursor-pointer")}
-              >
-                Xem tất cả giao dịch →
-              </Link>
-            </header>
-            <div className="flex-1 divide-y divide-[var(--border)]">
-              {recentTransactions.length ? (
-                recentTransactions.map((tx) => {
-                  const isIncome = tx.type === "income";
-                  const isExpense = tx.type === "expense";
-                  const dateStr = tx.date.slice(0, 10);
-                  const [y, m, d] = dateStr.split("-");
-                  const formattedDate = `${d}/${m}`;
-                  return (
-                    <div
-                      key={tx.id}
-                      className="flex items-center justify-between gap-3 sm:gap-4 px-4 py-3 sm:px-6 sm:py-3 text-xs"
-                    >
-                      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-                        <div
-                          className={cn(
-                            "flex size-8 shrink-0 items-center justify-center rounded-lg",
-                            isIncome && "bg-[var(--income)]/10 text-[var(--income)]",
-                            isExpense && "bg-[var(--expense)]/10 text-[var(--expense)]",
-                            !isIncome && !isExpense && "bg-[var(--primary)]/10 text-[var(--primary)]",
-                          )}
-                        >
-                          {isIncome && <ArrowDownLeft className="size-4" />}
-                          {isExpense && <ArrowUpRight className="size-4" />}
-                          {!isIncome && !isExpense && <ArrowLeftRight className="size-4" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-[var(--foreground)]">
-                            {tx.description || tx.category?.name || (isIncome ? "Khoản thu" : "Khoản chi")}
-                          </p>
-                          <p className="mt-0.5 truncate text-[0.68rem] text-[var(--text-muted)]">
-                            {tx.member} · {tx.wallet} · {formattedDate}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span
-                          className={cn(
-                            "font-semibold tabular-nums",
-                            isIncome && "text-[var(--income)]",
-                            isExpense && "text-[var(--expense)]",
-                            !isIncome && !isExpense && "text-[var(--foreground)]",
-                          )}
-                        >
-                          {isIncome ? "+" : isExpense ? "−" : ""}
-                          {money(tx.amount, workspace.currency)}
-                        </span>
-                        <p className="text-[0.68rem] text-[var(--text-muted)] capitalize">
-                          {tx.status === "approved"
-                            ? "Đã ghi nhận"
-                            : tx.status === "pending"
-                              ? "Chờ duyệt"
-                              : tx.status}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="flex flex-col items-center p-4 sm:p-5">
-                  <Empty
-                    variant="compact"
-                    title="Chưa có giao dịch"
-                    description="Các giao dịch mới phát sinh sẽ hiển thị tại đây."
-                  />
-                  <Popover
-                    open={Boolean(emptyCreateDraft)}
-                    onOpenChange={(open) => {
-                      if (open) beginEmptyCreate();
-                      else if (!busy) setEmptyCreateDraft(null);
-                    }}
+          <div className="flex-1 divide-y divide-[var(--border)] overflow-y-auto">
+            {wallets.length ? (
+              wallets.map((wallet) => {
+                const balanceDec = new Decimal(wallet.balance);
+                const committedDec = new Decimal(wallet.committed);
+                const percent =
+                  wallet.kind === "asset" &&
+                  totalBalanceDecimal.isPositive() &&
+                  !totalBalanceDecimal.isZero()
+                    ? Math.max(
+                        0,
+                        balanceDec
+                          .div(totalBalanceDecimal)
+                          .times(100)
+                          .toNumber(),
+                      )
+                    : 0;
+                return (
+                  <div
+                    key={wallet.id}
+                    className="flex items-start justify-between gap-3 px-4 py-3 text-xs md:px-5"
                   >
-                    <PopoverTrigger
-                      render={
-                        <Button
-                          size="sm"
-                          disabled={busy || !wallets.length}
-                          className="mt-3 cursor-pointer"
-                          aria-label="Tạo giao dịch đầu tiên"
-                        />
-                      }
-                    >
-                      <Plus className="size-3.5" />
-                      <span>Tạo giao dịch</span>
-                    </PopoverTrigger>
-                    {emptyCreateDraft && (
-                      <DesktopTransactionCreatePopoverContent
-                        draft={emptyCreateDraft}
-                        wallets={walletOptions}
-                        categories={categoryOptions}
-                        busy={busy}
-                        onChange={(patch) =>
-                          setEmptyCreateDraft((current) =>
-                            current ? { ...current, ...patch } : current,
-                          )
-                        }
-                        onSave={saveEmptyCreate}
-                        onCancel={() => setEmptyCreateDraft(null)}
-                      />
-                    )}
-                  </Popover>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Card Định kỳ sắp tới */}
-          <Card as="section" className="flex flex-col gap-0 p-0 lg:col-span-5 h-full">
-            <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-6 sm:py-4">
-              <div>
-                <h2 className="text-sm font-semibold text-[var(--foreground)]">
-                  Định kỳ sắp đến hạn
-                </h2>
-                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                  Dự báo hóa đơn & dòng tiền định kỳ
-                </p>
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]">
+                        {wallet.kind === "credit_card" ? (
+                          <CreditCard className="size-4" />
+                        ) : (
+                          <Wallet className="size-4" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="block break-words font-semibold leading-snug text-[var(--foreground)]">
+                          {wallet.name}
+                        </span>
+                        {wallet.kind === "credit_card" ? (
+                          <p className="mt-0.5 break-words text-[0.68rem] leading-snug text-[var(--text-muted)]">
+                            Dư nợ thẻ tín dụng
+                          </p>
+                        ) : committedDec.gt(0) ? (
+                          <p className="mt-0.5 break-words text-[0.68rem] leading-snug text-[var(--text-muted)] tabular-nums">
+                            Số dư có thể dùng:{" "}
+                            {money(wallet.available, workspace.currency)} · Tiền
+                            chờ thanh toán thẻ:{" "}
+                            {money(wallet.committed, workspace.currency)}
+                          </p>
+                        ) : (
+                          <p className="mt-0.5 break-words text-[0.68rem] leading-snug text-[var(--text-muted)] tabular-nums">
+                            Số dư có thể dùng:{" "}
+                            {money(wallet.available, workspace.currency)}
+                            {wallets.length > 1
+                              ? ` (${percent.toFixed(0)}%)`
+                              : ""}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <strong className="shrink-0 text-right font-semibold text-[var(--foreground)] tabular-nums">
+                      {money(wallet.balance, workspace.currency)}
+                    </strong>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="p-4">
+                <Empty
+                  variant="compact"
+                  title="Chưa có ví"
+                  description="Thêm ví để bắt đầu theo dõi tài sản."
+                />
               </div>
+            )}
+          </div>
+        </Card>
+      </section>
+
+      {/* 4. Bottom 2-Column Grid: Giao dịch gần đây & Lịch thu chi sắp tới / Cần xử lý */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Column 1: Giao dịch gần đây */}
+        <Card as="section" className="flex min-w-0 flex-col gap-0 p-0">
+          <header className="flex items-start justify-between gap-2 border-b border-[var(--border)] p-4 md:p-5">
+            <div className="min-w-0">
+              <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                Giao dịch gần đây
+              </h2>
+              <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
+                Biến động thu chi mới nhất trong nhóm
+              </p>
+            </div>
+            <Link
+              href={ledgerHref}
+              onClick={(event) => {
+                if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                  event.preventDefault();
+                  beginNavigation(ledgerHref);
+                }
+              }}
+              aria-label="Mở sổ giao dịch"
+              title="Mở sổ giao dịch"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "icon" }),
+                "shrink-0",
+              )}
+            >
+              <ChevronRight className="size-4" />
+            </Link>
+          </header>
+
+          <div className="flex-1 divide-y divide-[var(--border)]">
+            {recentTransactions.length ? (
+              recentTransactions.map((tx) => {
+                const isIncome = tx.type === "income";
+                const isExpense = tx.type === "expense";
+                const dateStr = tx.date.slice(0, 10);
+                const [, m, d] = dateStr.split("-");
+                const formattedDate = `${d}/${m}`;
+                return (
+                  <div
+                    key={tx.id}
+                    className="flex items-start justify-between gap-3 px-4 py-3 text-xs md:px-5"
+                  >
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <div
+                        className={cn(
+                          "flex size-8 shrink-0 items-center justify-center rounded-lg",
+                          isIncome &&
+                            "bg-[var(--income)]/10 text-[var(--income)]",
+                          isExpense &&
+                            "bg-[var(--expense)]/10 text-[var(--expense)]",
+                          !isIncome &&
+                            !isExpense &&
+                            "bg-[var(--primary)]/10 text-[var(--primary)]",
+                        )}
+                      >
+                        {tx.category ? (
+                          <CategoryIcon category={tx.category} size={15} />
+                        ) : isIncome ? (
+                          <ArrowDownLeft className="size-4" />
+                        ) : isExpense ? (
+                          <ArrowUpRight className="size-4" />
+                        ) : (
+                          <ArrowLeftRight className="size-4" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words font-medium leading-snug text-[var(--foreground)]">
+                          {tx.description ||
+                            tx.category?.name ||
+                            (isIncome
+                              ? "Khoản thu"
+                              : isExpense
+                                ? "Khoản chi"
+                                : "Chuyển khoản")}
+                        </p>
+                        <p className="mt-0.5 break-words text-[0.68rem] leading-snug text-[var(--text-muted)]">
+                          {tx.wallet} · {tx.member} · {formattedDate}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span
+                        className={cn(
+                          "block font-semibold tabular-nums",
+                          isIncome && "text-[var(--income)]",
+                          isExpense && "text-[var(--expense)]",
+                          !isIncome && !isExpense && "text-[var(--foreground)]",
+                        )}
+                      >
+                        {isIncome ? "+" : isExpense ? "−" : "↔"}
+                        {money(tx.amount, workspace.currency)}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[0.65rem]",
+                          tx.status === "pending"
+                            ? "font-medium text-[var(--warning)]"
+                            : "text-[var(--text-muted)]",
+                        )}
+                      >
+                        {tx.status === "approved"
+                          ? "Đã ghi nhận"
+                          : tx.status === "pending"
+                            ? "Chờ duyệt"
+                            : tx.status === "scheduled"
+                              ? "Đã lên lịch"
+                              : "Từ chối"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="flex flex-col items-center p-5">
+                <Empty
+                  variant="compact"
+                  title="Chưa có giao dịch"
+                  description="Các giao dịch mới phát sinh sẽ hiển thị tại đây."
+                />
+                <Popover
+                  open={Boolean(emptyCreateDraft)}
+                  onOpenChange={(open) => {
+                    if (open) beginEmptyCreate();
+                    else if (!busy) setEmptyCreateDraft(null);
+                  }}
+                >
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        size="icon"
+                        disabled={busy || !wallets.length}
+                        className="mt-3"
+                        aria-label="Tạo giao dịch đầu tiên"
+                        title="Tạo giao dịch đầu tiên"
+                      />
+                    }
+                  >
+                    <Plus className="size-4" />
+                  </PopoverTrigger>
+                  {emptyCreateDraft && (
+                    <DesktopTransactionCreatePopoverContent
+                      draft={emptyCreateDraft}
+                      wallets={walletOptions}
+                      categories={categoryOptions}
+                      busy={busy}
+                      onChange={(patch) =>
+                        setEmptyCreateDraft((current) =>
+                          current ? { ...current, ...patch } : current,
+                        )
+                      }
+                      onSave={saveEmptyCreate}
+                      onCancel={() => setEmptyCreateDraft(null)}
+                    />
+                  )}
+                </Popover>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Column 2: Lịch thu chi sắp tới & Cần xử lý */}
+        <Card as="section" className="flex min-w-0 flex-col gap-0 p-0">
+          <header className="flex items-start justify-between gap-2 border-b border-[var(--border)] p-4 md:p-5">
+            <div className="min-w-0">
+              <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                Lịch thu chi sắp tới
+              </h2>
+              <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
+                Khoản thu chi định kỳ và giao dịch cần duyệt
+              </p>
+            </div>
+            <Link
+              href="/recurring-transactions"
+              onClick={(event) => {
+                if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                  event.preventDefault();
+                  beginNavigation("/recurring-transactions");
+                }
+              }}
+              aria-label="Xem giao dịch định kỳ"
+              title="Xem giao dịch định kỳ"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "icon" }),
+                "shrink-0",
+              )}
+            >
+              <ChevronRight className="size-4" />
+            </Link>
+          </header>
+
+          {pendingTransactions.length > 0 && (
+            <div className="border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--warning)_8%,var(--surface))] px-4 py-2.5 md:px-5">
               <Link
-                href="/recurring-transactions"
+                href={`${ledgerHref}?status=pending`}
                 onClick={(event) => {
                   if (!event.ctrlKey && !event.metaKey && event.button === 0) {
                     event.preventDefault();
-                    beginNavigation("/recurring-transactions");
+                    beginNavigation(`${ledgerHref}?status=pending`);
                   }
                 }}
-                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 px-2 text-xs text-[var(--primary)] hover:text-[var(--primary)] cursor-pointer")}
+                aria-label={`Xử lý ${pendingTransactions.length} giao dịch đang chờ duyệt`}
+                title={`Xử lý ${pendingTransactions.length} giao dịch đang chờ duyệt`}
+                className="flex items-center justify-between gap-2 text-xs font-medium text-[var(--warning)]"
               >
-                Quản lý →
+                <span className="flex min-w-0 items-center gap-2">
+                  <CircleAlert className="size-4 shrink-0" />
+                  <span className="break-words leading-snug">
+                    Có {pendingTransactions.length} giao dịch đang chờ duyệt
+                  </span>
+                </span>
+                <ChevronRight className="size-4 shrink-0" />
               </Link>
-            </header>
-            <div className="flex-1 divide-y divide-[var(--border)]">
-              {upcomingRecurring && upcomingRecurring.length ? (
-                upcomingRecurring.slice(0, 4).map((rec) => {
-                  const dateStr = rec.nextExecutionDate.slice(0, 10);
-                  const [y, m, d] = dateStr.split("-");
-                  const formattedDate = `${d}/${m}`;
-                  return (
-                    <div
-                      key={rec.id}
-                      className="flex items-center justify-between gap-3 sm:gap-4 px-4 py-3 sm:px-6 sm:py-3 text-xs"
-                    >
-                      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-                        <div className="flex size-8 shrink-0 flex-col items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] text-[0.65rem] font-medium leading-none text-[var(--foreground)] tabular-nums">
-                          <span>{d}</span>
-                          <span className="text-[0.6rem] text-[var(--text-muted)]">Th{m}</span>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-[var(--foreground)]">
-                            {rec.description || rec.category?.name || "Giao dịch định kỳ"}
-                          </p>
-                          <p className="mt-0.5 truncate text-[0.68rem] text-[var(--text-muted)]">
-                            Ví nguồn: {rec.wallet}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span
-                          className={cn(
-                            "font-semibold tabular-nums",
-                            rec.type === "income" && "text-[var(--income)]",
-                            rec.type === "expense" && "text-[var(--expense)]",
-                          )}
-                        >
-                          {rec.type === "income" ? "+" : rec.type === "expense" ? "−" : ""}
-                          {money(rec.amount, workspace.currency)}
+            </div>
+          )}
+
+          <div className="flex-1 divide-y divide-[var(--border)]">
+            {upcomingRecurring && upcomingRecurring.length ? (
+              upcomingRecurring.slice(0, 5).map((rec) => {
+                const dateStr = rec.nextExecutionDate.slice(0, 10);
+                const [, m, d] = dateStr.split("-");
+                return (
+                  <div
+                    key={rec.id}
+                    className="flex items-start justify-between gap-3 px-4 py-3 text-xs md:px-5"
+                  >
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <div className="flex size-8 shrink-0 flex-col items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] text-[0.65rem] font-semibold leading-none text-[var(--foreground)] tabular-nums">
+                        <span>{d}</span>
+                        <span className="text-[0.58rem] text-[var(--text-muted)]">
+                          T{m}
                         </span>
                       </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words font-medium leading-snug text-[var(--foreground)]">
+                          {rec.description ||
+                            rec.category?.name ||
+                            "Giao dịch định kỳ"}
+                        </p>
+                        <p className="mt-0.5 break-words text-[0.68rem] leading-snug text-[var(--text-muted)]">
+                          Ví: {rec.wallet}
+                        </p>
+                      </div>
                     </div>
-                  );
-                })
-              ) : (
-                <div className="p-4 sm:p-5">
-                  <Empty
-                    variant="compact"
-                    title="Chưa có khoản định kỳ"
-                    description="Thiết lập giao dịch định kỳ để tự động dự báo dòng tiền."
-                  />
-                  <div className="mt-4 flex justify-center">
-                    <Link
-                      href="/recurring-transactions"
-                      onClick={(event) => {
-                        if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                          event.preventDefault();
-                          beginNavigation("/recurring-transactions");
-                        }
-                      }}
-                      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "text-xs cursor-pointer")}
-                    >
-                      <Plus className="mr-1.5 size-3.5" />
-                      Tạo khoản định kỳ
-                    </Link>
+                    <div className="shrink-0 text-right">
+                      <span
+                        className={cn(
+                          "font-semibold tabular-nums",
+                          rec.type === "income" && "text-[var(--income)]",
+                          rec.type === "expense" && "text-[var(--expense)]",
+                        )}
+                      >
+                        {rec.type === "income"
+                          ? "+"
+                          : rec.type === "expense"
+                            ? "−"
+                            : "↔"}
+                        {money(rec.amount, workspace.currency)}
+                      </span>
+                    </div>
                   </div>
+                );
+              })
+            ) : (
+              <div className="p-5">
+                <Empty
+                  variant="compact"
+                  icon={CalendarClock}
+                  title="Chưa có lịch định kỳ sắp tới"
+                  description="Thiết lập khoản thu chi định kỳ để chủ động theo dõi hóa đơn."
+                />
+                <div className="mt-3 flex justify-center">
+                  <Link
+                    href="/recurring-transactions"
+                    onClick={(event) => {
+                      if (
+                        !event.ctrlKey &&
+                        !event.metaKey &&
+                        event.button === 0
+                      ) {
+                        event.preventDefault();
+                        beginNavigation("/recurring-transactions");
+                      }
+                    }}
+                    aria-label="Tạo lịch định kỳ"
+                    title="Tạo lịch định kỳ"
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "icon",
+                    })}
+                  >
+                    <Plus className="size-4" />
+                  </Link>
                 </div>
-              )}
-            </div>
-          </Card>
-        </section>
-      </div>
-    </>
+              </div>
+            )}
+          </div>
+        </Card>
+      </section>
+    </div>
   );
 }
 
-function CashflowOverviewCharts({
-  members,
-  transactions,
-  currency,
-  reportPeriod,
-  isMobile,
-  periodOverride,
-}: {
-  members: { id: string; name: string }[];
-  transactions: Transaction[];
-  currency: string;
-  reportPeriod: string;
-  isMobile: boolean;
-  periodOverride?: DashboardPeriod;
-}) {
-  const [internalPeriod, setInternalPeriod] = useState<DashboardPeriod>("month");
-  const period = periodOverride ?? internalPeriod;
-  const dateRange = getDashboardPeriodDateRange(reportPeriod, period);
-  const range: CashflowRange = 12;
-  const showMemberExpenseChart = members.length > 1;
-  const visibleTypes = getVisibleCashflowTypes("all");
-  const cashflow = buildMonthlyCashflow(transactions, {
-    endPeriod: reportPeriod,
-    range,
-    walletId: "all",
-    categoryId: "all",
-    memberId: "all",
-    transactionType: "all",
-    dateRange,
-  });
-  const warningCount =
-    visibleTypes.length === 2
-      ? cashflow.filter((row) => row.hasWarning).length
-      : 0;
-  const axisScale = getAmountScale(
-    cashflow.flatMap((row) =>
-      visibleTypes.map((visibleType) => row[visibleType]),
-    ),
-  );
-
-  return (
-    <Card
-      as="section"
-      className={
-        isMobile ? "overview-card overview-flow gap-0 py-0" : "gap-0 p-0"
-      }
-    >
-      <header
-        className={
-          isMobile
-            ? undefined
-            : "flex items-start justify-between gap-5 px-6 pb-4 pt-6"
-        }
-      >
-        <div>
-          <h2
-            className={
-              isMobile
-                ? undefined
-                : "text-base font-semibold text-[var(--foreground)]"
-            }
-          >
-            Thu nhập và chi tiêu theo tháng
-          </h2>
-          <p
-            className={
-              isMobile ? undefined : "mt-1 text-xs text-[var(--text-muted)]"
-            }
-          >
-            Giao dịch đã ghi nhận · {formatDateRangeLabel(dateRange)}
-          </p>
-        </div>
-        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
-          {(!periodOverride || isMobile) && (
-            <DashboardPeriodFilter
-              value={period}
-              onValueChange={setInternalPeriod}
-              ariaLabel="Chọn kỳ biểu đồ thu nhập và chi tiêu"
-            />
-          )}
-          <span
-            className={`text-xs text-[var(--text-muted)] tabular-nums ${isMobile ? "hidden" : ""}`}
-          >
-            Đơn vị: {axisUnitLabel(axisScale, currency)}
-          </span>
-          {warningCount > 0 && (
-            <span
-              className={`overview-chart-warning ${isMobile ? "hidden" : ""}`}
-              role="status"
-            >
-              <CircleAlert size={13} aria-hidden="true" />
-              {warningCount} tháng chi vượt thu
-            </span>
-          )}
-        </div>
-      </header>
-      <div
-        className={
-          isMobile
-            ? "overview-flow-layout"
-            : showMemberExpenseChart
-              ? "grid grid-cols-1 gap-6 border-t border-[var(--border)] px-6 pb-6 pt-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)]"
-              : "grid grid-cols-1 border-t border-[var(--border)] px-6 pb-6 pt-5"
-        }
-      >
-        <MonthlyFinancialChart
-          transactions={transactions}
-          currency={currency}
-          month={reportPeriod}
-          range={range}
-          walletId="all"
-          categoryId="all"
-          memberId="all"
-          transactionType="all"
-          dateRange={dateRange}
-          axisScale={axisScale}
-          isMobile={isMobile}
-          period={period}
-        />
-        {showMemberExpenseChart && (
-          <MemberExpenseChart
-            members={members}
-            transactions={transactions}
-            currency={currency}
-            period={reportPeriod}
-            range={range}
-            walletId="all"
-            categoryId="all"
-            transactionType="all"
-            dateRange={dateRange}
-            isMobile={isMobile}
-          />
-        )}
-      </div>
-    </Card>
-  );
-}
 function BalanceHistoryChart({
   wallets,
   transactions,
@@ -2089,7 +1411,6 @@ function BalanceHistoryChart({
   reportPeriod,
   isMobile,
   periodOverride,
-  hideCard,
 }: {
   wallets: { id: string; name: string; balance: string }[];
   transactions: Transaction[];
@@ -2097,24 +1418,22 @@ function BalanceHistoryChart({
   reportPeriod: string;
   isMobile: boolean;
   periodOverride?: DashboardPeriod;
-  hideCard?: boolean;
 }) {
-  const [internalPeriod, setInternalPeriod] = useState<DashboardPeriod>("month");
-  const period = periodOverride ?? internalPeriod;
+  const period = periodOverride ?? "month";
   const dateRange = getDashboardPeriodDateRange(reportPeriod, period);
-  const visibleWallets = wallets;
   const isDaily = period === "month";
   const balances = isDaily
     ? buildDailyBalances(wallets, transactions, {
-      walletId: "all",
-      dateRange,
-    })
+        walletId: "all",
+        dateRange,
+      })
     : buildMonthlyBalances(wallets, transactions, {
-      endPeriod: reportPeriod,
-      range: 12,
-      walletId: "all",
-      dateRange,
-    });
+        endPeriod: reportPeriod,
+        range: 12,
+        walletId: "all",
+        dateRange,
+      });
+
   const rows = balances.map((row) => {
     const parts = row.period.split("-");
     if (parts.length === 3) {
@@ -2134,275 +1453,123 @@ function BalanceHistoryChart({
       total: new Decimal(row.total).toNumber(),
     };
   });
+
   const negativeMonthCount = balances.filter(
     (row) => row.hasNegativeBalance,
   ).length;
   const axisScale = getAmountScale(balances.map((row) => row.total));
 
-  if (hideCard) {
-    if (!visibleWallets.length) {
-      return (
-        <Empty
-          variant="compact"
-          icon={WalletCards}
-          title="Chưa có ví đang hoạt động"
-          description="Tạo hoặc kích hoạt ví để theo dõi lịch sử số dư."
-        />
-      );
-    }
+  if (!wallets.length) {
     return (
-      <ChartContainer
-        config={balanceChartConfig}
-        className="h-[14.5rem] sm:h-[19rem] w-full px-1 sm:px-2 pb-2 pt-2"
-        aria-label={
-          isDaily
-            ? `Biểu đồ tổng số dư trong ${balances.length} ngày thuộc khoảng đã chọn`
-            : `Biểu đồ tổng số dư trong ${balances.length} tháng thuộc khoảng đã chọn`
-        }
-      >
-        <AreaChart
-          data={rows}
-          accessibilityLayer
-          margin={{
-            top: 8,
-            right: isMobile ? 12 : 8,
-            left: isMobile ? -16 : 0,
-            bottom: 0,
-          }}
-        >
-          <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.35} />
-          <XAxis
-            dataKey="label"
-            tickLine={false}
-            tickMargin={8}
-            axisLine={false}
-            interval={isDaily ? (isMobile ? 4 : 2) : "preserveEnd"}
-            padding={{ left: isMobile ? 8 : 12, right: isMobile ? 14 : 12 }}
-            tickFormatter={(value) => {
-              if (isMobile && isDaily && typeof value === "string" && value.includes("/")) {
-                return value.split("/")[0];
-              }
-              return value;
-            }}
-            tick={{ fontSize: isMobile ? 10 : 12 }}
-          />
-          <YAxis
-            width={isMobile ? 36 : 56}
-            tickLine={false}
-            tickMargin={isMobile ? 2 : 6}
-            axisLine={false}
-            tickCount={isMobile ? 4 : 5}
-            allowDecimals={false}
-            tickFormatter={(value) => formatScaledAmount(value, axisScale)}
-            tick={{ fontSize: isMobile ? 10 : 12 }}
-          />
-          {negativeMonthCount > 0 && (
-            <ReferenceLine
-              y={0}
-              stroke="var(--danger)"
-              strokeDasharray="4 4"
-              strokeOpacity={0.7}
-            />
-          )}
-          <ChartTooltip
-            cursor={false}
-            content={
-              <ChartTooltipContent
-                labelKey="label"
-                indicator="line"
-                labelFormatter={(_, payload) =>
-                  payload?.[0]?.payload?.fullLabel ?? ""
-                }
-                formatter={(value) => (
-                  <div className="flex min-w-48 items-center justify-between gap-4">
-                    <span className="text-muted-foreground">
-                      Tổng số dư
-                    </span>
-                    <strong className="tabular-nums text-foreground">
-                      {money(String(value), currency)}
-                    </strong>
-                  </div>
-                )}
-              />
-            }
-          />
-          <Area
-            dataKey="total"
-            type="monotone"
-            fill="var(--color-total)"
-            fillOpacity={0.14}
-            stroke="var(--color-total)"
-            strokeWidth={2.25}
-            dot={false}
-            activeDot={{ r: 4, strokeWidth: 0 }}
-          />
-        </AreaChart>
-      </ChartContainer>
+      <Empty
+        variant="compact"
+        icon={WalletCards}
+        title="Chưa có ví đang hoạt động"
+        description="Tạo hoặc kích hoạt ví để theo dõi lịch sử số dư."
+      />
     );
   }
 
   return (
-    <Card
-      as="section"
-      className={
-        isMobile ? "overview-card overview-balance gap-0 py-0" : "gap-0 p-0"
+    <ChartContainer
+      config={balanceChartConfig}
+      className="h-[15rem] w-full md:h-[19rem]"
+      aria-label={
+        isDaily
+          ? `Biểu đồ tổng số dư trong ${balances.length} ngày thuộc khoảng đã chọn`
+          : `Biểu đồ tổng số dư trong ${balances.length} tháng thuộc khoảng đã chọn`
       }
     >
-      <header
-        className={
-          isMobile
-            ? undefined
-            : "flex items-start justify-between gap-5 px-6 pb-4 pt-6"
-        }
+      <AreaChart
+        data={rows}
+        accessibilityLayer
+        margin={{
+          top: 8,
+          right: isMobile ? 12 : 8,
+          left: isMobile ? -16 : 0,
+          bottom: 0,
+        }}
       >
-        <div>
-          <h2
-            className={
-              isMobile
-                ? undefined
-                : "text-sm font-semibold text-[var(--foreground)]"
+        <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.35} />
+        <XAxis
+          dataKey="label"
+          tickLine={false}
+          tickMargin={8}
+          axisLine={false}
+          interval={isDaily ? (isMobile ? 4 : 2) : "preserveEnd"}
+          padding={{ left: isMobile ? 8 : 12, right: isMobile ? 14 : 12 }}
+          tickFormatter={(value) => {
+            if (
+              isMobile &&
+              isDaily &&
+              typeof value === "string" &&
+              value.includes("/")
+            ) {
+              return value.split("/")[0];
             }
-          >
-            {isDaily ? "Số dư theo ngày" : "Số dư cuối tháng"}
-          </h2>
-          <p
-            className={
-              isMobile
-                ? undefined
-                : "mt-1 text-xs leading-5 text-[var(--text-muted)]"
-            }
-          >
-            {balances.length} {isDaily ? "ngày" : "tháng"} trong khoảng đã chọn · chỉ giao dịch đã ghi
-            nhận
-          </p>
-        </div>
-        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
-          {(!periodOverride || isMobile) && (
-            <DashboardPeriodFilter
-              value={period}
-              onValueChange={setInternalPeriod}
-              ariaLabel="Chọn kỳ lịch sử số dư"
-            />
-          )}
-          <span
-            className={`text-xs text-[var(--text-muted)] tabular-nums ${isMobile ? "hidden" : ""}`}
-          >
-            Đơn vị: {axisUnitLabel(axisScale, currency)}
-          </span>
-          {negativeMonthCount > 0 && (
-            <span
-              className={`overview-chart-warning ${isMobile ? "hidden" : ""}`}
-              role="status"
-            >
-              <CircleAlert size={13} aria-hidden="true" />
-              {negativeMonthCount} {isDaily ? "ngày" : "tháng"} có số dư âm
-            </span>
-          )}
-        </div>
-      </header>
-      {visibleWallets.length ? (
-        <ChartContainer
-          config={balanceChartConfig}
-          className={
-            isMobile
-              ? "h-[14.5rem] w-full"
-              : "h-[19rem] w-full border-t border-[var(--border)] px-4 pb-4 pt-5"
-          }
-          aria-label={
-            isDaily
-              ? `Biểu đồ tổng số dư trong ${balances.length} ngày thuộc khoảng đã chọn`
-              : `Biểu đồ tổng số dư trong ${balances.length} tháng thuộc khoảng đã chọn`
-          }
-        >
-          <AreaChart
-            data={rows}
-            accessibilityLayer
-            margin={{
-              top: 8,
-              right: isMobile ? 12 : 8,
-              left: isMobile ? -16 : 0,
-              bottom: 0,
-            }}
-          >
-            <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.35} />
-            <XAxis
-              dataKey="label"
-              tickLine={false}
-              tickMargin={8}
-              axisLine={false}
-              interval={isDaily ? (isMobile ? 4 : 2) : "preserveEnd"}
-              padding={{ left: isMobile ? 8 : 12, right: isMobile ? 14 : 12 }}
-              tickFormatter={(value) => {
-                if (isMobile && isDaily && typeof value === "string" && value.includes("/")) {
-                  return value.split("/")[0];
-                }
-                return value;
-              }}
-              tick={{ fontSize: isMobile ? 10 : 12 }}
-            />
-            <YAxis
-              width={isMobile ? 36 : 56}
-              tickLine={false}
-              tickMargin={isMobile ? 2 : 6}
-              axisLine={false}
-              tickCount={isMobile ? 4 : 5}
-              allowDecimals={false}
-              tickFormatter={(value) => formatScaledAmount(value, axisScale)}
-              tick={{ fontSize: isMobile ? 10 : 12 }}
-            />
-            {negativeMonthCount > 0 && (
-              <ReferenceLine
-                y={0}
-                stroke="var(--danger)"
-                strokeDasharray="4 4"
-                strokeOpacity={0.7}
-              />
-            )}
-            <ChartTooltip
-              cursor={false}
-              content={
-                <ChartTooltipContent
-                  labelKey="label"
-                  indicator="line"
-                  labelFormatter={(_, payload) =>
-                    payload?.[0]?.payload?.fullLabel ?? ""
-                  }
-                  formatter={(value) => (
-                    <div className="flex min-w-48 items-center justify-between gap-4">
-                      <span className="text-muted-foreground">
-                        Tổng số dư
-                      </span>
-                      <strong className="tabular-nums text-foreground">
-                        {money(String(value), currency)}
-                      </strong>
-                    </div>
-                  )}
-                />
-              }
-            />
-            <Area
-              dataKey="total"
-              type="monotone"
-              fill="var(--color-total)"
-              fillOpacity={0.14}
-              stroke="var(--color-total)"
-              strokeWidth={2.25}
-              dot={false}
-              activeDot={{ r: 4, strokeWidth: 0 }}
-            />
-          </AreaChart>
-        </ChartContainer>
-      ) : (
-        <Empty
-          variant="compact"
-          icon={WalletCards}
-          title="Chưa có ví đang hoạt động"
-          description="Tạo hoặc kích hoạt ví để theo dõi lịch sử số dư."
+            return value;
+          }}
+          tick={{ fontSize: isMobile ? 10 : 12 }}
         />
-      )}
-    </Card>
+        <YAxis
+          width={isMobile ? 36 : 56}
+          tickLine={false}
+          tickMargin={isMobile ? 2 : 6}
+          axisLine={false}
+          tickCount={isMobile ? 4 : 5}
+          allowDecimals={false}
+          tickFormatter={(value) => formatScaledAmount(value, axisScale)}
+          tick={{ fontSize: isMobile ? 10 : 12 }}
+        />
+        {negativeMonthCount > 0 && (
+          <ReferenceLine
+            y={0}
+            stroke="var(--danger)"
+            strokeDasharray="4 4"
+            strokeOpacity={0.7}
+          />
+        )}
+        <ChartTooltip
+          cursor={false}
+          content={
+            <ChartTooltipContent
+              labelKey="label"
+              indicator="line"
+              labelFormatter={(_, payload) =>
+                payload?.[0]?.payload?.fullLabel ?? ""
+              }
+              formatter={(value) => (
+                <div className="flex min-w-48 items-center justify-between gap-4">
+                  <span className="text-muted-foreground">Tổng số dư</span>
+                  <strong className="text-foreground tabular-nums">
+                    {money(String(value), currency)}
+                  </strong>
+                </div>
+              )}
+            />
+          }
+        />
+        <ChartLegend
+          verticalAlign="bottom"
+          content={
+            <ChartLegendContent className="flex-wrap justify-center gap-4 pt-2 text-xs md:justify-start" />
+          }
+        />
+        <Area
+          dataKey="total"
+          type="monotone"
+          fill="var(--color-total)"
+          fillOpacity={0.14}
+          stroke="var(--color-total)"
+          strokeWidth={2.25}
+          dot={false}
+          activeDot={{ r: 4, strokeWidth: 0 }}
+        />
+      </AreaChart>
+    </ChartContainer>
   );
 }
+
 function MonthlyFinancialChart({
   transactions,
   currency,
@@ -2436,27 +1603,29 @@ function MonthlyFinancialChart({
   const isDaily = period === "month";
   const cashflow = isDaily
     ? buildDailyCashflow(transactions, {
-      endPeriod: month,
-      walletId,
-      categoryId,
-      memberId,
-      transactionType,
-      categoryType,
-      dateRange,
-    })
+        endPeriod: month,
+        walletId,
+        categoryId,
+        memberId,
+        transactionType,
+        categoryType,
+        dateRange,
+      })
     : buildMonthlyCashflow(transactions, {
-      endPeriod: month,
-      range,
-      walletId,
-      categoryId,
-      memberId,
-      transactionType,
-      categoryType,
-      dateRange,
-    });
+        endPeriod: month,
+        range,
+        walletId,
+        categoryId,
+        memberId,
+        transactionType,
+        categoryType,
+        dateRange,
+      });
+
   const hasData = cashflow.some((row) =>
     visibleTypes.some((visibleType) => !new Decimal(row[visibleType]).isZero()),
   );
+
   const rows = cashflow.map((item) => {
     const parts = item.period.split("-");
     if (parts.length === 3) {
@@ -2478,22 +1647,20 @@ function MonthlyFinancialChart({
       expense: new Decimal(item.expense).toNumber(),
     };
   });
+
   const emptyText =
     transactionType === "transfer"
-      ? "Biểu đồ thu và chi không áp dụng cho giao dịch chuyển khoản."
+      ? "Biểu đồ thu chi không áp dụng cho giao dịch chuyển khoản."
       : visibleTypes.length === 0
-        ? "Loại giao dịch không thuộc hạng mục đang chọn."
-        : "Chưa có giao dịch đã ghi nhận phù hợp với bộ lọc.";
+        ? "Loại giao dịch không thuộc danh mục đang chọn."
+        : "Chưa có giao dịch đã ghi nhận trong khoảng thời gian này.";
 
   return (
-    <section
-      className="min-w-0"
-      aria-label="Biểu đồ thu nhập và chi tiêu"
-    >
+    <section className="min-w-0" aria-label="Biểu đồ thu nhập và chi tiêu">
       {hasData ? (
         <ChartContainer
           config={monthlyChartConfig}
-          className="h-[14.5rem] sm:h-[20rem] w-full"
+          className="h-[15rem] w-full md:h-[19rem]"
           aria-label={
             isDaily
               ? `Biểu đồ thu nhập và chi tiêu trong ${cashflow.length} ngày thuộc khoảng đã chọn`
@@ -2510,7 +1677,11 @@ function MonthlyFinancialChart({
               bottom: 0,
             }}
           >
-            <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.35} />
+            <CartesianGrid
+              vertical={false}
+              strokeDasharray="3 3"
+              opacity={0.35}
+            />
             <XAxis
               dataKey="label"
               tickLine={false}
@@ -2519,7 +1690,12 @@ function MonthlyFinancialChart({
               interval={isDaily ? (isMobile ? 4 : 2) : "preserveEnd"}
               padding={{ left: isMobile ? 8 : 12, right: isMobile ? 14 : 12 }}
               tickFormatter={(value) => {
-                if (isMobile && isDaily && typeof value === "string" && value.includes("/")) {
+                if (
+                  isMobile &&
+                  isDaily &&
+                  typeof value === "string" &&
+                  value.includes("/")
+                ) {
                   return value.split("/")[0];
                 }
                 return value;
@@ -2550,7 +1726,7 @@ function MonthlyFinancialChart({
                       <span className="text-muted-foreground">
                         {name === "income" ? "Thu nhập" : "Chi tiêu"}
                       </span>
-                      <strong className="tabular-nums text-foreground">
+                      <strong className="text-foreground tabular-nums">
                         {money(String(value), currency)}
                       </strong>
                     </div>
@@ -2566,11 +1742,11 @@ function MonthlyFinancialChart({
                 width: "100%",
               }}
               content={
-                <ChartLegendContent className="flex-wrap justify-center sm:justify-start gap-4 pt-2 text-xs" />
+                <ChartLegendContent className="flex-wrap justify-center gap-4 pt-2 text-xs md:justify-start" />
               }
             />
-            {visibleTypes.includes("income") && (
-              isDaily ? (
+            {visibleTypes.includes("income") &&
+              (isDaily ? (
                 <Bar
                   dataKey="income"
                   fill="var(--color-income)"
@@ -2586,8 +1762,7 @@ function MonthlyFinancialChart({
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
                 />
-              )
-            )}
+              ))}
             {visibleTypes.includes("expense") && (
               <Bar
                 dataKey="expense"
@@ -2602,844 +1777,5 @@ function MonthlyFinancialChart({
         <Empty variant="compact" title={emptyText} />
       )}
     </section>
-  );
-}
-function MemberExpenseChart({
-  members,
-  transactions,
-  currency,
-  period,
-  range,
-  walletId,
-  categoryId,
-  transactionType,
-  categoryType,
-  dateRange,
-  isMobile,
-}: {
-  members: { id: string; name: string }[];
-  transactions: Transaction[];
-  currency: string;
-  period: string;
-  range: CashflowRange;
-  walletId: string;
-  categoryId: string;
-  transactionType: string;
-  categoryType?: CashflowType;
-  dateRange: DateRangeValue;
-  isMobile: boolean;
-}) {
-  const isTransfer = transactionType === "transfer";
-  const metricType: CashflowType =
-    transactionType === "income"
-      ? "income"
-      : transactionType === "expense"
-        ? "expense"
-        : (categoryType ?? "expense");
-  const totals = buildMemberMonthlyTotals(members, transactions, {
-    endPeriod: period,
-    range,
-    walletId,
-    categoryId,
-    type: metricType,
-    dateRange,
-  });
-  const hasData =
-    !isTransfer &&
-    totals.some((row) =>
-      Object.values(row.totals).some((value) => !new Decimal(value).isZero()),
-    );
-  const memberSeries = members.map((member, index) => ({
-    ...member,
-    key: memberSeriesKey(member.id),
-    color: memberSeriesColor(index),
-  }));
-  const rows = totals.map((row) => {
-    const [year, rowMonth] = row.period.split("-");
-    return {
-      period: row.period,
-      label: `${rowMonth}/${year.slice(2)}`,
-      fullLabel: `Tháng ${rowMonth}/${year}`,
-      ...Object.fromEntries(
-        memberSeries.map((member) => [
-          member.key,
-          new Decimal(row.totals[member.id] ?? 0).toNumber(),
-        ]),
-      ),
-    };
-  });
-  const chartHeight = Math.max(
-    260,
-    rows.length * Math.max(48, members.length * 20),
-  );
-  const metricLabel = metricType === "income" ? "Thu nhập" : "Chi tiêu";
-  const chartConfig = Object.fromEntries(
-    memberSeries.map((member) => [
-      member.key,
-      { label: member.name, color: member.color },
-    ]),
-  ) satisfies ChartConfig;
-
-  return (
-    <section className={isMobile ? "overview-flow-member" : "min-w-0 pt-0.5"}>
-      <header className={isMobile ? undefined : "pb-3"}>
-        <div>
-          <h3
-            className={
-              isMobile
-                ? undefined
-                : "text-sm font-semibold text-[var(--foreground)]"
-            }
-          >
-            {metricLabel} theo thành viên
-          </h3>
-          <p
-            className={
-              isMobile
-                ? undefined
-                : "mt-1 text-[0.68rem] leading-4 text-[var(--text-muted)]"
-            }
-          >
-            {isMobile
-              ? "Theo filter Loại giao dịch · màu đại diện cho từng thành viên"
-              : "So sánh theo từng thành viên"}
-          </p>
-        </div>
-      </header>
-      {hasData ? (
-        <div
-          className={
-            isMobile
-              ? "overview-member-chart-scroll"
-              : "max-h-[20rem] overflow-y-auto"
-          }
-        >
-          <ChartContainer
-            config={chartConfig}
-            className={isMobile ? "overview-member-expense-chart" : "w-full"}
-            style={{ height: chartHeight }}
-            aria-label={`Biểu đồ ${metricLabel.toLocaleLowerCase("vi")} theo tháng của ${members.length} thành viên trong ${totals.length} tháng`}
-          >
-            <BarChart
-              data={rows}
-              layout="vertical"
-              accessibilityLayer
-              barGap={3}
-              barCategoryGap="20%"
-              margin={{ top: 4, right: 20, left: 4, bottom: 4 }}
-            >
-              <CartesianGrid horizontal={false} />
-              <XAxis type="number" hide />
-              <YAxis
-                dataKey="label"
-                type="category"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                width={52}
-              />
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    labelKey="label"
-                    hideIndicator
-                    labelFormatter={(_, payload) =>
-                      payload?.[0]?.payload?.fullLabel ?? ""
-                    }
-                    formatter={(value, name) => {
-                      const series = memberSeries.find(
-                        (member) => member.key === name,
-                      );
-                      return (
-                        <div className="flex min-w-48 items-center justify-between gap-4">
-                          <span className="flex items-center gap-2 text-muted-foreground">
-                            <i
-                              className="size-2 rounded-[2px]"
-                              style={{ background: series?.color }}
-                            />
-                            {series?.name ?? String(name)}
-                          </span>
-                          <strong className="tabular-nums text-foreground">
-                            {money(String(value), currency)}
-                          </strong>
-                        </div>
-                      );
-                    }}
-                  />
-                }
-              />
-              <ChartLegend
-                content={
-                  <ChartLegendContent className="flex-wrap justify-start gap-x-4 gap-y-2 pt-3" />
-                }
-              />
-              {memberSeries.map((member) => (
-                <Bar
-                  key={member.id}
-                  dataKey={member.key}
-                  fill={`var(--color-${member.key})`}
-                  radius={[0, 5, 5, 0]}
-                  maxBarSize={14}
-                />
-              ))}
-            </BarChart>
-          </ChartContainer>
-        </div>
-      ) : (
-        <Empty
-          variant="compact"
-          title={
-            isTransfer
-              ? "Không áp dụng cho giao dịch chuyển khoản"
-              : `Chưa có ${metricLabel.toLocaleLowerCase("vi")} phù hợp`
-          }
-          description={
-            isTransfer
-              ? "Biểu đồ theo thành viên chỉ hiển thị giao dịch thu và chi."
-              : "Chưa có dữ liệu đã ghi nhận trong khoảng ngày đã chọn."
-          }
-        />
-      )}
-    </section>
-  );
-}
-
-function MobileOverviewHome({
-  balance,
-  transactions,
-  reportPeriod,
-  currency,
-  walletCount,
-}: {
-  balance: string;
-  transactions: Transaction[];
-  reportPeriod: string;
-  currency: string;
-  walletCount: number;
-}) {
-  const [period, setPeriod] = useState<DashboardPeriod>("month");
-  const totals = summarizeTransactions(
-    transactions,
-    getDashboardPeriodDateRange(reportPeriod, period),
-  );
-  const { income, expense } = totals;
-  const cashflow = income.minus(expense);
-  const positiveCashflow = cashflow.greaterThanOrEqualTo(0);
-
-  return (
-    <section
-      className="overview-mobile-home"
-      aria-label="Tổng quan tài chính trên di động"
-    >
-      <article className="overview-mobile-balance-hero">
-        <header>
-          <span>Tổng tài sản</span>
-          <DashboardPeriodFilter
-            value={period}
-            onValueChange={setPeriod}
-            ariaLabel="Chọn kỳ tổng quan tài chính"
-          />
-        </header>
-        <strong className="overview-mobile-balance-value">{balance}</strong>
-        <small className="inline-flex items-center gap-1 text-[var(--text-muted)]">
-          <WalletCards size={13} aria-hidden="true" /> {walletCount} ví
-        </small>
-        <div
-          className={`overview-mobile-net ${positiveCashflow ? "positive" : "negative"}`}
-        >
-          {positiveCashflow ? (
-            <TrendingUp size={15} />
-          ) : (
-            <TrendingDown size={15} />
-          )}
-          <span>
-            {positiveCashflow ? "+" : "−"}
-            {money(cashflow.abs(), currency)}
-          </span>
-          <small>dòng tiền trong kỳ</small>
-        </div>
-        <dl className="overview-mobile-cashflow-pair">
-          <div>
-            <dt>
-              <i className="income" /> Thu vào
-            </dt>
-            <dd>{money(income, currency)}</dd>
-          </div>
-          <div>
-            <dt>
-              <i className="expense" /> Chi ra
-            </dt>
-            <dd>{money(expense, currency)}</dd>
-          </div>
-        </dl>
-      </article>
-    </section>
-  );
-}
-
-function MobileMonthlyDashboards({
-  members,
-  wallets,
-  transactions,
-  currency,
-  reportPeriod,
-}: {
-  members: { id: string; name: string }[];
-  wallets: { id: string; name: string; balance: string }[];
-  transactions: Transaction[];
-  currency: string;
-  reportPeriod: string;
-}) {
-  const [memberPeriod, setMemberPeriod] = useState<DashboardPeriod>("month");
-  const [balancePeriod, setBalancePeriod] = useState<DashboardPeriod>("month");
-  const [cashflowPeriod, setCashflowPeriod] = useState<DashboardPeriod>("month");
-  const showMemberComparison = members.length >= 2;
-  const visibleMembers = showMemberComparison ? members : [];
-  const memberMetricType: CashflowType = "expense";
-  const memberTotals = showMemberComparison
-    ? buildMemberMonthlyTotals(visibleMembers, transactions, {
-      endPeriod: reportPeriod,
-      range: 12,
-      walletId: "all",
-      categoryId: "all",
-      type: memberMetricType,
-      dateRange: getDashboardPeriodDateRange(reportPeriod, memberPeriod),
-    })
-    : [];
-  const memberSeries = visibleMembers.map((member, index) => ({
-    ...member,
-    key: memberSeriesKey(member.id),
-    color: memberSeriesColor(index),
-  }));
-  const memberRows = memberTotals.map((row) => ({
-    label: mobileMonthLabel(row.period),
-    fullLabel: fullMonthLabel(row.period),
-    ...Object.fromEntries(
-      memberSeries.map((member) => [
-        member.key,
-        new Decimal(row.totals[member.id] ?? 0).toNumber(),
-      ]),
-    ),
-  }));
-  const memberHasData =
-    memberTotals.some((row) =>
-      Object.values(row.totals).some((value) => !new Decimal(value).isZero()),
-    );
-  const memberConfig = Object.fromEntries(
-    memberSeries.map((member) => [
-      member.key,
-      { label: member.name, color: member.color },
-    ]),
-  ) satisfies ChartConfig;
-
-  const balances = buildMonthlyBalances(wallets, transactions, {
-    endPeriod: reportPeriod,
-    range: 12,
-    walletId: "all",
-    dateRange: getDashboardPeriodDateRange(reportPeriod, balancePeriod),
-  });
-  const balanceRows = balances.map((row) => ({
-    label: mobileMonthLabel(row.period),
-    fullLabel: fullMonthLabel(row.period),
-    total: new Decimal(row.total).toNumber(),
-  }));
-  const balanceHasData = wallets.length > 0;
-
-  const monthlyCashflow = buildMonthlyCashflow(transactions, {
-    endPeriod: reportPeriod,
-    range: 12,
-    walletId: "all",
-    categoryId: "all",
-    memberId: "all",
-    transactionType: "all",
-    dateRange: getDashboardPeriodDateRange(reportPeriod, cashflowPeriod),
-  });
-  const expenseRows = monthlyCashflow.map((row) => ({
-    label: mobileMonthLabel(row.period),
-    fullLabel: fullMonthLabel(row.period),
-    income: new Decimal(row.income).toNumber(),
-    expense: new Decimal(row.expense).toNumber(),
-  }));
-  const cashflowHasData = monthlyCashflow.some(
-    (row) =>
-      !new Decimal(row.income).isZero() || !new Decimal(row.expense).isZero(),
-  );
-  const chartWidth = Math.max(
-    320,
-    memberRows.length * Math.max(54, memberSeries.length * 24),
-  );
-  const balanceChartWidth = Math.max(320, balanceRows.length * 54);
-  const expenseChartWidth = Math.max(320, expenseRows.length * 54);
-
-  return (
-    <section
-      className="overview-mobile-monthly-dashboards"
-      aria-label="Dashboard theo tháng"
-    >
-      {showMemberComparison && (
-        <article className="overview-mobile-chart-card overview-mobile-member-chart-card">
-          <header>
-            <div>
-              <h3>So sánh thành viên</h3>
-              <p>
-                Chi tiêu theo từng tháng
-              </p>
-            </div>
-            <DashboardPeriodFilter
-              value={memberPeriod}
-              onValueChange={setMemberPeriod}
-              ariaLabel="Chọn kỳ so sánh thành viên"
-            />
-          </header>
-          {memberHasData ? (
-            <div className="overview-mobile-chart-scroll">
-              <ChartContainer
-                config={memberConfig}
-                className="overview-mobile-monthly-chart"
-                style={{ width: chartWidth, minWidth: "100%" }}
-              >
-                <BarChart
-                  data={memberRows}
-                  accessibilityLayer
-                  barGap={2}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    interval={0}
-                    minTickGap={0}
-                  />
-                  <YAxis hide />
-                  <ChartTooltip
-                    cursor={false}
-                    content={
-                      <ChartTooltipContent
-                        labelKey="label"
-                        hideIndicator
-                        labelFormatter={(_, payload) =>
-                          payload?.[0]?.payload?.fullLabel ?? ""
-                        }
-                        formatter={(value, name) => {
-                          const series = memberSeries.find(
-                            (member) => member.key === name,
-                          );
-                          return (
-                            <div className="flex min-w-44 items-center justify-between gap-4">
-                              <span className="text-muted-foreground">
-                                {series?.name ?? String(name)}
-                              </span>
-                              <strong className="tabular-nums">
-                                {money(String(value), currency)}
-                              </strong>
-                            </div>
-                          );
-                        }}
-                      />
-                    }
-                  />
-                  {memberSeries.map((member) => (
-                    <Bar
-                      key={member.id}
-                      dataKey={member.key}
-                      fill={`var(--color-${member.key})`}
-                      radius={[4, 4, 1, 1]}
-                      maxBarSize={15}
-                    />
-                  ))}
-                </BarChart>
-              </ChartContainer>
-            </div>
-          ) : (
-            <Empty
-              variant="compact"
-              title={
-                "Chưa có dữ liệu thành viên"
-              }
-            />
-          )}
-          <div className="overview-mobile-member-legend">
-            {memberSeries.map((member) => (
-              <span key={member.id}>
-                <i style={{ background: member.color }} />
-                {member.name}
-              </span>
-            ))}
-          </div>
-        </article>
-      )}
-
-      <article className="overview-mobile-chart-card">
-        <header>
-          <div>
-            <h3>Tổng số dư theo tháng</h3>
-            <p>Số dư cuối mỗi tháng trong khoảng lọc</p>
-          </div>
-          <DashboardPeriodFilter
-            value={balancePeriod}
-            onValueChange={setBalancePeriod}
-            ariaLabel="Chọn kỳ tổng số dư theo tháng"
-          />
-        </header>
-        {balanceHasData ? (
-          <div className="overview-mobile-chart-scroll">
-            <ChartContainer
-              config={balanceChartConfig}
-              className="overview-mobile-monthly-chart"
-              style={{ width: balanceChartWidth, minWidth: "100%" }}
-            >
-              <AreaChart
-                data={balanceRows}
-                accessibilityLayer
-                margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  interval={0}
-                  minTickGap={0}
-                  padding={{ left: 18, right: 18 }}
-                />
-                <YAxis hide />
-                <ChartTooltip
-                  cursor={false}
-                  content={
-                    <ChartTooltipContent
-                      labelKey="label"
-                      indicator="line"
-                      labelFormatter={(_, payload) =>
-                        payload?.[0]?.payload?.fullLabel ?? ""
-                      }
-                      formatter={(value) => (
-                        <div className="flex min-w-44 items-center justify-between gap-4">
-                          <span className="text-muted-foreground">
-                            Tổng số dư
-                          </span>
-                          <strong className="tabular-nums">
-                            {money(String(value), currency)}
-                          </strong>
-                        </div>
-                      )}
-                    />
-                  }
-                />
-                <Area
-                  dataKey="total"
-                  type="monotone"
-                  fill="var(--color-total)"
-                  fillOpacity={0.12}
-                  stroke="var(--color-total)"
-                  strokeWidth={2.25}
-                  dot={false}
-                  activeDot={{ r: 4, strokeWidth: 0 }}
-                />
-              </AreaChart>
-            </ChartContainer>
-          </div>
-        ) : (
-          <Empty
-            variant="compact"
-            icon={WalletCards}
-            title="Chưa có ví phù hợp"
-          />
-        )}
-      </article>
-
-      <article className="overview-mobile-chart-card">
-        <header>
-          <div>
-            <h3>Thu nhập &amp; chi tiêu theo tháng</h3>
-            <p>Thu nhập dạng đường, chi tiêu dạng cột</p>
-          </div>
-          <DashboardPeriodFilter
-            value={cashflowPeriod}
-            onValueChange={setCashflowPeriod}
-            ariaLabel="Chọn kỳ thu nhập và chi tiêu"
-          />
-        </header>
-        {cashflowHasData ? (
-          <div className="overview-mobile-chart-scroll">
-            <ChartContainer
-              config={monthlyChartConfig}
-              className="overview-mobile-monthly-chart"
-              style={{ width: expenseChartWidth, minWidth: "100%" }}
-            >
-              <ComposedChart
-                data={expenseRows}
-                accessibilityLayer
-                margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  interval={0}
-                  minTickGap={0}
-                />
-                <YAxis hide />
-                <ChartTooltip
-                  cursor={false}
-                  content={
-                    <ChartTooltipContent
-                      labelKey="label"
-                      hideIndicator
-                      labelFormatter={(_, payload) =>
-                        payload?.[0]?.payload?.fullLabel ?? ""
-                      }
-                      formatter={(value, name) => (
-                        <div className="flex min-w-44 items-center justify-between gap-4">
-                          <span className="text-muted-foreground">
-                            {name === "income" ? "Thu nhập" : "Chi tiêu"}
-                          </span>
-                          <strong className="tabular-nums">
-                            {money(String(value), currency)}
-                          </strong>
-                        </div>
-                      )}
-                    />
-                  }
-                />
-                <Bar
-                  dataKey="expense"
-                  fill="var(--color-expense)"
-                  radius={[5, 5, 1, 1]}
-                  maxBarSize={28}
-                />
-                <Line
-                  dataKey="income"
-                  type="monotone"
-                  stroke="var(--color-income)"
-                  strokeWidth={2.25}
-                  dot={false}
-                  activeDot={{ r: 4, strokeWidth: 0 }}
-                />
-              </ComposedChart>
-            </ChartContainer>
-          </div>
-        ) : (
-          <Empty
-            variant="compact"
-            title="Chưa có thu chi phù hợp"
-            description="Thử đổi loại giao dịch hoặc khoảng tháng."
-          />
-        )}
-      </article>
-    </section>
-  );
-}
-
-function mobileMonthLabel(period: string): string {
-  const [year, month] = period.split("-");
-  return `T${Number(month)}/${year.slice(2)}`;
-}
-
-function fullMonthLabel(period: string): string {
-  const [year, month] = period.split("-");
-  return `Tháng ${Number(month)}/${year}`;
-}
-
-function MobileCategoryPie({
-  items,
-  total,
-  currency,
-}: {
-  items: { name: string; color: string; amount: Decimal }[];
-  total: Decimal;
-  currency: string;
-}) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const visibleItems =
-    items.length > 6
-      ? [
-        ...items.slice(0, 5),
-        {
-          name: "Khác",
-          color: "var(--chart-7)",
-          amount: items
-            .slice(5)
-            .reduce((sum, item) => sum.plus(item.amount), new Decimal(0)),
-        },
-      ]
-      : items;
-  const data = visibleItems.map((item) => ({
-    name: item.name,
-    color: item.color,
-    amount: item.amount.toNumber(),
-    display: money(item.amount, currency),
-    percentage: total.isZero()
-      ? "0"
-      : item.amount.div(total).times(100).toFixed(0),
-  }));
-  const safeActiveIndex = Math.min(activeIndex, Math.max(0, data.length - 1));
-  const active = data[safeActiveIndex];
-  const config = Object.fromEntries(
-    data.map((item, index) => [
-      `category_${index}`,
-      { label: item.name, color: item.color },
-    ]),
-  ) satisfies ChartConfig;
-
-  if (!data.length) return null;
-
-  return (
-    <div className="overview-mobile-category-pie">
-      <div className="overview-mobile-category-chart">
-        <ChartContainer
-          config={config}
-          className="overview-mobile-category-donut"
-        >
-          <PieChart accessibilityLayer>
-            <Pie
-              data={data}
-              dataKey="amount"
-              nameKey="name"
-              innerRadius={38}
-              outerRadius={62}
-              paddingAngle={2}
-              cornerRadius={4}
-              onClick={(_, index) => setActiveIndex(index)}
-            >
-              {data.map((item, index) => (
-                <Cell
-                  key={`${item.name}-${index}`}
-                  fill={item.color}
-                  stroke="var(--surface)"
-                  strokeWidth={2.5}
-                  opacity={index === safeActiveIndex ? 1 : 0.62}
-                />
-              ))}
-            </Pie>
-          </PieChart>
-        </ChartContainer>
-        <div className="overview-mobile-category-center">
-          <strong>{active.percentage}%</strong>
-          <span>{active.name}</span>
-        </div>
-      </div>
-      <div
-        className="overview-mobile-category-labels"
-        role="list"
-        aria-label="Chi phí theo hạng mục"
-      >
-        {data.map((item, index) => (
-          <Button
-            variant="unstyled"
-            size="auto"
-            type="button"
-            role="listitem"
-            className={index === safeActiveIndex ? "active" : ""}
-            key={`${item.name}-label-${index}`}
-            onClick={() => setActiveIndex(index)}
-          >
-            <i style={{ background: item.color }} />
-            <span>
-              <strong>{item.name}</strong>
-              <small>{item.display}</small>
-            </span>
-            <b>{item.percentage}%</b>
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SummaryStat({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "income" | "expense" | "primary";
-}) {
-  const toneClasses = {
-    income: "text-[var(--income)]",
-    expense: "text-[var(--expense)]",
-    primary: "text-[var(--foreground)]",
-  } satisfies Record<typeof tone, string>;
-
-  return (
-    <div className="min-w-0">
-      <dt className="text-[0.68rem] font-medium text-[var(--text-muted)]">
-        {label}
-      </dt>
-      <dd
-        className={`mt-2 truncate text-base font-semibold tracking-[-0.025em] tabular-nums ${toneClasses[tone]}`}
-        title={value}
-      >
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function Metric({
-  title,
-  value,
-  note,
-  icon,
-  tone,
-  periodData,
-}: {
-  title: string;
-  value: string;
-  note: string;
-  icon: React.ReactNode;
-  tone: string;
-  periodData?: {
-    metric: "income" | "expense" | "net";
-    transactions: Transaction[];
-    reportPeriod: string;
-    currency: string;
-  };
-}) {
-  const [period, setPeriod] = useState<DashboardPeriod>("month");
-  const totals = periodData
-    ? summarizeTransactions(
-      periodData.transactions,
-      getDashboardPeriodDateRange(periodData.reportPeriod, period),
-    )
-    : null;
-  const resolvedValue =
-    !periodData || !totals
-      ? value
-      : money(
-        periodData.metric === "income"
-          ? totals.income
-          : periodData.metric === "expense"
-            ? totals.expense
-            : totals.income.minus(totals.expense),
-        periodData.currency,
-      );
-
-  return (
-    <Card
-      as="section"
-      className={`overview-metric ${tone} relative gap-0 py-0`}
-    >
-      <span>{icon}</span>
-      {periodData && (
-        <div className="absolute right-4 top-4">
-          <DashboardPeriodFilter
-            value={period}
-            onValueChange={setPeriod}
-            ariaLabel={`Chọn kỳ ${title.toLocaleLowerCase("vi")}`}
-          />
-        </div>
-      )}
-      <p>{title}</p>
-      <strong>{resolvedValue}</strong>
-      <small>{note}</small>
-    </Card>
   );
 }

@@ -1,14 +1,14 @@
 const ACTION_LABELS: Record<string, string> = {
   // Workspace
-  "workspace.created": "Tạo workspace",
-  "workspace.deleted": "Xóa workspace",
-  "workspace.settings_updated": "Cập nhật workspace",
+  "workspace.created": "Tạo nhóm tài chính",
+  "workspace.deleted": "Xóa nhóm tài chính",
+  "workspace.settings_updated": "Cập nhật cài đặt nhóm",
   "workspace.invite_code_regenerated": "Tạo mã mời mới",
   "workspace.join_requested": "Yêu cầu tham gia",
   "workspace.join_approved": "Duyệt tham gia",
   "workspace.join_rejected": "Từ chối tham gia",
-  "workspace.member_account_created": "Tạo tài khoản member",
-  "workspace.member_deactivated": "Vô hiệu hóa member",
+  "workspace.member_account_created": "Tạo tài khoản thành viên",
+  "workspace.member_deactivated": "Vô hiệu hóa thành viên",
 
   // Transaction
   "transaction.created": "Tạo giao dịch",
@@ -36,7 +36,7 @@ const ACTION_LABELS: Record<string, string> = {
   "financial_plan.draft_updated": "Cập nhật kế hoạch nháp",
   "financial_plan.draft_deleted": "Xóa kế hoạch nháp",
   "financial_plan.activated": "Kích hoạt kế hoạch",
-  "financial_plan.deadline_updated": "Cập nhật deadline kế hoạch",
+  "financial_plan.deadline_updated": "Cập nhật hạn hoàn thành kế hoạch",
   "financial_plan.allocation_updated": "Cập nhật tỷ lệ hũ kế hoạch",
   "financial_plan.month_closed": "Đóng tháng kế hoạch",
   "financial_plan.completed": "Hoàn thành kế hoạch",

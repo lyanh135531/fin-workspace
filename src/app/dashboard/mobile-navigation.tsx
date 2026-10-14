@@ -50,33 +50,35 @@ function MobileNavigationDrawer({
         <SheetTrigger
           render={
             <Button
-              variant="unstyled"
-              size="auto"
+              variant="icon"
+              size="icon"
               type="button"
-              className="mobile-navigation-trigger"
-              aria-label="Mở điều hướng"
+              className="mobile-navigation-trigger md:hidden"
+              aria-label="Mở menu điều hướng"
             />
           }
         >
-          <Menu size={20} strokeWidth={1.9} />
+          <Menu size={18} strokeWidth={1.9} />
         </SheetTrigger>
         <SheetContent
           side="left"
-          className="mobile-navigation-sheet"
+          className="mobile-navigation-sheet flex h-full w-[min(20rem,86vw)] flex-col gap-0 border-r border-[var(--border)] bg-[var(--surface)] p-0"
         >
-          <SheetHeader className="mobile-navigation-header">
-            <div className="mobile-navigation-brand">
-              <FinLogo size={40} />
-              <div>
-                <SheetTitle>Felix</SheetTitle>
-                <SheetDescription>
+          <SheetHeader className="mobile-navigation-header border-b border-[var(--border)] px-4 py-3.5">
+            <div className="mobile-navigation-brand flex items-center gap-3 pr-8">
+              <FinLogo size={34} />
+              <div className="min-w-0">
+                <SheetTitle className="break-words text-base font-bold leading-snug text-[var(--foreground)]">
+                  Felix
+                </SheetTitle>
+                <SheetDescription className="break-words text-xs leading-snug text-[var(--text-muted)]">
                   Không gian tài chính của bạn
                 </SheetDescription>
               </div>
             </div>
           </SheetHeader>
 
-          <div className="mobile-navigation-body">
+          <div className="mobile-navigation-body flex-1 min-h-0 overflow-y-auto px-3 py-3">
             <DashboardNavigation
               currentId={currentId}
               workspaces={workspaces}
@@ -84,11 +86,11 @@ function MobileNavigationDrawer({
               isAdmin={isAdmin}
               username={username}
               forceExpandedWorkspaceSwitcher
-              variant="secondary"
+              variant="all"
             />
           </div>
 
-          <div className="mobile-navigation-user">
+          <div className="mobile-navigation-user border-t border-[var(--border)] p-3">
             <SidebarUserMenu
               username={username}
               role={role}
