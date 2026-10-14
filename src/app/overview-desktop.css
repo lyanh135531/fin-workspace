@@ -1,4 +1,5 @@
 /* Desktop overview only. Mobile remains owned by globals.css. */
+@layer components {
 @media (min-width: 1024px) {
   .overview-shell {
     max-width: 92rem;
@@ -546,3 +547,5 @@
     transition: none;
   }
 }
+}
+

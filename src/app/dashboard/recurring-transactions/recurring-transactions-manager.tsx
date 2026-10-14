@@ -29,6 +29,14 @@ import {
 } from "@/components/base";
 import { ConfirmDelete } from "@/components/base/confirm-delete";
 import { ApprovalActionIcon } from "@/components/approval-action-icon";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { formatAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -748,6 +756,16 @@ function RecurringScheduleRow({
   onDelete: () => void;
   onReview: (approve: boolean) => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const hasActions =
+    permissions.canApprove ||
+    permissions.canPause ||
+    permissions.canReactivate ||
+    permissions.canEdit ||
+    permissions.canDelete;
+
   const amountPrefix =
     schedule.type === "income"
       ? "+"
@@ -803,12 +821,13 @@ function RecurringScheduleRow({
     ? `${schedule.wallet} → ${schedule.toWallet}`
     : schedule.wallet;
 
-  return (
-    <article
-      className="flex flex-col gap-3 py-4 first:pt-2 last:pb-0 md:flex-row md:items-center md:justify-between md:gap-4"
-      data-type={schedule.type}
-      data-status={schedule.completedAt ? "completed" : schedule.status}
-    >
+  function run(action: () => void) {
+    setMenuOpen(false);
+    action();
+  }
+
+  const rowInnerContent = (
+    <>
       {/* Left: Title + Category badge, Wallet/Card name, Frequency & Next run date */}
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <span
@@ -821,20 +840,20 @@ function RecurringScheduleRow({
           <TypeIcon size={18} />
         </span>
 
-        <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="min-w-0 flex-1 space-y-1">
           {/* Core Data Point 1: Title + Category badge + Status badge */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
             <h3 className="min-w-0 break-words text-sm font-semibold leading-snug text-[var(--foreground)] md:text-base">
               {schedule.description || "Giao dịch định kỳ"}
             </h3>
 
-            <span className="inline-flex shrink-0 items-center rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-0.5 text-xs font-medium text-[var(--text-secondary)]">
+            <span className="hidden shrink-0 items-center rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-0.5 text-xs font-medium text-[var(--text-secondary)] md:inline-flex">
               {categoryLabel}
             </span>
 
             <span
               className={cn(
-                "inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium",
+                "inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium md:text-xs",
                 statusMeta.className,
               )}
             >
@@ -856,8 +875,8 @@ function RecurringScheduleRow({
             )}
           </div>
 
-          {/* Core Data Points 2 & 3: Wallet/Card name + Frequency & Next run date */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-snug text-[var(--text-secondary)]">
+          {/* Core Data Points 2 & 3: Wallet/Card name + Next run date */}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs leading-snug text-[var(--text-secondary)]">
             <span className="inline-flex min-w-0 items-center gap-1.5 break-words font-medium text-[var(--foreground)]">
               <Wallet
                 size={13}
@@ -867,11 +886,11 @@ function RecurringScheduleRow({
               <span className="break-words">{walletRoute}</span>
             </span>
 
-            <span className="text-[var(--border)]" aria-hidden="true">
+            <span className="hidden text-[var(--border)] md:inline" aria-hidden="true">
               •
             </span>
 
-            <span className="shrink-0">
+            <span className="hidden shrink-0 md:inline">
               {scheduleDayLabel(schedule.dayOfMonth)}
             </span>
 
@@ -888,115 +907,284 @@ function RecurringScheduleRow({
         </div>
       </div>
 
-      {/* Core Data Point 4: Tabular-nums Amount + Sleek Icon-Only Quick Actions */}
-      <div className="flex items-center justify-between gap-4 border-t border-[var(--border)] pt-2.5 md:shrink-0 md:justify-end md:border-t-0 md:pt-0">
-        <div className="min-w-0 md:text-right">
+      {/* Core Data Point 4: Tabular-nums Amount + Desktop Inline Quick Actions */}
+      <div className="flex shrink-0 items-center justify-end gap-4">
+        <div className="min-w-0 text-right">
           <strong
             className={cn(
-              "block text-base font-bold tabular-nums shrink-0 md:text-lg",
+              "block text-sm font-bold tabular-nums shrink-0 md:text-lg",
               amountTone,
             )}
           >
             {amountPrefix}
             {formatAmount(schedule.amount)} {currencySymbol}
           </strong>
-          <span className="block text-[11px] text-[var(--text-muted)] tabular-nums">
+          <span className="hidden text-[11px] text-[var(--text-muted)] tabular-nums md:block">
             Đã chạy {schedule.occurrenceCount} kỳ
           </span>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-1">
-          {permissions.canApprove && (
-            <>
-              <Button
-                variant="success"
-                size="icon"
-                type="button"
-                disabled={busy}
-                onClick={() => onReview(true)}
-                title="Duyệt và bật lịch định kỳ"
-                aria-label="Duyệt lịch định kỳ"
-              >
-                <ApprovalActionIcon decision="approve" />
-              </Button>
-              <Button
-                variant="destructiveIcon"
-                size="icon"
-                type="button"
-                disabled={busy}
-                onClick={() => onReview(false)}
-                title="Từ chối lịch định kỳ"
-                aria-label="Từ chối lịch định kỳ"
-              >
-                <ApprovalActionIcon decision="reject" />
-              </Button>
-            </>
-          )}
-
-          {(permissions.canPause || permissions.canReactivate) && (
-            <Button
-              variant={schedule.status === "active" ? "icon" : "selected"}
-              size="icon"
-              type="button"
-              disabled={busy}
-              onClick={onToggle}
-              title={
-                schedule.status === "active"
-                  ? "Tạm dừng giao dịch định kỳ"
-                  : "Bật lại giao dịch định kỳ"
-              }
-              aria-label={
-                schedule.status === "active"
-                  ? "Tạm dừng lịch"
-                  : "Kích hoạt lại lịch"
-              }
-            >
-              {schedule.status === "active" ? (
-                <Pause size={16} aria-hidden="true" />
-              ) : (
-                <Play size={16} aria-hidden="true" />
-              )}
-            </Button>
-          )}
-
-          {permissions.canEdit && (
-            <Button
-              variant="icon"
-              size="icon"
-              type="button"
-              disabled={busy}
-              onClick={onEdit}
-              title="Chỉnh sửa giao dịch định kỳ"
-              aria-label="Chỉnh sửa lịch"
-            >
-              <Pencil size={16} aria-hidden="true" />
-            </Button>
-          )}
-
-          {permissions.canDelete && (
-            <ConfirmDelete
-              ariaLabel="Xóa lịch"
-              title="Xóa giao dịch định kỳ?"
-              description={`“${schedule.description || "Giao dịch định kỳ"}” sẽ ngừng chạy. Các giao dịch đã ghi nhận trước đó vẫn được giữ nguyên.`}
-              onConfirm={onDelete}
-              disabled={busy}
-              trigger={
+        {hasActions && (
+          <div
+            className="hidden shrink-0 items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-1 lg:flex"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {permissions.canApprove && (
+              <>
                 <Button
+                  variant="success"
+                  size="icon"
                   type="button"
+                  disabled={busy}
+                  onClick={() => onReview(true)}
+                  title="Duyệt và bật lịch định kỳ"
+                  aria-label="Duyệt lịch định kỳ"
+                >
+                  <ApprovalActionIcon decision="approve" />
+                </Button>
+                <Button
                   variant="destructiveIcon"
                   size="icon"
+                  type="button"
                   disabled={busy}
-                  aria-label="Xóa lịch"
-                  title="Xóa giao dịch định kỳ"
+                  onClick={() => onReview(false)}
+                  title="Từ chối lịch định kỳ"
+                  aria-label="Từ chối lịch định kỳ"
                 >
-                  <Trash2 size={16} aria-hidden="true" />
+                  <ApprovalActionIcon decision="reject" />
                 </Button>
-              }
-            />
-          )}
-        </div>
+              </>
+            )}
+
+            {(permissions.canPause || permissions.canReactivate) && (
+              <Button
+                variant={schedule.status === "active" ? "icon" : "selected"}
+                size="icon"
+                type="button"
+                disabled={busy}
+                onClick={onToggle}
+                title={
+                  schedule.status === "active"
+                    ? "Tạm dừng giao dịch định kỳ"
+                    : "Bật lại giao dịch định kỳ"
+                }
+                aria-label={
+                  schedule.status === "active"
+                    ? "Tạm dừng lịch"
+                    : "Kích hoạt lại lịch"
+                }
+              >
+                {schedule.status === "active" ? (
+                  <Pause size={16} aria-hidden="true" />
+                ) : (
+                  <Play size={16} aria-hidden="true" />
+                )}
+              </Button>
+            )}
+
+            {permissions.canEdit && (
+              <Button
+                variant="icon"
+                size="icon"
+                type="button"
+                disabled={busy}
+                onClick={onEdit}
+                title="Chỉnh sửa giao dịch định kỳ"
+                aria-label="Chỉnh sửa lịch"
+              >
+                <Pencil size={16} aria-hidden="true" />
+              </Button>
+            )}
+
+            {permissions.canDelete && (
+              <ConfirmDelete
+                ariaLabel="Xóa lịch"
+                title="Xóa giao dịch định kỳ?"
+                description={`“${schedule.description || "Giao dịch định kỳ"}” sẽ ngừng chạy. Các giao dịch đã ghi nhận trước đó vẫn được giữ nguyên.`}
+                onConfirm={onDelete}
+                disabled={busy}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="destructiveIcon"
+                    size="icon"
+                    disabled={busy}
+                    aria-label="Xóa lịch"
+                    title="Xóa giao dịch định kỳ"
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                  </Button>
+                }
+              />
+            )}
+          </div>
+        )}
       </div>
-    </article>
+    </>
+  );
+
+  if (!hasActions) {
+    return (
+      <article
+        className="flex items-start justify-between gap-3 py-3.5 first:pt-2 last:pb-0 md:items-center md:gap-4"
+        data-type={schedule.type}
+        data-status={schedule.completedAt ? "completed" : schedule.status}
+      >
+        {rowInnerContent}
+      </article>
+    );
+  }
+
+  function handleMenuOpenChange(nextOpen: boolean) {
+    if (
+      nextOpen &&
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(min-width: 1024px)").matches
+    ) {
+      return;
+    }
+    setMenuOpen(nextOpen);
+  }
+
+  return (
+    <>
+      <DropdownMenu open={menuOpen} onOpenChange={handleMenuOpenChange}>
+        <SpotlightTrigger
+          open={menuOpen}
+          onOpenChange={handleMenuOpenChange}
+          mobileOnly
+          dismissLabel={`Đóng menu thao tác ${schedule.description || "giao dịch định kỳ"}`}
+          render={
+            <article
+              role="button"
+              tabIndex={0}
+              data-type={schedule.type}
+              data-status={schedule.completedAt ? "completed" : schedule.status}
+              aria-label={`${schedule.description || "Giao dịch định kỳ"}, ${amountPrefix}${formatAmount(schedule.amount)} ${currencySymbol}. Chạm để mở menu thao tác.`}
+              className="flex cursor-pointer select-none items-start justify-between gap-3 rounded-xl px-2 py-3.5 -mx-2 text-left transition-all duration-150 active:scale-[0.99] active:bg-[var(--surface-hover)] md:items-center md:gap-4 lg:cursor-default lg:select-auto lg:px-0 lg:mx-0 lg:active:scale-100 lg:active:bg-transparent"
+            />
+          }
+        >
+          {(spotlightTrigger) => (
+            <DropdownMenuTrigger nativeButton={false} render={spotlightTrigger}>
+              {rowInnerContent}
+            </DropdownMenuTrigger>
+          )}
+        </SpotlightTrigger>
+
+        <DropdownMenuContent
+          align="center"
+          side="bottom"
+          sideOffset={6}
+          className="w-56 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 lg:hidden"
+        >
+          {permissions.canApprove && (
+            <>
+              <DropdownMenuItem
+                disabled={busy}
+                onClick={() => run(() => onReview(true))}
+              >
+                <ApprovalActionIcon decision="approve" />
+                <span>Duyệt và bật lịch</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={busy}
+                onClick={() => run(() => onReview(false))}
+              >
+                <ApprovalActionIcon decision="reject" />
+                <span>Từ chối lịch</span>
+              </DropdownMenuItem>
+            </>
+          )}
+          {(permissions.canPause || permissions.canReactivate) && (
+            <DropdownMenuItem disabled={busy} onClick={() => run(onToggle)}>
+              {schedule.status === "active" ? (
+                <Pause size={15} aria-hidden="true" />
+              ) : (
+                <Play size={15} aria-hidden="true" />
+              )}
+              <span>
+                {schedule.status === "active"
+                  ? "Tạm dừng lịch"
+                  : "Kích hoạt lại lịch"}
+              </span>
+            </DropdownMenuItem>
+          )}
+          {permissions.canEdit && (
+            <DropdownMenuItem disabled={busy} onClick={() => run(onEdit)}>
+              <Pencil size={15} aria-hidden="true" />
+              <span>Chỉnh sửa lịch</span>
+            </DropdownMenuItem>
+          )}
+          {permissions.canDelete && (
+            <>
+              {(permissions.canApprove ||
+                permissions.canPause ||
+                permissions.canReactivate ||
+                permissions.canEdit) && <DropdownMenuSeparator />}
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={busy}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setDeleteOpen(true);
+                }}
+              >
+                <Trash2 size={15} aria-hidden="true" />
+                <span>Xóa lịch định kỳ</span>
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Sheet open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <SheetContent
+          side="bottom"
+          aria-label="Xác nhận xóa lịch giao dịch"
+        >
+          <SheetHeader
+            icon={Trash2}
+            title="Xóa giao dịch định kỳ?"
+            description="Các giao dịch đã ghi nhận trước đó vẫn được giữ nguyên."
+          />
+          <div className="p-4">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-3">
+              <span className="min-w-0 break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                {schedule.description || "Giao dịch định kỳ"}
+              </span>
+              <strong className={cn("shrink-0 text-sm font-bold tabular-nums", amountTone)}>
+                {amountPrefix}
+                {formatAmount(schedule.amount)} {currencySymbol}
+              </strong>
+            </div>
+          </div>
+          <SheetFooter className="grid grid-cols-2 gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => setDeleteOpen(false)}
+            >
+              Giữ lại
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busy}
+              onClick={() => {
+                setDeleteOpen(false);
+                onDelete();
+              }}
+            >
+              Xóa lịch
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 

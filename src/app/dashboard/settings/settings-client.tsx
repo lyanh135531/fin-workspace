@@ -19,10 +19,8 @@ import {
   Select,
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
-  SheetTitle,
 } from "@/components/base";
 import { toast } from "sonner";
 
@@ -209,7 +207,6 @@ export function SettingsClient({
                         ? "Tài khoản của bạn"
                         : "Đang có quyền truy cập"}
                     </span>
-                    <small className="member-mobile-summary break-words leading-snug">{roleName}</small>
                   </div>
 
                   {/* Role */}
@@ -316,45 +313,36 @@ export function SettingsClient({
           }
         }}
       >
-        <SheetContent
-          side="bottom"
-          className={`ledger-mobile-review-sheet member-management-sheet w-[min(36rem,calc(100vw-1rem))]! max-w-none! overflow-hidden! border border-[var(--border)]! bg-[var(--surface)]! p-0!${confirmingRemove ? " pending-delete" : ""}`}
-        >
+        <SheetContent side="bottom">
           {selectedMember && (
             <>
-              <SheetHeader className="ledger-mobile-review-header">
-                <div className="ledger-mobile-review-heading">
-                  <span aria-hidden="true">
-                    {confirmingRemove ? (
-                      <UserRoundX size={18} />
-                    ) : (
-                      <ShieldCheck size={18} />
-                    )}
-                  </span>
-                  <div>
-                    <SheetTitle>
-                      {confirmingRemove
-                        ? "Gỡ thành viên?"
-                        : selectedMember.username}
-                    </SheetTitle>
-                    <SheetDescription>
-                      {confirmingRemove
-                        ? `${selectedMember.username} sẽ mất quyền truy cập nhóm.`
-                        : canManageSelectedMember
-                          ? "Quản lý vai trò và quyền truy cập nhóm."
-                          : "Thông tin vai trò trong nhóm."}
-                    </SheetDescription>
-                  </div>
-                </div>
-              </SheetHeader>
+              <SheetHeader
+                icon={confirmingRemove ? UserRoundX : ShieldCheck}
+                title={
+                  confirmingRemove ? "Gỡ thành viên?" : selectedMember.username
+                }
+                description={
+                  confirmingRemove
+                    ? `${selectedMember.username} sẽ mất quyền truy cập nhóm.`
+                    : canManageSelectedMember
+                      ? "Quản lý vai trò và quyền truy cập nhóm."
+                      : "Thông tin vai trò trong nhóm."
+                }
+              />
 
-              <div className="ledger-mobile-review-body member-management-sheet-body">
-                <div className="ledger-mobile-review-transaction rounded-2xl">
-                  <div>
-                    <span>{selectedMember.username}</span>
-                    <small>Thành viên của nhóm</small>
+              <div className="flex flex-col gap-4 p-4">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-3">
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                      {selectedMember.username}
+                    </span>
+                    <small className="text-xs text-[var(--text-secondary)]">
+                      Thành viên của nhóm
+                    </small>
                   </div>
-                  <strong>{selectedMemberRoleName}</strong>
+                  <strong className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs font-semibold text-[var(--foreground)]">
+                    {selectedMemberRoleName}
+                  </strong>
                 </div>
 
                 {!confirmingRemove && canManageSelectedMember && (
@@ -375,7 +363,11 @@ export function SettingsClient({
               </div>
 
               <SheetFooter
-                className={`ledger-mobile-review-actions${canManageSelectedMember ? "" : " member-management-actions-single"}`}
+                className={
+                  canManageSelectedMember
+                    ? "grid grid-cols-2 gap-2.5"
+                    : "flex flex-col"
+                }
               >
                 {confirmingRemove ? (
                   <>
@@ -390,7 +382,6 @@ export function SettingsClient({
                     <Button
                       type="button"
                       variant="destructive"
-                      className="ledger-mobile-review-approve"
                       data-delete
                       disabled={pending || removingId !== null}
                       onClick={() => void remove(selectedMember.id)}
@@ -410,7 +401,6 @@ export function SettingsClient({
                     <Button
                       type="button"
                       variant="destructive"
-                      className="ledger-mobile-review-approve"
                       data-delete
                       disabled={pending || removingId !== null}
                       onClick={() => setConfirmingRemove(true)}
@@ -423,6 +413,7 @@ export function SettingsClient({
                   <Button
                     type="button"
                     variant="outline"
+                    className="w-full"
                     onClick={() => setSelectedMemberId(null)}
                   >
                     Đóng

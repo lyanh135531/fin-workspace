@@ -70,6 +70,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { formatAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -713,45 +714,93 @@ export function WalletManagement({
         ? new Decimal(wallet.availableBalance)
         : actualBalanceDec.minus(reservedBalanceDec);
 
-    return (
-      <article
-        key={wallet.id}
-        draggable={isAdmin && filterStatus === "all" && !pending}
-        onDragStart={(event) => {
-          setDraggedWalletId(wallet.id);
-          event.dataTransfer.effectAllowed = "move";
-          event.dataTransfer.setData("text/plain", wallet.id);
-        }}
-        onDragEnd={() => {
-          setDraggedWalletId(null);
-          setDropTargetWalletId(null);
-        }}
-        onDragOver={(event) => {
-          if (!draggedWalletId || draggedWalletId === wallet.id) return;
-          event.preventDefault();
-          event.dataTransfer.dropEffect = "move";
-          setDropTargetWalletId(wallet.id);
-        }}
-        onDragLeave={(event) => {
-          if (
-            !event.currentTarget.contains(event.relatedTarget as Node)
-          ) {
-            setDropTargetWalletId((current) =>
-              current === wallet.id ? null : current,
-            );
-          }
-        }}
-        onDrop={(event) => handleWalletDrop(event, wallet.id)}
-        data-wallet-status={wallet.status}
-        className={cn(
-          "flex flex-col justify-between gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 transition-colors md:p-5",
-          !isActive && "bg-[var(--surface-secondary)] opacity-80",
-          dropTargetWalletId === wallet.id &&
-            "border-[var(--primary)] bg-[var(--primary-soft)]",
-          draggedWalletId === wallet.id && "opacity-50",
-        )}
+    const menuItems = (
+      <DropdownMenuContent
+        align={isDesktop ? "end" : "center"}
+        side="bottom"
+        sideOffset={6}
+        className="w-56 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5"
       >
-        {/* Top Row: Wallet Name + Owner/Scope Badge + Actions */}
+        <DropdownMenuItem
+          onClick={() => {
+            setMobileMenuWalletId(null);
+            setDetailWallet(wallet);
+          }}
+        >
+          <Info size={15} className="text-[var(--primary)]" aria-hidden="true" />
+          <span>Chi tiết số dư</span>
+        </DropdownMenuItem>
+        {isCredit && (
+          <DropdownMenuItem
+            onClick={() => {
+              setMobileMenuWalletId(null);
+              router.push(`/credit-cards/${wallet.id}`);
+            }}
+          >
+            <CreditCard
+              size={15}
+              className="text-[var(--primary)]"
+              aria-hidden="true"
+            />
+            <span>Mở trang thẻ tín dụng</span>
+          </DropdownMenuItem>
+        )}
+        {isAdmin && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={pending}
+              onClick={() => {
+                setMobileMenuWalletId(null);
+                setEditingWallet(wallet);
+              }}
+            >
+              <Pencil size={15} aria-hidden="true" />
+              <span>Chỉnh sửa ví</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant={isActive ? "destructive" : "default"}
+              disabled={pending}
+              onClick={() => {
+                setMobileMenuWalletId(null);
+                if (isActive) {
+                  requestDestructiveOperation(wallet, "deactivate");
+                } else {
+                  activateWallet(wallet);
+                }
+              }}
+            >
+              {isActive ? (
+                <PauseCircle size={15} aria-hidden="true" />
+              ) : (
+                <PlayCircle size={15} aria-hidden="true" />
+              )}
+              <span>{isActive ? "Tạm ngưng ví" : "Kích hoạt lại"}</span>
+            </DropdownMenuItem>
+            {!isActive && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={pending}
+                  onClick={() => {
+                    setMobileMenuWalletId(null);
+                    requestDestructiveOperation(wallet, "delete");
+                  }}
+                >
+                  <Trash2 size={15} aria-hidden="true" />
+                  <span>Xóa ví</span>
+                </DropdownMenuItem>
+              </>
+            )}
+          </>
+        )}
+      </DropdownMenuContent>
+    );
+
+    const cardInnerContent = (
+      <>
+        {/* Top Row: Wallet Name + Owner/Scope Badge + Desktop Actions */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <span
@@ -800,10 +849,11 @@ export function WalletManagement({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1">
+          {/* Desktop-only Drag & Menu Controls */}
+          <div className="hidden shrink-0 items-center gap-1 lg:flex">
             {isAdmin && filterStatus === "all" && (
               <span
-                className="hidden cursor-grab place-items-center rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-hover)] active:cursor-grabbing lg:grid"
+                className="grid cursor-grab place-items-center rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-hover)] active:cursor-grabbing"
                 title={`Kéo để sắp xếp ${wallet.name}`}
                 aria-label={`Kéo để sắp xếp ${wallet.name}`}
               >
@@ -811,12 +861,7 @@ export function WalletManagement({
               </span>
             )}
 
-            <DropdownMenu
-              open={menuOpen}
-              onOpenChange={(open) =>
-                setMobileMenuWalletId(open ? wallet.id : null)
-              }
-            >
+            <DropdownMenu>
               <DropdownMenuTrigger
                 render={
                   <Button
@@ -829,83 +874,7 @@ export function WalletManagement({
               >
                 <MoreHorizontal size={16} aria-hidden="true" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                side="bottom"
-                sideOffset={6}
-                className="w-52 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5"
-              >
-                <DropdownMenuItem
-                  onClick={() => {
-                    setMobileMenuWalletId(null);
-                    setDetailWallet(wallet);
-                  }}
-                >
-                  <Info size={15} aria-hidden="true" />
-                  Chi tiết số dư
-                </DropdownMenuItem>
-                {isCredit && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setMobileMenuWalletId(null);
-                      router.push(`/credit-cards/${wallet.id}`);
-                    }}
-                  >
-                    <CreditCard size={15} aria-hidden="true" />
-                    Mở trang thẻ tín dụng
-                  </DropdownMenuItem>
-                )}
-                {isAdmin && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      disabled={pending}
-                      onClick={() => {
-                        setMobileMenuWalletId(null);
-                        setEditingWallet(wallet);
-                      }}
-                    >
-                      <Pencil size={15} aria-hidden="true" />
-                      Chỉnh sửa ví
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      variant={isActive ? "destructive" : "default"}
-                      disabled={pending}
-                      onClick={() => {
-                        setMobileMenuWalletId(null);
-                        if (isActive) {
-                          requestDestructiveOperation(wallet, "deactivate");
-                        } else {
-                          activateWallet(wallet);
-                        }
-                      }}
-                    >
-                      {isActive ? (
-                        <PauseCircle size={15} aria-hidden="true" />
-                      ) : (
-                        <PlayCircle size={15} aria-hidden="true" />
-                      )}
-                      {isActive ? "Tạm ngưng ví" : "Kích hoạt lại"}
-                    </DropdownMenuItem>
-                    {!isActive && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          disabled={pending}
-                          onClick={() => {
-                            setMobileMenuWalletId(null);
-                            requestDestructiveOperation(wallet, "delete");
-                          }}
-                        >
-                          <Trash2 size={15} aria-hidden="true" />
-                          Xóa ví
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </>
-                )}
-              </DropdownMenuContent>
+              {menuItems}
             </DropdownMenu>
           </div>
         </div>
@@ -936,8 +905,13 @@ export function WalletManagement({
           </div>
         </div>
 
-        {/* Compact Secondary Row: Số dư thực tế & Tiền chờ thanh toán thẻ */}
-        <div className="grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-3 text-xs">
+        {/* Compact Secondary Row: hidden on mobile when reservedBalance is 0 to reduce clutter */}
+        <div
+          className={cn(
+            "grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-3 text-xs",
+            !isCredit && reservedBalanceDec.lte(0) && "hidden md:grid",
+          )}
+        >
           <div className="min-w-0">
             <span className="block text-[11px] text-[var(--text-muted)]">
               {isCredit ? "Dư nợ thực tế" : "Số dư thực tế"}
@@ -968,7 +942,7 @@ export function WalletManagement({
           </div>
         </div>
 
-        {/* Footer: Activity counts + Sleek Icon-Only Quick Actions */}
+        {/* Footer: Activity counts + Desktop Quick Actions */}
         <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-3 text-xs text-[var(--text-muted)]">
           <div className="min-w-0">
             <span>{wallet.transactionCount} giao dịch</span>
@@ -980,7 +954,12 @@ export function WalletManagement({
             )}
           </div>
 
-          <div className="flex shrink-0 items-center gap-1">
+          {/* Touch hint on mobile/tablet, icon buttons on desktop */}
+          <span className="text-[11px] text-[var(--text-muted)] lg:hidden">
+            Chạm để thao tác
+          </span>
+
+          <div className="hidden shrink-0 items-center gap-1 lg:flex">
             <Button
               type="button"
               variant="ghost"
@@ -1021,7 +1000,90 @@ export function WalletManagement({
             )}
           </div>
         </div>
-      </article>
+      </>
+    );
+
+    return (
+      <div key={wallet.id} className="contents">
+        {/* Mobile & Tablet (<1024px): Touch Spotlight Card with Context Menu */}
+        <div className="lg:hidden">
+          <DropdownMenu
+            open={menuOpen}
+            onOpenChange={(open) =>
+              setMobileMenuWalletId(open ? wallet.id : null)
+            }
+          >
+            <SpotlightTrigger
+              open={menuOpen}
+              onOpenChange={(open) =>
+                setMobileMenuWalletId(open ? wallet.id : null)
+              }
+              mobileOnly
+              dismissLabel={`Đóng menu quản lý ${wallet.name}`}
+              render={
+                <article
+                  role="button"
+                  tabIndex={0}
+                  data-wallet-status={wallet.status}
+                  aria-label={`${wallet.name}. Chạm để mở menu thao tác ví.`}
+                  className={cn(
+                    "flex h-full cursor-pointer select-none flex-col justify-between gap-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left transition-all duration-150 active:scale-[0.99] active:bg-[var(--surface-hover)] md:p-5",
+                    !isActive && "bg-[var(--surface-secondary)] opacity-80",
+                  )}
+                />
+              }
+            >
+              {(spotlightTrigger) => (
+                <DropdownMenuTrigger
+                  nativeButton={false}
+                  render={spotlightTrigger}
+                >
+                  {cardInnerContent}
+                </DropdownMenuTrigger>
+              )}
+            </SpotlightTrigger>
+            {menuItems}
+          </DropdownMenu>
+        </div>
+
+        {/* Desktop (>=1024px): Draggable Card with Inline Action Buttons */}
+        <article
+          draggable={isAdmin && filterStatus === "all" && !pending}
+          onDragStart={(event) => {
+            setDraggedWalletId(wallet.id);
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", wallet.id);
+          }}
+          onDragEnd={() => {
+            setDraggedWalletId(null);
+            setDropTargetWalletId(null);
+          }}
+          onDragOver={(event) => {
+            if (!draggedWalletId || draggedWalletId === wallet.id) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            setDropTargetWalletId(wallet.id);
+          }}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+              setDropTargetWalletId((current) =>
+                current === wallet.id ? null : current,
+              );
+            }
+          }}
+          onDrop={(event) => handleWalletDrop(event, wallet.id)}
+          data-wallet-status={wallet.status}
+          className={cn(
+            "hidden flex-col justify-between gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition-colors lg:flex",
+            !isActive && "bg-[var(--surface-secondary)] opacity-80",
+            dropTargetWalletId === wallet.id &&
+              "border-[var(--primary)] bg-[var(--primary-soft)]",
+            draggedWalletId === wallet.id && "opacity-50",
+          )}
+        >
+          {cardInnerContent}
+        </article>
+      </div>
     );
   }
 

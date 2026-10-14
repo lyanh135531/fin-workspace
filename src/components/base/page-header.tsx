@@ -22,7 +22,7 @@ export function PageHeader({
     <div
       data-slot="page-header"
       className={cn(
-        "page-header mb-4 flex flex-col justify-between gap-3 pb-4 md:mb-6 md:flex-row md:items-center md:gap-4 md:pb-5",
+        "mb-4 flex flex-col justify-between gap-3 pb-4 md:mb-6 md:flex-row md:items-center md:gap-4 md:pb-5",
         border && "border-b border-[var(--border)]",
         className,
       )}

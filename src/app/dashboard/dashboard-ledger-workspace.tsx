@@ -122,7 +122,7 @@ export function DashboardLedgerWorkspace({
   const cashflow = summary.cashflow;
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-[76rem] flex-col gap-3 md:gap-4">
+    <div className="mx-auto flex w-full max-w-[76rem] flex-col gap-3 md:gap-4 lg:h-full lg:min-h-0">
       <PageHeader
         className="mb-0 shrink-0 pb-3 md:pb-4"
         title="Sổ giao dịch"
@@ -148,65 +148,65 @@ export function DashboardLedgerWorkspace({
 
       {/* Compact 3-Metric Summary Strip */}
       <section
-        className="grid shrink-0 grid-cols-3 gap-2 md:gap-4"
+        className="grid shrink-0 grid-cols-1 gap-2.5 sm:grid-cols-3 md:gap-4"
         aria-label="Tổng hợp giao dịch"
       >
         <Card as="article" size="sm" className="min-w-0 gap-1">
-          <div className="flex min-w-0 items-center justify-between gap-1 text-[0.7rem] font-medium text-[var(--text-secondary)] md:text-xs">
+          <div className="flex min-w-0 items-center justify-between gap-1 text-xs font-medium text-[var(--text-secondary)]">
             <span className="break-words leading-snug">Tổng thu</span>
             <ArrowDownLeft
-              className="hidden size-3.5 shrink-0 text-[var(--income)] md:block"
+              className="size-3.5 shrink-0 text-[var(--income)]"
               aria-hidden="true"
             />
           </div>
           <strong
-            className="block break-words text-sm font-bold leading-snug tracking-tight text-[var(--income)] tabular-nums md:text-lg"
+            className="block break-words text-base font-bold leading-snug tracking-tight text-[var(--income)] tabular-nums md:text-lg"
             title={`+${formatAmount(summary.income)} ${ledgerProps.currency}`}
           >
             +{formatAmount(summary.income)}{" "}
-            <span className="text-[0.68rem] font-medium text-[var(--text-muted)] md:text-xs">
+            <span className="text-xs font-medium text-[var(--text-muted)]">
               {ledgerProps.currency}
             </span>
           </strong>
         </Card>
 
         <Card as="article" size="sm" className="min-w-0 gap-1">
-          <div className="flex min-w-0 items-center justify-between gap-1 text-[0.7rem] font-medium text-[var(--text-secondary)] md:text-xs">
+          <div className="flex min-w-0 items-center justify-between gap-1 text-xs font-medium text-[var(--text-secondary)]">
             <span className="break-words leading-snug">Tổng chi</span>
             <ArrowUpRight
-              className="hidden size-3.5 shrink-0 text-[var(--expense)] md:block"
+              className="size-3.5 shrink-0 text-[var(--expense)]"
               aria-hidden="true"
             />
           </div>
           <strong
-            className="block break-words text-sm font-bold leading-snug tracking-tight text-[var(--expense)] tabular-nums md:text-lg"
+            className="block break-words text-base font-bold leading-snug tracking-tight text-[var(--expense)] tabular-nums md:text-lg"
             title={`−${formatAmount(summary.expense)} ${ledgerProps.currency}`}
           >
             −{formatAmount(summary.expense)}{" "}
-            <span className="text-[0.68rem] font-medium text-[var(--text-muted)] md:text-xs">
+            <span className="text-xs font-medium text-[var(--text-muted)]">
               {ledgerProps.currency}
             </span>
           </strong>
         </Card>
 
         <Card as="article" size="sm" className="min-w-0 gap-1">
-          <div className="flex min-w-0 items-center justify-between gap-1 text-[0.7rem] font-medium text-[var(--text-secondary)] md:text-xs">
+          <div className="flex min-w-0 items-center justify-between gap-1 text-xs font-medium text-[var(--text-secondary)]">
             <span className="break-words leading-snug">Chênh lệch thu chi</span>
             {cashflow.isNegative() ? (
               <TrendingDown
-                className="hidden size-3.5 shrink-0 text-[var(--expense)] md:block"
+                className="size-3.5 shrink-0 text-[var(--expense)]"
                 aria-hidden="true"
               />
             ) : (
               <TrendingUp
-                className="hidden size-3.5 shrink-0 text-[var(--income)] md:block"
+                className="size-3.5 shrink-0 text-[var(--income)]"
                 aria-hidden="true"
               />
             )}
           </div>
           <strong
             className={cn(
-              "block break-words text-sm font-bold leading-snug tracking-tight tabular-nums md:text-lg",
+              "block break-words text-base font-bold leading-snug tracking-tight tabular-nums md:text-lg",
               cashflow.isNegative()
                 ? "text-[var(--expense)]"
                 : cashflow.gt(0)
@@ -217,7 +217,7 @@ export function DashboardLedgerWorkspace({
           >
             {cashflow.gt(0) ? "+" : cashflow.isNegative() ? "−" : ""}
             {formatAmount(cashflow.abs())}{" "}
-            <span className="text-[0.68rem] font-medium text-[var(--text-muted)] md:text-xs">
+            <span className="text-xs font-medium text-[var(--text-muted)]">
               {ledgerProps.currency}
             </span>
           </strong>
@@ -226,7 +226,7 @@ export function DashboardLedgerWorkspace({
 
       <Card
         as="section"
-        className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden p-0"
+        className="flex flex-col gap-0 p-0 lg:min-h-0 lg:flex-1 lg:overflow-hidden"
       >
         <Ledger
           {...ledgerProps}

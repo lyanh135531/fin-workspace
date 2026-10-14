@@ -8,6 +8,7 @@
   --app-touch-target: 2.75rem;
 }
 
+@layer components {
 .skip-link {
   position: fixed;
   z-index: 100;
@@ -697,64 +698,6 @@
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-  [data-slot="sidebar-gap"],
-  [data-slot="sidebar-container"] {
-    width: 4rem !important;
-  }
-
-  [data-slot="sidebar-inner"] {
-    gap: 0.5rem;
-    padding-inline: 0.5rem;
-  }
-
-  [data-slot="sidebar-header"],
-  [data-slot="sidebar-footer"],
-  [data-slot="sidebar-group"] {
-    padding-inline: 0;
-  }
-
-  [data-slot="sidebar-menu-button"] {
-    width: var(--app-touch-target) !important;
-    height: var(--app-touch-target) !important;
-    margin-inline: auto;
-    justify-content: center;
-    gap: 0 !important;
-    padding: 0 !important;
-  }
-
-  [data-slot="sidebar-menu-button"] > span,
-  [data-slot="sidebar-header"] .sidebar-brand-text,
-  [data-slot="sidebar-header"] a > span,
-  [data-slot="sidebar-header"] strong,
-  .sidebar-ws-meta,
-  .sidebar-ws-chevron,
-  .sidebar-user-info,
-  .sidebar-user-chevron-wrap {
-    display: none !important;
-  }
-
-  .sidebar-workspace-selector-card,
-  .sidebar-user-card {
-    width: var(--app-touch-target) !important;
-    min-width: var(--app-touch-target) !important;
-    height: var(--app-touch-target) !important;
-    min-height: var(--app-touch-target) !important;
-    margin-inline: auto !important;
-    justify-content: center !important;
-    gap: 0 !important;
-    padding: 0 !important;
-  }
-
-  .sidebar-user-section {
-    display: block !important;
-    padding-inline: 0 !important;
-  }
-
-  .mobile-navigation-trigger,
-  .sidebar-collapse-toggle {
-    display: none !important;
-  }
-
   .overview-shell > .page-header {
     min-height: 8rem;
     align-items: end;
@@ -1911,7 +1854,7 @@
   display: none;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .spotlight-menu-backdrop-mobile-only {
     display: none;
   }
@@ -1923,6 +1866,7 @@
   .spotlight-menu-trigger-mobile-only.spotlight-menu-trigger-active {
     z-index: auto;
     isolation: auto;
+    outline: none !important;
   }
 }
 
@@ -2195,3 +2139,5 @@
     font-size: 0.62rem;
   }
 }
+}
+

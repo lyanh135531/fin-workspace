@@ -9,10 +9,8 @@ import {
   Select,
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
-  SheetTitle,
 } from "@/components/base";
 import { toast } from "sonner";
 
@@ -144,7 +142,6 @@ export function JoinRequestsClient({
                 <div className="member-identity min-w-0">
                   <strong className="break-words leading-snug">{r.username}</strong>
                   <span>Đang chờ được phê duyệt</span>
-                  <small className="member-mobile-summary">Chờ duyệt</small>
                 </div>
 
                 {/* Role selection dropdown */}
@@ -230,33 +227,28 @@ export function JoinRequestsClient({
           if (!open) setSelectedRequestId(null);
         }}
       >
-        <SheetContent
-          side="bottom"
-          className="ledger-mobile-review-sheet member-management-sheet"
-        >
+        <SheetContent side="bottom">
           {selectedRequest && (
             <>
-              <SheetHeader className="ledger-mobile-review-header">
-                <div className="ledger-mobile-review-heading">
-                  <span aria-hidden="true">
-                    <UserPlus size={18} />
-                  </span>
-                  <div>
-                    <SheetTitle>Yêu cầu tham gia</SheetTitle>
-                    <SheetDescription>
-                      Chọn vai trò trước khi cấp quyền truy cập.
-                    </SheetDescription>
-                  </div>
-                </div>
-              </SheetHeader>
+              <SheetHeader
+                icon={UserPlus}
+                title="Yêu cầu tham gia"
+                description="Chọn vai trò trước khi cấp quyền truy cập."
+              />
 
-              <div className="ledger-mobile-review-body member-management-sheet-body">
-                <div className="ledger-mobile-review-transaction">
-                  <div>
-                    <span>{selectedRequest.username}</span>
-                    <small>Đang chờ được phê duyệt</small>
+              <div className="flex flex-col gap-4 p-4">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-3">
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                      {selectedRequest.username}
+                    </span>
+                    <small className="text-xs text-[var(--text-secondary)]">
+                      Đang chờ được phê duyệt
+                    </small>
                   </div>
-                  <strong>Chờ duyệt</strong>
+                  <strong className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs font-semibold text-[var(--warning)]">
+                    Chờ duyệt
+                  </strong>
                 </div>
 
                 <Select
@@ -277,11 +269,10 @@ export function JoinRequestsClient({
                 />
               </div>
 
-              <SheetFooter className="ledger-mobile-review-actions">
+              <SheetFooter className="grid grid-cols-2 gap-2.5">
                 <Button
                   type="button"
                   variant="outline"
-                  className="ledger-mobile-review-reject"
                   disabled={pending}
                   onClick={() => review(selectedRequest.id, false)}
                 >

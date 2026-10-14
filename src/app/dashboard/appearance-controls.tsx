@@ -7,9 +7,7 @@ import {
   Button,
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
-  SheetTitle,
   SheetTrigger,
   Tabs,
   TabsList,
@@ -187,22 +185,15 @@ export function MobileAppearanceSheet() {
       </SheetTrigger>
       <SheetContent
         side="bottom"
-        className="quick-transaction-sheet"
         aria-label="Cài đặt giao diện"
       >
-        <SheetHeader className="quick-transaction-header">
-          <div className="quick-transaction-heading">
-            <span>
-              <Palette size={18} aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <SheetTitle>Giao diện</SheetTitle>
-              <SheetDescription>Tùy chỉnh chế độ và màu sắc.</SheetDescription>
-            </div>
-          </div>
-        </SheetHeader>
+        <SheetHeader
+          icon={Palette}
+          title="Giao diện"
+          description="Tùy chỉnh chế độ và màu sắc."
+        />
 
-        <div className="quick-transaction-scroll grid gap-5 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="grid gap-5 overflow-y-auto p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           {/* 1. Chế độ hiển thị: Segmented Control chuẩn iOS */}
           <section aria-labelledby="mobile-mode-label" className="grid gap-2">
             <h3

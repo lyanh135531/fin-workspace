@@ -49,9 +49,15 @@ export function getMobileLedgerActions({
   return actions;
 }
 
-export function useLongPress(onLongPress: () => void, enabled: boolean) {
+export function useLongPress(
+  onLongPress: () => void,
+  enabled: boolean,
+  onTap?: () => void,
+) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startRef = useRef<{ x: number; y: number } | null>(null);
+  const didLongPressRef = useRef(false);
+  const movedRef = useRef(false);
   const [isPressing, setIsPressing] = useState(false);
 
   const cancel = useCallback(() => {
@@ -65,13 +71,17 @@ export function useLongPress(onLongPress: () => void, enabled: boolean) {
 
   const open = useCallback(() => {
     if (!enabled) return;
+    didLongPressRef.current = true;
     cancel();
     onLongPress();
   }, [cancel, enabled, onLongPress]);
 
   const onPointerDown = useCallback(
     (event: PointerEvent<HTMLElement>) => {
-      if (!enabled || event.button !== 0) return;
+      if (event.button !== 0) return;
+      didLongPressRef.current = false;
+      movedRef.current = false;
+      if (!enabled) return;
       cancel();
       startRef.current = { x: event.clientX, y: event.clientY };
       setIsPressing(true);
@@ -89,6 +99,7 @@ export function useLongPress(onLongPress: () => void, enabled: boolean) {
           y: event.clientY,
         })
       ) {
+        movedRef.current = true;
         cancel();
       }
     },
@@ -106,20 +117,33 @@ export function useLongPress(onLongPress: () => void, enabled: boolean) {
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLElement>) => {
       const opensContextMenu =
-        event.key === "ContextMenu" ||
-        (event.shiftKey && event.key === "F10") ||
-        event.key === "Enter" ||
-        event.key === " ";
-      if (!opensContextMenu) return;
-      event.preventDefault();
-      open();
+        event.key === "ContextMenu" || (event.shiftKey && event.key === "F10");
+      if (opensContextMenu) {
+        event.preventDefault();
+        open();
+        return;
+      }
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        if (onTap) onTap();
+        else open();
+      }
     },
-    [open],
+    [onTap, open],
   );
 
-  const onClick = useCallback((event: MouseEvent<HTMLElement>) => {
-    event.preventDefault();
-  }, []);
+  const onClick = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      if (didLongPressRef.current || movedRef.current) {
+        didLongPressRef.current = false;
+        movedRef.current = false;
+        return;
+      }
+      onTap?.();
+    },
+    [onTap],
+  );
 
   return {
     isPressing,

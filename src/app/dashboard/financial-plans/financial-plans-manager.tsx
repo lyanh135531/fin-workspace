@@ -44,6 +44,14 @@ import {
   TabsTrigger,
 } from "@/components/base";
 import { ConfirmDelete } from "@/components/base/confirm-delete";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   FinancialPlanGoals,
   type FinancialGoalView,
@@ -711,58 +719,156 @@ function DraftReview({
   onDelete: () => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [draftMenuOpen, setDraftMenuOpen] = useState(false);
+
+  function handleDraftMenuOpenChange(nextOpen: boolean) {
+    if (
+      nextOpen &&
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(min-width: 1024px)").matches
+    ) {
+      return;
+    }
+    setDraftMenuOpen(nextOpen);
+  }
+
+  const draftHeaderContent = (
+    <div className="flex flex-col gap-4 border-b border-[var(--border)] pb-4 md:flex-row md:items-center md:justify-between">
+      <div className="min-w-0">
+        <span className="inline-flex items-center gap-1.5 rounded-md bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] px-2.5 py-0.5 text-xs font-semibold text-[var(--warning)]">
+          <Pencil className="size-3" aria-hidden="true" />
+          <span>Bản nháp kế hoạch</span>
+        </span>
+        <h2 className="mt-2 break-words text-xl font-bold leading-snug tracking-tight text-[var(--foreground)] md:text-2xl">
+          {plan.name}
+        </h2>
+        <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-secondary)]">
+          Kiểm tra lại mục tiêu và tỷ lệ phân bổ 6 hũ trước khi kích hoạt.
+        </p>
+      </div>
+
+      {plan.canManage && (
+        <div
+          className="hidden shrink-0 items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)]/80 p-1 lg:flex"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Button
+            variant="default"
+            size="icon"
+            onClick={onActivate}
+            disabled={disabled}
+            aria-label="Kích hoạt kế hoạch"
+            title="Kích hoạt kế hoạch"
+          >
+            <CheckCircle2 size={16} aria-hidden="true" />
+          </Button>
+          <Button
+            variant="icon"
+            size="icon"
+            onClick={onEdit}
+            disabled={disabled}
+            aria-label="Chỉnh sửa bản nháp"
+            title="Chỉnh sửa bản nháp"
+          >
+            <Pencil size={16} aria-hidden="true" />
+          </Button>
+          <Button
+            variant="destructiveIcon"
+            size="icon"
+            onClick={() => setConfirmDelete(true)}
+            disabled={disabled}
+            aria-label="Xóa bản nháp"
+            title="Xóa bản nháp"
+          >
+            <Trash2 size={16} aria-hidden="true" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <Card tone="primarySoft">
-      <div className="flex flex-col gap-4 border-b border-[var(--border)] pb-4 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0">
-          <span className="inline-flex items-center gap-1.5 rounded-md bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] px-2.5 py-0.5 text-xs font-semibold text-[var(--warning)]">
-            <Pencil className="size-3" aria-hidden="true" />
-            <span>Bản nháp kế hoạch</span>
-          </span>
-          <h2 className="mt-2 break-words text-xl font-bold leading-snug tracking-tight text-[var(--foreground)] md:text-2xl">
-            {plan.name}
-          </h2>
-          <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-secondary)]">
-            Kiểm tra lại mục tiêu và tỷ lệ phân bổ 6 hũ trước khi kích hoạt.
-          </p>
-        </div>
+      {plan.canManage ? (
+        <DropdownMenu
+          open={draftMenuOpen}
+          onOpenChange={handleDraftMenuOpenChange}
+        >
+          <SpotlightTrigger
+            open={draftMenuOpen}
+            onOpenChange={handleDraftMenuOpenChange}
+            mobileOnly
+            dismissLabel={`Đóng menu thao tác bản nháp ${plan.name}`}
+            render={
+              <div
+                role="button"
+                tabIndex={0}
+                aria-label={`Bản nháp ${plan.name}. Chạm để mở menu thao tác.`}
+                className="cursor-pointer select-none rounded-xl text-left transition-all duration-150 active:scale-[0.99] lg:cursor-default lg:select-auto lg:active:scale-100"
+              />
+            }
+          >
+            {(spotlightTrigger) => (
+              <DropdownMenuTrigger
+                nativeButton={false}
+                render={spotlightTrigger}
+              >
+                {draftHeaderContent}
+              </DropdownMenuTrigger>
+            )}
+          </SpotlightTrigger>
 
-        {plan.canManage && (
-          <div className="flex shrink-0 items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)]/80 p-1">
-            <Button
-              variant="default"
-              size="icon"
-              onClick={onActivate}
+          <DropdownMenuContent
+            align="center"
+            side="bottom"
+            sideOffset={6}
+            className="w-56 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 lg:hidden"
+          >
+            <DropdownMenuItem
               disabled={disabled}
-              aria-label="Kích hoạt kế hoạch"
-              title="Kích hoạt kế hoạch"
+              onClick={() => {
+                setDraftMenuOpen(false);
+                onActivate();
+              }}
             >
-              <CheckCircle2 size={16} aria-hidden="true" />
-            </Button>
-            <Button
-              variant="icon"
-              size="icon"
-              onClick={onEdit}
+              <CheckCircle2
+                className="size-4 text-[var(--primary)]"
+                aria-hidden="true"
+              />
+              <span>Kích hoạt kế hoạch</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
               disabled={disabled}
-              aria-label="Chỉnh sửa bản nháp"
-              title="Chỉnh sửa bản nháp"
+              onClick={() => {
+                setDraftMenuOpen(false);
+                onEdit();
+              }}
             >
-              <Pencil size={16} aria-hidden="true" />
-            </Button>
-            <Button
-              variant="destructiveIcon"
-              size="icon"
-              onClick={() => setConfirmDelete(true)}
+              <Pencil
+                className="size-4 text-[var(--text-secondary)]"
+                aria-hidden="true"
+              />
+              <span>Chỉnh sửa bản nháp</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
               disabled={disabled}
-              aria-label="Xóa bản nháp"
-              title="Xóa bản nháp"
+              onClick={() => {
+                setDraftMenuOpen(false);
+                setConfirmDelete(true);
+              }}
             >
-              <Trash2 size={16} aria-hidden="true" />
-            </Button>
-          </div>
-        )}
-      </div>
+              <Trash2 className="size-4" aria-hidden="true" />
+              <span>Xóa bản nháp</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        draftHeaderContent
+      )}
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -839,7 +945,7 @@ function DraftReview({
                   <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
                     {FINANCIAL_JAR_LABELS[jarCode]}
                   </p>
-                  <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
+                  <p className="mt-0.5 hidden break-words text-[11px] leading-snug text-[var(--text-muted)] md:block">
                     {JAR_DESCRIPTIONS[jarCode]}
                   </p>
                 </div>
@@ -908,6 +1014,7 @@ function PlanDetail({
   );
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [planMenuOpen, setPlanMenuOpen] = useState(false);
 
   const shortfall = currentMonth?.resourceShortfall ?? "0";
   const hasShortfall = new Decimal(shortfall).greaterThan(0);
@@ -945,112 +1052,262 @@ function PlanDetail({
   const monthlyUsageWidth = progressWidth(monthlyUsage.toString());
   const monthlyUsageTone = progressTone(monthlyUsageWidth);
 
+  function handlePlanMenuOpenChange(nextOpen: boolean) {
+    if (
+      nextOpen &&
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(min-width: 1024px)").matches
+    ) {
+      return;
+    }
+    setPlanMenuOpen(nextOpen);
+  }
+
+  const hasPlanActions =
+    plan.canManage &&
+    (plan.status === "active" ||
+      ((plan.status === "cancelled" || plan.status === "completed") &&
+        Boolean(onDelete)));
+
+  const statusCardInner = (
+    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--primary-soft)] px-2.5 py-0.5 text-xs font-semibold text-[var(--primary)]">
+            <span
+              className="size-1.5 rounded-full bg-[var(--primary)]"
+              aria-hidden="true"
+            />
+            {STATUS_LABELS[plan.status]}
+          </span>
+          {plan.status === "active" && (
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium",
+                plan.health === "at_risk" ||
+                  plan.health === "behind" ||
+                  plan.health === "overdue"
+                  ? "bg-[color-mix(in_srgb,var(--warning)_14%,var(--surface))] text-[var(--warning)]"
+                  : "bg-[color-mix(in_srgb,var(--success)_14%,var(--surface))] text-[var(--success)]",
+              )}
+            >
+              {plan.health === "at_risk" && (
+                <AlertTriangle className="size-3" aria-hidden="true" />
+              )}
+              {HEALTH_LABELS[plan.health]}
+            </span>
+          )}
+          <span className="text-xs text-[var(--text-muted)] tabular-nums shrink-0">
+            {monthLabel(plan.startMonth)} → {monthLabel(plan.targetMonth)}
+          </span>
+        </div>
+
+        <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="min-w-0 break-words text-lg font-bold leading-snug tracking-tight text-[var(--foreground)] md:text-xl">
+            {plan.name}
+          </h2>
+          <p className="text-xs text-[var(--text-secondary)] tabular-nums shrink-0">
+            Tiến độ tích lũy:{" "}
+            <strong className="font-semibold text-[var(--foreground)]">
+              {money(plan.realizedProgress, currency)}
+            </strong>{" "}
+            / {money(plan.targetAmount, currency)} (
+            {plan.realizedProgressPercentage}%)
+          </p>
+        </div>
+      </div>
+
+      {hasPlanActions && (
+        <div
+          className="hidden shrink-0 items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-1 lg:flex"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {plan.status === "active" && (
+            <>
+              <Button
+                variant="icon"
+                size="icon"
+                onClick={onEditAllocation}
+                disabled={disabled}
+                aria-label="Cấu hình tỷ lệ 6 hũ"
+                title="Cấu hình phân bổ 6 hũ"
+              >
+                <SlidersHorizontal size={16} aria-hidden="true" />
+              </Button>
+              <Button
+                variant="icon"
+                size="icon"
+                onClick={onEditDeadline}
+                disabled={disabled}
+                aria-label="Đổi thời hạn hoàn thành"
+                title="Đổi thời hạn hoàn thành"
+              >
+                <CalendarClock size={16} aria-hidden="true" />
+              </Button>
+              {plan.canComplete && (
+                <Button
+                  variant="success"
+                  size="icon"
+                  onClick={onComplete}
+                  disabled={disabled}
+                  aria-label="Hoàn thành kế hoạch"
+                  title="Hoàn thành kế hoạch"
+                >
+                  <CheckCircle2 size={16} aria-hidden="true" />
+                </Button>
+              )}
+            </>
+          )}
+          {(plan.status === "cancelled" || plan.status === "completed") &&
+            onDelete && (
+              <Button
+                variant="destructiveIcon"
+                size="icon"
+                onClick={() => setDeleteConfirmOpen(true)}
+                disabled={disabled}
+                aria-label="Xóa kế hoạch"
+                title="Xóa kế hoạch"
+              >
+                <Trash2 size={16} aria-hidden="true" />
+              </Button>
+            )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="grid gap-4 md:gap-5">
       {/* Plan Status Header Card */}
-      <Card size="sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--primary-soft)] px-2.5 py-0.5 text-xs font-semibold text-[var(--primary)]">
-                <span
-                  className="size-1.5 rounded-full bg-[var(--primary)]"
-                  aria-hidden="true"
-                />
-                {STATUS_LABELS[plan.status]}
-              </span>
-              {plan.status === "active" && (
-                <span
-                  className={cn(
-                    "inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium",
-                    plan.health === "at_risk" ||
-                      plan.health === "behind" ||
-                      plan.health === "overdue"
-                      ? "bg-[color-mix(in_srgb,var(--warning)_14%,var(--surface))] text-[var(--warning)]"
-                      : "bg-[color-mix(in_srgb,var(--success)_14%,var(--surface))] text-[var(--success)]",
-                  )}
+      {hasPlanActions ? (
+        <DropdownMenu
+          open={planMenuOpen}
+          onOpenChange={handlePlanMenuOpenChange}
+        >
+          <SpotlightTrigger
+            open={planMenuOpen}
+            onOpenChange={handlePlanMenuOpenChange}
+            mobileOnly
+            dismissLabel={`Đóng menu thao tác kế hoạch ${plan.name}`}
+            render={
+              <Card
+                size="sm"
+                role="button"
+                tabIndex={0}
+                aria-label={`Kế hoạch ${plan.name}. Chạm để mở menu thao tác.`}
+                className="cursor-pointer select-none text-left transition-all duration-150 active:scale-[0.99] active:bg-[var(--surface-hover)] lg:cursor-default lg:select-auto lg:active:scale-100 lg:active:bg-[var(--surface)]"
+              />
+            }
+          >
+            {(spotlightTrigger) => (
+              <DropdownMenuTrigger
+                nativeButton={false}
+                render={spotlightTrigger}
+              >
+                {statusCardInner}
+              </DropdownMenuTrigger>
+            )}
+          </SpotlightTrigger>
+
+          <DropdownMenuContent
+            align="center"
+            side="bottom"
+            sideOffset={6}
+            className="w-60 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 lg:hidden"
+          >
+            {plan.status === "active" && (
+              <>
+                <DropdownMenuItem
+                  disabled={disabled}
+                  onClick={() => {
+                    setPlanMenuOpen(false);
+                    onEditAllocation();
+                  }}
                 >
-                  {plan.health === "at_risk" && (
-                    <AlertTriangle className="size-3" aria-hidden="true" />
-                  )}
-                  {HEALTH_LABELS[plan.health]}
-                </span>
-              )}
-              <span className="text-xs text-[var(--text-muted)] tabular-nums shrink-0">
-                {monthLabel(plan.startMonth)} → {monthLabel(plan.targetMonth)}
-              </span>
-            </div>
-
-            <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="min-w-0 break-words text-lg font-bold leading-snug tracking-tight text-[var(--foreground)] md:text-xl">
-                {plan.name}
-              </h2>
-              <p className="text-xs text-[var(--text-secondary)] tabular-nums shrink-0">
-                Tiến độ tích lũy:{" "}
-                <strong className="font-semibold text-[var(--foreground)]">
-                  {money(plan.realizedProgress, currency)}
-                </strong>{" "}
-                / {money(plan.targetAmount, currency)} (
-                {plan.realizedProgressPercentage}%)
-              </p>
-            </div>
-          </div>
-
-          {plan.canManage && (
-            <div className="flex shrink-0 items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-1">
-              {plan.status === "active" && (
-                <>
-                  <Button
-                    variant="icon"
-                    size="icon"
-                    onClick={onEditAllocation}
+                  <SlidersHorizontal
+                    className="size-4 text-[var(--primary)]"
+                    aria-hidden="true"
+                  />
+                  <span>Cấu hình phân bổ 6 hũ</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={disabled}
+                  onClick={() => {
+                    setPlanMenuOpen(false);
+                    onEditDeadline();
+                  }}
+                >
+                  <CalendarClock
+                    className="size-4 text-[var(--text-secondary)]"
+                    aria-hidden="true"
+                  />
+                  <span>Đổi thời hạn hoàn thành</span>
+                </DropdownMenuItem>
+                {plan.canComplete && (
+                  <DropdownMenuItem
                     disabled={disabled}
-                    aria-label="Cấu hình tỷ lệ 6 hũ"
-                    title="Cấu hình phân bổ 6 hũ"
+                    onClick={() => {
+                      setPlanMenuOpen(false);
+                      onComplete();
+                    }}
                   >
-                    <SlidersHorizontal size={16} aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="icon"
-                    size="icon"
-                    onClick={onEditDeadline}
-                    disabled={disabled}
-                    aria-label="Đổi thời hạn hoàn thành"
-                    title="Đổi thời hạn hoàn thành"
-                  >
-                    <CalendarClock size={16} aria-hidden="true" />
-                  </Button>
-                  {plan.canComplete && (
-                    <Button
-                      variant="success"
-                      size="icon"
-                      onClick={onComplete}
-                      disabled={disabled}
-                      aria-label="Hoàn thành kế hoạch"
-                      title="Hoàn thành kế hoạch"
-                    >
-                      <CheckCircle2 size={16} aria-hidden="true" />
-                    </Button>
-                  )}
-                </>
-              )}
-              {(plan.status === "cancelled" || plan.status === "completed") &&
-                onDelete && (
-                  <Button
-                    variant="destructiveIcon"
-                    size="icon"
-                    onClick={() => setDeleteConfirmOpen(true)}
-                    disabled={disabled}
-                    aria-label="Xóa kế hoạch"
-                    title="Xóa kế hoạch"
-                  >
-                    <Trash2 size={16} aria-hidden="true" />
-                  </Button>
+                    <CheckCircle2
+                      className="size-4 text-[var(--success)]"
+                      aria-hidden="true"
+                    />
+                    <span>Hoàn thành kế hoạch</span>
+                  </DropdownMenuItem>
                 )}
-            </div>
-          )}
-        </div>
-      </Card>
+                {plans.length > 1 && (
+                  <DropdownMenuItem
+                    disabled={disabled}
+                    onClick={() => {
+                      setPlanMenuOpen(false);
+                      onOpenPlanPicker();
+                    }}
+                  >
+                    <CalendarRange
+                      className="size-4 text-[var(--text-secondary)]"
+                      aria-hidden="true"
+                    />
+                    <span>Chuyển đổi kế hoạch ({plans.length})</span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={disabled}
+                  onClick={() => {
+                    setPlanMenuOpen(false);
+                    setCancelConfirmOpen(true);
+                  }}
+                >
+                  <AlertTriangle className="size-4" aria-hidden="true" />
+                  <span>Hủy kế hoạch</span>
+                </DropdownMenuItem>
+              </>
+            )}
+            {(plan.status === "cancelled" || plan.status === "completed") &&
+              onDelete && (
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={disabled}
+                  onClick={() => {
+                    setPlanMenuOpen(false);
+                    setDeleteConfirmOpen(true);
+                  }}
+                >
+                  <Trash2 className="size-4" aria-hidden="true" />
+                  <span>Xóa kế hoạch</span>
+                </DropdownMenuItem>
+              )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <Card size="sm">{statusCardInner}</Card>
+      )}
 
       {/* Top 4-Metric Summary Strip for Active Plan */}
       <section
@@ -1544,7 +1801,7 @@ function SixJarsSection({
                       {FINANCIAL_JAR_LABELS[jar.jarCode]}
                     </h4>
                   </div>
-                  <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
+                  <p className="mt-0.5 hidden break-words text-xs leading-snug text-[var(--text-muted)] md:block">
                     {JAR_DESCRIPTIONS[jar.jarCode]}
                   </p>
                 </div>

@@ -36,9 +36,7 @@ import {
   Select,
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
-  SheetTitle,
   SheetTrigger,
 } from "@/components/base";
 import {
@@ -755,28 +753,21 @@ export function NotificationsMenu({
 
         <SheetContent
           side="bottom"
-          className="notifications-mobile-sheet"
           aria-busy={pending}
           aria-label="Thông báo"
         >
-          <SheetHeader className="notifications-mobile-header">
-            <div className="notifications-mobile-heading">
-              <span aria-hidden>
-                <Bell size={18} />
-              </span>
-              <div>
-                <SheetTitle>Thông báo</SheetTitle>
-                <SheetDescription>
-                  {items.length > 0
-                    ? `${items.length} cập nhật mới trong nhóm`
-                    : "Bạn đã xem hết thông báo"}
-                </SheetDescription>
-              </div>
-            </div>
-          </SheetHeader>
+          <SheetHeader
+            icon={Bell}
+            title="Thông báo"
+            description={
+              items.length > 0
+                ? `${items.length} cập nhật mới trong nhóm`
+                : "Bạn đã xem hết thông báo"
+            }
+          />
 
           <div
-            className="notifications-mobile-list"
+            className="flex flex-1 flex-col gap-2 overflow-y-auto p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
             role="list"
             aria-label="Danh sách thông báo"
           >

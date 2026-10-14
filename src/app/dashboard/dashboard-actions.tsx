@@ -39,6 +39,18 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/base";
+import {
+  getMobileLedgerActions,
+  useLongPress,
+} from "@/app/dashboard/mobile-ledger-interactions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { Textarea } from "@/components/ui/textarea";
 import { formatAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -294,6 +306,309 @@ function getLedgerDateTotals(items: LedgerItem[]): LedgerDateTotals {
       return totals;
     },
     { income: new Decimal(0), expense: new Decimal(0) },
+  );
+}
+
+function TouchTransactionRow({
+  item,
+  currency,
+  selected,
+  selectionMode,
+  canApprove,
+  canEditTransactions,
+  readonly,
+  busy,
+  onToggle,
+  onOpenSheet,
+  onOpenDeleteConfirm,
+  onApprove,
+  onReject,
+}: {
+  item: LedgerItem;
+  currency: string;
+  selected: boolean;
+  selectionMode: boolean;
+  canApprove: boolean;
+  canEditTransactions: boolean;
+  readonly: boolean;
+  busy: boolean;
+  onToggle: () => void;
+  onOpenSheet: () => void;
+  onOpenDeleteConfirm: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const isIncome = item.type === "income";
+  const isExpense = item.type === "expense";
+  const isTransfer = item.type === "transfer";
+  const amountPrefix = isIncome ? "+" : isExpense ? "−" : "↔";
+  const categoryName =
+    item.category?.name ?? (isTransfer ? "Chuyển khoản" : "Chưa phân loại");
+  const primaryTitle = item.description || categoryName;
+  const hasReviewRequest = Boolean(item.pendingChangeRequestId);
+  const isDeleteRequest = item.pendingChangeAction === "delete";
+  const canSelect = canApprove && !requiresReview(item);
+
+  const actions = getMobileLedgerActions({
+    canApprove: canSelect,
+    canEdit: canEditTransactions && item.canRequestEdit,
+    canDelete: !readonly && item.canRequestDelete,
+    hasPendingChange: item.hasPendingChange,
+    status: item.status,
+  });
+
+  const longPressEnabled = !selectionMode && !menuOpen && actions.length > 0;
+  const { isPressing, handlers } = useLongPress(
+    () => setMenuOpen(true),
+    longPressEnabled,
+    () => {
+      if (busy) return;
+      if (selectionMode && canSelect) {
+        onToggle();
+        return;
+      }
+      onOpenSheet();
+    },
+  );
+
+  function run(action: () => void) {
+    setMenuOpen(false);
+    action();
+  }
+
+  const rowContent = (
+    <>
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        {selectionMode && canSelect && (
+          <div
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+            className="mt-1 flex shrink-0 items-center"
+          >
+            <Checkbox
+              checked={selected}
+              onCheckedChange={() => onToggle()}
+              aria-label={`Chọn giao dịch ${primaryTitle}`}
+            />
+          </div>
+        )}
+
+        <div
+          className={cn(
+            "flex size-9 shrink-0 items-center justify-center rounded-xl",
+            isTransfer && "bg-[var(--primary)]/10 text-[var(--primary)]",
+            !isTransfer &&
+              !item.category &&
+              "bg-[var(--surface-secondary)] text-[var(--text-secondary)]",
+          )}
+          style={
+            !isTransfer && item.category
+              ? {
+                  backgroundColor: `${item.category.color}18`,
+                  color: item.category.color,
+                }
+              : undefined
+          }
+        >
+          {isTransfer ? (
+            <ArrowLeftRight className="size-4" aria-hidden="true" />
+          ) : (
+            <CategoryIcon
+              category={
+                item.category ?? {
+                  color: "var(--text-secondary)",
+                  icon: "tag",
+                }
+              }
+              size={16}
+            />
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <strong className="break-words text-sm font-medium leading-snug text-[var(--foreground)]">
+              {primaryTitle}
+            </strong>
+
+            {hasReviewRequest && (
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold",
+                  isDeleteRequest
+                    ? "bg-[color-mix(in_srgb,var(--danger)_14%,var(--surface))] text-[var(--danger)]"
+                    : "bg-[color-mix(in_srgb,var(--warning)_14%,var(--surface))] text-[var(--warning)]",
+                )}
+              >
+                {isDeleteRequest ? "Chờ duyệt xóa" : "Chờ duyệt sửa"}
+              </span>
+            )}
+
+            {!hasReviewRequest && item.status === "pending" && (
+              <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--warning)_14%,var(--surface))] px-2 py-0.5 text-[0.65rem] font-semibold text-[var(--warning)]">
+                Chờ duyệt
+              </span>
+            )}
+
+            {!hasReviewRequest && item.status === "scheduled" && (
+              <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--info)_14%,var(--surface))] px-2 py-0.5 text-[0.65rem] font-semibold text-[var(--info)]">
+                Đã lên lịch
+              </span>
+            )}
+          </div>
+
+          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[var(--text-muted)]">
+            <span className="break-words leading-snug">
+              {item.description && item.category ? `${item.category.name} · ` : ""}
+              {item.wallet}
+              {item.toWallet ? ` → ${item.toWallet}` : ""}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <div className="shrink-0 text-right">
+        <strong
+          className={cn(
+            "block break-words text-sm font-semibold leading-snug tabular-nums",
+            isIncome && "text-[var(--income)]",
+            isExpense && "text-[var(--expense)]",
+            isTransfer && "text-[var(--foreground)]",
+          )}
+        >
+          {amountPrefix}
+          {formatAmount(item.amount)} {currency}
+        </strong>
+        {item.isRecurring && (
+          <span className="mt-0.5 block text-[0.65rem] text-[var(--text-muted)]">
+            Định kỳ
+          </span>
+        )}
+      </div>
+    </>
+  );
+
+  if (actions.length === 0) {
+    return (
+      <article
+        onClick={onOpenSheet}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onOpenSheet();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label={`${primaryTitle}, ${amountPrefix}${formatAmount(item.amount)} ${currency}`}
+        className={cn(
+          "flex select-none items-start justify-between gap-3 px-4 py-3 text-left transition-colors active:bg-[var(--surface-hover)] cursor-pointer md:px-5",
+          selected &&
+            "bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))]",
+        )}
+      >
+        {rowContent}
+      </article>
+    );
+  }
+
+  return (
+    <DropdownMenu
+      open={!selectionMode && menuOpen}
+      onOpenChange={(open) => {
+        if (!selectionMode) setMenuOpen(open);
+      }}
+    >
+      <SpotlightTrigger
+        open={!selectionMode && menuOpen}
+        onOpenChange={(open) => {
+          if (!selectionMode) setMenuOpen(open);
+        }}
+        dismissLabel={`Đóng menu thao tác ${primaryTitle}`}
+        render={
+          <article
+            role="button"
+            tabIndex={0}
+            data-pressing={isPressing || undefined}
+            data-selected={selected || undefined}
+            aria-label={`${primaryTitle}, ${amountPrefix}${formatAmount(item.amount)} ${currency}. Chạm để xem chi tiết, nhấn giữ để mở menu thao tác.`}
+            className={cn(
+              "flex select-none items-start justify-between gap-3 px-4 py-3 text-left transition-all duration-150 cursor-pointer md:px-5",
+              isPressing && "scale-[0.99] bg-[var(--surface-hover)]",
+              selected &&
+                "bg-[color-mix(in_srgb,var(--primary)_8%,var(--surface))]",
+            )}
+            {...handlers}
+          />
+        }
+      >
+        {(spotlightTrigger) => (
+          <DropdownMenuTrigger nativeButton={false} render={spotlightTrigger}>
+            {rowContent}
+          </DropdownMenuTrigger>
+        )}
+      </SpotlightTrigger>
+
+      <DropdownMenuContent
+        align="center"
+        side="bottom"
+        sideOffset={6}
+        className="w-56 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5"
+      >
+        {actions.includes("select") && (
+          <DropdownMenuItem onClick={() => run(onToggle)} disabled={busy}>
+            <Check className="size-4 text-[var(--primary)]" aria-hidden="true" />
+            <span>{selected ? "Bỏ chọn giao dịch" : "Chọn nhiều giao dịch"}</span>
+          </DropdownMenuItem>
+        )}
+        {actions.includes("approve") && (
+          <DropdownMenuItem onClick={() => run(onApprove)} disabled={busy}>
+            <CircleCheckBig
+              className="size-4 text-[var(--success)]"
+              aria-hidden="true"
+            />
+            <span>Duyệt giao dịch</span>
+          </DropdownMenuItem>
+        )}
+        {actions.includes("reject") && (
+          <DropdownMenuItem onClick={() => run(onReject)} disabled={busy}>
+            <X className="size-4 text-[var(--danger)]" aria-hidden="true" />
+            <span>Từ chối giao dịch</span>
+          </DropdownMenuItem>
+        )}
+        {actions.includes("approve-early") && (
+          <DropdownMenuItem onClick={() => run(onApprove)} disabled={busy}>
+            <CircleCheckBig
+              className="size-4 text-[var(--info)]"
+              aria-hidden="true"
+            />
+            <span>Ghi nhận sớm</span>
+          </DropdownMenuItem>
+        )}
+        {actions.includes("edit") && (
+          <DropdownMenuItem onClick={() => run(onOpenSheet)} disabled={busy}>
+            <Pencil className="size-4 text-[var(--text-secondary)]" aria-hidden="true" />
+            <span>Xem & chỉnh sửa</span>
+          </DropdownMenuItem>
+        )}
+        {actions.includes("delete") && (
+          <>
+            {actions.some((action) => action !== "delete") && (
+              <DropdownMenuSeparator />
+            )}
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={busy}
+              onClick={() => run(onOpenDeleteConfirm)}
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+              <span>Xóa giao dịch</span>
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -701,6 +1016,14 @@ export function Ledger({
     setActiveDraft(draftFromTransaction(item, wallets));
   }
 
+  function openTransactionDeleteConfirm(item: LedgerItem) {
+    setCreateDraft(null);
+    setDeleteReason("");
+    setActiveTarget(item);
+    setActiveDraft(draftFromTransaction(item, wallets));
+    setShowDeleteConfirmInSheet(true);
+  }
+
   function closeTransactionSheet() {
     if (busy) return;
     setShowDeleteConfirmInSheet(false);
@@ -750,7 +1073,30 @@ export function Ledger({
     [wallets],
   );
 
+  const selectionMode = selected.size > 0;
+
   function renderTransactionRow(item: LedgerItem) {
+    if (!isDesktop) {
+      return (
+        <TouchTransactionRow
+          key={item.id}
+          item={item}
+          currency={currency}
+          selected={selected.has(item.id)}
+          selectionMode={selectionMode}
+          canApprove={canApprove}
+          canEditTransactions={canEditTransactions}
+          readonly={Boolean(readonly)}
+          busy={busy}
+          onToggle={() => toggle(item.id)}
+          onOpenSheet={() => openTransactionSheet(item)}
+          onOpenDeleteConfirm={() => openTransactionDeleteConfirm(item)}
+          onApprove={() => approveOne(item)}
+          onReject={() => rejectOne(item)}
+        />
+      );
+    }
+
     const isIncome = item.type === "income";
     const isExpense = item.type === "expense";
     const isTransfer = item.type === "transfer";
@@ -839,7 +1185,7 @@ export function Ledger({
 
               {item.description && item.category && (
                 <span
-                  className="hidden shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.68rem] font-medium md:inline-flex"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.68rem] font-medium"
                   style={{
                     backgroundColor: `${item.category.color}16`,
                     color: item.category.color,
@@ -901,11 +1247,6 @@ export function Ledger({
               {amountPrefix}
               {formatAmount(item.amount)} {currency}
             </strong>
-            {item.description && item.category && (
-              <span className="block break-words text-[0.65rem] leading-snug text-[var(--text-muted)] md:hidden">
-                {item.category.name}
-              </span>
-            )}
           </div>
           <ChevronRight
             className="size-4 shrink-0 text-[var(--text-muted)]"
@@ -917,12 +1258,12 @@ export function Ledger({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
+    <div className="flex flex-col lg:h-full lg:min-h-0 lg:flex-1">
       {/* Filter & Search Toolbar */}
       <div className="flex flex-col gap-2.5 border-b border-[var(--border)] p-3 md:p-4">
         <div className="flex flex-wrap items-center gap-2">
           {canApprove && selectableRows.length > 0 && (
-            <div className="flex shrink-0 items-center pr-1">
+            <div className="hidden shrink-0 items-center pr-1 lg:flex">
               <Checkbox
                 checked={allSelected}
                 onCheckedChange={toggleAll}
@@ -1159,7 +1500,7 @@ export function Ledger({
                 variant="destructive"
                 size="icon"
                 type="button"
-                className="relative"
+                className="relative hidden lg:inline-flex"
                 disabled={busy}
                 onClick={() => setBulkDeleteOpen(true)}
                 aria-label={`Xóa ${selected.size} giao dịch đã chọn`}
@@ -1215,6 +1556,7 @@ export function Ledger({
                   variant="default"
                   size="icon"
                   type="button"
+                  className="hidden md:inline-flex"
                   disabled={busy || !wallets.length}
                   onClick={beginCreate}
                   aria-label="Tạo giao dịch mới"
@@ -1225,11 +1567,50 @@ export function Ledger({
               ))}
           </div>
         </div>
+
+        {/* Dedicated Touch Multi-Select Bar on Mobile & Tablet (<1024px) */}
+        {canApprove && selectionMode && (
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-[var(--primary)]/30 bg-[color-mix(in_srgb,var(--primary)_8%,var(--surface))] px-3 py-2 lg:hidden">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={toggleAll}
+                aria-label="Chọn tất cả giao dịch đang hiển thị"
+              />
+              <span className="text-xs font-semibold text-[var(--foreground)] tabular-nums">
+                Đã chọn {selected.size} mục
+              </span>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setSelected(new Set())}
+                aria-label="Bỏ chọn tất cả"
+                title="Bỏ chọn tất cả"
+              >
+                <X size={15} />
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                disabled={busy}
+                onClick={() => setBulkDeleteOpen(true)}
+                aria-label={`Xóa ${selected.size} giao dịch đã chọn`}
+                title={`Xóa ${selected.size} giao dịch đã chọn`}
+              >
+                <Trash2 size={15} />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Unified Transaction List Grouped by Date */}
       <div
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain divide-y divide-[var(--border)]"
+        className="divide-y divide-[var(--border)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain"
         aria-label="Danh sách giao dịch"
       >
         {groupTransactionsByDate(rows).map(({ dateKey, label, items }) => {

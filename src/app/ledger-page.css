@@ -1,4 +1,5 @@
 /* Transaction journal feature styles live in a dedicated bundle for reliable HMR. */
+@layer components {
 .ledger-page-shell {
   display: grid;
   height: 100%;
@@ -1698,3 +1699,5 @@
   font-weight: 600;
   color: var(--text-secondary);
 }
+}
+

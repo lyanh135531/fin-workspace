@@ -53,7 +53,7 @@ function MobileNavigationDrawer({
               variant="icon"
               size="icon"
               type="button"
-              className="mobile-navigation-trigger md:hidden"
+              className="md:hidden"
               aria-label="Mở menu điều hướng"
             />
           }
@@ -62,10 +62,10 @@ function MobileNavigationDrawer({
         </SheetTrigger>
         <SheetContent
           side="left"
-          className="mobile-navigation-sheet flex h-full w-[min(20rem,86vw)] flex-col gap-0 border-r border-[var(--border)] bg-[var(--surface)] p-0"
+          className="flex h-full w-[min(20rem,86vw)] flex-col gap-0 border-r border-[var(--border)] bg-[var(--surface)] p-0"
         >
-          <SheetHeader className="mobile-navigation-header border-b border-[var(--border)] px-4 py-3.5">
-            <div className="mobile-navigation-brand flex items-center gap-3 pr-8">
+          <SheetHeader className="border-b border-[var(--border)] px-4 py-3.5">
+            <div className="flex items-center gap-3 pr-8">
               <FinLogo size={34} />
               <div className="min-w-0">
                 <SheetTitle className="break-words text-base font-bold leading-snug text-[var(--foreground)]">
@@ -78,7 +78,7 @@ function MobileNavigationDrawer({
             </div>
           </SheetHeader>
 
-          <div className="mobile-navigation-body flex-1 min-h-0 overflow-y-auto px-3 py-3">
+          <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
             <DashboardNavigation
               currentId={currentId}
               workspaces={workspaces}
@@ -90,7 +90,7 @@ function MobileNavigationDrawer({
             />
           </div>
 
-          <div className="mobile-navigation-user border-t border-[var(--border)] p-3">
+          <div className="border-t border-[var(--border)] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <SidebarUserMenu
               username={username}
               role={role}

@@ -67,8 +67,8 @@ export function DashboardNavigation({
       aria-label="Điều hướng chính"
     >
       {currentId && (
-        <div className="mobile-workspace-block px-1 pb-2 group-data-[collapsible=icon]:px-0">
-          <span className="dashboard-nav-section-label mb-1.5 block px-2 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] group-data-[collapsible=icon]:hidden!">
+        <div className="px-1 pb-2 group-data-[collapsible=icon]:px-0">
+          <span className="mb-1.5 block px-2 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] group-data-[collapsible=icon]:hidden!">
             Nhóm tài chính
           </span>
           <WorkspaceSwitcher
@@ -81,7 +81,7 @@ export function DashboardNavigation({
       )}
 
       <SidebarGroup className="pt-1">
-        <span className="dashboard-nav-section-label mb-1.5 block px-2 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] group-data-[collapsible=icon]:hidden!">
+        <span className="mb-1.5 block px-2 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] group-data-[collapsible=icon]:hidden!">
           Danh mục
         </span>
         <SidebarGroupContent>
@@ -119,7 +119,7 @@ function NavigationMenu({
         return (
           <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
-              className="dashboard-primary-nav-link group/nav h-10 rounded-lg px-2.5 group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!"
+              className="group/nav h-10 rounded-lg px-2.5 group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!"
               render={
                 <Link
                   href={item.href}

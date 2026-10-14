@@ -39,9 +39,6 @@ const initializeAppearance = `
 
     if (allowedThemes.includes(savedTheme)) theme = savedTheme;
     if (savedMode === "light" || savedMode === "dark") mode = savedMode;
-    if (localStorage.getItem("fin-sidebar-collapsed") === "true") {
-      root.dataset.sidebarCollapsed = "true";
-    }
   } catch {}
 
   mode ??= "dark";

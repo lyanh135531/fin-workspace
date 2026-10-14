@@ -162,7 +162,7 @@ export function SidebarUserMenu({
 
   return (
     <div
-      className="sidebar-user-section w-full border-0 p-0"
+      className="w-full border-0 p-0"
       aria-label="Tài khoản người dùng"
     >
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -175,8 +175,7 @@ export function SidebarUserMenu({
               variant="unstyled"
               size="auto"
               type="button"
-              className="sidebar-user-row sidebar-user-card flex h-12 w-full min-w-0 items-center justify-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors duration-150 hover:bg-[var(--surface-hover)] group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:min-h-10! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0!"
-              data-sidebar-profile-state={collapsed ? "collapsed" : "expanded"}
+              className="flex h-12 w-full min-w-0 items-center justify-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors duration-150 hover:bg-[var(--surface-hover)] group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:min-h-10! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0!"
               aria-label={`Tài khoản: ${username}. Nhấn để xem tùy chọn.`}
               aria-expanded={popoverOpen}
             />
@@ -185,33 +184,33 @@ export function SidebarUserMenu({
         >
           {(spotlightTrigger) => (
             <PopoverTrigger render={spotlightTrigger}>
-              <div className="sidebar-user-avatar-wrap relative shrink-0">
+              <div className="relative shrink-0">
                 <div
-                  className="sidebar-user-avatar grid size-8 place-items-center rounded-lg bg-[var(--surface-secondary)] text-xs font-bold text-[var(--foreground)] border border-[var(--border)]"
+                  className="grid size-8 place-items-center rounded-lg bg-[var(--surface-secondary)] text-xs font-bold text-[var(--foreground)] border border-[var(--border)]"
                   aria-hidden
                 >
                   {avatarText}
                 </div>
-                <span className="sidebar-user-status-dot absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-[var(--surface)] bg-[var(--success)]" aria-hidden />
+                <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-[var(--surface)] bg-[var(--success)]" aria-hidden />
               </div>
 
-              <div className="sidebar-user-info flex min-w-0 flex-1 flex-col items-start group-data-[collapsible=icon]:hidden!">
+              <div className="flex min-w-0 flex-1 flex-col items-start group-data-[collapsible=icon]:hidden!">
                 <span
-                  className="sidebar-user-name max-w-full break-words text-sm font-semibold leading-snug text-[var(--foreground)]"
+                  className="max-w-full break-words text-sm font-semibold leading-snug text-[var(--foreground)]"
                   title={username}
                 >
                   {username}
                 </span>
-                <span className="sidebar-user-role-inline block break-words text-xs leading-snug text-[var(--text-muted)]">
+                <span className="block break-words text-xs leading-snug text-[var(--text-muted)]">
                   {roleLabel}
                 </span>
               </div>
 
-              <div className="sidebar-user-chevron-wrap shrink-0 text-[var(--text-muted)] group-data-[collapsible=icon]:hidden!">
+              <div className="shrink-0 text-[var(--text-muted)] group-data-[collapsible=icon]:hidden!">
                 <ChevronUp
                   size={14}
                   strokeWidth={2}
-                  className={`sidebar-user-chevron transition-transform ${popoverOpen ? "rotate-180" : ""}`}
+                  className={`transition-transform ${popoverOpen ? "rotate-180" : ""}`}
                 />
               </div>
             </PopoverTrigger>

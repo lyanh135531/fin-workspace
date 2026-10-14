@@ -79,7 +79,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
           <main
             id="main-content"
-            className="dashboard-content flex-1 min-h-0 min-w-0 w-full overflow-y-auto px-4 pt-4 pb-24 md:px-6 md:py-5 lg:px-8 lg:py-6"
+            className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto px-4 pt-4 pb-24 md:px-6 md:py-5 lg:px-8 lg:py-6"
             tabIndex={-1}
           >
             {children}
@@ -255,8 +255,8 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
   } = await dataPromise;
 
   return (
-    <header className="dashboard-header sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)]/95 px-4 backdrop-blur-md md:px-6 lg:px-8">
-      <div className="dashboard-header-leading flex min-w-0 flex-1 items-center gap-2.5">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)]/95 px-4 backdrop-blur-md md:px-6 lg:px-8">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
         <div className="flex shrink-0 md:hidden">
           <MobileNavigation
             currentId={membership?.workspaceId}
@@ -274,14 +274,14 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
         <div className="hidden shrink-0 lg:flex">
           <SidebarToggle />
         </div>
-        <div className="dashboard-header-copy min-w-0 flex-1">
+        <div className="min-w-0 flex-1">
           <DashboardHeaderSubtitle
             fallback={membership?.workspace.name ?? "Felix"}
           />
         </div>
       </div>
 
-      <div className="header-action-group flex shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1.5">
         {membership && <QuickTransactionHeaderButton />}
         <div className="md:hidden">
           <MobileAppearanceSheet />
@@ -369,8 +369,8 @@ function DashboardSidebarFallback() {
 
 function DashboardHeaderFallback() {
   return (
-    <header className="dashboard-header sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)]/95 px-4 backdrop-blur-md md:px-6 lg:px-8">
-      <div className="dashboard-header-leading flex min-w-0 flex-1 items-center gap-2.5">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)]/95 px-4 backdrop-blur-md md:px-6 lg:px-8">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
         <div className="flex shrink-0 md:hidden">
           <MobileNavigation
             workspaces={[]}
@@ -383,7 +383,7 @@ function DashboardHeaderFallback() {
         <div className="hidden shrink-0 lg:flex">
           <SidebarToggle />
         </div>
-        <div className="dashboard-header-copy min-w-0 flex-1 text-sm font-semibold text-[var(--foreground)]">
+        <div className="min-w-0 flex-1 text-sm font-semibold text-[var(--foreground)]">
           Felix
         </div>
       </div>

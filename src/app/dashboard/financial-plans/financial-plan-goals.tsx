@@ -5,7 +5,6 @@ import { useMemo, useState, useTransition, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  AlertTriangle,
   ArrowDown,
   ArrowUp,
   CalendarClock,
@@ -14,7 +13,6 @@ import {
   History,
   Link2,
   ListChecks,
-  MoreHorizontal,
   Pencil,
   Plus,
   RotateCcw,
@@ -59,6 +57,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { formatAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -309,8 +308,8 @@ export function FinancialPlanGoals({
               100,
             );
 
-            return (
-              <Card key={goal.id} size="sm">
+            const cardBody = (
+              <>
                 <CardHeader className="pb-2">
                   <div className="flex min-w-0 flex-1 items-start gap-3">
                     <span
@@ -351,9 +350,13 @@ export function FinancialPlanGoals({
                     </div>
                   </div>
 
-                  {/* Sleek Icon-Only Action Cluster */}
-                  <CardAction className="flex shrink-0 items-center gap-1">
-                    <div className="hidden items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-1 md:flex">
+                  {/* Desktop-Only Inline Icon Action Cluster */}
+                  <CardAction
+                    className="hidden shrink-0 items-center gap-1 lg:flex"
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-1">
                       {goal.status === "active" &&
                         goal.trackingMode === "manual" && (
                           <Button
@@ -451,171 +454,6 @@ export function FinancialPlanGoals({
                         </Button>
                       )}
                     </div>
-
-                    {hasAnyMenuActions && (
-                      <div className="flex items-center gap-1 md:hidden">
-                        {goal.status === "active" &&
-                          goal.trackingMode === "manual" && (
-                            <Button
-                              variant="selected"
-                              size="icon"
-                              onClick={() => setFundingGoal(goal)}
-                              disabled={pending}
-                              aria-label={`Ghi nhận đóng góp ${goal.name}`}
-                              title="Ghi nhận đóng góp"
-                            >
-                              <CircleDollarSign aria-hidden="true" />
-                            </Button>
-                          )}
-                        <DropdownMenu
-                          open={isMenuOpen}
-                          onOpenChange={(open) =>
-                            setMenuGoalId(open ? goal.id : null)
-                          }
-                        >
-                          <DropdownMenuTrigger
-                            render={
-                              <Button
-                                variant="icon"
-                                size="icon"
-                                aria-label={`Tùy chọn cho mục tiêu ${goal.name}`}
-                                title="Tùy chọn mục tiêu"
-                              />
-                            }
-                          >
-                            <MoreHorizontal
-                              className="size-4"
-                              aria-hidden="true"
-                            />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            side="bottom"
-                            sideOffset={6}
-                            className="w-56 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5"
-                          >
-                            {goal.status === "active" &&
-                              goal.trackingMode === "manual" && (
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setMenuGoalId(null);
-                                    setFundingGoal(goal);
-                                  }}
-                                >
-                                  <CircleDollarSign
-                                    className="size-4 text-[var(--primary)]"
-                                    aria-hidden="true"
-                                  />
-                                  <span>Ghi nhận đóng góp</span>
-                                </DropdownMenuItem>
-                              )}
-                            {goal.trackingMode === "manual" &&
-                              goal.fundingEntries.length > 0 && (
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setMenuGoalId(null);
-                                    setHistoryGoal(goal);
-                                  }}
-                                >
-                                  <History
-                                    className="size-4 text-[var(--text-secondary)]"
-                                    aria-hidden="true"
-                                  />
-                                  <span>
-                                    Lịch sử đóng góp ({goal.fundingEntries.length})
-                                  </span>
-                                </DropdownMenuItem>
-                              )}
-                            {canManage && mutable && (
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setMenuGoalId(null);
-                                  setEditor(goal);
-                                }}
-                              >
-                                <Pencil
-                                  className="size-4 text-[var(--text-secondary)]"
-                                  aria-hidden="true"
-                                />
-                                <span>Chỉnh sửa mục tiêu</span>
-                              </DropdownMenuItem>
-                            )}
-                            {canManage && mutable && index > 0 && (
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setMenuGoalId(null);
-                                  move(index, -1);
-                                }}
-                              >
-                                <ArrowUp
-                                  className="size-4 text-[var(--text-secondary)]"
-                                  aria-hidden="true"
-                                />
-                                <span>Tăng mức ưu tiên</span>
-                              </DropdownMenuItem>
-                            )}
-                            {canManage &&
-                              mutable &&
-                              index < goals.length - 1 && (
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setMenuGoalId(null);
-                                    move(index, 1);
-                                  }}
-                                >
-                                  <ArrowDown
-                                    className="size-4 text-[var(--text-secondary)]"
-                                    aria-hidden="true"
-                                  />
-                                  <span>Giảm mức ưu tiên</span>
-                                </DropdownMenuItem>
-                              )}
-                            {canManage &&
-                              reached &&
-                              goal.status === "active" && (
-                                <DropdownMenuItem
-                                  variant="primary"
-                                  onClick={() => {
-                                    setMenuGoalId(null);
-                                    run(
-                                      () =>
-                                        finishFinancialPlanGoalAction({
-                                          goalId: goal.id,
-                                          status: "completed",
-                                        }),
-                                      "Đã hoàn thành mục tiêu.",
-                                    );
-                                  }}
-                                >
-                                  <Check
-                                    className="size-4 text-[var(--success)]"
-                                    aria-hidden="true"
-                                  />
-                                  <span>Hoàn thành mục tiêu</span>
-                                </DropdownMenuItem>
-                              )}
-                            {canManage && goal.status === "active" && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  variant="destructive"
-                                  onClick={() => {
-                                    setMenuGoalId(null);
-                                    setCancellingGoal(goal);
-                                  }}
-                                >
-                                  <Trash2
-                                    className="size-4"
-                                    aria-hidden="true"
-                                  />
-                                  <span>Hủy mục tiêu</span>
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    )}
                   </CardAction>
                 </CardHeader>
 
@@ -693,37 +531,180 @@ export function FinancialPlanGoals({
                       </div>
                     )}
                   </dl>
+                </CardContent>
+              </>
+            );
 
-                  {/* Shortfall Alert Banner */}
-                  {shortfall && (
-                    <div className="flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-[color-mix(in_srgb,var(--warning)_30%,var(--border))] bg-[color-mix(in_srgb,var(--warning)_10%,var(--surface))] px-3 py-2 text-xs font-medium text-[var(--warning)]">
-                      <div className="flex min-w-0 flex-1 items-center gap-2">
-                        <AlertTriangle
-                          className="size-4 shrink-0"
+            if (!hasAnyMenuActions) {
+              return (
+                <Card key={goal.id} size="sm">
+                  {cardBody}
+                </Card>
+              );
+            }
+
+            function handleGoalMenuOpenChange(nextOpen: boolean) {
+              if (
+                nextOpen &&
+                typeof window !== "undefined" &&
+                typeof window.matchMedia === "function" &&
+                window.matchMedia("(min-width: 1024px)").matches
+              ) {
+                return;
+              }
+              setMenuGoalId(nextOpen ? goal.id : null);
+            }
+
+            return (
+              <DropdownMenu
+                key={goal.id}
+                open={isMenuOpen}
+                onOpenChange={handleGoalMenuOpenChange}
+              >
+                <SpotlightTrigger
+                  open={isMenuOpen}
+                  onOpenChange={handleGoalMenuOpenChange}
+                  mobileOnly
+                  dismissLabel={`Đóng menu tùy chọn mục tiêu ${goal.name}`}
+                  render={
+                    <Card
+                      size="sm"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Mục tiêu ${goal.name}. Chạm để mở menu thao tác.`}
+                      className="cursor-pointer select-none text-left transition-all duration-150 active:scale-[0.99] active:bg-[var(--surface-hover)] lg:cursor-default lg:select-auto lg:active:scale-100 lg:active:bg-[var(--surface)]"
+                    />
+                  }
+                >
+                  {(spotlightTrigger) => (
+                    <DropdownMenuTrigger
+                      nativeButton={false}
+                      render={spotlightTrigger}
+                    >
+                      {cardBody}
+                    </DropdownMenuTrigger>
+                  )}
+                </SpotlightTrigger>
+
+                <DropdownMenuContent
+                  align="center"
+                  side="bottom"
+                  sideOffset={6}
+                  className="w-56 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 lg:hidden"
+                >
+                  {goal.status === "active" &&
+                    goal.trackingMode === "manual" && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setMenuGoalId(null);
+                          setFundingGoal(goal);
+                        }}
+                      >
+                        <CircleDollarSign
+                          className="size-4 text-[var(--primary)]"
                           aria-hidden="true"
                         />
-                        <span className="break-words leading-snug">
-                          Mức cần bù thêm tháng này:{" "}
-                          <strong className="tabular-nums">
-                            {money(goal.shortfallThisMonth, currency)}
-                          </strong>
+                        <span>Ghi nhận đóng góp</span>
+                      </DropdownMenuItem>
+                    )}
+                  {goal.trackingMode === "manual" &&
+                    goal.fundingEntries.length > 0 && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setMenuGoalId(null);
+                          setHistoryGoal(goal);
+                        }}
+                      >
+                        <History
+                          className="size-4 text-[var(--text-secondary)]"
+                          aria-hidden="true"
+                        />
+                        <span>
+                          Lịch sử đóng góp ({goal.fundingEntries.length})
                         </span>
-                      </div>
-                      {canManage && mutable && (
-                        <Button
-                          variant="icon"
-                          size="icon"
-                          onClick={() => setEditor(goal)}
-                          aria-label={`Điều chỉnh mục tiêu ${goal.name}`}
-                          title="Điều chỉnh mục tiêu"
-                        >
-                          <Pencil className="size-3.5" aria-hidden="true" />
-                        </Button>
-                      )}
-                    </div>
+                      </DropdownMenuItem>
+                    )}
+                  {canManage && mutable && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setMenuGoalId(null);
+                        setEditor(goal);
+                      }}
+                    >
+                      <Pencil
+                        className="size-4 text-[var(--text-secondary)]"
+                        aria-hidden="true"
+                      />
+                      <span>Chỉnh sửa mục tiêu</span>
+                    </DropdownMenuItem>
                   )}
-                </CardContent>
-              </Card>
+                  {canManage && mutable && index > 0 && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setMenuGoalId(null);
+                        move(index, -1);
+                      }}
+                    >
+                      <ArrowUp
+                        className="size-4 text-[var(--text-secondary)]"
+                        aria-hidden="true"
+                      />
+                      <span>Tăng mức ưu tiên</span>
+                    </DropdownMenuItem>
+                  )}
+                  {canManage && mutable && index < goals.length - 1 && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setMenuGoalId(null);
+                        move(index, 1);
+                      }}
+                    >
+                      <ArrowDown
+                        className="size-4 text-[var(--text-secondary)]"
+                        aria-hidden="true"
+                      />
+                      <span>Giảm mức ưu tiên</span>
+                    </DropdownMenuItem>
+                  )}
+                  {canManage && reached && goal.status === "active" && (
+                    <DropdownMenuItem
+                      variant="primary"
+                      onClick={() => {
+                        setMenuGoalId(null);
+                        run(
+                          () =>
+                            finishFinancialPlanGoalAction({
+                              goalId: goal.id,
+                              status: "completed",
+                            }),
+                          "Đã hoàn thành mục tiêu.",
+                        );
+                      }}
+                    >
+                      <Check
+                        className="size-4 text-[var(--success)]"
+                        aria-hidden="true"
+                      />
+                      <span>Hoàn thành mục tiêu</span>
+                    </DropdownMenuItem>
+                  )}
+                  {canManage && goal.status === "active" && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => {
+                          setMenuGoalId(null);
+                          setCancellingGoal(goal);
+                        }}
+                      >
+                        <Trash2 className="size-4" aria-hidden="true" />
+                        <span>Hủy mục tiêu</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             );
           })}
         </div>

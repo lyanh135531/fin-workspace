@@ -58,6 +58,7 @@ import {
   TabsTrigger,
   Textarea,
 } from "@/components/base";
+import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -336,6 +337,7 @@ export function CreditCardVirtualCard({
   isInteractive?: boolean;
   className?: string;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const brand = detectCardBrand(card.name);
   const debtDecimal = new Decimal(card.debt || 0);
   const creditBalanceDecimal = new Decimal(card.creditBalance || 0);
@@ -354,15 +356,20 @@ export function CreditCardVirtualCard({
 
   const last4 = card.id.replace(/[^a-zA-Z0-9]/g, "").slice(-4).toUpperCase() || "8888";
 
-  return (
-    <Card
-      as="article"
-      className={cn(
-        "gap-4 p-4 md:p-5 transition-colors hover:border-[var(--border-hover)]",
-        className,
-      )}
-      aria-label={`Thẻ ${card.name}, ${hasCredit ? `Số dư thừa ${formatAmount(card.creditBalance)}` : `Dư nợ hiện tại ${formatAmount(card.debt)}`} ${currency}`}
-    >
+  function handleMenuOpenChange(nextOpen: boolean) {
+    if (
+      nextOpen &&
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(min-width: 1024px)").matches
+    ) {
+      return;
+    }
+    setMenuOpen(nextOpen);
+  }
+
+  const cardInnerContent = (
+    <>
       {/* Row 1: Card Name + Bank/Last 4 digits + Statement/Due Date Badge */}
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
@@ -451,20 +458,29 @@ export function CreditCardVirtualCard({
             <span className="break-words">
               Đã dùng <strong className="font-semibold text-[var(--foreground)] tabular-nums">{utilizationPercent}%</strong> hạn mức ({formatAmount(card.limit, { maximumFractionDigits: 0 })} {currency})
             </span>
-            <span className="break-words tabular-nums">
+            <span
+              className={cn(
+                "break-words tabular-nums",
+                reservedAmount.lte(0) && "hidden md:block",
+              )}
+            >
               Tiền chờ thanh toán thẻ: <strong className="font-semibold text-[var(--foreground)]">{formatAmount(reservedAmount.toString(), { maximumFractionDigits: 0 })} {currency}</strong>
             </span>
           </div>
         </div>
       </div>
 
-      {/* Row 3: Sleek Footer Info & Icon-Only Quick Actions */}
+      {/* Row 3: Sleek Footer Info & Desktop-Only Icon Quick Actions */}
       {isInteractive && (
         <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-3">
           <span className="min-w-0 break-words text-xs leading-snug text-[var(--text-muted)]">
             {card.activities.length} giao dịch · {card.installmentPlans.length} trả góp
           </span>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div
+            className="hidden shrink-0 items-center gap-1.5 lg:flex"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             {onPayClick && (
               <Button
                 type="button"
@@ -501,7 +517,92 @@ export function CreditCardVirtualCard({
           </div>
         </div>
       )}
-    </Card>
+    </>
+  );
+
+  if (!isInteractive) {
+    return (
+      <Card
+        as="article"
+        className={cn(
+          "gap-4 p-4 md:p-5 transition-colors hover:border-[var(--border-hover)]",
+          className,
+        )}
+        aria-label={`Thẻ ${card.name}, ${hasCredit ? `Số dư thừa ${formatAmount(card.creditBalance)}` : `Dư nợ hiện tại ${formatAmount(card.debt)}`} ${currency}`}
+      >
+        {cardInnerContent}
+      </Card>
+    );
+  }
+
+  return (
+    <DropdownMenu open={menuOpen} onOpenChange={handleMenuOpenChange}>
+      <SpotlightTrigger
+        open={menuOpen}
+        onOpenChange={handleMenuOpenChange}
+        mobileOnly
+        dismissLabel={`Đóng menu thao tác thẻ ${card.name}`}
+        render={
+          <Card
+            as="article"
+            role="button"
+            tabIndex={0}
+            aria-label={`Thẻ ${card.name}, ${hasCredit ? `Số dư thừa ${formatAmount(card.creditBalance)}` : `Dư nợ hiện tại ${formatAmount(card.debt)}`} ${currency}. Chạm để mở menu thao tác.`}
+            className={cn(
+              "cursor-pointer select-none gap-4 p-4 text-left transition-all duration-150 hover:border-[var(--border-hover)] active:scale-[0.99] active:bg-[var(--surface-hover)] md:p-5 lg:cursor-default lg:select-auto lg:active:scale-100 lg:active:bg-[var(--surface)]",
+              className,
+            )}
+          />
+        }
+      >
+        {(spotlightTrigger) => (
+          <DropdownMenuTrigger nativeButton={false} render={spotlightTrigger}>
+            {cardInnerContent}
+          </DropdownMenuTrigger>
+        )}
+      </SpotlightTrigger>
+
+      <DropdownMenuContent
+        align="center"
+        side="bottom"
+        sideOffset={6}
+        className="w-56 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 lg:hidden"
+      >
+        {onClick && (
+          <DropdownMenuItem
+            onClick={() => {
+              setMenuOpen(false);
+              onClick();
+            }}
+          >
+            <CreditCard
+              className="size-4 text-[var(--primary)]"
+              aria-hidden="true"
+            />
+            <span>Xem chi tiết thẻ</span>
+          </DropdownMenuItem>
+        )}
+        {onPayClick && (
+          <DropdownMenuItem
+            disabled={!hasDebt || Boolean(card.statement?.paymentPending)}
+            onClick={() => {
+              setMenuOpen(false);
+              onPayClick();
+            }}
+          >
+            <CheckCircle2
+              className="size-4 text-[var(--success)]"
+              aria-hidden="true"
+            />
+            <span>
+              {card.statement?.paymentPending
+                ? "Đang chờ duyệt thanh toán"
+                : "Thanh toán sao kê"}
+            </span>
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -724,6 +825,8 @@ function CreditCardPanel({
   const [deletingPlan, setDeletingPlan] = useState<InstallmentPlan | null>(null);
   const [deletingActivity, setDeletingActivity] = useState<CardActivity | null>(null);
   const [editingActivity, setEditingActivity] = useState<CardActivity | null>(null);
+  const [menuInstallmentId, setMenuInstallmentId] = useState<string | null>(null);
+  const [menuActivityId, setMenuActivityId] = useState<string | null>(null);
   const [editWalletId, setEditWalletId] = useState<string>("");
   const [editAmount, setEditAmount] = useState<string>("");
   const [editDate, setEditDate] = useState<string>("");
@@ -1325,12 +1428,11 @@ function CreditCardPanel({
     const hasFee = new Decimal(plan.fee || 0).gt(0);
     const progressPct = plan.termCount > 0 ? Math.round((paid / plan.termCount) * 100) : 0;
     const remainingTerms = Math.max(0, plan.termCount - paid);
+    const hasDeleteAction = canManage && plan.canDelete;
+    const isMenuOpen = menuInstallmentId === plan.id;
 
-    return (
-      <div
-        key={plan.id}
-        className="flex flex-col justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4"
-      >
+    const installmentInner = (
+      <>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1 space-y-1">
             <h4 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
@@ -1355,18 +1457,24 @@ function CreditCardPanel({
               </span>
               <span className="text-[10px] font-normal text-[var(--text-muted)]">Tổng giá trị</span>
             </div>
-            {canManage && plan.canDelete && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-7 shrink-0 text-[var(--text-muted)] hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
-                onClick={() => setDeletingPlan(plan)}
-                title="Hủy khoản trả góp này"
-                aria-label="Hủy khoản trả góp này"
+            {hasDeleteAction && (
+              <div
+                className="hidden shrink-0 lg:block"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
               >
-                <Trash2 className="size-3.5 shrink-0" aria-hidden="true" />
-              </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 text-[var(--text-muted)] hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+                  onClick={() => setDeletingPlan(plan)}
+                  title="Hủy khoản trả góp này"
+                  aria-label="Hủy khoản trả góp này"
+                >
+                  <Trash2 className="size-3.5 shrink-0" aria-hidden="true" />
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -1409,7 +1517,77 @@ function CreditCardPanel({
             <span className="font-medium text-[var(--success)]">Đã tất toán toàn bộ các kỳ</span>
           )}
         </div>
-      </div>
+      </>
+    );
+
+    if (!hasDeleteAction) {
+      return (
+        <div
+          key={plan.id}
+          className="flex flex-col justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4"
+        >
+          {installmentInner}
+        </div>
+      );
+    }
+
+    function handleInstallmentMenuOpenChange(nextOpen: boolean) {
+      if (
+        nextOpen &&
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(min-width: 1024px)").matches
+      ) {
+        return;
+      }
+      setMenuInstallmentId(nextOpen ? plan.id : null);
+    }
+
+    return (
+      <DropdownMenu
+        key={plan.id}
+        open={isMenuOpen}
+        onOpenChange={handleInstallmentMenuOpenChange}
+      >
+        <SpotlightTrigger
+          open={isMenuOpen}
+          onOpenChange={handleInstallmentMenuOpenChange}
+          mobileOnly
+          dismissLabel={`Đóng menu thao tác trả góp ${plan.description || ""}`}
+          render={
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label={`Khoản trả góp ${plan.description || "Giao dịch trả góp"}. Chạm để mở menu thao tác.`}
+              className="flex cursor-pointer select-none flex-col justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left transition-all duration-150 active:scale-[0.99] active:bg-[var(--surface-hover)] lg:cursor-default lg:select-auto lg:active:scale-100 lg:active:bg-[var(--surface)]"
+            />
+          }
+        >
+          {(spotlightTrigger) => (
+            <DropdownMenuTrigger nativeButton={false} render={spotlightTrigger}>
+              {installmentInner}
+            </DropdownMenuTrigger>
+          )}
+        </SpotlightTrigger>
+
+        <DropdownMenuContent
+          align="center"
+          side="bottom"
+          sideOffset={6}
+          className="w-56 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 lg:hidden"
+        >
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => {
+              setMenuInstallmentId(null);
+              setDeletingPlan(plan);
+            }}
+          >
+            <Trash2 className="size-4" aria-hidden="true" />
+            <span>Hủy khoản trả góp này</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   }
 
@@ -1766,109 +1944,148 @@ function CreditCardPanel({
               </div>
             ) : (
               <>
-                {/* Mobile Stacked List (<768px) */}
-                <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface)] md:hidden">
+                {/* Mobile & Tablet Touch List (<1024px) with Spotlight Context Highlight Menu */}
+                <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface)] lg:hidden">
                   {paginatedActivities.map((activity) => {
                     const isCredit =
                       activity.purpose === "credit_card_payment" ||
                       activity.purpose === "credit_card_refund";
                     const canRefund = new Decimal(activity.refundableAmount || 0).gt(0);
+                    const hasActivityActions = Boolean(
+                      activity.installmentEligible ||
+                        canRefund ||
+                        activity.canEdit ||
+                        activity.canDelete,
+                    );
+                    const isMenuOpen = menuActivityId === activity.id;
+
+                    const rowInner = (
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                            {activity.description || activityLabel(activity)}
+                          </p>
+                          <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
+                            {formatIsoDate(activity.date)} · {activity.category || activityLabel(activity)}
+                            {activity.status !== "approved" ? " · Chờ duyệt" : ""}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "shrink-0 text-sm font-bold tabular-nums",
+                            isCredit ? "text-[var(--success)]" : "text-[var(--foreground)]",
+                          )}
+                        >
+                          {isCredit ? "−" : "+"}
+                          {formatAmount(activity.amount)} {currency}
+                        </span>
+                      </div>
+                    );
+
+                    if (!hasActivityActions) {
+                      return (
+                        <div key={activity.id} className="p-3.5">
+                          {rowInner}
+                        </div>
+                      );
+                    }
 
                     return (
-                      <div key={activity.id} className="space-y-2 p-3.5">
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
-                              {activity.description || activityLabel(activity)}
-                            </p>
-                            <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
-                              {formatIsoDate(activity.date)} · {activity.category || activityLabel(activity)}
-                              {activity.status !== "approved" ? " · Chờ duyệt" : ""}
-                            </p>
-                          </div>
-                          <span
-                            className={cn(
-                              "shrink-0 text-sm font-bold tabular-nums",
-                              isCredit ? "text-[var(--success)]" : "text-[var(--foreground)]",
-                            )}
-                          >
-                            {isCredit ? "−" : "+"}
-                            {formatAmount(activity.amount)} {currency}
-                          </span>
-                        </div>
+                      <DropdownMenu
+                        key={activity.id}
+                        open={isMenuOpen}
+                        onOpenChange={(open) => setMenuActivityId(open ? activity.id : null)}
+                      >
+                        <SpotlightTrigger
+                          open={isMenuOpen}
+                          onOpenChange={(open) => setMenuActivityId(open ? activity.id : null)}
+                          mobileOnly
+                          dismissLabel={`Đóng menu thao tác giao dịch ${activity.description || activityLabel(activity)}`}
+                          render={
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`${activity.description || activityLabel(activity)}, ${isCredit ? "−" : "+"}${formatAmount(activity.amount)} ${currency}. Chạm để mở menu thao tác.`}
+                              className="cursor-pointer select-none p-3.5 text-left transition-all duration-150 active:scale-[0.99] active:bg-[var(--surface-hover)]"
+                            />
+                          }
+                        >
+                          {(spotlightTrigger) => (
+                            <DropdownMenuTrigger nativeButton={false} render={spotlightTrigger}>
+                              {rowInner}
+                            </DropdownMenuTrigger>
+                          )}
+                        </SpotlightTrigger>
 
-                        {(activity.installmentEligible || canRefund || activity.canEdit || activity.canDelete) && (
-                          <div className="flex items-center justify-end gap-1 pt-0.5">
-                            {activity.installmentEligible && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="size-7"
+                        <DropdownMenuContent
+                          align="center"
+                          side="bottom"
+                          sideOffset={6}
+                          className="w-56 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 lg:hidden"
+                        >
+                          {activity.installmentEligible && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setMenuActivityId(null);
+                                setInstallmentTarget(activity);
+                                setTermCount("3");
+                                setFeeAmount("");
+                              }}
+                            >
+                              <Split className="size-4 text-[var(--primary)]" aria-hidden="true" />
+                              <span>Chuyển đổi trả góp</span>
+                            </DropdownMenuItem>
+                          )}
+                          {canRefund && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setMenuActivityId(null);
+                                setRefundTransactionId(activity.id);
+                                setRefundAmount(activity.refundableAmount);
+                                setRefundDescription("");
+                                setRefundOpen(true);
+                              }}
+                            >
+                              <RotateCcw className="size-4 text-[var(--text-secondary)]" aria-hidden="true" />
+                              <span>Hoàn tiền giao dịch</span>
+                            </DropdownMenuItem>
+                          )}
+                          {activity.canEdit && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setMenuActivityId(null);
+                                startEditingActivity(activity);
+                              }}
+                            >
+                              <Pencil className="size-4 text-[var(--text-secondary)]" aria-hidden="true" />
+                              <span>Chỉnh sửa giao dịch</span>
+                            </DropdownMenuItem>
+                          )}
+                          {activity.canDelete && (
+                            <>
+                              {(activity.installmentEligible || canRefund || activity.canEdit) && (
+                                <DropdownMenuSeparator />
+                              )}
+                              <DropdownMenuItem
+                                variant="destructive"
                                 onClick={() => {
-                                  setInstallmentTarget(activity);
-                                  setTermCount("3");
-                                  setFeeAmount("");
+                                  setMenuActivityId(null);
+                                  setDeletingActivity(activity);
                                 }}
-                                aria-label="Chuyển đổi trả góp"
-                                title="Chuyển đổi trả góp"
                               >
-                                <Split size={13} aria-hidden="true" />
-                              </Button>
-                            )}
-                            {canRefund && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="size-7"
-                                onClick={() => {
-                                  setRefundTransactionId(activity.id);
-                                  setRefundAmount(activity.refundableAmount);
-                                  setRefundDescription("");
-                                  setRefundOpen(true);
-                                }}
-                                aria-label="Hoàn tiền giao dịch"
-                                title="Hoàn tiền giao dịch"
-                              >
-                                <RotateCcw size={13} aria-hidden="true" />
-                              </Button>
-                            )}
-                            {activity.canEdit && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-7"
-                                onClick={() => startEditingActivity(activity)}
-                                aria-label="Chỉnh sửa giao dịch"
-                                title="Chỉnh sửa giao dịch"
-                              >
-                                <Pencil size={13} aria-hidden="true" />
-                              </Button>
-                            )}
-                            {activity.canDelete && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-7 text-[var(--text-muted)] hover:text-[var(--destructive)]"
-                                onClick={() => setDeletingActivity(activity)}
-                                aria-label="Xóa giao dịch"
-                                title="Xóa giao dịch"
-                              >
-                                <Trash2 size={13} aria-hidden="true" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                                <Trash2 className="size-4" aria-hidden="true" />
+                                <span>Xóa giao dịch</span>
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     );
                   })}
                 </div>
 
-                {/* Tablet & Desktop Table (md:block) */}
-                <div className="hidden overflow-hidden rounded-xl border border-[var(--border)] md:block">
+                {/* Desktop Table (lg:block) */}
+                <div className="hidden overflow-hidden rounded-xl border border-[var(--border)] lg:block">
                   <table className="w-full text-left text-sm">
                     <thead className="border-b border-[var(--border)] bg-[var(--surface-secondary)] text-xs font-semibold text-[var(--text-secondary)]">
                       <tr>

@@ -67,10 +67,10 @@ export function MobileBottomNavigation({
 
   return (
     <nav
-      className="mobile-bottom-navigation fixed inset-x-0 bottom-0 z-40 flex h-16 items-center border-t border-[var(--border)] bg-[var(--surface)]/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex min-h-16 items-center border-t border-[var(--border)] bg-[var(--surface)]/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
       aria-label="Điều hướng nhanh"
     >
-      <div className="mobile-bottom-navigation-inner mx-auto grid w-full max-w-md grid-cols-5 items-center gap-1">
+      <div className="mx-auto grid h-16 w-full max-w-md grid-cols-5 items-center gap-1">
         {left.map((item) => {
           const Icon = item.icon;
           const isActive = item.active(pathname);
@@ -88,9 +88,9 @@ export function MobileBottomNavigation({
                 beginNavigation(item.href);
               }}
               className={cn(
-                "mobile-bottom-navigation-item flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg py-1.5 text-[0.68rem] font-medium transition-colors",
+                "relative flex h-full min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 text-[0.68rem] font-medium transition-colors",
                 isVisuallyActive
-                  ? "is-active font-semibold text-[var(--primary)]"
+                  ? "font-semibold text-[var(--primary)] after:absolute after:top-0 after:h-0.5 after:w-7 after:rounded-b-full after:bg-[var(--primary)]"
                   : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
               )}
             >
@@ -101,14 +101,14 @@ export function MobileBottomNavigation({
         })}
 
         {currentWorkspaceId ? (
-          <div className="flex items-center justify-center">
+          <div className="flex h-full items-center justify-center">
             <button
               type="button"
-              className="mobile-bottom-navigation-fab flex size-11 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--text-on-primary)] transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              className="flex size-11 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--text-on-primary)] transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] cursor-pointer"
               onClick={handleFabClick}
               aria-label="Nhập nhanh giao dịch"
             >
-              <span className="mobile-bottom-navigation-fab-icon flex items-center justify-center">
+              <span className="flex items-center justify-center">
                 <Plus size={22} strokeWidth={2.4} aria-hidden="true" />
               </span>
             </button>
@@ -134,9 +134,9 @@ export function MobileBottomNavigation({
                 beginNavigation(item.href);
               }}
               className={cn(
-                "mobile-bottom-navigation-item flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg py-1.5 text-[0.68rem] font-medium transition-colors",
+                "relative flex h-full min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 text-[0.68rem] font-medium transition-colors",
                 isVisuallyActive
-                  ? "is-active font-semibold text-[var(--primary)]"
+                  ? "font-semibold text-[var(--primary)] after:absolute after:top-0 after:h-0.5 after:w-7 after:rounded-b-full after:bg-[var(--primary)]"
                   : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
               )}
             >

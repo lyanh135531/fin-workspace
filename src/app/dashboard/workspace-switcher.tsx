@@ -56,12 +56,12 @@ function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
 
   /* ── Expanded: High-end card dropdown ── */
   return (
-    <form onSubmit={submit} className="ws-inline-join">
-      <div className="ws-inline-join-row rounded-xl">
-        <KeyRound size={14} className="ws-inline-join-icon" aria-hidden />
+    <form onSubmit={submit} className="mt-1 pt-1">
+      <div className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1">
+        <KeyRound size={14} className="shrink-0 text-[var(--text-muted)]" aria-hidden />
         <Input
           ref={inputRef}
-          className="ws-inline-join-input focus-visible:none"
+          className="h-7 min-h-0 flex-1 border-0 bg-transparent px-1 py-0 text-xs focus-visible:ring-0"
           placeholder="Dán mã mời của nhóm…"
           value={value}
           onChange={(e) => {
@@ -77,12 +77,12 @@ function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
           variant="unstyled"
           size="auto"
           type="submit"
-          className="ws-inline-join-btn rounded-lg"
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)] text-[var(--text-on-primary)] transition-opacity disabled:opacity-40"
           disabled={pending || value.trim().length < 6}
           aria-label="Gửi yêu cầu tham gia"
         >
           {pending ? (
-            <Loader2 size={14} className="ws-join-spinner" />
+            <Loader2 size={14} className="animate-spin" />
           ) : (
             <Send size={13} />
           )}
@@ -90,7 +90,7 @@ function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
       </div>
       {feedback && (
         <p
-          className={`ws-inline-join-feedback ${feedback.ok ? "ws-join-ok" : "ws-join-err"}`}
+          className={`mt-1.5 px-1 text-xs font-medium ${feedback.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}
           role="status"
         >
           {feedback.text}
@@ -154,7 +154,7 @@ export function WorkspaceSwitcher({
             variant="unstyled"
             size="auto"
             type="button"
-            className="sidebar-workspace-selector-card flex h-12 w-full min-w-0 items-center gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-left outline-none transition-colors duration-150 hover:bg-[var(--surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:min-h-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0!"
+            className="flex h-12 w-full min-w-0 items-center gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-left outline-none transition-colors duration-150 hover:bg-[var(--surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:min-h-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0!"
             aria-expanded={open}
             aria-label={`Nhóm tài chính: ${currentWorkspace?.name}. Nhấn để chuyển nhóm.`}
           />
@@ -168,12 +168,12 @@ export function WorkspaceSwitcher({
             </div>
             <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden!">
               <div className="flex min-w-0 items-center gap-1.5">
-                <span className="sidebar-ws-title break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                <span className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
                   {currentWorkspace?.name}
                 </span>
               </div>
-              <span className="sidebar-ws-sub flex items-center gap-1.5 text-xs leading-snug text-[var(--text-muted)]">
-                <span className="sidebar-ws-dot size-1.5 shrink-0 rounded-full bg-[var(--success)]" aria-hidden />
+              <span className="flex items-center gap-1.5 text-xs leading-snug text-[var(--text-muted)]">
+                <span className="size-1.5 shrink-0 rounded-full bg-[var(--success)]" aria-hidden />
                 {currentWorkspace?.role === "ADMIN"
                   ? "Quản trị viên"
                   : "Thành viên"}
@@ -191,9 +191,9 @@ export function WorkspaceSwitcher({
         side="bottom"
         align="start"
         sideOffset={6}
-        className="sidebar-ws-popover w-80 min-w-64 max-w-[calc(100vw-2rem)] p-2"
+        className="w-80 min-w-64 max-w-[calc(100vw-2rem)] p-2"
       >
-        <div className="sidebar-ws-popover-list flex flex-col gap-1">
+        <div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
           {workspaces.map((ws) => {
             const isSelected = ws.id === currentId;
             return (
@@ -204,16 +204,16 @@ export function WorkspaceSwitcher({
                 key={ws.id}
                 disabled={pending}
                 onClick={() => choose(ws.id)}
-                className={`sidebar-ws-item flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--surface-hover)] ${isSelected ? "sidebar-ws-item-active bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))]" : ""}`}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--surface-hover)] ${isSelected ? "bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))]" : ""}`}
               >
-                <div className="sidebar-ws-avatar flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-xs font-bold text-[var(--foreground)]">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-xs font-bold text-[var(--foreground)]">
                   {ws.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="sidebar-ws-info flex min-w-0 flex-1 flex-col">
-                  <span className="sidebar-ws-name break-words text-sm font-medium leading-snug text-[var(--foreground)]">
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="break-words text-sm font-medium leading-snug text-[var(--foreground)]">
                     {ws.name}
                   </span>
-                  <span className="sidebar-ws-role text-xs text-[var(--text-muted)]">
+                  <span className="text-xs text-[var(--text-muted)]">
                     {ws.role === "ADMIN" ? "Quản trị viên" : "Thành viên"}
                   </span>
                 </div>
@@ -224,12 +224,12 @@ export function WorkspaceSwitcher({
             );
           })}
         </div>
-        {error && <p className="sidebar-ws-error mt-2 px-2 text-xs text-[var(--danger)]">{error}</p>}
-        <div className="sidebar-ws-popover-footer mt-2 flex flex-col gap-1 border-t border-[var(--border)] pt-2">
+        {error && <p className="mt-2 px-2 text-xs text-[var(--danger)]">{error}</p>}
+        <div className="mt-2 flex flex-col gap-1 border-t border-[var(--border)] pt-2">
           <Link
             href="/workspaces/create"
             onClick={() => setOpen(false)}
-            className="sidebar-ws-footer-link flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
+            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
           >
             <PlusCircle size={14} />
             <span>Tạo nhóm mới</span>
@@ -239,7 +239,7 @@ export function WorkspaceSwitcher({
             <Link
               href="/settings/join"
               onClick={() => setOpen(false)}
-              className="sidebar-ws-footer-link ws-pending-link flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--warning)] transition-colors hover:bg-[var(--surface-hover)]"
+              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--warning)] transition-colors hover:bg-[var(--surface-hover)]"
             >
               <Clock size={14} />
               <span>Đang chờ duyệt ({pendingJoinCount})</span>
