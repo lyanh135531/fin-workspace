@@ -90,7 +90,7 @@ export function WorkspaceSettingsTabsClient({
     >
       <TabsList
         variant="navigation"
-        className="workspace-settings-tab-list grid-cols-3"
+        className="w-full md:w-fit"
         aria-label="Các mục cài đặt nhóm tài chính"
       >
         {tabs.map((tab) => {
@@ -98,14 +98,7 @@ export function WorkspaceSettingsTabsClient({
           return (
             <TabsTrigger key={tab.key} value={tab.key} variant="navigation">
               <Icon />
-              <span className="max-md:hidden break-words leading-snug">{tab.label}</span>
-              <span className="md:hidden break-words leading-snug">
-                {tab.key === "general"
-                  ? "Cài đặt nhóm"
-                  : tab.key === "categories"
-                    ? "Danh mục"
-                    : "Thành viên"}
-              </span>
+              <span>{tab.label}</span>
             </TabsTrigger>
           );
         })}

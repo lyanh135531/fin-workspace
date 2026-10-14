@@ -609,7 +609,7 @@ export function OverviewDashboard({
             >
               <TabsList
                 variant="navigation"
-                className="grid w-full grid-cols-3 md:inline-grid md:w-auto"
+                className="w-full md:w-auto"
                 aria-label="Chọn kỳ xem dữ liệu"
               >
                 <TabsTrigger value="month">Tháng</TabsTrigger>
@@ -773,7 +773,7 @@ export function OverviewDashboard({
             >
               <TabsList
                 variant="navigation"
-                className="grid w-full grid-cols-4 md:inline-grid md:w-auto"
+                className="w-full md:w-auto"
                 aria-label="Chọn biểu đồ phân tích"
               >
                 <TabsTrigger value="cashflow">Thu chi</TabsTrigger>

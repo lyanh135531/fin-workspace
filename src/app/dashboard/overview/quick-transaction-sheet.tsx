@@ -274,7 +274,7 @@ export function QuickTransactionSheet({
         >
           <TabsList
             variant="navigation"
-            className="grid-cols-3"
+            className="w-full"
             aria-label="Loại giao dịch"
           >
             {transactionTypes.map((item) => {

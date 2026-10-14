@@ -1557,7 +1557,7 @@ function TransactionEditorForm({
       >
         <TabsList
           variant="navigation"
-          className="grid w-full grid-cols-3 gap-1"
+          className="w-full"
           aria-label="Loại giao dịch"
         >
           {transactionTypeTabs.map((tab) => {

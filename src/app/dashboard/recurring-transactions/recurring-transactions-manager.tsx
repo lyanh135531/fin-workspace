@@ -1067,7 +1067,7 @@ function RecurringEditor({
         >
           <TabsList
             variant="navigation"
-            className="w-full grid-cols-3"
+            className="w-full"
             aria-label="Loại giao dịch"
           >
             {typeOptions.map((option) => {

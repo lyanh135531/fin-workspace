@@ -246,7 +246,7 @@ export function DesktopTransactionCreateDraft({
         >
           <TabsList
             variant="navigation"
-            className="grid-cols-3 gap-1"
+            className="w-full"
             aria-label="Loại giao dịch"
           >
             {transactionTypeTabs.map((tab) => {

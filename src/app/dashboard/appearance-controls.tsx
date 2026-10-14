@@ -218,7 +218,7 @@ export function MobileAppearanceSheet() {
             >
               <TabsList
                 variant="segmented"
-                className="grid w-full grid-cols-2 h-10.5"
+                className="w-full"
                 aria-label="Chọn chế độ hiển thị"
               >
                 <TabsTrigger
