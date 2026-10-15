@@ -25,6 +25,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
+import { usePrivacyMask } from "@/lib/privacy-mask";
 
 import {
   addCreditCardRefundAction,
@@ -3594,6 +3595,7 @@ export function CreditCardOverview(props: {
     parentId?: string | null;
   }>;
 }) {
+  usePrivacyMask();
   const [selectedCardId, setSelectedCardId] = useState<string | null>(
     () => props.initialCardId ?? null,
   );

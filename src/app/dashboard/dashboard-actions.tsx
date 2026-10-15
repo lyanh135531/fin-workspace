@@ -60,7 +60,6 @@ import {
   ArrowLeftRight,
   ArrowUpRight,
   CalendarClock,
-  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -384,7 +383,7 @@ function TouchTransactionRow({
           <div
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
-            className="mt-1 flex shrink-0 items-center"
+            className="mt-1.5 flex shrink-0 items-center"
           >
             <Checkbox
               checked={selected}
@@ -396,7 +395,7 @@ function TouchTransactionRow({
 
         <div
           className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-xl",
+            "flex size-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)]/60",
             isTransfer && "bg-[var(--primary)]/10 text-[var(--primary)]",
             !isTransfer &&
               !item.category &&
@@ -421,16 +420,30 @@ function TouchTransactionRow({
                   icon: "tag",
                 }
               }
-              size={16}
+              size={17}
             />
           )}
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <strong className="break-words text-sm font-medium leading-snug text-[var(--foreground)]">
+            <strong className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
               {primaryTitle}
             </strong>
+
+            {item.description && item.category && (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.65rem] font-medium"
+                style={{
+                  backgroundColor: `${item.category.color}16`,
+                  color: item.category.color,
+                }}
+              >
+                <span className="break-words leading-snug">
+                  {item.category.name}
+                </span>
+              </span>
+            )}
 
             {hasReviewRequest && (
               <span
@@ -458,12 +471,13 @@ function TouchTransactionRow({
             )}
           </div>
 
-          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[var(--text-muted)]">
-            <span className="break-words leading-snug">
-              {item.description && item.category ? `${item.category.name} · ` : ""}
-              {item.wallet}
-              {item.toWallet ? ` → ${item.toWallet}` : ""}
-            </span>
+          <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
+            {/^(ví|thẻ)\b/i.test(item.wallet.trim())
+              ? item.wallet
+              : `Ví ${item.wallet}`}
+            {item.toWallet ? ` → ${item.toWallet}` : ""}
+            {item.member ? ` · ${item.member}` : ""}
+            {item.isRecurring ? " · Định kỳ" : ""}
           </p>
         </div>
       </div>
@@ -471,20 +485,18 @@ function TouchTransactionRow({
       <div className="shrink-0 text-right">
         <strong
           className={cn(
-            "block break-words text-sm font-semibold leading-snug tabular-nums",
+            "block whitespace-nowrap text-[0.925rem] font-bold leading-snug tabular-nums",
             isIncome && "text-[var(--income)]",
             isExpense && "text-[var(--expense)]",
             isTransfer && "text-[var(--foreground)]",
           )}
         >
           {amountPrefix}
-          {formatAmount(item.amount)} {currency}
-        </strong>
-        {item.isRecurring && (
-          <span className="mt-0.5 block text-[0.65rem] text-[var(--text-muted)]">
-            Định kỳ
+          {formatAmount(item.amount)}{" "}
+          <span className="text-[0.68rem] font-medium opacity-75">
+            {currency}
           </span>
-        )}
+        </strong>
       </div>
     </>
   );
@@ -503,7 +515,7 @@ function TouchTransactionRow({
         tabIndex={0}
         aria-label={`${primaryTitle}, ${amountPrefix}${formatAmount(item.amount)} ${currency}`}
         className={cn(
-          "flex select-none items-start justify-between gap-3 px-4 py-3 text-left transition-colors active:bg-[var(--surface-hover)] cursor-pointer md:px-5",
+          "flex select-none items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors active:bg-[var(--surface-hover)] cursor-pointer md:px-5",
           selected &&
             "bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))]",
         )}
@@ -517,13 +529,13 @@ function TouchTransactionRow({
     <DropdownMenu
       open={!selectionMode && menuOpen}
       onOpenChange={(open) => {
-        if (!selectionMode) setMenuOpen(open);
+        if (!open) setMenuOpen(false);
       }}
     >
       <SpotlightTrigger
         open={!selectionMode && menuOpen}
         onOpenChange={(open) => {
-          if (!selectionMode) setMenuOpen(open);
+          if (!open) setMenuOpen(false);
         }}
         dismissLabel={`Đóng menu thao tác ${primaryTitle}`}
         render={
@@ -534,7 +546,7 @@ function TouchTransactionRow({
             data-selected={selected || undefined}
             aria-label={`${primaryTitle}, ${amountPrefix}${formatAmount(item.amount)} ${currency}. Chạm để xem chi tiết, nhấn giữ để mở menu thao tác.`}
             className={cn(
-              "flex select-none items-start justify-between gap-3 px-4 py-3 text-left transition-all duration-150 cursor-pointer md:px-5",
+              "flex select-none items-center justify-between gap-3 px-4 py-3.5 text-left transition-all duration-150 cursor-pointer md:px-5",
               isPressing && "scale-[0.99] bg-[var(--surface-hover)]",
               selected &&
                 "bg-[color-mix(in_srgb,var(--primary)_8%,var(--surface))]",
@@ -1260,7 +1272,7 @@ export function Ledger({
   return (
     <div className="flex flex-col lg:h-full lg:min-h-0 lg:flex-1">
       {/* Filter & Search Toolbar */}
-      <div className="flex flex-col gap-2.5 border-b border-[var(--border)] p-3 md:p-4">
+      <div className="flex flex-col gap-2.5 border-b border-[var(--border)] p-3.5 md:p-4">
         <div className="flex flex-wrap items-center gap-2">
           {canApprove && selectableRows.length > 0 && (
             <div className="hidden shrink-0 items-center pr-1 lg:flex">
@@ -1361,58 +1373,60 @@ export function Ledger({
                   description={`Thu hẹp danh sách theo loại, ví, danh mục và thời gian trong ${scopeLabel}.`}
                 />
 
-                <div className="grid gap-4 overflow-y-auto p-4 md:grid-cols-2">
-                  <Select
-                    label="Loại giao dịch"
-                    value={filterType || "all"}
-                    onValueChange={(val) =>
-                      changeFilter(() =>
-                        setFilterType(val === "all" ? "" : val),
-                      )
-                    }
-                    options={filterTypeOptions}
-                  />
-
-                  <Select
-                    label="Ví thực hiện"
-                    value={filterWallet || "all"}
-                    onValueChange={(val) =>
-                      changeFilter(() =>
-                        setFilterWallet(val === "all" ? "" : val),
-                      )
-                    }
-                    options={walletFilterOptions}
-                  />
-
-                  <CategoryTreeSelect
-                    label="Danh mục"
-                    value={filterCategory}
-                    ariaLabel="Lọc danh mục"
-                    placeholder="Tất cả danh mục"
-                    categories={categories}
-                    emptyOption={{ value: "", label: "Tất cả danh mục" }}
-                    onValueChange={(value) =>
-                      changeFilter(() => setFilterCategory(value))
-                    }
-                  />
-
-                  <div className="grid gap-1.5">
-                    <span className="text-xs font-medium text-[var(--text-secondary)]">
-                      Khoảng thời gian
-                    </span>
-                    <DateRangePicker
-                      value={dateRange}
-                      ariaLabel="Lọc theo khoảng thời gian"
-                      allowClear
-                      onValueChange={(value) =>
-                        changeFilter(() => setDateRange(value))
+                <div className="overflow-y-auto px-4 py-3.5">
+                  <div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/40 p-3.5 sm:grid-cols-2">
+                    <Select
+                      label="Loại giao dịch"
+                      value={filterType || "all"}
+                      onValueChange={(val) =>
+                        changeFilter(() =>
+                          setFilterType(val === "all" ? "" : val),
+                        )
                       }
-                      className="w-full justify-between"
+                      options={filterTypeOptions}
                     />
+
+                    <Select
+                      label="Ví thực hiện"
+                      value={filterWallet || "all"}
+                      onValueChange={(val) =>
+                        changeFilter(() =>
+                          setFilterWallet(val === "all" ? "" : val),
+                        )
+                      }
+                      options={walletFilterOptions}
+                    />
+
+                    <CategoryTreeSelect
+                      label="Danh mục"
+                      value={filterCategory}
+                      ariaLabel="Lọc danh mục"
+                      placeholder="Tất cả danh mục"
+                      categories={categories}
+                      emptyOption={{ value: "", label: "Tất cả danh mục" }}
+                      onValueChange={(value) =>
+                        changeFilter(() => setFilterCategory(value))
+                      }
+                    />
+
+                    <div className="grid content-start gap-1.5">
+                      <span className="text-xs font-medium text-[var(--text-secondary)]">
+                        Khoảng thời gian
+                      </span>
+                      <DateRangePicker
+                        value={dateRange}
+                        ariaLabel="Lọc theo khoảng thời gian"
+                        allowClear
+                        onValueChange={(value) =>
+                          changeFilter(() => setDateRange(value))
+                        }
+                        className="w-full justify-between"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <SheetFooter className="flex-row items-center justify-between gap-3 border-t border-[var(--border)] p-4">
+                <SheetFooter className="flex-row items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3.5">
                   <Button
                     variant="outline"
                     size="icon"
@@ -1568,6 +1582,38 @@ export function Ledger({
           </div>
         </div>
 
+        {/* Segmented Quick Type Filter on Mobile & Tablet (<1024px) */}
+        <div
+          className="grid grid-cols-4 gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-1 lg:hidden"
+          role="group"
+          aria-label="Lọc nhanh loại giao dịch"
+        >
+          {[
+            { value: "", label: "Tất cả" },
+            { value: "expense", label: "Chi tiêu" },
+            { value: "income", label: "Thu nhập" },
+            { value: "transfer", label: "Chuyển ví" },
+          ].map((pill) => {
+            const active = filterType === pill.value;
+            return (
+              <button
+                key={pill.value || "all"}
+                type="button"
+                aria-pressed={active}
+                onClick={() => changeFilter(() => setFilterType(pill.value))}
+                className={cn(
+                  "rounded-lg px-1.5 py-1.5 text-center text-[0.72rem] font-medium transition-colors",
+                  active
+                    ? "border border-[var(--border)] bg-[var(--surface)] font-semibold text-[var(--foreground)]"
+                    : "text-[var(--text-secondary)] hover:text-[var(--foreground)]",
+                )}
+              >
+                {pill.label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Dedicated Touch Multi-Select Bar on Mobile & Tablet (<1024px) */}
         {canApprove && selectionMode && (
           <div className="flex items-center justify-between gap-2 rounded-xl border border-[var(--primary)]/30 bg-[color-mix(in_srgb,var(--primary)_8%,var(--surface))] px-3 py-2 lg:hidden">
@@ -1618,36 +1664,25 @@ export function Ledger({
           const totalAmount = totals.income.minus(totals.expense);
           return (
             <section key={dateKey} className="divide-y divide-[var(--border)]">
-              <header className="sticky top-0 z-10 flex items-center justify-between gap-3 bg-[var(--surface-secondary)] px-4 py-2 text-xs md:px-5">
-                <div className="flex min-w-0 items-center gap-2">
-                  <CalendarDays
-                    className="size-3.5 shrink-0 text-[var(--primary)]"
-                    aria-hidden="true"
-                  />
-                  <strong className="break-words font-semibold leading-snug text-[var(--foreground)] tabular-nums">
+              <header className="sticky top-0 z-10 flex items-center justify-between gap-3 bg-[var(--surface-secondary)]/85 px-4 py-2 text-xs backdrop-blur-md md:px-5">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <strong className="break-words text-[0.72rem] font-semibold tracking-wide text-[var(--text-secondary)] uppercase tabular-nums">
                     {label}
                   </strong>
-                  <span className="shrink-0 text-[0.68rem] text-[var(--text-muted)] tabular-nums">
-                    ({items.length})
-                  </span>
-                </div>
-                <strong
-                  className={cn(
-                    "shrink-0 text-xs font-semibold tabular-nums",
-                    totalAmount.isPositive()
-                      ? "text-[var(--income)]"
-                      : totalAmount.isNegative()
-                        ? "text-[var(--expense)]"
-                        : "text-[var(--text-secondary)]",
+                  {items.length > 1 && (
+                    <span className="shrink-0 text-[0.68rem] text-[var(--text-muted)] tabular-nums">
+                      · {items.length} mục
+                    </span>
                   )}
-                >
+                </div>
+                <span className="shrink-0 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--text-secondary)] tabular-nums">
                   {totalAmount.isPositive()
                     ? "+"
                     : totalAmount.isNegative()
                       ? "−"
                       : ""}
                   {formatAmount(totalAmount.abs())} {currency}
-                </strong>
+                </span>
               </header>
               <div className="divide-y divide-[var(--border)]">
                 {items.map(renderTransactionRow)}
@@ -1718,41 +1753,42 @@ export function Ledger({
           if (!open && !busy) setCreateDraft(null);
         }}
       >
-        {!isDesktop && createDraft && (
-          <SheetContent side="bottom" aria-label="Tạo giao dịch mới">
-            <SheetHeader
-              icon={Plus}
-              title="Tạo giao dịch mới"
-              description="Nhập số tiền và thông tin phân loại giao dịch."
-            />
-            <div className="overflow-y-auto p-4">
-              <TransactionEditorForm
-                draft={createDraft}
-                wallets={wallets}
-                categories={categories}
-                busy={busy}
-                disabled={false}
-                onChange={(patch) =>
-                  setCreateDraft((current) =>
-                    current ? { ...current, ...patch } : current,
-                  )
-                }
+        <SheetContent side="bottom" aria-label="Tạo giao dịch mới">
+          <SheetHeader
+            icon={Plus}
+            title="Tạo giao dịch mới"
+            description="Nhập số tiền và thông tin phân loại giao dịch."
+          />
+          {createDraft && (
+            <>
+              <div className="overflow-y-auto p-4">
+                <TransactionEditorForm
+                  draft={createDraft}
+                  wallets={wallets}
+                  categories={categories}
+                  busy={busy}
+                  disabled={false}
+                  onChange={(patch) =>
+                    setCreateDraft((current) =>
+                      current ? { ...current, ...patch } : current,
+                    )
+                  }
+                />
+              </div>
+              <SheetFooter
+                onCancel={() => setCreateDraft(null)}
+                cancelLabel="Hủy"
+                cancelDisabled={busy}
+                submitLabel="Lưu giao dịch"
+                submittingLabel="Đang lưu..."
+                isSubmitting={busy}
+                submitDisabled={busy}
+                onSubmit={saveCreate}
+                submitType="button"
               />
-            </div>
-            <SheetFooter className="flex-row items-center justify-end gap-2 border-t border-[var(--border)] p-4">
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() => setCreateDraft(null)}
-              >
-                Hủy
-              </Button>
-              <Button variant="default" disabled={busy} onClick={saveCreate}>
-                {busy ? "Đang lưu..." : "Lưu giao dịch"}
-              </Button>
-            </SheetFooter>
-          </SheetContent>
-        )}
+            </>
+          )}
+        </SheetContent>
       </Sheet>
 
       {/* Unified Detail / Edit / Approval Sheet */}
@@ -1762,15 +1798,15 @@ export function Ledger({
           if (!open) closeTransactionSheet();
         }}
       >
-        {activeTarget && activeDraft && (
-          <SheetContent
-            side={isDesktop ? "right" : "bottom"}
-            placement={isDesktop ? "inset" : "edge"}
-            size={isDesktop ? "wide" : "default"}
-            spacing="flush"
-            elevation="flat"
-            aria-label="Chi tiết giao dịch"
-          >
+        <SheetContent
+          side={isDesktop ? "right" : "bottom"}
+          placement={isDesktop ? "inset" : "edge"}
+          size={isDesktop ? "wide" : "default"}
+          spacing="flush"
+          elevation="flat"
+          aria-label="Chi tiết giao dịch"
+        >
+          {activeTarget && activeDraft && (
             <TransactionDetailSheetBody
               item={activeTarget}
               draft={activeDraft}
@@ -1802,8 +1838,8 @@ export function Ledger({
               onDelete={() => removeOne(activeTarget, deleteReason)}
               onClose={closeTransactionSheet}
             />
-          </SheetContent>
-        )}
+          )}
+        </SheetContent>
       </Sheet>
 
       {/* Scheduled Transactions Sheet */}
@@ -1834,14 +1870,10 @@ export function Ledger({
               </div>
             )}
           </div>
-          <SheetFooter className="flex-row items-center justify-end border-t border-[var(--border)] p-4">
-            <Button
-              variant="outline"
-              onClick={() => setScheduledSheetOpen(false)}
-            >
-              Đóng
-            </Button>
-          </SheetFooter>
+          <SheetFooter
+            onCancel={() => setScheduledSheetOpen(false)}
+            cancelLabel="Đóng"
+          />
         </SheetContent>
       </Sheet>
 
@@ -1856,11 +1888,12 @@ export function Ledger({
             title={`Xóa ${selected.size} giao dịch đã chọn?`}
             description="Các giao dịch đã ghi nhận sẽ được hoàn tác khỏi số dư ví. Hành động này không thể hoàn tác."
           />
-          <SheetFooter className="flex-row items-center justify-end gap-2 border-t border-[var(--border)] p-4">
+          <SheetFooter>
             <Button
               variant="outline"
               disabled={busy}
               onClick={() => setBulkDeleteOpen(false)}
+              className="flex-1 sm:flex-none"
             >
               Hủy
             </Button>
@@ -1871,6 +1904,7 @@ export function Ledger({
                 setBulkDeleteOpen(false);
                 removeBulk();
               }}
+              className="flex-1 sm:flex-none gap-2"
             >
               <Trash2 size={15} />
               <span>Xóa {selected.size} giao dịch</span>
@@ -1930,7 +1964,7 @@ function TransactionEditorForm({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       <Tabs
         value={draft.type}
         onValueChange={(value) => changeType(value as TransactionType)}
@@ -1967,32 +2001,43 @@ function TransactionEditorForm({
         </TabsList>
       </Tabs>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <MoneyInput
-          required
-          disabled={locked}
-          value={draft.amount}
-          onValueChange={(amount) =>
-            onChange({
-              amount,
-              allocations: isCreditCardExpense
-                ? [
-                    {
-                      walletId:
-                        draft.allocations[0]?.walletId ||
-                        selectedWallet?.defaultFundingWalletId ||
-                        assetWallets[0]?.id ||
-                        "",
-                      amount,
-                    },
-                  ]
-                : [],
-            })
-          }
-          placeholder="0"
-          label="Số tiền"
-        />
+      {/* Hero Amount Card */}
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-3">
+        <span className="block text-[0.68rem] font-semibold tracking-wider text-[var(--text-muted)] uppercase">
+          Số tiền giao dịch
+        </span>
+        <div className="mt-0.5">
+          <MoneyInput
+            required
+            disabled={locked}
+            value={draft.amount}
+            onValueChange={(amount) =>
+              onChange({
+                amount,
+                allocations: isCreditCardExpense
+                  ? [
+                      {
+                        walletId:
+                          draft.allocations[0]?.walletId ||
+                          selectedWallet?.defaultFundingWalletId ||
+                          assetWallets[0]?.id ||
+                          "",
+                        amount,
+                      },
+                    ]
+                  : [],
+              })
+            }
+            placeholder="0"
+            aria-label="Số tiền"
+            wrapperClassName="w-full"
+            className="h-10 rounded-none border-0 bg-transparent pl-0 pr-12 text-left text-2xl font-bold tracking-tight text-[var(--foreground)] focus-visible:border-transparent focus-visible:ring-0"
+          />
+        </div>
+      </div>
 
+      {/* Grouped Details Card */}
+      <div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/40 p-3.5 sm:grid-cols-2">
         <Select
           disabled={locked || !wallets.length}
           value={draft.walletId}
@@ -2136,15 +2181,17 @@ function TransactionEditorForm({
           onValueChange={(date) => onChange({ date })}
           required
         />
-      </div>
 
-      <Input
-        disabled={locked}
-        value={draft.description}
-        onChange={(event) => onChange({ description: event.target.value })}
-        placeholder="Ăn trưa, nhận lương..."
-        label="Nội dung"
-      />
+        <div className="sm:col-span-2">
+          <Input
+            disabled={locked}
+            value={draft.description}
+            onChange={(event) => onChange({ description: event.target.value })}
+            placeholder="Ăn trưa, nhận lương..."
+            label="Nội dung"
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -2202,6 +2249,9 @@ function TransactionDetailSheetBody({
         item.pendingChangeAction === "delete"),
   );
   const isDeleteReview = item.pendingChangeAction === "delete";
+  const formattedWallet = /^(ví|thẻ)\b/i.test(item.wallet.trim())
+    ? item.wallet
+    : `Ví ${item.wallet}`;
 
   return (
     <>
@@ -2214,13 +2264,13 @@ function TransactionDetailSheetBody({
               : "Duyệt yêu cầu sửa giao dịch"
             : "Chi tiết giao dịch"
         }
-        description={`${item.member} · ${item.wallet} · ${formatLedgerDate(item.date)}`}
+        description={`${item.member} · ${formattedWallet} · ${formatLedgerDate(item.date)}`}
       />
 
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 md:p-6">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3.5 md:p-6">
         {/* Approval Section for Pending Change Request */}
         {isChangeReview && (
-          <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-4">
+          <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-[var(--foreground)]">
                 <strong>{item.pendingChangeRequester ?? "Thành viên"}</strong>{" "}
@@ -2234,7 +2284,7 @@ function TransactionDetailSheetBody({
             </div>
 
             {isDeleteReview ? (
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-xs">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-xs">
                 <span className="block font-medium text-[var(--text-secondary)]">
                   Lý do xóa:
                 </span>
@@ -2243,7 +2293,7 @@ function TransactionDetailSheetBody({
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+              <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface)]">
                 {item.pendingChangeDetails.map((detail) => {
                   const unit = detail.label === "Số tiền" ? ` ${currency}` : "";
                   return (
@@ -2300,7 +2350,7 @@ function TransactionDetailSheetBody({
         {canApprove &&
           !item.pendingChangeRequestId &&
           item.status === "pending" && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-[var(--foreground)]">
                   Giao dịch đang chờ duyệt
@@ -2336,7 +2386,7 @@ function TransactionDetailSheetBody({
 
         {/* Early Execution Banner for Scheduled Transaction */}
         {canApprove && item.status === "scheduled" && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
             <div className="min-w-0">
               <p className="text-xs font-semibold text-[var(--foreground)]">
                 Giao dịch đã lên lịch ({formatLedgerDate(item.date)})
@@ -2446,20 +2496,17 @@ function TransactionDetailSheetBody({
         )}
       </div>
 
-      <SheetFooter className="flex-row items-center justify-between gap-3 border-t border-[var(--border)] p-4 md:px-6">
-        <Button variant="outline" disabled={busy} onClick={onClose}>
-          Đóng
-        </Button>
-        {canEdit && (
-          <Button
-            variant="default"
-            disabled={busy || !hasChanges}
-            onClick={onSave}
-          >
-            {busy ? "Đang lưu..." : "Lưu thay đổi"}
-          </Button>
-        )}
-      </SheetFooter>
+      <SheetFooter
+        onCancel={onClose}
+        cancelLabel="Đóng"
+        cancelDisabled={busy}
+        submitLabel={canEdit ? "Lưu thay đổi" : undefined}
+        submittingLabel="Đang lưu..."
+        isSubmitting={busy}
+        submitDisabled={busy || !hasChanges}
+        onSubmit={canEdit ? onSave : undefined}
+        submitType="button"
+      />
     </>
   );
 }

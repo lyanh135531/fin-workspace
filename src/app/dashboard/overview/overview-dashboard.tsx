@@ -6,50 +6,60 @@ import {
   Card,
   CategoryIcon,
   Empty,
-  PageHeader,
-  Popover,
-  PopoverTrigger,
   Sheet,
   SheetContent,
-  SheetTrigger,
+  SheetFooter,
+  SheetHeader,
   Tabs,
   TabsList,
   TabsTrigger,
   type DashboardPeriod,
   type DateRangeValue,
 } from "@/components/base";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import Decimal from "decimal.js";
 import Link from "next/link";
 import {
   ArrowDownLeft,
   ArrowLeftRight,
   ArrowUpRight,
+  Building2,
   CalendarClock,
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
   CreditCard,
+  Landmark,
+  Layers,
   PiggyBank,
   Plus,
+  ReceiptText,
   RotateCcw,
+  Sparkles,
+  Target,
   TrendingDown,
   TrendingUp,
   Wallet,
   WalletCards,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { usePrivacyMask } from "@/lib/privacy-mask";
 import {
-  DesktopTransactionCreateDraft,
-  DesktopTransactionCreatePopoverContent,
-  createTransactionDraft,
-  transactionDraftInput,
   type TransactionCategoryOption,
-  type TransactionDraft,
-  type TransactionWalletOption,
 } from "@/app/dashboard/desktop-transaction-create-draft";
-import { addTransactionAction } from "@/app/dashboard/actions";
+import {
+  approveTransactionAction,
+  rejectTransactionAction,
+} from "@/app/dashboard/actions";
 import { useOptimisticNavigation } from "@/app/dashboard/use-optimistic-navigation";
 import {
   Area,
@@ -79,6 +89,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import type { FinancialJarCode } from "@/domain/financial-jar/jars";
 import {
   formatAmount,
   formatScaledAmount,
@@ -97,6 +108,7 @@ type Transaction = {
   walletId: string;
   toWalletId: string | null;
   wallet: string;
+  toWallet?: string | null;
   categoryId: string | null;
   category: { name: string; color: string; icon: string | null } | null;
   memberId: string;
@@ -116,32 +128,78 @@ type UpcomingRecurring = {
   description: string | null;
   nextExecutionDate: string;
   wallet: string;
+  toWallet?: string | null;
   category: { name: string; color: string; icon: string | null } | null;
+};
+
+export type OverviewWalletItem = {
+  id: string;
+  name: string;
+  kind: "asset" | "credit_card";
+  assetSubtype?: "cash" | "bank" | "e_wallet" | "other";
+  balance: string;
+  committed: string;
+  available: string;
+  defaultFundingWalletId?: string | null;
+  creditLimit?: string | null;
+  statementClosingDay?: number | null;
+  paymentDueDay?: number | null;
+  issuedStatement?: {
+    id: string;
+    dueDate: string;
+    totalAmount: string;
+    remainingAmount: string;
+    overdue: boolean;
+  } | null;
+  updatedAt: string;
+};
+
+export type OverviewFinancialPlanSnapshot = {
+  id: string;
+  name: string;
+  status: "active" | "completed" | "cancelled";
+  health: string;
+  targetAmount: string;
+  realizedProgress: string;
+  realizedProgressPercentage: string;
+  targetMonth: string;
+  currentMonth: {
+    month: string;
+    allocatableGrossBudget: string;
+    adjustedRequiredAmount: string;
+    availableToSpend: string;
+    eligibleExpense: string;
+    jars: {
+      jarCode: FinancialJarCode;
+      label: string;
+      percentage: string;
+      allocatedAmount: string;
+      spentAmount: string;
+      remainingAmount: string;
+      overspendAmount: string;
+    }[];
+  } | null;
 };
 
 type Props = {
   workspace: { id: string; name: string; currency: string };
   reportPeriod: string;
-  wallets: {
-    id: string;
-    name: string;
-    kind: "asset" | "credit_card";
-    balance: string;
-    committed: string;
-    available: string;
-    defaultFundingWalletId?: string | null;
-    updatedAt: string;
-  }[];
+  wallets: OverviewWalletItem[];
   totalByCurrency: Record<string, string>;
   members: { id: string; name: string }[];
   transactions: Transaction[];
   userRole?: string;
+  canApprove?: boolean;
+  financialPlanSnapshot?: OverviewFinancialPlanSnapshot | null;
   upcomingRecurring?: UpcomingRecurring[];
   categories?: TransactionCategoryOption[];
   businessDate?: string;
 };
 
-type MainChartTab = "cashflow" | "balance" | "category" | "member";
+type MainChartTab = "cashflow" | "balance" | "structure";
+type StructureMode = "expense" | "income" | "member";
+type WalletFilterTab = "all" | "asset" | "credit_card";
+type ActivityFeedTab = "recent" | "upcoming" | "pending";
 
 const money = (value: Decimal.Value, currency: string) =>
   `${formatAmount(value)} ${currency}`;
@@ -183,6 +241,19 @@ function formatDateRangeLabel(dateRange: DateRangeValue): string {
   return `${formatDate(dateRange.from)} – ${formatDate(dateRange.to)}`;
 }
 
+function formatShortDate(isoDate: string): string {
+  const [year, month, day] = isoDate.slice(0, 10).split("-");
+  return `${day}/${month}/${year}`;
+}
+
+function daysBetweenDates(fromIso: string, toIso: string): number {
+  const [fy, fm, fd] = fromIso.slice(0, 10).split("-").map(Number);
+  const [ty, tm, td] = toIso.slice(0, 10).split("-").map(Number);
+  const fromUtc = Date.UTC(fy, fm - 1, fd);
+  const toUtc = Date.UTC(ty, tm - 1, td);
+  return Math.round((toUtc - fromUtc) / (1000 * 60 * 60 * 24));
+}
+
 function shiftReportPeriod(
   periodStr: string,
   step: number,
@@ -221,18 +292,24 @@ function formatPeriodLabel(
 function summarizeTransactions(
   transactions: Transaction[],
   dateRange: DateRangeValue,
-): { income: Decimal; expense: Decimal } {
+): { income: Decimal; expense: Decimal; count: number } {
   return transactions.reduce(
     (result, item) => {
       if (item.status !== "approved" || !isInDateRange(item.date, dateRange)) {
         return result;
       }
 
-      if (item.type === "income") result.income = result.income.plus(item.amount);
-      if (item.type === "expense") result.expense = result.expense.plus(item.amount);
+      if (item.type === "income") {
+        result.income = result.income.plus(item.amount);
+        result.count += 1;
+      }
+      if (item.type === "expense") {
+        result.expense = result.expense.plus(item.amount);
+        result.count += 1;
+      }
       return result;
     },
-    { income: new Decimal(0), expense: new Decimal(0) },
+    { income: new Decimal(0), expense: new Decimal(0), count: 0 },
   );
 }
 
@@ -287,230 +364,92 @@ function calculatePeriodProgress(
   return { elapsed: Math.min(diffDays, totalDays), total: totalDays };
 }
 
+function computeDeltaPercent(current: Decimal, previous: Decimal): number | null {
+  if (previous.isZero()) return null;
+  return current.minus(previous).div(previous).times(100).toNumber();
+}
+
+function walletSubtypeLabel(subtype?: string): string {
+  if (subtype === "bank") return "Tài khoản ngân hàng";
+  if (subtype === "cash") return "Tiền mặt";
+  if (subtype === "e_wallet") return "Ví điện tử";
+  return "Ví tài sản";
+}
+
+function planHealthMeta(health: string): {
+  label: string;
+  toneClass: string;
+} {
+  if (health === "ahead" || health === "on_track" || health === "completed") {
+    return {
+      label: health === "completed" ? "Hoàn thành" : "Đúng tiến độ",
+      toneClass: "bg-[var(--income)]/12 text-[var(--income)]",
+    };
+  }
+  if (health === "at_risk") {
+    return {
+      label: "Cần chú ý",
+      toneClass:
+        "bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] text-[var(--warning)]",
+    };
+  }
+  return {
+    label: "Chậm tiến độ",
+    toneClass: "bg-[var(--expense)]/12 text-[var(--expense)]",
+  };
+}
+
 export function OverviewDashboard({
   workspace,
   reportPeriod,
   wallets,
-  totalByCurrency,
   members,
   transactions,
-  upcomingRecurring,
-  categories,
+  canApprove = false,
+  financialPlanSnapshot = null,
+  upcomingRecurring = [],
   businessDate,
 }: Props) {
   const router = useRouter();
   const { beginNavigation } = useOptimisticNavigation();
   const ledgerHref = workspace.id ? `/workspace/${workspace.id}` : "/dashboard";
+
   const [isMobile, setIsMobile] = useState(false);
-  const [createDraft, setCreateDraft] = useState<TransactionDraft | null>(null);
-  const [transferDraft, setTransferDraft] = useState<TransactionDraft | null>(null);
-  const [emptyCreateDraft, setEmptyCreateDraft] = useState<TransactionDraft | null>(null);
-  const [busy, startTransition] = useTransition();
-
-  const walletOptions = useMemo<TransactionWalletOption[]>(
-    () =>
-      wallets.map((w) => ({
-        id: w.id,
-        name: w.name,
-        kind: w.kind,
-        defaultFundingWalletId: w.defaultFundingWalletId,
-      })),
-    [wallets],
-  );
-
-  const categoryOptions = useMemo<TransactionCategoryOption[]>(
-    () => categories ?? [],
-    [categories],
-  );
-
-  const defaultDate = businessDate ?? `${reportPeriod}-01`;
-
-  function beginCreate() {
-    setCreateDraft(
-      createTransactionDraft(walletOptions, categoryOptions, defaultDate),
-    );
-  }
-
-  function saveCreate() {
-    if (!createDraft) return;
-    startTransition(async () => {
-      const result = await addTransactionAction(
-        workspace.id,
-        transactionDraftInput(createDraft),
-      );
-      if (result.ok) {
-        toast.success(
-          result.status === "pending"
-            ? "Đã gửi giao dịch quá khứ để Admin duyệt."
-            : result.status === "scheduled"
-              ? "Đã lên lịch giao dịch tương lai."
-              : "Đã ghi nhận giao dịch và cập nhật số dư ví.",
-        );
-        setCreateDraft(null);
-        router.refresh();
-      } else {
-        toast.error(result.message ?? "Không thể lưu giao dịch.");
-      }
-    });
-  }
-
-  function beginTransfer() {
-    const draft = createTransactionDraft(
-      walletOptions,
-      categoryOptions,
-      defaultDate,
-    );
-    draft.type = "transfer";
-    setTransferDraft(draft);
-  }
-
-  function saveTransfer() {
-    if (!transferDraft) return;
-    startTransition(async () => {
-      const result = await addTransactionAction(
-        workspace.id,
-        transactionDraftInput(transferDraft),
-      );
-      if (result.ok) {
-        toast.success(
-          result.status === "pending"
-            ? "Đã gửi giao dịch quá khứ để Admin duyệt."
-            : result.status === "scheduled"
-              ? "Đã lên lịch giao dịch tương lai."
-              : "Đã ghi nhận giao dịch chuyển khoản.",
-        );
-        setTransferDraft(null);
-        router.refresh();
-      } else {
-        toast.error(result.message ?? "Không thể chuyển khoản.");
-      }
-    });
-  }
-
-  function beginEmptyCreate() {
-    setEmptyCreateDraft(
-      createTransactionDraft(walletOptions, categoryOptions, defaultDate),
-    );
-  }
-
-  function saveEmptyCreate() {
-    if (!emptyCreateDraft) return;
-    startTransition(async () => {
-      const result = await addTransactionAction(
-        workspace.id,
-        transactionDraftInput(emptyCreateDraft),
-      );
-      if (result.ok) {
-        toast.success(
-          result.status === "pending"
-            ? "Đã gửi giao dịch quá khứ để Admin duyệt."
-            : result.status === "scheduled"
-              ? "Đã lên lịch giao dịch tương lai."
-              : "Đã ghi nhận giao dịch và cập nhật số dư ví.",
-        );
-        setEmptyCreateDraft(null);
-        router.refresh();
-      } else {
-        toast.error(result.message ?? "Không thể lưu giao dịch.");
-      }
-    });
-  }
-
-  const [globalPeriod, setGlobalPeriod] = useState<DashboardPeriod>("quarter");
+  const privacyMasked = usePrivacyMask();
+  const [globalPeriod, setGlobalPeriod] = useState<DashboardPeriod>("month");
   const [activeReportPeriod, setActiveReportPeriod] =
     useState<string>(reportPeriod);
+  const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState<number>(() =>
+    Number(reportPeriod.split("-")[0]),
+  );
   const [chartTab, setChartTab] = useState<MainChartTab>("cashflow");
+  const [structureMode, setStructureMode] = useState<StructureMode>("expense");
+  const [walletFilter, setWalletFilter] = useState<WalletFilterTab>("all");
+  const [activityTab, setActivityTab] = useState<ActivityFeedTab>("recent");
 
-  const activeDateRange = getDashboardPeriodDateRange(
-    activeReportPeriod,
-    globalPeriod,
+  const [activeYear, activeMonth] = useMemo(
+    () => activeReportPeriod.split("-").map(Number),
+    [activeReportPeriod],
   );
-  const activeTotals = summarizeTransactions(transactions, activeDateRange);
-  const activeNetCashflow = activeTotals.income.minus(activeTotals.expense);
-  const periodProgress = calculatePeriodProgress(
-    activeReportPeriod,
-    globalPeriod,
-  );
-  const dailyBurnRate = activeTotals.expense.div(periodProgress.elapsed);
+  const activeQuarter = Math.floor((activeMonth - 1) / 3) + 1;
+  const yearPageStart = Math.floor((pickerYear - 2020) / 12) * 12 + 2020;
 
-  const totalBalanceDecimal = wallets.reduce(
-    (sum, w) =>
-      w.kind === "credit_card" ? sum : sum.plus(new Decimal(w.balance)),
-    new Decimal(0),
-  );
-  const totalAvailableDecimal = wallets.reduce(
-    (sum, w) =>
-      w.kind === "credit_card" ? sum : sum.plus(new Decimal(w.available)),
-    new Decimal(0),
-  );
-  const totalCommittedDecimal = wallets.reduce(
-    (sum, w) =>
-      w.kind === "credit_card" ? sum : sum.plus(new Decimal(w.committed)),
-    new Decimal(0),
-  );
+  function handlePeriodPickerOpenChange(nextOpen: boolean) {
+    if (nextOpen) {
+      setPickerYear(activeYear);
+    }
+    setPeriodPickerOpen(nextOpen);
+  }
 
-  const savingsRate = activeTotals.income.gt(0)
-    ? activeNetCashflow.div(activeTotals.income).times(100).toNumber()
-    : activeTotals.expense.gt(0)
-      ? -100
-      : 0;
+  // Sheet states (always mounted inside Sheet for smooth backdrop blur)
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null);
+  const [allCategoriesSheetOpen, setAllCategoriesSheetOpen] = useState(false);
+  const [approvalsSheetOpen, setApprovalsSheetOpen] = useState(false);
+  const [busy, startTransition] = useTransition();
 
-  const pendingTransactions = transactions.filter(
-    (t) => t.status === "pending",
-  );
-  const recentTransactions = transactions.slice(0, 6);
-
-  const memberExpenses = members
-    .map((m) => {
-      const memberSpent = transactions
-        .filter(
-          (t) =>
-            t.memberId === m.id &&
-            t.type === "expense" &&
-            t.status === "approved" &&
-            isInDateRange(t.date, activeDateRange),
-        )
-        .reduce((sum, t) => sum.plus(new Decimal(t.amount)), new Decimal(0));
-      const percent = activeTotals.expense.isZero()
-        ? 0
-        : memberSpent.div(activeTotals.expense).times(100).toNumber();
-      return {
-        ...m,
-        spent: memberSpent,
-        percent,
-      };
-    })
-    .sort((a, b) => b.spent.comparedTo(a.spent));
-
-  const expenseByCategory = (() => {
-    const rows = new Map<
-      string,
-      { name: string; color: string; icon: string | null; amount: Decimal }
-    >();
-    transactions
-      .filter(
-        (item) =>
-          item.status === "approved" &&
-          isInDateRange(item.date, activeDateRange) &&
-          item.type === "expense",
-      )
-      .forEach((item) => {
-        const key = item.categoryId ?? "uncategorized";
-        const prior = rows.get(key);
-        rows.set(key, {
-          name: item.category?.name ?? "Chưa phân loại",
-          color: item.category?.color ?? "var(--chart-7)",
-          icon: item.category?.icon ?? "tag",
-          amount: (prior?.amount ?? new Decimal(0)).plus(item.amount),
-        });
-      });
-    return [...rows.values()].sort((a, b) => b.amount.comparedTo(a.amount));
-  })();
-
-  const balanceLabel =
-    Object.entries(totalByCurrency)
-      .map(([currency, total]) => money(total, currency))
-      .join(" · ") || money(0, workspace.currency);
+  const todayStr = businessDate ?? `${reportPeriod}-01`;
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 767px)");
@@ -520,275 +459,1035 @@ export function OverviewDashboard({
     return () => mediaQuery.removeEventListener("change", syncViewport);
   }, []);
 
+  function openQuickEntry(entryType: "expense" | "income" | "transfer") {
+    window.dispatchEvent(
+      new CustomEvent("open-quick-transaction", {
+        detail: { type: entryType },
+      }),
+    );
+  }
+
+  function handleReviewTransaction(txId: string, approve: boolean) {
+    startTransition(async () => {
+      const result = approve
+        ? await approveTransactionAction(workspace.id, txId)
+        : await rejectTransactionAction(workspace.id, txId);
+      if (result.ok) {
+        toast.success(
+          approve ? "Đã duyệt giao dịch." : "Đã từ chối giao dịch.",
+        );
+        if (selectedTransaction?.id === txId) {
+          setSelectedTransaction(null);
+        }
+        router.refresh();
+      } else {
+        toast.error(result.message ?? "Không thể xử lý giao dịch.");
+      }
+    });
+  }
+
+  // Period calculations
+  const activeDateRange = getDashboardPeriodDateRange(
+    activeReportPeriod,
+    globalPeriod,
+  );
+  const prevReportPeriod = shiftReportPeriod(
+    activeReportPeriod,
+    -1,
+    globalPeriod,
+  );
+  const prevDateRange = getDashboardPeriodDateRange(
+    prevReportPeriod,
+    globalPeriod,
+  );
+
+  const activeTotals = summarizeTransactions(transactions, activeDateRange);
+  const prevTotals = summarizeTransactions(transactions, prevDateRange);
+  const activeNetCashflow = activeTotals.income.minus(activeTotals.expense);
+
+  const incomeDeltaPct = computeDeltaPercent(
+    activeTotals.income,
+    prevTotals.income,
+  );
+  const expenseDeltaPct = computeDeltaPercent(
+    activeTotals.expense,
+    prevTotals.expense,
+  );
+
+  const periodProgress = calculatePeriodProgress(
+    activeReportPeriod,
+    globalPeriod,
+  );
+  const dailyBurnRate = activeTotals.expense.div(periodProgress.elapsed);
+  const remainingDaysInPeriod = Math.max(
+    1,
+    periodProgress.total - periodProgress.elapsed + 1,
+  );
+
+  // Wealth & Wallets calculations
+  const assetWallets = useMemo(
+    () => wallets.filter((w) => w.kind === "asset"),
+    [wallets],
+  );
+  const creditCardWallets = useMemo(
+    () => wallets.filter((w) => w.kind === "credit_card"),
+    [wallets],
+  );
+
+  const totalAssetBalanceDecimal = useMemo(
+    () =>
+      assetWallets.reduce(
+        (sum, w) => sum.plus(new Decimal(w.balance)),
+        new Decimal(0),
+      ),
+    [assetWallets],
+  );
+  const totalAvailableDecimal = useMemo(
+    () =>
+      assetWallets.reduce(
+        (sum, w) => sum.plus(new Decimal(w.available)),
+        new Decimal(0),
+      ),
+    [assetWallets],
+  );
+  const totalCommittedDecimal = useMemo(
+    () =>
+      assetWallets.reduce(
+        (sum, w) => sum.plus(new Decimal(w.committed)),
+        new Decimal(0),
+      ),
+    [assetWallets],
+  );
+  const totalCreditDebtDecimal = useMemo(
+    () =>
+      creditCardWallets.reduce(
+        (sum, w) =>
+          sum.plus(Decimal.max(new Decimal(w.balance), new Decimal(0))),
+        new Decimal(0),
+      ),
+    [creditCardWallets],
+  );
+  const netWorthDecimal = totalAssetBalanceDecimal.minus(
+    totalCreditDebtDecimal,
+  );
+
+  const savingsRate = activeTotals.income.gt(0)
+    ? activeNetCashflow.div(activeTotals.income).times(100).toNumber()
+    : activeTotals.expense.gt(0)
+      ? -100
+      : 0;
+
+  const expenseToIncomeRatio = activeTotals.income.gt(0)
+    ? Math.min(
+        100,
+        Math.max(
+          0,
+          activeTotals.expense.div(activeTotals.income).times(100).toNumber(),
+        ),
+      )
+    : activeTotals.expense.gt(0)
+      ? 100
+      : 0;
+
+  // Safe-to-spend per day (from active financial plan if available, else from period net cashflow)
+  const safeDailyBudget = (() => {
+    if (
+      financialPlanSnapshot?.currentMonth &&
+      new Decimal(financialPlanSnapshot.currentMonth.availableToSpend).gt(0)
+    ) {
+      return new Decimal(
+        financialPlanSnapshot.currentMonth.availableToSpend,
+      ).div(remainingDaysInPeriod);
+    }
+    if (activeNetCashflow.gt(0)) {
+      return activeNetCashflow.div(remainingDaysInPeriod);
+    }
+    return null;
+  })();
+
+  const pendingTransactions = useMemo(
+    () => transactions.filter((t) => t.status === "pending"),
+    [transactions],
+  );
+  const recentTransactions = useMemo(
+    () => transactions.filter((t) => t.status !== "rejected").slice(0, 6),
+    [transactions],
+  );
+
+  // Due credit card statements
+  const dueCreditCardStatements = useMemo(
+    () =>
+      creditCardWallets
+        .filter(
+          (card) =>
+            card.issuedStatement &&
+            new Decimal(card.issuedStatement.remainingAmount).gt(0),
+        )
+        .map((card) => ({
+          cardId: card.id,
+          cardName: card.name,
+          ...card.issuedStatement!,
+          daysUntilDue: daysBetweenDates(
+            todayStr,
+            card.issuedStatement!.dueDate,
+          ),
+        }))
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
+    [creditCardWallets, todayStr],
+  );
+
+  // Combined upcoming obligations (credit card statements + recurring transactions)
+  const upcomingObligations = useMemo(() => {
+    const items: Array<{
+      id: string;
+      kind: "statement" | "recurring";
+      title: string;
+      subtitle: string;
+      dateStr: string;
+      daysLeft: number;
+      amount: string;
+      type: "income" | "expense" | "transfer";
+      href: string;
+    }> = [];
+
+    for (const stmt of dueCreditCardStatements) {
+      items.push({
+        id: `stmt-${stmt.id}`,
+        kind: "statement",
+        title: `Sao kê ${stmt.cardName}`,
+        subtitle: stmt.overdue
+          ? `Quá hạn thanh toán (${formatShortDate(stmt.dueDate)})`
+          : `Hạn thanh toán ${formatShortDate(stmt.dueDate)}`,
+        dateStr: stmt.dueDate,
+        daysLeft: stmt.daysUntilDue,
+        amount: stmt.remainingAmount,
+        type: "expense",
+        href: `/credit-cards/${stmt.cardId}`,
+      });
+    }
+
+    for (const rec of upcomingRecurring) {
+      const dateStr = rec.nextExecutionDate.slice(0, 10);
+      items.push({
+        id: `rec-${rec.id}`,
+        kind: "recurring",
+        title:
+          rec.description || rec.category?.name || "Khoản thu chi định kỳ",
+        subtitle:
+          rec.type === "transfer" && rec.toWallet
+            ? `${rec.wallet} → ${rec.toWallet}`
+            : `Ví ${rec.wallet}${rec.category ? ` · ${rec.category.name}` : ""}`,
+        dateStr,
+        daysLeft: daysBetweenDates(todayStr, dateStr),
+        amount: rec.amount,
+        type: rec.type,
+        href: "/recurring-transactions",
+      });
+    }
+
+    return items.sort((a, b) => a.dateStr.localeCompare(b.dateStr)).slice(0, 6);
+  }, [dueCreditCardStatements, upcomingRecurring, todayStr]);
+
+  // Structure breakdowns (Expense Categories, Income Categories, Members)
+  const buildCategoryBreakdown = (targetType: "expense" | "income") => {
+    const rows = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        color: string;
+        icon: string | null;
+        amount: Decimal;
+        count: number;
+      }
+    >();
+    transactions
+      .filter(
+        (item) =>
+          item.status === "approved" &&
+          isInDateRange(item.date, activeDateRange) &&
+          item.type === targetType,
+      )
+      .forEach((item) => {
+        const key = item.categoryId ?? "uncategorized";
+        const prior = rows.get(key);
+        rows.set(key, {
+          id: key,
+          name: item.category?.name ?? "Chưa phân loại",
+          color:
+            item.category?.color ??
+            (targetType === "income" ? "var(--income)" : "var(--chart-1)"),
+          icon: item.category?.icon ?? "tag",
+          amount: (prior?.amount ?? new Decimal(0)).plus(item.amount),
+          count: (prior?.count ?? 0) + 1,
+        });
+      });
+    const total =
+      targetType === "income" ? activeTotals.income : activeTotals.expense;
+    return [...rows.values()]
+      .sort((a, b) => b.amount.comparedTo(a.amount))
+      .map((row, idx) => ({
+        ...row,
+        color: row.color || memberSeriesColor(idx),
+        percent: total.isZero()
+          ? 0
+          : row.amount.div(total).times(100).toNumber(),
+      }));
+  };
+
+  const expenseByCategory = buildCategoryBreakdown("expense");
+  const incomeByCategory = buildCategoryBreakdown("income");
+
+  const memberExpenses = members
+    .map((m, idx) => {
+      const matched = transactions.filter(
+        (t) =>
+          t.memberId === m.id &&
+          t.type === "expense" &&
+          t.status === "approved" &&
+          isInDateRange(t.date, activeDateRange),
+      );
+      const memberSpent = matched.reduce(
+        (sum, t) => sum.plus(new Decimal(t.amount)),
+        new Decimal(0),
+      );
+      const percent = activeTotals.expense.isZero()
+        ? 0
+        : memberSpent.div(activeTotals.expense).times(100).toNumber();
+      return {
+        id: m.id,
+        name: m.name,
+        color: memberSeriesColor(idx),
+        icon: null as string | null,
+        amount: memberSpent,
+        count: matched.length,
+        percent,
+      };
+    })
+    .filter((m) => m.amount.gt(0))
+    .sort((a, b) => b.amount.comparedTo(a.amount));
+
+  const activeStructureItems =
+    structureMode === "income"
+      ? incomeByCategory
+      : structureMode === "member"
+        ? memberExpenses
+        : expenseByCategory;
+
+  const activeStructureTotal =
+    structureMode === "income" ? activeTotals.income : activeTotals.expense;
+
+  const cashflowAxisScale = getAmountScale(
+    (globalPeriod === "month"
+      ? buildDailyCashflow(transactions, {
+          endPeriod: activeReportPeriod,
+          walletId: "all",
+          categoryId: "all",
+          memberId: "all",
+          transactionType: "all",
+          dateRange: activeDateRange,
+        })
+      : buildMonthlyCashflow(transactions, {
+          endPeriod: activeReportPeriod,
+          range: 12,
+          walletId: "all",
+          categoryId: "all",
+          memberId: "all",
+          transactionType: "all",
+          dateRange: activeDateRange,
+        })
+    ).flatMap((row) => [row.income, row.expense]),
+  );
+
+  const periodLabel = formatPeriodLabel(activeReportPeriod, globalPeriod);
+  const topExpenseCategory = expenseByCategory[0] ?? null;
+
+  const filteredWallets = useMemo(() => {
+    if (walletFilter === "asset") return assetWallets;
+    if (walletFilter === "credit_card") return creditCardWallets;
+    return wallets;
+  }, [wallets, assetWallets, creditCardWallets, walletFilter]);
+
+  // Privacy-aware amount renderer
+  function displayAmount(
+    value: Decimal.Value,
+    options?: { prefix?: string; showCurrency?: boolean },
+  ) {
+    if (privacyMasked) {
+      return (
+        <span className="tracking-widest select-none">••••••••</span>
+      );
+    }
+    const formatted = formatAmount(value);
+    return (
+      <>
+        {options?.prefix ?? ""}
+        {formatted}
+        {options?.showCurrency !== false && (
+          <>
+            {" "}
+            <span className="text-[0.72em] font-medium opacity-75">
+              {workspace.currency}
+            </span>
+          </>
+        )}
+      </>
+    );
+  }
+
   const chartTitle =
     chartTab === "cashflow"
       ? globalPeriod === "month"
-        ? "Biến động thu chi theo ngày"
-        : "Biến động thu chi theo tháng"
+        ? "Nhịp thu chi theo ngày"
+        : "Xu hướng thu chi theo tháng"
       : chartTab === "balance"
         ? globalPeriod === "month"
-          ? "Số dư lũy kế theo ngày"
-          : "Số dư lũy kế theo tháng"
-        : chartTab === "category"
-          ? "Cơ cấu chi tiêu theo danh mục"
-          : "Chi tiêu theo thành viên";
+          ? "Biến động tài sản theo ngày"
+          : "Biến động tài sản theo tháng"
+        : structureMode === "income"
+          ? "Cơ cấu nguồn thu nhập"
+          : structureMode === "member"
+            ? "Phân bổ chi tiêu theo thành viên"
+            : "Cơ cấu danh mục chi tiêu";
 
   return (
-    <div className="space-y-4 md:space-y-5">
-      {/* 1. Header & Period Controls */}
-      <PageHeader
-        eyebrow={workspace.name}
-        title="Tổng quan tài chính"
-        description="Theo dõi tài sản, thu chi và lịch thanh toán định kỳ."
+    <div className="mx-auto flex w-full max-w-[76rem] flex-col gap-3.5 md:gap-4">
+      {/* 1. EXECUTIVE WEALTH HERO & QUICK COMMAND CENTER */}
+      <Card
+        as="section"
+        className="overflow-hidden p-0"
+        aria-label="Tổng quan tài sản và dòng tiền"
       >
-        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-          <div className="flex items-center justify-between gap-2 md:justify-start">
-            <div className="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
-              <Button
-                variant="icon"
-                size="icon"
-                onClick={() =>
-                  setActiveReportPeriod((prev) =>
-                    shiftReportPeriod(prev, -1, globalPeriod),
-                  )
-                }
-                aria-label="Kỳ trước"
-                title="Kỳ trước"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <span
-                onClick={() =>
-                  activeReportPeriod !== reportPeriod &&
-                  setActiveReportPeriod(reportPeriod)
-                }
-                title={
-                  activeReportPeriod !== reportPeriod
-                    ? "Bấm để về kỳ hiện tại"
-                    : undefined
-                }
-                className={cn(
-                  "min-w-[6.25rem] px-2 text-center text-xs font-semibold tabular-nums select-none",
-                  activeReportPeriod !== reportPeriod
-                    ? "cursor-pointer text-[var(--primary)]"
-                    : "text-[var(--foreground)]",
-                )}
-              >
-                {formatPeriodLabel(activeReportPeriod, globalPeriod)}
-              </span>
-              <Button
-                variant="icon"
-                size="icon"
-                onClick={() =>
-                  setActiveReportPeriod((prev) =>
-                    shiftReportPeriod(prev, 1, globalPeriod),
-                  )
-                }
-                aria-label="Kỳ sau"
-                title="Kỳ sau"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
-            </div>
+        {/* Hero Body: Net Worth + Quick Actions + Cashflow Pulse */}
+        <div className="p-4 md:p-6">
+          {/* Top Row: Label (left) & Sleek Period Capsule (right) */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[0.7rem] font-semibold tracking-wider text-[var(--text-muted)] uppercase">
+              Tổng tài sản ròng
+            </span>
 
-            {activeReportPeriod !== reportPeriod && (
-              <Button
-                type="button"
-                variant="selected"
-                size="icon"
-                onClick={() => setActiveReportPeriod(reportPeriod)}
-                aria-label="Về kỳ hiện tại"
-                title="Về kỳ hiện tại"
-              >
-                <RotateCcw className="size-4" />
-              </Button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Tabs
-              value={globalPeriod}
-              onValueChange={(val) => setGlobalPeriod(val as DashboardPeriod)}
-              className="min-w-0 flex-1 gap-0 md:flex-initial"
-            >
-              <TabsList
-                variant="navigation"
-                className="w-full md:w-auto"
-                aria-label="Chọn kỳ xem dữ liệu"
-              >
-                <TabsTrigger value="month">Tháng</TabsTrigger>
-                <TabsTrigger value="quarter">Quý</TabsTrigger>
-                <TabsTrigger value="year">Năm</TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <div className="hidden md:block">
+            {/* Minimalist Period Filter Capsule */}
+            <div className="flex shrink-0 items-center gap-1">
               <Popover
-                open={Boolean(createDraft)}
-                onOpenChange={(open) => {
-                  if (open) beginCreate();
-                  else if (!busy) setCreateDraft(null);
-                }}
+                open={periodPickerOpen}
+                onOpenChange={handlePeriodPickerOpenChange}
               >
                 <PopoverTrigger
                   render={
-                    <Button
-                      size="icon"
-                      disabled={busy || !wallets.length}
-                      aria-label="Tạo giao dịch mới"
-                      title="Tạo giao dịch mới"
+                    <button
+                      type="button"
+                      aria-label="Chọn kỳ báo cáo"
+                      title="Chọn kỳ xem dữ liệu"
+                      className={cn(
+                        "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium tabular-nums transition-colors active:scale-[0.98]",
+                        periodPickerOpen || activeReportPeriod !== reportPeriod
+                          ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--primary)]"
+                          : "border-[var(--border)] bg-[var(--surface-secondary)]/50 text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]",
+                      )}
                     />
                   }
                 >
-                  <Plus className="size-4" />
-                </PopoverTrigger>
-                {createDraft && (
-                  <DesktopTransactionCreatePopoverContent
-                    draft={createDraft}
-                    wallets={walletOptions}
-                    categories={categoryOptions}
-                    busy={busy}
-                    onChange={(patch) =>
-                      setCreateDraft((current) =>
-                        current ? { ...current, ...patch } : current,
-                      )
-                    }
-                    onSave={saveCreate}
-                    onCancel={() => setCreateDraft(null)}
+                  <span
+                    className={cn(
+                      "size-1.5 rounded-full",
+                      activeReportPeriod !== reportPeriod
+                        ? "bg-[var(--primary)]"
+                        : "bg-[var(--text-muted)]/60",
+                    )}
                   />
-                )}
+                  <span>{periodLabel}</span>
+                  <ChevronDown
+                    className={cn(
+                      "size-3 text-[var(--text-muted)] transition-transform duration-150",
+                      periodPickerOpen && "rotate-180 text-[var(--primary)]",
+                    )}
+                    aria-hidden="true"
+                  />
+                </PopoverTrigger>
+
+                <PopoverContent
+                  align="end"
+                  sideOffset={6}
+                  elevation="flat"
+                  className="w-68 max-w-[calc(100vw-2rem)] gap-0 overflow-hidden rounded-2xl p-0"
+                >
+                  {/* Top: Segmented Mode Switcher + Year Navigation */}
+                  <div className="flex flex-col gap-2 border-b border-[var(--border)] bg-[var(--surface-secondary)]/30 p-2.5">
+                    <div className="grid grid-cols-3 rounded-lg bg-[var(--surface-secondary)] p-0.5">
+                      {(
+                        [
+                          { id: "month", label: "Tháng" },
+                          { id: "quarter", label: "Quý" },
+                          { id: "year", label: "Năm" },
+                        ] as const
+                      ).map((mode) => (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          onClick={() => setGlobalPeriod(mode.id)}
+                          className={cn(
+                            "rounded-md py-1 text-xs font-semibold transition-colors",
+                            globalPeriod === mode.id
+                              ? "bg-[var(--surface)] text-[var(--foreground)]"
+                              : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
+                          )}
+                        >
+                          {mode.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between px-0.5">
+                      <button
+                        type="button"
+                        aria-label={
+                          globalPeriod === "year" ? "12 năm trước" : "Năm trước"
+                        }
+                        onClick={() =>
+                          setPickerYear((y) =>
+                            globalPeriod === "year" ? y - 12 : y - 1,
+                          )
+                        }
+                        className="grid size-7 place-items-center rounded-lg text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--foreground)] active:scale-95"
+                      >
+                        <ChevronLeft className="size-4" aria-hidden="true" />
+                      </button>
+                      <strong className="text-xs font-semibold tracking-wide text-[var(--foreground)] tabular-nums">
+                        {globalPeriod === "year"
+                          ? `${yearPageStart} – ${yearPageStart + 11}`
+                          : `Năm ${pickerYear}`}
+                      </strong>
+                      <button
+                        type="button"
+                        aria-label={
+                          globalPeriod === "year" ? "12 năm sau" : "Năm sau"
+                        }
+                        onClick={() =>
+                          setPickerYear((y) =>
+                            globalPeriod === "year" ? y + 12 : y + 1,
+                          )
+                        }
+                        className="grid size-7 place-items-center rounded-lg text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--foreground)] active:scale-95"
+                      >
+                        <ChevronRight className="size-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Direct Selection Grid */}
+                  {globalPeriod === "month" && (
+                    <div
+                      className="grid grid-cols-4 gap-1.5 p-2.5"
+                      aria-label={`Chọn tháng năm ${pickerYear}`}
+                    >
+                      {Array.from({ length: 12 }, (_, idx) => idx + 1).map(
+                        (m) => {
+                          const optionPeriod = `${pickerYear}-${String(m).padStart(2, "0")}`;
+                          const isSelected =
+                            pickerYear === activeYear && m === activeMonth;
+                          const isCurrentDefault =
+                            optionPeriod === reportPeriod;
+                          return (
+                            <button
+                              key={optionPeriod}
+                              type="button"
+                              onClick={() => {
+                                setActiveReportPeriod(optionPeriod);
+                                setPeriodPickerOpen(false);
+                              }}
+                              className={cn(
+                                "flex h-8.5 items-center justify-center rounded-lg text-xs font-medium tabular-nums transition-colors active:scale-95",
+                                isSelected
+                                  ? "bg-[var(--foreground)] font-semibold text-[var(--background)]"
+                                  : isCurrentDefault
+                                    ? "border border-[var(--primary)]/40 bg-[var(--primary)]/8 font-semibold text-[var(--primary)]"
+                                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]",
+                              )}
+                            >
+                              Thg {m}
+                            </button>
+                          );
+                        },
+                      )}
+                    </div>
+                  )}
+
+                  {globalPeriod === "quarter" && (
+                    <div
+                      className="grid grid-cols-2 gap-1.5 p-2.5"
+                      aria-label={`Chọn quý năm ${pickerYear}`}
+                    >
+                      {[1, 2, 3, 4].map((q) => {
+                        const quarterEndMonth = q * 3;
+                        const startMonth = (q - 1) * 3 + 1;
+                        const optionPeriod = `${pickerYear}-${String(quarterEndMonth).padStart(2, "0")}`;
+                        const isSelected =
+                          pickerYear === activeYear && q === activeQuarter;
+                        return (
+                          <button
+                            key={q}
+                            type="button"
+                            onClick={() => {
+                              setActiveReportPeriod(optionPeriod);
+                              setPeriodPickerOpen(false);
+                            }}
+                            className={cn(
+                              "flex flex-col items-center justify-center rounded-xl py-2.5 text-center transition-colors active:scale-95",
+                              isSelected
+                                ? "bg-[var(--foreground)] text-[var(--background)]"
+                                : "border border-[var(--border)]/70 bg-[var(--surface-secondary)]/30 text-[var(--foreground)] hover:bg-[var(--surface-secondary)]",
+                            )}
+                          >
+                            <span className="text-xs font-semibold tabular-nums">
+                              Quý {q}
+                            </span>
+                            <span
+                              className={cn(
+                                "mt-0.5 text-[0.65rem] tabular-nums",
+                                isSelected
+                                  ? "text-[var(--background)]/75"
+                                  : "text-[var(--text-muted)]",
+                              )}
+                            >
+                              Thg {startMonth} – Thg {quarterEndMonth}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {globalPeriod === "year" && (
+                    <div
+                      className="grid grid-cols-3 gap-1.5 p-2.5"
+                      aria-label="Chọn năm báo cáo"
+                    >
+                      {Array.from(
+                        { length: 12 },
+                        (_, idx) => yearPageStart + idx,
+                      ).map((yr) => {
+                        const isSelected = yr === activeYear;
+                        const defaultYear = Number(reportPeriod.split("-")[0]);
+                        const isCurrentDefault = yr === defaultYear;
+                        return (
+                          <button
+                            key={yr}
+                            type="button"
+                            onClick={() => {
+                              setActiveReportPeriod(
+                                `${yr}-${String(activeMonth).padStart(2, "0")}`,
+                              );
+                              setPickerYear(yr);
+                              setPeriodPickerOpen(false);
+                            }}
+                            className={cn(
+                              "flex h-8.5 items-center justify-center rounded-lg text-xs font-medium tabular-nums transition-colors active:scale-95",
+                              isSelected
+                                ? "bg-[var(--foreground)] font-semibold text-[var(--background)]"
+                                : isCurrentDefault
+                                  ? "border border-[var(--primary)]/40 bg-[var(--primary)]/8 font-semibold text-[var(--primary)]"
+                                  : "text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]",
+                            )}
+                          >
+                            {yr}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Footer only shown when not on current default period, or subtle range info */}
+                  <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] bg-[var(--surface-secondary)]/25 px-3 py-2">
+                    <span className="text-[0.68rem] text-[var(--text-muted)] tabular-nums">
+                      {formatDateRangeLabel(activeDateRange)}
+                    </span>
+                    {activeReportPeriod !== reportPeriod && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveReportPeriod(reportPeriod);
+                          setPickerYear(Number(reportPeriod.split("-")[0]));
+                          setPeriodPickerOpen(false);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.68rem] font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/10"
+                      >
+                        <RotateCcw className="size-2.5" />
+                        <span>Hiện tại</span>
+                      </button>
+                    )}
+                  </div>
+                </PopoverContent>
               </Popover>
             </div>
           </div>
+
+          <div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            {/* Primary Net Worth & Liquidity Breakdown */}
+            <div className="min-w-0 flex-1">
+              <strong
+                className={cn(
+                  "block break-words text-2xl font-bold leading-none tracking-tight tabular-nums sm:text-3xl md:text-4xl",
+                  netWorthDecimal.isNegative()
+                    ? "text-[var(--expense)]"
+                    : "text-[var(--foreground)]",
+                )}
+              >
+                {displayAmount(netWorthDecimal, {
+                  prefix: netWorthDecimal.isNegative() ? "−" : "",
+                })}
+              </strong>
+
+              {/* Liquidity Breakdown Strip */}
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-[var(--text-secondary)] tabular-nums">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-[var(--income)]" />
+                  <span>Có thể dùng:</span>
+                  <strong className="font-semibold text-[var(--foreground)]">
+                    {displayAmount(totalAvailableDecimal)}
+                  </strong>
+                </span>
+
+                {totalCommittedDecimal.gt(0) && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-[var(--primary)]" />
+                    <span>Chờ trả thẻ:</span>
+                    <strong className="font-semibold text-[var(--foreground)]">
+                      {displayAmount(totalCommittedDecimal)}
+                    </strong>
+                  </span>
+                )}
+
+                {totalCreditDebtDecimal.gt(0) && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-[var(--expense)]" />
+                    <span>Dư nợ thẻ:</span>
+                    <strong className="font-semibold text-[var(--expense)]">
+                      {displayAmount(totalCreditDebtDecimal)}
+                    </strong>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Action Command Pills */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => openQuickEntry("expense")}
+                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--foreground)] px-3.5 text-xs font-semibold text-[var(--background)] transition-transform active:scale-[0.98] sm:flex-none"
+              >
+                <ArrowUpRight className="size-3.5 shrink-0" />
+                <span>Ghi chi tiêu</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openQuickEntry("income")}
+                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-secondary)] active:scale-[0.98] sm:flex-none"
+              >
+                <ArrowDownLeft className="size-3.5 shrink-0 text-[var(--income)]" />
+                <span>Thu nhập</span>
+              </button>
+
+              {wallets.length >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => openQuickEntry("transfer")}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-secondary)] active:scale-[0.98]"
+                  aria-label="Chuyển tiền giữa các ví"
+                  title="Chuyển tiền giữa các ví"
+                >
+                  <ArrowLeftRight className="size-3.5 shrink-0 text-[var(--primary)]" />
+                  <span className="hidden sm:inline">Chuyển tiền</span>
+                </button>
+              )}
+
+              {pendingTransactions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setApprovalsSheetOpen(true)}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--warning)]/30 bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] px-3 text-xs font-semibold text-[var(--warning)] transition-transform active:scale-[0.98]"
+                >
+                  <CircleAlert className="size-3.5 shrink-0" />
+                  <span>Cần duyệt ({pendingTransactions.length})</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Period Cashflow & Pace Strip (2 cols on mobile, 4 cols on desktop) */}
+          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-4 lg:grid-cols-4 lg:gap-6">
+            {/* Metric 1: Thu nhập */}
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-medium text-[var(--text-muted)]">
+                  Thu nhập kỳ này
+                </span>
+                {incomeDeltaPct !== null && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-1.5 py-0.5 text-[0.65rem] font-semibold tabular-nums",
+                      incomeDeltaPct >= 0
+                        ? "bg-[var(--income)]/12 text-[var(--income)]"
+                        : "bg-[var(--surface-secondary)] text-[var(--text-muted)]",
+                    )}
+                  >
+                    {incomeDeltaPct >= 0 ? "+" : ""}
+                    {incomeDeltaPct.toFixed(0)}%
+                  </span>
+                )}
+              </div>
+              <strong className="mt-1 block break-words text-base font-bold leading-snug text-[var(--income)] tabular-nums md:text-lg">
+                {displayAmount(activeTotals.income, { prefix: "+" })}
+              </strong>
+              <span className="mt-0.5 block text-[0.7rem] text-[var(--text-muted)] tabular-nums">
+                {prevTotals.income.gt(0)
+                  ? `Kỳ trước: ${privacyMasked ? "••••" : formatAmount(prevTotals.income)}`
+                  : "Chưa phát sinh kỳ trước"}
+              </span>
+            </div>
+
+            {/* Metric 2: Chi tiêu */}
+            <div className="min-w-0 border-l border-[var(--border)] pl-3 lg:pl-5">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-medium text-[var(--text-muted)]">
+                  Chi tiêu kỳ này
+                </span>
+                {expenseDeltaPct !== null && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-1.5 py-0.5 text-[0.65rem] font-semibold tabular-nums",
+                      expenseDeltaPct <= 0
+                        ? "bg-[var(--income)]/12 text-[var(--income)]"
+                        : "bg-[var(--expense)]/12 text-[var(--expense)]",
+                    )}
+                  >
+                    {expenseDeltaPct > 0 ? "+" : ""}
+                    {expenseDeltaPct.toFixed(0)}%
+                  </span>
+                )}
+              </div>
+              <strong className="mt-1 block break-words text-base font-bold leading-snug text-[var(--expense)] tabular-nums md:text-lg">
+                {displayAmount(activeTotals.expense, { prefix: "−" })}
+              </strong>
+              <span className="mt-0.5 block text-[0.7rem] text-[var(--text-muted)] tabular-nums">
+                TB ~
+                {privacyMasked
+                  ? "••••"
+                  : formatAmount(dailyBurnRate.round())}{" "}
+                {workspace.currency}/ngày
+              </span>
+            </div>
+
+            {/* Metric 3: Chênh lệch thu chi & Tỷ lệ tích lũy */}
+            <div className="col-span-2 min-w-0 border-t border-[var(--border)] pt-3 lg:col-span-1 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-5">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-medium text-[var(--text-muted)]">
+                  Chênh lệch thu chi
+                </span>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.65rem] font-semibold tabular-nums",
+                    savingsRate >= 20
+                      ? "bg-[var(--income)]/12 text-[var(--income)]"
+                      : savingsRate >= 0
+                        ? "bg-[var(--primary)]/12 text-[var(--primary)]"
+                        : "bg-[var(--expense)]/12 text-[var(--expense)]",
+                  )}
+                >
+                  {savingsRate >= 0 ? (
+                    <TrendingUp className="size-3" />
+                  ) : (
+                    <TrendingDown className="size-3" />
+                  )}
+                  Tích lũy {savingsRate.toFixed(0)}%
+                </span>
+              </div>
+              <strong
+                className={cn(
+                  "mt-1 block break-words text-base font-bold leading-snug tabular-nums md:text-lg",
+                  activeNetCashflow.isNegative()
+                    ? "text-[var(--expense)]"
+                    : activeNetCashflow.gt(0)
+                      ? "text-[var(--income)]"
+                      : "text-[var(--foreground)]",
+                )}
+              >
+                {displayAmount(activeNetCashflow.abs(), {
+                  prefix: activeNetCashflow.gt(0)
+                    ? "+"
+                    : activeNetCashflow.isNegative()
+                      ? "−"
+                      : "",
+                })}
+              </strong>
+              {/* Visual Expense-to-Income Ratio Bar */}
+              <div className="mt-1.5 flex items-center gap-2">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all",
+                      expenseToIncomeRatio > 90
+                        ? "bg-[var(--expense)]"
+                        : expenseToIncomeRatio > 70
+                          ? "bg-[var(--warning)]"
+                          : "bg-[var(--income)]",
+                    )}
+                    style={{ width: `${expenseToIncomeRatio}%` }}
+                  />
+                </div>
+                <span className="shrink-0 text-[0.65rem] text-[var(--text-muted)] tabular-nums">
+                  Chi {expenseToIncomeRatio.toFixed(0)}% thu
+                </span>
+              </div>
+            </div>
+
+            {/* Metric 4: Nhịp chi tiêu & Hạn mức an toàn mỗi ngày */}
+            <div className="col-span-2 min-w-0 border-t border-[var(--border)] pt-3 lg:col-span-1 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-5">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-medium text-[var(--text-muted)]">
+                  {safeDailyBudget
+                    ? "An toàn chi mỗi ngày"
+                    : "Tiến độ kỳ báo cáo"}
+                </span>
+                <span className="text-[0.65rem] font-medium text-[var(--text-muted)] tabular-nums">
+                  Ngày {periodProgress.elapsed}/{periodProgress.total}
+                </span>
+              </div>
+              {safeDailyBudget ? (
+                <>
+                  <strong className="mt-1 block break-words text-base font-bold leading-snug text-[var(--foreground)] tabular-nums md:text-lg">
+                    {displayAmount(safeDailyBudget.round(), { prefix: "~" })}
+                  </strong>
+                  <span className="mt-0.5 block text-[0.7rem] text-[var(--text-muted)]">
+                    Trong {remainingDaysInPeriod} ngày còn lại của kỳ
+                  </span>
+                </>
+              ) : (
+                <>
+                  <strong className="mt-1 block break-words text-base font-bold leading-snug text-[var(--foreground)] tabular-nums md:text-lg">
+                    {activeTotals.count} giao dịch
+                  </strong>
+                  <span className="mt-0.5 block text-[0.7rem] text-[var(--text-muted)]">
+                    {topExpenseCategory
+                      ? `Chi nhiều nhất: ${topExpenseCategory.name} (${topExpenseCategory.percent.toFixed(0)}%)`
+                      : "Chưa phát sinh chi tiêu trong kỳ"}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-      </PageHeader>
+      </Card>
 
-      {/* 2. Unified 4-Metric Summary Strip */}
-      <section
-        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
-        aria-label="Chỉ số tài chính chính"
-      >
-        {/* Card 1: Tổng tài sản */}
-        <Card as="article" size="sm" className="min-w-0 gap-1.5">
-          <div className="flex min-w-0 items-start justify-between gap-2 text-xs font-medium text-[var(--text-secondary)]">
-            <span className="break-words leading-snug">Tổng tài sản</span>
-            <WalletCards
-              className="size-4 shrink-0 text-[var(--primary)]"
-              aria-hidden="true"
-            />
-          </div>
-          <strong className="block break-words text-base font-bold leading-snug tracking-tight text-[var(--foreground)] tabular-nums md:text-xl">
-            {balanceLabel}
-          </strong>
-          <p className="break-words border-t border-[var(--border)] pt-2 text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
-            Số dư có thể dùng: {money(totalAvailableDecimal, workspace.currency)}
-          </p>
-        </Card>
+      {/* 2. CONTEXTUAL CREDIT CARD STATEMENT BANNER (Only shown when an issued statement is unpaid) */}
+      {dueCreditCardStatements.length > 0 && (
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+          {dueCreditCardStatements.slice(0, 2).map((stmt) => (
+            <Link
+              key={stmt.id}
+              href={`/credit-cards/${stmt.cardId}`}
+              onClick={(event) => {
+                if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                  event.preventDefault();
+                  beginNavigation(`/credit-cards/${stmt.cardId}`);
+                }
+              }}
+              className={cn(
+                "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition-colors",
+                stmt.overdue
+                  ? "border-[var(--expense)]/35 bg-[var(--expense)]/8"
+                  : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-secondary)]/60",
+              )}
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <div
+                  className={cn(
+                    "flex size-9 shrink-0 items-center justify-center rounded-xl",
+                    stmt.overdue
+                      ? "bg-[var(--expense)]/15 text-[var(--expense)]"
+                      : "bg-[var(--primary)]/12 text-[var(--primary)]",
+                  )}
+                >
+                  <CreditCard className="size-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs font-semibold text-[var(--foreground)]">
+                      Sao kê {stmt.cardName}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-1.5 py-0.5 text-[0.62rem] font-semibold",
+                        stmt.overdue
+                          ? "bg-[var(--expense)]/15 text-[var(--expense)]"
+                          : stmt.daysUntilDue <= 3
+                            ? "bg-[color-mix(in_srgb,var(--warning)_16%,var(--surface))] text-[var(--warning)]"
+                            : "bg-[var(--surface-secondary)] text-[var(--text-secondary)]",
+                      )}
+                    >
+                      {stmt.overdue
+                        ? "Quá hạn"
+                        : stmt.daysUntilDue === 0
+                          ? "Hạn hôm nay"
+                          : `Còn ${stmt.daysUntilDue} ngày`}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[0.7rem] text-[var(--text-muted)] tabular-nums">
+                    Hạn thanh toán: {formatShortDate(stmt.dueDate)}
+                  </p>
+                </div>
+              </div>
 
-        {/* Card 2: Thu nhập kỳ này */}
-        <Card as="article" size="sm" className="min-w-0 gap-1.5">
-          <div className="flex min-w-0 items-start justify-between gap-2 text-xs font-medium text-[var(--text-secondary)]">
-            <span className="break-words leading-snug">Thu nhập kỳ này</span>
-            <ArrowDownLeft
-              className="size-4 shrink-0 text-[var(--income)]"
-              aria-hidden="true"
-            />
-          </div>
-          <strong className="block break-words text-base font-bold leading-snug tracking-tight text-[var(--income)] tabular-nums md:text-xl">
-            +{money(activeTotals.income, workspace.currency)}
-          </strong>
-          <p className="break-words border-t border-[var(--border)] pt-2 text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
-            {formatPeriodLabel(activeReportPeriod, globalPeriod)}
-          </p>
-        </Card>
+              <div className="flex shrink-0 items-center gap-2">
+                <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums">
+                  {displayAmount(stmt.remainingAmount)}
+                </strong>
+                <ChevronRight className="size-4 text-[var(--text-muted)]" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
 
-        {/* Card 3: Chi tiêu kỳ này */}
-        <Card as="article" size="sm" className="min-w-0 gap-1.5">
-          <div className="flex min-w-0 items-start justify-between gap-2 text-xs font-medium text-[var(--text-secondary)]">
-            <span className="break-words leading-snug">Chi tiêu kỳ này</span>
-            <ArrowUpRight
-              className="size-4 shrink-0 text-[var(--expense)]"
-              aria-hidden="true"
-            />
-          </div>
-          <strong className="block break-words text-base font-bold leading-snug tracking-tight text-[var(--expense)] tabular-nums md:text-xl">
-            −{money(activeTotals.expense, workspace.currency)}
-          </strong>
-          <p className="break-words border-t border-[var(--border)] pt-2 text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
-            Trung bình ~{money(dailyBurnRate.round(), workspace.currency)}/ngày
-          </p>
-        </Card>
-
-        {/* Card 4: Chênh lệch thu chi */}
-        <Card as="article" size="sm" className="min-w-0 gap-1.5">
-          <div className="flex min-w-0 items-start justify-between gap-2 text-xs font-medium text-[var(--text-secondary)]">
-            <span className="break-words leading-snug">Chênh lệch thu chi</span>
-            {activeNetCashflow.isNegative() ? (
-              <TrendingDown
-                className="size-4 shrink-0 text-[var(--expense)]"
-                aria-hidden="true"
-              />
-            ) : (
-              <TrendingUp
-                className="size-4 shrink-0 text-[var(--income)]"
-                aria-hidden="true"
-              />
-            )}
-          </div>
-          <strong
-            className={cn(
-              "block break-words text-base font-bold leading-snug tracking-tight tabular-nums md:text-xl",
-              activeNetCashflow.isNegative()
-                ? "text-[var(--expense)]"
-                : "text-[var(--income)]",
-            )}
-          >
-            {activeNetCashflow.isNegative() ? "−" : "+"}
-            {money(activeNetCashflow.abs(), workspace.currency)}
-          </strong>
-          <p className="break-words border-t border-[var(--border)] pt-2 text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
-            <PiggyBank className="mr-1 inline size-3 text-[var(--primary)]" />
-            Tích lũy {savingsRate > 0 ? "+" : ""}
-            {savingsRate.toFixed(1)}% ({periodProgress.elapsed}/{periodProgress.total} ngày)
-          </p>
-        </Card>
-      </section>
-
-      {/* 3. Main Tabbed Chart Card & Wallets */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        {/* Main Chart Card (Thu chi / Số dư / Danh mục / Thành viên) */}
+      {/* 3. MAIN BENTO GRID: INTERACTIVE ANALYTICS (7 cols) & WALLETS PORTFOLIO (5 cols) */}
+      <section className="grid grid-cols-1 gap-3.5 md:gap-4 lg:grid-cols-12">
+        {/* Left 7 Cols: Interactive Financial Analytics */}
         <Card
           as="section"
-          className="flex min-w-0 flex-col gap-0 p-0 lg:col-span-8"
+          className="flex min-w-0 flex-col gap-0 p-0 lg:col-span-7"
         >
-          <header className="flex flex-col gap-3 border-b border-[var(--border)] p-4 md:flex-row md:items-center md:justify-between md:p-5">
+          <header className="flex flex-col gap-2.5 border-b border-[var(--border)] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between md:px-5 md:py-4">
             <div className="min-w-0">
               <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
                 {chartTitle}
               </h2>
-              <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
-                Đã ghi nhận · {formatDateRangeLabel(activeDateRange)}
+              <p className="mt-0.5 break-words text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
+                {formatDateRangeLabel(activeDateRange)}
+                {chartTab === "cashflow" && cashflowAxisScale.label
+                  ? ` · Đơn vị: ${cashflowAxisScale.label} ${workspace.currency}`
+                  : ""}
               </p>
             </div>
+
             <Tabs
               value={chartTab}
               onValueChange={(val) => setChartTab(val as MainChartTab)}
-              className="w-full gap-0 md:w-auto"
+              className="w-full gap-0 sm:w-auto"
             >
               <TabsList
                 variant="navigation"
-                className="w-full md:w-auto"
-                aria-label="Chọn biểu đồ phân tích"
+                className="w-full sm:w-auto"
+                aria-label="Chọn chế độ phân tích"
               >
                 <TabsTrigger value="cashflow">Thu chi</TabsTrigger>
-                <TabsTrigger value="balance">Số dư</TabsTrigger>
-                <TabsTrigger value="category">Danh mục</TabsTrigger>
-                <TabsTrigger value="member">Thành viên</TabsTrigger>
+                <TabsTrigger value="balance">Tài sản</TabsTrigger>
+                <TabsTrigger value="structure">Cơ cấu</TabsTrigger>
               </TabsList>
             </Tabs>
           </header>
 
-          <div className="flex-1 p-4 md:p-5">
+          <div className="flex-1 p-3.5 md:p-5">
             {chartTab === "cashflow" && (
               <MonthlyFinancialChart
                 transactions={transactions}
@@ -800,27 +1499,7 @@ export function OverviewDashboard({
                 memberId="all"
                 transactionType="all"
                 dateRange={activeDateRange}
-                axisScale={getAmountScale(
-                  (globalPeriod === "month"
-                    ? buildDailyCashflow(transactions, {
-                        endPeriod: activeReportPeriod,
-                        walletId: "all",
-                        categoryId: "all",
-                        memberId: "all",
-                        transactionType: "all",
-                        dateRange: activeDateRange,
-                      })
-                    : buildMonthlyCashflow(transactions, {
-                        endPeriod: activeReportPeriod,
-                        range: 12,
-                        walletId: "all",
-                        categoryId: "all",
-                        memberId: "all",
-                        transactionType: "all",
-                        dateRange: activeDateRange,
-                      })
-                  ).flatMap((row) => [row.income, row.expense]),
-                )}
+                axisScale={cashflowAxisScale}
                 isMobile={isMobile}
                 period={globalPeriod}
               />
@@ -837,117 +1516,150 @@ export function OverviewDashboard({
               />
             )}
 
-            {chartTab === "category" && (
-              <div className="space-y-3.5">
-                {expenseByCategory.length ? (
-                  expenseByCategory.slice(0, 6).map((item) => {
-                    const percentage = activeTotals.expense.isZero()
-                      ? new Decimal(0)
-                      : item.amount.div(activeTotals.expense).times(100);
-                    return (
-                      <div key={item.name} className="space-y-1.5">
-                        <div className="flex items-start justify-between gap-3 text-xs">
-                          <span className="flex min-w-0 items-center gap-2">
-                            <CategoryIcon category={item} size={14} />
-                            <strong className="break-words font-medium leading-snug text-[var(--foreground)]">
-                              {item.name}
-                            </strong>
-                          </span>
-                          <div className="shrink-0 text-right tabular-nums">
-                            <span className="font-semibold text-[var(--foreground)]">
-                              {money(item.amount, workspace.currency)}
-                            </span>
-                            <span className="ml-1.5 text-[0.7rem] text-[var(--text-muted)]">
-                              ({percentage.toFixed(0)}%)
-                            </span>
-                          </div>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
-                          <span
-                            className="block h-full rounded-full"
-                            style={{
-                              width: `${Math.min(100, percentage.toNumber())}%`,
-                              background: item.color,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <Empty
-                    variant="compact"
-                    title="Chưa có chi tiêu"
-                    description="Dữ liệu danh mục sẽ hiển thị khi có giao dịch chi tiêu đã ghi nhận."
-                  />
-                )}
-              </div>
-            )}
+            {chartTab === "structure" && (
+              <div className="flex flex-col gap-3.5">
+                {/* Sub-switcher: Chi tiêu | Thu nhập | Thành viên */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setStructureMode("expense")}
+                      className={cn(
+                        "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                        structureMode === "expense"
+                          ? "bg-[var(--surface)] font-semibold text-[var(--foreground)]"
+                          : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
+                      )}
+                    >
+                      Chi tiêu ({expenseByCategory.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStructureMode("income")}
+                      className={cn(
+                        "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                        structureMode === "income"
+                          ? "bg-[var(--surface)] font-semibold text-[var(--foreground)]"
+                          : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
+                      )}
+                    >
+                      Thu nhập ({incomeByCategory.length})
+                    </button>
+                    {members.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setStructureMode("member")}
+                        className={cn(
+                          "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                          structureMode === "member"
+                            ? "bg-[var(--surface)] font-semibold text-[var(--foreground)]"
+                            : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
+                        )}
+                      >
+                        Thành viên ({memberExpenses.length})
+                      </button>
+                    )}
+                  </div>
 
-            {chartTab === "member" && (
-              <div className="space-y-3.5">
-                {memberExpenses.length ? (
+                  <span className="text-xs font-semibold text-[var(--foreground)] tabular-nums">
+                    Tổng: {displayAmount(activeStructureTotal)}
+                  </span>
+                </div>
+
+                {activeStructureItems.length > 0 ? (
                   <>
-                    {memberExpenses.map((m, idx) => (
-                      <div key={m.id} className="space-y-1.5">
-                        <div className="flex items-start justify-between gap-3 text-xs">
-                          <div className="flex min-w-0 items-center gap-2.5">
-                            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--surface-secondary)] text-[0.68rem] font-semibold uppercase text-[var(--foreground)]">
-                              {m.name.slice(0, 2)}
-                            </span>
-                            <div className="min-w-0">
-                              <strong className="block break-words font-medium leading-snug text-[var(--foreground)]">
-                                {m.name}
-                              </strong>
-                              <span className="text-[0.68rem] text-[var(--text-muted)] tabular-nums">
-                                {m.percent.toFixed(0)}% tổng chi tiêu
+                    {/* Multi-Segment Proportional Bar */}
+                    <div
+                      className="flex h-2.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)] p-0.5"
+                      aria-label="Tỷ trọng phân bổ"
+                    >
+                      {activeStructureItems.map((item) => (
+                        <div
+                          key={item.id}
+                          style={{
+                            width: `${Math.max(item.percent, 2)}%`,
+                            backgroundColor: item.color,
+                          }}
+                          title={`${item.name}: ${item.percent.toFixed(1)}%`}
+                          className="h-full first:rounded-l-full last:rounded-r-full"
+                        />
+                      ))}
+                    </div>
+
+                    {/* Top 5 Rows */}
+                    <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+                      {activeStructureItems.slice(0, 5).map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between gap-3 px-3.5 py-2.5"
+                        >
+                          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                            {structureMode === "member" ? (
+                              <span
+                                className="flex size-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold text-white"
+                                style={{ backgroundColor: item.color }}
+                              >
+                                {item.name.slice(0, 1).toUpperCase()}
                               </span>
+                            ) : (
+                              <span
+                                className="flex size-8 shrink-0 items-center justify-center rounded-xl"
+                                style={{
+                                  backgroundColor: `color-mix(in srgb, ${item.color} 15%, var(--surface))`,
+                                  color: item.color,
+                                }}
+                              >
+                                <CategoryIcon
+                                  category={{
+                                    color: item.color,
+                                    icon: item.icon,
+                                  }}
+                                  size={14}
+                                />
+                              </span>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="break-words text-xs font-semibold text-[var(--foreground)] sm:text-sm">
+                                  {item.name}
+                                </span>
+                                <span className="rounded-full bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[0.65rem] font-semibold text-[var(--text-secondary)] tabular-nums">
+                                  {item.percent.toFixed(1)}%
+                                </span>
+                              </div>
+                              <p className="text-[0.68rem] text-[var(--text-muted)] tabular-nums">
+                                {item.count} giao dịch trong kỳ
+                              </p>
                             </div>
                           </div>
-                          <span className="shrink-0 font-semibold text-[var(--foreground)] tabular-nums">
-                            {money(m.spent, workspace.currency)}
-                          </span>
+
+                          <strong className="shrink-0 text-right text-xs font-bold text-[var(--foreground)] tabular-nums sm:text-sm">
+                            {displayAmount(item.amount)}
+                          </strong>
                         </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-secondary)]">
-                          <span
-                            className="block h-full rounded-full"
-                            style={{
-                              width: `${Math.min(100, m.percent)}%`,
-                              backgroundColor: memberSeriesColor(idx),
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                    <div className="pt-2 text-right">
-                      <Link
-                        href="/settings/workspace?tab=members"
-                        onClick={(event) => {
-                          if (
-                            !event.ctrlKey &&
-                            !event.metaKey &&
-                            event.button === 0
-                          ) {
-                            event.preventDefault();
-                            beginNavigation("/settings/workspace?tab=members");
-                          }
-                        }}
-                        aria-label="Quản lý thành viên"
-                        title="Quản lý thành viên"
-                        className={buttonVariants({
-                          variant: "ghost",
-                          size: "icon",
-                        })}
-                      >
-                        <ChevronRight className="size-4" />
-                      </Link>
+                      ))}
                     </div>
+
+                    {activeStructureItems.length > 5 && (
+                      <div className="flex justify-center">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setAllCategoriesSheetOpen(true)}
+                          className="text-xs"
+                        >
+                          Xem tất cả {activeStructureItems.length} mục
+                          <ChevronRight className="ml-1 size-3.5" />
+                        </Button>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <Empty
                     variant="compact"
-                    title="Chưa có dữ liệu thành viên"
-                    description="Chưa có chi tiêu nào từ các thành viên trong kỳ."
+                    title="Chưa có dữ liệu phát sinh"
+                    description="Chưa có giao dịch đã duyệt thuộc nhóm này trong kỳ."
                   />
                 )}
               </div>
@@ -955,112 +1667,79 @@ export function OverviewDashboard({
           </div>
         </Card>
 
-        {/* Wallets Summary Card */}
+        {/* Right 5 Cols: Accounts & Credit Cards Portfolio */}
         <Card
           as="section"
-          className="flex min-w-0 flex-col gap-0 p-0 lg:col-span-4"
+          className="flex min-w-0 flex-col gap-0 p-0 lg:col-span-5"
         >
-          <header className="flex items-start justify-between gap-2 border-b border-[var(--border)] p-4 md:p-5">
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3.5 md:px-5 md:py-4">
             <div className="min-w-0">
               <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
-                Ví & Thẻ ({wallets.length})
+                Danh mục Ví & Thẻ ({wallets.length})
               </h2>
-              <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
+              <p className="mt-0.5 break-words text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
                 {totalCommittedDecimal.gt(0)
-                  ? `Tiền chờ thanh toán thẻ: ${money(totalCommittedDecimal, workspace.currency)}`
-                  : "Số dư thực tế và số dư có thể dùng"}
+                  ? `Đã giữ chỗ trả thẻ: ${privacyMasked ? "••••" : money(totalCommittedDecimal, workspace.currency)}`
+                  : "Số dư thực tế và hạn mức tín dụng"}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {isMobile ? (
-                <Sheet
-                  open={Boolean(transferDraft)}
-                  onOpenChange={(open) => {
-                    if (open) beginTransfer();
-                    else if (!busy) setTransferDraft(null);
-                  }}
-                >
-                  <SheetTrigger
-                    render={
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={busy || wallets.length < 2}
-                        aria-label="Chuyển tiền giữa các ví"
-                        title="Chuyển tiền giữa các ví"
-                      />
-                    }
+
+            <div className="flex shrink-0 items-center gap-1">
+              {assetWallets.length > 0 && creditCardWallets.length > 0 && (
+                <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setWalletFilter("all")}
+                    className={cn(
+                      "rounded-md px-2 py-0.5 text-[0.68rem] font-medium transition-colors",
+                      walletFilter === "all"
+                        ? "bg-[var(--surface)] font-semibold text-[var(--foreground)]"
+                        : "text-[var(--text-muted)]",
+                    )}
                   >
-                    <ArrowLeftRight className="size-4" />
-                  </SheetTrigger>
-                  {transferDraft && (
-                    <SheetContent side="bottom" className="p-0">
-                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
-                        <DesktopTransactionCreateDraft
-                          draft={transferDraft}
-                          wallets={walletOptions}
-                          categories={categoryOptions}
-                          busy={busy}
-                          onChange={(patch) =>
-                            setTransferDraft((current) =>
-                              current ? { ...current, ...patch } : current,
-                            )
-                          }
-                          onSave={saveTransfer}
-                          onCancel={() => setTransferDraft(null)}
-                        />
-                      </div>
-                    </SheetContent>
-                  )}
-                </Sheet>
-              ) : (
-                <Popover
-                  open={Boolean(transferDraft)}
-                  onOpenChange={(open) => {
-                    if (open) beginTransfer();
-                    else if (!busy) setTransferDraft(null);
-                  }}
-                >
-                  <PopoverTrigger
-                    render={
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={busy || wallets.length < 2}
-                        aria-label="Chuyển tiền giữa các ví"
-                        title="Chuyển tiền giữa các ví"
-                      />
-                    }
+                    Tất cả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWalletFilter("asset")}
+                    className={cn(
+                      "rounded-md px-2 py-0.5 text-[0.68rem] font-medium transition-colors",
+                      walletFilter === "asset"
+                        ? "bg-[var(--surface)] font-semibold text-[var(--foreground)]"
+                        : "text-[var(--text-muted)]",
+                    )}
                   >
-                    <ArrowLeftRight className="size-4" />
-                  </PopoverTrigger>
-                  {transferDraft && (
-                    <DesktopTransactionCreatePopoverContent
-                      draft={transferDraft}
-                      wallets={walletOptions}
-                      categories={categoryOptions}
-                      busy={busy}
-                      onChange={(patch) =>
-                        setTransferDraft((current) =>
-                          current ? { ...current, ...patch } : current,
-                        )
-                      }
-                      onSave={saveTransfer}
-                      onCancel={() => setTransferDraft(null)}
-                    />
-                  )}
-                </Popover>
+                    Ví ({assetWallets.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWalletFilter("credit_card")}
+                    className={cn(
+                      "rounded-md px-2 py-0.5 text-[0.68rem] font-medium transition-colors",
+                      walletFilter === "credit_card"
+                        ? "bg-[var(--surface)] font-semibold text-[var(--foreground)]"
+                        : "text-[var(--text-muted)]",
+                    )}
+                  >
+                    Thẻ ({creditCardWallets.length})
+                  </button>
+                </div>
               )}
+
               <Link
-                href="/wallets"
+                href={walletFilter === "credit_card" ? "/credit-cards" : "/wallets"}
                 onClick={(event) => {
+                  const targetHref =
+                    walletFilter === "credit_card"
+                      ? "/credit-cards"
+                      : "/wallets";
                   if (!event.ctrlKey && !event.metaKey && event.button === 0) {
                     event.preventDefault();
-                    beginNavigation("/wallets");
+                    beginNavigation(targetHref);
                   }
                 }}
-                aria-label="Xem danh sách ví"
-                title="Xem danh sách ví"
+                aria-label="Quản lý ví và thẻ"
+                title="Quản lý ví và thẻ"
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "icon" }),
                   "shrink-0",
@@ -1072,399 +1751,134 @@ export function OverviewDashboard({
           </header>
 
           <div className="flex-1 divide-y divide-[var(--border)] overflow-y-auto">
-            {wallets.length ? (
-              wallets.map((wallet) => {
+            {filteredWallets.length > 0 ? (
+              filteredWallets.map((wallet) => {
+                const isCard = wallet.kind === "credit_card";
                 const balanceDec = new Decimal(wallet.balance);
                 const committedDec = new Decimal(wallet.committed);
-                const percent =
-                  wallet.kind === "asset" &&
-                  totalBalanceDecimal.isPositive() &&
-                  !totalBalanceDecimal.isZero()
-                    ? Math.max(
-                        0,
-                        balanceDec
-                          .div(totalBalanceDecimal)
-                          .times(100)
-                          .toNumber(),
+                const limitDec = wallet.creditLimit
+                  ? new Decimal(wallet.creditLimit)
+                  : null;
+                const utilizationPct =
+                  isCard && limitDec && limitDec.gt(0)
+                    ? Math.min(
+                        100,
+                        Math.max(
+                          0,
+                          balanceDec.div(limitDec).times(100).toNumber(),
+                        ),
                       )
                     : 0;
-                return (
-                  <div
-                    key={wallet.id}
-                    className="flex items-start justify-between gap-3 px-4 py-3 text-xs md:px-5"
-                  >
-                    <div className="flex min-w-0 flex-1 items-start gap-3">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]">
-                        {wallet.kind === "credit_card" ? (
-                          <CreditCard className="size-4" />
-                        ) : (
-                          <Wallet className="size-4" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <span className="block break-words font-semibold leading-snug text-[var(--foreground)]">
-                          {wallet.name}
-                        </span>
-                        {wallet.kind === "credit_card" ? (
-                          <p className="mt-0.5 break-words text-[0.68rem] leading-snug text-[var(--text-muted)]">
-                            Dư nợ thẻ tín dụng
-                          </p>
-                        ) : committedDec.gt(0) ? (
-                          <p className="mt-0.5 break-words text-[0.68rem] leading-snug text-[var(--text-muted)] tabular-nums">
-                            Số dư có thể dùng:{" "}
-                            {money(wallet.available, workspace.currency)} · Tiền
-                            chờ thanh toán thẻ:{" "}
-                            {money(wallet.committed, workspace.currency)}
-                          </p>
-                        ) : (
-                          <p className="mt-0.5 break-words text-[0.68rem] leading-snug text-[var(--text-muted)] tabular-nums">
-                            Số dư có thể dùng:{" "}
-                            {money(wallet.available, workspace.currency)}
-                            {wallets.length > 1
-                              ? ` (${percent.toFixed(0)}%)`
-                              : ""}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <strong className="shrink-0 text-right font-semibold text-[var(--foreground)] tabular-nums">
-                      {money(wallet.balance, workspace.currency)}
-                    </strong>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="p-4">
-                <Empty
-                  variant="compact"
-                  title="Chưa có ví"
-                  description="Thêm ví để bắt đầu theo dõi tài sản."
-                />
-              </div>
-            )}
-          </div>
-        </Card>
-      </section>
 
-      {/* 4. Bottom 2-Column Grid: Giao dịch gần đây & Lịch thu chi sắp tới / Cần xử lý */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Column 1: Giao dịch gần đây */}
-        <Card as="section" className="flex min-w-0 flex-col gap-0 p-0">
-          <header className="flex items-start justify-between gap-2 border-b border-[var(--border)] p-4 md:p-5">
-            <div className="min-w-0">
-              <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
-                Giao dịch gần đây
-              </h2>
-              <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
-                Biến động thu chi mới nhất trong nhóm
-              </p>
-            </div>
-            <Link
-              href={ledgerHref}
-              onClick={(event) => {
-                if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                  event.preventDefault();
-                  beginNavigation(ledgerHref);
-                }
-              }}
-              aria-label="Mở sổ giao dịch"
-              title="Mở sổ giao dịch"
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "icon" }),
-                "shrink-0",
-              )}
-            >
-              <ChevronRight className="size-4" />
-            </Link>
-          </header>
-
-          <div className="flex-1 divide-y divide-[var(--border)]">
-            {recentTransactions.length ? (
-              recentTransactions.map((tx) => {
-                const isIncome = tx.type === "income";
-                const isExpense = tx.type === "expense";
-                const dateStr = tx.date.slice(0, 10);
-                const [, m, d] = dateStr.split("-");
-                const formattedDate = `${d}/${m}`;
-                return (
-                  <div
-                    key={tx.id}
-                    className="flex items-start justify-between gap-3 px-4 py-3 text-xs md:px-5"
-                  >
-                    <div className="flex min-w-0 flex-1 items-start gap-3">
-                      <div
-                        className={cn(
-                          "flex size-8 shrink-0 items-center justify-center rounded-lg",
-                          isIncome &&
-                            "bg-[var(--income)]/10 text-[var(--income)]",
-                          isExpense &&
-                            "bg-[var(--expense)]/10 text-[var(--expense)]",
-                          !isIncome &&
-                            !isExpense &&
-                            "bg-[var(--primary)]/10 text-[var(--primary)]",
-                        )}
-                      >
-                        {tx.category ? (
-                          <CategoryIcon category={tx.category} size={15} />
-                        ) : isIncome ? (
-                          <ArrowDownLeft className="size-4" />
-                        ) : isExpense ? (
-                          <ArrowUpRight className="size-4" />
-                        ) : (
-                          <ArrowLeftRight className="size-4" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words font-medium leading-snug text-[var(--foreground)]">
-                          {tx.description ||
-                            tx.category?.name ||
-                            (isIncome
-                              ? "Khoản thu"
-                              : isExpense
-                                ? "Khoản chi"
-                                : "Chuyển khoản")}
-                        </p>
-                        <p className="mt-0.5 break-words text-[0.68rem] leading-snug text-[var(--text-muted)]">
-                          {tx.wallet} · {tx.member} · {formattedDate}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <span
-                        className={cn(
-                          "block font-semibold tabular-nums",
-                          isIncome && "text-[var(--income)]",
-                          isExpense && "text-[var(--expense)]",
-                          !isIncome && !isExpense && "text-[var(--foreground)]",
-                        )}
-                      >
-                        {isIncome ? "+" : isExpense ? "−" : "↔"}
-                        {money(tx.amount, workspace.currency)}
-                      </span>
-                      <span
-                        className={cn(
-                          "text-[0.65rem]",
-                          tx.status === "pending"
-                            ? "font-medium text-[var(--warning)]"
-                            : "text-[var(--text-muted)]",
-                        )}
-                      >
-                        {tx.status === "approved"
-                          ? "Đã ghi nhận"
-                          : tx.status === "pending"
-                            ? "Chờ duyệt"
-                            : tx.status === "scheduled"
-                              ? "Đã lên lịch"
-                              : "Từ chối"}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="flex flex-col items-center p-5">
-                <Empty
-                  variant="compact"
-                  title="Chưa có giao dịch"
-                  description="Các giao dịch mới phát sinh sẽ hiển thị tại đây."
-                />
-                {isMobile ? (
-                  <Sheet
-                    open={Boolean(emptyCreateDraft)}
-                    onOpenChange={(open) => {
-                      if (open) beginEmptyCreate();
-                      else if (!busy) setEmptyCreateDraft(null);
-                    }}
-                  >
-                    <SheetTrigger
-                      render={
-                        <Button
-                          size="icon"
-                          disabled={busy || !wallets.length}
-                          className="mt-3"
-                          aria-label="Tạo giao dịch đầu tiên"
-                          title="Tạo giao dịch đầu tiên"
-                        />
-                      }
-                    >
-                      <Plus className="size-4" />
-                    </SheetTrigger>
-                    {emptyCreateDraft && (
-                      <SheetContent side="bottom" className="p-0">
-                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
-                          <DesktopTransactionCreateDraft
-                            draft={emptyCreateDraft}
-                            wallets={walletOptions}
-                            categories={categoryOptions}
-                            busy={busy}
-                            onChange={(patch) =>
-                              setEmptyCreateDraft((current) =>
-                                current ? { ...current, ...patch } : current,
-                              )
-                            }
-                            onSave={saveEmptyCreate}
-                            onCancel={() => setEmptyCreateDraft(null)}
-                          />
+                const rowContent = (
+                  <div className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-[var(--surface-secondary)]/40 md:px-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div
+                          className={cn(
+                            "flex size-9 shrink-0 items-center justify-center rounded-xl",
+                            isCard
+                              ? "bg-[var(--primary)]/12 text-[var(--primary)]"
+                              : "bg-[var(--surface-secondary)] text-[var(--foreground)]",
+                          )}
+                        >
+                          {isCard ? (
+                            <CreditCard className="size-4" />
+                          ) : wallet.assetSubtype === "bank" ? (
+                            <Landmark className="size-4" />
+                          ) : wallet.assetSubtype === "e_wallet" ? (
+                            <Building2 className="size-4" />
+                          ) : (
+                            <Wallet className="size-4" />
+                          )}
                         </div>
-                      </SheetContent>
-                    )}
-                  </Sheet>
-                ) : (
-                  <Popover
-                    open={Boolean(emptyCreateDraft)}
-                    onOpenChange={(open) => {
-                      if (open) beginEmptyCreate();
-                      else if (!busy) setEmptyCreateDraft(null);
-                    }}
-                  >
-                    <PopoverTrigger
-                      render={
-                        <Button
-                          size="icon"
-                          disabled={busy || !wallets.length}
-                          className="mt-3"
-                          aria-label="Tạo giao dịch đầu tiên"
-                          title="Tạo giao dịch đầu tiên"
-                        />
-                      }
-                    >
-                      <Plus className="size-4" />
-                    </PopoverTrigger>
-                    {emptyCreateDraft && (
-                      <DesktopTransactionCreatePopoverContent
-                        draft={emptyCreateDraft}
-                        wallets={walletOptions}
-                        categories={categoryOptions}
-                        busy={busy}
-                        onChange={(patch) =>
-                          setEmptyCreateDraft((current) =>
-                            current ? { ...current, ...patch } : current,
-                          )
-                        }
-                        onSave={saveEmptyCreate}
-                        onCancel={() => setEmptyCreateDraft(null)}
-                      />
-                    )}
-                  </Popover>
-                )}
-              </div>
-            )}
-          </div>
-        </Card>
 
-        {/* Column 2: Lịch thu chi sắp tới & Cần xử lý */}
-        <Card as="section" className="flex min-w-0 flex-col gap-0 p-0">
-          <header className="flex items-start justify-between gap-2 border-b border-[var(--border)] p-4 md:p-5">
-            <div className="min-w-0">
-              <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
-                Lịch thu chi sắp tới
-              </h2>
-              <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
-                Khoản thu chi định kỳ và giao dịch cần duyệt
-              </p>
-            </div>
-            <Link
-              href="/recurring-transactions"
-              onClick={(event) => {
-                if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                  event.preventDefault();
-                  beginNavigation("/recurring-transactions");
-                }
-              }}
-              aria-label="Xem giao dịch định kỳ"
-              title="Xem giao dịch định kỳ"
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "icon" }),
-                "shrink-0",
-              )}
-            >
-              <ChevronRight className="size-4" />
-            </Link>
-          </header>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                              {wallet.name}
+                            </span>
+                            {isCard && wallet.issuedStatement && (
+                              <span
+                                className={cn(
+                                  "rounded-full px-1.5 py-0.5 text-[0.6rem] font-semibold",
+                                  wallet.issuedStatement.overdue
+                                    ? "bg-[var(--expense)]/15 text-[var(--expense)]"
+                                    : "bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] text-[var(--warning)]",
+                                )}
+                              >
+                                Có sao kê
+                              </span>
+                            )}
+                          </div>
 
-          {pendingTransactions.length > 0 && (
-            <div className="border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--warning)_8%,var(--surface))] px-4 py-2.5 md:px-5">
-              <Link
-                href={`${ledgerHref}?status=pending`}
-                onClick={(event) => {
-                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
-                    event.preventDefault();
-                    beginNavigation(`${ledgerHref}?status=pending`);
-                  }
-                }}
-                aria-label={`Xử lý ${pendingTransactions.length} giao dịch đang chờ duyệt`}
-                title={`Xử lý ${pendingTransactions.length} giao dịch đang chờ duyệt`}
-                className="flex items-center justify-between gap-2 text-xs font-medium text-[var(--warning)]"
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <CircleAlert className="size-4 shrink-0" />
-                  <span className="break-words leading-snug">
-                    Có {pendingTransactions.length} giao dịch đang chờ duyệt
-                  </span>
-                </span>
-                <ChevronRight className="size-4 shrink-0" />
-              </Link>
-            </div>
-          )}
+                          <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)] tabular-nums">
+                            {isCard ? (
+                              limitDec ? (
+                                `Hạn mức: ${privacyMasked ? "••••" : formatAmount(limitDec)} ${workspace.currency} · Đã dùng ${utilizationPct.toFixed(0)}%`
+                              ) : (
+                                "Thẻ tín dụng"
+                              )
+                            ) : committedDec.gt(0) ? (
+                              <>
+                                Thực tế:{" "}
+                                {privacyMasked
+                                  ? "••••"
+                                  : formatAmount(wallet.balance)}{" "}
+                                · Chờ trả thẻ:{" "}
+                                {privacyMasked
+                                  ? "••••"
+                                  : formatAmount(wallet.committed)}
+                              </>
+                            ) : (
+                              walletSubtypeLabel(wallet.assetSubtype)
+                            )}
+                          </p>
+                        </div>
+                      </div>
 
-          <div className="flex-1 divide-y divide-[var(--border)]">
-            {upcomingRecurring && upcomingRecurring.length ? (
-              upcomingRecurring.slice(0, 5).map((rec) => {
-                const dateStr = rec.nextExecutionDate.slice(0, 10);
-                const [, m, d] = dateStr.split("-");
-                return (
-                  <div
-                    key={rec.id}
-                    className="flex items-start justify-between gap-3 px-4 py-3 text-xs md:px-5"
-                  >
-                    <div className="flex min-w-0 flex-1 items-start gap-3">
-                      <div className="flex size-8 shrink-0 flex-col items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] text-[0.65rem] font-semibold leading-none text-[var(--foreground)] tabular-nums">
-                        <span>{d}</span>
-                        <span className="text-[0.58rem] text-[var(--text-muted)]">
-                          T{m}
+                      <div className="shrink-0 text-right">
+                        <strong
+                          className={cn(
+                            "block text-sm font-bold tabular-nums",
+                            isCard && balanceDec.gt(0)
+                              ? "text-[var(--expense)]"
+                              : "text-[var(--foreground)]",
+                          )}
+                        >
+                          {displayAmount(
+                            isCard ? wallet.balance : wallet.available,
+                          )}
+                        </strong>
+                        <span className="block text-[0.65rem] text-[var(--text-muted)]">
+                          {isCard ? "Dư nợ hiện tại" : "Có thể dùng"}
                         </span>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words font-medium leading-snug text-[var(--foreground)]">
-                          {rec.description ||
-                            rec.category?.name ||
-                            "Giao dịch định kỳ"}
-                        </p>
-                        <p className="mt-0.5 break-words text-[0.68rem] leading-snug text-[var(--text-muted)]">
-                          Ví: {rec.wallet}
-                        </p>
+                    </div>
+
+                    {/* Credit Card Utilization Bar */}
+                    {isCard && limitDec && limitDec.gt(0) && (
+                      <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            utilizationPct >= 85
+                              ? "bg-[var(--expense)]"
+                              : utilizationPct >= 60
+                                ? "bg-[var(--warning)]"
+                                : "bg-[var(--primary)]",
+                          )}
+                          style={{ width: `${utilizationPct}%` }}
+                        />
                       </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <span
-                        className={cn(
-                          "font-semibold tabular-nums",
-                          rec.type === "income" && "text-[var(--income)]",
-                          rec.type === "expense" && "text-[var(--expense)]",
-                        )}
-                      >
-                        {rec.type === "income"
-                          ? "+"
-                          : rec.type === "expense"
-                            ? "−"
-                            : "↔"}
-                        {money(rec.amount, workspace.currency)}
-                      </span>
-                    </div>
+                    )}
                   </div>
                 );
-              })
-            ) : (
-              <div className="p-5">
-                <Empty
-                  variant="compact"
-                  icon={CalendarClock}
-                  title="Chưa có lịch định kỳ sắp tới"
-                  description="Thiết lập khoản thu chi định kỳ để chủ động theo dõi hóa đơn."
-                />
-                <div className="mt-3 flex justify-center">
+
+                return isCard ? (
                   <Link
-                    href="/recurring-transactions"
+                    key={wallet.id}
+                    href={`/credit-cards/${wallet.id}`}
                     onClick={(event) => {
                       if (
                         !event.ctrlKey &&
@@ -1472,24 +1886,956 @@ export function OverviewDashboard({
                         event.button === 0
                       ) {
                         event.preventDefault();
-                        beginNavigation("/recurring-transactions");
+                        beginNavigation(`/credit-cards/${wallet.id}`);
                       }
                     }}
-                    aria-label="Tạo lịch định kỳ"
-                    title="Tạo lịch định kỳ"
-                    className={buttonVariants({
-                      variant: "outline",
-                      size: "icon",
-                    })}
+                    className="block"
                   >
-                    <Plus className="size-4" />
+                    {rowContent}
                   </Link>
-                </div>
+                ) : (
+                  <div key={wallet.id}>{rowContent}</div>
+                );
+              })
+            ) : (
+              <div className="p-5">
+                <Empty
+                  variant="compact"
+                  title="Chưa có ví hoặc thẻ"
+                  description="Thêm ví tài sản hoặc thẻ tín dụng để quản lý dòng tiền."
+                />
               </div>
             )}
           </div>
         </Card>
       </section>
+
+      {/* 4. BOTTOM BENTO GRID: 6 JARS FINANCIAL PLAN SNAPSHOT (6 cols) & UNIFIED ACTIVITY FEED (6 cols) */}
+      <section className="grid grid-cols-1 gap-3.5 md:gap-4 lg:grid-cols-12">
+        {/* Left 6 Cols: 6 Jars & Active Financial Plan Snapshot */}
+        <Card
+          as="section"
+          className="flex min-w-0 flex-col gap-0 p-0 lg:col-span-6"
+        >
+          <header className="flex items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3.5 md:px-5 md:py-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                  {financialPlanSnapshot
+                    ? financialPlanSnapshot.name
+                    : "Kế hoạch 6 Hũ & Tích lũy"}
+                </h2>
+                {financialPlanSnapshot && (
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[0.65rem] font-semibold",
+                      planHealthMeta(financialPlanSnapshot.health).toneClass,
+                    )}
+                  >
+                    {planHealthMeta(financialPlanSnapshot.health).label}
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 break-words text-[0.7rem] leading-snug text-[var(--text-muted)]">
+                {financialPlanSnapshot
+                  ? `Mục tiêu đến ${financialPlanSnapshot.targetMonth} · Tiến độ ${financialPlanSnapshot.realizedProgressPercentage}%`
+                  : "Phân bổ ngân sách chi tiêu theo 6 hũ và theo dõi mục tiêu tiết kiệm"}
+              </p>
+            </div>
+
+            <Link
+              href="/financial-plans"
+              onClick={(event) => {
+                if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                  event.preventDefault();
+                  beginNavigation("/financial-plans");
+                }
+              }}
+              aria-label="Mở kế hoạch tài chính"
+              title="Mở kế hoạch tài chính"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "icon" }),
+                "shrink-0",
+              )}
+            >
+              <ChevronRight className="size-4" />
+            </Link>
+          </header>
+
+          {financialPlanSnapshot ? (
+            <div className="flex flex-1 flex-col justify-between gap-4 p-4 md:p-5">
+              {/* Target Goal Progress Strip */}
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3.5">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+                    <Target className="size-3.5 text-[var(--primary)]" />
+                    <span>Đã tích lũy mục tiêu</span>
+                  </span>
+                  <div className="text-right tabular-nums">
+                    <strong className="text-sm font-bold text-[var(--foreground)]">
+                      {displayAmount(financialPlanSnapshot.realizedProgress)}
+                    </strong>
+                    <span className="text-xs text-[var(--text-muted)]">
+                      {" "}
+                      /{" "}
+                      {privacyMasked
+                        ? "••••"
+                        : formatAmount(financialPlanSnapshot.targetAmount)}{" "}
+                      {workspace.currency}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--surface)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--primary)] transition-all"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, Number(financialPlanSnapshot.realizedProgressPercentage)))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* 6 Jars Compact Bento Grid */}
+              {financialPlanSnapshot.currentMonth && (
+                <div>
+                  <div className="mb-2.5 flex items-center justify-between gap-2 text-xs">
+                    <span className="font-semibold text-[var(--foreground)]">
+                      Ngân sách 6 Hũ ({financialPlanSnapshot.currentMonth.month})
+                    </span>
+                    <span className="text-[var(--text-muted)] tabular-nums">
+                      Còn lại:{" "}
+                      <strong className="font-semibold text-[var(--foreground)]">
+                        {displayAmount(
+                          financialPlanSnapshot.currentMonth.availableToSpend,
+                        )}
+                      </strong>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                    {financialPlanSnapshot.currentMonth.jars.map((jar) => {
+                      const allocatedDec = new Decimal(jar.allocatedAmount);
+                      const spentDec = new Decimal(jar.spentAmount);
+                      const overspentDec = new Decimal(jar.overspendAmount);
+                      const remainingDec = new Decimal(jar.remainingAmount);
+                      const ratioPct = allocatedDec.gt(0)
+                        ? Math.min(
+                            100,
+                            spentDec.div(allocatedDec).times(100).toNumber(),
+                          )
+                        : spentDec.gt(0)
+                          ? 100
+                          : 0;
+                      const isOver = overspentDec.gt(0);
+
+                      return (
+                        <div
+                          key={jar.jarCode}
+                          className="flex flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5"
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="break-words text-xs font-semibold text-[var(--foreground)]">
+                              {jar.label}
+                            </span>
+                            <span className="shrink-0 text-[0.65rem] font-medium text-[var(--text-muted)] tabular-nums">
+                              {new Decimal(jar.percentage).toFixed(0)}%
+                            </span>
+                          </div>
+
+                          <div className="my-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all",
+                                isOver
+                                  ? "bg-[var(--expense)]"
+                                  : ratioPct >= 85
+                                    ? "bg-[var(--warning)]"
+                                    : "bg-[var(--income)]",
+                              )}
+                              style={{ width: `${ratioPct}%` }}
+                            />
+                          </div>
+
+                          <div className="flex items-baseline justify-between gap-1 text-[0.68rem] tabular-nums">
+                            <span className="text-[var(--text-muted)]">
+                              {isOver ? "Vượt:" : "Còn:"}
+                            </span>
+                            <strong
+                              className={cn(
+                                "font-semibold",
+                                isOver
+                                  ? "text-[var(--expense)]"
+                                  : "text-[var(--foreground)]",
+                              )}
+                            >
+                              {privacyMasked
+                                ? "••••"
+                                : formatAmount(
+                                    isOver ? overspentDec : remainingDec,
+                                  )}
+                            </strong>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+              <div className="flex size-11 items-center justify-center rounded-2xl bg-[var(--primary)]/10 text-[var(--primary)]">
+                <Layers className="size-5" />
+              </div>
+              <h3 className="mt-3 text-sm font-semibold text-[var(--foreground)]">
+                Thiết lập Kế hoạch 6 Hũ & Tích lũy
+              </h3>
+              <p className="mt-1 max-w-sm text-xs leading-relaxed text-[var(--text-muted)]">
+                Tự động chia ngân sách tháng vào 6 hũ chi tiêu và theo dõi tiến
+                độ tiết kiệm theo mục tiêu của nhóm.
+              </p>
+              <Link
+                href="/financial-plans"
+                onClick={(event) => {
+                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                    event.preventDefault();
+                    beginNavigation("/financial-plans");
+                  }
+                }}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "mt-3.5",
+                )}
+              >
+                <Sparkles className="mr-1.5 size-3.5" />
+                Khám phá Kế hoạch 6 Hũ
+              </Link>
+            </div>
+          )}
+        </Card>
+
+        {/* Right 6 Cols: Unified Activity & Upcoming Feed */}
+        <Card
+          as="section"
+          className="flex min-w-0 flex-col gap-0 p-0 lg:col-span-6"
+        >
+          <header className="flex flex-col gap-2.5 border-b border-[var(--border)] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between md:px-5 md:py-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                  Hoạt động & Lịch sắp tới
+                </h2>
+                <p className="mt-0.5 break-words text-[0.7rem] leading-snug text-[var(--text-muted)]">
+                  Chạm vào giao dịch để xem chi tiết hoặc xử lý nhanh
+                </p>
+              </div>
+              <Link
+                href={
+                  activityTab === "upcoming"
+                    ? "/recurring-transactions"
+                    : ledgerHref
+                }
+                onClick={(event) => {
+                  const target =
+                    activityTab === "upcoming"
+                      ? "/recurring-transactions"
+                      : ledgerHref;
+                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                    event.preventDefault();
+                    beginNavigation(target);
+                  }
+                }}
+                aria-label="Xem toàn bộ"
+                title="Xem toàn bộ"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "icon" }),
+                  "shrink-0 sm:hidden",
+                )}
+              >
+                <ChevronRight className="size-4" />
+              </Link>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <Tabs
+                value={activityTab}
+                onValueChange={(val) => setActivityTab(val as ActivityFeedTab)}
+                className="w-full gap-0 sm:w-auto"
+              >
+                <TabsList
+                  variant="navigation"
+                  className="w-full sm:w-auto"
+                  aria-label="Chọn danh sách hoạt động"
+                >
+                  <TabsTrigger value="recent">Gần đây</TabsTrigger>
+                  <TabsTrigger value="upcoming">
+                    Sắp tới ({upcomingObligations.length})
+                  </TabsTrigger>
+                  {pendingTransactions.length > 0 && (
+                    <TabsTrigger value="pending">
+                      Chờ duyệt ({pendingTransactions.length})
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+              </Tabs>
+
+              <Link
+                href={
+                  activityTab === "upcoming"
+                    ? "/recurring-transactions"
+                    : ledgerHref
+                }
+                onClick={(event) => {
+                  const target =
+                    activityTab === "upcoming"
+                      ? "/recurring-transactions"
+                      : ledgerHref;
+                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                    event.preventDefault();
+                    beginNavigation(target);
+                  }
+                }}
+                aria-label="Mở sổ chi tiết"
+                title="Mở sổ chi tiết"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "icon" }),
+                  "hidden shrink-0 sm:inline-flex",
+                )}
+              >
+                <ChevronRight className="size-4" />
+              </Link>
+            </div>
+          </header>
+
+          {/* Feed Body */}
+          <div className="flex-1 divide-y divide-[var(--border)]">
+            {activityTab === "recent" &&
+              (recentTransactions.length > 0 ? (
+                recentTransactions.map((tx) => {
+                  const isIncome = tx.type === "income";
+                  const isExpense = tx.type === "expense";
+                  const dateStr = tx.date.slice(0, 10);
+                  const [, m, d] = dateStr.split("-");
+                  const formattedDate = `${d}/${m}`;
+
+                  return (
+                    <button
+                      key={tx.id}
+                      type="button"
+                      onClick={() => setSelectedTransaction(tx)}
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--surface-secondary)]/50 active:bg-[var(--surface-secondary)] md:px-5"
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div
+                          className={cn(
+                            "flex size-9 shrink-0 items-center justify-center rounded-xl",
+                            isIncome &&
+                              "bg-[var(--income)]/10 text-[var(--income)]",
+                            isExpense &&
+                              "bg-[var(--expense)]/10 text-[var(--expense)]",
+                            !isIncome &&
+                              !isExpense &&
+                              "bg-[var(--primary)]/10 text-[var(--primary)]",
+                          )}
+                        >
+                          {tx.category ? (
+                            <CategoryIcon category={tx.category} size={15} />
+                          ) : isIncome ? (
+                            <ArrowDownLeft className="size-4" />
+                          ) : isExpense ? (
+                            <ArrowUpRight className="size-4" />
+                          ) : (
+                            <ArrowLeftRight className="size-4" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                              {tx.description ||
+                                tx.category?.name ||
+                                (isIncome
+                                  ? "Khoản thu"
+                                  : isExpense
+                                    ? "Khoản chi"
+                                    : "Chuyển khoản")}
+                            </p>
+                            {tx.status !== "approved" && (
+                              <span
+                                className={cn(
+                                  "inline-flex items-center rounded-full px-1.5 py-0.5 text-[0.62rem] font-medium",
+                                  tx.status === "pending"
+                                    ? "bg-[color-mix(in_srgb,var(--warning)_14%,var(--surface))] text-[var(--warning)]"
+                                    : "bg-[var(--surface-secondary)] text-[var(--text-muted)]",
+                                )}
+                              >
+                                {tx.status === "pending"
+                                  ? "Chờ duyệt"
+                                  : "Đã lên lịch"}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
+                            {tx.type === "transfer" && tx.toWallet
+                              ? `${tx.wallet} → ${tx.toWallet}`
+                              : `Ví ${tx.wallet}`}{" "}
+                            · {tx.member} · {formattedDate}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <strong
+                          className={cn(
+                            "block text-sm font-bold tabular-nums",
+                            isIncome && "text-[var(--income)]",
+                            isExpense && "text-[var(--expense)]",
+                            !isIncome &&
+                              !isExpense &&
+                              "text-[var(--foreground)]",
+                          )}
+                        >
+                          {displayAmount(tx.amount, {
+                            prefix: isIncome ? "+" : isExpense ? "−" : "↔",
+                          })}
+                        </strong>
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="flex flex-col items-center p-6">
+                  <Empty
+                    variant="compact"
+                    title="Chưa có giao dịch"
+                    description="Ghi nhận khoản thu chi đầu tiên để bắt đầu theo dõi."
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => openQuickEntry("expense")}
+                    className="mt-3"
+                  >
+                    <Plus className="mr-1.5 size-4" />
+                    Ghi giao dịch mới
+                  </Button>
+                </div>
+              ))}
+
+            {activityTab === "upcoming" &&
+              (upcomingObligations.length > 0 ? (
+                upcomingObligations.map((item) => {
+                  const [, m, d] = item.dateStr.split("-");
+                  const isUrgent = item.daysLeft <= 3;
+                  return (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      onClick={(event) => {
+                        if (
+                          !event.ctrlKey &&
+                          !event.metaKey &&
+                          event.button === 0
+                        ) {
+                          event.preventDefault();
+                          beginNavigation(item.href);
+                        }
+                      }}
+                      className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-[var(--surface-secondary)]/50 md:px-5"
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="flex size-9 shrink-0 flex-col items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] text-[0.65rem] font-semibold leading-none text-[var(--foreground)] tabular-nums">
+                          <span>{d}</span>
+                          <span className="mt-0.5 text-[0.58rem] text-[var(--text-muted)]">
+                            T{m}
+                          </span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                              {item.title}
+                            </p>
+                            <span
+                              className={cn(
+                                "rounded-full px-1.5 py-0.5 text-[0.62rem] font-semibold tabular-nums",
+                                item.daysLeft < 0
+                                  ? "bg-[var(--expense)]/15 text-[var(--expense)]"
+                                  : isUrgent
+                                    ? "bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] text-[var(--warning)]"
+                                    : "bg-[var(--surface-secondary)] text-[var(--text-muted)]",
+                              )}
+                            >
+                              {item.daysLeft < 0
+                                ? "Quá hạn"
+                                : item.daysLeft === 0
+                                  ? "Hôm nay"
+                                  : item.daysLeft === 1
+                                    ? "Ngày mai"
+                                    : `Còn ${item.daysLeft} ngày`}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
+                            {item.subtitle}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <strong
+                          className={cn(
+                            "block text-sm font-bold tabular-nums",
+                            item.type === "income"
+                              ? "text-[var(--income)]"
+                              : item.type === "expense"
+                                ? "text-[var(--expense)]"
+                                : "text-[var(--foreground)]",
+                          )}
+                        >
+                          {displayAmount(item.amount, {
+                            prefix:
+                              item.type === "income"
+                                ? "+"
+                                : item.type === "expense"
+                                  ? "−"
+                                  : "↔",
+                          })}
+                        </strong>
+                      </div>
+                    </Link>
+                  );
+                })
+              ) : (
+                <div className="p-6">
+                  <Empty
+                    variant="compact"
+                    icon={CalendarClock}
+                    title="Không có khoản đến hạn sắp tới"
+                    description="Mọi sao kê thẻ và lịch thu chi định kỳ đều đã được xử lý."
+                  />
+                </div>
+              ))}
+
+            {activityTab === "pending" &&
+              (pendingTransactions.length > 0 ? (
+                pendingTransactions.slice(0, 6).map((tx) => {
+                  const isIncome = tx.type === "income";
+                  const isExpense = tx.type === "expense";
+                  return (
+                    <div
+                      key={tx.id}
+                      className="flex items-center justify-between gap-3 px-4 py-3 md:px-5"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTransaction(tx)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                          {tx.description ||
+                            tx.category?.name ||
+                            "Giao dịch chờ duyệt"}
+                        </p>
+                        <p className="mt-0.5 break-words text-xs text-[var(--text-muted)] tabular-nums">
+                          {tx.member} · Ví {tx.wallet} ·{" "}
+                          {formatShortDate(tx.date)}
+                        </p>
+                        <strong
+                          className={cn(
+                            "mt-0.5 block text-xs font-bold tabular-nums",
+                            isIncome
+                              ? "text-[var(--income)]"
+                              : isExpense
+                                ? "text-[var(--expense)]"
+                                : "text-[var(--foreground)]",
+                          )}
+                        >
+                          {displayAmount(tx.amount, {
+                            prefix: isIncome ? "+" : isExpense ? "−" : "↔",
+                          })}
+                        </strong>
+                      </button>
+
+                      {canApprove && (
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            disabled={busy}
+                            onClick={() =>
+                              handleReviewTransaction(tx.id, false)
+                            }
+                            aria-label="Từ chối giao dịch"
+                            title="Từ chối giao dịch"
+                          >
+                            <X className="size-4 text-[var(--expense)]" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            disabled={busy}
+                            onClick={() => handleReviewTransaction(tx.id, true)}
+                            aria-label="Duyệt giao dịch"
+                            title="Duyệt giao dịch"
+                          >
+                            <Check className="size-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-6">
+                  <Empty
+                    variant="compact"
+                    title="Không có giao dịch chờ duyệt"
+                    description="Tất cả giao dịch trong nhóm đã được phê duyệt."
+                  />
+                </div>
+              ))}
+          </div>
+        </Card>
+      </section>
+
+      {/* SHEET 1: TRANSACTION QUICK DETAIL & APPROVAL SHEET */}
+      <Sheet
+        open={Boolean(selectedTransaction)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTransaction(null);
+        }}
+      >
+        <SheetContent side={isMobile ? "bottom" : "right"}>
+          <SheetHeader
+            icon={ReceiptText}
+            title="Chi tiết giao dịch"
+            description="Thông tin bút toán ghi nhận trong sổ giao dịch."
+          />
+
+          {selectedTransaction && (
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 md:px-6">
+              {/* Amount Banner */}
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-4 text-center">
+                <span className="text-xs font-medium text-[var(--text-muted)]">
+                  {selectedTransaction.type === "income"
+                    ? "Khoản thu nhập"
+                    : selectedTransaction.type === "expense"
+                      ? "Khoản chi tiêu"
+                      : "Chuyển khoản nội bộ"}
+                </span>
+                <strong
+                  className={cn(
+                    "mt-1 block text-2xl font-bold tabular-nums",
+                    selectedTransaction.type === "income" &&
+                      "text-[var(--income)]",
+                    selectedTransaction.type === "expense" &&
+                      "text-[var(--expense)]",
+                    selectedTransaction.type === "transfer" &&
+                      "text-[var(--foreground)]",
+                  )}
+                >
+                  {selectedTransaction.type === "income"
+                    ? "+"
+                    : selectedTransaction.type === "expense"
+                      ? "−"
+                      : "↔"}
+                  {formatAmount(selectedTransaction.amount)}{" "}
+                  <span className="text-sm font-semibold opacity-75">
+                    {workspace.currency}
+                  </span>
+                </strong>
+                {selectedTransaction.description && (
+                  <p className="mt-1.5 break-words text-sm text-[var(--foreground)]">
+                    {selectedTransaction.description}
+                  </p>
+                )}
+              </div>
+
+              {/* Detail Rows */}
+              <div className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-xs">
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <span className="text-[var(--text-muted)]">Ngày giao dịch</span>
+                  <strong className="font-semibold text-[var(--foreground)] tabular-nums">
+                    {formatShortDate(selectedTransaction.date)}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <span className="text-[var(--text-muted)]">Ví / Tài khoản</span>
+                  <strong className="font-semibold text-[var(--foreground)]">
+                    {selectedTransaction.type === "transfer" &&
+                    selectedTransaction.toWallet
+                      ? `${selectedTransaction.wallet} → ${selectedTransaction.toWallet}`
+                      : selectedTransaction.wallet}
+                  </strong>
+                </div>
+                {selectedTransaction.category && (
+                  <div className="flex items-center justify-between gap-3 px-4 py-3">
+                    <span className="text-[var(--text-muted)]">Danh mục</span>
+                    <strong className="font-semibold text-[var(--foreground)]">
+                      {selectedTransaction.category.name}
+                    </strong>
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <span className="text-[var(--text-muted)]">Người tạo</span>
+                  <strong className="font-semibold text-[var(--foreground)]">
+                    {selectedTransaction.member}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <span className="text-[var(--text-muted)]">Trạng thái</span>
+                  <strong className="font-semibold text-[var(--foreground)]">
+                    {selectedTransaction.status === "approved"
+                      ? "Đã ghi nhận"
+                      : selectedTransaction.status === "pending"
+                        ? "Đang chờ duyệt"
+                        : selectedTransaction.status === "scheduled"
+                          ? "Đã lên lịch"
+                          : "Đã từ chối"}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <SheetFooter>
+            {selectedTransaction?.status === "pending" && canApprove ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    handleReviewTransaction(selectedTransaction.id, false)
+                  }
+                  className="flex-1 sm:flex-none"
+                >
+                  <X className="mr-1.5 size-4 text-[var(--expense)]" />
+                  Từ chối
+                </Button>
+                <Button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    handleReviewTransaction(selectedTransaction.id, true)
+                  }
+                  className="flex-1 sm:flex-none"
+                >
+                  <Check className="mr-1.5 size-4" />
+                  Duyệt ngay
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSelectedTransaction(null)}
+                  className="flex-1 sm:flex-none"
+                >
+                  Đóng
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTransaction(null);
+                    beginNavigation(ledgerHref);
+                  }}
+                  className="flex-1 sm:flex-none"
+                >
+                  Mở sổ giao dịch
+                </Button>
+              </>
+            )}
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* SHEET 2: FULL CATEGORY / MEMBER STRUCTURE BREAKDOWN */}
+      <Sheet
+        open={allCategoriesSheetOpen}
+        onOpenChange={setAllCategoriesSheetOpen}
+      >
+        <SheetContent side={isMobile ? "bottom" : "right"}>
+          <SheetHeader
+            icon={PiggyBank}
+            title={
+              structureMode === "income"
+                ? "Toàn bộ nguồn thu nhập"
+                : structureMode === "member"
+                  ? "Chi tiêu theo thành viên"
+                  : "Toàn bộ danh mục chi tiêu"
+            }
+            description={`Kỳ ${periodLabel} (${formatDateRangeLabel(activeDateRange)})`}
+          />
+
+          <div className="min-h-0 flex-1 divide-y divide-[var(--border)] overflow-y-auto px-4 py-2 md:px-6">
+            {activeStructureItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-3 py-3"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <span
+                    className="flex size-8 shrink-0 items-center justify-center rounded-xl"
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${item.color} 15%, var(--surface))`,
+                      color: item.color,
+                    }}
+                  >
+                    <CategoryIcon
+                      category={{
+                        color: item.color,
+                        icon: item.icon,
+                      }}
+                      size={14}
+                    />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block break-words text-sm font-semibold text-[var(--foreground)]">
+                      {item.name}
+                    </span>
+                    <span className="text-xs text-[var(--text-muted)] tabular-nums">
+                      {item.count} giao dịch · {item.percent.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <strong className="shrink-0 text-sm font-bold text-[var(--foreground)] tabular-nums">
+                  {displayAmount(item.amount)}
+                </strong>
+              </div>
+            ))}
+          </div>
+
+          <SheetFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAllCategoriesSheetOpen(false)}
+              className="flex-1 sm:flex-none"
+            >
+              Đóng
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setAllCategoriesSheetOpen(false);
+                beginNavigation(ledgerHref);
+              }}
+              className="flex-1 sm:flex-none"
+            >
+              Mở sổ giao dịch
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* SHEET 3: PENDING APPROVALS QUICK SHEET */}
+      <Sheet open={approvalsSheetOpen} onOpenChange={setApprovalsSheetOpen}>
+        <SheetContent side={isMobile ? "bottom" : "right"}>
+          <SheetHeader
+            icon={CircleAlert}
+            title={`Giao dịch chờ duyệt (${pendingTransactions.length})`}
+            description="Kiểm tra và phê duyệt nhanh các giao dịch quá khứ hoặc cần xác nhận."
+          />
+
+          <div className="min-h-0 flex-1 divide-y divide-[var(--border)] overflow-y-auto px-4 py-2 md:px-6">
+            {pendingTransactions.length > 0 ? (
+              pendingTransactions.map((tx) => {
+                const isIncome = tx.type === "income";
+                const isExpense = tx.type === "expense";
+                return (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between gap-3 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-sm font-semibold text-[var(--foreground)]">
+                        {tx.description ||
+                          tx.category?.name ||
+                          "Giao dịch chờ duyệt"}
+                      </p>
+                      <p className="mt-0.5 text-xs text-[var(--text-muted)] tabular-nums">
+                        {tx.member} · Ví {tx.wallet} ·{" "}
+                        {formatShortDate(tx.date)}
+                      </p>
+                      <strong
+                        className={cn(
+                          "mt-0.5 block text-sm font-bold tabular-nums",
+                          isIncome
+                            ? "text-[var(--income)]"
+                            : isExpense
+                              ? "text-[var(--expense)]"
+                              : "text-[var(--foreground)]",
+                        )}
+                      >
+                        {displayAmount(tx.amount, {
+                          prefix: isIncome ? "+" : isExpense ? "−" : "↔",
+                        })}
+                      </strong>
+                    </div>
+
+                    {canApprove && (
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          disabled={busy}
+                          onClick={() => handleReviewTransaction(tx.id, false)}
+                          aria-label="Từ chối"
+                          title="Từ chối"
+                        >
+                          <X className="size-4 text-[var(--expense)]" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          disabled={busy}
+                          onClick={() => handleReviewTransaction(tx.id, true)}
+                          aria-label="Duyệt"
+                          title="Duyệt"
+                        >
+                          <Check className="size-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <div className="py-8">
+                <Empty
+                  variant="compact"
+                  title="Đã xử lý hết giao dịch chờ duyệt"
+                />
+              </div>
+            )}
+          </div>
+
+          <SheetFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setApprovalsSheetOpen(false)}
+              className="flex-1 sm:flex-none"
+            >
+              Đóng
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setApprovalsSheetOpen(false);
+                beginNavigation(`${ledgerHref}?status=pending`);
+              }}
+              className="flex-1 sm:flex-none"
+            >
+              Xem trong sổ giao dịch
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -1563,7 +2909,7 @@ function BalanceHistoryChart({
   return (
     <ChartContainer
       config={balanceChartConfig}
-      className="h-[15rem] w-full md:h-[19rem]"
+      className="h-[15rem] w-full md:h-[18.5rem]"
       aria-label={
         isDaily
           ? `Biểu đồ tổng số dư trong ${balances.length} ngày thuộc khoảng đã chọn`
@@ -1575,8 +2921,8 @@ function BalanceHistoryChart({
         accessibilityLayer
         margin={{
           top: 8,
-          right: isMobile ? 12 : 8,
-          left: isMobile ? -16 : 0,
+          right: isMobile ? 10 : 8,
+          left: 0,
           bottom: 0,
         }}
       >
@@ -1602,9 +2948,9 @@ function BalanceHistoryChart({
           tick={{ fontSize: isMobile ? 10 : 12 }}
         />
         <YAxis
-          width={isMobile ? 36 : 56}
+          width={isMobile ? 42 : 56}
           tickLine={false}
-          tickMargin={isMobile ? 2 : 6}
+          tickMargin={isMobile ? 4 : 6}
           axisLine={false}
           tickCount={isMobile ? 4 : 5}
           allowDecimals={false}
@@ -1750,7 +3096,7 @@ function MonthlyFinancialChart({
       {hasData ? (
         <ChartContainer
           config={monthlyChartConfig}
-          className="h-[15rem] w-full md:h-[19rem]"
+          className="h-[15rem] w-full md:h-[18.5rem]"
           aria-label={
             isDaily
               ? `Biểu đồ thu nhập và chi tiêu trong ${cashflow.length} ngày thuộc khoảng đã chọn`
@@ -1762,8 +3108,8 @@ function MonthlyFinancialChart({
             accessibilityLayer
             margin={{
               top: 8,
-              right: isMobile ? 12 : 8,
-              left: isMobile ? -16 : 0,
+              right: isMobile ? 10 : 8,
+              left: 0,
               bottom: 0,
             }}
           >
@@ -1793,9 +3139,9 @@ function MonthlyFinancialChart({
               tick={{ fontSize: isMobile ? 10 : 12 }}
             />
             <YAxis
-              width={isMobile ? 36 : 56}
+              width={isMobile ? 42 : 56}
               tickLine={false}
-              tickMargin={isMobile ? 2 : 6}
+              tickMargin={isMobile ? 4 : 6}
               axisLine={false}
               tickCount={isMobile ? 4 : 5}
               allowDecimals={false}

@@ -312,7 +312,7 @@ function Select({
   if (!label) return select;
 
   return (
-    <div className="grid gap-1.5">
+    <div className="grid content-start gap-1.5">
       <Label required={required}>{label}</Label>
       {select}
     </div>

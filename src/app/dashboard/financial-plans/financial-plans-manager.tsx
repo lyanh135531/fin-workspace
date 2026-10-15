@@ -45,6 +45,7 @@ import {
 } from "@/components/base";
 import { ConfirmDelete } from "@/components/base/confirm-delete";
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
+import { usePrivacyMask } from "@/lib/privacy-mask";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -339,6 +340,7 @@ export function FinancialPlansManager({
   financialGoals: FinancialGoalView[];
   goalWallets: Array<{ id: string; name: string; balance: string }>;
 }) {
+  usePrivacyMask();
   const router = useRouter();
   const [editorOpen, setEditorOpen] = useState(false);
   const [deadlineOpen, setDeadlineOpen] = useState(false);

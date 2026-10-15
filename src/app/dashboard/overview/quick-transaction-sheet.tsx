@@ -30,6 +30,7 @@ import {
   Select,
   Sheet,
   SheetContent,
+  SheetFooter,
   SheetHeader,
   Tabs,
   TabsList,
@@ -489,23 +490,31 @@ export function QuickTransactionSheet({
         {statusHint && <p className="quick-status-hint">{statusHint}</p>}
       </div>
 
-      <div className="quick-transaction-footer">
+      <SheetFooter>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending}
+          onClick={() => setOpen(false)}
+          className="flex-1 sm:flex-none"
+        >
+          Hủy
+        </Button>
         <Button
           type="submit"
-          size="lg"
           disabled={pending || !workspace.wallets.length}
-          className="quick-submit w-full md:w-auto"
+          className="flex-1 sm:flex-none"
         >
           {pending ? (
             <Loading label="Đang lưu..." />
           ) : (
             <>
-              <Check size={17} />
+              <Check size={16} />
               Lưu giao dịch
             </>
           )}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   );
 

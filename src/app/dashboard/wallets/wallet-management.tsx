@@ -7,10 +7,7 @@ import {
   ArrowUpRight,
   Banknote,
   CheckCircle2,
-  CircleDollarSign,
   CreditCard,
-  Eye,
-  EyeOff,
   GripVertical,
   Info,
   Landmark,
@@ -36,6 +33,7 @@ import {
   useTransition,
 } from "react";
 import { toast } from "sonner";
+import { usePrivacyMask } from "@/lib/privacy-mask";
 
 import {
   createManagedWalletAction,
@@ -51,7 +49,6 @@ import {
   Input,
   Loading,
   MoneyInput,
-  PageHeader,
   Select,
   Sheet,
   SheetContent,
@@ -429,7 +426,8 @@ export function WalletManagement({
   const [filterKind, setFilterKind] = useState<"all" | "asset" | "credit_card">(
     "all",
   );
-  const [showBalance, setShowBalance] = useState(true);
+  const privacyMasked = usePrivacyMask();
+  const showBalance = !privacyMasked;
   const [isDesktop, setIsDesktop] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -800,17 +798,17 @@ export function WalletManagement({
 
     const cardInnerContent = (
       <>
-        {/* Top Row: Wallet Name + Owner/Scope Badge + Desktop Actions */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
+        {/* Top Row: Wallet Name + Subtitle + Status Badge / Desktop Actions */}
+        <div className="flex items-start justify-between gap-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
             <span
               className={cn(
-                "grid size-10 shrink-0 place-items-center rounded-xl",
+                "grid size-9 shrink-0 place-items-center rounded-xl md:size-10",
                 visual.iconBg,
               )}
               aria-hidden="true"
             >
-              <Icon size={18} />
+              <Icon size={17} />
             </span>
 
             <div className="min-w-0 flex-1">
@@ -820,130 +818,126 @@ export function WalletManagement({
               >
                 {wallet.name}
               </h3>
-
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span
-                  className={cn(
-                    "inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-                    visual.kindBadgeClass,
-                  )}
-                >
-                  {visual.kindBadge}
-                </span>
-
-                <span
-                  className={cn(
-                    "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium",
-                    isActive
-                      ? "bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] text-[var(--success)]"
-                      : "bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)]",
-                  )}
-                >
-                  <span
-                    className="size-1.5 rounded-full bg-current"
-                    aria-hidden="true"
-                  />
-                  {isActive ? "Đang hoạt động" : "Tạm ngưng"}
-                </span>
-              </div>
+              <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
+                {visual.kindBadge}
+              </p>
             </div>
           </div>
 
-          {/* Desktop-only Drag & Menu Controls */}
-          <div className="hidden shrink-0 items-center gap-1 lg:flex">
-            {isAdmin && filterStatus === "all" && (
+          <div className="flex shrink-0 items-center gap-1">
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                isActive
+                  ? "bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] text-[var(--success)]"
+                  : "bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] text-[var(--warning)]",
+              )}
+            >
               <span
-                className="grid cursor-grab place-items-center rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-hover)] active:cursor-grabbing"
-                title={`Kéo để sắp xếp ${wallet.name}`}
-                aria-label={`Kéo để sắp xếp ${wallet.name}`}
+                className="size-1.5 rounded-full bg-current"
+                aria-hidden="true"
+              />
+              {isActive ? "Hoạt động" : "Tạm ngưng"}
+            </span>
+
+            {/* Desktop-only Drag & Menu Controls */}
+            <div className="hidden shrink-0 items-center gap-1 lg:flex">
+              {isAdmin && filterStatus === "all" && (
+                <span
+                  className="grid cursor-grab place-items-center rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-hover)] active:cursor-grabbing"
+                  title={`Kéo để sắp xếp ${wallet.name}`}
+                  aria-label={`Kéo để sắp xếp ${wallet.name}`}
+                >
+                  <GripVertical size={15} />
+                </span>
+              )}
+
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Tùy chọn ví ${wallet.name}`}
+                    />
+                  }
+                >
+                  <MoreHorizontal size={16} aria-hidden="true" />
+                </DropdownMenuTrigger>
+                {menuItems}
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+
+        {/* Balance Section */}
+        <div className="space-y-2.5 border-t border-[var(--border)] pt-3">
+          <div className="flex items-baseline justify-between gap-3 md:block md:space-y-1">
+            <span className="text-xs font-medium text-[var(--text-secondary)]">
+              {isCredit ? "Dư nợ hiện tại" : "Số dư có thể dùng"}
+            </span>
+            <div className="flex flex-wrap items-baseline justify-end gap-1 md:justify-start md:gap-1.5">
+              <strong
+                className={cn(
+                  "text-base font-bold tracking-tight tabular-nums md:text-xl",
+                  isCredit
+                    ? "text-rose-600 dark:text-rose-400"
+                    : usableBalanceDec.lt(0)
+                      ? "text-[var(--destructive)]"
+                      : "text-[var(--foreground)]",
+                )}
               >
-                <GripVertical size={15} />
+                {showBalance
+                  ? `${isCredit && actualBalanceDec.gt(0) ? "-" : ""}${formatAmount(isCredit ? actualBalanceDec : usableBalanceDec)}`
+                  : "••••••••"}
+              </strong>
+              <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)] md:text-xs">
+                {workspace.currency}
               </span>
+            </div>
+          </div>
+
+          {/* Secondary Row: shown on mobile only when there is reserved balance, always shown on md+ */}
+          <div
+            className={cn(
+              "grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-2.5 text-xs",
+              (isCredit || reservedBalanceDec.lte(0)) && "hidden md:grid",
             )}
+          >
+            <div className="min-w-0">
+              <span className="block text-[11px] text-[var(--text-muted)]">
+                {isCredit ? "Dư nợ thực tế" : "Số dư thực tế"}
+              </span>
+              <strong className="mt-0.5 block font-semibold tabular-nums text-[var(--foreground)]">
+                {showBalance
+                  ? `${formatAmount(actualBalanceDec)} ${workspace.currency}`
+                  : "••••••"}
+              </strong>
+            </div>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Tùy chọn ví ${wallet.name}`}
-                  />
-                }
+            <div className="min-w-0 text-right">
+              <span className="block text-[11px] text-[var(--text-muted)]">
+                Tiền chờ thanh toán thẻ
+              </span>
+              <strong
+                className={cn(
+                  "mt-0.5 block font-semibold tabular-nums",
+                  reservedBalanceDec.gt(0)
+                    ? "text-[var(--warning)]"
+                    : "text-[var(--text-secondary)]",
+                )}
               >
-                <MoreHorizontal size={16} aria-hidden="true" />
-              </DropdownMenuTrigger>
-              {menuItems}
-            </DropdownMenu>
-          </div>
-        </div>
-
-        {/* Primary Metric: Số dư có thể dùng */}
-        <div className="min-w-0 space-y-1">
-          <span className="block text-xs font-medium text-[var(--text-muted)]">
-            {isCredit ? "Tiền chờ thanh toán thẻ (Dư nợ)" : "Số dư có thể dùng"}
-          </span>
-          <div className="flex flex-wrap items-baseline gap-1.5">
-            <strong
-              className={cn(
-                "text-xl font-bold tracking-tight tabular-nums",
-                isCredit
-                  ? "text-rose-600 dark:text-rose-400"
-                  : usableBalanceDec.lt(0)
-                    ? "text-[var(--destructive)]"
-                    : "text-[var(--foreground)]",
-              )}
-            >
-              {showBalance
-                ? `${isCredit && actualBalanceDec.gt(0) ? "-" : ""}${formatAmount(isCredit ? actualBalanceDec : usableBalanceDec)}`
-                : "••••••••"}
-            </strong>
-            <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
-              {workspace.currency}
-            </span>
-          </div>
-        </div>
-
-        {/* Compact Secondary Row: hidden on mobile when reservedBalance is 0 to reduce clutter */}
-        <div
-          className={cn(
-            "grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-3 text-xs",
-            !isCredit && reservedBalanceDec.lte(0) && "hidden md:grid",
-          )}
-        >
-          <div className="min-w-0">
-            <span className="block text-[11px] text-[var(--text-muted)]">
-              {isCredit ? "Dư nợ thực tế" : "Số dư thực tế"}
-            </span>
-            <strong className="mt-0.5 block font-semibold tabular-nums text-[var(--foreground)]">
-              {showBalance
-                ? `${formatAmount(actualBalanceDec)} ${workspace.currency}`
-                : "••••••"}
-            </strong>
-          </div>
-
-          <div className="min-w-0 text-right">
-            <span className="block text-[11px] text-[var(--text-muted)]">
-              Tiền chờ thanh toán thẻ
-            </span>
-            <strong
-              className={cn(
-                "mt-0.5 block font-semibold tabular-nums",
-                reservedBalanceDec.gt(0)
-                  ? "text-[var(--warning)]"
-                  : "text-[var(--text-secondary)]",
-              )}
-            >
-              {showBalance
-                ? `${formatAmount(reservedBalanceDec)} ${workspace.currency}`
-                : "••••••"}
-            </strong>
+                {showBalance
+                  ? `${formatAmount(reservedBalanceDec)} ${workspace.currency}`
+                  : "••••••"}
+              </strong>
+            </div>
           </div>
         </div>
 
         {/* Footer: Activity counts + Desktop Quick Actions */}
-        <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-3 text-xs text-[var(--text-muted)]">
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2.5 text-[11px] text-[var(--text-muted)]">
           <div className="min-w-0">
             <span>{wallet.transactionCount} giao dịch</span>
             {wallet.recurringTransactionCount > 0 && (
@@ -955,8 +949,8 @@ export function WalletManagement({
           </div>
 
           {/* Touch hint on mobile/tablet, icon buttons on desktop */}
-          <span className="text-[11px] text-[var(--text-muted)] lg:hidden">
-            Chạm để thao tác
+          <span className="font-medium text-[var(--text-secondary)] lg:hidden">
+            Thao tác ›
           </span>
 
           <div className="hidden shrink-0 items-center gap-1 lg:flex">
@@ -1027,7 +1021,7 @@ export function WalletManagement({
                   data-wallet-status={wallet.status}
                   aria-label={`${wallet.name}. Chạm để mở menu thao tác ví.`}
                   className={cn(
-                    "flex h-full cursor-pointer select-none flex-col justify-between gap-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left transition-all duration-150 active:scale-[0.99] active:bg-[var(--surface-hover)] md:p-5",
+                    "flex h-full cursor-pointer select-none flex-col justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 text-left transition-all duration-150 active:scale-[0.99] active:bg-[var(--surface-hover)] md:gap-3.5 md:p-5",
                     !isActive && "bg-[var(--surface-secondary)] opacity-80",
                   )}
                 />
@@ -1089,96 +1083,114 @@ export function WalletManagement({
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <PageHeader
-        title="Ví tài chính"
-        description={`Theo dõi số dư thực tế, tiền chờ thanh toán thẻ và số dư có thể dùng của ${workspace.name}.`}
-      >
-        <div className="flex items-center gap-1.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => setShowBalance((prev) => !prev)}
-            aria-label={showBalance ? "Ẩn số dư" : "Hiện số dư"}
-            title={showBalance ? "Ẩn số dư" : "Hiện số dư"}
-          >
-            {showBalance ? <Eye size={16} /> : <EyeOff size={16} />}
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => setReservedBreakdownOpen(true)}
-            aria-label="Tiền chờ thanh toán thẻ"
-            title="Xem phân bổ tiền chờ thanh toán thẻ"
-          >
-            <CreditCard size={16} />
-          </Button>
-
-          {isAdmin && (
-            <Button
-              type="button"
-              variant="default"
-              size="icon"
-              onClick={() => setCreatingModal(true)}
-              aria-label="Thêm ví"
-              title="Thêm ví mới"
-            >
-              <Plus size={17} />
-            </Button>
-          )}
-        </div>
-      </PageHeader>
-
-      {/* 1. Clean Top Summary Strip */}
-      <Card as="section" aria-label="Tổng quan số dư ví">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-5 md:divide-x md:divide-[var(--border)]">
-          {/* Metric 1: Tổng số dư thực tế */}
-          <div className="min-w-0 space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-medium text-[var(--text-secondary)]">
-                Tổng số dư thực tế
+      {/* Unified Header + Top Summary Strip */}
+      <Card as="section" className="p-4 md:p-5" aria-label="Tổng quan số dư ví">
+        {/* Top Row: Mobile shows Primary Hero Metric (Số dư có thể dùng) + Action Buttons; Desktop shows Page Title + Action Buttons */}
+        <div className="flex items-start justify-between gap-3 md:items-center md:border-b md:border-[var(--border)] md:pb-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 md:hidden">
+              <span className="text-xs font-semibold text-[var(--primary)]">
+                Số dư có thể dùng
               </span>
-              <span className="shrink-0 rounded-md bg-[var(--surface-secondary)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
-                {assetWallets.length} ví thanh toán
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--primary-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]">
+                <ShieldCheck size={11} aria-hidden="true" />
+                An toàn chi tiêu
               </span>
             </div>
-            <div className="flex flex-wrap items-baseline gap-1.5">
-              <strong className="text-xl font-bold tracking-tight tabular-nums text-[var(--foreground)] md:text-2xl">
-                {showBalance ? formatAmount(totalAssetBalance) : "••••••••"}
+
+            <h1 className="sr-only md:not-sr-only md:text-lg md:font-semibold md:text-[var(--foreground)]">
+              Ví tài chính
+            </h1>
+            <p className="mt-0.5 hidden text-xs text-[var(--text-secondary)] md:block">
+              Theo dõi số dư thực tế, tiền chờ thanh toán thẻ và số dư có thể dùng của {workspace.name}.
+            </p>
+
+            <div className="mt-1 flex flex-wrap items-baseline gap-1.5 md:hidden">
+              <strong className="text-2xl font-bold tracking-tight tabular-nums text-[var(--foreground)]">
+                {showBalance ? formatAmount(totalBalance) : "••••••••"}
               </strong>
               <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
                 {workspace.currency}
               </span>
             </div>
-            <p className="text-xs leading-snug text-[var(--text-muted)]">
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-8 md:size-9"
+              onClick={() => setReservedBreakdownOpen(true)}
+              aria-label="Tiền chờ thanh toán thẻ"
+              title="Xem phân bổ tiền chờ thanh toán thẻ"
+            >
+              <CreditCard size={15} />
+            </Button>
+
+            {isAdmin && (
+              <Button
+                type="button"
+                variant="default"
+                size="icon"
+                className="size-8 md:size-9"
+                onClick={() => setCreatingModal(true)}
+                aria-label="Thêm ví"
+                title="Thêm ví mới"
+              >
+                <Plus size={16} />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile 2-Col Secondary Strip (<768px) & Desktop 3-Col Summary Strip (md:grid) */}
+        <div className="mt-3.5 grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-3 md:mt-4 md:grid-cols-3 md:gap-5 md:divide-x md:divide-[var(--border)] md:border-t-0 md:pt-0">
+          {/* Metric 1: Tổng số dư thực tế */}
+          <div className="min-w-0 space-y-0.5 md:space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium text-[var(--text-muted)] md:text-xs md:text-[var(--text-secondary)]">
+                Tổng số dư thực tế
+              </span>
+              <span className="hidden shrink-0 rounded-md bg-[var(--surface-secondary)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] md:inline-flex">
+                {assetWallets.length} ví thanh toán
+              </span>
+            </div>
+            <div className="flex flex-wrap items-baseline gap-1">
+              <strong className="text-sm font-bold tracking-tight tabular-nums text-[var(--foreground)] md:text-2xl">
+                {showBalance ? formatAmount(totalAssetBalance) : "••••••••"}
+              </strong>
+              <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)] md:text-xs">
+                {workspace.currency}
+              </span>
+            </div>
+            <p className="hidden text-xs leading-snug text-[var(--text-muted)] md:block">
               Tổng tiền hiện có trong các ví thanh toán đang hoạt động
             </p>
           </div>
 
           {/* Metric 2: Tiền chờ thanh toán thẻ */}
-          <div className="min-w-0 space-y-1 border-t border-[var(--border)] pt-3 md:border-t-0 md:pl-5 md:pt-0">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-medium text-[var(--text-secondary)]">
+          <div className="min-w-0 space-y-0.5 border-l border-[var(--border)] pl-3 md:space-y-1 md:border-l-0 md:pl-5">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] font-medium text-[var(--text-muted)] md:text-xs md:text-[var(--text-secondary)]">
                 Tiền chờ thanh toán thẻ
               </span>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-6 shrink-0 text-[var(--primary)]"
+                className="size-5 shrink-0 text-[var(--primary)] md:size-6"
                 onClick={() => setReservedBreakdownOpen(true)}
                 aria-label="Chi tiết tiền chờ thanh toán thẻ"
                 title="Chi tiết tiền chờ thanh toán thẻ"
               >
-                <Info size={14} aria-hidden="true" />
+                <Info size={13} aria-hidden="true" />
               </Button>
             </div>
-            <div className="flex flex-wrap items-baseline gap-1.5">
+            <div className="flex flex-wrap items-baseline gap-1">
               <strong
                 className={cn(
-                  "text-xl font-bold tracking-tight tabular-nums md:text-2xl",
+                  "text-sm font-bold tracking-tight tabular-nums md:text-2xl",
                   totalCreditDebt.gt(0)
                     ? "text-[var(--warning)]"
                     : "text-[var(--foreground)]",
@@ -1188,19 +1200,19 @@ export function WalletManagement({
                   ? `${totalCreditDebt.gt(0) ? "-" : ""}${formatAmount(totalCreditDebt)}`
                   : "••••••••"}
               </strong>
-              <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
+              <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)] md:text-xs">
                 {workspace.currency}
               </span>
             </div>
-            <p className="text-xs leading-snug text-[var(--text-muted)]">
+            <p className="hidden text-xs leading-snug text-[var(--text-muted)] md:block">
               {creditWallets.length > 0
                 ? `Tạm giữ cho ${creditWallets.length} thẻ tín dụng chờ đến kỳ thanh toán`
                 : "Chưa phát sinh khoản chờ thanh toán thẻ"}
             </p>
           </div>
 
-          {/* Metric 3: Số dư có thể dùng */}
-          <div className="min-w-0 space-y-1 border-t border-[var(--border)] pt-3 md:border-t-0 md:pl-5 md:pt-0">
+          {/* Metric 3: Số dư có thể dùng (Desktop only — already shown as Hero Metric on Mobile) */}
+          <div className="hidden min-w-0 space-y-1 md:block md:pl-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-[var(--primary)]">
                 Số dư có thể dùng
@@ -1211,7 +1223,7 @@ export function WalletManagement({
               </span>
             </div>
             <div className="flex flex-wrap items-baseline gap-1.5">
-              <strong className="text-xl font-bold tracking-tight tabular-nums text-[var(--foreground)] md:text-2xl">
+              <strong className="text-2xl font-bold tracking-tight tabular-nums text-[var(--foreground)]">
                 {showBalance ? formatAmount(totalBalance) : "••••••••"}
               </strong>
               <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
@@ -1226,12 +1238,12 @@ export function WalletManagement({
       </Card>
 
       {/* 2. Filter Bar & Wallets Grid */}
-      <section className="space-y-4" aria-labelledby="wallet-list-title">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex min-w-0 items-center gap-2.5">
+      <section className="space-y-3.5 md:space-y-4" aria-labelledby="wallet-list-title">
+        <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-center gap-2">
             <h2
               id="wallet-list-title"
-              className="text-base font-semibold text-[var(--foreground)]"
+              className="text-sm font-semibold text-[var(--foreground)] md:text-base"
             >
               Danh sách ví ({filteredWallets.length})
             </h2>
@@ -1249,49 +1261,51 @@ export function WalletManagement({
               onValueChange={(val) =>
                 setFilterKind(val as "all" | "asset" | "credit_card")
               }
+              className="w-full md:w-auto"
             >
-              <TabsList variant="segmented">
-                <TabsTrigger variant="segmented" value="all">
-                  Tất cả loại
+              <TabsList variant="segmented" className="grid w-full grid-cols-3 md:inline-flex md:w-auto">
+                <TabsTrigger variant="segmented" value="all" className="px-2 text-xs">
+                  Tất cả ({wallets.length})
                 </TabsTrigger>
-                <TabsTrigger variant="segmented" value="asset">
+                <TabsTrigger variant="segmented" value="asset" className="px-2 text-xs">
                   Ví thanh toán
                 </TabsTrigger>
-                <TabsTrigger variant="segmented" value="credit_card">
+                <TabsTrigger variant="segmented" value="credit_card" className="px-2 text-xs">
                   Thẻ tín dụng
                 </TabsTrigger>
               </TabsList>
             </Tabs>
 
-            {/* Status Filter */}
-            <Tabs
-              value={filterStatus}
-              onValueChange={(value) =>
-                setFilterStatus(value as "all" | "active" | "deactive")
-              }
-            >
-              <TabsList variant="segmented">
-                <TabsTrigger variant="segmented" value="all">
-                  <span>Tất cả</span>
-                  <TabsCount>{wallets.length}</TabsCount>
-                </TabsTrigger>
-                <TabsTrigger variant="segmented" value="active">
-                  <span>Hoạt động</span>
-                  <TabsCount>{activeCount}</TabsCount>
-                </TabsTrigger>
-                {wallets.length - activeCount > 0 && (
-                  <TabsTrigger variant="segmented" value="deactive">
+            {/* Status Filter (Only shown when inactive wallets exist) */}
+            {wallets.length - activeCount > 0 && (
+              <Tabs
+                value={filterStatus}
+                onValueChange={(value) =>
+                  setFilterStatus(value as "all" | "active" | "deactive")
+                }
+                className="w-full md:w-auto"
+              >
+                <TabsList variant="segmented" className="grid w-full grid-cols-3 md:inline-flex md:w-auto">
+                  <TabsTrigger variant="segmented" value="all" className="px-2 text-xs">
+                    <span>Tất cả</span>
+                    <TabsCount>{wallets.length}</TabsCount>
+                  </TabsTrigger>
+                  <TabsTrigger variant="segmented" value="active" className="px-2 text-xs">
+                    <span>Hoạt động</span>
+                    <TabsCount>{activeCount}</TabsCount>
+                  </TabsTrigger>
+                  <TabsTrigger variant="segmented" value="deactive" className="px-2 text-xs">
                     <span>Tạm ngưng</span>
                     <TabsCount>{wallets.length - activeCount}</TabsCount>
                   </TabsTrigger>
-                )}
-              </TabsList>
-            </Tabs>
+                </TabsList>
+              </Tabs>
+            )}
           </div>
         </div>
 
         {filteredWallets.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3">
             {filteredWallets.map((wallet, index) =>
               renderWalletGridCard(wallet, index),
             )}
@@ -1335,7 +1349,7 @@ export function WalletManagement({
         <SheetContent
           side={isDesktop ? "right" : "bottom"}
           placement={isDesktop ? "inset" : "edge"}
-          size={isDesktop ? "wide" : "default"}
+          size="md"
           spacing="flush"
           elevation="flat"
         >
@@ -1347,210 +1361,160 @@ export function WalletManagement({
             <SheetHeader
               icon={WalletCards}
               title="Tạo ví mới"
-              description="Thiết lập ví tiền mặt, tài khoản ngân hàng hoặc quỹ chi tiêu riêng."
+              description="Thiết lập ví tiền mặt, tài khoản ngân hàng hoặc quỹ chi tiêu."
             />
 
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-y-auto overscroll-contain p-4 md:grid-cols-2 md:gap-6 md:p-5">
-              <section
-                aria-labelledby="wallet-details-heading"
-                className="space-y-4"
-              >
-                <div className="flex items-start gap-2.5">
-                  <span
-                    className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]"
-                    aria-hidden="true"
-                  >
-                    <WalletCards size={16} />
-                  </span>
-                  <div className="min-w-0">
-                    <h3
-                      id="wallet-details-heading"
-                      className="text-sm font-semibold text-[var(--foreground)]"
-                    >
-                      Thông tin ví
-                    </h3>
-                    <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                      Đặt tên rõ ràng để thành viên dễ nhận diện khi ghi chép.
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 md:p-5">
+              <div className="space-y-3.5">
+                <Input
+                  label="Tên ví"
+                  id="create-name"
+                  name="name"
+                  required
+                  maxLength={120}
+                  placeholder="Tiền mặt, Techcombank, Quỹ sinh hoạt..."
+                  className="w-full"
+                />
+                <Textarea
+                  label={
+                    <>
+                      Ghi chú{" "}
+                      <span className="font-normal text-[var(--text-muted)]">
+                        (tuỳ chọn)
+                      </span>
+                    </>
+                  }
+                  id="create-desc"
+                  name="description"
+                  rows={2}
+                  maxLength={2000}
+                  placeholder="Mục đích sử dụng ví..."
+                  className="min-h-[4.25rem] w-full resize-none"
+                />
+              </div>
+
+              <div className="space-y-3.5 border-t border-[var(--border)] pt-4">
+                <MoneyInput
+                  label={`Số dư ban đầu (${workspace.currency})`}
+                  id="create-funding-amount"
+                  name="fundingAmount"
+                  value={createFundingAmount}
+                  onValueChange={setCreateFundingAmount}
+                />
+
+                {hasInitialFunding && (
+                  <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
+                    <p className="text-xs font-medium text-[var(--text-secondary)]">
+                      Nguồn số dư ban đầu
                     </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3.5">
-                  <Input
-                    label="Tên ví"
-                    id="create-name"
-                    name="name"
-                    required
-                    maxLength={120}
-                    placeholder="Tiền mặt, Techcombank, Quỹ sinh hoạt..."
-                    className="w-full"
-                  />
-                  <Textarea
-                    label={
-                      <>
-                        Ghi chú{" "}
-                        <span className="font-normal text-[var(--text-muted)]">
-                          (tuỳ chọn)
-                        </span>
-                      </>
-                    }
-                    id="create-desc"
-                    name="description"
-                    rows={3}
-                    maxLength={2000}
-                    placeholder="Mục đích sử dụng ví..."
-                    className="w-full resize-none"
-                  />
-                </div>
-              </section>
-
-              <section
-                aria-labelledby="initial-balance-heading"
-                className="space-y-4 border-t border-[var(--border)] pt-4 md:border-l md:border-t-0 md:pl-6 md:pt-0"
-              >
-                <div className="flex items-start gap-2.5">
-                  <span
-                    className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]"
-                    aria-hidden="true"
-                  >
-                    <CircleDollarSign size={16} />
-                  </span>
-                  <div className="min-w-0">
-                    <h3
-                      id="initial-balance-heading"
-                      className="text-sm font-semibold text-[var(--foreground)]"
+                    <div
+                      className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+                      role="radiogroup"
+                      aria-label="Nguồn số dư ban đầu"
                     >
-                      Số dư ban đầu & Chuyển tiền
-                    </h3>
-                    <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                      Nhập tiền có sẵn hoặc chuyển từ ví khác sang.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3.5">
-                  <MoneyInput
-                    label={`Số tiền ban đầu (${workspace.currency})`}
-                    id="create-funding-amount"
-                    name="fundingAmount"
-                    value={createFundingAmount}
-                    onValueChange={setCreateFundingAmount}
-                  />
-
-                  {hasInitialFunding && (
-                    <div className="space-y-3 border-t border-[var(--border)] pt-3">
-                      <p className="text-xs font-medium text-[var(--text-secondary)]">
-                        Nguồn số dư ban đầu
-                      </p>
-                      <div
-                        className="grid gap-2"
-                        role="radiogroup"
-                        aria-label="Nguồn số dư ban đầu"
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={createFundingType === "income"}
+                        onClick={() => setCreateFundingType("income")}
+                        className="flex cursor-pointer items-center justify-between gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-left transition-colors aria-checked:border-[var(--primary)] aria-checked:bg-[var(--primary-soft)]"
                       >
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={createFundingType === "income"}
-                          onClick={() => setCreateFundingType("income")}
-                          className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-3 text-left transition-colors aria-checked:border-[var(--primary)] aria-checked:bg-[var(--primary-soft)]"
-                        >
-                          <div className="flex min-w-0 items-center gap-3">
-                            <span
-                              className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]"
-                              aria-hidden="true"
-                            >
-                              <TrendingUp size={15} />
-                            </span>
-                            <div className="min-w-0">
-                              <strong className="block text-xs font-semibold text-[var(--foreground)]">
-                                Tiền có sẵn
-                              </strong>
-                              <small className="mt-0.5 block text-[11px] text-[var(--text-muted)]">
-                                Ghi nhận là khoản thu ban đầu
-                              </small>
-                            </div>
-                          </div>
-                          <i
-                            className={cn(
-                              "size-4 shrink-0 rounded-full border border-[var(--border-strong)]",
-                              createFundingType === "income" &&
-                                "border-[var(--primary)] bg-[var(--primary)]",
-                            )}
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span
+                            className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]"
                             aria-hidden="true"
-                          />
-                        </button>
-
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={createFundingType === "transfer"}
-                          disabled={activeWallets.length === 0}
-                          onClick={() => {
-                            setCreateFundingType("transfer");
-                            if (!createFundingWalletId) {
-                              setCreateFundingWalletId(
-                                activeWallets[0]?.id ?? "",
-                              );
-                            }
-                          }}
-                          className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-3 text-left transition-colors aria-checked:border-[var(--primary)] aria-checked:bg-[var(--primary-soft)] disabled:opacity-50"
-                        >
-                          <div className="flex min-w-0 items-center gap-3">
-                            <span
-                              className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]"
-                              aria-hidden="true"
-                            >
-                              <Landmark size={15} />
-                            </span>
-                            <div className="min-w-0">
-                              <strong className="block text-xs font-semibold text-[var(--foreground)]">
-                                Chuyển từ ví khác
-                              </strong>
-                              <small className="mt-0.5 block text-[11px] text-[var(--text-muted)]">
-                                Dịch chuyển số dư nội bộ giữa các ví
-                              </small>
-                            </div>
+                          >
+                            <TrendingUp size={14} />
+                          </span>
+                          <div className="min-w-0">
+                            <strong className="block text-xs font-semibold text-[var(--foreground)]">
+                              Tiền có sẵn
+                            </strong>
+                            <small className="block text-[11px] text-[var(--text-muted)]">
+                              Ghi nhận khoản thu
+                            </small>
                           </div>
-                          <i
-                            className={cn(
-                              "size-4 shrink-0 rounded-full border border-[var(--border-strong)]",
-                              createFundingType === "transfer" &&
-                                "border-[var(--primary)] bg-[var(--primary)]",
-                            )}
+                        </div>
+                        <i
+                          className={cn(
+                            "size-3.5 shrink-0 rounded-full border border-[var(--border-strong)]",
+                            createFundingType === "income" &&
+                              "border-[var(--primary)] bg-[var(--primary)]",
+                          )}
+                          aria-hidden="true"
+                        />
+                      </button>
+
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={createFundingType === "transfer"}
+                        disabled={activeWallets.length === 0}
+                        onClick={() => {
+                          setCreateFundingType("transfer");
+                          if (!createFundingWalletId) {
+                            setCreateFundingWalletId(
+                              activeWallets[0]?.id ?? "",
+                            );
+                          }
+                        }}
+                        className="flex cursor-pointer items-center justify-between gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-left transition-colors aria-checked:border-[var(--primary)] aria-checked:bg-[var(--primary-soft)] disabled:opacity-50"
+                      >
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span
+                            className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]"
                             aria-hidden="true"
-                          />
-                        </button>
-                      </div>
-
-                      {createFundingType === "transfer" && (
-                        <Select
-                          value={createFundingWalletId}
-                          onValueChange={setCreateFundingWalletId}
-                          label="Ví chuyển tiền"
-                          placeholder="Chọn ví nguồn"
-                          className="w-full"
-                          options={activeWallets.map((wallet) => ({
-                            value: wallet.id,
-                            label: `${wallet.name} · ${formatAmount(wallet.currentBalance)} ${workspace.currency}`,
-                          }))}
+                          >
+                            <Landmark size={14} />
+                          </span>
+                          <div className="min-w-0">
+                            <strong className="block text-xs font-semibold text-[var(--foreground)]">
+                              Chuyển từ ví khác
+                            </strong>
+                            <small className="block text-[11px] text-[var(--text-muted)]">
+                              Chuyển nội bộ
+                            </small>
+                          </div>
+                        </div>
+                        <i
+                          className={cn(
+                            "size-3.5 shrink-0 rounded-full border border-[var(--border-strong)]",
+                            createFundingType === "transfer" &&
+                              "border-[var(--primary)] bg-[var(--primary)]",
+                          )}
+                          aria-hidden="true"
                         />
-                      )}
-
-                      <p className="flex items-start gap-2 text-xs leading-5 text-[var(--text-muted)]">
-                        <ArrowLeftRight
-                          size={14}
-                          className="mt-0.5 shrink-0 text-[var(--primary)]"
-                        />
-                        <span>
-                          {createFundingType === "income"
-                            ? "Hệ thống sẽ tự động ghi nhận giao dịch thu cho số dư ban đầu."
-                            : "Hệ thống sẽ tạo giao dịch chuyển tiền nội bộ từ ví nguồn sang ví mới."}
-                        </span>
-                      </p>
+                      </button>
                     </div>
-                  )}
-                </div>
-              </section>
+
+                    {createFundingType === "transfer" && (
+                      <Select
+                        value={createFundingWalletId}
+                        onValueChange={setCreateFundingWalletId}
+                        label="Ví chuyển tiền"
+                        placeholder="Chọn ví nguồn"
+                        className="w-full"
+                        options={activeWallets.map((wallet) => ({
+                          value: wallet.id,
+                          label: `${wallet.name} · ${formatAmount(wallet.currentBalance)} ${workspace.currency}`,
+                        }))}
+                      />
+                    )}
+
+                    <p className="flex items-start gap-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
+                      <ArrowLeftRight
+                        size={13}
+                        className="mt-0.5 shrink-0 text-[var(--primary)]"
+                      />
+                      <span>
+                        {createFundingType === "income"
+                          ? "Hệ thống sẽ tự động ghi nhận giao dịch thu cho số dư ban đầu."
+                          : "Hệ thống sẽ tạo giao dịch chuyển tiền nội bộ từ ví nguồn sang ví mới."}
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <SheetFooter
@@ -1580,7 +1544,7 @@ export function WalletManagement({
         <SheetContent
           side={isDesktop ? "right" : "bottom"}
           placement={isDesktop ? "inset" : "edge"}
-          size={isDesktop ? "wide" : "default"}
+          size="md"
           spacing="flush"
           elevation="flat"
         >
@@ -1589,7 +1553,7 @@ export function WalletManagement({
             title="Chỉnh sửa ví"
             description={
               editingWallet
-                ? `Cập nhật thông tin và trạng thái cho ví “${editingWallet.name}”.`
+                ? `${editingWallet.kind === "credit_card" ? "Thẻ tín dụng" : "Ví thanh toán"} · ${editingWallet.transactionCount} giao dịch đã ghi nhận`
                 : "Cập nhật thông tin ví"
             }
           />
@@ -1600,118 +1564,131 @@ export function WalletManagement({
               className="flex min-h-0 flex-1 flex-col overflow-hidden"
               aria-busy={pending}
             >
-              <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-y-auto overscroll-contain p-4 md:grid-cols-2 md:gap-6 md:p-5">
-                <section
-                  className="space-y-4"
-                  aria-labelledby="edit-wallet-details-heading"
-                >
-                  <div>
-                    <h3
-                      id="edit-wallet-details-heading"
-                      className="text-sm font-semibold text-[var(--foreground)]"
-                    >
-                      Thông tin cơ bản
-                    </h3>
-                    <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                      Tên và ghi chú giúp thành viên chọn đúng ví khi ghi chép.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3.5">
-                    <Input
-                      label="Tên ví"
-                      id="edit-name"
-                      name="name"
-                      required
-                      maxLength={120}
-                      defaultValue={editingWallet.name}
-                      className="w-full"
-                    />
-                    <Textarea
-                      label={
-                        <>
-                          Ghi chú{" "}
-                          <span className="font-normal text-[var(--text-muted)]">
-                            (tuỳ chọn)
-                          </span>
-                        </>
-                      }
-                      id="edit-desc"
-                      name="description"
-                      rows={3}
-                      maxLength={2000}
-                      defaultValue={editingWallet.description ?? ""}
-                      placeholder="Ví này được dùng cho việc gì?"
-                      className="w-full resize-none"
-                    />
-                  </div>
-                </section>
-
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 md:p-5">
+                {/* 1. Compact Luxury Balance & Status Snapshot */}
                 <section
                   aria-label="Tóm tắt số dư ví"
-                  className="space-y-4 border-t border-[var(--border)] pt-4 md:border-l md:border-t-0 md:pl-6 md:pt-0"
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5"
                 >
-                  <div>
-                    <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                      Tóm tắt số dư & Trạng thái
-                    </h3>
-                    <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                      {editingWallet.transactionCount} giao dịch đã ghi nhận
-                    </p>
-                  </div>
-
-                  <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-4 text-xs">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[var(--text-secondary)]">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="block text-[11px] font-medium text-[var(--text-muted)]">
                         {editingWallet.kind === "credit_card"
-                          ? "Tiền chờ thanh toán thẻ"
+                          ? "Dư nợ hiện tại"
                           : "Số dư có thể dùng"}
                       </span>
-                      <strong className="text-base font-bold tabular-nums text-[var(--foreground)]">
-                        {formatAmount(editingWallet.currentBalance)}{" "}
-                        {workspace.currency}
-                      </strong>
+                      <div className="mt-0.5 flex flex-wrap items-baseline gap-1">
+                        <strong className="text-lg font-bold tracking-tight tabular-nums text-[var(--foreground)]">
+                          {formatAmount(
+                            editingWallet.availableBalance ??
+                              editingWallet.currentBalance,
+                          )}
+                        </strong>
+                        <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)]">
+                          {workspace.currency}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2.5">
-                      <span className="text-[var(--text-muted)]">
-                        Số dư thực tế
-                      </span>
-                      <span className="font-semibold tabular-nums text-[var(--foreground)]">
-                        {formatAmount(editingWallet.currentBalance)}{" "}
-                        {workspace.currency}
-                      </span>
-                    </div>
+                    <span
+                      className={cn(
+                        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium",
+                        editingWallet.status === "active"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                          : "bg-[var(--surface)] text-[var(--text-muted)]",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "size-1.5 rounded-full",
+                          editingWallet.status === "active"
+                            ? "bg-emerald-500"
+                            : "bg-[var(--text-muted)]",
+                        )}
+                        aria-hidden="true"
+                      />
+                      {editingWallet.status === "active"
+                        ? "Hoạt động"
+                        : "Tạm ngưng"}
+                    </span>
+                  </div>
 
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[var(--text-muted)]">
+                  <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-2.5 text-xs">
+                    <div className="min-w-0">
+                      <span className="block text-[11px] text-[var(--text-muted)]">
                         {editingWallet.kind === "credit_card"
                           ? "Dư nợ ban đầu"
                           : "Số dư ban đầu"}
                       </span>
-                      <span className="font-semibold tabular-nums text-[var(--foreground)]">
+                      <strong className="mt-0.5 block font-semibold tabular-nums text-[var(--foreground)]">
                         {formatAmount(editingWallet.openingBalance)}{" "}
                         {workspace.currency}
-                      </span>
+                      </strong>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[var(--text-muted)]">
+                    <div className="min-w-0 border-l border-[var(--border)] pl-3">
+                      <span className="block text-[11px] text-[var(--text-muted)]">
                         Chênh lệch thu chi
                       </span>
-                      <span className="font-semibold tabular-nums text-[var(--foreground)]">
-                        {formatAmount(
-                          new Decimal(editingWallet.currentBalance).minus(
-                            editingWallet.openingBalance,
-                          ),
-                        )}{" "}
-                        {workspace.currency}
-                      </span>
+                      <strong className="mt-0.5 block font-semibold tabular-nums text-[var(--foreground)]">
+                        {(() => {
+                          const netDiff = new Decimal(
+                            editingWallet.currentBalance,
+                          ).minus(editingWallet.openingBalance);
+                          return `${netDiff.gt(0) ? "+" : ""}${formatAmount(netDiff)} ${workspace.currency}`;
+                        })()}
+                      </strong>
                     </div>
                   </div>
+                </section>
 
-                  {isAdmin && (
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                {/* 2. Form Fields */}
+                <div className="space-y-3.5">
+                  <Input
+                    label="Tên ví"
+                    id="edit-name"
+                    name="name"
+                    required
+                    maxLength={120}
+                    defaultValue={editingWallet.name}
+                    className="w-full"
+                  />
+                  <Textarea
+                    label={
+                      <>
+                        Ghi chú{" "}
+                        <span className="font-normal text-[var(--text-muted)]">
+                          (tuỳ chọn)
+                        </span>
+                      </>
+                    }
+                    id="edit-desc"
+                    name="description"
+                    rows={2}
+                    maxLength={2000}
+                    defaultValue={editingWallet.description ?? ""}
+                    placeholder="Ví này được dùng cho việc gì?"
+                    className="min-h-[4.25rem] w-full resize-none"
+                  />
+                </div>
+
+                {/* 3. Compact Status / Danger Action Bar */}
+                {isAdmin && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-[var(--foreground)]">
+                        {editingWallet.status === "active"
+                          ? "Tạm ngưng sử dụng ví"
+                          : "Quản lý trạng thái ví"}
+                      </p>
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        {editingWallet.status === "active"
+                          ? "Ngừng nhận giao dịch mới, giữ nguyên số dư"
+                          : "Kích hoạt lại hoặc xóa ví khỏi danh sách"}
+                      </p>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-1.5">
                       <Button
                         type="button"
                         variant={
@@ -1760,8 +1737,8 @@ export function WalletManagement({
                         </Button>
                       )}
                     </div>
-                  )}
-                </section>
+                  </div>
+                )}
               </div>
 
               <SheetFooter

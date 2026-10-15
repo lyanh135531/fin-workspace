@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { usePrivacyMask } from "@/lib/privacy-mask";
 
 import {
   approveTransactionAction,
@@ -540,6 +541,7 @@ export function NotificationsMenu({
   currency: string;
   canReview: boolean;
 }) {
+  usePrivacyMask();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [isMobile, setIsMobile] = useState(false);

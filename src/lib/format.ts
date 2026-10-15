@@ -31,7 +31,22 @@ function formatDecimalAmount(
   return fraction ? `${sign}${groupedInteger}${settings.decimalSeparator}${fraction}` : `${sign}${groupedInteger}`;
 }
 
+const PRIVACY_MASK_STORAGE_KEY = "fin-workspace-privacy-masked";
+
+function isPrivacyMasked(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(PRIVACY_MASK_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
 export function formatAmount(value: Decimal.Value, options: AmountFormatOptions = {}): string {
+  if (isPrivacyMasked()) {
+    return "••••••";
+  }
+
   const amount = new Decimal(value);
   if (amount.abs().greaterThanOrEqualTo(billion)) {
     return `${formatDecimalAmount(amount.dividedBy(billion), {
@@ -45,6 +60,10 @@ export function formatAmount(value: Decimal.Value, options: AmountFormatOptions 
 }
 
 export function formatCompactAmount(value: Decimal.Value): string {
+  if (isPrivacyMasked()) {
+    return "••••";
+  }
+
   const amount = new Decimal(value);
   const absoluteAmount = amount.abs();
   const units = [
@@ -87,6 +106,10 @@ export function formatScaledAmount(
   value: Decimal.Value,
   scale: AmountScale,
 ): string {
+  if (isPrivacyMasked()) {
+    return "••••";
+  }
+
   const formatted = formatAmount(new Decimal(value).dividedBy(scale.divisor), {
     maximumFractionDigits: 2,
   });

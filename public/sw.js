@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "felix-pwa-";
-const CACHE_NAME = `${CACHE_PREFIX}v1`;
+const CACHE_NAME = `${CACHE_PREFIX}v2`;
 const PRECACHE_URLS = [
   "/offline.html",
   "/pwa-icon-192.png",

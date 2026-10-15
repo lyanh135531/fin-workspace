@@ -16,14 +16,12 @@ import {
   Empty,
   Input,
   MoneyInput,
-  PageHeader,
   Select,
   Sheet,
   SheetContent,
   SheetFooter,
   SheetHeader,
   Tabs,
-  TabsCount,
   TabsList,
   TabsTrigger,
 } from "@/components/base";
@@ -45,20 +43,16 @@ import {
   ArrowLeftRight,
   ArrowUpRight,
   CalendarClock,
-  CirclePause,
-  CirclePlay,
-  Landmark,
-  LayoutGrid,
   Pause,
   Pencil,
   Play,
   Plus,
   Repeat2,
   Trash2,
-  Wallet,
 } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
+import { usePrivacyMask } from "@/lib/privacy-mask";
 
 type Option = {
   id: string;
@@ -144,14 +138,6 @@ const typeOptions = [
     tabLabel: "Chuyển khoản",
     icon: ArrowLeftRight,
   },
-] as const;
-
-const statusFilterOptions = [
-  { value: "all", label: "Tất cả", icon: LayoutGrid },
-  { value: "income", label: "Thu nhập", icon: ArrowDownLeft },
-  { value: "expense", label: "Chi tiêu", icon: ArrowUpRight },
-  { value: "active", label: "Đang bật", icon: CirclePlay },
-  { value: "deactive", label: "Tạm dừng", icon: CirclePause },
 ] as const;
 
 function defaultDestination(wallets: Option[], sourceId: string) {
@@ -251,6 +237,7 @@ export function RecurringTransactionsManager({
   activeMonthlyNetAmount: string;
   schedules: Schedule[];
 }) {
+  usePrivacyMask();
   const [status, setStatus] = useState<ScheduleStatusFilter>("all");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -331,15 +318,6 @@ export function RecurringTransactionsManager({
     (item) => item.approvalStatus === "pending",
   ).length;
   const attentionCount = errorCount + pendingApprovalCount;
-
-  const filterCounts: Record<ScheduleStatusFilter, number> = {
-    all: schedules.length,
-    income: incomeCount,
-    expense: expenseCount,
-    active: activeCount,
-    deactive: pausedCount,
-    completed: completedCount,
-  };
 
   const visibleSchedules = useMemo(
     () =>
@@ -480,183 +458,316 @@ export function RecurringTransactionsManager({
   const nextDueSchedule = upcomingActiveSchedules[0] ?? null;
 
   return (
-    <div className="grid gap-4 md:gap-5">
-      <PageHeader
-        title="Giao dịch định kỳ"
-        description="Tự động ghi nhận các khoản thu nhập, chi tiêu và chuyển khoản lặp lại hằng tháng."
-      >
-        {canCreate && (
-          <Button
-            variant="default"
-            disabled={busy || Boolean(draft) || wallets.length === 0}
-            onClick={beginCreate}
-          >
-            <Plus size={16} aria-hidden="true" />
-            <span>Thêm giao dịch định kỳ</span>
-          </Button>
-        )}
-      </PageHeader>
-
-      {/* Top 3-Metric Summary Strip */}
-      <section
+    <div className="space-y-4 md:space-y-6">
+      {/* 1. Unified Header + Top Summary Strip */}
+      <Card
+        as="section"
+        className="p-4 md:p-5"
         aria-label="Tổng quan giao dịch định kỳ"
-        className="grid grid-cols-1 gap-3 sm:grid-cols-3"
       >
-        <Card size="sm">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="break-words text-xs font-medium leading-snug text-[var(--text-secondary)]">
-                Tổng thu định kỳ/tháng
-              </p>
-              <p className="mt-1.5 text-xl font-bold tracking-tight text-[var(--income)] tabular-nums shrink-0 md:text-2xl">
-                +{formatAmount(monthlyIncomeTotal.toString())} {currencySymbol}
-              </p>
-              <p className="mt-1 break-words text-xs leading-snug text-[var(--text-muted)]">
-                Chênh lệch thu chi:{" "}
-                <span className="font-semibold text-[var(--foreground)] tabular-nums">
-                  {monthlyNetAmount.isPositive() ? "+" : ""}
-                  {formatAmount(activeMonthlyNetAmount)} {currencySymbol}
-                </span>
-              </p>
-            </div>
-            <span
-              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)] text-[var(--income)]"
-              aria-hidden="true"
-            >
-              <ArrowDownLeft size={18} />
-            </span>
-          </div>
-        </Card>
-
-        <Card size="sm">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="break-words text-xs font-medium leading-snug text-[var(--text-secondary)]">
-                Tổng chi định kỳ/tháng
-              </p>
-              <p className="mt-1.5 text-xl font-bold tracking-tight text-[var(--expense)] tabular-nums shrink-0 md:text-2xl">
-                −{formatAmount(monthlyExpenseTotal.toString())} {currencySymbol}
-              </p>
-              <p className="mt-1 break-words text-xs leading-snug text-[var(--text-muted)]">
-                {activeCount > 0
-                  ? `${activeCount} lịch đang bật · ${pausedCount} tạm dừng`
-                  : "Chưa có lịch định kỳ đang bật"}
-              </p>
-            </div>
-            <span
-              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)] text-[var(--expense)]"
-              aria-hidden="true"
-            >
-              <ArrowUpRight size={18} />
-            </span>
-          </div>
-        </Card>
-
-        <Card size="sm">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="break-words text-xs font-medium leading-snug text-[var(--text-secondary)]">
-                Sắp đến hạn
-              </p>
-              <p className="mt-1.5 text-xl font-bold tracking-tight text-[var(--foreground)] tabular-nums shrink-0 md:text-2xl">
-                {dueSoonSchedules.length > 0
-                  ? `${dueSoonSchedules.length} giao dịch`
-                  : nextDueSchedule
-                    ? dateLabel(nextDueSchedule.nextExecutionDate)
-                    : "0 giao dịch"}
-              </p>
-              <p className="mt-1 break-words text-xs leading-snug text-[var(--text-muted)]">
-                {attentionCount > 0 ? (
-                  <span className="font-medium text-[var(--warning)]">
-                    {pendingApprovalCount > 0
-                      ? `${pendingApprovalCount} lịch chờ duyệt`
-                      : `${errorCount} lịch cần kiểm tra`}
-                  </span>
-                ) : nextDueSchedule ? (
-                  `Kỳ tiếp theo: ${dateLabel(nextDueSchedule.nextExecutionDate)}`
-                ) : (
-                  `Ngày làm việc: ${dateLabel(workspace.businessDate)}`
-                )}
-              </p>
-            </div>
-            <span
-              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)] text-[var(--primary)]"
-              aria-hidden="true"
-            >
-              <CalendarClock size={18} />
-            </span>
-          </div>
-        </Card>
-      </section>
-
-      {/* Filter Bar & Schedule List Card */}
-      <Card aria-labelledby="recurring-list-title">
-        <div className="flex flex-col gap-3 border-b border-[var(--border)] pb-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start justify-between gap-3 md:items-center md:border-b md:border-[var(--border)] md:pb-4">
           <div className="min-w-0">
-            <h2
-              id="recurring-list-title"
-              className="break-words text-base font-semibold leading-snug text-[var(--foreground)]"
+            <div className="flex flex-wrap items-center gap-2 md:hidden">
+              <span className="text-xs font-semibold text-[var(--primary)]">
+                Chênh lệch thu chi định kỳ
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--surface-secondary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">
+                {activeCount} lịch đang bật
+              </span>
+            </div>
+
+            <h1 className="sr-only md:not-sr-only md:text-lg md:font-semibold md:text-[var(--foreground)]">
+              Giao dịch định kỳ
+            </h1>
+            <p className="mt-0.5 hidden text-xs text-[var(--text-secondary)] md:block">
+              Tự động ghi nhận các khoản thu nhập, chi tiêu và chuyển khoản lặp lại hằng tháng.
+            </p>
+
+            <div className="mt-1 flex flex-wrap items-baseline gap-1.5 md:hidden">
+              <strong
+                className={cn(
+                  "text-2xl font-bold tracking-tight tabular-nums",
+                  monthlyNetAmount.gt(0)
+                    ? "text-[var(--income)]"
+                    : monthlyNetAmount.lt(0)
+                      ? "text-[var(--expense)]"
+                      : "text-[var(--foreground)]",
+                )}
+              >
+                {monthlyNetAmount.gt(0) ? "+" : ""}
+                {formatAmount(activeMonthlyNetAmount)} {currencySymbol}
+              </strong>
+              <span className="shrink-0 text-xs font-medium text-[var(--text-muted)]">
+                / tháng
+              </span>
+            </div>
+          </div>
+
+          {canCreate && (
+            <Button
+              variant="default"
+              size="sm"
+              className="shrink-0 md:h-9 md:px-3.5"
+              disabled={busy || Boolean(draft) || wallets.length === 0}
+              onClick={beginCreate}
+              aria-label="Thêm giao dịch định kỳ"
+              title="Thêm giao dịch định kỳ"
             >
-              Danh sách giao dịch định kỳ
-            </h2>
-            <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-secondary)]">
-              Hiển thị {visibleSchedules.length} / {schedules.length} lịch định kỳ
+              <Plus size={15} aria-hidden="true" />
+              <span className="md:hidden">Thêm lịch</span>
+              <span className="hidden md:inline">Thêm giao dịch định kỳ</span>
+            </Button>
+          )}
+        </div>
+
+        {/* Mobile 2-Col Income/Expense Strip & Desktop 3-Col Summary Strip */}
+        <div className="mt-3.5 grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-3 md:mt-4 md:grid-cols-3 md:gap-5 md:divide-x md:divide-[var(--border)] md:border-t-0 md:pt-0">
+          {/* Metric 1: Tổng thu định kỳ/tháng */}
+          <div className="min-w-0 space-y-0.5 md:space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium text-[var(--text-muted)] md:text-xs md:text-[var(--text-secondary)]">
+                Tổng thu định kỳ/tháng
+              </span>
+              <span
+                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--income)] md:grid"
+                aria-hidden="true"
+              >
+                <ArrowDownLeft size={15} />
+              </span>
+            </div>
+            <p className="text-sm font-bold tracking-tight tabular-nums text-[var(--income)] md:text-2xl">
+              +{formatAmount(monthlyIncomeTotal.toString())} {currencySymbol}
+            </p>
+            <p className="hidden text-xs leading-snug text-[var(--text-muted)] md:block">
+              Chênh lệch thu chi:{" "}
+              <span className="font-semibold tabular-nums text-[var(--foreground)]">
+                {monthlyNetAmount.isPositive() ? "+" : ""}
+                {formatAmount(activeMonthlyNetAmount)} {currencySymbol}
+              </span>
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Tabs
-              value={status}
-              onValueChange={(value) => setStatus(value as ScheduleStatusFilter)}
+          {/* Metric 2: Tổng chi định kỳ/tháng */}
+          <div className="min-w-0 space-y-0.5 border-l border-[var(--border)] pl-3 md:space-y-1 md:border-l-0 md:pl-5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium text-[var(--text-muted)] md:text-xs md:text-[var(--text-secondary)]">
+                Tổng chi định kỳ/tháng
+              </span>
+              <span
+                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--expense)] md:grid"
+                aria-hidden="true"
+              >
+                <ArrowUpRight size={15} />
+              </span>
+            </div>
+            <p className="text-sm font-bold tracking-tight tabular-nums text-[var(--expense)] md:text-2xl">
+              −{formatAmount(monthlyExpenseTotal.toString())} {currencySymbol}
+            </p>
+            <p className="hidden text-xs leading-snug text-[var(--text-muted)] md:block">
+              {activeCount > 0
+                ? `${activeCount} lịch đang bật · ${pausedCount} tạm dừng`
+                : "Chưa có lịch định kỳ đang bật"}
+            </p>
+          </div>
+
+          {/* Metric 3: Sắp đến hạn (Desktop column) */}
+          <div className="hidden min-w-0 space-y-1 md:block md:pl-5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-[var(--text-secondary)]">
+                Sắp đến hạn
+              </span>
+              <span
+                className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]"
+                aria-hidden="true"
+              >
+                <CalendarClock size={15} />
+              </span>
+            </div>
+            <p className="text-2xl font-bold tracking-tight tabular-nums text-[var(--foreground)]">
+              {dueSoonSchedules.length > 0
+                ? `${dueSoonSchedules.length} giao dịch`
+                : nextDueSchedule
+                  ? dateLabel(nextDueSchedule.nextExecutionDate)
+                  : "Chưa có lịch"}
+            </p>
+            <p className="text-xs leading-snug text-[var(--text-muted)]">
+              {attentionCount > 0 ? (
+                <span className="font-medium text-[var(--warning)]">
+                  {pendingApprovalCount > 0
+                    ? `${pendingApprovalCount} lịch chờ duyệt`
+                    : `${errorCount} lịch cần kiểm tra`}
+                </span>
+              ) : dueSoonSchedules.length > 0 && nextDueSchedule ? (
+                `Kỳ gần nhất: ${dateLabel(nextDueSchedule.nextExecutionDate)}`
+              ) : nextDueSchedule ? (
+                `${nextDueSchedule.description || "Giao dịch định kỳ"} · Ngày ${nextDueSchedule.dayOfMonth} hằng tháng`
+              ) : (
+                `Ngày làm việc: ${dateLabel(workspace.businessDate)}`
+              )}
+            </p>
+          </div>
+        </div>
+
+        {/* Mobile Compact Next Due Footer Strip (<768px) */}
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-[var(--surface-secondary)] px-3 py-2 text-xs md:hidden">
+          <div className="flex min-w-0 items-center gap-1.5 text-[var(--text-secondary)]">
+            <CalendarClock
+              size={14}
+              className="shrink-0 text-[var(--primary)]"
+              aria-hidden="true"
+            />
+            <span>
+              {attentionCount > 0
+                ? "Cần xử lý"
+                : dueSoonSchedules.length > 0
+                  ? "Sắp đến hạn (7 ngày)"
+                  : "Kỳ tiếp theo"}
+            </span>
+          </div>
+          <strong className="shrink-0 font-semibold tabular-nums text-[var(--foreground)]">
+            {attentionCount > 0 ? (
+              <span className="text-[var(--warning)]">
+                {pendingApprovalCount > 0
+                  ? `${pendingApprovalCount} lịch chờ duyệt`
+                  : `${errorCount} lịch cần kiểm tra`}
+              </span>
+            ) : dueSoonSchedules.length > 0 && nextDueSchedule ? (
+              `${dueSoonSchedules.length} lịch · ${dateLabel(nextDueSchedule.nextExecutionDate)}`
+            ) : nextDueSchedule ? (
+              `${nextDueSchedule.description || "Khoản định kỳ"} · ${dateLabel(nextDueSchedule.nextExecutionDate)}`
+            ) : (
+              "Chưa có lịch"
+            )}
+          </strong>
+        </div>
+      </Card>
+
+      {/* 2. Filter Bar & Schedule List */}
+      <section
+        className="space-y-3.5 md:space-y-4"
+        aria-labelledby="recurring-list-title"
+      >
+        <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <h2
+              id="recurring-list-title"
+              className="text-sm font-semibold text-[var(--foreground)] md:text-base"
             >
-              <TabsList aria-label="Lọc giao dịch định kỳ">
-                {statusFilterOptions.map((filter) => (
-                  <TabsTrigger key={filter.value} value={filter.value}>
-                    <span>{filter.label}</span>
-                    <TabsCount>{filterCounts[filter.value]}</TabsCount>
-                  </TabsTrigger>
-                ))}
-                {completedCount > 0 && (
-                  <TabsTrigger value="completed">
-                    <span>Đã kết thúc</span>
-                    <TabsCount>{completedCount}</TabsCount>
-                  </TabsTrigger>
-                )}
+              Danh sách giao dịch định kỳ ({visibleSchedules.length})
+            </h2>
+            {pausedCount > 0 && (
+              <span className="text-xs text-[var(--text-muted)] md:hidden">
+                {activeCount} bật · {pausedCount} tạm dừng
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Primary Filter: All / Expense / Income */}
+            <Tabs
+              value={
+                status === "all" || status === "expense" || status === "income"
+                  ? status
+                  : "all"
+              }
+              onValueChange={(value) => setStatus(value as ScheduleStatusFilter)}
+              className="w-full md:w-auto"
+            >
+              <TabsList
+                variant="segmented"
+                aria-label="Lọc giao dịch định kỳ"
+                className="grid w-full grid-cols-3 md:inline-flex md:w-auto"
+              >
+                <TabsTrigger variant="segmented" value="all" className="px-2 text-xs">
+                  Tất cả ({schedules.length})
+                </TabsTrigger>
+                <TabsTrigger variant="segmented" value="expense" className="px-2 text-xs">
+                  Chi tiêu ({expenseCount})
+                </TabsTrigger>
+                <TabsTrigger variant="segmented" value="income" className="px-2 text-xs">
+                  Thu nhập ({incomeCount})
+                </TabsTrigger>
               </TabsList>
             </Tabs>
+
+            {/* Secondary Status Filter: Only shown when paused or completed schedules exist */}
+            {(pausedCount > 0 || completedCount > 0) && (
+              <Tabs
+                value={
+                  status === "active" ||
+                  status === "deactive" ||
+                  status === "completed"
+                    ? status
+                    : "all"
+                }
+                onValueChange={(value) =>
+                  setStatus(value as ScheduleStatusFilter)
+                }
+                className="w-full md:w-auto"
+              >
+                <TabsList
+                  variant="segmented"
+                  className={cn(
+                    "grid w-full md:inline-flex md:w-auto",
+                    completedCount > 0 ? "grid-cols-4" : "grid-cols-3",
+                  )}
+                >
+                  <TabsTrigger variant="segmented" value="all" className="px-2 text-xs">
+                    Tất cả
+                  </TabsTrigger>
+                  <TabsTrigger variant="segmented" value="active" className="px-2 text-xs">
+                    Đang bật ({activeCount})
+                  </TabsTrigger>
+                  <TabsTrigger variant="segmented" value="deactive" className="px-2 text-xs">
+                    Tạm dừng ({pausedCount})
+                  </TabsTrigger>
+                  {completedCount > 0 && (
+                    <TabsTrigger
+                      variant="segmented"
+                      value="completed"
+                      className="px-2 text-xs"
+                    >
+                      Kết thúc ({completedCount})
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+              </Tabs>
+            )}
           </div>
         </div>
 
         {/* Schedule Items */}
         {visibleSchedules.length === 0 ? (
-          <Empty
-            icon={Repeat2}
-            title={
-              schedules.length
-                ? "Không có lịch định kỳ phù hợp"
-                : "Chưa có giao dịch định kỳ"
-            }
-            description={
-              schedules.length
-                ? "Thử chọn bộ lọc khác để xem các khoản định kỳ còn lại."
-                : "Thiết lập khoản thu, chi hoặc chuyển khoản lặp lại để hệ thống tự động ghi nhận mỗi tháng."
-            }
-            action={
-              canCreate && schedules.length === 0 ? (
-                <Button
-                  variant="default"
-                  disabled={busy || Boolean(draft) || wallets.length === 0}
-                  onClick={beginCreate}
-                >
-                  <Plus size={16} aria-hidden="true" />
-                  <span>Thêm giao dịch định kỳ</span>
-                </Button>
-              ) : undefined
-            }
-          />
+          <Card className="p-6">
+            <Empty
+              icon={Repeat2}
+              title={
+                schedules.length
+                  ? "Không có lịch định kỳ phù hợp"
+                  : "Chưa có giao dịch định kỳ"
+              }
+              description={
+                schedules.length
+                  ? "Thử chọn bộ lọc khác để xem các khoản định kỳ còn lại."
+                  : "Thiết lập khoản thu, chi hoặc chuyển khoản lặp lại để hệ thống tự động ghi nhận mỗi tháng."
+              }
+              action={
+                canCreate && schedules.length === 0 ? (
+                  <Button
+                    variant="default"
+                    disabled={busy || Boolean(draft) || wallets.length === 0}
+                    onClick={beginCreate}
+                  >
+                    <Plus size={16} aria-hidden="true" />
+                    <span>Thêm giao dịch định kỳ</span>
+                  </Button>
+                ) : undefined
+              }
+            />
+          </Card>
         ) : (
           <div
-            className="divide-y divide-[var(--border)]"
+            className="space-y-2.5 md:space-y-3"
             aria-label="Danh sách giao dịch định kỳ"
           >
             {visibleSchedules.map((schedule) => (
@@ -674,7 +785,7 @@ export function RecurringTransactionsManager({
             ))}
           </div>
         )}
-      </Card>
+      </section>
 
       {/* Creation & Editing Sheet */}
       <Sheet
@@ -686,7 +797,7 @@ export function RecurringTransactionsManager({
         <SheetContent
           side={isMobile ? "bottom" : "right"}
           placement={isMobile ? "edge" : "inset"}
-          size={isMobile ? "default" : "wide"}
+          size="md"
           spacing="flush"
           elevation="flat"
         >
@@ -697,10 +808,10 @@ export function RecurringTransactionsManager({
                 ? "Chỉnh sửa giao dịch định kỳ"
                 : "Thêm giao dịch định kỳ"
             }
-            description="Thiết lập nội dung, nguồn tiền và ngày tự động ghi nhận hằng tháng."
+            description="Thiết lập khoản thu, chi hoặc chuyển khoản tự động hằng tháng."
           />
           {draft && (
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-5">
               <RecurringEditor
                 mode={editingId ? "edit" : "create"}
                 draft={draft}
@@ -780,6 +891,13 @@ function RecurringScheduleRow({
         ? "text-[var(--expense)]"
         : "text-[var(--transfer)]";
 
+  const iconToneClass =
+    schedule.type === "income"
+      ? "bg-emerald-500/10 text-[var(--income)] border border-emerald-500/20"
+      : schedule.type === "expense"
+        ? "bg-rose-500/10 text-[var(--expense)] border border-rose-500/20"
+        : "bg-sky-500/10 text-[var(--transfer)] border border-sky-500/20";
+
   const statusMeta =
     schedule.approvalStatus === "pending"
       ? {
@@ -803,7 +921,7 @@ function RecurringScheduleRow({
             ? {
                 label: "Đang bật",
                 className:
-                  "bg-[color-mix(in_srgb,var(--success)_14%,var(--surface))] text-[var(--success)]",
+                  "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
               }
             : {
                 label: "Tạm dừng",
@@ -828,32 +946,27 @@ function RecurringScheduleRow({
 
   const rowInnerContent = (
     <>
-      {/* Left: Title + Category badge, Wallet/Card name, Frequency & Next run date */}
+      {/* Left: Icon + Title + Category/Wallet + Schedule Date */}
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <span
           className={cn(
-            "grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)]",
-            amountTone,
+            "grid size-9 shrink-0 place-items-center rounded-xl md:size-10",
+            iconToneClass,
           )}
           aria-hidden="true"
         >
-          <TypeIcon size={18} />
+          <TypeIcon size={17} />
         </span>
 
         <div className="min-w-0 flex-1 space-y-1">
-          {/* Core Data Point 1: Title + Category badge + Status badge */}
-          <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <h3 className="min-w-0 break-words text-sm font-semibold leading-snug text-[var(--foreground)] md:text-base">
               {schedule.description || "Giao dịch định kỳ"}
             </h3>
 
-            <span className="hidden shrink-0 items-center rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-0.5 text-xs font-medium text-[var(--text-secondary)] md:inline-flex">
-              {categoryLabel}
-            </span>
-
             <span
               className={cn(
-                "inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium md:text-xs",
+                "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
                 statusMeta.className,
               )}
             >
@@ -866,49 +979,46 @@ function RecurringScheduleRow({
 
             {schedule.lastError && (
               <span
-                className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[color-mix(in_srgb,var(--danger)_14%,var(--surface))] px-2 py-0.5 text-xs font-medium text-[var(--danger)]"
+                className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--danger)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-medium text-[var(--danger)]"
                 title={schedule.lastError}
               >
-                <AlertTriangle size={12} aria-hidden="true" />
+                <AlertTriangle size={11} aria-hidden="true" />
                 <span>Cần kiểm tra</span>
               </span>
             )}
           </div>
 
-          {/* Core Data Points 2 & 3: Wallet/Card name + Next run date */}
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs leading-snug text-[var(--text-secondary)]">
-            <span className="inline-flex min-w-0 items-center gap-1.5 break-words font-medium text-[var(--foreground)]">
-              <Wallet
-                size={13}
-                className="shrink-0 text-[var(--text-muted)]"
-                aria-hidden="true"
-              />
-              <span className="break-words">{walletRoute}</span>
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs leading-snug text-[var(--text-muted)]">
+            <span className="font-medium text-[var(--text-secondary)]">
+              Ví {walletRoute}
             </span>
-
-            <span className="hidden text-[var(--border)] md:inline" aria-hidden="true">
-              •
+            <span aria-hidden="true">·</span>
+            <span>{categoryLabel}</span>
+            <span className="hidden md:inline" aria-hidden="true">
+              ·
             </span>
-
-            <span className="hidden shrink-0 md:inline">
+            <span className="hidden md:inline">
               {scheduleDayLabel(schedule.dayOfMonth)}
             </span>
+          </p>
 
-            <span className="text-[var(--border)]" aria-hidden="true">
-              •
-            </span>
-
-            <span className="shrink-0 font-medium text-[var(--text-secondary)] tabular-nums">
+          <p className="flex flex-wrap items-center gap-1.5 text-[11px] leading-snug text-[var(--text-secondary)] tabular-nums">
+            <CalendarClock
+              size={12}
+              className="shrink-0 text-[var(--primary)]"
+              aria-hidden="true"
+            />
+            <span>
               {schedule.completedAt
                 ? `Đã hoàn tất (${schedule.occurrenceCount} kỳ)`
-                : `Kỳ tiếp theo: ${dateLabel(schedule.nextExecutionDate)}`}
+                : `Ngày ${schedule.dayOfMonth} hằng tháng · Kỳ tiếp theo: ${dateLabel(schedule.nextExecutionDate)}`}
             </span>
-          </div>
+          </p>
         </div>
       </div>
 
-      {/* Core Data Point 4: Tabular-nums Amount + Desktop Inline Quick Actions */}
-      <div className="flex shrink-0 items-center justify-end gap-4">
+      {/* Right: Amount + Desktop Inline Quick Actions */}
+      <div className="flex shrink-0 items-center justify-end gap-3.5">
         <div className="min-w-0 text-right">
           <strong
             className={cn(
@@ -919,8 +1029,10 @@ function RecurringScheduleRow({
             {amountPrefix}
             {formatAmount(schedule.amount)} {currencySymbol}
           </strong>
-          <span className="hidden text-[11px] text-[var(--text-muted)] tabular-nums md:block">
-            Đã chạy {schedule.occurrenceCount} kỳ
+          <span className="mt-0.5 block text-[11px] text-[var(--text-muted)] tabular-nums">
+            {schedule.occurrenceCount > 0
+              ? `Đã chạy ${schedule.occurrenceCount} kỳ`
+              : "Chưa chạy kỳ nào"}
           </span>
         </div>
 
@@ -1027,7 +1139,7 @@ function RecurringScheduleRow({
   if (!hasActions) {
     return (
       <article
-        className="flex items-start justify-between gap-3 py-3.5 first:pt-2 last:pb-0 md:items-center md:gap-4"
+        className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 md:items-center md:gap-4 md:p-4"
         data-type={schedule.type}
         data-status={schedule.completedAt ? "completed" : schedule.status}
       >
@@ -1063,7 +1175,7 @@ function RecurringScheduleRow({
               data-type={schedule.type}
               data-status={schedule.completedAt ? "completed" : schedule.status}
               aria-label={`${schedule.description || "Giao dịch định kỳ"}, ${amountPrefix}${formatAmount(schedule.amount)} ${currencySymbol}. Chạm để mở menu thao tác.`}
-              className="flex cursor-pointer select-none items-start justify-between gap-3 rounded-xl px-2 py-3.5 -mx-2 text-left transition-all duration-150 active:scale-[0.99] active:bg-[var(--surface-hover)] md:items-center md:gap-4 lg:cursor-default lg:select-auto lg:px-0 lg:mx-0 lg:active:scale-100 lg:active:bg-transparent"
+              className="flex cursor-pointer select-none items-start justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 text-left transition-all duration-150 active:scale-[0.99] active:bg-[var(--surface-hover)] md:items-center md:gap-4 md:p-4 lg:cursor-default lg:select-auto lg:active:scale-100 lg:active:bg-[var(--surface)]"
             />
           }
         >
@@ -1201,98 +1313,73 @@ function RecurringEditor({
   categories: CategoryOption[];
   onChange: (patch: Partial<Draft>) => void;
 }) {
+  const dayNumber = draft.startDate ? Number(draft.startDate.slice(-2)) : null;
+
   return (
     <section
-      className="grid gap-6"
+      className="space-y-3.5"
       aria-label={
         mode === "create"
           ? "Tạo giao dịch định kỳ"
           : "Chỉnh sửa giao dịch định kỳ"
       }
     >
-      {/* Schedule frequency preview */}
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-3">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-[var(--primary)]">
-            Chu kỳ lặp lại tự động
-          </p>
-          <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-secondary)]">
-            {mode === "edit"
-              ? "Thay đổi sẽ áp dụng từ kỳ ghi nhận tiếp theo."
-              : "Hệ thống tự động ghi nhận đúng ngày đã chọn mỗi tháng."}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--foreground)]">
-          <CalendarClock
-            size={14}
-            className="text-[var(--primary)]"
-            aria-hidden="true"
-          />
-          <span>
-            {draft.startDate
-              ? scheduleDayLabel(Number(draft.startDate.slice(-2)))
-              : "Chọn ngày bắt đầu"}
+      {/* 1. Equal-Width 3-Column Transaction Type Tabs */}
+      <Tabs
+        value={draft.type}
+        onValueChange={(value) =>
+          onChange({ type: value as TransactionType, categoryId: "none" })
+        }
+      >
+        <TabsList
+          variant="navigation"
+          className="grid w-full grid-cols-3"
+          aria-label="Loại giao dịch"
+        >
+          {typeOptions.map((option) => {
+            const Icon = option.icon;
+            return (
+              <TabsTrigger
+                value={option.value}
+                tone={
+                  option.value === "expense"
+                    ? "expense"
+                    : option.value === "income"
+                      ? "income"
+                      : undefined
+                }
+                key={option.value}
+                disabled={option.value === "transfer" && wallets.length < 2}
+                className="justify-center px-2 text-xs"
+              >
+                <Icon size={15} className="transition-colors" />
+                <span>{option.label}</span>
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </Tabs>
+
+      {/* 2. Balanced Luxury Hero Amount Card (Full-width input so large numbers never clip) */}
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium text-[var(--text-secondary)]">
+            Số tiền mỗi kỳ
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--primary-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--primary)]">
+            <CalendarClock size={11} aria-hidden="true" />
+            <span>
+              {dayNumber
+                ? `Ngày ${dayNumber} hằng tháng`
+                : "Tự động hằng tháng"}
+            </span>
           </span>
         </div>
-      </div>
 
-      {/* Section 1: Transaction Details */}
-      <div className="grid gap-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
-          <ArrowLeftRight
-            size={16}
-            className="text-[var(--primary)]"
-            aria-hidden="true"
-          />
-          <span>1. Thông tin giao dịch</span>
-        </div>
-
-        <Tabs
-          value={draft.type}
-          onValueChange={(value) =>
-            onChange({ type: value as TransactionType, categoryId: "none" })
-          }
-        >
-          <TabsList
-            variant="navigation"
-            className="w-full"
-            aria-label="Loại giao dịch"
-          >
-            {typeOptions.map((option) => {
-              const Icon = option.icon;
-              return (
-                <TabsTrigger
-                  value={option.value}
-                  tone={
-                    option.value === "expense"
-                      ? "expense"
-                      : option.value === "income"
-                        ? "income"
-                        : undefined
-                  }
-                  key={option.value}
-                  disabled={option.value === "transfer" && wallets.length < 2}
-                >
-                  <Icon className="transition-colors" />
-                  <span>{option.label}</span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </Tabs>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Input
-            label="Tên / Nội dung giao dịch"
-            value={draft.description}
-            onChange={(event) =>
-              onChange({ description: event.target.value })
-            }
-            placeholder="Ví dụ: Tiền thuê nhà, Lương tháng, Tiết kiệm..."
-            maxLength={2_000}
-          />
+        <div className="mt-1">
           <MoneyInput
-            label="Số tiền mỗi kỳ"
+            wrapperClassName="quick-amount-field !m-0 w-full"
+            className="w-full border-0! bg-transparent! !py-0.5 !text-left !text-2xl font-bold ring-0! focus-visible:border-0! focus-visible:ring-0!"
             value={draft.amount}
             onValueChange={(amount) => onChange({ amount })}
             placeholder="0"
@@ -1301,109 +1388,84 @@ function RecurringEditor({
         </div>
       </div>
 
-      {/* Section 2: Wallet & Category */}
-      <div className="grid gap-4 border-t border-[var(--border)] pt-5">
-        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
-          <Landmark
-            size={16}
-            className="text-[var(--primary)]"
-            aria-hidden="true"
-          />
-          <span>2. Ví & Danh mục</span>
-        </div>
+      {/* 3. Description */}
+      <Input
+        label="Tên / Nội dung giao dịch"
+        value={draft.description}
+        onChange={(event) => onChange({ description: event.target.value })}
+        placeholder="Ví dụ: Tiền thuê nhà, Lương tháng, Điện nước..."
+        maxLength={2_000}
+      />
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {/* 4. Wallet & Category (Full-width on mobile so category names never wrap awkwardly, 2 columns on tablet/desktop) */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Select
+          value={draft.walletId}
+          onValueChange={(walletId) =>
+            onChange({
+              walletId,
+              toWalletId:
+                draft.toWalletId === walletId
+                  ? defaultDestination(wallets, walletId)
+                  : draft.toWalletId,
+            })
+          }
+          label={draft.type === "transfer" ? "Ví gửi" : "Ví thực hiện"}
+          options={wallets.map((wallet) => ({
+            value: wallet.id,
+            label: wallet.name,
+          }))}
+        />
+
+        {draft.type === "transfer" ? (
           <Select
-            value={draft.walletId}
-            onValueChange={(walletId) =>
-              onChange({
-                walletId,
-                toWalletId:
-                  draft.toWalletId === walletId
-                    ? defaultDestination(wallets, walletId)
-                    : draft.toWalletId,
-              })
-            }
-            label="Ví thực hiện"
+            value={draft.toWalletId}
+            onValueChange={(toWalletId) => onChange({ toWalletId })}
+            label="Ví nhận"
             options={wallets.map((wallet) => ({
               value: wallet.id,
               label: wallet.name,
+              disabled: wallet.id === draft.walletId,
             }))}
           />
-
-          {draft.type === "transfer" ? (
-            <Select
-              value={draft.toWalletId}
-              onValueChange={(toWalletId) => onChange({ toWalletId })}
-              label="Ví nhận tiền"
-              options={wallets.map((wallet) => ({
-                value: wallet.id,
-                label: wallet.name,
-                disabled: wallet.id === draft.walletId,
-              }))}
-            />
-          ) : (
-            <CategoryTreeSelect
-              value={draft.categoryId}
-              onValueChange={(categoryId) => onChange({ categoryId })}
-              label="Danh mục thu chi"
-              required={draft.type === "expense"}
-              categories={categoriesForTransactionType(categories, draft.type)}
-              emptyOption={
-                draft.type === "expense"
-                  ? undefined
-                  : { value: "none", label: "Không chọn" }
-              }
-            />
-          )}
-        </div>
+        ) : (
+          <CategoryTreeSelect
+            value={draft.categoryId}
+            onValueChange={(categoryId) => onChange({ categoryId })}
+            label="Danh mục"
+            required={draft.type === "expense"}
+            categories={categoriesForTransactionType(categories, draft.type)}
+            emptyOption={
+              draft.type === "expense"
+                ? undefined
+                : { value: "none", label: "Không chọn" }
+            }
+          />
+        )}
       </div>
 
-      {/* Section 3: Schedule Dates */}
-      <div className="grid gap-4 border-t border-[var(--border)] pt-5">
-        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
-          <CalendarClock
-            size={16}
-            className="text-[var(--primary)]"
-            aria-hidden="true"
-          />
-          <span>3. Thời gian thực hiện</span>
-        </div>
+      {/* 5. Schedule Dates (2 Equal Columns) */}
+      <div className="grid grid-cols-2 gap-3">
+        <DatePicker
+          label="Ngày bắt đầu"
+          value={draft.startDate}
+          onValueChange={(startDate) =>
+            onChange({
+              startDate,
+              endDate:
+                draft.endDate && draft.endDate < startDate ? "" : draft.endDate,
+            })
+          }
+          required
+        />
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <DatePicker
-              label="Kỳ đầu tiên (Ngày bắt đầu)"
-              value={draft.startDate}
-              onValueChange={(startDate) =>
-                onChange({
-                  startDate,
-                  endDate:
-                    draft.endDate && draft.endDate < startDate
-                      ? ""
-                      : draft.endDate,
-                })
-              }
-              required
-            />
-            <small className="mt-1.5 block text-xs text-[var(--text-muted)]">
-              Giao dịch sẽ tự động lặp lại vào ngày này hằng tháng.
-            </small>
-          </div>
-
-          <div>
-            <DatePicker
-              label="Ngày kết thúc (Không bắt buộc)"
-              value={draft.endDate}
-              onValueChange={(endDate) => onChange({ endDate })}
-              minDate={draft.startDate}
-              allowClear
-            />
-            <small className="mt-1.5 block text-xs text-[var(--text-muted)]">
-              Để trống nếu muốn duy trì lịch định kỳ liên tục.
-            </small>
-          </div>
-        </div>
+        <DatePicker
+          label="Ngày kết thúc"
+          value={draft.endDate}
+          onValueChange={(endDate) => onChange({ endDate })}
+          minDate={draft.startDate}
+          allowClear
+        />
       </div>
     </section>
   );

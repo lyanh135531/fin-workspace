@@ -38,11 +38,19 @@ const SheetDragContext = React.createContext<SheetDragContextValue>({
   setDragProgress: () => {},
 });
 
-function Sheet(props: SheetPrimitive.Root.Props) {
+function Sheet({ onOpenChange, ...props }: SheetPrimitive.Root.Props) {
   const [dragProgress, setDragProgress] = React.useState(0);
+
   return (
     <SheetDragContext.Provider value={{ dragProgress, setDragProgress }}>
-      <SheetPrimitive.Root data-slot="sheet" {...props} />
+      <SheetPrimitive.Root
+        data-slot="sheet"
+        onOpenChange={(open, eventDetails) => {
+          setDragProgress(0);
+          onOpenChange?.(open, eventDetails);
+        }}
+        {...props}
+      />
     </SheetDragContext.Provider>
   );
 }
@@ -64,6 +72,7 @@ function SheetOverlay({ className, style, ...props }: SheetPrimitive.Backdrop.Pr
 
   return (
     <SheetPrimitive.Backdrop
+      forceRender
       data-slot="sheet-overlay"
       className={cn(
         "fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-md transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
@@ -191,7 +200,7 @@ function SheetContent({
 
   const handleFocusCapture = React.useCallback(
     (event: React.FocusEvent<HTMLDivElement>) => {
-      if (!isBottomSheet) return;
+      if (!isBottomSheet || typeof window === "undefined") return;
       const target = event.target as HTMLElement | null;
       if (
         !target ||
@@ -200,7 +209,12 @@ function SheetContent({
         return;
       }
       setTimeout(() => {
-        target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+        const vv = window.visualViewport;
+        const isKeyboardOpen = vv
+          ? window.innerHeight - vv.height - (vv.offsetTop || 0) > 50
+          : false;
+        if (!isKeyboardOpen) return;
+        target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
       }, 280);
     },
     [isBottomSheet],
@@ -310,7 +324,6 @@ function SheetContent({
 
     if (shouldClose) {
       resetDrag();
-      setDragProgress(1);
       closeButtonRef.current?.click();
     } else {
       setDragging(false);

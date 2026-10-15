@@ -51,7 +51,7 @@ function Input({
   if (!label) return input;
 
   return (
-    <div className={cn("grid gap-1.5", wrapperClassName)}>
+    <div className={cn("grid content-start gap-1.5", wrapperClassName)}>
       <Label htmlFor={inputId} required={props.required}>{label}</Label>
       {input}
     </div>

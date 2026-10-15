@@ -12449,7 +12449,7 @@ html[data-sidebar-collapsed="true"]
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
-  padding: 0.25rem 4.25rem 0.25rem 0 !important;
+  padding: 0.25rem 3.25rem 0.25rem 0 !important;
   color: var(--text-primary);
   font-size: clamp(1.8rem, 8vw, 2.4rem) !important;
   font-weight: 750;

@@ -25,6 +25,7 @@ import {
   PwaInstallBanner,
   PwaInstallProvider,
 } from "@/app/pwa-install";
+import { PrivacyMaskHeaderButton } from "@/app/dashboard/privacy-mask-button";
 import { SidebarToggle } from "@/app/dashboard/sidebar-toggle";
 import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
 import { WorkspaceNotifications } from "@/app/dashboard/workspace-notifications";
@@ -283,6 +284,7 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
 
       <div className="flex shrink-0 items-center gap-1.5">
         {membership && <QuickTransactionHeaderButton />}
+        <PrivacyMaskHeaderButton />
         <div className="md:hidden">
           <MobileAppearanceSheet />
         </div>
