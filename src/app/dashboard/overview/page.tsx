@@ -240,124 +240,122 @@ export default async function OverviewPage() {
 
   return (
     <PageContainer>
-      <div className="md:mx-auto md:max-w-7xl">
-        <OverviewDashboard
-          workspace={{
-            id: workspaceId,
-            name: membership.workspace.name,
-            currency: membership.workspace.baseCurrency,
-          }}
-          reportPeriod={reportPeriod}
-          businessDate={businessDate}
-          canApprove={
-            workspaceCapabilities(membership.role.code).canApproveTransactions
-          }
-          financialPlanSnapshot={financialPlanSnapshot}
-          wallets={walletLinks.map(({ wallet }) => {
-            const committed = commitments.get(wallet.id) ?? ZERO;
-            const profile = wallet.creditCardProfile;
-            const oldestIssuedStmt = profile?.statements[0] ?? null;
-            let issuedStatement: {
-              id: string;
-              dueDate: string;
-              totalAmount: string;
-              remainingAmount: string;
-              overdue: boolean;
-            } | null = null;
+      <OverviewDashboard
+        workspace={{
+          id: workspaceId,
+          name: membership.workspace.name,
+          currency: membership.workspace.baseCurrency,
+        }}
+        reportPeriod={reportPeriod}
+        businessDate={businessDate}
+        canApprove={
+          workspaceCapabilities(membership.role.code).canApproveTransactions
+        }
+        financialPlanSnapshot={financialPlanSnapshot}
+        wallets={walletLinks.map(({ wallet }) => {
+          const committed = commitments.get(wallet.id) ?? ZERO;
+          const profile = wallet.creditCardProfile;
+          const oldestIssuedStmt = profile?.statements[0] ?? null;
+          let issuedStatement: {
+            id: string;
+            dueDate: string;
+            totalAmount: string;
+            remainingAmount: string;
+            overdue: boolean;
+          } | null = null;
 
-            if (oldestIssuedStmt) {
-              const paid = oldestIssuedStmt.payments.reduce(
-                (sum, p) => sum.plus(p.amount.toString()),
-                ZERO,
-              );
-              const totalAmt = new Decimal(
-                oldestIssuedStmt.totalAmount.toString(),
-              );
-              const remainingAmt = Decimal.max(totalAmt.minus(paid), ZERO);
-              const dueDateStr = oldestIssuedStmt.dueDate
-                .toISOString()
-                .slice(0, 10);
-              if (remainingAmt.gt(0)) {
-                issuedStatement = {
-                  id: oldestIssuedStmt.id,
-                  dueDate: dueDateStr,
-                  totalAmount: totalAmt.toString(),
-                  remainingAmount: remainingAmt.toString(),
-                  overdue: dueDateStr < businessDate,
-                };
-              }
+          if (oldestIssuedStmt) {
+            const paid = oldestIssuedStmt.payments.reduce(
+              (sum, p) => sum.plus(p.amount.toString()),
+              ZERO,
+            );
+            const totalAmt = new Decimal(
+              oldestIssuedStmt.totalAmount.toString(),
+            );
+            const remainingAmt = Decimal.max(totalAmt.minus(paid), ZERO);
+            const dueDateStr = oldestIssuedStmt.dueDate
+              .toISOString()
+              .slice(0, 10);
+            if (remainingAmt.gt(0)) {
+              issuedStatement = {
+                id: oldestIssuedStmt.id,
+                dueDate: dueDateStr,
+                totalAmount: totalAmt.toString(),
+                remainingAmount: remainingAmt.toString(),
+                overdue: dueDateStr < businessDate,
+              };
             }
+          }
 
-            return {
-              id: wallet.id,
-              name: wallet.name,
-              kind: wallet.kind,
-              assetSubtype: wallet.assetSubtype ?? "other",
-              defaultFundingWalletId: profile?.defaultFundingWalletId ?? null,
-              creditLimit: profile?.creditLimit.toString() ?? null,
-              statementClosingDay: profile?.statementClosingDay ?? null,
-              paymentDueDay: profile?.paymentDueDay ?? null,
-              issuedStatement,
-              balance: wallet.currentBalance.toString(),
-              committed: committed.toString(),
-              available:
-                wallet.kind === "asset"
-                  ? new Decimal(wallet.currentBalance.toString())
-                      .minus(committed)
-                      .toString()
-                  : wallet.currentBalance.toString(),
-              updatedAt: wallet.updatedAt.toISOString(),
-            };
-          })}
-          totalByCurrency={totalByCurrency}
-          members={members.map((member) => ({
-            id: member.id,
-            name: member.user.username ?? "Người dùng",
-          }))}
-          categories={categories.map((cat) => ({
-            id: cat.id,
-            name: cat.name,
-            color: cat.color,
-            icon: cat.icon,
-            parentId: cat.parentId,
-            type: cat.type as "income" | "expense",
-          }))}
-          transactions={transactions.map((transaction) => ({
-            id: transaction.id,
-            amount: transaction.amount.toString(),
-            type: transaction.type,
-            purpose: transaction.purpose,
-            status: transaction.workflowStatus,
-            description: transaction.description,
-            date: transaction.date.toISOString(),
-            walletId: transaction.walletId,
-            toWalletId: transaction.toWalletId,
-            wallet: transaction.wallet.name,
-            toWallet: transaction.toWallet?.name ?? null,
-            categoryId: transaction.categoryId,
-            category: transaction.category,
-            memberId: transaction.memberId,
-            member: transaction.member.user.username ?? "Người dùng",
-            paymentSources: transaction.creditCardPaymentSources.map(
-              (source) => ({
-                walletId: source.sourceWalletId,
-                amount: source.amount.toString(),
-              }),
-            ),
-          }))}
-          userRole={membership.role.name}
-          upcomingRecurring={recurringRows.map((item) => ({
-            id: item.id,
-            amount: item.amount.toString(),
-            type: item.type,
-            description: item.description,
-            nextExecutionDate: item.nextExecutionDate.toISOString(),
-            wallet: item.wallet.name,
-            toWallet: item.toWallet?.name ?? null,
-            category: item.category,
-          }))}
-        />
-      </div>
+          return {
+            id: wallet.id,
+            name: wallet.name,
+            kind: wallet.kind,
+            assetSubtype: wallet.assetSubtype ?? "other",
+            defaultFundingWalletId: profile?.defaultFundingWalletId ?? null,
+            creditLimit: profile?.creditLimit.toString() ?? null,
+            statementClosingDay: profile?.statementClosingDay ?? null,
+            paymentDueDay: profile?.paymentDueDay ?? null,
+            issuedStatement,
+            balance: wallet.currentBalance.toString(),
+            committed: committed.toString(),
+            available:
+              wallet.kind === "asset"
+                ? new Decimal(wallet.currentBalance.toString())
+                    .minus(committed)
+                    .toString()
+                : wallet.currentBalance.toString(),
+            updatedAt: wallet.updatedAt.toISOString(),
+          };
+        })}
+        totalByCurrency={totalByCurrency}
+        members={members.map((member) => ({
+          id: member.id,
+          name: member.user.username ?? "Người dùng",
+        }))}
+        categories={categories.map((cat) => ({
+          id: cat.id,
+          name: cat.name,
+          color: cat.color,
+          icon: cat.icon,
+          parentId: cat.parentId,
+          type: cat.type as "income" | "expense",
+        }))}
+        transactions={transactions.map((transaction) => ({
+          id: transaction.id,
+          amount: transaction.amount.toString(),
+          type: transaction.type,
+          purpose: transaction.purpose,
+          status: transaction.workflowStatus,
+          description: transaction.description,
+          date: transaction.date.toISOString(),
+          walletId: transaction.walletId,
+          toWalletId: transaction.toWalletId,
+          wallet: transaction.wallet.name,
+          toWallet: transaction.toWallet?.name ?? null,
+          categoryId: transaction.categoryId,
+          category: transaction.category,
+          memberId: transaction.memberId,
+          member: transaction.member.user.username ?? "Người dùng",
+          paymentSources: transaction.creditCardPaymentSources.map(
+            (source) => ({
+              walletId: source.sourceWalletId,
+              amount: source.amount.toString(),
+            }),
+          ),
+        }))}
+        userRole={membership.role.name}
+        upcomingRecurring={recurringRows.map((item) => ({
+          id: item.id,
+          amount: item.amount.toString(),
+          type: item.type,
+          description: item.description,
+          nextExecutionDate: item.nextExecutionDate.toISOString(),
+          wallet: item.wallet.name,
+          toWallet: item.toWallet?.name ?? null,
+          category: item.category,
+        }))}
+      />
     </PageContainer>
   );
 }

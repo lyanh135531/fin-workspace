@@ -851,7 +851,7 @@ export function OverviewDashboard({
             : "Cơ cấu danh mục chi tiêu";
 
   return (
-    <div className="mx-auto flex w-full max-w-[76rem] flex-col gap-3.5 md:gap-4">
+    <div className="flex w-full flex-col gap-3.5 md:gap-4">
       {/* 1. EXECUTIVE WEALTH HERO & QUICK COMMAND CENTER */}
       <Card
         as="section"

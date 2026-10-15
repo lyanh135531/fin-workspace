@@ -22,7 +22,7 @@ export default async function JoinPage() {
   const pendingCount = requests.filter((r) => r.status === "pending").length;
 
   return (
-    <PageContainer className="mx-auto max-w-6xl pb-6">
+    <PageContainer className="space-y-4 pb-6">
       <PageHeader
         title="Tham gia nhóm tài chính"
         description="Nhập mã mời từ quản trị viên để gửi yêu cầu tham gia nhóm."

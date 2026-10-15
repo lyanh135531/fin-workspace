@@ -53,56 +53,54 @@ export default async function RecurringTransactionsPage() {
 
   return (
     <PageContainer className="recurring-transactions-page">
-      <div className="md:mx-auto md:max-w-7xl">
-        <RecurringTransactionsManager
-          currentMemberId={membership.id}
-          canCreate={capabilities.canCreateRecurringTransactions}
-          canApprove={capabilities.canApproveRecurringTransactions}
-          workspace={{
-            id: workspaceId,
-            name: membership.workspace.name,
-            currency: membership.workspace.baseCurrency,
-            timeZone: membership.workspace.timeZone,
-            businessDate: getBusinessDateInTimeZone(
-              membership.workspace.timeZone,
-            ),
-          }}
-          wallets={walletLinks.map(({ wallet }) => ({
-            id: wallet.id,
-            name: wallet.name,
-          }))}
-          categories={categories}
-          activeMonthlyNetAmount={calculateActiveRecurringMonthlyNetAmount(
-            recurringTransactions,
-          ).toString()}
-          schedules={recurringTransactions.map((item) => ({
-            id: item.id,
-            createdByMemberId: item.createdByMemberId,
-            approvalStatus: item.approvalStatus,
-            approvedAt: item.approvedAt?.toISOString() ?? null,
-            walletId: item.walletId,
-            toWalletId: item.toWalletId,
-            categoryId: item.categoryId,
-            type: item.type,
-            amount: item.amount.toString(),
-            description: item.description,
-            dayOfMonth: item.dayOfMonth,
-            startDate: item.startDate.toISOString().slice(0, 10),
-            endDate: item.endDate?.toISOString().slice(0, 10) ?? null,
-            nextExecutionDate: item.nextExecutionDate
-              .toISOString()
-              .slice(0, 10),
-            status: item.status,
-            completedAt: item.completedAt?.toISOString() ?? null,
-            lastError: item.lastError,
-            wallet: item.wallet.name,
-            toWallet: item.toWallet?.name ?? null,
-            category: item.category,
-            createdBy: item.createdBy.user.username ?? "Người dùng",
-            occurrenceCount: item._count.transactions,
-          }))}
-        />
-      </div>
+      <RecurringTransactionsManager
+        currentMemberId={membership.id}
+        canCreate={capabilities.canCreateRecurringTransactions}
+        canApprove={capabilities.canApproveRecurringTransactions}
+        workspace={{
+          id: workspaceId,
+          name: membership.workspace.name,
+          currency: membership.workspace.baseCurrency,
+          timeZone: membership.workspace.timeZone,
+          businessDate: getBusinessDateInTimeZone(
+            membership.workspace.timeZone,
+          ),
+        }}
+        wallets={walletLinks.map(({ wallet }) => ({
+          id: wallet.id,
+          name: wallet.name,
+        }))}
+        categories={categories}
+        activeMonthlyNetAmount={calculateActiveRecurringMonthlyNetAmount(
+          recurringTransactions,
+        ).toString()}
+        schedules={recurringTransactions.map((item) => ({
+          id: item.id,
+          createdByMemberId: item.createdByMemberId,
+          approvalStatus: item.approvalStatus,
+          approvedAt: item.approvedAt?.toISOString() ?? null,
+          walletId: item.walletId,
+          toWalletId: item.toWalletId,
+          categoryId: item.categoryId,
+          type: item.type,
+          amount: item.amount.toString(),
+          description: item.description,
+          dayOfMonth: item.dayOfMonth,
+          startDate: item.startDate.toISOString().slice(0, 10),
+          endDate: item.endDate?.toISOString().slice(0, 10) ?? null,
+          nextExecutionDate: item.nextExecutionDate
+            .toISOString()
+            .slice(0, 10),
+          status: item.status,
+          completedAt: item.completedAt?.toISOString() ?? null,
+          lastError: item.lastError,
+          wallet: item.wallet.name,
+          toWallet: item.toWallet?.name ?? null,
+          category: item.category,
+          createdBy: item.createdBy.user.username ?? "Người dùng",
+          occurrenceCount: item._count.transactions,
+        }))}
+      />
     </PageContainer>
   );
 }

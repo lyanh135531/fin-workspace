@@ -481,16 +481,14 @@ export function AppearanceSettingsSection() {
 
 export default function AppearanceSettingsPage() {
   return (
-    <PageContainer className="space-y-4 p-4 md:space-y-5 md:p-5 lg:p-6">
-      <div className="mx-auto max-w-6xl space-y-4 md:space-y-5">
-        <PageHeader
-          title="Giao diện & Chủ đề"
-          description="Tùy chỉnh chế độ hiển thị sáng tối và chọn bảng màu yêu thích cho không gian tài chính."
-          eyebrow="Cài đặt nhóm"
-          border={false}
-        />
-        <AppearanceSettingsSection />
-      </div>
+    <PageContainer className="space-y-4 md:space-y-5">
+      <PageHeader
+        title="Giao diện & Chủ đề"
+        description="Tùy chỉnh chế độ hiển thị sáng tối và chọn bảng màu yêu thích cho không gian tài chính."
+        eyebrow="Cài đặt nhóm"
+        border={false}
+      />
+      <AppearanceSettingsSection />
     </PageContainer>
   );
 }

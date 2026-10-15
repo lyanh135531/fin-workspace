@@ -8,7 +8,7 @@ export default async function DashboardPage({
 }) {
   const { action } = await searchParams;
   return (
-    <PageContainer className="dashboard-page-container lg:h-full lg:min-h-0">
+    <PageContainer className="dashboard-page-container">
       <WorkspaceDashboard
         startWithNewTransaction={action === "new-transaction"}
       />

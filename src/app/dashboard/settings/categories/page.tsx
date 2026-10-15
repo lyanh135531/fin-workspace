@@ -36,30 +36,28 @@ export default async function CategoriesSettingsPage() {
   });
 
   return (
-    <PageContainer className="space-y-4 p-4 md:space-y-5 md:p-5 lg:p-6">
-      <div className="mx-auto max-w-6xl space-y-4 md:space-y-5">
-        <PageHeader
-          title="Danh mục thu chi"
-          description="Quản lý danh mục cha, danh mục con và gán hũ tài chính cho các khoản chi tiêu."
-          eyebrow="Cài đặt nhóm"
-          border={false}
-        />
+    <PageContainer className="space-y-4 md:space-y-5">
+      <PageHeader
+        title="Danh mục thu chi"
+        description="Quản lý danh mục cha, danh mục con và gán hũ tài chính cho các khoản chi tiêu."
+        eyebrow="Cài đặt nhóm"
+        border={false}
+      />
 
-        <CategoryManagement
-          categories={categories.map((category) => ({
-            id: category.id,
-            name: category.name,
-            code: category.code,
-            color: category.color,
-            type: category.type,
-            icon: category.icon,
-            parentId: category.parentId,
-            jarCode: category.jarCode,
-            status: category.status,
-            transactionCount: category._count.transactions,
-          }))}
-        />
-      </div>
+      <CategoryManagement
+        categories={categories.map((category) => ({
+          id: category.id,
+          name: category.name,
+          code: category.code,
+          color: category.color,
+          type: category.type,
+          icon: category.icon,
+          parentId: category.parentId,
+          jarCode: category.jarCode,
+          status: category.status,
+          transactionCount: category._count.transactions,
+        }))}
+      />
     </PageContainer>
   );
 }

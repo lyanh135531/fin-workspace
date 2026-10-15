@@ -62,38 +62,36 @@ export default async function WalletsPage() {
 
   return (
     <PageContainer className="wallets-page-container">
-      <div className="md:mx-auto md:max-w-7xl">
-        <WalletManagement
-          key={links
-            .map(
-              ({ wallet, sortOrder }) =>
-                `${wallet.id}:${wallet.updatedAt.toISOString()}:${sortOrder}`,
-            )
-            .join("|")}
-          workspace={{
-            name: membership.workspace.name,
-            currency: membership.workspace.baseCurrency,
-          }}
-          totalBalance={totalBalance.toString()}
-          isAdmin={workspaceCapabilities(membership.role.code).canManageWallets}
-          wallets={links.map(({ wallet }) => ({
-            id: wallet.id,
-            name: wallet.name,
-            description: wallet.description,
-            openingBalance: wallet.openingBalance.toString(),
-            currentBalance: wallet.currentBalance.toString(),
-            status: wallet.status,
-            transactionCount:
-              wallet._count.sourceTransactions +
-              wallet._count.destinationTransactions,
-            recurringTransactionCount:
-              wallet._count.sourceRecurringTransactions +
-              wallet._count.destinationRecurringTransactions,
-            updatedAt: wallet.updatedAt.toISOString(),
-            kind: wallet.kind,
-          }))}
-        />
-      </div>
+      <WalletManagement
+        key={links
+          .map(
+            ({ wallet, sortOrder }) =>
+              `${wallet.id}:${wallet.updatedAt.toISOString()}:${sortOrder}`,
+          )
+          .join("|")}
+        workspace={{
+          name: membership.workspace.name,
+          currency: membership.workspace.baseCurrency,
+        }}
+        totalBalance={totalBalance.toString()}
+        isAdmin={workspaceCapabilities(membership.role.code).canManageWallets}
+        wallets={links.map(({ wallet }) => ({
+          id: wallet.id,
+          name: wallet.name,
+          description: wallet.description,
+          openingBalance: wallet.openingBalance.toString(),
+          currentBalance: wallet.currentBalance.toString(),
+          status: wallet.status,
+          transactionCount:
+            wallet._count.sourceTransactions +
+            wallet._count.destinationTransactions,
+          recurringTransactionCount:
+            wallet._count.sourceRecurringTransactions +
+            wallet._count.destinationRecurringTransactions,
+          updatedAt: wallet.updatedAt.toISOString(),
+          kind: wallet.kind,
+        }))}
+      />
     </PageContainer>
   );
 }

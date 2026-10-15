@@ -8,26 +8,24 @@ export default async function CreditCardsPage() {
 
   return (
     <PageContainer>
-      <div className="md:mx-auto md:max-w-7xl">
-        <CreditCardOverview
-          workspaceId={data.workspaceId}
-          currency={data.currency}
-          businessDate={data.businessDate}
-          cards={data.cards}
-          canManage={data.canManage}
-          canApprove={data.canApprove}
-          fundingWallets={data.fundingWallets}
-          wallets={data.selectableWallets}
-          categories={data.categories}
-          createCardAction={
-            <CreditCardCreate
-              currency={data.currency}
-              canManage={data.canManage}
-              fundingWallets={data.fundingWallets}
-            />
-          }
-        />
-      </div>
+      <CreditCardOverview
+        workspaceId={data.workspaceId}
+        currency={data.currency}
+        businessDate={data.businessDate}
+        cards={data.cards}
+        canManage={data.canManage}
+        canApprove={data.canApprove}
+        fundingWallets={data.fundingWallets}
+        wallets={data.selectableWallets}
+        categories={data.categories}
+        createCardAction={
+          <CreditCardCreate
+            currency={data.currency}
+            canManage={data.canManage}
+            fundingWallets={data.fundingWallets}
+          />
+        }
+      />
     </PageContainer>
   );
 }

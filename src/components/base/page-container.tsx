@@ -12,13 +12,13 @@ const containerSizeClasses: Record<
   string
 > = {
   standard: "max-w-7xl",
-  wide: "max-w-[96rem]",
+  wide: "max-w-7xl",
   full: "max-w-none",
 };
 
 export function PageContainer({
   className,
-  size = "wide",
+  size = "standard",
   ...props
 }: PageContainerProps) {
   return (

@@ -125,28 +125,28 @@ function CreditCardLivePreview({
       </div>
 
       {/* Card Name */}
-      <div className="my-2.5 min-w-0">
+      <div className="my-3 min-w-0">
         <p className="break-words text-base font-semibold leading-snug tracking-wide text-[var(--foreground)]">
           {name.trim() || "Tên thẻ của bạn"}
         </p>
       </div>
 
       {/* Bottom row: Limit & Cycle */}
-      <div className="flex items-end justify-between gap-3 border-t border-[var(--border)] pt-2 text-xs">
+      <div className="flex items-end justify-between gap-4 border-t border-[var(--border)] pt-2.5 text-xs">
         <div className="min-w-0">
-          <span className="block text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+          <span className="block text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
             Hạn mức tín dụng
           </span>
-          <span className="block font-semibold tabular-nums text-[var(--foreground)]">
+          <span className="mt-0.5 block text-sm font-bold tabular-nums text-[var(--foreground)]">
             {displayLimit}
           </span>
         </div>
         <div className="shrink-0 text-right">
-          <span className="block text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-            Sao kê kỳ này
+          <span className="block text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+            Chu kỳ sao kê
           </span>
-          <span className="font-medium text-[var(--text-secondary)] tabular-nums text-[11px]">
-            Chốt: {statementClosingDay || "--"} · Hạn: {paymentDueDay || "--"}
+          <span className="mt-0.5 block text-xs font-semibold tabular-nums text-[var(--text-secondary)]">
+            Chốt ngày {statementClosingDay || "--"} · Hạn ngày {paymentDueDay || "--"}
           </span>
         </div>
       </div>
@@ -316,7 +316,7 @@ export function CreditCardCreate({
         paymentDueDay={paymentDueDay}
       />
 
-      <div className="space-y-1.5">
+      <div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/35 p-3.5">
         <Input
           autoFocus
           label="Tên thẻ"
@@ -327,9 +327,7 @@ export function CreditCardCreate({
           onChange={(event) => setCardName(event.target.value)}
           placeholder="VD: Techcombank Visa, VIB Cash Back..."
         />
-      </div>
 
-      <div className="space-y-1.5">
         <MoneyInput
           label={`Hạn mức tín dụng (${currency})`}
           value={creditLimit}
@@ -344,62 +342,63 @@ export function CreditCardCreate({
   // Billing cycle & settlement wallet fields (Step 2)
   const billingFields = (
     <>
-      {/* Billing Cycle */}
-      <div className="space-y-1.5">
-        <div className="grid grid-cols-2 gap-2.5">
-          <Select
-            label="Ngày chốt sao kê"
-            value={statementClosingDay}
-            onValueChange={setStatementClosingDay}
-            options={DAY_OPTIONS}
-            contentClassName="max-h-48"
-            required
-          />
-          <Select
-            label="Hạn thanh toán"
-            value={paymentDueDay}
-            onValueChange={setPaymentDueDay}
-            options={DAY_OPTIONS}
-            contentClassName="max-h-48"
-            required
-          />
+      {/* Billing Cycle & Default Funding Wallet */}
+      <div className="space-y-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/35 p-3.5">
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Ngày chốt sao kê"
+              value={statementClosingDay}
+              onValueChange={setStatementClosingDay}
+              options={DAY_OPTIONS}
+              contentClassName="max-h-48"
+              required
+            />
+            <Select
+              label="Hạn thanh toán"
+              value={paymentDueDay}
+              onValueChange={setPaymentDueDay}
+              options={DAY_OPTIONS}
+              contentClassName="max-h-48"
+              required
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs">
+            <span className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+              <Sparkles size={13} className="text-amber-500" aria-hidden="true" />
+              <span>Thời gian miễn lãi ước tính</span>
+            </span>
+            <span className="font-semibold text-[var(--primary)] tabular-nums">
+              ~{graceDays} ngày
+            </span>
+          </div>
         </div>
-        <div className="flex items-center justify-between text-xs text-[var(--text-muted)] px-0.5">
-          <span className="flex items-center gap-1">
-            <Sparkles size={12} className="text-amber-500" aria-hidden="true" />
-            Thời gian miễn lãi
-          </span>
-          <span className="font-semibold text-[var(--primary)] tabular-nums">
-            ~{graceDays} ngày
-          </span>
-        </div>
-      </div>
 
-      {/* Default Funding Wallet */}
-      <div className="space-y-1">
-        <Select
-          label="Ví thanh toán sao kê mặc định"
-          value={fundingWalletId}
-          onValueChange={setFundingWalletId}
-          options={fundingWallets.map((wallet) => ({
-            value: wallet.id,
-            label: wallet.name,
-          }))}
-          required
-        />
-        <p className="px-0.5 text-[11px] text-[var(--text-muted)]">
-          Khi quẹt thẻ, khoản chi sẽ được ghi nhận vào Tiền chờ thanh toán thẻ để tính Số dư có thể dùng. Số dư thực tế của ví chỉ trừ khi bạn bấm &ldquo;Thanh toán sao kê&rdquo;.
-        </p>
+        <div className="space-y-1.5 border-t border-[var(--border)] pt-3">
+          <Select
+            label="Ví thanh toán sao kê mặc định"
+            value={fundingWalletId}
+            onValueChange={setFundingWalletId}
+            options={fundingWallets.map((wallet) => ({
+              value: wallet.id,
+              label: wallet.name,
+            }))}
+            required
+          />
+          <p className="px-0.5 text-[11px] leading-relaxed text-[var(--text-muted)]">
+            Khi quẹt thẻ, khoản chi được tính vào Tiền chờ thanh toán thẻ. Số dư thực tế của ví chỉ trừ khi bạn bấm &ldquo;Thanh toán sao kê&rdquo;.
+          </p>
+        </div>
       </div>
 
       {/* Progressive Disclosure: Opening Debt */}
-      <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
+      <div className="space-y-2.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3.5">
         <label
           htmlFor={debtToggleId}
           className="flex cursor-pointer items-center justify-between gap-3 select-none"
         >
           <div className="min-w-0 space-y-0.5">
-            <p className="text-xs font-medium leading-snug text-[var(--foreground)]">
+            <p className="text-xs font-semibold leading-snug text-[var(--foreground)]">
               Thẻ đã có dư nợ ban đầu?
             </p>
             <p className="text-[11px] leading-snug text-[var(--text-muted)]">
@@ -419,7 +418,7 @@ export function CreditCardCreate({
         </label>
 
         {hasOpeningDebt && (
-          <div className="space-y-1.5 border-t border-[var(--border)] pt-2">
+          <div className="space-y-1.5 border-t border-[var(--border)] pt-2.5">
             <MoneyInput
               label={`Dư nợ ban đầu (${currency})`}
               value={openingDebt}
@@ -440,15 +439,14 @@ export function CreditCardCreate({
       </div>
 
       {/* Optional Note */}
-      <div>
-        <Textarea
-          label="Ghi chú (tuỳ chọn)"
-          name="description"
-          rows={2}
-          maxLength={2000}
-          placeholder="Mục đích sử dụng, ưu đãi hoàn tiền..."
-        />
-      </div>
+      <Textarea
+        label="Ghi chú (tuỳ chọn)"
+        name="description"
+        rows={2}
+        maxLength={2000}
+        placeholder="Mục đích sử dụng, ưu đãi hoàn tiền..."
+        className="min-h-[4rem] resize-none"
+      />
     </>
   );
 
@@ -476,7 +474,7 @@ export function CreditCardCreate({
         <SheetContent
           side={isDesktop ? "right" : "bottom"}
           placement={isDesktop ? "inset" : "edge"}
-          size={isDesktop ? "wide" : "default"}
+          size={isDesktop ? "md" : "default"}
           spacing="flush"
           elevation="flat"
         >
@@ -519,23 +517,19 @@ export function CreditCardCreate({
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="card" className="mt-4 space-y-4">
+                  <TabsContent value="card" className="mt-4 space-y-3.5">
                     {cardFields}
                   </TabsContent>
 
-                  <TabsContent value="billing" className="mt-4 space-y-4">
+                  <TabsContent value="billing" className="mt-4 space-y-3.5">
                     {billingFields}
                   </TabsContent>
                 </Tabs>
               </div>
             ) : (
-              <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto overscroll-contain p-4 md:grid-cols-2 md:gap-6 md:p-5">
-                <div className="space-y-4">
-                  {cardFields}
-                </div>
-                <div className="space-y-4 md:border-l md:border-[var(--border)] md:pl-6">
-                  {billingFields}
-                </div>
+              <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain p-4 md:p-5">
+                {cardFields}
+                {billingFields}
               </div>
             )}
 

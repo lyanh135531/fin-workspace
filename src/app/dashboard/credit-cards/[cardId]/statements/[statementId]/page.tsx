@@ -82,7 +82,7 @@ export default async function CreditCardStatementPage({
 
   return (
     <PageContainer>
-      <div className="mx-auto max-w-5xl space-y-4">
+      <div className="space-y-3.5 md:space-y-4">
         <header className="flex items-start gap-3">
           <Button
             variant="outline"

@@ -19,21 +19,19 @@ export default async function CreditCardDetailPage({
 
   return (
     <PageContainer>
-      <div className="md:mx-auto md:max-w-7xl">
-        <CreditCardOverview
-          workspaceId={data.workspaceId}
-          currency={data.currency}
-          businessDate={data.businessDate}
-          cards={data.cards}
-          initialCardId={cardId}
-          isDetailPage={true}
-          canManage={data.canManage}
-          canApprove={data.canApprove}
-          fundingWallets={data.fundingWallets}
-          wallets={data.selectableWallets}
-          categories={data.categories}
-        />
-      </div>
+      <CreditCardOverview
+        workspaceId={data.workspaceId}
+        currency={data.currency}
+        businessDate={data.businessDate}
+        cards={data.cards}
+        initialCardId={cardId}
+        isDetailPage={true}
+        canManage={data.canManage}
+        canApprove={data.canApprove}
+        fundingWallets={data.fundingWallets}
+        wallets={data.selectableWallets}
+        categories={data.categories}
+      />
     </PageContainer>
   );
 }

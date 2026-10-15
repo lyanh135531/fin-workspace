@@ -128,29 +128,27 @@ export default async function FinancialPlansPage({
 
   return (
     <PageContainer>
-      <div className="md:mx-auto md:max-w-7xl">
-        <FinancialPlansManager
-          workspaceName={member.workspace.name}
-          currency={member.workspace.baseCurrency}
-          businessDate={businessDate}
-          businessMonth={businessMonth}
-          canManage={workspaceCapabilities(member.role.code).canManagePlans}
-          plans={plans.map((plan) => ({
-            id: plan.id,
-            name: plan.name,
-            status: plan.status,
-            targetAmount: plan.targetAmount.toString(),
-            existingGoalAmount: plan.existingGoalAmount.toString(),
-            startMonth: plan.startMonth?.toISOString().slice(0, 7) ?? null,
-            targetMonth: plan.targetMonth.toISOString().slice(0, 7),
-          }))}
-          selectedPlan={view}
-          financialGoals={financialGoals}
-          goalWallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString() }))}
-          jarCategories={jarCategories}
-          jarTransactions={jarTransactions}
-        />
-      </div>
+      <FinancialPlansManager
+        workspaceName={member.workspace.name}
+        currency={member.workspace.baseCurrency}
+        businessDate={businessDate}
+        businessMonth={businessMonth}
+        canManage={workspaceCapabilities(member.role.code).canManagePlans}
+        plans={plans.map((plan) => ({
+          id: plan.id,
+          name: plan.name,
+          status: plan.status,
+          targetAmount: plan.targetAmount.toString(),
+          existingGoalAmount: plan.existingGoalAmount.toString(),
+          startMonth: plan.startMonth?.toISOString().slice(0, 7) ?? null,
+          targetMonth: plan.targetMonth.toISOString().slice(0, 7),
+        }))}
+        selectedPlan={view}
+        financialGoals={financialGoals}
+        goalWallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString() }))}
+        jarCategories={jarCategories}
+        jarTransactions={jarTransactions}
+      />
     </PageContainer>
   );
 }

@@ -71,7 +71,7 @@ export default async function SettingsPage({
 
   return (
     <PageContainer className="workspace-settings-page">
-      <div className="workspace-settings-container workspace-admin-settings-container flex flex-col gap-3.5 md:mx-auto md:block md:max-w-[76rem] md:space-y-0">
+      <div className="workspace-settings-container workspace-admin-settings-container flex flex-col gap-3.5 md:block md:space-y-0">
         <div className="md:hidden">
           <InviteCodeCard code={inviteCode} compact />
         </div>

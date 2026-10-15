@@ -196,7 +196,7 @@ function DashboardPageSkeleton() {
       </div>
 
       <div
-        className="mx-auto hidden h-full min-h-0 w-full max-w-[76rem] grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden px-px py-2 lg:grid"
+        className="mx-auto hidden h-full min-h-0 w-full max-w-7xl grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden px-px py-2 lg:grid"
         aria-busy="true"
         aria-label="Đang tải sổ giao dịch"
       >
@@ -490,7 +490,7 @@ function OverviewPageSkeleton() {
 
       {/* 2. DESKTOP SKELETON (>= 768px) */}
       <div className="desktop-page-skeleton">
-        <div className="mx-auto max-w-[76rem] space-y-5 pb-10 pt-2">
+        <div className="mx-auto max-w-7xl space-y-5 pb-10 pt-2">
           {/* Header máy tính */}
           <header className="flex items-start justify-between gap-8 border-b border-[var(--border)] pb-5">
             <div className="space-y-2">
@@ -719,7 +719,7 @@ function WalletsPageSkeleton() {
       </div>
 
       <div className="desktop-page-skeleton">
-        <div className="mx-auto max-w-[76rem] space-y-5">
+        <div className="mx-auto max-w-7xl space-y-5">
           <header className="flex items-start justify-between gap-8 border-b border-[var(--border)] pb-5">
             <div className="space-y-2">
               <Skeleton className="h-7 w-36" />
@@ -884,7 +884,7 @@ function RecurringTransactionsPageSkeleton() {
       </div>
 
       <div className="desktop-page-skeleton">
-        <div className="mx-auto max-w-[76rem] space-y-5">
+        <div className="mx-auto max-w-7xl space-y-5">
           <header className="flex items-start justify-between gap-8 border-b border-[var(--border)] pb-5">
             <div className="space-y-2">
               <Skeleton className="h-7 w-48" />
@@ -1048,7 +1048,7 @@ function WorkspaceSettingsPageSkeleton() {
       </div>
 
       <div className="desktop-page-skeleton workspace-settings-page">
-        <div className="workspace-settings-container mx-auto max-w-[76rem]">
+        <div className="workspace-settings-container mx-auto max-w-7xl">
           <header className="mb-6 flex items-start justify-between gap-8">
             <div className="space-y-2">
               <Skeleton className="h-2.5 w-32" />
@@ -1171,7 +1171,7 @@ function PersonalSettingsPageSkeleton() {
       </div>
 
       <div className="desktop-page-skeleton workspace-settings-page">
-        <div className="workspace-settings-container mx-auto max-w-[76rem]">
+        <div className="workspace-settings-container mx-auto max-w-7xl">
           <header className="mb-6 space-y-2">
             <Skeleton className="h-2.5 w-24" />
             <Skeleton className="h-7 w-44" />
@@ -1519,7 +1519,7 @@ function FinancialPlansPageSkeleton() {
 
       {/* Desktop skeleton layout */}
       <div className="desktop-page-skeleton">
-        <div className="mx-auto max-w-[76rem] space-y-6">
+        <div className="mx-auto max-w-7xl space-y-6">
         {/* Desktop Header */}
         <PageHeaderSkeleton />
 

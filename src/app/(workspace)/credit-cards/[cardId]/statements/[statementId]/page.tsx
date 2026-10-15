@@ -92,7 +92,7 @@ export default async function CreditCardStatementPage({
 
   return (
     <PageContainer>
-      <div className="space-y-3.5 md:space-y-4 lg:mx-auto lg:max-w-[76rem]">
+      <div className="space-y-3.5 md:space-y-4">
         {/* Header & Back Navigation */}
         <header className="flex items-start justify-between gap-2.5 md:items-center">
           <div className="flex min-w-0 items-start gap-2.5 md:gap-3">

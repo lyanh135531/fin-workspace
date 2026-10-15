@@ -472,7 +472,7 @@ function TouchTransactionRow({
           </div>
 
           <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
-            {/^(ví|thẻ)\b/i.test(item.wallet.trim())
+            {/^(ví|thẻ)(\s|$)/i.test(item.wallet.trim())
               ? item.wallet
               : `Ví ${item.wallet}`}
             {item.toWallet ? ` → ${item.toWallet}` : ""}
@@ -1085,9 +1085,14 @@ export function Ledger({
     [wallets],
   );
 
+  const walletKindById = useMemo(
+    () => new Map(wallets.map((w) => [w.id, w.kind ?? "asset"])),
+    [wallets],
+  );
+
   const selectionMode = selected.size > 0;
 
-  function renderTransactionRow(item: LedgerItem) {
+  function renderTransactionRow(item: LedgerItem, compact = false) {
     if (!isDesktop) {
       return (
         <TouchTransactionRow
@@ -1120,6 +1125,122 @@ export function Ledger({
     const isSelected = selected.has(item.id);
     const hasReviewRequest = Boolean(item.pendingChangeRequestId);
     const isDeleteRequest = item.pendingChangeAction === "delete";
+    const isCreditWallet = walletKindById.get(item.walletId) === "credit_card";
+    const formattedWalletName = /^(ví|thẻ)(\s|$)/i.test(item.wallet.trim())
+      ? item.wallet
+      : isCreditWallet
+        ? `Thẻ ${item.wallet}`
+        : `Ví ${item.wallet}`;
+
+    if (compact) {
+      return (
+        <article
+          key={item.id}
+          onClick={() => openTransactionSheet(item)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              openTransactionSheet(item);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label={`${primaryTitle}, ${amountPrefix}${formatAmount(item.amount)} ${currency}`}
+          className={cn(
+            "flex items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] cursor-pointer md:px-5",
+            isSelected &&
+              "bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))]",
+          )}
+        >
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <div
+              className={cn(
+                "flex size-9 shrink-0 items-center justify-center rounded-xl",
+                isTransfer && "bg-[var(--primary)]/10 text-[var(--primary)]",
+                !isTransfer &&
+                  !item.category &&
+                  "bg-[var(--surface-secondary)] text-[var(--text-secondary)]",
+              )}
+              style={
+                !isTransfer && item.category
+                  ? {
+                      backgroundColor: `${item.category.color}18`,
+                      color: item.category.color,
+                    }
+                  : undefined
+              }
+            >
+              {isTransfer ? (
+                <ArrowLeftRight className="size-4" aria-hidden="true" />
+              ) : (
+                <CategoryIcon
+                  category={
+                    item.category ?? {
+                      color: "var(--text-secondary)",
+                      icon: "tag",
+                    }
+                  }
+                  size={16}
+                />
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <strong className="break-words text-sm font-medium leading-snug text-[var(--foreground)]">
+                  {primaryTitle}
+                </strong>
+                {!hasReviewRequest && item.status === "scheduled" && (
+                  <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--info)_14%,var(--surface))] px-2 py-0.5 text-[0.65rem] font-semibold text-[var(--info)]">
+                    Đã lên lịch
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                <span className="break-words leading-snug">
+                  {formattedWalletName}
+                  {item.toWallet ? ` → ${item.toWallet}` : ""} · {item.member}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <strong
+              className={cn(
+                "block break-words text-sm font-semibold leading-snug tabular-nums",
+                isIncome && "text-[var(--income)]",
+                isExpense && "text-[var(--expense)]",
+                isTransfer && "text-[var(--foreground)]",
+              )}
+            >
+              {amountPrefix}
+              {formatAmount(item.amount)} {currency}
+            </strong>
+            <ChevronRight
+              className="size-4 shrink-0 text-[var(--text-muted)]"
+              aria-hidden="true"
+            />
+          </div>
+        </article>
+      );
+    }
+
+    const subtitleText = item.description
+      ? isTransfer
+        ? "Ghi chú chuyển khoản nội bộ"
+        : isIncome
+          ? "Ghi chú khoản thu nhập"
+          : isCreditWallet
+            ? "Chi tiêu qua thẻ tín dụng"
+            : "Ghi chú khoản chi tiêu"
+      : isTransfer
+        ? "Luân chuyển số dư giữa các ví"
+        : isIncome
+          ? "Khoản thu nhập vào ví"
+          : isCreditWallet
+            ? "Giao dịch chi tiêu thẻ tín dụng"
+            : "Giao dịch chi tiêu trực tiếp";
 
     return (
       <article
@@ -1135,30 +1256,34 @@ export function Ledger({
         tabIndex={0}
         aria-label={`${primaryTitle}, ${amountPrefix}${formatAmount(item.amount)} ${currency}`}
         className={cn(
-          "flex items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] cursor-pointer md:px-5",
+          "group grid grid-cols-12 items-center gap-4 px-5 py-3.5 text-left transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] cursor-pointer",
           isSelected &&
             "bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))]",
         )}
       >
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          {canApprove && !requiresReview(item) && (
+        {/* Col 1-5: Checkbox, Luxury Category Icon & Transaction Description */}
+        <div className="col-span-5 flex min-w-0 items-center gap-3.5">
+          {canApprove && (
             <div
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
-              className="mt-1 flex shrink-0 items-center"
+              className="flex shrink-0 items-center"
             >
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={() => toggle(item.id)}
-                aria-label={`Chọn giao dịch ${primaryTitle}`}
-              />
+              {!requiresReview(item) ? (
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => toggle(item.id)}
+                  aria-label={`Chọn giao dịch ${primaryTitle}`}
+                />
+              ) : (
+                <span className="block size-4 shrink-0" aria-hidden="true" />
+              )}
             </div>
           )}
 
-          {/* Category / Type Icon Badge */}
           <div
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-xl",
+              "flex size-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)]/60 transition-transform group-hover:scale-[1.02]",
               isTransfer && "bg-[var(--primary)]/10 text-[var(--primary)]",
               !isTransfer &&
                 !item.category &&
@@ -1183,29 +1308,20 @@ export function Ledger({
                     icon: "tag",
                   }
                 }
-                size={16}
+                size={17}
               />
             )}
           </div>
 
-          {/* Primary Title, Category Badge, Status Badge & Wallet/Member Subtitle */}
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <strong className="break-words text-sm font-medium leading-snug text-[var(--foreground)]">
+              <strong className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
                 {primaryTitle}
               </strong>
 
-              {item.description && item.category && (
-                <span
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.68rem] font-medium"
-                  style={{
-                    backgroundColor: `${item.category.color}16`,
-                    color: item.category.color,
-                  }}
-                >
-                  <span className="break-words leading-snug">
-                    {item.category.name}
-                  </span>
+              {item.isRecurring && (
+                <span className="inline-flex shrink-0 items-center rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+                  Định kỳ
                 </span>
               )}
 
@@ -1235,55 +1351,105 @@ export function Ledger({
               )}
             </div>
 
-            <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[var(--text-muted)]">
-              <span className="break-words leading-snug">
-                {item.wallet}
-                {item.toWallet ? ` → ${item.toWallet}` : ""} · {item.member}
-                {item.isRecurring ? " · Định kỳ" : ""}
-              </span>
+            <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
+              {subtitleText}
             </p>
           </div>
         </div>
 
-        {/* Right-aligned Amount & Chevron */}
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="text-right">
+        {/* Col 6-7: Category / Classification Pill */}
+        <div className="col-span-2 min-w-0">
+          {isTransfer ? (
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]">
+              <ArrowLeftRight className="size-3 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+              <span className="break-words leading-snug">Chuyển khoản</span>
+            </span>
+          ) : item.category ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium"
+              style={{
+                backgroundColor: `${item.category.color}16`,
+                color: item.category.color,
+              }}
+            >
+              <span
+                className="size-1.5 shrink-0 rounded-full"
+                style={{ backgroundColor: item.category.color }}
+                aria-hidden="true"
+              />
+              <span className="break-words leading-snug">
+                {item.category.name}
+              </span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--text-muted)]">
+              <span className="break-words leading-snug">Chưa phân loại</span>
+            </span>
+          )}
+        </div>
+
+        {/* Col 8-9: Source Wallet / Card & Member */}
+        <div className="col-span-2 min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-[var(--foreground)]">
+            {isCreditWallet ? (
+              <CreditCard
+                className="size-3.5 shrink-0 text-[var(--primary)]"
+                aria-hidden="true"
+              />
+            ) : (
+              <Wallet
+                className="size-3.5 shrink-0 text-[var(--text-secondary)]"
+                aria-hidden="true"
+              />
+            )}
+            <span className="break-words leading-snug">
+              {formattedWalletName}
+              {item.toWallet ? ` → ${item.toWallet}` : ""}
+            </span>
+          </div>
+          <p className="mt-0.5 pl-5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
+            Bởi {item.member}
+          </p>
+        </div>
+
+        {/* Col 10-12: Amount & Quick Actions */}
+        <div className="col-span-3 flex items-center justify-end gap-2.5 text-right">
+          <div className="min-w-0">
             <strong
               className={cn(
-                "block break-words text-sm font-semibold leading-snug tabular-nums",
+                "block whitespace-nowrap text-sm font-bold leading-snug tabular-nums",
                 isIncome && "text-[var(--income)]",
                 isExpense && "text-[var(--expense)]",
                 isTransfer && "text-[var(--foreground)]",
               )}
             >
               {amountPrefix}
-              {formatAmount(item.amount)} {currency}
+              {formatAmount(item.amount)}{" "}
+              <span className="text-[11px] font-semibold opacity-75">
+                {currency}
+              </span>
             </strong>
+            <span className="mt-0.5 block text-[11px] text-[var(--text-muted)]">
+              {isIncome ? "Khoản thu" : isExpense ? "Khoản chi" : "Chuyển ví"}
+            </span>
           </div>
-          <ChevronRight
-            className="size-4 shrink-0 text-[var(--text-muted)]"
+
+          <span
+            className="grid size-7 shrink-0 place-items-center rounded-lg border border-transparent text-[var(--text-muted)] transition-colors group-hover:border-[var(--border)] group-hover:bg-[var(--surface-secondary)] group-hover:text-[var(--foreground)]"
             aria-hidden="true"
-          />
+          >
+            <ChevronRight className="size-4" />
+          </span>
         </div>
       </article>
     );
   }
 
   return (
-    <div className="flex flex-col lg:h-full lg:min-h-0 lg:flex-1">
+    <div className="flex flex-col">
       {/* Filter & Search Toolbar */}
-      <div className="flex flex-col gap-2.5 border-b border-[var(--border)] p-3.5 md:p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {canApprove && selectableRows.length > 0 && (
-            <div className="hidden shrink-0 items-center pr-1 lg:flex">
-              <Checkbox
-                checked={allSelected}
-                onCheckedChange={toggleAll}
-                aria-label="Chọn tất cả giao dịch đang hiển thị"
-              />
-            </div>
-          )}
-
+      <div className="flex flex-col gap-2.5 border-b border-[var(--border)] bg-[var(--surface)] p-3.5 md:px-5 md:py-3.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <Search
             containerClassName="min-w-0 flex-1 md:max-w-xs"
             value={query}
@@ -1510,21 +1676,34 @@ export function Ledger({
 
           <div className="ml-auto flex items-center gap-2">
             {canApprove && selected.size > 0 && (
-              <Button
-                variant="destructive"
-                size="icon"
-                type="button"
-                className="relative hidden lg:inline-flex"
-                disabled={busy}
-                onClick={() => setBulkDeleteOpen(true)}
-                aria-label={`Xóa ${selected.size} giao dịch đã chọn`}
-                title={`Xóa ${selected.size} giao dịch đã chọn`}
-              >
-                <Trash2 size={15} />
-                <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-[var(--danger)] text-[0.6rem] font-bold text-[var(--text-on-primary)] tabular-nums">
-                  {selected.size}
+              <div className="hidden items-center gap-1.5 rounded-xl border border-[var(--primary)]/30 bg-[color-mix(in_srgb,var(--primary)_8%,var(--surface))] px-2.5 py-1 lg:flex">
+                <span className="text-xs font-semibold text-[var(--foreground)] tabular-nums">
+                  Đã chọn {selected.size}
                 </span>
-              </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  onClick={() => setSelected(new Set())}
+                  aria-label="Bỏ chọn tất cả"
+                  title="Bỏ chọn tất cả"
+                >
+                  <X size={13} />
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  type="button"
+                  className="size-6"
+                  disabled={busy}
+                  onClick={() => setBulkDeleteOpen(true)}
+                  aria-label={`Xóa ${selected.size} giao dịch đã chọn`}
+                  title={`Xóa ${selected.size} giao dịch đã chọn`}
+                >
+                  <Trash2 size={13} />
+                </Button>
+              </div>
             )}
 
             {!readonly &&
@@ -1540,14 +1719,16 @@ export function Ledger({
                     render={
                       <Button
                         variant="default"
-                        size="icon"
+                        size="sm"
                         disabled={busy || !wallets.length}
                         aria-label="Tạo giao dịch mới"
                         title="Tạo giao dịch mới"
+                        className="h-9 gap-1.5 px-3.5 text-xs font-semibold"
                       />
                     }
                   >
-                    <Plus size={16} />
+                    <Plus size={15} />
+                    <span>Ghi giao dịch</span>
                   </PopoverTrigger>
                   {createDraft && (
                     <DesktopTransactionCreatePopoverContent
@@ -1654,9 +1835,33 @@ export function Ledger({
         )}
       </div>
 
+      {/* Desktop 12-Column Table Header Strip */}
+      {rows.length > 0 && (
+        <div
+          className="hidden border-b border-[var(--border)] bg-[var(--surface-secondary)]/50 px-5 py-2.5 text-[11px] font-semibold tracking-wider text-[var(--text-muted)] uppercase lg:grid lg:grid-cols-12 lg:items-center lg:gap-4"
+          aria-hidden="false"
+        >
+          <div className="col-span-5 flex items-center gap-3.5">
+            {canApprove && selectableRows.length > 0 && (
+              <div className="flex shrink-0 items-center">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={toggleAll}
+                  aria-label="Chọn tất cả giao dịch đang hiển thị"
+                />
+              </div>
+            )}
+            <span>Giao dịch & nội dung</span>
+          </div>
+          <div className="col-span-2">Danh mục</div>
+          <div className="col-span-2">Nguồn tiền · Thành viên</div>
+          <div className="col-span-3 text-right pr-9">Số tiền</div>
+        </div>
+      )}
+
       {/* Unified Transaction List Grouped by Date */}
       <div
-        className="divide-y divide-[var(--border)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain"
+        className="divide-y divide-[var(--border)]"
         aria-label="Danh sách giao dịch"
       >
         {groupTransactionsByDate(rows).map(({ dateKey, label, items }) => {
@@ -1665,27 +1870,52 @@ export function Ledger({
           return (
             <section key={dateKey} className="divide-y divide-[var(--border)]">
               <header className="sticky top-0 z-10 flex items-center justify-between gap-3 bg-[var(--surface-secondary)]/85 px-4 py-2 text-xs backdrop-blur-md md:px-5">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <strong className="break-words text-[0.72rem] font-semibold tracking-wide text-[var(--text-secondary)] uppercase tabular-nums">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="hidden size-1.5 shrink-0 rounded-full bg-[var(--primary)] md:inline-block"
+                    aria-hidden="true"
+                  />
+                  <strong className="break-words text-[0.72rem] font-semibold tracking-wide text-[var(--foreground)] uppercase tabular-nums">
                     {label}
                   </strong>
-                  {items.length > 1 && (
-                    <span className="shrink-0 text-[0.68rem] text-[var(--text-muted)] tabular-nums">
-                      · {items.length} mục
-                    </span>
-                  )}
+                  <span className="shrink-0 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 text-[0.65rem] font-medium text-[var(--text-muted)] tabular-nums">
+                    {items.length} giao dịch
+                  </span>
                 </div>
-                <span className="shrink-0 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--text-secondary)] tabular-nums">
-                  {totalAmount.isPositive()
-                    ? "+"
-                    : totalAmount.isNegative()
-                      ? "−"
-                      : ""}
-                  {formatAmount(totalAmount.abs())} {currency}
-                </span>
+
+                <div className="flex shrink-0 items-center gap-2">
+                  {totals.income.gt(0) && totals.expense.gt(0) && (
+                    <div className="hidden items-center gap-2 text-[0.68rem] font-medium tabular-nums lg:flex">
+                      <span className="text-[var(--income)]">
+                        Thu: +{formatAmount(totals.income)}
+                      </span>
+                      <span className="text-[var(--text-muted)]">·</span>
+                      <span className="text-[var(--expense)]">
+                        Chi: −{formatAmount(totals.expense)}
+                      </span>
+                    </div>
+                  )}
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-0.5 text-[0.7rem] font-semibold tabular-nums",
+                      totalAmount.isPositive()
+                        ? "text-[var(--income)]"
+                        : totalAmount.isNegative()
+                          ? "text-[var(--expense)]"
+                          : "text-[var(--text-secondary)]",
+                    )}
+                  >
+                    {totalAmount.isPositive()
+                      ? "+"
+                      : totalAmount.isNegative()
+                        ? "−"
+                        : ""}
+                    {formatAmount(totalAmount.abs())} {currency}
+                  </span>
+                </div>
               </header>
               <div className="divide-y divide-[var(--border)]">
-                {items.map(renderTransactionRow)}
+                {items.map((item) => renderTransactionRow(item, false))}
               </div>
             </section>
           );
@@ -1707,7 +1937,7 @@ export function Ledger({
       </div>
 
       {/* Pagination Footer */}
-      <footer className="flex min-h-12 shrink-0 items-center justify-between gap-4 border-t border-[var(--border)] px-4 py-2.5 text-xs text-[var(--text-muted)] md:px-5">
+      <footer className="flex min-h-12 shrink-0 items-center justify-between gap-4 border-t border-[var(--border)] bg-[var(--surface-secondary)]/30 px-4 py-2.5 text-xs text-[var(--text-muted)] md:px-5">
         <span className="break-words leading-snug tabular-nums">
           Hiển thị {pageStart}–{pageEnd} / {latestRows.length} giao dịch
           {scheduledRows.length > 0
@@ -1859,7 +2089,7 @@ export function Ledger({
           />
           <div className="min-h-0 flex-1 divide-y divide-[var(--border)] overflow-y-auto">
             {orderedScheduledRows.length > 0 ? (
-              orderedScheduledRows.map(renderTransactionRow)
+              orderedScheduledRows.map((item) => renderTransactionRow(item, true))
             ) : (
               <div className="p-6">
                 <Empty

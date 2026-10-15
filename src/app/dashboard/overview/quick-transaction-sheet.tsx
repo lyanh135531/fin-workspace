@@ -10,6 +10,7 @@ import {
   Plus,
   Wallet,
   WalletCards,
+  X,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -25,6 +26,7 @@ import {
   CategoryTreeSelect,
   DatePicker,
   Empty,
+  Input,
   Loading,
   MoneyInput,
   Select,
@@ -37,6 +39,7 @@ import {
   TabsTrigger,
 } from "@/components/base";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type TransactionType = "income" | "expense" | "transfer";
@@ -282,7 +285,325 @@ export function QuickTransactionSheet({
         : null;
   const transferDisabled = workspace.wallets.length < 2;
 
-  const transactionForm = (
+  const amountToneLabel =
+    type === "expense"
+      ? "Số tiền chi tiêu"
+      : type === "income"
+        ? "Số tiền thu nhập"
+        : "Số tiền chuyển khoản";
+
+  const amountToneColor =
+    type === "expense"
+      ? "text-[var(--expense)]"
+      : type === "income"
+        ? "text-[var(--income)]"
+        : "text-[var(--primary)]";
+
+  const walletSelectField = (
+    <Select
+      label={
+        type === "transfer"
+          ? "Ví gửi"
+          : isCreditCardTransaction
+            ? "Thẻ thanh toán"
+            : "Ví thực hiện"
+      }
+      value={walletId}
+      onValueChange={(nextWalletId) => {
+        setWalletId(nextWalletId);
+        const nextWallet = workspace.wallets.find(
+          (wallet) => wallet.id === nextWalletId,
+        );
+        if (
+          (type === "expense" || type === "transfer") &&
+          nextWallet?.kind === "credit_card"
+        ) {
+          setAllocationWalletId(
+            nextWallet.creditCardProfile?.defaultFundingWalletId ??
+              workspace.wallets.find((wallet) => wallet.kind === "asset")?.id ??
+              "",
+          );
+        }
+        if (nextWalletId === toWalletId) {
+          setToWalletId(destinationWallet(workspace, nextWalletId));
+        }
+      }}
+      placeholder="Chọn ví"
+      options={workspace.wallets.map((wallet) => {
+        const isCard = wallet.kind === "credit_card";
+        return {
+          value: wallet.id,
+          label: wallet.name,
+          content: (
+            <div className="flex w-full items-center justify-between gap-2">
+              <span className="flex min-w-0 items-center gap-2">
+                {isCard ? (
+                  <CreditCard
+                    className="size-4 shrink-0 text-[var(--primary)]"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <Wallet
+                    className="size-4 shrink-0 text-[var(--text-muted)]"
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="break-words leading-snug">{wallet.name}</span>
+              </span>
+              <span
+                className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                  isCard
+                    ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                    : "bg-[var(--surface-secondary)] text-[var(--text-muted)]"
+                }`}
+              >
+                {isCard ? "Thẻ tín dụng" : "Ví tài sản"}
+              </span>
+            </div>
+          ),
+          selectedContent: (
+            <span className="flex min-w-0 items-center gap-2">
+              {isCard ? (
+                <CreditCard
+                  className="size-4 shrink-0 text-[var(--primary)]"
+                  aria-hidden="true"
+                />
+              ) : (
+                <Wallet
+                  className="size-4 shrink-0 text-[var(--text-muted)]"
+                  aria-hidden="true"
+                />
+              )}
+              <span className="break-words leading-snug">{wallet.name}</span>
+              {isCard && (
+                <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
+                  Thẻ tín dụng
+                </span>
+              )}
+            </span>
+          ),
+          disabled: isCard && type === "income",
+        };
+      })}
+    />
+  );
+
+  const destinationOrCategoryField =
+    type === "transfer" ? (
+      <Select
+        label="Ví nhận"
+        value={toWalletId}
+        onValueChange={setToWalletId}
+        placeholder="Chọn ví nhận"
+        options={workspace.wallets.map((wallet) => ({
+          value: wallet.id,
+          label: wallet.name,
+          content: (
+            <div className="flex min-w-0 items-center gap-2">
+              <Wallet
+                className="size-4 shrink-0 text-[var(--text-muted)]"
+                aria-hidden="true"
+              />
+              <span className="break-words leading-snug">{wallet.name}</span>
+            </div>
+          ),
+          selectedContent: (
+            <span className="flex min-w-0 items-center gap-2">
+              <Wallet
+                className="size-4 shrink-0 text-[var(--text-muted)]"
+                aria-hidden="true"
+              />
+              <span className="break-words leading-snug">{wallet.name}</span>
+            </span>
+          ),
+          disabled: wallet.id === walletId || wallet.kind === "credit_card",
+        }))}
+      />
+    ) : (
+      <CategoryTreeSelect
+        label="Danh mục"
+        required={type === "expense"}
+        value={categoryId}
+        onValueChange={setCategoryId}
+        placeholder="Chọn danh mục"
+        categories={categories}
+        emptyOption={
+          type === "expense" ? undefined : { value: "none", label: "Không chọn" }
+        }
+      />
+    );
+
+  const creditCardFundingField = isCreditCardTransaction ? (
+    <Select
+      label="Ví thanh toán thẻ"
+      value={allocationWalletId}
+      onValueChange={setAllocationWalletId}
+      options={workspace.wallets
+        .filter((wallet) => wallet.kind === "asset")
+        .map((wallet) => ({
+          value: wallet.id,
+          label: wallet.name,
+          content: (
+            <div className="flex min-w-0 items-center gap-2">
+              <Wallet
+                className="size-4 shrink-0 text-[var(--text-muted)]"
+                aria-hidden="true"
+              />
+              <span className="break-words leading-snug">{wallet.name}</span>
+            </div>
+          ),
+          selectedContent: (
+            <span className="flex min-w-0 items-center gap-2">
+              <Wallet
+                className="size-4 shrink-0 text-[var(--text-muted)]"
+                aria-hidden="true"
+              />
+              <span className="break-words leading-snug">{wallet.name}</span>
+            </span>
+          ),
+        }))}
+    />
+  ) : null;
+
+  const desktopTransactionForm = (
+    <form
+      onSubmit={submit}
+      aria-busy={pending}
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <div className="grid min-h-0 flex-1 content-start gap-3.5 overflow-y-auto px-5 py-4">
+        <Tabs
+          value={type}
+          onValueChange={(value) => chooseType(value as TransactionType)}
+          className="gap-0"
+        >
+          <TabsList
+            variant="navigation"
+            className="grid w-full grid-cols-3"
+            aria-label="Loại giao dịch"
+          >
+            {transactionTypes.map((item) => {
+              const Icon = item.icon;
+              const disabled = item.value === "transfer" && transferDisabled;
+              return (
+                <TabsTrigger
+                  key={item.value}
+                  value={item.value}
+                  tone={
+                    item.value === "expense"
+                      ? "expense"
+                      : item.value === "income"
+                        ? "income"
+                        : undefined
+                  }
+                  disabled={disabled}
+                >
+                  <Icon size={15} />
+                  <span>{item.label}</span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
+
+        {/* Executive Amount Hero Card */}
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 px-4 py-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={cn(
+                "text-[11px] font-bold tracking-wider uppercase",
+                amountToneColor,
+              )}
+            >
+              {amountToneLabel}
+            </span>
+            {amount && (
+              <button
+                type="button"
+                onClick={() => setAmount("")}
+                aria-label="Xóa số tiền"
+                className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
+              >
+                <X className="size-3" aria-hidden="true" />
+                <span>Xóa</span>
+              </button>
+            )}
+          </div>
+
+          <div className="mt-1">
+            <MoneyInput
+              wrapperClassName="w-full"
+              className="h-11 rounded-none border-0! bg-transparent! pl-0 pr-12 text-left text-3xl font-bold tracking-tight text-[var(--foreground)] ring-0! focus-visible:border-0! focus-visible:ring-0!"
+              autoFocus
+              value={amount}
+              onValueChange={setAmount}
+              placeholder="0"
+              aria-label="Số tiền giao dịch"
+            />
+          </div>
+        </div>
+
+        {/* Symmetrical Grouped Details Card */}
+        {workspace.wallets.length ? (
+          <div className="grid gap-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/35 p-4">
+            <div className="grid grid-cols-2 gap-3.5">
+              {walletSelectField}
+              {destinationOrCategoryField}
+            </div>
+
+            {creditCardFundingField}
+
+            <div className="grid grid-cols-12 gap-3.5">
+              <div className="col-span-5">
+                <DatePicker
+                  label="Ngày giao dịch"
+                  value={date}
+                  onValueChange={setDate}
+                />
+              </div>
+              <div className="col-span-7">
+                <Input
+                  label="Nội dung ghi chú"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Ăn trưa, cà phê, nhận lương..."
+                  maxLength={2_000}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <Empty
+            variant="compact"
+            icon={WalletCards}
+            title="Nhóm chưa có ví hoạt động"
+            description="Tạo hoặc kích hoạt ví trước khi nhập giao dịch."
+            role="status"
+          />
+        )}
+
+        {statusHint && (
+          <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+            {statusHint}
+          </p>
+        )}
+      </div>
+
+      <SheetFooter
+        className="px-5 py-3.5"
+        onCancel={() => setOpen(false)}
+        cancelLabel="Hủy"
+        cancelDisabled={pending}
+        submitLabel="Lưu giao dịch"
+        submittingLabel="Đang lưu..."
+        isSubmitting={pending}
+        submitDisabled={pending || !workspace.wallets.length}
+        submitType="submit"
+      />
+    </form>
+  );
+
+  const mobileTransactionForm = (
     <form
       className="quick-transaction-form"
       onSubmit={submit}
@@ -335,107 +656,8 @@ export function QuickTransactionSheet({
 
         {workspace.wallets.length ? (
           <div className="quick-transaction-grid">
-            <Select
-              label={
-                type === "transfer"
-                  ? "Ví gửi"
-                  : isCreditCardTransaction
-                    ? "Thẻ thanh toán"
-                    : "Ví"
-              }
-              value={walletId}
-              onValueChange={(nextWalletId) => {
-                setWalletId(nextWalletId);
-                const nextWallet = workspace.wallets.find((wallet) => wallet.id === nextWalletId);
-                if ((type === "expense" || type === "transfer") && nextWallet?.kind === "credit_card") {
-                  setAllocationWalletId(nextWallet.creditCardProfile?.defaultFundingWalletId ?? workspace.wallets.find((wallet) => wallet.kind === "asset")?.id ?? "");
-                }
-                if (nextWalletId === toWalletId) {
-                  setToWalletId(destinationWallet(workspace, nextWalletId));
-                }
-              }}
-              placeholder="Chọn ví"
-              options={workspace.wallets.map((wallet) => {
-                const isCard = wallet.kind === "credit_card";
-                return {
-                  value: wallet.id,
-                  label: wallet.name,
-                  content: (
-                    <div className="flex w-full items-center justify-between gap-2">
-                      <span className="flex items-center gap-2 min-w-0">
-                        {isCard ? (
-                          <CreditCard className="size-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
-                        ) : (
-                          <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                        )}
-                        <span className="break-words leading-snug">{wallet.name}</span>
-                      </span>
-                      <span
-                        className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                          isCard
-                            ? "bg-[var(--primary)]/10 text-[var(--primary)]"
-                            : "bg-[var(--surface-secondary)] text-[var(--text-muted)]"
-                        }`}
-                      >
-                        {isCard ? "Thẻ tín dụng" : "Ví tài sản"}
-                      </span>
-                    </div>
-                  ),
-                  selectedContent: (
-                    <span className="flex items-center gap-2 min-w-0">
-                      {isCard ? (
-                        <CreditCard className="size-4 shrink-0 text-[var(--primary)]" aria-hidden="true" />
-                      ) : (
-                        <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                      )}
-                      <span className="break-words leading-snug">{wallet.name}</span>
-                      {isCard && (
-                        <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
-                          Thẻ tín dụng
-                        </span>
-                      )}
-                    </span>
-                  ),
-                  disabled: isCard && type === "income",
-                };
-              })}
-            />
-
-            {type === "transfer" ? (
-              <Select
-                label="Ví nhận"
-                value={toWalletId}
-                onValueChange={setToWalletId}
-                placeholder="Chọn ví nhận"
-                options={workspace.wallets.map((wallet) => ({
-                  value: wallet.id,
-                  label: wallet.name,
-                  content: (
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                      <span className="break-words leading-snug">{wallet.name}</span>
-                    </div>
-                  ),
-                  selectedContent: (
-                    <span className="flex items-center gap-2 min-w-0">
-                      <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                      <span className="break-words leading-snug">{wallet.name}</span>
-                    </span>
-                  ),
-                  disabled: wallet.id === walletId || wallet.kind === "credit_card",
-                }))}
-              />
-            ) : (
-              <CategoryTreeSelect
-                label="Danh mục"
-                required={type === "expense"}
-                value={categoryId}
-                onValueChange={setCategoryId}
-                placeholder="Chọn danh mục"
-                categories={categories}
-                emptyOption={type === "expense" ? undefined : { value: "none", label: "Không chọn" }}
-              />
-            )}
+            {walletSelectField}
+            {destinationOrCategoryField}
           </div>
         ) : (
           <Empty
@@ -447,32 +669,8 @@ export function QuickTransactionSheet({
           />
         )}
 
-        {isCreditCardTransaction && (
-          <div className="mt-3">
-            <Select
-              label="Ví thanh toán thẻ"
-              value={allocationWalletId}
-              onValueChange={setAllocationWalletId}
-              options={workspace.wallets
-                .filter((wallet) => wallet.kind === "asset")
-                .map((wallet) => ({
-                  value: wallet.id,
-                  label: wallet.name,
-                  content: (
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                      <span className="break-words leading-snug">{wallet.name}</span>
-                    </div>
-                  ),
-                  selectedContent: (
-                    <span className="flex items-center gap-2 min-w-0">
-                      <Wallet className="size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-                      <span className="break-words leading-snug">{wallet.name}</span>
-                    </span>
-                  ),
-                }))}
-            />
-          </div>
+        {creditCardFundingField && (
+          <div className="mt-3">{creditCardFundingField}</div>
         )}
 
         {!isDesktop && (
@@ -491,7 +689,7 @@ export function QuickTransactionSheet({
           </Button>
         )}
 
-        {(isDesktop || showDetails) && (
+        {showDetails && (
           <div className="quick-details">
             <DatePicker
               label="Ngày giao dịch"
@@ -542,16 +740,22 @@ export function QuickTransactionSheet({
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent
-        side="bottom"
+        side={isDesktop ? "center" : "bottom"}
+        size={isDesktop ? "wide" : "default"}
+        spacing="flush"
         elevation="flat"
-        className="quick-transaction-sheet"
+        className={
+          isDesktop
+            ? "w-[min(34rem,calc(100vw-2rem))]"
+            : "quick-transaction-sheet"
+        }
       >
         <SheetHeader
           icon={WalletCards}
           title="Nhập nhanh giao dịch"
           description="Ghi nhận nhanh khoản thu, chi hoặc chuyển khoản."
         />
-        {transactionForm}
+        {isDesktop ? desktopTransactionForm : mobileTransactionForm}
       </SheetContent>
     </Sheet>
   );
