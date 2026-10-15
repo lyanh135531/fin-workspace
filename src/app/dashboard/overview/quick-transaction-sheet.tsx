@@ -106,6 +106,17 @@ function destinationWallet(workspace: QuickWorkspace, walletId: string) {
   return workspace.wallets.find((wallet) => wallet.kind === "asset" && wallet.id !== walletId)?.id ?? "";
 }
 
+function defaultCategoryForType(
+  workspace: QuickWorkspace | undefined,
+  type: TransactionType,
+) {
+  if (!workspace || type === "transfer") return "none";
+  return (
+    workspace.categories.find((category) => category.type === type)?.id ??
+    "none"
+  );
+}
+
 function isAdminRole(role: string) {
   return role === "ADMIN";
 }
@@ -143,7 +154,9 @@ export function QuickTransactionSheet({
         )
       : "",
   );
-  const [categoryId, setCategoryId] = useState("none");
+  const [categoryId, setCategoryId] = useState(() =>
+    defaultCategoryForType(initialWorkspace, "expense"),
+  );
   const [allocationWalletId, setAllocationWalletId] = useState(
     initialWorkspace?.wallets.find((wallet) => wallet.kind === "asset")?.id ?? "",
   );
@@ -157,16 +170,24 @@ export function QuickTransactionSheet({
       if (event instanceof CustomEvent && event.detail?.type) {
         const nextType = event.detail.type as TransactionType;
         setType(nextType);
+        setCategoryId(defaultCategoryForType(initialWorkspace, nextType));
         if (nextType === "transfer" && initialWorkspace) {
           setToWalletId(destinationWallet(initialWorkspace, walletId));
         }
+      } else {
+        setCategoryId((prev) => {
+          const isValid = initialWorkspace?.categories.some(
+            (category) => category.id === prev && category.type === type,
+          );
+          return isValid ? prev : defaultCategoryForType(initialWorkspace, type);
+        });
       }
       setOpen(true);
     }
     window.addEventListener("open-quick-transaction", handleOpenEvent);
     return () =>
       window.removeEventListener("open-quick-transaction", handleOpenEvent);
-  }, [initialWorkspace, walletId]);
+  }, [initialWorkspace, type, walletId]);
 
   useEffect(() => {
     if (!shouldOpenFromQuery) return;
@@ -191,7 +212,7 @@ export function QuickTransactionSheet({
   function chooseType(nextType: TransactionType) {
     if (!workspace) return;
     setType(nextType);
-    setCategoryId("none");
+    setCategoryId(defaultCategoryForType(workspace, nextType));
     if (nextType === "income" && workspace.wallets.find((wallet) => wallet.id === walletId)?.kind === "credit_card") {
       setWalletId(workspace.wallets.find((wallet) => wallet.kind === "asset")?.id ?? "");
     }
@@ -203,7 +224,7 @@ export function QuickTransactionSheet({
   function resetEntry() {
     setAmount("");
     setDescription("");
-    setCategoryId("none");
+    setCategoryId(defaultCategoryForType(workspace, type));
     setDate(workspace?.businessDate ?? "");
     setShowDetails(false);
   }

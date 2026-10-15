@@ -1951,7 +1951,8 @@ function TransactionEditorForm({
     onChange({
       type,
       walletId: nextWalletId,
-      categoryId: "none",
+      categoryId:
+        categoriesForTransactionType(categories, type)[0]?.id ?? "none",
       allocations:
         type === "expense" && isCard
           ? [{ walletId: defaultFundingId, amount: draft.amount }]

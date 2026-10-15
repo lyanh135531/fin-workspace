@@ -205,7 +205,8 @@ export function DesktopTransactionCreateDraft({
     onChange({
       type,
       walletId: nextWallet?.id ?? draft.walletId,
-      categoryId: "none",
+      categoryId:
+        categoriesForTransactionType(categories, type)[0]?.id ?? "none",
       allocations: (type === "expense" || type === "transfer") && currentWallet?.kind === "credit_card"
         ? allocationForCard(currentWallet, draft.amount)
         : [],

@@ -153,12 +153,17 @@ function categoriesForTransactionType(
     : categories.filter((category) => category.type === type);
 }
 
-function emptyDraft(wallets: Option[], businessDate: string): Draft {
+function emptyDraft(
+  wallets: Option[],
+  categories: CategoryOption[],
+  businessDate: string,
+): Draft {
   const walletId = wallets[0]?.id ?? "";
   return {
     description: "",
     type: "expense",
-    categoryId: "none",
+    categoryId:
+      categoriesForTransactionType(categories, "expense")[0]?.id ?? "none",
     walletId,
     toWalletId: defaultDestination(wallets, walletId),
     amount: "",
@@ -338,7 +343,7 @@ export function RecurringTransactionsManager({
 
   function beginCreate() {
     setEditingId(null);
-    setDraft(emptyDraft(wallets, workspace.businessDate));
+    setDraft(emptyDraft(wallets, categories, workspace.businessDate));
   }
 
   function beginEdit(schedule: Schedule) {
@@ -1327,9 +1332,15 @@ function RecurringEditor({
       {/* 1. Equal-Width 3-Column Transaction Type Tabs */}
       <Tabs
         value={draft.type}
-        onValueChange={(value) =>
-          onChange({ type: value as TransactionType, categoryId: "none" })
-        }
+        onValueChange={(value) => {
+          const nextType = value as TransactionType;
+          onChange({
+            type: nextType,
+            categoryId:
+              categoriesForTransactionType(categories, nextType)[0]?.id ??
+              "none",
+          });
+        }}
       >
         <TabsList
           variant="navigation"
