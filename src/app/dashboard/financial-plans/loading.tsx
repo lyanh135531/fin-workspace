@@ -1,10 +1,5 @@
-import { FinancialPlansPageSkeleton, PageContainer } from "@/components/base";
+import { FinancialPlansPageSkeleton } from "@/components/base";
 
 export default function FinancialPlansLoading() {
-  return (
-    <PageContainer>
-      <FinancialPlansPageSkeleton />
-    </PageContainer>
-  );
+  return <FinancialPlansPageSkeleton />;
 }
-

@@ -1,9 +1,5 @@
-import { Loading } from "@/components/base";
+import { PortalTablePageSkeleton } from "@/components/base";
 
 export default function PortalUsersLoading() {
-  return (
-    <div className="grid min-h-64 place-items-center">
-      <Loading label="Đang tải danh sách người dùng..." />
-    </div>
-  );
+  return <PortalTablePageSkeleton label="Đang tải danh sách người dùng..." />;
 }
