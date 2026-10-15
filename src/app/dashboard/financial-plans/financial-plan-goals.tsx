@@ -59,6 +59,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { formatAmount } from "@/lib/format";
+import { usePrivacyMask } from "@/lib/privacy-mask";
 import { cn } from "@/lib/utils";
 
 function subscribeDesktop(callback: () => void) {
@@ -181,6 +182,7 @@ export function FinancialPlanGoals({
   businessMonth: string;
   canManage: boolean;
 }) {
+  usePrivacyMask();
   const router = useRouter();
   const isDesktop = useSyncExternalStore(
     subscribeDesktop,
@@ -233,18 +235,17 @@ export function FinancialPlanGoals({
   }
 
   return (
-    <section className="grid gap-4" aria-labelledby="financial-goals-title">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className="grid gap-3.5" aria-labelledby="financial-goals-title">
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="min-w-0 flex-1">
           <h2
             id="financial-goals-title"
-            className="break-words text-base font-semibold leading-snug text-[var(--foreground)] md:text-lg"
+            className="break-words text-sm font-semibold leading-snug text-[var(--foreground)] md:text-base"
           >
-            Mục tiêu tích lũy ({goals.length})
+            Danh mục mục tiêu tích lũy ({goals.length})
           </h2>
           <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-secondary)]">
-            Theo dõi tiến độ từ ví tiết kiệm liên kết hoặc các khoản đóng góp đã
-            xác nhận.
+            Tự động phân bổ ưu tiên theo thứ tự từ trên xuống hoặc liên kết trực tiếp số dư ví tiết kiệm.
           </p>
         </div>
         {canManage && mutable && (
@@ -284,7 +285,7 @@ export function FinancialPlanGoals({
       ) : (
         <div
           className={cn(
-            "grid grid-cols-1 gap-4",
+            "grid grid-cols-1 gap-3.5",
             goals.length > 1 && "lg:grid-cols-2",
           )}
         >
@@ -311,9 +312,9 @@ export function FinancialPlanGoals({
             const cardBody = (
               <>
                 <CardHeader className="pb-2">
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
                     <span
-                      className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)] text-[var(--primary)]"
+                      className="grid size-8 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--primary)]"
                       aria-hidden="true"
                     >
                       {goal.trackingMode === "linked_wallet" ? (
@@ -323,40 +324,45 @@ export function FinancialPlanGoals({
                       )}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <CardTitle className="min-w-0 break-words leading-snug">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {goals.length > 1 && (
+                          <span className="inline-flex items-center rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--text-secondary)] tabular-nums">
+                            #{index + 1}
+                          </span>
+                        )}
+                        <CardTitle className="min-w-0 break-words text-sm font-bold leading-snug md:text-base">
                           {goal.name}
                         </CardTitle>
                         <span
                           className={cn(
-                            "inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-xs font-medium",
+                            "inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[11px] font-semibold",
                             HEALTH[goal.health].className,
                           )}
                         >
                           {HEALTH[goal.health].label}
                         </span>
                       </div>
-                      <CardDescription className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-snug">
+                      <CardDescription className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs leading-snug">
                         <span className="shrink-0">
-                          Hạn: {monthLabel(goal.targetMonth)}
+                          Hạn {monthLabel(goal.targetMonth)}
                         </span>
-                        <span aria-hidden="true">•</span>
+                        <span aria-hidden="true">·</span>
                         <span className="min-w-0 break-words">
                           {goal.linkedWallet
-                            ? `Ví liên kết: ${goal.linkedWallet.name}`
-                            : "Ghi nhận thủ công"}
+                            ? `Ví: ${goal.linkedWallet.name}`
+                            : "Đóng góp thủ công"}
                         </span>
                       </CardDescription>
                     </div>
                   </div>
 
-                  {/* Desktop-Only Inline Icon Action Cluster */}
+                  {/* Quick Action Cluster (visible on all screens) */}
                   <CardAction
-                    className="hidden shrink-0 items-center gap-1 lg:flex"
+                    className="flex shrink-0 items-center gap-1"
                     onClick={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-1">
+                    <div className="flex items-center gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 p-0.5">
                       {goal.status === "active" &&
                         goal.trackingMode === "manual" && (
                           <Button
@@ -406,7 +412,7 @@ export function FinancialPlanGoals({
                       {hasManageActions && (
                         <>
                           {goals.length > 1 && (
-                            <>
+                            <div className="hidden items-center gap-0.5 lg:flex">
                               <Button
                                 variant="icon"
                                 size="icon"
@@ -427,7 +433,7 @@ export function FinancialPlanGoals({
                               >
                                 <ArrowDown aria-hidden="true" />
                               </Button>
-                            </>
+                            </div>
                           )}
                           <Button
                             variant="icon"
@@ -457,22 +463,19 @@ export function FinancialPlanGoals({
                   </CardAction>
                 </CardHeader>
 
-                <CardContent className="grid gap-3.5 pt-0">
+                <CardContent className="grid gap-3 pt-0">
                   {/* Saved vs Target + Progress Bar */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <div className="min-w-0">
-                        <span className="text-xs text-[var(--text-secondary)]">
-                          Đã tích lũy:{" "}
-                        </span>
-                        <strong className="text-base font-bold text-[var(--foreground)] tabular-nums shrink-0 md:text-lg">
+                        <strong className="text-base font-bold text-[var(--foreground)] tabular-nums shrink-0">
                           {money(goal.actualProgress, currency)}
                         </strong>
                         <span className="ml-1.5 text-xs text-[var(--text-muted)] tabular-nums shrink-0">
                           / {money(goal.targetAmount, currency)}
                         </span>
                       </div>
-                      <span className="text-xs font-bold text-[var(--primary)] tabular-nums shrink-0">
+                      <span className="rounded-md bg-[var(--primary-soft)] px-2 py-0.5 text-xs font-bold text-[var(--primary)] tabular-nums shrink-0">
                         {goal.progressPercentage}%
                       </span>
                     </div>
@@ -483,7 +486,7 @@ export function FinancialPlanGoals({
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={Math.round(progressPct)}
-                      className="h-2 overflow-hidden rounded-full bg-[var(--surface-secondary)]"
+                      className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-secondary)]"
                     >
                       <div
                         className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-300 motion-reduce:transition-none"
@@ -492,34 +495,34 @@ export function FinancialPlanGoals({
                     </div>
                   </div>
 
-                  {/* Key Monthly Metrics: Mục tiêu tiết kiệm tháng này & Mức cần bù thêm / Dự kiến */}
-                  <dl className="grid grid-cols-1 gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 sm:grid-cols-2">
+                  {/* Key Monthly Metrics: 2-column compact strip */}
+                  <dl className="grid grid-cols-2 gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 p-2.5">
                     <div className="min-w-0">
-                      <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
+                      <dt className="break-words text-[11px] leading-snug text-[var(--text-secondary)]">
                         Mục tiêu tiết kiệm tháng này
                       </dt>
-                      <dd className="mt-1 text-sm font-bold text-[var(--foreground)] tabular-nums shrink-0">
+                      <dd className="mt-0.5 text-xs font-bold text-[var(--foreground)] tabular-nums shrink-0 sm:text-sm">
                         {money(goal.requiredThisMonth, currency)}
                       </dd>
                     </div>
 
                     {shortfall ? (
                       <div className="min-w-0">
-                        <dt className="break-words text-xs font-medium leading-snug text-[var(--warning)]">
+                        <dt className="break-words text-[11px] font-medium leading-snug text-[var(--warning)]">
                           Mức cần bù thêm
                         </dt>
-                        <dd className="mt-1 text-sm font-bold text-[var(--warning)] tabular-nums shrink-0">
+                        <dd className="mt-0.5 text-xs font-bold text-[var(--warning)] tabular-nums shrink-0 sm:text-sm">
                           {money(goal.shortfallThisMonth, currency)}
                         </dd>
                       </div>
                     ) : (
                       <div className="min-w-0">
-                        <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
+                        <dt className="break-words text-[11px] leading-snug text-[var(--text-secondary)]">
                           Dự kiến khi đến hạn
                         </dt>
                         <dd
                           className={cn(
-                            "mt-1 text-sm font-bold tabular-nums shrink-0",
+                            "mt-0.5 text-xs font-bold tabular-nums shrink-0 sm:text-sm",
                             goal.health === "at_risk" ||
                               goal.health === "overdue"
                               ? "text-[var(--warning)]"

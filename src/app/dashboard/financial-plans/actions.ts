@@ -80,6 +80,24 @@ export async function createFinancialPlanWithGoalsAction(input: unknown) {
   } catch (error) { return failure(error, "Không thể tạo kế hoạch đa mục tiêu.", "financial_plan.v2_create_failed"); }
 }
 
+export async function createAndActivateFinancialPlanAction(input: unknown) {
+  try {
+    const actor = await adminActor();
+    const parsed = createFinancialPlanWithGoalsSchema.parse(input);
+    const record = await createFinancialPlanWithGoals(actor.userId, actor.workspaceId, parsed);
+    try {
+      await activateFinancialPlan(actor.userId, actor.workspaceId, record.id);
+      refresh();
+      return { ok: true as const, id: record.id, activated: true as const };
+    } catch {
+      refresh();
+      return { ok: true as const, id: record.id, activated: false as const };
+    }
+  } catch (error) {
+    return failure(error, "Không thể tạo và kích hoạt kế hoạch.", "financial_plan.create_and_activate_failed");
+  }
+}
+
 export async function createFinancialPlanGoalAction(input: unknown) {
   try {
     const actor = await adminActor();
