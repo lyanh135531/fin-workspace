@@ -728,11 +728,6 @@ export function WalletManagement({
     const reservedBalanceDec = isCredit
       ? cardDebtDec
       : new Decimal(wallet.reservedBalance || 0);
-    const usableBalanceDec = isCredit
-      ? cardDebtDec.negated()
-      : wallet.availableBalance !== undefined
-        ? new Decimal(wallet.availableBalance)
-        : actualBalanceDec.minus(reservedBalanceDec);
 
     const menuItems = (
       <DropdownMenuContent
@@ -901,7 +896,7 @@ export function WalletManagement({
         <div className="space-y-2.5 border-t border-[var(--border)] pt-3">
           <div className="flex items-baseline justify-between gap-3 md:block md:space-y-1">
             <span className="text-xs font-medium text-[var(--text-secondary)]">
-              {isCredit ? "Dư nợ hiện tại" : "Số dư có thể dùng"}
+              {isCredit ? "Dư nợ hiện tại" : "Số dư hiện tại"}
             </span>
             <div className="flex flex-wrap items-baseline justify-end gap-1 md:justify-start md:gap-1.5">
               <strong
@@ -909,13 +904,13 @@ export function WalletManagement({
                   "text-base font-bold tracking-tight tabular-nums md:text-xl",
                   isCredit
                     ? "text-rose-600 dark:text-rose-400"
-                    : usableBalanceDec.lt(0)
+                    : actualBalanceDec.lt(0)
                       ? "text-[var(--destructive)]"
                       : "text-[var(--foreground)]",
                 )}
               >
                 {showBalance
-                  ? `${isCredit && cardDebtDec.gt(0) ? "-" : ""}${formatAmount(isCredit ? cardDebtDec : usableBalanceDec)}`
+                  ? `${isCredit && cardDebtDec.gt(0) ? "-" : ""}${formatAmount(isCredit ? cardDebtDec : actualBalanceDec)}`
                   : "••••••••"}
               </strong>
               <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)] md:text-xs">
@@ -933,11 +928,11 @@ export function WalletManagement({
           >
             <div className="min-w-0">
               <span className="block text-[11px] text-[var(--text-muted)]">
-                {isCredit ? "Dư nợ thực tế" : "Số dư thực tế"}
+                {isCredit ? "Dư nợ thực tế" : "Số dư ban đầu"}
               </span>
               <strong className="mt-0.5 block font-semibold tabular-nums text-[var(--foreground)]">
                 {showBalance
-                  ? `${formatAmount(actualBalanceDec)} ${workspace.currency}`
+                  ? `${formatAmount(isCredit ? actualBalanceDec : wallet.openingBalance)} ${workspace.currency}`
                   : "••••••"}
               </strong>
             </div>
@@ -1601,16 +1596,11 @@ export function WalletManagement({
                       <span className="block text-[11px] font-medium text-[var(--text-muted)]">
                         {editingWallet.kind === "credit_card"
                           ? "Dư nợ hiện tại"
-                          : "Số dư có thể dùng"}
+                          : "Số dư hiện tại"}
                       </span>
                       <div className="mt-0.5 flex flex-wrap items-baseline gap-1">
                         <strong className="text-lg font-bold tracking-tight tabular-nums text-[var(--foreground)]">
-                          {formatAmount(
-                            editingWallet.kind === "credit_card"
-                              ? editingWallet.currentBalance
-                              : (editingWallet.availableBalance ??
-                                  editingWallet.currentBalance),
-                          )}
+                          {formatAmount(editingWallet.currentBalance)}
                         </strong>
                         <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)]">
                           {workspace.currency}
@@ -1826,7 +1816,7 @@ export function WalletManagement({
               <SheetHeader
                 icon={WalletCards}
                 title={detailWallet.name}
-                description="Chi tiết số dư có thể dùng, số dư thực tế và tiền chờ thanh toán thẻ."
+                description="Chi tiết số dư hiện tại, số dư ban đầu và tiền chờ thanh toán thẻ."
               />
 
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 md:p-5">
@@ -1834,16 +1824,11 @@ export function WalletManagement({
                   <span className="block text-xs font-medium text-[var(--text-secondary)]">
                     {detailWallet.kind === "credit_card"
                       ? "Tiền chờ thanh toán thẻ (Dư nợ hiện tại)"
-                      : "Số dư có thể dùng"}
+                      : "Số dư hiện tại"}
                   </span>
                   <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
                     <strong className="text-2xl font-bold tabular-nums text-[var(--foreground)]">
-                      {formatAmount(
-                        detailWallet.kind === "credit_card"
-                          ? detailWallet.currentBalance
-                          : (detailWallet.availableBalance ??
-                              detailWallet.currentBalance),
-                      )}
+                      {formatAmount(detailWallet.currentBalance)}
                     </strong>
                     <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
                       {workspace.currency}

@@ -1851,11 +1851,8 @@ export function OverviewDashboard({
                               )
                             ) : committedDec.gt(0) ? (
                               <>
-                                Thực tế:{" "}
-                                {privacyMasked
-                                  ? "••••"
-                                  : formatAmount(wallet.balance)}{" "}
-                                · Chờ trả thẻ:{" "}
+                                {walletSubtypeLabel(wallet.assetSubtype)} · Chờ
+                                thanh toán thẻ:{" "}
                                 {privacyMasked
                                   ? "••••"
                                   : formatAmount(wallet.committed)}
@@ -1879,11 +1876,11 @@ export function OverviewDashboard({
                           {displayAmount(
                             isCard
                               ? Decimal.max(balanceDec, 0)
-                              : wallet.available,
+                              : wallet.balance,
                           )}
                         </strong>
                         <span className="block text-[0.65rem] text-[var(--text-muted)]">
-                          {isCard ? "Dư nợ hiện tại" : "Có thể dùng"}
+                          {isCard ? "Dư nợ hiện tại" : "Số dư hiện tại"}
                         </span>
                       </div>
                     </div>
