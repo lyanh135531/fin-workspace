@@ -55,10 +55,16 @@ export async function deleteWorkspaceAction(password: string) {
       throw new AppError("VALIDATION_ERROR", "Vui lòng nhập mật khẩu xác nhận.");
     }
     const user = await prisma.user.findFirst({ where: { id: actor.userId, status: "active", deletedAt: null } });
-    if (!user?.passwordHash || !(await argon2.verify(user.passwordHash, password))) {
+    if (!user?.passwordHash) {
+      throw new AppError("FORBIDDEN", "Tài khoản của bạn chưa thiết lập mật khẩu. Vui lòng tạo mật khẩu tại mục Tài khoản trước khi xóa nhóm.");
+    }
+    if (!(await argon2.verify(user.passwordHash, password))) {
       throw new AppError("FORBIDDEN", "Mật khẩu xác nhận không chính xác.");
     }
     await deleteWorkspaceForUser(actor.userId, actor.workspaceId);
+    const store = await cookies();
+    store.delete(activeWorkspaceCookie);
+    revalidatePath("/dashboard", "layout");
     revalidatePath("/overview");
     revalidatePath("/settings/workspace");
     return { ok: true, message: null };

@@ -54,7 +54,12 @@ export default async function CreditCardStatementPage({
               },
             },
           },
-          installment: { select: { installmentNo: true, plan: { select: { termCount: true } } } },
+          installment: {
+            select: {
+              installmentNo: true,
+              plan: { select: { termCount: true, description: true } },
+            },
+          },
         },
         orderBy: { createdAt: "asc" },
       },
@@ -81,10 +86,13 @@ export default async function CreditCardStatementPage({
     (sum, p) => sum.plus(p.amount.toString()),
     new Decimal(0),
   );
-  const remainingDebt = Decimal.max(
-    new Decimal(statement.totalAmount.toString()).minus(totalPaid),
-    0,
-  );
+  const remainingDebt =
+    statement.status === "paid"
+      ? new Decimal(0)
+      : Decimal.max(
+          new Decimal(statement.totalAmount.toString()).minus(totalPaid),
+          0,
+        );
   const isTrulyPaid = statement.status === "paid" && statement.paidAt !== null;
   const isRolledOver = statement.status === "paid" && statement.paidAt === null;
   const isPartiallyPaid =
@@ -126,21 +134,25 @@ export default async function CreditCardStatementPage({
   let excessPaidPool = unattributedPaid;
   const netByWalletId = new Map<string, { name: string; amount: Decimal }>();
   for (const [walletId, entry] of grossByWalletId) {
-    const grossPositive = Decimal.max(entry.amount, 0);
     const paidForWallet = paidByWalletId.get(walletId) ?? new Decimal(0);
-    if (paidForWallet.gt(grossPositive)) {
-      excessPaidPool = excessPaidPool.plus(paidForWallet.minus(grossPositive));
+    const walletNet = entry.amount.minus(paidForWallet);
+    if (walletNet.lt(0)) {
+      excessPaidPool = excessPaidPool.plus(walletNet.abs());
       netByWalletId.set(walletId, { name: entry.name, amount: new Decimal(0) });
     } else {
       netByWalletId.set(walletId, {
         name: entry.name,
-        amount: grossPositive.minus(paidForWallet),
+        amount: walletNet,
       });
     }
   }
 
   const byWallet = new Map<string, Decimal>();
   for (const [, entry] of netByWalletId) {
+    if (statement.status === "paid") {
+      byWallet.set(entry.name, new Decimal(0));
+      continue;
+    }
     let netAmount = entry.amount;
     if (excessPaidPool.gt(0) && netAmount.gt(0)) {
       const deduct = Decimal.min(netAmount, excessPaidPool);
@@ -355,6 +367,7 @@ export default async function CreditCardStatementPage({
               const transaction = item.obligationEntry.transaction;
               const label =
                 transaction?.description ??
+                item.installment?.plan.description ??
                 (item.isCarry ? "Dư nợ chuyển từ kỳ trước" : "Điều chỉnh dư nợ thẻ");
 
               return (
@@ -404,6 +417,7 @@ export default async function CreditCardStatementPage({
                   const transaction = item.obligationEntry.transaction;
                   const label =
                     transaction?.description ??
+                    item.installment?.plan.description ??
                     (item.isCarry ? "Dư nợ chuyển từ kỳ trước" : "Điều chỉnh dư nợ thẻ");
 
                   return (

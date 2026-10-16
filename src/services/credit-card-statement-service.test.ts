@@ -1,6 +1,6 @@
 import Decimal from "decimal.js";
 import { describe, expect, it, vi } from "vitest";
-import { createStatementForCycle, shareForImportedInstallment, statementPaymentDetails } from "@/services/credit-card-statement-service";
+import { createStatementForCycle, refreshHistoricalCardStatements, shareForImportedInstallment, statementPaymentDetails } from "@/services/credit-card-statement-service";
 import type { Prisma } from "@/generated/prisma/client";
 
 vi.mock("@/lib/env", () => ({ env: { DATABASE_URL: "postgresql://test", APP_TIME_ZONE: "Asia/Ho_Chi_Minh" } }));
@@ -282,6 +282,48 @@ describe("credit card statement payments", () => {
       }),
     ]);
     expect(statement.totalAmount.toString()).toBe("200");
+  });
+
+  it("excludes installmentFeePlan obligations from regular billing in refreshHistoricalCardStatements", async () => {
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      creditCardProfile: {
+        findFirst: vi.fn().mockResolvedValue({
+          walletId: "card-wallet-1",
+          statementClosingDay: 20,
+          paymentDueDay: 5,
+          statements: [{ cycleEndDate: new Date("2026-09-20T00:00:00.000Z") }],
+          obligations: [{ postedDate: new Date("2026-09-10T00:00:00.000Z") }],
+          installmentPlans: [],
+        }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          walletId: "card-wallet-1",
+          statementClosingDay: 20,
+          paymentDueDay: 5,
+        }),
+      },
+      creditCardObligationEntry: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      creditCardStatement: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    await refreshHistoricalCardStatements(tx, "workspace-1", "card-wallet-1", "2026-09-20");
+
+    expect(tx.creditCardObligationEntry.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          installmentPlanId: null,
+          OR: [
+            { transactionId: null },
+            { transaction: { installmentPlan: null, installmentFeePlan: null } },
+          ],
+        }),
+      }),
+    );
   });
 });
 

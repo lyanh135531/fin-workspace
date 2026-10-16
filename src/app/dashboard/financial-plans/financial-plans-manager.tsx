@@ -461,6 +461,7 @@ export function FinancialPlansManager({
   usePrivacyMask();
   const router = useRouter();
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editorMode, setEditorMode] = useState<"create" | "edit">("edit");
   const [deadlineOpen, setDeadlineOpen] = useState(false);
   const [allocationOpen, setAllocationOpen] = useState(false);
   const [planPickerOpen, setPlanPickerOpen] = useState(false);
@@ -501,6 +502,10 @@ export function FinancialPlansManager({
     ) ??
     running?.months.find((month) => !month.closed) ??
     running?.months.at(-1);
+  const nextAllocationMonth =
+    running?.months.find(
+      (month) => month.month === nextMonth(running.businessMonth),
+    ) ?? currentPlanMonth;
 
   return (
     <div className="grid gap-4">
@@ -596,6 +601,7 @@ export function FinancialPlansManager({
                   canManage && !activeExists
                     ? () => {
                         setPlanPickerOpen(false);
+                        setEditorMode("create");
                         setEditorOpen(true);
                       }
                     : undefined
@@ -651,7 +657,13 @@ export function FinancialPlansManager({
               }
               action={
                 canManage ? (
-                  <Button size="lg" onClick={() => setEditorOpen(true)}>
+                  <Button
+                    size="lg"
+                    onClick={() => {
+                      setEditorMode("create");
+                      setEditorOpen(true);
+                    }}
+                  >
                     <Plus aria-hidden="true" />
                     <span>Tạo kế hoạch đầu tiên</span>
                   </Button>
@@ -667,7 +679,10 @@ export function FinancialPlansManager({
               currency={currency}
               isMobile={isMobile}
               disabled={isPending}
-              onEdit={() => setEditorOpen(true)}
+              onEdit={() => {
+                setEditorMode("edit");
+                setEditorOpen(true);
+              }}
               onOpenPlanPicker={() => setPlanPickerOpen(true)}
               onActivate={() =>
                 runAction(
@@ -710,7 +725,10 @@ export function FinancialPlansManager({
             currentMonth={currentPlanMonth}
             isMobile={isMobile}
             disabled={isPending}
-            onCreatePlan={() => setEditorOpen(true)}
+            onCreatePlan={() => {
+              setEditorMode("create");
+              setEditorOpen(true);
+            }}
             onEditDeadline={() => setDeadlineOpen(true)}
             onEditAllocation={() => setAllocationOpen(true)}
             onOpenPlanPicker={() => setPlanPickerOpen(true)}
@@ -743,10 +761,16 @@ export function FinancialPlansManager({
           open={editorOpen}
           onOpenChange={setEditorOpen}
           businessMonth={businessMonth}
-          plan={selectedPlan?.status === "draft" ? selectedPlan : null}
+          plan={
+            editorMode === "edit" && selectedPlan?.status === "draft"
+              ? selectedPlan
+              : null
+          }
           canAutoActivate={!activeExists}
           hasMultipleGoals={
-            selectedPlan?.status === "draft" && financialGoals.length > 1
+            editorMode === "edit" &&
+            selectedPlan?.status === "draft" &&
+            financialGoals.length > 1
           }
           isMobile={isMobile}
           disabled={isPending}
@@ -784,7 +808,7 @@ export function FinancialPlansManager({
             <AllocationSheet
               open={allocationOpen}
               onOpenChange={setAllocationOpen}
-              initialRatios={ratiosFromMonth(currentPlanMonth)}
+              initialRatios={ratiosFromMonth(nextAllocationMonth)}
               referenceBudget={currentPlanMonth?.allocatableGrossBudget}
               currency={currency}
               isMobile={isMobile}

@@ -83,4 +83,26 @@ describe("financial plan ledger projection", () => {
       }),
     );
   });
+
+  it("reverses credit_card_refund by subtracting amount when reconstructing historical workspace balance", async () => {
+    const before = new Date("2026-09-01T00:00:00.000Z");
+    const tx = {
+      workspaceWallet: {
+        findMany: vi.fn().mockResolvedValue([
+          { walletId: "w-asset", wallet: { currentBalance: new Decimal(1000), kind: "asset" } },
+          // After a 40 refund reduced card debt from 300 to 260, current net worth is 1000 - 260 = 740
+          { walletId: "w-card", wallet: { currentBalance: new Decimal(260), kind: "credit_card" } },
+        ]),
+      },
+      transaction: {
+        findMany: vi.fn().mockResolvedValue([
+          { type: "expense", purpose: "credit_card_refund", walletId: "w-card", toWalletId: null, amount: new Decimal(40) },
+        ]),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    // Historical balance before the refund should be 740 - 40 = 700 (i.e. 1000 - 300)
+    const balance = await getWorkspaceBalance(tx, "workspace", before);
+    expect(balance.toFixed(0)).toBe("700");
+  });
 });

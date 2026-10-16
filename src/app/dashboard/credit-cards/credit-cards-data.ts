@@ -6,7 +6,7 @@ import {
   FundingWallet,
 } from "@/app/dashboard/wallets/credit-card-overview";
 import { firstStatementOnOrAfter } from "@/domain/credit-card/installments";
-import { workspaceCapabilities } from "@/domain/role-policy";
+import { isAdminRole, workspaceCapabilities } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { prisma } from "@/lib/prisma";
@@ -32,6 +32,7 @@ export async function getCreditCardsData() {
     include: { workspace: true, role: true },
   });
   if (!membership) redirect("/overview");
+  const isAdmin = isAdminRole(membership.role.code);
 
   await generateWorkspaceCreditCardStatements(
     workspaceId,
@@ -504,16 +505,19 @@ export async function getCreditCardsData() {
           transaction.creditCardObligationEntries.some(
             (entry) => entry.paymentAllocations.length > 0,
           );
+        const isOwnerOrAdmin = isAdmin || transaction.memberId === membership.id;
         const canModify =
+          isOwnerOrAdmin &&
           transaction.purpose === "standard" &&
           transaction.workflowStatus !== "rejected" &&
           !transaction.installmentPlan &&
           !transaction.creditCardStatementId &&
           transaction.refundTransactions.length === 0;
         const canDelete =
-          transaction.purpose === "credit_card_payment" ||
-          (canModify && !isPaidOrClosed) ||
-          (transaction.purpose === "credit_card_refund" && !isPaidOrClosed);
+          transaction.purpose === "credit_card_payment"
+            ? isAdmin
+            : (canModify && !isPaidOrClosed) ||
+              (isOwnerOrAdmin && transaction.purpose === "credit_card_refund" && !isPaidOrClosed);
         return {
           id: transaction.id,
           type: transaction.type,
@@ -542,7 +546,7 @@ export async function getCreditCardsData() {
                 entry.statementItems.length === 0,
             ),
           canDelete,
-          canEdit: canModify && !isInPaidStatement,
+          canEdit: canModify && !isPaidOrClosed,
           installmentPlanId: transaction.installmentPlan?.id ?? null,
           refundableAmount: transaction.purpose === "standard"
             ? Decimal.max(

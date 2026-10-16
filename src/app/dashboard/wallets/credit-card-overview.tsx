@@ -971,11 +971,11 @@ function CreditCardPanel({
 
   function handleSaveEdit() {
     if (!editingActivity || !editWalletId || !editAmount || !editDate) return;
-    const selectedWallet = wallets?.find((w) => w.id === editWalletId);
-    const isCreditCard = selectedWallet?.kind === "credit_card";
+    const selectedEditWallet = wallets?.find((w) => w.id === editWalletId);
+    const isCreditCard = selectedEditWallet?.kind === "credit_card";
     const txType = editingActivity.type ?? "expense";
     const buildAllocations = () => {
-      if (!isCreditCard) return undefined;
+      if (!isCreditCard || txType === "income") return undefined;
       const originalWalletId = editingActivity.walletId || card.id;
       const existingAllocations = editingActivity.allocations ?? [];
       const nextTotal = new Decimal(editAmount);
@@ -1022,6 +1022,10 @@ function CreditCardPanel({
         },
       ];
     };
+    const allocationsPayload =
+      selectedEditWallet?.kind === "credit_card" && txType !== "income"
+        ? buildAllocations()
+        : undefined;
     startTransition(async () => {
       const res = await updateTransactionAction(
         workspaceId,
@@ -1034,12 +1038,19 @@ function CreditCardPanel({
           type: txType,
           categoryId: txType === "expense" ? (editCategoryId || undefined) : undefined,
           description: editActivityDescription.trim() || undefined,
-          allocations: buildAllocations(),
+          allocations: allocationsPayload,
         },
         "Sửa giao dịch từ trang Thẻ tín dụng",
       );
       if (res.ok) {
-        toast.success("Đã cập nhật giao dịch thành công.");
+        const isRequested =
+          res.kind === "requested" ||
+          (res as { data?: { kind?: string } }).data?.kind === "requested";
+        toast.success(
+          isRequested
+            ? "Đã gửi yêu cầu chỉnh sửa giao dịch chờ Quản trị viên duyệt."
+            : "Đã cập nhật giao dịch thành công.",
+        );
         setEditingActivity(null);
         setShowEditDetails(false);
       } else {
@@ -3887,8 +3898,13 @@ function CreditCardPanel({
               "Xóa giao dịch nhầm trên thẻ tín dụng",
             );
             if (res.ok) {
+              const isRequested =
+                res.kind === "requested" ||
+                (res as { data?: { kind?: string } }).data?.kind === "requested";
               toast.success(
-                `Đã xóa giao dịch${deletingActivity.description ? ` “${deletingActivity.description}”` : ""}.`,
+                isRequested
+                  ? "Đã gửi yêu cầu xóa giao dịch chờ Quản trị viên duyệt."
+                  : `Đã xóa giao dịch "${deletingActivity.description || "giao dịch"}".`,
               );
               setDeletingActivity(null);
             } else {

@@ -45,7 +45,7 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
           <Input id="member-username" label="Tên đăng nhập" required name="username" minLength={3} maxLength={80} autoComplete="username" placeholder="minh"/>
         </div>
         <div className="grid gap-2">
-          <Input id="member-password" label="Mật khẩu ban đầu" required name="password" type="password" minLength={6} maxLength={128} autoComplete="new-password" placeholder="Tối thiểu 6 ký tự"/>
+          <Input id="member-password" label="Mật khẩu ban đầu" required name="password" type="password" minLength={8} maxLength={128} autoComplete="new-password" placeholder="Tối thiểu 8 ký tự"/>
         </div>
         <fieldset className="rounded-xl border border-[var(--border)] p-4 md:col-span-2">
           <legend className="px-1 text-sm font-medium text-[var(--foreground)]">Nhóm được quyền tham gia</legend>

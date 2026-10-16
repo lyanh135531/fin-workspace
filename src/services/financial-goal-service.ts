@@ -102,7 +102,29 @@ export async function getPlanGoalProgressSummary(tx: TransactionClient, planId: 
     totalProgress = totalProgress.plus(goal.status === "completed" ? goal.targetAmount.toString() : liveProgress);
     workspaceReserved = workspaceReserved.plus(liveProgress);
   }
-  return { totalProgress, workspaceReserved, hasGoals: goals.length > 0 };
+  const manualGoalIds = goals.filter((goal) => goal.trackingMode === "manual").map((goal) => goal.id);
+  let openingProgress = ZERO;
+  if (manualGoalIds.length > 0) {
+    const openingAgg = await tx.financialGoalFundingEntry.aggregate({
+      where: {
+        goalId: { in: manualGoalIds },
+        status: "approved",
+        kind: { in: ["opening", "adjustment"] },
+        reversedBy: { none: {} },
+      },
+      _sum: { amount: true },
+    });
+    openingProgress = Decimal.min(
+      Decimal.max(openingAgg?._sum?.amount?.toString() ?? 0, ZERO),
+      totalProgress,
+    );
+  }
+  return {
+    totalProgress,
+    workspaceReserved,
+    openingProgress: openingProgress.toFixed(0),
+    hasGoals: goals.length > 0,
+  };
 }
 
 async function managedGoal(tx: TransactionClient, workspaceId: string, goalId: string) {
@@ -114,10 +136,10 @@ async function managedGoal(tx: TransactionClient, workspaceId: string, goalId: s
   return goal;
 }
 
-async function syncPlanAggregate(tx: TransactionClient, planId: string) {
+export async function syncPlanAggregate(tx: TransactionClient, planId: string) {
   const plan = await tx.financialPlan.findFirst?.({
     where: { id: planId, deletedAt: null },
-    select: { targetMonth: true },
+    select: { targetMonth: true, status: true },
   });
   const goals = await tx.financialPlanGoal.findMany({
     where: { financialPlanId: planId, deletedAt: null, status: { in: ["draft", "active", "completed"] } },
@@ -128,9 +150,12 @@ async function syncPlanAggregate(tx: TransactionClient, planId: string) {
   let progress = ZERO;
   const activeGoals = goals.filter((goal) => goal.status === "draft" || goal.status === "active");
   const monthGoals = activeGoals.length > 0 ? activeGoals : goals;
-  let targetMonth = plan?.targetMonth && plan.targetMonth > monthGoals[0].targetMonth
-    ? plan.targetMonth
-    : monthGoals[0].targetMonth;
+  let targetMonth =
+    plan?.status === "draft"
+      ? monthGoals[0].targetMonth
+      : plan?.targetMonth && plan.targetMonth > monthGoals[0].targetMonth
+        ? plan.targetMonth
+        : monthGoals[0].targetMonth;
   for (const goal of goals) {
     target = target.plus(goal.targetAmount.toString());
     progress = progress.plus(goal.status === "completed"
@@ -366,17 +391,31 @@ export async function finishFinancialPlanGoal(userId: string, workspaceId: strin
   await requireWorkspaceMember(userId, workspaceId, true);
   return prisma.$transaction(async (tx) => {
     const goal = await managedGoal(tx, workspaceId, goalId);
+    const now = new Date();
+    if (goal.status === "draft" && status === "cancelled") {
+      const count = await tx.financialPlanGoal.count({
+        where: { financialPlanId: goal.financialPlanId, deletedAt: null },
+      });
+      if (count <= 1) {
+        throw new AppError("VALIDATION_ERROR", "Kế hoạch phải có ít nhất 1 mục tiêu.");
+      }
+      const updated = await tx.financialPlanGoal.update({
+        where: { id: goal.id },
+        data: { status: "cancelled", cancelledAt: now, deletedAt: now },
+      });
+      await syncPlanAggregate(tx, goal.financialPlanId);
+      await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "financial_goal.cancelled", entityType: "financial_plan_goal", entityId: goal.id } });
+      return updated;
+    }
     if (goal.status !== "active") throw new AppError("CONFLICT", "Chỉ mục tiêu đang chạy mới có thể kết thúc.");
     const progress = await goalProgress(tx, goal);
     if (status === "completed" && progress.lessThan(goal.targetAmount.toString())) throw new AppError("VALIDATION_ERROR", "Mục tiêu chưa đủ tiền để hoàn thành.");
-    const now = new Date();
     const updated = await tx.financialPlanGoal.update({ where: { id: goal.id }, data: { status, ...(status === "completed" ? { completedAt: now } : { cancelledAt: now }) } });
+    await syncPlanAggregate(tx, goal.financialPlanId);
     const remaining = await tx.financialPlanGoal.count({ where: { financialPlanId: goal.financialPlanId, status: "active", deletedAt: null } });
     if (remaining === 0) {
       const completed = await tx.financialPlanGoal.count({ where: { financialPlanId: goal.financialPlanId, status: "completed", deletedAt: null } });
       await tx.financialPlan.update({ where: { id: goal.financialPlanId }, data: completed > 0 ? { status: "completed", completedAt: now } : { status: "cancelled", cancelledAt: now } });
-    } else {
-      await syncPlanAggregate(tx, goal.financialPlanId);
     }
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: `financial_goal.${status}`, entityType: "financial_plan_goal", entityId: goal.id } });
     return updated;

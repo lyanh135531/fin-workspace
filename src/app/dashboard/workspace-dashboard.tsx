@@ -126,7 +126,10 @@ export async function WorkspaceDashboard({
     canRequestDelete:
       item.purpose === "credit_card_payment"
         ? isAdmin
-        : isAdmin || item.memberId === membership.id,
+        : item.purpose === "credit_card_installment_fee"
+          ? false
+          : (isAdmin || item.memberId === membership.id) &&
+            item.workflowStatus !== "rejected",
     hasPendingChange: item.changeRequests.length > 0,
     pendingChangeRequestId: item.changeRequests[0]?.id ?? null,
     pendingChangeAction: getTransactionChangeAction(
@@ -147,6 +150,10 @@ export async function WorkspaceDashboard({
         amount: item.amount.toString(),
         description: item.description,
         date: item.date.toISOString().slice(0, 10),
+        allocations: item.creditCardAllocations.map((alloc) => ({
+          walletId: alloc.fundingWalletId,
+          amount: alloc.amount.toString(),
+        })),
       },
       changeLookups,
     ),

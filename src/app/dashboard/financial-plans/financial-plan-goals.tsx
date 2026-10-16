@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  cancelFinancialPlanGoalAction,
   createFinancialGoalFundingAction,
   createFinancialPlanGoalAction,
   finishFinancialPlanGoalAction,
@@ -448,18 +449,28 @@ export function FinancialPlanGoals({
                           </Button>
                         </>
                       )}
-                      {canManage && goal.status === "active" && (
-                        <Button
-                          variant="destructiveIcon"
-                          size="icon"
-                          onClick={() => setCancellingGoal(goal)}
-                          disabled={pending}
-                          aria-label={`Hủy mục tiêu ${goal.name}`}
-                          title="Hủy mục tiêu"
-                        >
-                          <Trash2 aria-hidden="true" />
-                        </Button>
-                      )}
+                      {canManage &&
+                        (goal.status === "active" ||
+                          (goal.status === "draft" && goals.length > 1)) && (
+                          <Button
+                            variant="destructiveIcon"
+                            size="icon"
+                            onClick={() => setCancellingGoal(goal)}
+                            disabled={pending}
+                            aria-label={
+                              goal.status === "draft"
+                                ? `Xóa mục tiêu ${goal.name}`
+                                : `Hủy mục tiêu ${goal.name}`
+                            }
+                            title={
+                              goal.status === "draft"
+                                ? "Xóa mục tiêu"
+                                : "Hủy mục tiêu"
+                            }
+                          >
+                            <Trash2 aria-hidden="true" />
+                          </Button>
+                        )}
                     </div>
                   </CardAction>
                 </CardHeader>
@@ -692,21 +703,27 @@ export function FinancialPlanGoals({
                       <span>Hoàn thành mục tiêu</span>
                     </DropdownMenuItem>
                   )}
-                  {canManage && goal.status === "active" && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={() => {
-                          setMenuGoalId(null);
-                          setCancellingGoal(goal);
-                        }}
-                      >
-                        <Trash2 className="size-4" aria-hidden="true" />
-                        <span>Hủy mục tiêu</span>
-                      </DropdownMenuItem>
-                    </>
-                  )}
+                  {canManage &&
+                    (goal.status === "active" ||
+                      (goal.status === "draft" && goals.length > 1)) && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => {
+                            setMenuGoalId(null);
+                            setCancellingGoal(goal);
+                          }}
+                        >
+                          <Trash2 className="size-4" aria-hidden="true" />
+                          <span>
+                            {goal.status === "draft"
+                              ? "Xóa mục tiêu"
+                              : "Hủy mục tiêu"}
+                          </span>
+                        </DropdownMenuItem>
+                      </>
+                    )}
                 </DropdownMenuContent>
               </DropdownMenu>
             );
@@ -778,21 +795,30 @@ export function FinancialPlanGoals({
           if (!open) setCancellingGoal(null);
         }}
         trigger={null}
-        title="Hủy mục tiêu tích lũy?"
-        description="Mục tiêu sẽ chuyển sang trạng thái chỉ đọc. Số tiền đã tích lũy và lịch sử đóng góp vẫn được lưu giữ."
-        confirmLabel="Hủy mục tiêu"
+        title={
+          cancellingGoal?.status === "draft"
+            ? "Xóa mục tiêu tích lũy?"
+            : "Hủy mục tiêu tích lũy?"
+        }
+        description={
+          cancellingGoal?.status === "draft"
+            ? "Mục tiêu sẽ bị xóa khỏi bản nháp kế hoạch."
+            : "Mục tiêu sẽ chuyển sang trạng thái chỉ đọc. Số tiền đã tích lũy và lịch sử đóng góp vẫn được lưu giữ."
+        }
+        confirmLabel={
+          cancellingGoal?.status === "draft" ? "Xóa mục tiêu" : "Hủy mục tiêu"
+        }
         ariaLabel={
-          cancellingGoal ? `Hủy mục tiêu ${cancellingGoal.name}` : "Hủy mục tiêu"
+          cancellingGoal
+            ? `${cancellingGoal.status === "draft" ? "Xóa" : "Hủy"} mục tiêu ${cancellingGoal.name}`
+            : "Hủy mục tiêu"
         }
         onConfirm={() => {
           if (!cancellingGoal) return;
+          const isDraftGoal = cancellingGoal.status === "draft";
           run(
-            () =>
-              finishFinancialPlanGoalAction({
-                goalId: cancellingGoal.id,
-                status: "cancelled",
-              }),
-            "Đã hủy mục tiêu.",
+            () => cancelFinancialPlanGoalAction(cancellingGoal.id),
+            isDraftGoal ? "Đã xóa mục tiêu." : "Đã hủy mục tiêu.",
           );
           setCancellingGoal(null);
         }}

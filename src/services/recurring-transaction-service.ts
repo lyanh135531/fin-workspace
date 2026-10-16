@@ -30,10 +30,13 @@ function dayOfMonthFromStartDate(startDate: string) {
   return Number(startDate.slice(8, 10));
 }
 
-function firstExecutionInRange(input: Pick<RecurringTransactionInput, "startDate" | "endDate">) {
+function firstExecutionInRange(
+  input: Pick<RecurringTransactionInput, "startDate" | "endDate">,
+  dayOfMonth = dayOfMonthFromStartDate(input.startDate),
+) {
   const firstExecutionDate = firstExecutionOnOrAfter(
     input.startDate,
-    dayOfMonthFromStartDate(input.startDate),
+    dayOfMonth,
   );
   if (input.endDate && firstExecutionDate > input.endDate) {
     throw new AppError(
@@ -190,12 +193,28 @@ export async function updateRecurringTransaction(
     }
     await requireRecurringTransactionResources(tx, workspaceId, input);
     const dayOfMonth = dayOfMonthFromStartDate(input.startDate);
-    const timingChanged = current.dayOfMonth !== dayOfMonth
-      || asBusinessDate(current.startDate) !== input.startDate
-      || (current.endDate ? asBusinessDate(current.endDate) : undefined) !== input.endDate;
-    const nextExecutionDate = timingChanged
-      ? asDatabaseDate(firstExecutionInRange(input))
-      : current.nextExecutionDate;
+    const startOrDayChanged =
+      current.dayOfMonth !== dayOfMonth ||
+      asBusinessDate(current.startDate) !== input.startDate;
+    const endDateChanged =
+      (current.endDate ? asBusinessDate(current.endDate) : undefined) !==
+      input.endDate;
+    const timingChanged = startOrDayChanged || endDateChanged;
+    let nextExecutionDate = current.nextExecutionDate;
+    if (startOrDayChanged) {
+      const effectiveStart =
+        current.approvalStatus === "approved" && input.startDate < today
+          ? today
+          : input.startDate;
+      nextExecutionDate = asDatabaseDate(
+        firstExecutionInRange(
+          { startDate: effectiveStart, endDate: input.endDate },
+          dayOfMonth,
+        ),
+      );
+    } else if (endDateChanged && input.endDate) {
+      firstExecutionInRange(input, dayOfMonth);
+    }
     const record = await tx.recurringTransaction.update({
       where: { id: current.id },
       data: {

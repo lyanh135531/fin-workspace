@@ -170,6 +170,13 @@ export async function finishFinancialPlanGoalAction(input: unknown) {
   } catch (error) { return failure(error, "Không thể kết thúc mục tiêu.", "financial_goal.finish_failed"); }
 }
 
+export async function cancelFinancialPlanGoalAction(goalId: unknown) {
+  const id = typeof goalId === "object" && goalId !== null && "goalId" in goalId
+    ? (goalId as { goalId: unknown }).goalId
+    : goalId;
+  return finishFinancialPlanGoalAction({ goalId: id, status: "cancelled" });
+}
+
 export async function previewFinancialPlanAction(input: unknown) {
   try {
     await requireAcceptedLegalSession();

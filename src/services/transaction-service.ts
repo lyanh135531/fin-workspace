@@ -645,7 +645,14 @@ async function softDelete(tx: TransactionClient, workspaceId: string, record: Tr
     });
   }
 
-  const claimed = await tx.transaction.updateMany({ where: { id: current.id, deletedAt: null }, data: { deletedAt: new Date() } });
+  const claimed = await tx.transaction.updateMany({
+    where: { id: current.id, deletedAt: null },
+    data: {
+      deletedAt: new Date(),
+      recurringTransactionId: null,
+      recurringPeriod: null,
+    },
+  });
   if (claimed.count !== 1) throw new AppError("CONFLICT", "Giao dịch đã được xóa trước đó.");
   if (current.workflowStatus === "approved") {
     await applyBalance(tx, current, true);
@@ -664,6 +671,24 @@ async function findWorkspaceTransaction(tx: TransactionClient, workspaceId: stri
   await lockTransaction(tx, transactionId);
   const record = await tx.transaction.findFirst({
     where: { id: transactionId, deletedAt: null, member: { workspaceId } },
+    include: {
+      installmentPlan: { select: { id: true, status: true } },
+      creditCardStatement: { select: { id: true, status: true } },
+      creditCardAllocations: { select: { fundingWalletId: true, amount: true } },
+      refundTransactions: { where: { deletedAt: null }, select: { id: true } },
+      creditCardObligationEntries: {
+        include: {
+          paymentAllocations: { select: { id: true, amount: true } },
+          statementItems: {
+            select: {
+              id: true,
+              statementId: true,
+              statement: { select: { id: true, status: true } },
+            },
+          },
+        },
+      },
+    },
   });
   if (!record) throw new AppError("NOT_FOUND", "Không tìm thấy giao dịch trong nhóm này.");
   return record;
@@ -913,8 +938,71 @@ export async function updateTransaction(
     if (record.workflowStatus === "rejected") {
       throw new AppError("CONFLICT", "Không thể chỉnh sửa giao dịch đã bị từ chối.");
     }
-    if (record.purpose && record.purpose !== "standard") throw new AppError("VALIDATION_ERROR", "Giao dịch thẻ chuyên biệt không thể sửa trực tiếp.");
+    if (record.purpose && record.purpose !== "standard") {
+      throw new AppError("CONFLICT", "Giao dịch thẻ chuyên biệt không thể sửa trực tiếp.");
+    }
     const resolved = resolveTransactionInput(input, member.workspace.timeZone, now);
+    if (!isAdminRole(member.role.code)) {
+      if (
+        record.installmentPlan ||
+        (record.creditCardStatement &&
+          (!("status" in record.creditCardStatement) ||
+            record.creditCardStatement.status === "paid"))
+      ) {
+        throw new AppError(
+          "CONFLICT",
+          "Giao dịch đã vào kế hoạch trả góp hoặc sao kê và không thể sửa.",
+        );
+      }
+      if ((record.refundTransactions ?? []).length > 0) {
+        throw new AppError(
+          "CONFLICT",
+          "Giao dịch đã có hoàn tiền và không thể sửa; hãy kiểm tra lại các khoản hoàn tiền liên kết.",
+        );
+      }
+      const hasBilledOrPaidObligations =
+        Boolean(record.creditCardStatement) ||
+        (record.creditCardObligationEntries ?? []).some(
+          (entry) =>
+            (entry.paymentAllocations?.length ?? 0) > 0 ||
+            (entry.statementItems?.length ?? 0) > 0,
+        );
+      if (hasBilledOrPaidObligations) {
+        const canonicalAllocs = (
+          items: Array<{ walletId: string; amount: Decimal.Value }>,
+        ) =>
+          items
+            .map(
+              (a) =>
+                `${a.walletId}:${new Decimal(a.amount.toString()).toFixed()}`,
+            )
+            .sort()
+            .join("|");
+        const currentAllocs = (record.creditCardAllocations ?? []).map((a) => ({
+          walletId: a.fundingWalletId,
+          amount: a.amount,
+        }));
+        const allocationsChanged =
+          resolved.allocations !== undefined &&
+          (record.creditCardAllocations !== undefined
+            ? canonicalAllocs(currentAllocs) !==
+              canonicalAllocs(resolved.allocations)
+            : resolved.allocations.length > 0);
+        const financialFieldChanged =
+          !new Decimal(record.amount.toString()).eq(resolved.amount) ||
+          record.walletId !== resolved.walletId ||
+          (record.toWalletId ?? null) !== (resolved.toWalletId ?? null) ||
+          record.type !== resolved.type ||
+          asBusinessDate(record.date) !== resolved.date ||
+          allocationsChanged;
+        if (financialFieldChanged) {
+          throw new AppError(
+            "CONFLICT",
+            "Giao dịch thẻ đã lên sao kê hoặc đã thanh toán chỉ được phép đổi mô tả hoặc danh mục.",
+          );
+        }
+      }
+    }
     await requireTransactionResources(tx, workspaceId, resolved);
     if (isAdminRole(member.role.code)) {
       const updated = await applyUpdate(tx, workspaceId, record, resolved, member.workspace.timeZone, now);
@@ -942,7 +1030,52 @@ export async function deleteOrRequestTransaction(userId: string, workspaceId: st
       await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.deleted", entityType: "transaction", entityId: record.id, metadata: { workflowStatus: record.workflowStatus, balanceReversed: record.workflowStatus === "approved" } } });
       return { kind: "deleted" as const, id: record.id };
     }
-    if (record.purpose && record.purpose !== "standard" && record.purpose !== "credit_card_refund") throw new AppError("VALIDATION_ERROR", "Giao dịch thẻ chuyên biệt không thể xóa trực tiếp.");
+    if (
+      record.purpose &&
+      record.purpose !== "standard" &&
+      record.purpose !== "credit_card_refund"
+    ) {
+      throw new AppError("CONFLICT", "Giao dịch thẻ chuyên biệt không thể xóa trực tiếp.");
+    }
+    if (
+      record.installmentPlan ||
+      (record.creditCardStatement &&
+        (!("status" in record.creditCardStatement) ||
+          record.creditCardStatement.status === "paid"))
+    ) {
+      throw new AppError(
+        "CONFLICT",
+        "Giao dịch đã vào kế hoạch trả góp hoặc sao kê và không thể xóa.",
+      );
+    }
+    if ((record.refundTransactions ?? []).length > 0) {
+      throw new AppError(
+        "CONFLICT",
+        "Giao dịch đã có hoàn tiền và không thể xóa; hãy xóa các khoản hoàn tiền trước.",
+      );
+    }
+    if (
+      (record.creditCardObligationEntries ?? []).some(
+        (entry) => (entry.paymentAllocations?.length ?? 0) > 0,
+      )
+    ) {
+      throw new AppError(
+        "CONFLICT",
+        "Giao dịch đã được thanh toán và không thể xóa.",
+      );
+    }
+    if (
+      (record.creditCardObligationEntries ?? []).some((entry) =>
+        (entry.statementItems ?? []).some(
+          (item) => item.statement.status === "paid",
+        ),
+      )
+    ) {
+      throw new AppError(
+        "CONFLICT",
+        "Giao dịch thuộc kỳ sao kê đã thanh toán và không thể xóa.",
+      );
+    }
     if (!reason.trim()) {
       throw new AppError(
         "VALIDATION_ERROR",

@@ -1138,7 +1138,18 @@ function CategoryForm({
   function handleNameChange(val: string) {
     setName(val);
     if (!category) {
-      setCode(slugifyCode(val));
+      const slug = slugifyCode(val);
+      if (slug) {
+        setCode(slug);
+      } else if (val.trim().length > 0) {
+        const hex = Array.from(val.trim())
+          .map((c) => c.codePointAt(0)?.toString(16).toUpperCase() ?? "")
+          .join("")
+          .slice(0, 12);
+        setCode(`DANH_MUC_${hex}`);
+      } else {
+        setCode("");
+      }
     }
   }
 
@@ -1185,7 +1196,17 @@ function CategoryForm({
             <CategoryTreeSelect
               name="parentId"
               value={parentId}
-              onValueChange={setParentId}
+              onValueChange={(newParentId) => {
+                setParentId(newParentId);
+                if (newParentId !== "none") {
+                  const selectedParent = categories.find(
+                    (item) => item.id === newParentId,
+                  );
+                  if (selectedParent?.jarCode) {
+                    setSelectedJarCode(selectedParent.jarCode);
+                  }
+                }
+              }}
               label="Danh mục cha"
               emptyOption={{ value: "none", label: "Không có (Danh mục gốc)" }}
               categories={categories.filter(

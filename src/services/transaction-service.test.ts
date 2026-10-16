@@ -449,7 +449,11 @@ describe("transaction deletion approval", () => {
     });
     expect(tx.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: "transaction-1", deletedAt: null },
-      data: { deletedAt: expect.any(Date) },
+      data: {
+        deletedAt: expect.any(Date),
+        recurringTransactionId: null,
+        recurringPeriod: null,
+      },
     });
     const balanceUpdate = tx.wallet.update.mock.calls[0]?.[0];
     expect(balanceUpdate.where).toEqual({ id: "wallet-1" });
@@ -911,6 +915,118 @@ describe("transaction deletion approval", () => {
       expect(tx.creditCardObligationEntry.deleteMany).toHaveBeenCalledWith({
         where: { transactionId: "transaction-1", paymentAllocations: { none: {} } },
       });
+    });
+
+    it("prevents a member from requesting financial field changes on a billed or paid card transaction", async () => {
+      const billedTx = {
+        ...creditCardTransaction,
+        creditCardAllocations: [{ fundingWalletId: "wallet-asset-1", amount: new Decimal("125000") }],
+        creditCardObligationEntries: [
+          {
+            id: "obl-1",
+            paymentAllocations: [],
+            statementItems: [
+              { id: "item-1", statementId: "stmt-1", statement: { id: "stmt-1", status: "issued" as const } },
+            ],
+          },
+        ],
+      };
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: { findFirst: vi.fn().mockResolvedValue(billedTx) },
+        workspaceWallet: {
+          findMany: vi.fn().mockImplementation(({ where }: { where: { walletId: { in: string[] } } }) => {
+            const all = [
+              {
+                walletId: "card-1",
+                wallet: {
+                  kind: "credit_card",
+                  currentBalance: new Decimal("125000"),
+                  creditCardProfile: { creditLimit: new Decimal("10000000"), defaultFundingWalletId: "wallet-asset-1" },
+                },
+              },
+              { walletId: "wallet-asset-1", wallet: { kind: "asset", status: "active", deletedAt: null } },
+            ];
+            return Promise.resolve(all.filter((item) => where.walletId.in.includes(item.walletId)));
+          }),
+        },
+        category: { findFirst: vi.fn().mockResolvedValue({ id: "cat-1", type: "expense", jarCode: "NEC" }) },
+        transactionChangeRequest: { findFirst: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue({ id: "req-1" }) },
+        auditLog: { create: vi.fn().mockResolvedValue({}) },
+      };
+
+      (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: "member-1",
+        role: { code: "MEMBER" },
+        workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+      });
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (client: typeof tx) => unknown) => callback(tx),
+      );
+
+      await expect(
+        updateTransaction(
+          "user-1",
+          "workspace-1",
+          "transaction-1",
+          {
+            walletId: "card-1",
+            categoryId: "cat-1",
+            type: "expense",
+            amount: new Decimal("150000"),
+            date: "2026-07-20",
+            allocations: [{ walletId: "wallet-asset-1", amount: new Decimal("150000") }],
+          },
+          "Đổi số tiền",
+        ),
+      ).rejects.toThrow("Giao dịch thẻ đã lên sao kê hoặc đã thanh toán chỉ được phép đổi mô tả hoặc danh mục.");
+
+      // Allows changing only description or category
+      await expect(
+        updateTransaction(
+          "user-1",
+          "workspace-1",
+          "transaction-1",
+          {
+            walletId: "card-1",
+            categoryId: "cat-1",
+            type: "expense",
+            amount: new Decimal("125000"),
+            date: "2026-07-20",
+            description: "Mô tả mới",
+            allocations: [{ walletId: "wallet-asset-1", amount: new Decimal("125000") }],
+          },
+          "Đổi mô tả",
+        ),
+      ).resolves.toEqual({ kind: "requested", id: "req-1" });
+    });
+
+    it("prevents a member from requesting deletion of a paid or installment-locked card transaction", async () => {
+      const paidTx = {
+        ...creditCardTransaction,
+        creditCardObligationEntries: [
+          {
+            id: "obl-1",
+            paymentAllocations: [{ id: "pa-1", amount: new Decimal("50000") }],
+            statementItems: [],
+          },
+        ],
+      };
+      const tx = requestClient(paidTx);
+
+      (requireWorkspaceMember as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: "member-1",
+        role: { code: "MEMBER" },
+        workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+      });
+      (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+        async (callback: (client: typeof tx) => unknown) => callback(tx),
+      );
+
+      await expect(
+        deleteOrRequestTransaction("user-1", "workspace-1", "transaction-1", "Xóa"),
+      ).rejects.toThrow("Giao dịch đã được thanh toán và không thể xóa.");
+      expect(tx.transactionChangeRequest.create).not.toHaveBeenCalled();
     });
   });
 

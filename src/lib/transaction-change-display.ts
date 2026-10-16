@@ -8,7 +8,13 @@ export type ComparableTransaction = {
   amount: string;
   description: string | null;
   date: string;
+  allocations?: Array<{ walletId: string; amount: string }>;
 };
+
+type ComparableTransactionScalarKey = Exclude<
+  keyof ComparableTransaction,
+  "allocations"
+>;
 
 export type TransactionChangeDetail = {
   label: string;
@@ -33,7 +39,7 @@ function formatChangeDate(value: string): string {
 }
 
 function formatChangeValue(
-  key: keyof ComparableTransaction,
+  key: ComparableTransactionScalarKey,
   value: unknown,
   lookups: TransactionChangeLookups,
 ): string {
@@ -61,6 +67,39 @@ function formatChangeValue(
   return value;
 }
 
+function normalizeAllocations(
+  value: unknown,
+): Array<{ walletId: string; amount: string }> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const rec = jsonRecord(item);
+      const walletId = typeof rec?.walletId === "string" ? rec.walletId : "";
+      const rawAmount =
+        typeof rec?.amount === "string" || typeof rec?.amount === "number"
+          ? String(rec.amount)
+          : "";
+      return { walletId, amount: rawAmount };
+    })
+    .filter((item) => item.walletId && item.amount);
+}
+
+function formatAllocationsValue(
+  allocations: Array<{ walletId: string; amount: string }>,
+  lookups: TransactionChangeLookups,
+): string {
+  if (allocations.length === 0) return "—";
+  return allocations
+    .map(({ walletId, amount }) => {
+      const walletName = lookups.wallets.get(walletId) ?? "Ví không còn khả dụng";
+      const formattedAmount = /^\d+(\.\d+)?$/.test(amount)
+        ? formatAmount(amount)
+        : amount;
+      return `${walletName}: ${formattedAmount}`;
+    })
+    .join(", ");
+}
+
 export function getTransactionChangeAction(
   value: unknown,
 ): "update" | "delete" | null {
@@ -85,7 +124,7 @@ export function getTransactionChangeDetails(
   const proposed = jsonRecord(request.transaction);
   if (!proposed) return [];
 
-  const fields: { key: keyof ComparableTransaction; label: string }[] = [
+  const fields: { key: ComparableTransactionScalarKey; label: string }[] = [
     { key: "amount", label: "Số tiền" },
     { key: "categoryId", label: "Danh mục" },
     { key: "walletId", label: "Ví" },
@@ -95,11 +134,33 @@ export function getTransactionChangeDetails(
     { key: "description", label: "Nội dung" },
   ];
 
-  return fields
+  const details: TransactionChangeDetail[] = fields
     .filter(({ key }) => proposed[key] !== current[key])
     .map(({ key, label }) => ({
       label,
       previous: formatChangeValue(key, current[key], lookups),
       proposed: formatChangeValue(key, proposed[key], lookups),
     }));
+
+  if (proposed.allocations !== undefined) {
+    const currentAllocs = normalizeAllocations(current.allocations);
+    const proposedAllocs = normalizeAllocations(proposed.allocations);
+    const canonical = (items: Array<{ walletId: string; amount: string }>) =>
+      items
+        .map(
+          ({ walletId, amount }) =>
+            `${walletId}:${/^\d+(\.\d+)?$/.test(amount) ? formatAmount(amount) : amount}`,
+        )
+        .sort()
+        .join("|");
+    if (canonical(currentAllocs) !== canonical(proposedAllocs)) {
+      details.push({
+        label: "Nguồn trả thẻ",
+        previous: formatAllocationsValue(currentAllocs, lookups),
+        proposed: formatAllocationsValue(proposedAllocs, lookups),
+      });
+    }
+  }
+
+  return details;
 }

@@ -32,7 +32,7 @@ import {
   getWorkspaceBalance,
 } from "@/services/financial-plan-ledger";
 import { requireWorkspaceMember } from "@/services/workspace-access";
-import { activateFinancialPlanGoals, getFinancialGoalProgress, getPlanGoalProgressSummary } from "@/services/financial-goal-service";
+import { activateFinancialPlanGoals, getFinancialGoalProgress, getPlanGoalProgressSummary, syncPlanAggregate } from "@/services/financial-goal-service";
 
 type TransactionClient = Prisma.TransactionClient;
 const DRAFT_ALLOCATION_MONTH = "1970-01";
@@ -165,7 +165,14 @@ export async function updateFinancialPlanDraft(
     await tx.planJarAllocation.createMany({ data: allocationRows(plan.id, DRAFT_ALLOCATION_MONTH, input.percentages) });
     const primaryGoal = goals[0];
     if (primaryGoal && !hasMultipleGoals) {
-      await tx.financialPlanGoal.update({ where: { id: primaryGoal.id }, data: { name: input.name, targetAmount: input.targetAmount, targetMonth: monthToDatabaseDate(input.targetMonth) } });
+      await tx.financialPlanGoal.update({
+        where: { id: primaryGoal.id },
+        data: {
+          name: primaryGoal.name === plan.name ? input.name : primaryGoal.name,
+          targetAmount: input.targetAmount,
+          targetMonth: monthToDatabaseDate(input.targetMonth),
+        },
+      });
       if (primaryGoal.trackingMode === "manual") {
         const currentFunding = await tx.financialGoalFundingEntry.aggregate({
           where: { goalId: primaryGoal.id, status: "approved" },
@@ -189,6 +196,7 @@ export async function updateFinancialPlanDraft(
         }
       }
     }
+    await syncPlanAggregate(tx, plan.id);
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "financial_plan.draft_updated", entityType: "financial_plan", entityId: plan.id } });
     return updated;
   });
@@ -294,7 +302,12 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
     const adjustedRequired = splitVndAcrossMonths(Decimal.max(new Decimal(plan.targetAmount.toString()).minus(realized), ZERO), remainingMonths.length)[0];
     const allMonths = monthsInclusive(startMonth, targetMonth);
     const baseAmounts = splitVndAcrossMonths(
-      Decimal.max(new Decimal(plan.targetAmount.toString()).minus(realized), ZERO),
+      Decimal.max(
+        new Decimal(plan.targetAmount.toString()).minus(
+          goalProgress.hasGoals ? goalProgress.openingProgress : plan.existingGoalAmount.toString(),
+        ),
+        ZERO,
+      ),
       allMonths.length,
     );
     const baseRequired = baseAmounts[allMonths.indexOf(month)];
@@ -361,14 +374,16 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
     await tx.auditLog.create({ data: { workspaceId: plan.workspaceId, action: "financial_plan.month_closed", entityType: "financial_plan", entityId: plan.id,
       metadata: { month, adjustedRequiredAmount: adjustedRequired.toFixed(0), actualGoalAmount: result.actualGoalAmountForMonth.toFixed(0), calculatorVersion: FINANCIAL_PLAN_CALCULATOR_VERSION } } });
 
-    const hasManualGoal = goals.some((goal) => goal.trackingMode === "manual");
-    const totalAfterClose =
-      goalProgress.hasGoals && !hasManualGoal
-        ? realized
-        : realized.plus(result.actualGoalAmountForMonth);
+    const totalAfterClose = goalProgress.hasGoals
+      ? realized
+      : realized.plus(result.actualGoalAmountForMonth);
     let completed = false;
     if (month === targetMonth && totalAfterClose.greaterThanOrEqualTo(plan.targetAmount.toString())) {
       await tx.financialPlan.update({ where: { id: plan.id }, data: { status: "completed", completedAt: now } });
+      await tx.financialPlanGoal.updateMany({
+        where: { financialPlanId: plan.id, status: "active", deletedAt: null },
+        data: { status: "completed", completedAt: now },
+      });
       await tx.auditLog.create({ data: { workspaceId: plan.workspaceId, action: "financial_plan.completed", entityType: "financial_plan", entityId: plan.id,
         metadata: { automatic: true, realizedProgress: totalAfterClose.toFixed(0) } } });
       completed = true;
@@ -411,16 +426,29 @@ export async function updateFinancialPlanDeadline(
     const plan = await managedPlan(tx, workspaceId, planId);
     if (plan.status !== "active") throw new AppError("CONFLICT", "Chỉ kế hoạch đang hoạt động mới được đổi deadline.");
     const activeGoals = await tx.financialPlanGoal?.findMany?.({
-      where: { financialPlanId: plan.id, status: "active", deletedAt: null },
+      where: { financialPlanId: plan.id, status: { in: ["active", "draft"] }, deletedAt: null },
       select: { id: true, targetMonth: true },
     }) ?? [];
-    for (const goal of activeGoals) {
-      if (targetMonth < databaseDateToMonth(goal.targetMonth)) {
-        throw new AppError("VALIDATION_ERROR", "Deadline mới không được sớm hơn deadline của các mục tiêu đang hoạt động.");
+    const previous = databaseDateToMonth(plan.targetMonth);
+    if (activeGoals.length > 1) {
+      for (const goal of activeGoals) {
+        if (targetMonth < databaseDateToMonth(goal.targetMonth)) {
+          throw new AppError("VALIDATION_ERROR", "Deadline mới không được sớm hơn deadline của các mục tiêu đang hoạt động.");
+        }
       }
     }
-    const previous = databaseDateToMonth(plan.targetMonth);
-    const updated = await tx.financialPlan.update({ where: { id: plan.id }, data: { targetMonth: monthToDatabaseDate(targetMonth) } });
+    const nextTargetDate = monthToDatabaseDate(targetMonth);
+    const updated = await tx.financialPlan.update({ where: { id: plan.id }, data: { targetMonth: nextTargetDate } });
+    const goalsToSync =
+      activeGoals.length === 1
+        ? activeGoals
+        : activeGoals.filter((goal) => databaseDateToMonth(goal.targetMonth) === previous);
+    if (goalsToSync.length > 0) {
+      await tx.financialPlanGoal?.updateMany?.({
+        where: { id: { in: goalsToSync.map((goal) => goal.id) } },
+        data: { targetMonth: nextTargetDate },
+      });
+    }
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "financial_plan.deadline_updated", entityType: "financial_plan", entityId: plan.id,
       metadata: { previousTargetMonth: previous, targetMonth } } });
     return updated;
@@ -508,9 +536,12 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
     const targetMonth = databaseDateToMonth(plan.targetMonth);
     const businessMonth = currentMonth(member.workspace.timeZone, now);
     const goalProgress = await getPlanGoalProgressSummary(tx, plan.id);
-    let closedSnapshotProgress = new Decimal(plan.existingGoalAmount.toString());
-    let adjustedActualProgress = new Decimal(plan.existingGoalAmount.toString());
-    let requiredProgressThroughClosedMonths = new Decimal(plan.existingGoalAmount.toString());
+    const baselineProgress = new Decimal(
+      goalProgress.hasGoals ? goalProgress.openingProgress : plan.existingGoalAmount.toString(),
+    );
+    let closedSnapshotProgress = baselineProgress;
+    let adjustedActualProgress = baselineProgress;
+    let requiredProgressThroughClosedMonths = baselineProgress;
     const closedMonths = [];
     for (const month of plan.months) {
       const adjustedActual = await adjustedClosedActual(tx, workspaceId, month);
@@ -540,7 +571,13 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
       ? allPlanMonths.filter((month) => !closedSet.has(month))
       : [];
     const baseSchedule = splitVndAcrossMonths(
-      Decimal.max(new Decimal(plan.targetAmount.toString()).minus(realizedProgress), ZERO), allPlanMonths.length,
+      Decimal.max(
+        new Decimal(plan.targetAmount.toString()).minus(
+          goalProgress.hasGoals ? goalProgress.openingProgress : plan.existingGoalAmount.toString(),
+        ),
+        ZERO,
+      ),
+      allPlanMonths.length,
     );
     const currentBalance = openMonths.includes(startMonth) ? await getWorkspaceBalance(tx, workspaceId) : ZERO;
     const projectedMonths = [];

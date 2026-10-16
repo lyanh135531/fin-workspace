@@ -25,10 +25,7 @@ function resolveCategoryJarCode(
     return null;
   }
   if (input.parentId) {
-    if (!parent?.jarCode) {
-      throw new AppError("VALIDATION_ERROR", "Danh mục cha chưa có hũ tài chính hợp lệ.");
-    }
-    return parent.jarCode;
+    return parent?.jarCode ?? input.jarCode ?? "ESSENTIAL";
   }
   if (!input.jarCode) {
     throw new AppError("VALIDATION_ERROR", "Danh mục chi cấp gốc bắt buộc chọn hũ tài chính.");
@@ -36,27 +33,82 @@ function resolveCategoryJarCode(
   return input.jarCode;
 }
 
-async function hasWorkspaceCategoryConflict(
+async function resolveWorkspaceCategoryCode(
   workspaceId: string,
-  input: Pick<CategoryInput, "name" | "code" | "parentId">,
+  input: Pick<CategoryInput, "name" | "code" | "parentId" | "type">,
+  baseCode: string,
   categoryId?: string,
-): Promise<boolean> {
-  const category = await prisma.category.findFirst({
+): Promise<string> {
+  const initialScopedCode = scopeCategoryCode(baseCode, input.parentId);
+  const conflict = await prisma.category.findFirst({
     where: {
       workspaceId,
-      deletedAt: null,
       ...(categoryId ? { id: { not: categoryId } } : {}),
       OR: [
-        { code: input.code },
+        { code: initialScopedCode },
         {
+          deletedAt: null,
+          type: input.type,
           name: { equals: input.name, mode: "insensitive" },
           parentId: input.parentId ?? null,
         },
       ],
     },
-    select: { id: true },
+    select: {
+      id: true,
+      type: true,
+      parentId: true,
+      deletedAt: true,
+    },
   });
-  return category !== null;
+
+  if (!conflict) {
+    return initialScopedCode;
+  }
+
+  if (
+    conflict.deletedAt === null &&
+    (conflict.type === undefined ||
+      (conflict.type === input.type &&
+        (conflict.parentId ?? null) === (input.parentId ?? null)))
+  ) {
+    throw new AppError("CONFLICT", "Tên danh mục này đã tồn tại.");
+  }
+
+  const typeSuffix = input.type === "income" ? "INC" : "EXP";
+  const typedScopedCode = scopeCategoryCode(
+    `${baseCode.slice(0, 28)}_${typeSuffix}`,
+    input.parentId,
+  );
+  const retryConflict = await prisma.category.findFirst({
+    where: {
+      workspaceId,
+      ...(categoryId ? { id: { not: categoryId } } : {}),
+      OR: [
+        { code: typedScopedCode },
+        {
+          deletedAt: null,
+          type: input.type,
+          name: { equals: input.name, mode: "insensitive" },
+          parentId: input.parentId ?? null,
+        },
+      ],
+    },
+    select: { id: true, deletedAt: true },
+  });
+
+  if (!retryConflict) {
+    return typedScopedCode;
+  }
+  if (retryConflict.deletedAt === null) {
+    throw new AppError("CONFLICT", "Tên danh mục này đã tồn tại.");
+  }
+
+  const uniqueSuffix = Date.now().toString(36).toUpperCase().slice(-4);
+  return scopeCategoryCode(
+    `${baseCode.slice(0, 23)}_${typeSuffix}_${uniqueSuffix}`,
+    input.parentId,
+  );
 }
 
 async function validateParent(workspaceId: string, parentId: string | undefined, type: "income" | "expense", categoryId?: string) {
@@ -78,14 +130,17 @@ async function validateParent(workspaceId: string, parentId: string | undefined,
 export async function createWorkspaceCategory(userId: string, workspaceId: string, input: CategoryInput) {
   await requireWorkspaceMember(userId, workspaceId, true);
   const parent = await validateParent(workspaceId, input.parentId, input.type);
+  const jarCode = resolveCategoryJarCode(input, parent);
+  const resolvedCode = await resolveWorkspaceCategoryCode(
+    workspaceId,
+    input,
+    input.code,
+  );
   const scopedInput = {
     ...input,
-    code: scopeCategoryCode(input.code, input.parentId),
-    jarCode: resolveCategoryJarCode(input, parent),
+    code: resolvedCode,
+    jarCode,
   };
-  if (await hasWorkspaceCategoryConflict(workspaceId, scopedInput)) {
-    throw new AppError("CONFLICT", "Tên danh mục này đã tồn tại.");
-  }
   return prisma.$transaction(async (tx) => {
     const category = await tx.category.create({ data: { workspaceId, ...scopedInput } });
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "CATEGORY_CREATED", entityType: "CATEGORY", entityId: category.id, metadata: { name: category.name, code: category.code, jarCode: category.jarCode } } });
@@ -107,10 +162,12 @@ export async function updateWorkspaceCategory(userId: string, workspaceId: strin
     throw new AppError("VALIDATION_ERROR", "Danh mục đang có danh mục con nên không thể chuyển thành danh mục con.");
   }
   const baseCode = unscopeCategoryCode(input.code, category.parentId);
-  const scopedCode = scopeCategoryCode(baseCode, input.parentId);
-  if (await hasWorkspaceCategoryConflict(workspaceId, { ...input, code: scopedCode }, category.id)) {
-    throw new AppError("CONFLICT", "Tên danh mục này đã tồn tại.");
-  }
+  const scopedCode = await resolveWorkspaceCategoryCode(
+    workspaceId,
+    input,
+    baseCode,
+    category.id,
+  );
   return prisma.$transaction(async (tx) => {
     const jarCode = resolveCategoryJarCode(input, parent);
     const updated = await tx.category.update({
@@ -126,7 +183,7 @@ export async function updateWorkspaceCategory(userId: string, workspaceId: strin
       },
     });
     const childIds = children.map((child) => child.id);
-    if (!input.parentId && category.jarCode !== jarCode) {
+    if (!input.parentId && input.type === "expense") {
       await tx.category.updateMany({
         where: { workspaceId, parentId: category.id, deletedAt: null },
         data: { jarCode },
@@ -152,6 +209,18 @@ export async function setWorkspaceCategoryStatus(userId: string, workspaceId: st
   await requireWorkspaceMember(userId, workspaceId, true);
   const category = await prisma.category.findFirst({ where: { id: categoryId, workspaceId, deletedAt: null } });
   if (!category) throw new AppError("NOT_FOUND", "Danh mục của nhóm không tồn tại.");
+  if (status === "active" && category.parentId) {
+    const parent = await prisma.category.findFirst({
+      where: { id: category.parentId, workspaceId, deletedAt: null },
+      select: { status: true },
+    });
+    if (!parent || parent.status !== "active") {
+      throw new AppError(
+        "CONFLICT",
+        "Vui lòng bật danh mục cha trước khi bật danh mục con.",
+      );
+    }
+  }
   if (status === "deactive") {
     const children = await prisma.category.findMany({
       where: { workspaceId, parentId: category.id, deletedAt: null },
@@ -243,17 +312,24 @@ export async function deleteWorkspaceCategory(userId: string, workspaceId: strin
   }
 
   return prisma.$transaction(async (tx) => {
+    const now = new Date();
+    const delSuffix = `_DEL_${now.getTime().toString(36).toUpperCase().slice(-6)}`;
     if (children.length > 0) {
-      await tx.category.updateMany({
-        where: { id: { in: children.map((c) => c.id) } },
-        data: { deletedAt: new Date() },
-      });
       for (const child of children) {
+        const deletedChildCode = `${child.code.slice(0, Math.max(0, 36 - delSuffix.length))}${delSuffix}`;
+        await tx.category.update({
+          where: { id: child.id },
+          data: { deletedAt: now, code: deletedChildCode },
+        });
         await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "CATEGORY_DELETED", entityType: "CATEGORY", entityId: child.id, metadata: { name: child.name, code: child.code } } });
       }
     }
 
-    const updated = await tx.category.update({ where: { id: category.id }, data: { deletedAt: new Date() } });
+    const deletedCode = `${category.code.slice(0, Math.max(0, 36 - delSuffix.length))}${delSuffix}`;
+    const updated = await tx.category.update({
+      where: { id: category.id },
+      data: { deletedAt: now, code: deletedCode },
+    });
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "CATEGORY_DELETED", entityType: "CATEGORY", entityId: category.id, metadata: { name: category.name, code: category.code } } });
     return updated;
   });

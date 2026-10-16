@@ -56,6 +56,10 @@ export async function getWorkspaceBalance(
   for (const record of laterTransactions) {
     const amount = new Decimal(record.amount.toString());
     if (record.purpose === "credit_card_payment") continue;
+    if (record.purpose === "credit_card_refund") {
+      if (walletIds.includes(record.walletId)) balance = balance.minus(amount);
+      continue;
+    }
     if (record.type === "income" && walletIds.includes(record.walletId)) balance = balance.minus(amount);
     if (record.type === "expense" && walletIds.includes(record.walletId)) balance = balance.plus(amount);
     if (record.type === "transfer") {

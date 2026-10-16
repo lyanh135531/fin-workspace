@@ -60,7 +60,11 @@ export default async function SettingsPage({
         orderBy: { name: "asc" },
       }),
       prisma.workspaceJoinRequest.findMany({
-        where: { workspaceId, status: "pending" },
+        where: {
+          workspaceId,
+          status: "pending",
+          requester: { status: "active", deletedAt: null },
+        },
         select: {
           id: true,
           requester: { select: { username: true } },

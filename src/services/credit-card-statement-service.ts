@@ -318,7 +318,7 @@ export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: strin
       installmentPlanId: null,
       OR: [
         { transactionId: null },
-        { transaction: { installmentPlan: null } },
+        { transaction: { installmentPlan: null, installmentFeePlan: null } },
       ],
     },
     include: {
