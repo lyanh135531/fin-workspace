@@ -310,6 +310,7 @@ export function QuickTransactionSheet({
 
   const walletSelectField = (
     <Select
+      className="h-10 rounded-xl md:h-10 md:rounded-xl"
       label={
         type === "transfer"
           ? "Ví gửi"
@@ -400,6 +401,7 @@ export function QuickTransactionSheet({
   const destinationOrCategoryField =
     type === "transfer" ? (
       <Select
+        className="h-10 rounded-xl md:h-10 md:rounded-xl"
         label="Ví nhận"
         value={toWalletId}
         onValueChange={setToWalletId}
@@ -430,6 +432,7 @@ export function QuickTransactionSheet({
       />
     ) : (
       <CategoryTreeSelect
+        className="h-10 rounded-xl md:h-10 md:rounded-xl"
         label="Danh mục"
         required={type === "expense"}
         value={categoryId}
@@ -444,6 +447,7 @@ export function QuickTransactionSheet({
 
   const creditCardFundingField = isCreditCardTransaction ? (
     <Select
+      className="h-10 rounded-xl md:h-10 md:rounded-xl"
       label="Ví thanh toán thẻ"
       value={allocationWalletId}
       onValueChange={setAllocationWalletId}
@@ -554,31 +558,31 @@ export function QuickTransactionSheet({
 
         {/* Symmetrical Grouped Details Card */}
         {workspace.wallets.length ? (
-          <div className="grid gap-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/35 p-4">
-            <div className="grid grid-cols-2 gap-3.5">
-              {walletSelectField}
-              {destinationOrCategoryField}
+          <div className="grid grid-cols-2 gap-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/35 p-4">
+            <div className="min-w-0">{walletSelectField}</div>
+            <div className="min-w-0">{destinationOrCategoryField}</div>
+
+            {creditCardFundingField && (
+              <div className="col-span-2 min-w-0">{creditCardFundingField}</div>
+            )}
+
+            <div className="min-w-0">
+              <DatePicker
+                label="Ngày giao dịch"
+                value={date}
+                onValueChange={setDate}
+                className="h-10 rounded-xl md:h-10 md:rounded-xl"
+              />
             </div>
-
-            {creditCardFundingField}
-
-            <div className="grid grid-cols-12 gap-3.5">
-              <div className="col-span-5">
-                <DatePicker
-                  label="Ngày giao dịch"
-                  value={date}
-                  onValueChange={setDate}
-                />
-              </div>
-              <div className="col-span-7">
-                <Input
-                  label="Nội dung ghi chú"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Ăn trưa, cà phê, nhận lương..."
-                  maxLength={2_000}
-                />
-              </div>
+            <div className="min-w-0">
+              <Input
+                label="Nội dung ghi chú"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Ăn trưa, cà phê, nhận lương..."
+                maxLength={2_000}
+                className="h-10 rounded-xl md:h-10 md:rounded-xl"
+              />
             </div>
           </div>
         ) : (

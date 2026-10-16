@@ -536,7 +536,7 @@ export async function getCreditCardsData() {
           })),
           installmentEligible:
             transaction.purpose === "standard" &&
-            transaction.type === "expense" &&
+            (transaction.type === "expense" || transaction.type === "transfer") &&
             transaction.workflowStatus === "approved" &&
             !transaction.installmentPlan &&
             transaction.refundTransactions.length === 0 &&
@@ -548,17 +548,18 @@ export async function getCreditCardsData() {
           canDelete,
           canEdit: canModify && !isPaidOrClosed,
           installmentPlanId: transaction.installmentPlan?.id ?? null,
-          refundableAmount: transaction.purpose === "standard"
-            ? Decimal.max(
-                new Decimal(transaction.amount.toString()).minus(
-                  transaction.refundTransactions.reduce(
-                    (sum, refund) => sum.plus(refund.amount.toString()),
-                    ZERO,
+          refundableAmount:
+            transaction.purpose === "standard" && transaction.type === "expense"
+              ? Decimal.max(
+                  new Decimal(transaction.amount.toString()).minus(
+                    transaction.refundTransactions.reduce(
+                      (sum, refund) => sum.plus(refund.amount.toString()),
+                      ZERO,
+                    ),
                   ),
-                ),
-                ZERO,
-              ).toString()
-            : "0",
+                  ZERO,
+                ).toString()
+              : "0",
         };
       }),
       refundCandidates: refundCandidatesByCard.get(wallet.id) ?? [],

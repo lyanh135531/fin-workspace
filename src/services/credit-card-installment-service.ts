@@ -50,7 +50,12 @@ export async function activateInstallmentPlanInTransaction(tx: Tx, workspaceId: 
   if (plan.status === "active" || plan.status === "completed") return plan;
   const original = plan.transaction;
   if (!original) throw new AppError("CONFLICT", "Kế hoạch trả góp giao dịch bị thiếu giao dịch gốc.");
-  if (original.workflowStatus !== "approved" || original.deletedAt || original.type !== "expense" || original.purpose !== "standard") {
+  if (
+    original.workflowStatus !== "approved" ||
+    original.deletedAt ||
+    (original.type !== "expense" && original.type !== "transfer") ||
+    original.purpose !== "standard"
+  ) {
     throw new AppError("CONFLICT", "Giao dịch chưa đủ điều kiện kích hoạt trả góp.");
   }
   if (!original.creditCardAllocations.length || original.refundTransactions.length) {
@@ -133,7 +138,7 @@ export async function createInstallmentPlanInTransaction(
     where: { id: transactionId, member: { workspaceId }, wallet: { kind: "credit_card", workspaceLinks: { some: { workspaceId } } } },
     select: { walletId: true, workflowStatus: true },
   });
-  if (!transaction) throw new AppError("VALIDATION_ERROR", "Trả góp chỉ áp dụng cho giao dịch chi tiêu thẻ.");
+  if (!transaction) throw new AppError("VALIDATION_ERROR", "Trả góp chỉ áp dụng cho giao dịch thẻ tín dụng.");
   const plan = await tx.creditCardInstallmentPlan.create({
     data: {
       workspaceId,
@@ -165,7 +170,7 @@ export async function registerCreditCardInstallment(
         id: input.transactionId,
         member: { workspaceId },
         wallet: { kind: "credit_card", workspaceLinks: { some: { workspaceId } } },
-        type: "expense",
+        type: { in: ["expense", "transfer"] },
         purpose: "standard",
         workflowStatus: "approved",
         deletedAt: null,
