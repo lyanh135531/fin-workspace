@@ -8,6 +8,7 @@ const applicationPathPrefixes = [
   "/dashboard",
   "/account",
   "/consent",
+  "/credit-cards",
   "/financial-plans",
   "/members",
   "/onboarding",

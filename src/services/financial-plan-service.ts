@@ -384,6 +384,10 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
         where: { financialPlanId: plan.id, status: "active", deletedAt: null },
         data: { status: "completed", completedAt: now },
       });
+      await tx.financialGoalFundingEntry?.updateMany?.({
+        where: { goal: { financialPlanId: plan.id }, status: "pending" },
+        data: { status: "rejected", reviewerMemberId: plan.createdByMemberId, reviewedAt: now },
+      });
       await tx.auditLog.create({ data: { workspaceId: plan.workspaceId, action: "financial_plan.completed", entityType: "financial_plan", entityId: plan.id,
         metadata: { automatic: true, realizedProgress: totalAfterClose.toFixed(0) } } });
       completed = true;
@@ -430,19 +434,16 @@ export async function updateFinancialPlanDeadline(
       select: { id: true, targetMonth: true },
     }) ?? [];
     const previous = databaseDateToMonth(plan.targetMonth);
-    if (activeGoals.length > 1) {
-      for (const goal of activeGoals) {
-        if (targetMonth < databaseDateToMonth(goal.targetMonth)) {
-          throw new AppError("VALIDATION_ERROR", "Deadline mới không được sớm hơn deadline của các mục tiêu đang hoạt động.");
-        }
-      }
-    }
     const nextTargetDate = monthToDatabaseDate(targetMonth);
     const updated = await tx.financialPlan.update({ where: { id: plan.id }, data: { targetMonth: nextTargetDate } });
     const goalsToSync =
       activeGoals.length === 1
         ? activeGoals
-        : activeGoals.filter((goal) => databaseDateToMonth(goal.targetMonth) === previous);
+        : activeGoals.filter(
+            (goal) =>
+              databaseDateToMonth(goal.targetMonth) === previous ||
+              databaseDateToMonth(goal.targetMonth) > targetMonth,
+          );
     if (goalsToSync.length > 0) {
       await tx.financialPlanGoal?.updateMany?.({
         where: { id: { in: goalsToSync.map((goal) => goal.id) } },
@@ -478,7 +479,7 @@ export async function updateFinancialPlanAllocations(
 async function finishFinancialPlan(
   userId: string, workspaceId: string, planId: string, status: Extract<FinancialPlanStatus, "completed" | "cancelled">, now: Date,
 ) {
-  await requireWorkspaceMember(userId, workspaceId, true);
+  const member = await requireWorkspaceMember(userId, workspaceId, true);
   await catchUpFinancialPlan(planId, now);
   return prisma.$transaction(async (tx) => {
     await advisoryWorkspaceLock(tx, workspaceId);
@@ -496,6 +497,10 @@ async function finishFinancialPlan(
     await tx.financialPlanGoal.updateMany({
       where: { financialPlanId: plan.id, status: "active", deletedAt: null },
       data: { status, ...(status === "completed" ? { completedAt: now } : { cancelledAt: now }) },
+    });
+    await tx.financialGoalFundingEntry?.updateMany?.({
+      where: { goal: { financialPlanId: plan.id }, status: "pending" },
+      data: { status: "rejected", reviewerMemberId: member.id, reviewedAt: now },
     });
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: `financial_plan.${status}`, entityType: "financial_plan", entityId: plan.id,
       metadata: { automatic: false } } });

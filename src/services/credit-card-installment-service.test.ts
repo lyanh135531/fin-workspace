@@ -25,6 +25,7 @@ vi.mock("@/services/credit-card-ledger", () => ({
 }));
 vi.mock("@/services/credit-card-statement-service", () => ({
   generateCardStatementsInTransaction: vi.fn(),
+  refreshHistoricalCardStatements: vi.fn(),
 }));
 
 import {

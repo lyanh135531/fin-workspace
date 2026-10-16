@@ -17,6 +17,7 @@ async function actor() {
 }
 function fail(error: unknown, event: string) { return toActionFailure(error, "Không thể lưu thay đổi danh mục.", { event }); }
 function done() {
+  revalidatePath("/settings/workspace");
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard");
   revalidatePath("/financial-plans");
@@ -44,7 +45,6 @@ export async function reorderCategoriesAction(orderedIds: string[]) {
     ).parse(orderedIds);
     const a = await actor();
     await reorderWorkspaceCategories(a.userId, a.workspaceId, ids);
-    revalidatePath("/dashboard/settings");
-    return { ok: true, message: null };
+    return done();
   } catch (error) { return fail(error, "category.reorder_failed"); }
 }

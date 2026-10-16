@@ -27,6 +27,10 @@ describe("hostname routing", () => {
         "/dashboard/settings/general",
       ),
     ).toBe("https://app.felixwise.io.vn/dashboard/settings/general");
+    expect(isApplicationPath("/credit-cards")).toBe(true);
+    expect(
+      getHostnameRedirectTarget("felixwise.io.vn", "/credit-cards"),
+    ).toBe("https://app.felixwise.io.vn/credit-cards");
   });
 
   it("routes portal paths from public and app domains to the portal hostname", () => {

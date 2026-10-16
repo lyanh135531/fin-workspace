@@ -418,4 +418,33 @@ describe("wallet-service lifecycle", () => {
       data: { currentBalance: { increment: expect.any(Decimal) } },
     });
   });
+
+  it("allows deactivating a funding wallet when its credit card purchase obligation is fully offset by a refund obligation", async () => {
+    const tx = {
+      ...transactionClient("active"),
+      creditCardObligationEntry: {
+        findMany: vi.fn().mockResolvedValue([
+          { cardWalletId: "card-1", amount: new Decimal("100"), paymentAllocations: [] },
+          { cardWalletId: "card-1", amount: new Decimal("-100"), paymentAllocations: [] },
+        ]),
+      },
+    };
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
+
+    await expect(
+      setWalletStatusForWorkspace(
+        "admin-1",
+        "workspace-1",
+        "wallet-1",
+        "deactive",
+      ),
+    ).resolves.toBeDefined();
+
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "wallet-1" },
+      data: { status: "deactive" },
+    });
+  });
 });

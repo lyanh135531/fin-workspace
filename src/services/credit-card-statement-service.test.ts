@@ -1,6 +1,13 @@
 import Decimal from "decimal.js";
 import { describe, expect, it, vi } from "vitest";
-import { createStatementForCycle, refreshHistoricalCardStatements, shareForImportedInstallment, statementPaymentDetails } from "@/services/credit-card-statement-service";
+import {
+  completeFullyPaidInstallmentPlansForCard,
+  createStatementForCycle,
+  recalculateUnpaidStatementTotal,
+  refreshHistoricalCardStatements,
+  shareForImportedInstallment,
+  statementPaymentDetails,
+} from "@/services/credit-card-statement-service";
 import type { Prisma } from "@/generated/prisma/client";
 
 vi.mock("@/lib/env", () => ({ env: { DATABASE_URL: "postgresql://test", APP_TIME_ZONE: "Asia/Ho_Chi_Minh" } }));
@@ -321,6 +328,64 @@ describe("credit card statement payments", () => {
             { transactionId: null },
             { transaction: { installmentPlan: null, installmentFeePlan: null } },
           ],
+        }),
+      }),
+    );
+  });
+
+  it("marks active installment plans as completed when all principal and fee obligations are paid off early", async () => {
+    const tx = {
+      creditCardInstallmentPlan: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "plan-early-paid",
+            origin: "transaction",
+            transactionId: "tx-1",
+            transaction: {
+              creditCardObligationEntries: [
+                {
+                  amount: new Decimal("1000"),
+                  paymentAllocations: [{ amount: new Decimal("1000") }],
+                },
+              ],
+            },
+            importedObligations: [],
+            feeTransaction: null,
+          },
+        ]),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    await completeFullyPaidInstallmentPlansForCard(tx, "card-wallet-1");
+
+    expect(tx.creditCardInstallmentPlan.updateMany).toHaveBeenCalledWith({
+      where: { id: "plan-early-paid", status: "active" },
+      data: { status: "completed", completedAt: expect.any(Date) },
+    });
+  });
+
+  it("counts only approved payments when recalculating unpaid statement total", async () => {
+    const tx = {
+      creditCardStatement: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "stmt-1",
+          status: "issued",
+          items: [{ fundingWalletId: "wallet-1", amount: new Decimal("500") }],
+          payments: [],
+        }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    await recalculateUnpaidStatementTotal(tx, "stmt-1");
+
+    expect(tx.creditCardStatement.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          payments: expect.objectContaining({
+            where: { deletedAt: null, workflowStatus: "approved" },
+          }),
         }),
       }),
     );

@@ -20,6 +20,7 @@ import {
   syncCreditCardObligationsForTransaction,
 } from "@/services/credit-card-ledger";
 import {
+  completeFullyPaidInstallmentPlansForCard,
   generateCardStatementsInTransaction,
   refreshHistoricalCardStatements,
   settleStatementAndPriorRolloversInTransaction,
@@ -275,6 +276,7 @@ export async function createCreditCardPayment(
           await settleStatementAndPriorRolloversInTransaction(tx, statementIdToLink);
         }
       }
+      await completeFullyPaidInstallmentPlansForCard(tx, input.cardWalletId);
       await assertCardBalanceReconciled(tx, input.cardWalletId);
     } else {
       await tx.creditCardPaymentReservation.createMany({
@@ -474,7 +476,10 @@ export async function updateCreditCard(
 
 export async function getWorkspaceCreditCardCommitments(workspaceId: string) {
   const obligations = await prisma.creditCardObligationEntry.findMany({
-    where: { workspaceId },
+    where: {
+      workspaceId,
+      card: { wallet: { deletedAt: null, status: "active" } },
+    },
     select: { fundingWalletId: true, amount: true, paymentAllocations: { select: { amount: true } } },
   });
   const totals = new Map<string, Decimal>();
@@ -542,7 +547,8 @@ export async function deleteCreditCard(
   resolution?: DeleteCreditCardResolution,
   confirmLoss?: boolean,
 ) {
-  await requireWorkspaceMember(userId, workspaceId, true);
+  const member = await requireWorkspaceMember(userId, workspaceId, true);
+  const businessDate = getBusinessDateInTimeZone(member.workspace?.timeZone ?? "Asia/Ho_Chi_Minh");
 
   const isVoidingAll = Boolean(confirmLoss || resolution?.action === "void_transactions");
 
@@ -627,6 +633,34 @@ export async function deleteCreditCard(
           `Thẻ đang có số dư có (${balance.abs().toString()} VND). Vui lòng sử dụng hết số dư trước khi xóa thẻ.`,
         );
       }
+
+      await tx.creditCardStatementItem?.deleteMany?.({
+        where: {
+          OR: [
+            { statement: { cardWalletId } },
+            { obligationEntry: { cardWalletId } },
+            { installment: { plan: { cardWalletId } } },
+          ],
+        },
+      });
+      await tx.creditCardStatement?.deleteMany?.({
+        where: { cardWalletId },
+      });
+      await tx.creditCardInstallment?.deleteMany?.({
+        where: { plan: { cardWalletId } },
+      });
+      await tx.creditCardInstallmentPlan?.deleteMany?.({
+        where: { cardWalletId },
+      });
+      await tx.creditCardPaymentAllocation?.deleteMany?.({
+        where: { obligationEntry: { cardWalletId } },
+      });
+      await tx.creditCardObligationEntry?.deleteMany?.({
+        where: { cardWalletId },
+      });
+      await tx.creditCardOpeningAllocation?.deleteMany?.({
+        where: { cardWalletId },
+      });
     } else if (isVoidingAll) {
       const cardStatements = (await tx.creditCardStatement.findMany?.({
         where: { cardWalletId },
@@ -804,6 +838,20 @@ export async function deleteCreditCard(
       if (resolution.targetWalletId === cardWalletId) {
         throw new AppError("VALIDATION_ERROR", "Ví đích phải khác thẻ đang xóa.");
       }
+      const recurringCount =
+        (await tx.recurringTransaction?.count?.({
+          where: {
+            workspaceId,
+            deletedAt: null,
+            OR: [{ walletId: cardWalletId }, { toWalletId: cardWalletId }],
+          },
+        })) ?? 0;
+      if (recurringCount > 0) {
+        throw new AppError(
+          "CONFLICT",
+          `Thẻ còn ${recurringCount} giao dịch định kỳ liên kết. Vui lòng hủy giao dịch định kỳ trước khi xóa thẻ.`,
+        );
+      }
       await lockWallets(tx, [resolution.targetWalletId]);
       const targetLink = await tx.workspaceWallet.findFirst({
         where: {
@@ -840,6 +888,22 @@ export async function deleteCreditCard(
             where: { id: t.id },
             data: { deletedAt: new Date() },
           });
+          continue;
+        }
+        if (
+          targetLink.wallet.kind === "asset" &&
+          t.type === "transfer" &&
+          ((t.walletId === cardWalletId && t.toWalletId === resolution.targetWalletId) ||
+            (t.toWalletId === cardWalletId && t.walletId === resolution.targetWalletId))
+        ) {
+          await tx.transaction.update({
+            where: { id: t.id },
+            data: { deletedAt: new Date() },
+          });
+          if (t.walletId === cardWalletId) {
+            await tx.creditCardObligationEntry.deleteMany({ where: { transactionId: t.id } });
+            await tx.creditCardAllocation.deleteMany({ where: { transactionId: t.id } });
+          }
           continue;
         }
         if (
@@ -947,6 +1011,23 @@ export async function deleteCreditCard(
         await tx.creditCardInstallmentPlan.deleteMany({
           where: { cardWalletId, status: "pending" },
         });
+        if (
+          typeof tx.creditCardProfile?.findUnique === "function" &&
+          typeof tx.creditCardStatement?.findMany === "function"
+        ) {
+          await refreshHistoricalCardStatements(
+            tx,
+            workspaceId,
+            resolution.targetWalletId,
+            businessDate,
+          );
+        }
+        if (
+          typeof tx.wallet?.findUniqueOrThrow === "function" &&
+          typeof tx.creditCardObligationEntry?.findMany === "function"
+        ) {
+          await assertCardBalanceReconciled(tx, resolution.targetWalletId);
+        }
       }
     }
 

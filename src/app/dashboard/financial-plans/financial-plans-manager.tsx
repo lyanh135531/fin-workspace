@@ -161,6 +161,7 @@ type DraftView = {
   targetMonth: string;
   percentages: Record<FinancialJarCode, string>;
   canManage: boolean;
+  financialGoals?: FinancialGoalView[];
 };
 
 type RunningView = {
@@ -763,7 +764,7 @@ export function FinancialPlansManager({
           businessMonth={businessMonth}
           plan={
             editorMode === "edit" && selectedPlan?.status === "draft"
-              ? selectedPlan
+              ? { ...selectedPlan, financialGoals }
               : null
           }
           canAutoActivate={!activeExists}
@@ -2961,6 +2962,10 @@ function PlanEditorSheet({
   );
   const [draft, setDraft] = useState(initial);
   const total = ratioTotal(draft.percentages);
+  const hideExistingGoalAmount =
+    hasMultipleGoals ||
+    (plan?.financialGoals?.length === 1 &&
+      plan.financialGoals[0]?.trackingMode === "linked_wallet");
   const hasPositiveTarget = useMemo(() => {
     try {
       return new Decimal(draft.targetAmount || 0).gt(0);
@@ -3093,7 +3098,7 @@ function PlanEditorSheet({
                       }
                     />
                   )}
-                  {!hasMultipleGoals && (
+                  {!hideExistingGoalAmount && (
                     <MoneyInput
                       label="Số tiền đã có sẵn"
                       value={draft.existingGoalAmount}
@@ -3150,7 +3155,12 @@ function PlanEditorSheet({
                   />
                 )}
                 {!hasMultipleGoals && (
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div
+                    className={cn(
+                      "grid gap-4",
+                      !hideExistingGoalAmount && "sm:grid-cols-2",
+                    )}
+                  >
                     <MoneyInput
                       label="Số tiền mục tiêu"
                       required
@@ -3159,13 +3169,15 @@ function PlanEditorSheet({
                         setDraft({ ...draft, targetAmount })
                       }
                     />
-                    <MoneyInput
-                      label="Số tiền đã có sẵn"
-                      value={draft.existingGoalAmount}
-                      onValueChange={(existingGoalAmount) =>
-                        setDraft({ ...draft, existingGoalAmount })
-                      }
-                    />
+                    {!hideExistingGoalAmount && (
+                      <MoneyInput
+                        label="Số tiền đã có sẵn"
+                        value={draft.existingGoalAmount}
+                        onValueChange={(existingGoalAmount) =>
+                          setDraft({ ...draft, existingGoalAmount })
+                        }
+                      />
+                    )}
                   </div>
                 )}
                 {!hasMultipleGoals ? (

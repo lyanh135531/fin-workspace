@@ -137,6 +137,7 @@ export async function getFinancialPlanMonthLedger(
       status: "active",
       approvalStatus: "approved",
       deletedAt: null,
+      completedAt: null,
       startDate: { lt: end },
       OR: [{ endDate: null }, { endDate: { gte: start } }],
     },
@@ -153,15 +154,19 @@ export async function getFinancialPlanMonthLedger(
   });
   if (rules.length === 0) return result;
   const materialized = await tx.transaction.findMany({
-    where: { recurringTransactionId: { in: rules.map((rule) => rule.id) }, recurringPeriod: month },
+    where: {
+      recurringTransactionId: { in: rules.map((rule) => rule.id) },
+      recurringPeriod: month,
+      deletedAt: null,
+    },
     select: { recurringTransactionId: true },
   });
   const materializedIds = new Set(materialized.map((record) => record.recurringTransactionId));
   for (const rule of rules) {
     if (materializedIds.has(rule.id) || rule.type === "transfer") continue;
-    const date = occurrenceDate(month, rule.dayOfMonth);
-    if (date < asIsoDate(rule.startDate) || (rule.endDate && date > asIsoDate(rule.endDate))) continue;
-    if (rule.nextExecutionDate && date < asIsoDate(rule.nextExecutionDate)) continue;
+    const dueDate = occurrenceDate(month, rule.dayOfMonth);
+    if (dueDate < asIsoDate(rule.startDate) || (rule.endDate && dueDate > asIsoDate(rule.endDate))) continue;
+    if (rule.nextExecutionDate && dueDate < asIsoDate(rule.nextExecutionDate)) continue;
     if (rule.type === "income") result.forecastIncome = result.forecastIncome.plus(rule.amount.toString());
     else addExpense(result.forecastExpenseByJar, rule.category?.jarCode ?? null, rule.amount.toString());
   }

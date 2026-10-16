@@ -409,8 +409,13 @@ export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: strin
     const totals = new Map(carried);
     for (const [fundingWalletId, amount] of carried) {
       if (amount.isZero()) continue;
+      const obligationEntryId =
+        representative.get(fundingWalletId) ??
+        obligations.find((o) => o.fundingWalletId === fundingWalletId)?.id ??
+        obligations[0]?.id;
+      if (!obligationEntryId) continue;
       await tx.creditCardStatementItem.create({ data: {
-        statementId: statement.id, obligationEntryId: representative.get(fundingWalletId)!,
+        statementId: statement.id, obligationEntryId,
         fundingWalletId, amount, isCarry: true,
       } });
     }
@@ -667,6 +672,54 @@ export async function completePaidInstallmentPlansInTransaction(tx: Tx, statemen
   }
 }
 
+export async function completeFullyPaidInstallmentPlansForCard(tx: Tx, cardWalletId: string) {
+  if (!tx.creditCardInstallmentPlan?.findMany) return;
+  const activePlans = await tx.creditCardInstallmentPlan.findMany({
+    where: { cardWalletId, status: "active" },
+    include: {
+      transaction: {
+        include: {
+          creditCardObligationEntries: {
+            include: { paymentAllocations: { select: { amount: true } } },
+          },
+        },
+      },
+      importedObligations: {
+        include: { paymentAllocations: { select: { amount: true } } },
+      },
+      feeTransaction: {
+        include: {
+          creditCardObligationEntries: {
+            include: { paymentAllocations: { select: { amount: true } } },
+          },
+        },
+      },
+    },
+  });
+  for (const plan of activePlans) {
+    const principalEntries =
+      plan.origin === "imported" || !plan.transactionId
+        ? plan.importedObligations ?? []
+        : plan.transaction?.creditCardObligationEntries ?? [];
+    if (principalEntries.length === 0) continue;
+    const feeEntries = plan.feeTransaction?.creditCardObligationEntries ?? [];
+    const allEntries = [...principalEntries, ...feeEntries];
+    const remaining = allEntries.reduce((sum, entry) => {
+      const paid = (entry.paymentAllocations ?? []).reduce(
+        (sub, alloc) => sub.plus(alloc.amount.toString()),
+        ZERO,
+      );
+      return sum.plus(Decimal.max(new Decimal(entry.amount.toString()).minus(paid), ZERO));
+    }, ZERO);
+    if (remaining.lte(0)) {
+      await tx.creditCardInstallmentPlan.updateMany({
+        where: { id: plan.id, status: "active" },
+        data: { status: "completed", completedAt: new Date() },
+      });
+    }
+  }
+}
+
 export async function reopenUnpaidInstallmentPlansInTransaction(tx: Tx, statementId: string) {
   await tx.creditCardInstallmentPlan.updateMany({
     where: {
@@ -694,7 +747,7 @@ export async function recalculateUnpaidStatementTotal(tx: Tx, statementId: strin
     include: {
       items: true,
       payments: {
-        where: { deletedAt: null, workflowStatus: { not: "rejected" } },
+        where: { deletedAt: null, workflowStatus: "approved" },
         select: { id: true, amount: true },
       },
     },

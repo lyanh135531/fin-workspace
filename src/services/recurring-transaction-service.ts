@@ -167,6 +167,36 @@ export async function createRecurringTransaction(
   });
 }
 
+async function resolveNextExecutionCandidate(
+  tx: TransactionClient,
+  current: { id: string; nextExecutionDate: Date; startDate: Date },
+  candidateDate: string,
+  dayOfMonth: number,
+  today: string,
+  startOrDayChanged = false,
+) {
+  if (!startOrDayChanged && asBusinessDate(current.nextExecutionDate) > candidateDate) {
+    return asBusinessDate(current.nextExecutionDate);
+  }
+  const existing = await tx.transaction?.findFirst?.({
+    where: {
+      recurringTransactionId: current.id,
+      recurringPeriod: candidateDate.slice(0, 7),
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  if (
+    existing ||
+    (startOrDayChanged &&
+      asBusinessDate(current.startDate) <= today &&
+      asBusinessDate(current.nextExecutionDate).slice(0, 7) > candidateDate.slice(0, 7))
+  ) {
+    return nextMonthlyExecution(candidateDate, dayOfMonth);
+  }
+  return candidateDate;
+}
+
 export async function updateRecurringTransaction(
   userId: string,
   workspaceId: string,
@@ -193,6 +223,7 @@ export async function updateRecurringTransaction(
     }
     await requireRecurringTransactionResources(tx, workspaceId, input);
     const dayOfMonth = dayOfMonthFromStartDate(input.startDate);
+    firstExecutionInRange(input, dayOfMonth);
     const startOrDayChanged =
       current.dayOfMonth !== dayOfMonth ||
       asBusinessDate(current.startDate) !== input.startDate;
@@ -206,15 +237,38 @@ export async function updateRecurringTransaction(
         current.approvalStatus === "approved" && input.startDate < today
           ? today
           : input.startDate;
-      nextExecutionDate = asDatabaseDate(
-        firstExecutionInRange(
-          { startDate: effectiveStart, endDate: input.endDate },
-          dayOfMonth,
-        ),
+      const rawCandidate = firstExecutionInRange(
+        { startDate: effectiveStart, endDate: input.endDate },
+        dayOfMonth,
       );
-    } else if (endDateChanged && input.endDate) {
-      firstExecutionInRange(input, dayOfMonth);
+      const resolvedCandidate = await resolveNextExecutionCandidate(
+        tx,
+        current,
+        rawCandidate,
+        dayOfMonth,
+        today,
+        true,
+      );
+      nextExecutionDate = asDatabaseDate(resolvedCandidate);
+    } else if (asBusinessDate(current.nextExecutionDate) <= today) {
+      const effectiveStart =
+        current.approvalStatus === "approved" && input.startDate < today
+          ? today
+          : input.startDate;
+      const rawCandidate = firstExecutionOnOrAfter(effectiveStart, dayOfMonth);
+      const resolvedCandidate = await resolveNextExecutionCandidate(
+        tx,
+        current,
+        rawCandidate,
+        dayOfMonth,
+        today,
+        false,
+      );
+      nextExecutionDate = asDatabaseDate(resolvedCandidate);
     }
+    const completedByEndDate = Boolean(
+      input.endDate && asBusinessDate(nextExecutionDate) > input.endDate,
+    );
     const record = await tx.recurringTransaction.update({
       where: { id: current.id },
       data: {
@@ -228,8 +282,13 @@ export async function updateRecurringTransaction(
         startDate: asDatabaseDate(input.startDate),
         endDate: input.endDate ? asDatabaseDate(input.endDate) : null,
         nextExecutionDate,
-        completedAt: timingChanged ? null : current.completedAt,
+        completedAt: completedByEndDate
+          ? now
+          : timingChanged
+            ? null
+            : current.completedAt,
         lastError: null,
+        ...(completedByEndDate ? { status: "deactive" as const } : {}),
         ...(!isAdmin
           ? {
               status: "deactive" as const,
@@ -311,7 +370,10 @@ export async function setRecurringTransactionStatus(
     const effectiveStart = asBusinessDate(current.startDate) > today
       ? asBusinessDate(current.startDate)
       : today;
-    const nextBusinessDate = firstExecutionOnOrAfter(effectiveStart, current.dayOfMonth);
+    const rawBusinessDate = firstExecutionOnOrAfter(effectiveStart, current.dayOfMonth);
+    const nextBusinessDate = status === "active"
+      ? await resolveNextExecutionCandidate(tx, current, rawBusinessDate, current.dayOfMonth, today, false)
+      : rawBusinessDate;
     if (status === "active" && current.endDate && nextBusinessDate > asBusinessDate(current.endDate)) {
       throw new AppError(
         "VALIDATION_ERROR",
@@ -412,7 +474,15 @@ export async function reviewRecurringTransaction(
     const effectiveStart = asBusinessDate(current.startDate) > today
       ? asBusinessDate(current.startDate)
       : today;
-    const nextExecutionDate = firstExecutionOnOrAfter(effectiveStart, current.dayOfMonth);
+    const rawCandidate = firstExecutionOnOrAfter(effectiveStart, current.dayOfMonth);
+    const nextExecutionDate = await resolveNextExecutionCandidate(
+      tx,
+      current,
+      rawCandidate,
+      current.dayOfMonth,
+      today,
+      false,
+    );
     if (current.endDate && nextExecutionDate > asBusinessDate(current.endDate)) {
       throw new AppError(
         "VALIDATION_ERROR",

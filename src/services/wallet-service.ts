@@ -262,26 +262,31 @@ export async function assertWalletHasNoOpenDependencies(
       const entries = await tx.creditCardObligationEntry.findMany({
         where: {
           fundingWalletId: walletId,
-          card: { wallet: { deletedAt: null } },
+          card: { wallet: { deletedAt: null, status: "active" } },
         },
         select: {
+          cardWalletId: true,
           amount: true,
           paymentAllocations: { select: { amount: true } },
         },
       });
-      return entries.filter((entry) => {
+      const netByCard = new Map<string, Decimal>();
+      for (const entry of entries) {
         const paid = (entry.paymentAllocations ?? []).reduce(
           (sum, alloc) => sum.plus(alloc.amount.toString()),
           new Decimal(0),
         );
-        return new Decimal(entry.amount.toString()).minus(paid).gt(0);
-      }).length;
+        const net = new Decimal(entry.amount.toString()).minus(paid);
+        const cardKey = entry.cardWalletId ?? "default";
+        netByCard.set(cardKey, (netByCard.get(cardKey) ?? new Decimal(0)).plus(net));
+      }
+      return [...netByCard.values()].filter((net) => net.gt(0)).length;
     }
     return (
       (await tx.creditCardObligationEntry?.count?.({
         where: {
           fundingWalletId: walletId,
-          card: { wallet: { deletedAt: null } },
+          card: { wallet: { deletedAt: null, status: "active" } },
         },
       })) ?? 0
     );

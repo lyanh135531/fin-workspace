@@ -13,11 +13,15 @@ const authenticatedProxy = withAuth(
   function enforceAuthenticatedPrerequisites(request) {
     const token = request.nextauth.token!;
     const pathname = request.nextUrl.pathname;
+    const hostname =
+      request.headers.get("x-forwarded-host") ??
+      request.headers.get("host") ??
+      request.nextUrl.hostname;
 
     const prerequisiteRedirect = getAuthenticatedPrerequisiteRedirect({
       pathname,
       search: request.nextUrl.search,
-      hostname: request.nextUrl.hostname,
+      hostname,
       profileCompleted: token.profileCompleted,
       acceptedPrivacyVersion: token.acceptedPrivacyVersion,
       acceptedTermsVersion: token.acceptedTermsVersion,
@@ -86,6 +90,7 @@ export const config = {
     "/workspace/:path*",
     "/workspaces/:path*",
     "/wallets/:path*",
+    "/credit-cards/:path*",
     "/members/:path*",
     "/settings/:path*",
     "/setting/:path*",

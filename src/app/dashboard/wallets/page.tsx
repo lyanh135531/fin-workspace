@@ -59,7 +59,7 @@ export default async function WalletsPage() {
     .reduce(
       (total, { wallet }) =>
         wallet.kind === "credit_card"
-          ? total.minus(wallet.currentBalance.toString())
+          ? total.minus(Decimal.max(new Decimal(wallet.currentBalance.toString()), ZERO))
           : total.plus(wallet.currentBalance.toString()),
       ZERO,
     );

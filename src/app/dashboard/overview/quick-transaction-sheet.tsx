@@ -334,7 +334,7 @@ export function QuickTransactionSheet({
               "",
           );
         }
-        if (nextWalletId === toWalletId) {
+        if (!toWalletId || nextWalletId === toWalletId) {
           setToWalletId(destinationWallet(workspace, nextWalletId));
         }
       }}

@@ -112,7 +112,7 @@ async function loadDashboardShellData() {
     ]);
   }
 
-  const [membership, workspaces] = await Promise.all([
+  const [membership, workspaces, currentUser] = await Promise.all([
         activeWorkspaceId
           ? prisma.workspaceMember.findFirst({
               where: {
@@ -150,6 +150,10 @@ async function loadDashboardShellData() {
             role: { select: { code: true } },
           },
           orderBy: { workspace: { name: "asc" } },
+        }),
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { username: true },
         }),
       ]);
 
@@ -215,7 +219,7 @@ async function loadDashboardShellData() {
     pendingJoinCount,
     isAdmin,
     userRole,
-    username: session.user.username ?? "User",
+    username: currentUser?.username ?? session.user.username ?? "User",
   };
 }
 

@@ -21,4 +21,4 @@ const schema = z.object({
     .min(1, "Vui lòng chọn ít nhất một nhóm tài chính.")
     .max(50, "Chỉ được chọn tối đa 50 nhóm tài chính."),
 });
-export async function createMemberAccountAction(input: unknown) { try { const session = await requireAcceptedLegalSession(); const data = schema.parse(input); await createMemberAccount(session.user.id, [...new Set(data.workspaceIds)], data); revalidatePath("/dashboard/users"); revalidatePath("/dashboard/settings"); return { ok: true, message: null }; } catch (error) { return toActionFailure(error, "Không thể tạo tài khoản.", { event: "account.member_create_failed" }); } }
+export async function createMemberAccountAction(input: unknown) { try { const session = await requireAcceptedLegalSession(); const data = schema.parse(input); await createMemberAccount(session.user.id, [...new Set(data.workspaceIds)], data); revalidatePath("/dashboard/users"); revalidatePath("/dashboard/settings"); revalidatePath("/settings/workspace"); revalidatePath("/members"); return { ok: true, message: null }; } catch (error) { return toActionFailure(error, "Không thể tạo tài khoản.", { event: "account.member_create_failed" }); } }

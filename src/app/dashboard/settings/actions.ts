@@ -18,8 +18,8 @@ const workspaceSchema = z.object({ name: z.string().trim().min(3).max(120), desc
 async function adminActor() { const session = await requireAcceptedLegalSession(); const workspaceId = await resolveActiveWorkspaceId(session.user.id); if (!workspaceId) throw new AppError("FORBIDDEN", "Chỉ quản trị viên nhóm mới có thể quản lý thành viên."); const member = await requireWorkspaceMember(session.user.id, workspaceId, true); return { userId: session.user.id, workspaceId: member.workspaceId }; }
 function fail(error: unknown, event: string, fallback = "Không thể lưu thay đổi.") { return toActionFailure(error, fallback, { event }); }
 
-export async function changeMemberRoleAction(input: unknown) { try { const actor = await adminActor(); const data = roleSchema.parse(input); await changeWorkspaceMemberRole(actor.userId, actor.workspaceId, data.memberId, data.roleCode); revalidatePath("/dashboard/settings"); revalidatePath("/dashboard"); return { ok: true, message: null }; } catch (error) { return fail(error, "workspace.member_role_update_failed"); } }
-export async function removeMemberAction(input: unknown) { try { const actor = await adminActor(); const memberId = idSchema.parse(input); await deactivateWorkspaceMember(actor.userId, actor.workspaceId, memberId); revalidatePath("/dashboard/settings"); revalidatePath("/dashboard"); return { ok: true, message: null }; } catch (error) { return fail(error, "workspace.member_remove_failed"); } }
+export async function changeMemberRoleAction(input: unknown) { try { const actor = await adminActor(); const data = roleSchema.parse(input); await changeWorkspaceMemberRole(actor.userId, actor.workspaceId, data.memberId, data.roleCode); revalidatePath("/settings/workspace"); revalidatePath("/dashboard/settings"); revalidatePath("/dashboard"); return { ok: true, message: null }; } catch (error) { return fail(error, "workspace.member_role_update_failed"); } }
+export async function removeMemberAction(input: unknown) { try { const actor = await adminActor(); const memberId = idSchema.parse(input); await deactivateWorkspaceMember(actor.userId, actor.workspaceId, memberId); revalidatePath("/settings/workspace"); revalidatePath("/dashboard/settings"); revalidatePath("/dashboard"); return { ok: true, message: null }; } catch (error) { return fail(error, "workspace.member_remove_failed"); } }
 
 export async function createWorkspaceAction(input: unknown) {
   try {
@@ -47,7 +47,7 @@ export async function createWorkspaceAction(input: unknown) {
 import argon2 from "argon2";
 import { prisma } from "@/lib/prisma";
 
-export async function updateWorkspaceSettingsAction(input: unknown) { try { const actor = await adminActor(); const data = workspaceSchema.parse(input); await updateWorkspaceSettings(actor.userId, actor.workspaceId, { ...data, description: data.description || undefined }); revalidatePath("/dashboard/settings"); revalidatePath("/dashboard"); return { ok: true, message: null }; } catch (error) { return fail(error, "workspace.settings_update_failed"); } }
+export async function updateWorkspaceSettingsAction(input: unknown) { try { const actor = await adminActor(); const data = workspaceSchema.parse(input); await updateWorkspaceSettings(actor.userId, actor.workspaceId, { ...data, description: data.description || undefined }); revalidatePath("/settings/workspace"); revalidatePath("/dashboard/settings"); revalidatePath("/dashboard"); return { ok: true, message: null }; } catch (error) { return fail(error, "workspace.settings_update_failed"); } }
 export async function deleteWorkspaceAction(password: string) {
   try {
     const actor = await adminActor();

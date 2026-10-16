@@ -71,6 +71,7 @@ export async function WorkspaceNotifications({
         ? { approvalStatus: "pending" as const }
         : {
             createdByMemberId: memberId,
+            reviewedByMemberId: { not: memberId },
             approvalStatus: { in: ["approved" as const, "rejected" as const] },
             reviewedAt: { gte: range.businessDayStart, lt: range.nextBusinessDayStart },
           }),
@@ -86,6 +87,7 @@ export async function WorkspaceNotifications({
         ? { status: "pending" as const }
         : {
             requesterMemberId: memberId,
+            reviewerMemberId: { not: memberId },
             status: { in: ["approved" as const, "rejected" as const] },
             reviewedAt: { gte: range.businessDayStart, lt: range.nextBusinessDayStart },
           }),

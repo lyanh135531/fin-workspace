@@ -299,7 +299,9 @@ export function FinancialPlanGoals({
             ).greaterThanOrEqualTo(goal.targetAmount);
             const isMenuOpen = menuGoalId === goal.id;
             const hasManageActions =
-              canManage && mutable && goal.status !== "cancelled";
+              canManage &&
+              mutable &&
+              (goal.status === "active" || goal.status === "draft");
             const hasAnyMenuActions =
               (goal.status === "active" && goal.trackingMode === "manual") ||
               (goal.trackingMode === "manual" &&
@@ -337,10 +339,14 @@ export function FinancialPlanGoals({
                         <span
                           className={cn(
                             "inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[11px] font-semibold",
-                            HEALTH[goal.health].className,
+                            goal.status === "cancelled"
+                              ? "bg-[var(--surface-secondary)] text-[var(--text-secondary)]"
+                              : HEALTH[goal.health].className,
                           )}
                         >
-                          {HEALTH[goal.health].label}
+                          {goal.status === "cancelled"
+                            ? "Đã hủy"
+                            : HEALTH[goal.health].label}
                         </span>
                       </div>
                       <CardDescription className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs leading-snug">
@@ -535,8 +541,9 @@ export function FinancialPlanGoals({
                         <dd
                           className={cn(
                             "mt-0.5 text-xs font-bold tabular-nums shrink-0 sm:text-sm",
-                            goal.health === "at_risk" ||
-                              goal.health === "overdue"
+                            goal.status !== "cancelled" &&
+                              (goal.health === "at_risk" ||
+                                goal.health === "overdue")
                               ? "text-[var(--warning)]"
                               : "text-[var(--foreground)]",
                           )}
@@ -639,7 +646,7 @@ export function FinancialPlanGoals({
                         </span>
                       </DropdownMenuItem>
                     )}
-                  {canManage && mutable && (
+                  {hasManageActions && (
                     <DropdownMenuItem
                       onClick={() => {
                         setMenuGoalId(null);
@@ -653,7 +660,7 @@ export function FinancialPlanGoals({
                       <span>Chỉnh sửa mục tiêu</span>
                     </DropdownMenuItem>
                   )}
-                  {canManage && mutable && index > 0 && (
+                  {hasManageActions && index > 0 && (
                     <DropdownMenuItem
                       onClick={() => {
                         setMenuGoalId(null);
@@ -667,7 +674,7 @@ export function FinancialPlanGoals({
                       <span>Tăng mức ưu tiên</span>
                     </DropdownMenuItem>
                   )}
-                  {canManage && mutable && index < goals.length - 1 && (
+                  {hasManageActions && index < goals.length - 1 && (
                     <DropdownMenuItem
                       onClick={() => {
                         setMenuGoalId(null);
@@ -779,6 +786,7 @@ export function FinancialPlanGoals({
           currency={currency}
           pending={pending}
           canManage={canManage}
+          mutable={mutable}
           run={run}
           onAddFunding={() => {
             setFundingGoal(
@@ -836,6 +844,7 @@ function GoalFundingHistorySheet({
   currency,
   pending,
   canManage,
+  mutable,
   run,
   onAddFunding,
 }: {
@@ -845,6 +854,7 @@ function GoalFundingHistorySheet({
   currency: string;
   pending: boolean;
   canManage: boolean;
+  mutable: boolean;
   run: (
     action: () => Promise<{ ok: boolean; message?: string | null }>,
     success: string,
@@ -857,6 +867,10 @@ function GoalFundingHistorySheet({
     desktopSnapshot,
     serverDesktopSnapshot,
   );
+  const canMutateGoalFunding =
+    canManage &&
+    mutable &&
+    (goal.status === "active" || goal.status === "draft");
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -912,7 +926,7 @@ function GoalFundingHistorySheet({
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1 pt-1 sm:pt-0">
-                    {canManage && entry.status === "pending" && (
+                    {canMutateGoalFunding && entry.status === "pending" && (
                       <>
                         <Button
                           variant="success"
@@ -954,9 +968,12 @@ function GoalFundingHistorySheet({
                         </Button>
                       </>
                     )}
-                    {canManage &&
+                    {canMutateGoalFunding &&
                       entry.status === "approved" &&
-                      entry.kind !== "reversal" && (
+                      entry.kind !== "reversal" &&
+                      !goal.fundingEntries.some(
+                        (e) => e.reversesEntryId === entry.id,
+                      ) && (
                         <Button
                           variant="icon"
                           size="icon"
@@ -987,10 +1004,12 @@ function GoalFundingHistorySheet({
           onCancel={() => onOpenChange(false)}
           cancelLabel="Đóng"
           submitLabel={
-            goal.status === "active" ? "Ghi nhận đóng góp" : undefined
+            mutable && goal.status === "active"
+              ? "Ghi nhận đóng góp"
+              : undefined
           }
           onSubmit={
-            goal.status === "active" && onAddFunding
+            mutable && goal.status === "active" && onAddFunding
               ? () => {
                   onOpenChange(false);
                   onAddFunding();

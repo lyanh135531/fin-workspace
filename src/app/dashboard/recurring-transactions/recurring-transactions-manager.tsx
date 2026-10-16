@@ -449,6 +449,8 @@ export function RecurringTransactionsManager({
         !schedule.completedAt &&
         schedule.approvalStatus === "approved" &&
         schedule.status === "active" &&
+        schedule.nextExecutionDate.slice(0, 7) <=
+          workspace.businessDate.slice(0, 7) &&
         canManageOwnApprovedSchedule,
       canPause:
         !schedule.completedAt &&

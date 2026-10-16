@@ -2,17 +2,28 @@ import { notFound, redirect } from "next/navigation";
 
 import { isPlatformAdminUsername } from "@/domain/platform-user/schemas";
 import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
+import { prisma } from "@/lib/prisma";
 
 export async function requirePlatformAdminSession() {
   const session = await requireAcceptedLegalPageSession();
 
-  if (!session?.user?.id || !session.user.username) {
+  if (!session?.user?.id) {
     redirect("/sign-in");
   }
 
-  if (!isPlatformAdminUsername(session.user.username)) {
+  const currentUser = await prisma.user?.findUnique?.({
+    where: { id: session.user.id },
+    select: { username: true },
+  });
+  const username = currentUser?.username ?? session.user.username;
+
+  if (!username) {
+    redirect("/sign-in");
+  }
+
+  if (!isPlatformAdminUsername(username)) {
     notFound();
   }
 
-  return { ...session.user, username: session.user.username };
+  return { ...session.user, username };
 }

@@ -50,7 +50,7 @@ export default async function CreditCardStatementPage({
             include: {
               fundingWallet: { select: { name: true } },
               transaction: {
-                select: { id: true, description: true, date: true, purpose: true },
+                select: { id: true, description: true, date: true, purpose: true, type: true },
               },
             },
           },
@@ -368,7 +368,11 @@ export default async function CreditCardStatementPage({
               const label =
                 transaction?.description ??
                 item.installment?.plan.description ??
-                (item.isCarry ? "Dư nợ chuyển từ kỳ trước" : "Điều chỉnh dư nợ thẻ");
+                (transaction?.type === "transfer"
+                  ? "Chuyển tiền từ thẻ"
+                  : item.isCarry
+                    ? "Dư nợ chuyển từ kỳ trước"
+                    : "Điều chỉnh dư nợ thẻ");
 
               return (
                 <div
@@ -418,7 +422,11 @@ export default async function CreditCardStatementPage({
                   const label =
                     transaction?.description ??
                     item.installment?.plan.description ??
-                    (item.isCarry ? "Dư nợ chuyển từ kỳ trước" : "Điều chỉnh dư nợ thẻ");
+                    (transaction?.type === "transfer"
+                      ? "Chuyển tiền từ thẻ"
+                      : item.isCarry
+                        ? "Dư nợ chuyển từ kỳ trước"
+                        : "Điều chỉnh dư nợ thẻ");
 
                   return (
                     <tr key={item.id} className="transition-colors hover:bg-[var(--surface-secondary)]/50">

@@ -7,7 +7,7 @@ import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { assertCardBalanceReconciled, syncCreditCardObligationsForTransaction } from "@/services/credit-card-ledger";
 import { requireWorkspaceMember } from "@/services/workspace-access";
-import { generateCardStatementsInTransaction } from "@/services/credit-card-statement-service";
+import { generateCardStatementsInTransaction, refreshHistoricalCardStatements } from "@/services/credit-card-statement-service";
 
 type Tx = Prisma.TransactionClient;
 const ZERO = new Decimal(0);
@@ -419,7 +419,8 @@ export async function deleteCreditCardInstallmentPlan(
   workspaceId: string,
   planId: string,
 ) {
-  await requireWorkspaceMember(userId, workspaceId, true);
+  const member = await requireWorkspaceMember(userId, workspaceId, true);
+  const businessDate = getBusinessDateInTimeZone(member.workspace?.timeZone ?? "Asia/Ho_Chi_Minh");
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw(
       Prisma.sql`SELECT "id" FROM "CREDIT_CARD_EQUAL_INSTALLMENT_PLAN" WHERE "id" = CAST(${planId} AS uuid) FOR UPDATE`,
@@ -474,6 +475,7 @@ export async function deleteCreditCardInstallmentPlan(
       }
       await tx.creditCardInstallment.deleteMany({ where: { planId: plan.id } });
       await tx.creditCardInstallmentPlan.delete({ where: { id: plan.id } });
+      await refreshHistoricalCardStatements(tx, workspaceId, plan.cardWalletId, businessDate);
       await assertCardBalanceReconciled(tx, plan.cardWalletId);
       await tx.auditLog.create({
         data: {
@@ -510,6 +512,7 @@ export async function deleteCreditCardInstallmentPlan(
 
     await tx.creditCardInstallment.deleteMany({ where: { planId: plan.id } });
     await tx.creditCardInstallmentPlan.delete({ where: { id: plan.id } });
+    await refreshHistoricalCardStatements(tx, workspaceId, plan.cardWalletId, businessDate);
     await assertCardBalanceReconciled(tx, plan.cardWalletId);
     await tx.auditLog.create({
       data: {

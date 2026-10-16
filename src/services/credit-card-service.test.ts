@@ -344,6 +344,71 @@ describe("deleteCreditCard checks", () => {
       data: { currentBalance: new Decimal(800_000) },
     });
   });
+
+  it("cleans up obligations and statements when deleting a zero-balance or no-transaction card", async () => {
+    tx.workspaceWallet.findFirst.mockResolvedValue({
+      wallet: { currentBalance: new Decimal(0) },
+    });
+    tx.transaction.count.mockResolvedValue(0);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id"),
+    ).resolves.toEqual({ ok: true });
+
+    expect(tx.creditCardObligationEntry.deleteMany).toHaveBeenCalledWith({
+      where: { cardWalletId: "card-id" },
+    });
+    expect(tx.creditCardStatement.deleteMany).toHaveBeenCalledWith({
+      where: { cardWalletId: "card-id" },
+    });
+  });
+
+  it("blocks migrate_transactions when card still has active recurring transactions", async () => {
+    tx.workspaceWallet.findFirst.mockResolvedValue({
+      wallet: { id: "card-id", kind: "credit_card", currentBalance: new Decimal(200_000) },
+    });
+    tx.recurringTransaction.count.mockResolvedValue(2);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id", {
+        action: "migrate_transactions",
+        targetWalletId: "cash-id",
+      }),
+    ).rejects.toThrow("Thẻ còn 2 giao dịch định kỳ liên kết");
+  });
+
+  it("soft-deletes transfer between card and destination asset wallet instead of creating a self-transfer", async () => {
+    tx.workspaceWallet.findFirst
+      .mockResolvedValueOnce({
+        wallet: { id: "card-id", kind: "credit_card", currentBalance: new Decimal(200_000) },
+      })
+      .mockResolvedValueOnce({
+        wallet: { id: "cash-id", kind: "asset", status: "active", currentBalance: new Decimal(1_000_000) },
+      });
+    tx.transaction.findMany.mockResolvedValue([
+      {
+        id: "tx-self-transfer",
+        walletId: "card-id",
+        toWalletId: "cash-id",
+        type: "transfer",
+        purpose: "standard",
+        amount: new Decimal(200_000),
+        workflowStatus: "approved",
+      },
+    ]);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id", {
+        action: "migrate_transactions",
+        targetWalletId: "cash-id",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(tx.transaction.update).toHaveBeenCalledWith({
+      where: { id: "tx-self-transfer" },
+      data: { deletedAt: expect.any(Date) },
+    });
+  });
 });
 
 describe("updateCreditCard checks", () => {

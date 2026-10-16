@@ -1,9 +1,10 @@
+import Decimal from "decimal.js";
 import { redirect } from "next/navigation";
 import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { FinancialPlansManager } from "@/app/dashboard/financial-plans/financial-plans-manager";
 import { PageContainer } from "@/components/base";
-import { monthDateRange } from "@/domain/financial-plan/month";
-import { FINANCIAL_JAR_CODES, type FinancialJarCode } from "@/domain";
+import { monthDateRange, monthsInclusive } from "@/domain/financial-plan/month";
+import { FINANCIAL_JAR_CODES, splitVndAcrossMonths, type FinancialJarCode } from "@/domain";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getFinancialPlanView, getWorkspaceFinancialPlans } from "@/services/financial-plan-service";
@@ -37,6 +38,19 @@ export default async function FinancialPlansPage({
   const currentPlanMonth = view && view.status !== "draft"
     ? view.months.find((month) => month.month === businessMonth && !month.closed) ?? view.months.find((month) => !month.closed)
     : null;
+  const draftMonthlyGoalAmount =
+    view && view.status === "draft"
+      ? splitVndAcrossMonths(
+          Decimal.max(
+            new Decimal(view.targetAmount).minus(view.existingGoalAmount),
+            0,
+          ),
+          monthsInclusive(
+            businessMonth,
+            view.targetMonth >= businessMonth ? view.targetMonth : businessMonth,
+          ).length,
+        )[0]?.toFixed(0) ?? "0"
+      : "0";
 
   const planRangeStart = view && view.status !== "draft" && view.months.length > 0
     ? monthDateRange(view.months[0].month).start
@@ -51,7 +65,9 @@ export default async function FinancialPlansPage({
           session.user.id,
           workspaceId,
           selected.id,
-          currentPlanMonth?.projectedActualGoalAmount ?? currentPlanMonth?.adjustedRequiredAmount ?? "0",
+          currentPlanMonth?.projectedActualGoalAmount ??
+            currentPlanMonth?.adjustedRequiredAmount ??
+            draftMonthlyGoalAmount,
         )
       : Promise.resolve([]),
     prisma.workspaceWallet.findMany({

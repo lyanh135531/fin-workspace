@@ -325,12 +325,14 @@ function summarizeTransactions(
 function calculatePeriodProgress(
   periodStr: string,
   period: DashboardPeriod,
+  businessDate: string,
 ): { elapsed: number; total: number } {
   const [year, month] = periodStr.split("-").map(Number);
-  const now = new Date();
-  const currentYear = now.getUTCFullYear();
-  const currentMonth = now.getUTCMonth() + 1;
-  const currentDay = now.getUTCDate();
+  const [currentYear, currentMonth, currentDay] = businessDate
+    .slice(0, 10)
+    .split("-")
+    .map(Number);
+  const now = new Date(Date.UTC(currentYear, currentMonth - 1, currentDay));
 
   if (period === "month") {
     const totalDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -368,7 +370,7 @@ function calculatePeriodProgress(
   const startOfYear = new Date(Date.UTC(year, 0, 1));
   const diffDays = Math.max(
     1,
-    Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)),
+    Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)) + 1,
   );
   return { elapsed: Math.min(diffDays, totalDays), total: totalDays };
 }
@@ -526,6 +528,7 @@ export function OverviewDashboard({
   const periodProgress = calculatePeriodProgress(
     activeReportPeriod,
     globalPeriod,
+    todayStr,
   );
   const dailyBurnRate = activeTotals.expense.div(periodProgress.elapsed);
   const remainingDaysInPeriod = Math.max(
@@ -2699,21 +2702,30 @@ export function OverviewDashboard({
                 className="flex items-center justify-between gap-3 py-3"
               >
                 <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <span
-                    className="flex size-8 shrink-0 items-center justify-center rounded-xl"
-                    style={{
-                      backgroundColor: `color-mix(in srgb, ${item.color} 15%, var(--surface))`,
-                      color: item.color,
-                    }}
-                  >
-                    <CategoryIcon
-                      category={{
+                  {structureMode === "member" ? (
+                    <span
+                      className="flex size-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold text-white"
+                      style={{ backgroundColor: item.color }}
+                    >
+                      {item.name.slice(0, 1).toUpperCase()}
+                    </span>
+                  ) : (
+                    <span
+                      className="flex size-8 shrink-0 items-center justify-center rounded-xl"
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${item.color} 15%, var(--surface))`,
                         color: item.color,
-                        icon: item.icon,
                       }}
-                      size={14}
-                    />
-                  </span>
+                    >
+                      <CategoryIcon
+                        category={{
+                          color: item.color,
+                          icon: item.icon,
+                        }}
+                        size={14}
+                      />
+                    </span>
+                  )}
                   <div className="min-w-0 flex-1">
                     <span className="block break-words text-sm font-semibold text-[var(--foreground)]">
                       {item.name}

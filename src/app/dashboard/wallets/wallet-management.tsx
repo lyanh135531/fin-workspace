@@ -465,7 +465,8 @@ export function WalletManagement({
       new Decimal(0),
     );
     const debtSum = credits.reduce(
-      (acc, w) => acc.plus(new Decimal(w.currentBalance)),
+      (acc, w) =>
+        acc.plus(Decimal.max(new Decimal(w.currentBalance), new Decimal(0))),
       new Decimal(0),
     );
 
@@ -723,11 +724,12 @@ export function WalletManagement({
     const isCredit = wallet.kind === "credit_card";
 
     const actualBalanceDec = new Decimal(wallet.currentBalance || 0);
+    const cardDebtDec = Decimal.max(actualBalanceDec, new Decimal(0));
     const reservedBalanceDec = isCredit
-      ? actualBalanceDec
+      ? cardDebtDec
       : new Decimal(wallet.reservedBalance || 0);
     const usableBalanceDec = isCredit
-      ? actualBalanceDec.negated()
+      ? cardDebtDec.negated()
       : wallet.availableBalance !== undefined
         ? new Decimal(wallet.availableBalance)
         : actualBalanceDec.minus(reservedBalanceDec);
@@ -776,39 +778,43 @@ export function WalletManagement({
               <Pencil size={15} aria-hidden="true" />
               <span>Chỉnh sửa ví</span>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              variant={isActive ? "destructive" : "default"}
-              disabled={pending}
-              onClick={() => {
-                setMobileMenuWalletId(null);
-                if (isActive) {
-                  requestDestructiveOperation(wallet, "deactivate");
-                } else {
-                  activateWallet(wallet);
-                }
-              }}
-            >
-              {isActive ? (
-                <PauseCircle size={15} aria-hidden="true" />
-              ) : (
-                <PlayCircle size={15} aria-hidden="true" />
-              )}
-              <span>{isActive ? "Tạm ngưng ví" : "Kích hoạt lại"}</span>
-            </DropdownMenuItem>
-            {!isActive && (
+            {!isCredit && (
               <>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  variant="destructive"
+                  variant={isActive ? "destructive" : "default"}
                   disabled={pending}
                   onClick={() => {
                     setMobileMenuWalletId(null);
-                    requestDestructiveOperation(wallet, "delete");
+                    if (isActive) {
+                      requestDestructiveOperation(wallet, "deactivate");
+                    } else {
+                      activateWallet(wallet);
+                    }
                   }}
                 >
-                  <Trash2 size={15} aria-hidden="true" />
-                  <span>Xóa ví</span>
+                  {isActive ? (
+                    <PauseCircle size={15} aria-hidden="true" />
+                  ) : (
+                    <PlayCircle size={15} aria-hidden="true" />
+                  )}
+                  <span>{isActive ? "Tạm ngưng ví" : "Kích hoạt lại"}</span>
                 </DropdownMenuItem>
+                {!isActive && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      disabled={pending}
+                      onClick={() => {
+                        setMobileMenuWalletId(null);
+                        requestDestructiveOperation(wallet, "delete");
+                      }}
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                      <span>Xóa ví</span>
+                    </DropdownMenuItem>
+                  </>
+                )}
               </>
             )}
           </>
@@ -909,7 +915,7 @@ export function WalletManagement({
                 )}
               >
                 {showBalance
-                  ? `${isCredit && actualBalanceDec.gt(0) ? "-" : ""}${formatAmount(isCredit ? actualBalanceDec : usableBalanceDec)}`
+                  ? `${isCredit && cardDebtDec.gt(0) ? "-" : ""}${formatAmount(isCredit ? cardDebtDec : usableBalanceDec)}`
                   : "••••••••"}
               </strong>
               <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)] md:text-xs">
@@ -1600,8 +1606,10 @@ export function WalletManagement({
                       <div className="mt-0.5 flex flex-wrap items-baseline gap-1">
                         <strong className="text-lg font-bold tracking-tight tabular-nums text-[var(--foreground)]">
                           {formatAmount(
-                            editingWallet.availableBalance ??
-                              editingWallet.currentBalance,
+                            editingWallet.kind === "credit_card"
+                              ? editingWallet.currentBalance
+                              : (editingWallet.availableBalance ??
+                                  editingWallet.currentBalance),
                           )}
                         </strong>
                         <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)]">
@@ -1693,72 +1701,97 @@ export function WalletManagement({
                 </div>
 
                 {/* 3. Compact Status / Danger Action Bar */}
-                {isAdmin && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-[var(--foreground)]">
-                        {editingWallet.status === "active"
-                          ? "Tạm ngưng sử dụng ví"
-                          : "Quản lý trạng thái ví"}
-                      </p>
-                      <p className="text-[11px] text-[var(--text-muted)]">
-                        {editingWallet.status === "active"
-                          ? "Ngừng nhận giao dịch mới, giữ nguyên số dư"
-                          : "Kích hoạt lại hoặc xóa ví khỏi danh sách"}
-                      </p>
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-1.5">
+                {isAdmin &&
+                  (editingWallet.kind === "credit_card" ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-[var(--foreground)]">
+                          Quản lý thẻ tín dụng
+                        </p>
+                        <p className="text-[11px] text-[var(--text-muted)]">
+                          Thiết lập hạn mức, kỳ sao kê hoặc xóa thẻ tại trang chi tiết thẻ
+                        </p>
+                      </div>
                       <Button
                         type="button"
-                        variant={
-                          editingWallet.status === "active"
-                            ? "warning"
-                            : "outline"
-                        }
+                        variant="outline"
                         size="sm"
-                        disabled={pending}
                         onClick={() => {
                           const target = editingWallet;
                           setEditingWallet(null);
-                          if (target.status === "active") {
-                            requestDestructiveOperation(target, "deactivate");
-                          } else {
-                            activateWallet(target);
-                          }
+                          router.push(`/credit-cards/${target.id}`);
                         }}
                       >
-                        {editingWallet.status === "active" ? (
-                          <PauseCircle size={14} />
-                        ) : (
-                          <PlayCircle size={14} />
-                        )}
-                        <span>
-                          {editingWallet.status === "active"
-                            ? "Tạm ngưng ví"
-                            : "Kích hoạt lại"}
-                        </span>
+                        <CreditCard size={14} />
+                        <span>Mở trang thẻ tín dụng</span>
                       </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-[var(--foreground)]">
+                          {editingWallet.status === "active"
+                            ? "Tạm ngưng sử dụng ví"
+                            : "Quản lý trạng thái ví"}
+                        </p>
+                        <p className="text-[11px] text-[var(--text-muted)]">
+                          {editingWallet.status === "active"
+                            ? "Ngừng nhận giao dịch mới, giữ nguyên số dư"
+                            : "Kích hoạt lại hoặc xóa ví khỏi danh sách"}
+                        </p>
+                      </div>
 
-                      {editingWallet.status !== "active" && (
+                      <div className="flex shrink-0 items-center gap-1.5">
                         <Button
                           type="button"
-                          variant="destructive"
+                          variant={
+                            editingWallet.status === "active"
+                              ? "warning"
+                              : "outline"
+                          }
                           size="sm"
                           disabled={pending}
                           onClick={() => {
                             const target = editingWallet;
                             setEditingWallet(null);
-                            requestDestructiveOperation(target, "delete");
+                            if (target.status === "active") {
+                              requestDestructiveOperation(target, "deactivate");
+                            } else {
+                              activateWallet(target);
+                            }
                           }}
                         >
-                          <Trash2 size={14} />
-                          <span>Xóa ví</span>
+                          {editingWallet.status === "active" ? (
+                            <PauseCircle size={14} />
+                          ) : (
+                            <PlayCircle size={14} />
+                          )}
+                          <span>
+                            {editingWallet.status === "active"
+                              ? "Tạm ngưng ví"
+                              : "Kích hoạt lại"}
+                          </span>
                         </Button>
-                      )}
+
+                        {editingWallet.status !== "active" && (
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            disabled={pending}
+                            onClick={() => {
+                              const target = editingWallet;
+                              setEditingWallet(null);
+                              requestDestructiveOperation(target, "delete");
+                            }}
+                          >
+                            <Trash2 size={14} />
+                            <span>Xóa ví</span>
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ))}
               </div>
 
               <SheetFooter
@@ -1806,8 +1839,10 @@ export function WalletManagement({
                   <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
                     <strong className="text-2xl font-bold tabular-nums text-[var(--foreground)]">
                       {formatAmount(
-                        detailWallet.availableBalance ??
-                          detailWallet.currentBalance,
+                        detailWallet.kind === "credit_card"
+                          ? detailWallet.currentBalance
+                          : (detailWallet.availableBalance ??
+                              detailWallet.currentBalance),
                       )}
                     </strong>
                     <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
@@ -1945,7 +1980,8 @@ export function WalletManagement({
                     Tiền chờ thanh toán thẻ
                   </span>
                   <strong className="font-semibold tabular-nums text-[var(--warning)]">
-                    -{formatAmount(totalCreditDebt)} {workspace.currency}
+                    {totalCreditDebt.gt(0) ? "-" : ""}
+                    {formatAmount(totalCreditDebt)} {workspace.currency}
                   </strong>
                 </div>
                 <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2.5 text-sm">
@@ -1987,7 +2023,12 @@ export function WalletManagement({
                           </div>
                         </div>
                         <strong className="shrink-0 font-bold tabular-nums text-[var(--foreground)]">
-                          {formatAmount(cardWallet.currentBalance)}{" "}
+                          {formatAmount(
+                            Decimal.max(
+                              new Decimal(cardWallet.currentBalance),
+                              new Decimal(0),
+                            ),
+                          )}{" "}
                           {workspace.currency}
                         </strong>
                       </div>

@@ -22,6 +22,7 @@ import {
 } from "@/services/credit-card-ledger";
 import { activateInstallmentPlanInTransaction } from "@/services/credit-card-installment-service";
 import {
+  completeFullyPaidInstallmentPlansForCard,
   recalculateUnpaidStatementTotal,
   refreshHistoricalCardStatements,
   reopenUnpaidInstallmentPlansInTransaction,
@@ -426,38 +427,50 @@ async function applyUpdate(
   const hasPaidObligations = (current.creditCardObligationEntries ?? []).some(
     (entry) => (entry.paymentAllocations?.length ?? 0) > 0,
   );
-  if (hasPaidObligations) {
-    if (
-      current.walletId !== input.walletId ||
-      (current.toWalletId ?? null) !== (input.toWalletId ?? null) ||
-      current.type !== input.type
-    ) {
-      throw new AppError(
-        "CONFLICT",
-        "Giao dịch thẻ đã thanh toán không thể đổi sang ví khác hoặc đổi loại giao dịch.",
-      );
-    }
-    const totalPaid = (current.creditCardObligationEntries ?? []).reduce(
-      (sum, entry) =>
-        sum.plus(
-          (entry.paymentAllocations ?? []).reduce(
-            (sub, alloc) =>
-              sub.plus(
-                "amount" in alloc && alloc.amount != null
-                  ? new Decimal(String(alloc.amount))
-                  : new Decimal(0),
-              ),
-            new Decimal(0),
-          ),
-        ),
-      new Decimal(0),
+  const hasBilledObligations = (current.creditCardObligationEntries ?? []).some(
+    (entry) => (entry.statementItems?.length ?? 0) > 0,
+  );
+  const canonicalAllocs = (
+    items: Array<{ walletId: string; amount: Decimal.Value }>,
+  ) =>
+    items
+      .map(
+        (a) => `${a.walletId}:${new Decimal(a.amount.toString()).toFixed()}`,
+      )
+      .sort()
+      .join("|");
+  const currentAllocs = (current.creditCardAllocations ?? []).map((a) => ({
+    walletId: a.fundingWalletId,
+    amount: a.amount,
+  }));
+  const allocationsChanged =
+    (current.creditCardAllocations?.length ?? 0) > 0 &&
+    input.allocations !== undefined &&
+    canonicalAllocs(currentAllocs) !== canonicalAllocs(input.allocations);
+  const financialFieldChanged =
+    !new Decimal(current.amount.toString()).eq(input.amount) ||
+    current.walletId !== input.walletId ||
+    (current.toWalletId ?? null) !== (input.toWalletId ?? null) ||
+    current.type !== input.type ||
+    (current.date ? asBusinessDate(current.date) !== input.date : false) ||
+    allocationsChanged;
+
+  if (hasPaidObligations && financialFieldChanged) {
+    throw new AppError(
+      "CONFLICT",
+      "Giao dịch thẻ đã thanh toán một phần hoặc toàn bộ chỉ được phép đổi mô tả hoặc danh mục.",
     );
-    if (new Decimal(input.amount).lt(totalPaid)) {
-      throw new AppError(
-        "CONFLICT",
-        "Số tiền giao dịch mới không được nhỏ hơn số tiền đã thanh toán.",
-      );
-    }
+  }
+
+  if (!financialFieldChanged && (hasPaidObligations || hasBilledObligations)) {
+    return tx.transaction.update({
+      where: { id: record.id },
+      data: {
+        categoryId: input.categoryId ?? null,
+        description: input.description ?? null,
+        jarCode: resources.jarCode,
+      },
+    });
   }
 
   if (current.workflowStatus === "approved") {
@@ -599,7 +612,7 @@ async function softDelete(tx: TransactionClient, workspaceId: string, record: Tr
             select: {
               id: true,
               statementId: true,
-              statement: { select: { id: true, status: true } },
+              statement: { select: { id: true, status: true, paidAt: true } },
             },
           },
         },
@@ -626,11 +639,20 @@ async function softDelete(tx: TransactionClient, workspaceId: string, record: Tr
   if (current.creditCardObligationEntries?.some((entry) => entry.paymentAllocations.length > 0)) {
     throw new AppError("CONFLICT", "Giao dịch đã được thanh toán và không thể xóa.");
   }
-  if (current.creditCardObligationEntries?.some((entry) => entry.statementItems.some((item) => item.statement.status === "paid"))) {
+  if (
+    current.creditCardObligationEntries?.some((entry) =>
+      entry.statementItems.some(
+        (item) => item.statement.status === "paid" && item.statement.paidAt !== null,
+      ),
+    )
+  ) {
     throw new AppError("CONFLICT", "Giao dịch thuộc kỳ sao kê đã thanh toán và không thể xóa.");
   }
 
   const affectedUnpaidStatementIds = new Set<string>();
+  const hadStatementItems = (current.creditCardObligationEntries ?? []).some(
+    (entry) => (entry.statementItems?.length ?? 0) > 0,
+  );
   for (const entry of current.creditCardObligationEntries ?? []) {
     for (const item of entry.statementItems ?? []) {
       if (item.statement.status === "issued") {
@@ -662,6 +684,14 @@ async function softDelete(tx: TransactionClient, workspaceId: string, record: Tr
       for (const stmtId of affectedUnpaidStatementIds) {
         await recalculateUnpaidStatementTotal(tx, stmtId);
       }
+      if (hadStatementItems) {
+        const today = await getWorkspaceBusinessDate(
+          tx,
+          workspaceId,
+          current.date ? asBusinessDate(current.date) : undefined,
+        );
+        await refreshHistoricalCardStatements(tx, workspaceId, current.walletId, today);
+      }
       await assertCardBalanceReconciled(tx, current.walletId);
     }
   }
@@ -683,7 +713,7 @@ async function findWorkspaceTransaction(tx: TransactionClient, workspaceId: stri
             select: {
               id: true,
               statementId: true,
-              statement: { select: { id: true, status: true } },
+              statement: { select: { id: true, status: true, paidAt: true } },
             },
           },
         },
@@ -796,6 +826,7 @@ export async function approveTransaction(userId: string, workspaceId: string, tr
         await assertCardBalanceReconciled(tx, record.walletId);
       }
       if (record.purpose === "credit_card_payment") {
+        await completeFullyPaidInstallmentPlansForCard(tx, record.walletId);
         await assertCardBalanceReconciled(tx, record.walletId);
       } else if (record.purpose === "credit_card_refund") {
         await normalizeApprovedRefundAllocations(tx, record.id);
@@ -879,10 +910,13 @@ export async function activateDueScheduledTransactions(workspaceId: string, now 
           await tx.creditCardPaymentReservation.updateMany({ where: { paymentTransactionId: current.id, releasedAt: null }, data: { releasedAt: new Date() } });
         }
         await applyBalance(tx, current);
-        if (current.purpose === "credit_card_payment" && current.creditCardStatementId) {
-          if (await statementFullyPaid(tx, current.creditCardStatementId)) {
-            await settleStatementAndPriorRolloversInTransaction(tx, current.creditCardStatementId);
+        if (current.purpose === "credit_card_payment") {
+          if (current.creditCardStatementId) {
+            if (await statementFullyPaid(tx, current.creditCardStatementId)) {
+              await settleStatementAndPriorRolloversInTransaction(tx, current.creditCardStatementId);
+            }
           }
+          await completeFullyPaidInstallmentPlansForCard(tx, current.walletId);
         }
         if (resources.walletKind === "credit_card" && current.purpose !== "credit_card_payment") {
           if (current.purpose === "credit_card_refund") await normalizeApprovedRefundAllocations(tx, current.id);
@@ -1067,7 +1101,7 @@ export async function deleteOrRequestTransaction(userId: string, workspaceId: st
     if (
       (record.creditCardObligationEntries ?? []).some((entry) =>
         (entry.statementItems ?? []).some(
-          (item) => item.statement.status === "paid",
+          (item) => item.statement.status === "paid" && item.statement.paidAt !== null,
         ),
       )
     ) {

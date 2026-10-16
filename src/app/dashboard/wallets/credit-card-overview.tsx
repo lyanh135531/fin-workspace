@@ -337,6 +337,9 @@ function activityLabel(activity: CardActivity) {
   if (activity.purpose === "credit_card_payment") return "Thanh toán sao kê";
   if (activity.purpose === "credit_card_refund") return "Hoàn tiền";
   if (activity.purpose === "credit_card_installment_fee") return "Phí trả góp";
+  if (activity.type === "transfer") {
+    return activity.installmentPlanId ? "Chuyển tiền trả góp" : "Chuyển tiền từ thẻ";
+  }
   return activity.installmentPlanId ? "Chi tiêu trả góp" : "Chi tiêu";
 }
 
@@ -893,6 +896,7 @@ function CreditCardPanel({
   const [menuInstallmentId, setMenuInstallmentId] = useState<string | null>(null);
   const [menuActivityId, setMenuActivityId] = useState<string | null>(null);
   const [editWalletId, setEditWalletId] = useState<string>("");
+  const [editToWalletId, setEditToWalletId] = useState<string>("");
   const [editAmount, setEditAmount] = useState<string>("");
   const [editDate, setEditDate] = useState<string>("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
@@ -962,6 +966,7 @@ function CreditCardPanel({
   function startEditingActivity(activity: CardActivity) {
     setEditingActivity(activity);
     setEditWalletId(activity.walletId || card.id);
+    setEditToWalletId(activity.toWalletId || fundingWallets[0]?.id || "");
     setEditAmount(activity.amount);
     setEditDate(activity.date);
     setEditCategoryId(activity.categoryId || (categories?.[0]?.id ?? ""));
@@ -1032,7 +1037,10 @@ function CreditCardPanel({
         editingActivity.id,
         {
           walletId: editWalletId,
-          toWalletId: txType === "transfer" ? (editingActivity.toWalletId ?? undefined) : undefined,
+          toWalletId:
+            txType === "transfer"
+              ? (editToWalletId || editingActivity.toWalletId || undefined)
+              : undefined,
           amount: editAmount,
           date: editDate,
           type: txType,
@@ -1569,12 +1577,15 @@ function CreditCardPanel({
   }
 
   function renderInstallmentCard(plan: InstallmentPlan) {
-    const paid = plan.paidTermCount + plan.installments.filter((item) => item.paid).length;
-    const next = plan.installments.find((item) => !item.paid);
+    const isCompleted = plan.status === "completed";
+    const paid = isCompleted
+      ? plan.termCount
+      : plan.paidTermCount + plan.installments.filter((item) => item.paid).length;
+    const next = isCompleted ? undefined : plan.installments.find((item) => !item.paid);
     const hasFee = new Decimal(plan.fee || 0).gt(0);
     const progressPct = plan.termCount > 0 ? Math.round((paid / plan.termCount) * 100) : 0;
     const remainingTerms = Math.max(0, plan.termCount - paid);
-    const hasDeleteAction = canManage && plan.canDelete;
+    const hasDeleteAction = !isCompleted && canManage && plan.canDelete;
     const isMenuOpen = menuInstallmentId === plan.id;
 
     const installmentInner = (
@@ -3711,6 +3722,20 @@ function CreditCardPanel({
                     required
                   />
 
+                  {(editingActivity?.type ?? "expense") === "transfer" && (
+                    <Select
+                      label="Ví nhận"
+                      value={editToWalletId}
+                      onValueChange={setEditToWalletId}
+                      placeholder="Chọn ví nhận"
+                      options={fundingWallets.map((w) => ({
+                        value: w.id,
+                        label: w.name,
+                      }))}
+                      required
+                    />
+                  )}
+
                   {(editingActivity?.type ?? "expense") === "expense" &&
                     categories &&
                     categories.length > 0 && (
@@ -3774,6 +3799,7 @@ function CreditCardPanel({
                 submitDisabled={
                   pending ||
                   !editWalletId ||
+                  ((editingActivity?.type ?? "expense") === "transfer" && !editToWalletId) ||
                   !editAmount ||
                   new Decimal(editAmount || 0).lte(0) ||
                   !editDate

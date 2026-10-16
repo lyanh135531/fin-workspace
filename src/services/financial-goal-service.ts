@@ -7,6 +7,7 @@ import {
   deriveGoalHealth,
   financialPlanPreviewSchema,
   monthsInclusive,
+  requiredGoalAmountForMonth,
   simulateGoalFunding,
   validateJarPercentages,
   type CreateFinancialPlanGoalInput,
@@ -92,9 +93,36 @@ export function getFinancialGoalProgress(
 }
 
 export async function getPlanGoalProgressSummary(tx: TransactionClient, planId: string) {
-  const goals = await tx.financialPlanGoal.findMany({
-    where: { financialPlanId: planId, deletedAt: null, status: { in: ["draft", "active", "completed"] } },
+  const plan = await tx.financialPlan?.findFirst?.({
+    where: { id: planId, deletedAt: null },
+    select: { status: true, cancelledAt: true },
   });
+  let goals = await tx.financialPlanGoal.findMany({
+    where: {
+      financialPlanId: planId,
+      deletedAt: null,
+      status: {
+        in:
+          plan?.status === "cancelled"
+            ? ["draft", "active", "completed", "cancelled"]
+            : ["draft", "active", "completed"],
+      },
+    },
+  });
+  if (plan?.status === "cancelled" && plan.cancelledAt) {
+    const cancelledWithPlan = goals.filter(
+      (goal) =>
+        goal.status !== "cancelled" ||
+        (goal.cancelledAt && goal.cancelledAt.getTime() >= plan.cancelledAt!.getTime()),
+    );
+    if (cancelledWithPlan.length > 0) {
+      goals = cancelledWithPlan;
+    }
+  } else if (goals.length === 0) {
+    goals = await tx.financialPlanGoal.findMany({
+      where: { financialPlanId: planId, deletedAt: null },
+    });
+  }
   let totalProgress = ZERO;
   let workspaceReserved = ZERO;
   for (const goal of goals) {
@@ -293,8 +321,17 @@ export async function updateFinancialPlanGoal(
       throw new AppError("CONFLICT", "Không thể đổi nguồn theo dõi sau khi mục tiêu đã kích hoạt.");
     }
     if (input.trackingMode === "linked_wallet") await assertLinkedWallet(tx, workspaceId, input.linkedWalletId!, goal.id);
-    const progress = await goalProgress(tx, goal);
+    const progress = await goalProgress(tx, {
+      ...goal,
+      trackingMode: input.trackingMode,
+      linkedWalletId: input.trackingMode === "linked_wallet" ? input.linkedWalletId ?? null : null,
+    });
     if (input.targetAmount.lessThan(progress)) throw new AppError("VALIDATION_ERROR", "Mục tiêu mới không được nhỏ hơn số tiền đã xác nhận.");
+    if (goal.status === "draft" && goal.trackingMode === "manual" && input.trackingMode === "linked_wallet") {
+      await tx.financialGoalFundingEntry.deleteMany?.({
+        where: { goalId: goal.id, kind: { in: ["opening", "adjustment"] } },
+      });
+    }
     const updated = await tx.financialPlanGoal.update({
       where: { id: goal.id },
       data: {
@@ -354,8 +391,17 @@ export async function reviewFinancialGoalFunding(userId: string, workspaceId: st
   const reviewer = await requireWorkspaceMember(userId, workspaceId, true);
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`financial-goal-funding:${entryId}`}))`);
-    const entry = await tx.financialGoalFundingEntry.findFirst({ where: { id: entryId, status: "pending", goal: { status: { in: ["draft", "active"] }, financialPlan: { workspaceId } } }, include: { goal: true } });
+    const entry = await tx.financialGoalFundingEntry.findFirst({
+      where: { id: entryId, status: "pending", goal: { financialPlan: { workspaceId, deletedAt: null } } },
+      include: { goal: { include: { financialPlan: true } } },
+    });
     if (!entry) throw new AppError("NOT_FOUND", "Yêu cầu đóng góp không còn chờ duyệt.");
+    if (
+      !["draft", "active"].includes(entry.goal.status) ||
+      (entry.goal.financialPlan && !["draft", "active"].includes(entry.goal.financialPlan.status))
+    ) {
+      throw new AppError("CONFLICT", "Mục tiêu hoặc kế hoạch đã kết thúc, không thể thay đổi khoản đóng góp.");
+    }
     const updated = await tx.financialGoalFundingEntry.update({ where: { id: entry.id }, data: { status: approve ? "approved" : "rejected", reviewerMemberId: reviewer.id, reviewedAt: new Date() } });
     if (approve) await syncPlanAggregate(tx, entry.goal.financialPlanId);
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: approve ? "financial_goal.funding_approved" : "financial_goal.funding_rejected", entityType: "financial_goal_funding", entityId: entry.id, metadata: { goalId: entry.goalId } } });
@@ -367,8 +413,17 @@ export async function reverseFinancialGoalFunding(userId: string, workspaceId: s
   const member = await requireWorkspaceMember(userId, workspaceId, true);
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`financial-goal-funding:${entryId}`}))`);
-    const entry = await tx.financialGoalFundingEntry.findFirst({ where: { id: entryId, status: "approved", kind: { not: "reversal" }, goal: { financialPlan: { workspaceId } } }, include: { goal: true, reversedBy: true } });
+    const entry = await tx.financialGoalFundingEntry.findFirst({
+      where: { id: entryId, status: "approved", kind: { not: "reversal" }, goal: { financialPlan: { workspaceId } } },
+      include: { goal: { include: { financialPlan: true } }, reversedBy: true },
+    });
     if (!entry || entry.reversedBy.length) throw new AppError("CONFLICT", "Khoản này không thể hoàn tác hoặc đã được hoàn tác.");
+    if (
+      (entry.goal.status && !["draft", "active"].includes(entry.goal.status)) ||
+      (entry.goal.financialPlan?.status && !["draft", "active"].includes(entry.goal.financialPlan.status))
+    ) {
+      throw new AppError("CONFLICT", "Mục tiêu hoặc kế hoạch đã kết thúc, không thể thay đổi khoản đóng góp.");
+    }
     const reversal = await tx.financialGoalFundingEntry.create({ data: {
       goalId: entry.goalId,
       amount: new Decimal(entry.amount.toString()).negated(),
@@ -388,7 +443,7 @@ export async function reverseFinancialGoalFunding(userId: string, workspaceId: s
 }
 
 export async function finishFinancialPlanGoal(userId: string, workspaceId: string, goalId: string, status: "completed" | "cancelled") {
-  await requireWorkspaceMember(userId, workspaceId, true);
+  const member = await requireWorkspaceMember(userId, workspaceId, true);
   return prisma.$transaction(async (tx) => {
     const goal = await managedGoal(tx, workspaceId, goalId);
     const now = new Date();
@@ -399,6 +454,10 @@ export async function finishFinancialPlanGoal(userId: string, workspaceId: strin
       if (count <= 1) {
         throw new AppError("VALIDATION_ERROR", "Kế hoạch phải có ít nhất 1 mục tiêu.");
       }
+      await tx.financialGoalFundingEntry.updateMany?.({
+        where: { goalId: goal.id, status: "pending" },
+        data: { status: "rejected", reviewerMemberId: member.id, reviewedAt: now },
+      });
       const updated = await tx.financialPlanGoal.update({
         where: { id: goal.id },
         data: { status: "cancelled", cancelledAt: now, deletedAt: now },
@@ -410,12 +469,20 @@ export async function finishFinancialPlanGoal(userId: string, workspaceId: strin
     if (goal.status !== "active") throw new AppError("CONFLICT", "Chỉ mục tiêu đang chạy mới có thể kết thúc.");
     const progress = await goalProgress(tx, goal);
     if (status === "completed" && progress.lessThan(goal.targetAmount.toString())) throw new AppError("VALIDATION_ERROR", "Mục tiêu chưa đủ tiền để hoàn thành.");
+    await tx.financialGoalFundingEntry.updateMany?.({
+      where: { goalId: goal.id, status: "pending" },
+      data: { status: "rejected", reviewerMemberId: member.id, reviewedAt: now },
+    });
     const updated = await tx.financialPlanGoal.update({ where: { id: goal.id }, data: { status, ...(status === "completed" ? { completedAt: now } : { cancelledAt: now }) } });
     await syncPlanAggregate(tx, goal.financialPlanId);
     const remaining = await tx.financialPlanGoal.count({ where: { financialPlanId: goal.financialPlanId, status: "active", deletedAt: null } });
     if (remaining === 0) {
       const completed = await tx.financialPlanGoal.count({ where: { financialPlanId: goal.financialPlanId, status: "completed", deletedAt: null } });
       await tx.financialPlan.update({ where: { id: goal.financialPlanId }, data: completed > 0 ? { status: "completed", completedAt: now } : { status: "cancelled", cancelledAt: now } });
+      await tx.financialGoalFundingEntry.updateMany?.({
+        where: { goal: { financialPlanId: goal.financialPlanId }, status: "pending" },
+        data: { status: "rejected", reviewerMemberId: member.id, reviewedAt: now },
+      });
     }
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: `financial_goal.${status}`, entityType: "financial_plan_goal", entityId: goal.id } });
     return updated;
@@ -467,15 +534,35 @@ export async function getFinancialPlanGoalPortfolio(
       actualByGoal.set(goal.id, actual);
       if (goal.status === "active" || goal.status === "draft") candidates.push({ id: goal.id, targetAmount: goal.targetAmount.toString(), actualProgress: actual, targetMonth: goal.targetMonth.toISOString().slice(0, 7), sortOrder: goal.sortOrder, createdAt: goal.createdAt });
     }
-    const allocation = new Map(allocateGoalFundingByPriority(candidates, monthlyFundingCapacity, businessMonth).map((item) => [item.goalId, item]));
-    const simulation = simulateGoalFunding({ goals: candidates, monthlyFundingCapacity, startMonth: businessMonth });
+    const isDraftPlan = !goals[0]?.financialPlan.startMonth;
+    const effectiveCapacity = isDraftPlan
+      ? Decimal.max(
+          monthlyFundingCapacity,
+          candidates.reduce(
+            (sum, candidate) =>
+              sum.plus(
+                requiredGoalAmountForMonth(
+                  candidate.targetAmount,
+                  candidate.actualProgress,
+                  businessMonth,
+                  candidate.targetMonth,
+                ),
+              ),
+            ZERO,
+          ),
+        )
+      : monthlyFundingCapacity;
+    const allocation = new Map(allocateGoalFundingByPriority(candidates, effectiveCapacity, businessMonth).map((item) => [item.goalId, item]));
+    const simulation = simulateGoalFunding({ goals: candidates, monthlyFundingCapacity: effectiveCapacity, startMonth: businessMonth });
     const startMonth = goals[0]?.financialPlan.startMonth?.toISOString().slice(0, 7) ?? businessMonth;
     return goals.map((goal) => {
       const actual = actualByGoal.get(goal.id) ?? ZERO;
       const target = new Decimal(goal.targetAmount.toString());
       const projected = simulation.projectedByGoal.get(goal.id) ?? actual;
       const totalMonths = monthsInclusive(startMonth, goal.targetMonth.toISOString().slice(0, 7)).length;
-      const elapsedMonths = Math.min(monthsInclusive(startMonth, businessMonth).length, totalMonths);
+      const elapsedMonths = isDraftPlan
+        ? 0
+        : Math.min(monthsInclusive(startMonth, businessMonth).length, totalMonths);
       const expected = target.times(elapsedMonths).dividedToIntegerBy(totalMonths);
       const monthly = allocation.get(goal.id);
       return {
