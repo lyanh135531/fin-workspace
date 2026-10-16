@@ -94,6 +94,7 @@ type LedgerItem = {
   id: string;
   amount: string;
   type: TransactionType;
+  purpose?: "standard" | "credit_card_payment" | "credit_card_refund" | "credit_card_installment_fee";
   status: "pending" | "scheduled" | "approved" | "rejected";
   description: string | null;
   date: string;
@@ -297,9 +298,15 @@ function groupTransactionsByDate<T extends { date: string }>(
 }
 
 function getLedgerDateTotals(items: LedgerItem[]): LedgerDateTotals {
-  return items.reduce<LedgerDateTotals>(
+  const raw = items.reduce<LedgerDateTotals>(
     (totals, item) => {
       if (item.status !== "approved") return totals;
+      if (item.purpose === "credit_card_refund") {
+        return {
+          income: totals.income,
+          expense: totals.expense.minus(item.amount),
+        };
+      }
       if (item.type === "income") {
         return {
           income: totals.income.plus(item.amount),
@@ -316,6 +323,10 @@ function getLedgerDateTotals(items: LedgerItem[]): LedgerDateTotals {
     },
     { income: new Decimal(0), expense: new Decimal(0) },
   );
+  return {
+    income: raw.income,
+    expense: Decimal.max(raw.expense, 0),
+  };
 }
 
 function TouchTransactionRow({

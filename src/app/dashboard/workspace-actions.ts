@@ -8,7 +8,10 @@ import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { toActionFailure } from "@/lib/server-error";
 import { requireAcceptedLegalSession } from "@/lib/legal-access";
-import { activeWorkspaceCookie } from "@/services/active-workspace";
+import {
+  accessibleWorkspaceMemberWhere,
+  activeWorkspaceCookie,
+} from "@/services/active-workspace";
 
 export async function selectWorkspaceAction(workspaceId: string) {
   try {
@@ -16,13 +19,7 @@ export async function selectWorkspaceAction(workspaceId: string) {
 
     const id = idSchema.parse(workspaceId);
     const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId: id,
-        status: "active",
-        deletedAt: null,
-        workspace: { status: "active", deletedAt: null },
-      },
+      where: accessibleWorkspaceMemberWhere(session.user.id, id),
     });
     if (!member) {
       throw new AppError("FORBIDDEN", "Bạn không có quyền truy cập nhóm tài chính này.");

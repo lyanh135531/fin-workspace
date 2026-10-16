@@ -490,7 +490,7 @@ function reverseBalanceTransaction(
     const isCreditCard = walletKinds.get(transaction.walletId) === "credit_card";
     if (transaction.purpose === "credit_card_payment" || transaction.purpose === "credit_card_refund") {
       balances.set(transaction.walletId, sourceBalance.plus(amount));
-    } else if (isCreditCard && transaction.type === "expense") {
+    } else if (isCreditCard && (transaction.type === "expense" || transaction.type === "transfer")) {
       balances.set(transaction.walletId, sourceBalance.minus(amount));
     } else {
       balances.set(

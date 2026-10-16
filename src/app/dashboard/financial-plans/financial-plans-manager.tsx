@@ -2944,10 +2944,11 @@ function PlanEditorSheet({
       return false;
     }
   }, [draft.targetAmount]);
+  const minPlanTargetMonth = plan ? businessMonth : nextMonth(businessMonth);
   const valid = Boolean(
     draft.name.trim() &&
       (hasMultipleGoals ||
-        (hasPositiveTarget && draft.targetMonth >= nextMonth(businessMonth))) &&
+        (hasPositiveTarget && draft.targetMonth >= minPlanTargetMonth)) &&
       total.equals(100),
   );
 
@@ -3050,7 +3051,7 @@ function PlanEditorSheet({
                     <MonthPicker
                       label="Tháng hoàn thành dự kiến"
                       required
-                      minMonth={nextMonth(businessMonth)}
+                      minMonth={minPlanTargetMonth}
                       value={draft.targetMonth}
                       onValueChange={(targetMonth) =>
                         setDraft({ ...draft, targetMonth })
@@ -3116,7 +3117,7 @@ function PlanEditorSheet({
                   <MonthPicker
                     label="Tháng hoàn thành dự kiến"
                     required
-                    minMonth={nextMonth(businessMonth)}
+                    minMonth={minPlanTargetMonth}
                     value={draft.targetMonth}
                     onValueChange={(targetMonth) =>
                       setDraft({ ...draft, targetMonth })

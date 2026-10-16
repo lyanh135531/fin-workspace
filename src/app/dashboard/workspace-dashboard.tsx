@@ -10,7 +10,10 @@ import {
   getTransactionChangeReason,
   type TransactionChangeLookups,
 } from "@/lib/transaction-change-display";
-import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import {
+  accessibleWorkspaceMemberWhere,
+  resolveActiveWorkspaceId,
+} from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 import { redirect } from "next/navigation";
@@ -31,13 +34,7 @@ export async function WorkspaceDashboard({
   if (!workspaceId) redirect("/onboarding");
 
   const membership = await prisma.workspaceMember.findFirst({
-    where: {
-      userId: session.user.id,
-      workspaceId,
-      status: "active",
-      deletedAt: null,
-      workspace: { status: "active", deletedAt: null },
-    },
+    where: accessibleWorkspaceMemberWhere(session.user.id, workspaceId),
     include: { workspace: true, role: true },
   });
   if (!membership) redirect("/onboarding");
@@ -105,6 +102,7 @@ export async function WorkspaceDashboard({
     id: item.id,
     amount: item.amount.toString(),
     type: item.type,
+    purpose: item.purpose,
     status: item.workflowStatus,
     description: item.description,
     date: item.date.toISOString(),
@@ -121,8 +119,14 @@ export async function WorkspaceDashboard({
         }
       : null,
     member: item.member.user.username ?? "Người dùng",
-    canRequestEdit: isAdmin || item.memberId === membership.id,
-    canRequestDelete: isAdmin || item.memberId === membership.id,
+    canRequestEdit:
+      (isAdmin || item.memberId === membership.id) &&
+      item.purpose === "standard" &&
+      item.workflowStatus !== "rejected",
+    canRequestDelete:
+      item.purpose === "credit_card_payment"
+        ? isAdmin
+        : isAdmin || item.memberId === membership.id,
     hasPendingChange: item.changeRequests.length > 0,
     pendingChangeRequestId: item.changeRequests[0]?.id ?? null,
     pendingChangeAction: getTransactionChangeAction(

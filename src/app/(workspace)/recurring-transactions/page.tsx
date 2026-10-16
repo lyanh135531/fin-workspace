@@ -4,7 +4,10 @@ import { RecurringTransactionsManager } from "@/app/dashboard/recurring-transact
 import { workspaceCapabilities } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
-import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import {
+  accessibleWorkspaceMemberWhere,
+  resolveActiveWorkspaceId,
+} from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { calculateActiveRecurringMonthlyNetAmount } from "@/services/recurring-transaction-summary";
 import { PageContainer } from "@/components/base";
@@ -15,13 +18,7 @@ export default async function RecurringTransactionsPage() {
   if (!workspaceId) redirect("/dashboard");
 
   const membership = await prisma.workspaceMember.findFirst({
-    where: {
-      userId: session.user.id,
-      workspaceId,
-      status: "active",
-      deletedAt: null,
-      workspace: { status: "active", deletedAt: null },
-    },
+    where: accessibleWorkspaceMemberWhere(session.user.id, workspaceId),
     include: { role: true, workspace: true },
   });
   if (!membership) redirect("/dashboard");

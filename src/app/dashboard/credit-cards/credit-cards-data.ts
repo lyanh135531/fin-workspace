@@ -493,11 +493,17 @@ export async function getCreditCardsData() {
           return items;
         }, []),
       activities: wallet.sourceTransactions.map((transaction) => {
-        const isPaidOrClosed = transaction.creditCardObligationEntries.some(
+        const isInPaidStatement = transaction.creditCardObligationEntries.some(
           (entry) =>
-            entry.paymentAllocations.length > 0 ||
-            entry.statementItems.some((item) => item.statement.status === "paid"),
+            entry.statementItems.some(
+              (item) => item.statement.status === "paid" && item.statement.paidAt !== null,
+            ),
         );
+        const isPaidOrClosed =
+          isInPaidStatement ||
+          transaction.creditCardObligationEntries.some(
+            (entry) => entry.paymentAllocations.length > 0,
+          );
         const canModify =
           transaction.purpose === "standard" &&
           transaction.workflowStatus !== "rejected" &&
@@ -536,7 +542,7 @@ export async function getCreditCardsData() {
                 entry.statementItems.length === 0,
             ),
           canDelete,
-          canEdit: canModify && !isPaidOrClosed,
+          canEdit: canModify && !isInPaidStatement,
           installmentPlanId: transaction.installmentPlan?.id ?? null,
           refundableAmount: transaction.purpose === "standard"
             ? Decimal.max(

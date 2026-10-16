@@ -1032,7 +1032,7 @@ function CreditCardPanel({
           amount: editAmount,
           date: editDate,
           type: txType,
-          categoryId: txType === "transfer" ? undefined : (editCategoryId || undefined),
+          categoryId: txType === "expense" ? (editCategoryId || undefined) : undefined,
           description: editActivityDescription.trim() || undefined,
           allocations: buildAllocations(),
         },
@@ -3700,22 +3700,24 @@ function CreditCardPanel({
                     required
                   />
 
-                  {categories && categories.length > 0 && (
-                    <CategoryTreeSelect
-                      label="Danh mục"
-                      value={editCategoryId}
-                      onValueChange={setEditCategoryId}
-                      placeholder="Chọn danh mục"
-                      categories={categories.map((c) => ({
-                        id: c.id,
-                        name: c.name,
-                        icon: c.icon ?? undefined,
-                        color: c.color ?? undefined,
-                        parentId: c.parentId ?? undefined,
-                      }))}
-                      required
-                    />
-                  )}
+                  {(editingActivity?.type ?? "expense") === "expense" &&
+                    categories &&
+                    categories.length > 0 && (
+                      <CategoryTreeSelect
+                        label="Danh mục"
+                        value={editCategoryId}
+                        onValueChange={setEditCategoryId}
+                        placeholder="Chọn danh mục"
+                        categories={categories.map((c) => ({
+                          id: c.id,
+                          name: c.name,
+                          icon: c.icon ?? undefined,
+                          color: c.color ?? undefined,
+                          parentId: c.parentId ?? undefined,
+                        }))}
+                        required
+                      />
+                    )}
                 </div>
 
                 <Button

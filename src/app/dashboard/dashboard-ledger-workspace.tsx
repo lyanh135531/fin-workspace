@@ -106,7 +106,10 @@ export function DashboardLedgerWorkspace({
 
     for (const item of filteredRows) {
       if (item.status === "approved") {
-        if (item.type === "income") {
+        if (item.purpose === "credit_card_refund") {
+          expense = expense.minus(item.amount);
+          expenseCount += 1;
+        } else if (item.type === "income") {
           income = income.plus(item.amount);
           incomeCount += 1;
         } else if (item.type === "expense") {
@@ -120,6 +123,7 @@ export function DashboardLedgerWorkspace({
         pending += 1;
       }
     }
+    expense = Decimal.max(new Decimal(0), expense);
 
     return {
       income: income.toString(),

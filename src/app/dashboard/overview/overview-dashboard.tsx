@@ -293,12 +293,17 @@ function summarizeTransactions(
   transactions: Transaction[],
   dateRange: DateRangeValue,
 ): { income: Decimal; expense: Decimal; count: number } {
-  return transactions.reduce(
+  const totals = transactions.reduce(
     (result, item) => {
       if (item.status !== "approved" || !isInDateRange(item.date, dateRange)) {
         return result;
       }
 
+      if (item.purpose === "credit_card_refund") {
+        result.expense = result.expense.minus(item.amount);
+        result.count += 1;
+        return result;
+      }
       if (item.type === "income") {
         result.income = result.income.plus(item.amount);
         result.count += 1;
@@ -311,6 +316,10 @@ function summarizeTransactions(
     },
     { income: new Decimal(0), expense: new Decimal(0), count: 0 },
   );
+  return {
+    ...totals,
+    expense: Decimal.max(new Decimal(0), totals.expense),
+  };
 }
 
 function calculatePeriodProgress(
@@ -706,11 +715,17 @@ export function OverviewDashboard({
         (item) =>
           item.status === "approved" &&
           isInDateRange(item.date, activeDateRange) &&
-          item.type === targetType,
+          (targetType === "income"
+            ? item.type === "income" && item.purpose !== "credit_card_refund"
+            : item.type === "expense" || item.purpose === "credit_card_refund"),
       )
       .forEach((item) => {
         const key = item.categoryId ?? "uncategorized";
         const prior = rows.get(key);
+        const signedAmount =
+          item.purpose === "credit_card_refund"
+            ? new Decimal(item.amount).negated()
+            : new Decimal(item.amount);
         rows.set(key, {
           id: key,
           name: item.category?.name ?? "Chưa phân loại",
@@ -718,13 +733,14 @@ export function OverviewDashboard({
             item.category?.color ??
             (targetType === "income" ? "var(--income)" : "var(--chart-1)"),
           icon: item.category?.icon ?? "tag",
-          amount: (prior?.amount ?? new Decimal(0)).plus(item.amount),
+          amount: (prior?.amount ?? new Decimal(0)).plus(signedAmount),
           count: (prior?.count ?? 0) + 1,
         });
       });
     const total =
       targetType === "income" ? activeTotals.income : activeTotals.expense;
     return [...rows.values()]
+      .filter((row) => row.amount.gt(0))
       .sort((a, b) => b.amount.comparedTo(a.amount))
       .map((row, idx) => ({
         ...row,
@@ -743,13 +759,19 @@ export function OverviewDashboard({
       const matched = transactions.filter(
         (t) =>
           t.memberId === m.id &&
-          t.type === "expense" &&
+          (t.type === "expense" || t.purpose === "credit_card_refund") &&
           t.status === "approved" &&
           isInDateRange(t.date, activeDateRange),
       );
-      const memberSpent = matched.reduce(
-        (sum, t) => sum.plus(new Decimal(t.amount)),
+      const memberSpent = Decimal.max(
         new Decimal(0),
+        matched.reduce(
+          (sum, t) =>
+            t.purpose === "credit_card_refund"
+              ? sum.minus(new Decimal(t.amount))
+              : sum.plus(new Decimal(t.amount)),
+          new Decimal(0),
+        ),
       );
       const percent = activeTotals.expense.isZero()
         ? 0

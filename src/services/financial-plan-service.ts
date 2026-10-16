@@ -361,7 +361,11 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
     await tx.auditLog.create({ data: { workspaceId: plan.workspaceId, action: "financial_plan.month_closed", entityType: "financial_plan", entityId: plan.id,
       metadata: { month, adjustedRequiredAmount: adjustedRequired.toFixed(0), actualGoalAmount: result.actualGoalAmountForMonth.toFixed(0), calculatorVersion: FINANCIAL_PLAN_CALCULATOR_VERSION } } });
 
-    const totalAfterClose = realized.plus(result.actualGoalAmountForMonth);
+    const hasManualGoal = goals.some((goal) => goal.trackingMode === "manual");
+    const totalAfterClose =
+      goalProgress.hasGoals && !hasManualGoal
+        ? realized
+        : realized.plus(result.actualGoalAmountForMonth);
     let completed = false;
     if (month === targetMonth && totalAfterClose.greaterThanOrEqualTo(plan.targetAmount.toString())) {
       await tx.financialPlan.update({ where: { id: plan.id }, data: { status: "completed", completedAt: now } });

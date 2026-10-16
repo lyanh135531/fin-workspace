@@ -3,7 +3,10 @@ import {
   type FinancialJarCode,
   type UpdateCategoryInput,
 } from "@/domain";
-import { scopeCategoryCode } from "@/domain/category/category-code";
+import {
+  scopeCategoryCode,
+  unscopeCategoryCode,
+} from "@/domain/category/category-code";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { availableCategoryWhere } from "@/services/category-visibility";
@@ -103,7 +106,8 @@ export async function updateWorkspaceCategory(userId: string, workspaceId: strin
   if (input.parentId && children.length > 0) {
     throw new AppError("VALIDATION_ERROR", "Danh mục đang có danh mục con nên không thể chuyển thành danh mục con.");
   }
-  const scopedCode = scopeCategoryCode(input.code, input.parentId);
+  const baseCode = unscopeCategoryCode(input.code, category.parentId);
+  const scopedCode = scopeCategoryCode(baseCode, input.parentId);
   if (await hasWorkspaceCategoryConflict(workspaceId, { ...input, code: scopedCode }, category.id)) {
     throw new AppError("CONFLICT", "Tên danh mục này đã tồn tại.");
   }

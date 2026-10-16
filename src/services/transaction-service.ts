@@ -526,6 +526,20 @@ async function applyUpdate(
   return updated;
 }
 
+async function getWorkspaceBusinessDate(tx: TransactionClient, workspaceId: string, fallback?: string) {
+  const workspaceLookup = (tx as { workspace?: { findFirst?: typeof prisma.workspace.findFirst } }).workspace?.findFirst;
+  if (workspaceLookup) {
+    const workspace = await workspaceLookup({
+      where: { id: workspaceId, deletedAt: null },
+      select: { timeZone: true },
+    });
+    if (workspace?.timeZone) {
+      return getBusinessDateInTimeZone(workspace.timeZone);
+    }
+  }
+  return fallback ?? getBusinessDateInTimeZone("Asia/Ho_Chi_Minh");
+}
+
 async function softDeleteCardPayment(tx: TransactionClient, workspaceId: string, record: Transaction) {
   const sources = await tx.creditCardPaymentSource.findMany({ where: { paymentTransactionId: record.id } });
   const walletIds = [...new Set([record.walletId, ...sources.map((source) => source.sourceWalletId)])].sort();
@@ -563,7 +577,8 @@ async function softDeleteCardPayment(tx: TransactionClient, workspaceId: string,
         await reopenUnpaidInstallmentPlansInTransaction(tx, record.creditCardStatementId);
       }
     }
-    await refreshHistoricalCardStatements(tx, workspaceId, record.walletId, asBusinessDate(record.date));
+    const today = await getWorkspaceBusinessDate(tx, workspaceId, asBusinessDate(record.date));
+    await refreshHistoricalCardStatements(tx, workspaceId, record.walletId, today);
     await assertCardBalanceReconciled(tx, record.walletId);
   }
 }
@@ -760,6 +775,7 @@ export async function approveTransaction(userId: string, workspaceId: string, tr
       } else if (record.purpose === "credit_card_refund") {
         await normalizeApprovedRefundAllocations(tx, record.id);
         await syncCreditCardObligationsForTransaction(tx, workspaceId, record.id);
+        await refreshHistoricalCardStatements(tx, workspaceId, record.walletId, today);
         await assertCardBalanceReconciled(tx, record.walletId);
       }
     }
@@ -847,7 +863,9 @@ export async function activateDueScheduledTransactions(workspaceId: string, now 
           if (current.purpose === "credit_card_refund") await normalizeApprovedRefundAllocations(tx, current.id);
           await syncCreditCardObligationsForTransaction(tx, workspaceId, current.id);
           if (current.purpose === "standard" && current.installmentPlan?.status === "pending") await activateInstallmentPlanInTransaction(tx, workspaceId, current.installmentPlan.id);
-          if (current.purpose === "standard") await refreshHistoricalCardStatements(tx, workspaceId, current.walletId, asBusinessDate(dueDate));
+          if (current.purpose === "standard" || current.purpose === "credit_card_refund") {
+            await refreshHistoricalCardStatements(tx, workspaceId, current.walletId, asBusinessDate(dueDate));
+          }
         }
         if (resources.walletKind === "credit_card") await assertCardBalanceReconciled(tx, current.walletId);
         await tx.auditLog.create({ data: { workspaceId, action: "transaction.scheduled_activated", entityType: "transaction", entityId: current.id, metadata: { dueDate: asBusinessDate(current.date), jarCode: resources.jarCode } } });

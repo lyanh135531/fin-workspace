@@ -313,8 +313,22 @@ export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: strin
   await generateCardStatementsInTransaction(tx, workspaceId, cardWalletId, today);
   const obligations = await tx.creditCardObligationEntry.findMany({
     where: {
-      workspaceId, cardWalletId, source: "transaction",
-      transaction: { installmentPlan: null, installmentFeePlan: null },
+      workspaceId,
+      cardWalletId,
+      installmentPlanId: null,
+      OR: [
+        { transactionId: null },
+        { transaction: { installmentPlan: null } },
+      ],
+    },
+    include: {
+      paymentAllocations: {
+        include: {
+          paymentTransaction: {
+            select: { creditCardStatementId: true, workflowStatus: true, deletedAt: true },
+          },
+        },
+      },
     },
     orderBy: [{ postedDate: "asc" }, { id: "asc" }],
   });
@@ -359,17 +373,37 @@ export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: strin
   const itemsByStatement = new Map(statements.map((statement) => [
     statement.id, statement.items.filter((item) => !regularIdSet.has(item.obligationEntryId) || item.installmentId !== null),
   ]));
+  const representative = new Map<string, string>();
   for (const obligation of obligations) {
     const target = statements.find((statement) => statement.cycleEndDate >= obligation.postedDate);
     if (!target) continue; // An open cycle is billed when its closing date arrives.
+    representative.set(obligation.fundingWalletId, obligation.id);
+    if (
+      itemsByStatement
+        .get(target.id)!
+        .some((existing) => existing.obligationEntryId === obligation.id && existing.installmentId !== null)
+    ) {
+      continue;
+    }
+    const preStatementPaid = (obligation.paymentAllocations ?? [])
+      .filter(
+        (alloc) =>
+          !alloc.paymentTransaction ||
+          (alloc.paymentTransaction.creditCardStatementId === null &&
+            alloc.paymentTransaction.workflowStatus === "approved" &&
+            alloc.paymentTransaction.deletedAt === null),
+      )
+      .reduce((sum, alloc) => sum.plus(alloc.amount.toString()), ZERO);
+    const gross = new Decimal(obligation.amount.toString());
+    const amount = gross.gt(0) ? Decimal.max(gross.minus(preStatementPaid), ZERO) : gross;
+    if (preStatementPaid.gt(0) && amount.isZero()) continue;
     const item = await tx.creditCardStatementItem.create({ data: {
       statementId: target.id, obligationEntryId: obligation.id,
-      fundingWalletId: obligation.fundingWalletId, amount: obligation.amount,
+      fundingWalletId: obligation.fundingWalletId, amount,
     } });
     itemsByStatement.get(target.id)!.push(item);
   }
   const carried = new Map<string, Decimal>();
-  const representative = new Map<string, string>();
   const rolledOverUnpaidIds: string[] = [];
   for (const statement of statements) {
     const totals = new Map(carried);

@@ -9,7 +9,10 @@ import { FINANCIAL_JAR_LABELS, type FinancialJarCode } from "@/domain/financial-
 import { workspaceCapabilities } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
-import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import {
+  accessibleWorkspaceMemberWhere,
+  resolveActiveWorkspaceId,
+} from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 import { getWorkspaceCreditCardCommitments } from "@/services/credit-card-service";
@@ -28,13 +31,7 @@ export default async function OverviewPage() {
   if (!workspaceId) redirect("/onboarding");
 
   const membership = await prisma.workspaceMember.findFirst({
-    where: {
-      userId: session.user.id,
-      workspaceId,
-      status: "active",
-      deletedAt: null,
-      workspace: { status: "active", deletedAt: null },
-    },
+    where: accessibleWorkspaceMemberWhere(session.user.id, workspaceId),
     include: { workspace: true, role: true },
   });
   if (!membership) redirect("/onboarding");

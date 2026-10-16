@@ -578,11 +578,20 @@ export async function runRecurringTransactionNow(
       throw new AppError("CONFLICT", "Chỉ lịch định kỳ đang bật và đã được duyệt mới có thể thực hiện ngay.");
     }
     await requireRecurringTransactionResources(tx, workspaceId, current);
+    const today = getBusinessDateInTimeZone(member.workspace.timeZone, now);
+    const currentMonth = today.slice(0, 7);
     const dueDate = asBusinessDate(current.nextExecutionDate);
     if (current.endDate && dueDate > asBusinessDate(current.endDate)) {
       throw new AppError("CONFLICT", "Khoảng hiệu lực của lịch định kỳ đã kết thúc.");
     }
     const period = dueDate.slice(0, 7);
+    if (period > currentMonth) {
+      throw new AppError(
+        "CONFLICT",
+        "Kỳ định kỳ của tháng hiện tại đã hoàn tất; chưa thể thực hiện trước cho các tháng tương lai.",
+      );
+    }
+    const executionDate = dueDate > today ? today : dueDate;
     const nextExecutionDate = nextMonthlyExecution(dueDate, current.dayOfMonth);
     const existing = await tx.transaction?.findUnique?.({
       where: {
@@ -593,31 +602,32 @@ export async function runRecurringTransactionNow(
       },
       select: { id: true },
     });
-    if (!existing) {
-      const transaction = await createApprovedTransactionInTransaction(
-        tx,
-        workspaceId,
-        current.createdByMemberId,
-        transactionInput(current, dueDate),
-        { id: current.id, period },
-      );
-      await tx.auditLog.create({
-        data: {
-          workspaceId,
-          actorUserId: userId,
-          action: "recurring_transaction.posted",
-          entityType: "transaction",
-          entityId: transaction.id,
-          metadata: {
-            recurringTransactionId: current.id,
-            period,
-            dueDate,
-            jarCode: transaction.jarCode,
-            manualRun: true,
-          },
-        },
-      });
+    if (existing) {
+      throw new AppError("CONFLICT", "Giao dịch định kỳ của kỳ này đã được thực hiện trước đó.");
     }
+    const transaction = await createApprovedTransactionInTransaction(
+      tx,
+      workspaceId,
+      current.createdByMemberId,
+      transactionInput(current, executionDate),
+      { id: current.id, period },
+    );
+    await tx.auditLog.create({
+      data: {
+        workspaceId,
+        actorUserId: userId,
+        action: "recurring_transaction.posted",
+        entityType: "transaction",
+        entityId: transaction.id,
+        metadata: {
+          recurringTransactionId: current.id,
+          period,
+          dueDate: executionDate,
+          jarCode: transaction.jarCode,
+          manualRun: true,
+        },
+      },
+    });
     const completed = Boolean(current.endDate && nextExecutionDate > asBusinessDate(current.endDate));
     const record = await tx.recurringTransaction.update({
       where: { id: current.id },
