@@ -777,6 +777,7 @@ function WorkspaceDesktopCategoryActions({
       className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center gap-1.5 opacity-0 transition-opacity group-hover/category-actions:opacity-100 group-focus-within/category-actions:opacity-100 lg:flex"
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
     >
       <Button
         variant="icon"

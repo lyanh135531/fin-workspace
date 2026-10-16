@@ -80,7 +80,13 @@ export function createTransactionDraft(
   categories: TransactionCategoryOption[],
   businessDate: string,
 ): TransactionDraft {
-  const walletId = wallets[0]?.id ?? "";
+  const defaultWallet =
+    wallets.find((wallet) => wallet.kind !== "credit_card") ?? wallets[0];
+  const walletId = defaultWallet?.id ?? "";
+  const defaultFundingId =
+    defaultWallet?.defaultFundingWalletId ??
+    wallets.find((wallet) => wallet.kind !== "credit_card")?.id ??
+    "";
   return {
     description: "",
     type: "expense",
@@ -90,7 +96,10 @@ export function createTransactionDraft(
     toWalletId: defaultDestination(wallets, walletId),
     date: businessDate,
     amount: "",
-    allocations: [],
+    allocations:
+      defaultWallet?.kind === "credit_card" && defaultFundingId
+        ? [{ walletId: defaultFundingId, amount: "" }]
+        : [],
   };
 }
 

@@ -361,6 +361,7 @@ export function FinancialPlanGoals({
                     className="flex shrink-0 items-center gap-1"
                     onClick={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
                   >
                     <div className="flex items-center gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 p-0.5">
                       {goal.status === "active" &&
@@ -757,13 +758,15 @@ export function FinancialPlanGoals({
           onOpenChange={(open) => {
             if (!open) setHistoryGoal(null);
           }}
-          goal={historyGoal}
+          goal={goals.find((g) => g.id === historyGoal.id) ?? historyGoal}
           currency={currency}
           pending={pending}
           canManage={canManage}
           run={run}
           onAddFunding={() => {
-            setFundingGoal(historyGoal);
+            setFundingGoal(
+              goals.find((g) => g.id === historyGoal.id) ?? historyGoal,
+            );
             setHistoryGoal(null);
           }}
         />

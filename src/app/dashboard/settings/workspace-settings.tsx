@@ -135,6 +135,7 @@ export function WorkspaceSettings({
         </div>
 
         <form
+          key={`${workspace.name}:${workspace.status}:${workspace.description ?? ""}`}
           onSubmit={save}
           className="space-y-3.5 md:space-y-5"
           aria-busy={pending}

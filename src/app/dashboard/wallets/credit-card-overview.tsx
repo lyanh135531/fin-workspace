@@ -848,6 +848,16 @@ function CreditCardPanel({
   const [editFundingWalletId, setEditFundingWalletId] = useState(card.defaultFundingWalletId);
   const [editClosingDay, setEditClosingDay] = useState(String(card.statementClosingDay));
   const [editDueDay, setEditDueDay] = useState(String(card.paymentDueDay));
+
+  function openEditCard() {
+    setEditName(card.name);
+    setEditDescription(card.description ?? "");
+    setEditLimit(card.limit);
+    setEditFundingWalletId(card.defaultFundingWalletId);
+    setEditClosingDay(String(card.statementClosingDay));
+    setEditDueDay(String(card.paymentDueDay));
+    setEditOpen(true);
+  }
   const [statementDetailOpen, setStatementDetailOpen] = useState(false);
   const [activityPage, setActivityPage] = useState(1);
   const [installmentPage, setInstallmentPage] = useState(1);
@@ -1520,6 +1530,7 @@ function CreditCardPanel({
                 className="hidden shrink-0 lg:block"
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
               >
                 <Button
                   type="button"
@@ -1799,7 +1810,7 @@ function CreditCardPanel({
                     <CalendarClock className="size-4" aria-hidden="true" />
                     <span>Thêm trả góp có sẵn</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setEditOpen(true)}>
+                  <DropdownMenuItem onClick={openEditCard}>
                     <Pencil className="size-4" aria-hidden="true" />
                     <span>Chỉnh sửa thẻ</span>
                   </DropdownMenuItem>

@@ -413,7 +413,7 @@ export async function softDeleteWalletForWorkspace(
         where: {
           workspaceId,
           walletId: settlementWalletId,
-          wallet: { status: "active", deletedAt: null },
+          wallet: { status: "active", kind: "asset", deletedAt: null },
         },
         select: { walletId: true },
       });

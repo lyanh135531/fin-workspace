@@ -43,7 +43,10 @@ export function DashboardLedgerWorkspace({
   const [filterCategory, setFilterCategory] = useState("");
   const [filterType, setFilterType] = useState<string>("");
   const [filterWallet, setFilterWallet] = useState<string>("");
-  const [filterReviewOnly, setFilterReviewOnly] = useState<boolean>(false);
+  const [filterReviewOnly, setFilterReviewOnly] = useState<boolean>(() =>
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("status") === "pending",
+  );
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -236,14 +239,19 @@ export function DashboardLedgerWorkspace({
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 font-medium text-[var(--foreground)] tabular-nums">
+            <button
+              type="button"
+              onClick={() => setMobileFilterOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-hover)] lg:pointer-events-none tabular-nums"
+              title="Đổi kỳ lọc giao dịch"
+            >
               <CalendarDays
                 size={13}
                 className="shrink-0 text-[var(--primary)]"
                 aria-hidden="true"
               />
               <span className="break-words leading-snug">{label}</span>
-            </span>
+            </button>
             <span className="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 font-medium text-[var(--text-secondary)] tabular-nums">
               {filteredRows.length} giao dịch
             </span>

@@ -415,7 +415,23 @@ export function WalletManagement({
   const [settlementWalletId, setSettlementWalletId] = useState("");
   const [blockedOperation, setBlockedOperation] =
     useState<DestructiveWalletOperation | null>(null);
-  const [orderedWallets, setOrderedWallets] = useState(wallets);
+  const [customOrderIds, setCustomOrderIds] = useState<string[] | null>(null);
+  const orderedWallets = useMemo(() => {
+    if (!customOrderIds) return wallets;
+    const byId = new Map(wallets.map((w) => [w.id, w]));
+    const ordered: WalletItem[] = [];
+    for (const id of customOrderIds) {
+      const item = byId.get(id);
+      if (item) {
+        ordered.push(item);
+        byId.delete(id);
+      }
+    }
+    for (const item of byId.values()) {
+      ordered.push(item);
+    }
+    return ordered;
+  }, [wallets, customOrderIds]);
   const [draggedWalletId, setDraggedWalletId] = useState<string | null>(null);
   const [dropTargetWalletId, setDropTargetWalletId] = useState<string | null>(
     null,
@@ -483,7 +499,9 @@ export function WalletManagement({
   const showDeactivateSheet = confirmOperation?.kind === "deactivate";
   const settlementWallets = wallets.filter(
     (wallet) =>
-      wallet.status === "active" && wallet.id !== confirmOperation?.wallet.id,
+      wallet.status === "active" &&
+      wallet.kind !== "credit_card" &&
+      wallet.id !== confirmOperation?.wallet.id,
   );
 
   const createFundingAmountIsValid = (() => {
@@ -529,7 +547,7 @@ export function WalletManagement({
     nextWallets: WalletItem[],
     previousWallets: WalletItem[],
   ) {
-    setOrderedWallets(nextWallets);
+    setCustomOrderIds(nextWallets.map(({ id }) => id));
     startTransition(async () => {
       const result = await reorderManagedWalletsAction({
         walletIds: nextWallets.map(({ id }) => id),
@@ -540,7 +558,7 @@ export function WalletManagement({
         return;
       }
 
-      setOrderedWallets(previousWallets);
+      setCustomOrderIds(previousWallets.map(({ id }) => id));
       toast.error(result.message ?? "Không thể sắp xếp ví.");
     });
   }
@@ -639,7 +657,9 @@ export function WalletManagement({
       kind === "delete"
         ? (wallets.find(
             (candidate) =>
-              candidate.status === "active" && candidate.id !== wallet.id,
+              candidate.status === "active" &&
+              candidate.kind !== "credit_card" &&
+              candidate.id !== wallet.id,
           )?.id ?? "")
         : "",
     );

@@ -7,6 +7,7 @@ import { workspaceCapabilities } from "@/domain/role-policy";
 import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { getWorkspaceCreditCardCommitments } from "@/services/credit-card-service";
 
 const ZERO = new Decimal(0);
 
@@ -27,28 +28,31 @@ export default async function WalletsPage() {
   });
   if (!membership) redirect("/overview");
 
-  const links = await prisma.workspaceWallet.findMany({
-    where: { workspaceId, wallet: { deletedAt: null } },
-    include: {
-      wallet: {
-        include: {
-          _count: {
-            select: {
-              sourceTransactions: { where: { deletedAt: null } },
-              destinationTransactions: { where: { deletedAt: null } },
-              sourceRecurringTransactions: {
-                where: { deletedAt: null, workspaceId },
-              },
-              destinationRecurringTransactions: {
-                where: { deletedAt: null, workspaceId },
+  const [links, commitments] = await Promise.all([
+    prisma.workspaceWallet.findMany({
+      where: { workspaceId, wallet: { deletedAt: null } },
+      include: {
+        wallet: {
+          include: {
+            _count: {
+              select: {
+                sourceTransactions: { where: { deletedAt: null } },
+                destinationTransactions: { where: { deletedAt: null } },
+                sourceRecurringTransactions: {
+                  where: { deletedAt: null, workspaceId },
+                },
+                destinationRecurringTransactions: {
+                  where: { deletedAt: null, workspaceId },
+                },
               },
             },
           },
         },
       },
-    },
-    orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
-  });
+      orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
+    }),
+    getWorkspaceCreditCardCommitments(workspaceId),
+  ]);
 
   const totalBalance = links
     .filter(({ wallet }) => wallet.status === "active")
@@ -75,22 +79,32 @@ export default async function WalletsPage() {
         }}
         totalBalance={totalBalance.toString()}
         isAdmin={workspaceCapabilities(membership.role.code).canManageWallets}
-        wallets={links.map(({ wallet }) => ({
-          id: wallet.id,
-          name: wallet.name,
-          description: wallet.description,
-          openingBalance: wallet.openingBalance.toString(),
-          currentBalance: wallet.currentBalance.toString(),
-          status: wallet.status,
-          transactionCount:
-            wallet._count.sourceTransactions +
-            wallet._count.destinationTransactions,
-          recurringTransactionCount:
-            wallet._count.sourceRecurringTransactions +
-            wallet._count.destinationRecurringTransactions,
-          updatedAt: wallet.updatedAt.toISOString(),
-          kind: wallet.kind,
-        }))}
+        wallets={links.map(({ wallet }) => {
+          const committed = commitments.get(wallet.id) ?? ZERO;
+          const currentBalanceStr = wallet.currentBalance.toString();
+          return {
+            id: wallet.id,
+            name: wallet.name,
+            description: wallet.description,
+            openingBalance: wallet.openingBalance.toString(),
+            currentBalance: currentBalanceStr,
+            status: wallet.status,
+            transactionCount:
+              wallet._count.sourceTransactions +
+              wallet._count.destinationTransactions,
+            recurringTransactionCount:
+              wallet._count.sourceRecurringTransactions +
+              wallet._count.destinationRecurringTransactions,
+            updatedAt: wallet.updatedAt.toISOString(),
+            kind: wallet.kind,
+            reservedBalance:
+              wallet.kind === "asset" ? committed.toString() : currentBalanceStr,
+            availableBalance:
+              wallet.kind === "asset"
+                ? new Decimal(currentBalanceStr).minus(committed).toString()
+                : undefined,
+          };
+        })}
       />
     </PageContainer>
   );

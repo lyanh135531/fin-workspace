@@ -175,7 +175,13 @@ function newTransactionDraft(
   categories: CategoryOption[],
   businessDate: string,
 ): TransactionDraft {
-  const walletId = wallets[0]?.id ?? "";
+  const defaultWallet =
+    wallets.find((wallet) => wallet.kind !== "credit_card") ?? wallets[0];
+  const walletId = defaultWallet?.id ?? "";
+  const defaultFundingId =
+    defaultWallet?.defaultFundingWalletId ??
+    wallets.find((wallet) => wallet.kind !== "credit_card")?.id ??
+    "";
   return {
     description: "",
     type: "expense",
@@ -185,7 +191,10 @@ function newTransactionDraft(
     toWalletId: defaultDestination(wallets, walletId),
     date: businessDate,
     amount: "",
-    allocations: [],
+    allocations:
+      defaultWallet?.kind === "credit_card" && defaultFundingId
+        ? [{ walletId: defaultFundingId, amount: "" }]
+        : [],
   };
 }
 
@@ -2480,7 +2489,7 @@ function TransactionDetailSheetBody({
         item.pendingChangeAction === "delete"),
   );
   const isDeleteReview = item.pendingChangeAction === "delete";
-  const formattedWallet = /^(ví|thẻ)\b/i.test(item.wallet.trim())
+  const formattedWallet = /^(ví|thẻ)(\s|$)/i.test(item.wallet.trim())
     ? item.wallet
     : `Ví ${item.wallet}`;
 

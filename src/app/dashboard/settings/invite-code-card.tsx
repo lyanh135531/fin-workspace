@@ -15,7 +15,12 @@ export function InviteCodeCard({
   code: initialCode,
   compact = false,
 }: InviteCodeCardProps) {
-  const [code, setCode] = useState(initialCode);
+  const [regenerated, setRegenerated] = useState<{
+    baseCode: string;
+    code: string;
+  } | null>(null);
+  const code =
+    regenerated?.baseCode === initialCode ? regenerated.code : initialCode;
   const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -34,7 +39,7 @@ export function InviteCodeCard({
     startTransition(async () => {
       const result = await regenerateInviteCodeAction();
       if (result.ok && "inviteCode" in result && result.inviteCode) {
-        setCode(result.inviteCode);
+        setRegenerated({ baseCode: initialCode, code: result.inviteCode });
         toast.success("Đã tạo mã mời 6 chữ số mới.");
       } else {
         toast.error(result.message ?? "Không thể đổi mã mời.");

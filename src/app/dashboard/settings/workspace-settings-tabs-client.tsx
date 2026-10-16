@@ -68,7 +68,15 @@ export function WorkspaceSettingsTabsClient({
   joinRequests,
   initialTab = "general",
 }: Props) {
-  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+  const [tabState, setTabState] = useState<{
+    baseTab: TabKey;
+    activeTab: TabKey;
+  }>({
+    baseTab: initialTab,
+    activeTab: initialTab,
+  });
+  const activeTab =
+    tabState.baseTab === initialTab ? tabState.activeTab : initialTab;
 
   const tabs: {
     key: TabKey;
@@ -107,7 +115,9 @@ export function WorkspaceSettingsTabsClient({
   return (
     <Tabs
       value={activeTab}
-      onValueChange={(value) => setActiveTab(value as TabKey)}
+      onValueChange={(value) =>
+        setTabState({ baseTab: initialTab, activeTab: value as TabKey })
+      }
       className="workspace-settings-tabs gap-3.5 md:gap-5"
     >
       <TabsList

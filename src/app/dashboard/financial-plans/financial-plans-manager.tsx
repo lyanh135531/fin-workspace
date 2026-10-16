@@ -745,7 +745,9 @@ export function FinancialPlansManager({
           businessMonth={businessMonth}
           plan={selectedPlan?.status === "draft" ? selectedPlan : null}
           canAutoActivate={!activeExists}
-          hasMultipleGoals={financialGoals.length > 1}
+          hasMultipleGoals={
+            selectedPlan?.status === "draft" && financialGoals.length > 1
+          }
           isMobile={isMobile}
           disabled={isPending}
           onSaved={(id) => {
@@ -866,6 +868,7 @@ function DraftReview({
         className="flex shrink-0 flex-wrap items-center gap-1.5"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         {plan.canManage && (
           <Button
@@ -2934,10 +2937,17 @@ function PlanEditorSheet({
   );
   const [draft, setDraft] = useState(initial);
   const total = ratioTotal(draft.percentages);
+  const hasPositiveTarget = useMemo(() => {
+    try {
+      return new Decimal(draft.targetAmount || 0).gt(0);
+    } catch {
+      return false;
+    }
+  }, [draft.targetAmount]);
   const valid = Boolean(
     draft.name.trim() &&
       (hasMultipleGoals ||
-        (draft.targetAmount && draft.targetMonth >= nextMonth(businessMonth))) &&
+        (hasPositiveTarget && draft.targetMonth >= nextMonth(businessMonth))) &&
       total.equals(100),
   );
 

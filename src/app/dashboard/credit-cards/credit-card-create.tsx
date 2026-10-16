@@ -176,12 +176,18 @@ export function CreditCardCreate({
   const [step2EnteredAt, setStep2EnteredAt] = useState(0);
 
   const [cardName, setCardName] = useState("");
+  const [description, setDescription] = useState("");
   const [creditLimit, setCreditLimit] = useState("");
   const [hasOpeningDebt, setHasOpeningDebt] = useState(false);
   const [openingDebt, setOpeningDebt] = useState("");
   const [fundingWalletId, setFundingWalletId] = useState(
     fundingWallets[0]?.id ?? "",
   );
+  const resolvedFundingWalletId = fundingWallets.some(
+    (wallet) => wallet.id === fundingWalletId,
+  )
+    ? fundingWalletId
+    : (fundingWallets[0]?.id ?? "");
   const [statementClosingDay, setStatementClosingDay] = useState("25");
   const [paymentDueDay, setPaymentDueDay] = useState("10");
 
@@ -192,6 +198,7 @@ export function CreditCardCreate({
     setActiveTab("card");
     setStep2EnteredAt(0);
     setCardName("");
+    setDescription("");
     setCreditLimit("");
     setHasOpeningDebt(false);
     setOpeningDebt("");
@@ -237,7 +244,7 @@ export function CreditCardCreate({
   // Overall form readiness
   const isSubmitDisabled =
     !isStep1Valid ||
-    !fundingWalletId ||
+    !resolvedFundingWalletId ||
     isInvalidDays ||
     unavailable;
 
@@ -274,18 +281,18 @@ export function CreditCardCreate({
     startTransition(async () => {
       const result = await createManagedWalletAction({
         name: cardName || data.get("name"),
-        description: data.get("description") || undefined,
+        description: description.trim() || data.get("description") || undefined,
         kind: "credit_card",
         creditCard: {
           creditLimit,
-          defaultFundingWalletId: fundingWalletId,
+          defaultFundingWalletId: resolvedFundingWalletId,
           statementClosingDay: Number(statementClosingDay),
           paymentDueDay: Number(paymentDueDay),
           openingDebt: finalOpeningDebt || "0",
           openingAllocations: debt.gt(0)
             ? [
                 {
-                  walletId: fundingWalletId,
+                  walletId: resolvedFundingWalletId,
                   amount: finalOpeningDebt,
                 },
               ]
@@ -377,7 +384,7 @@ export function CreditCardCreate({
         <div className="space-y-1.5 border-t border-[var(--border)] pt-3">
           <Select
             label="Ví thanh toán sao kê mặc định"
-            value={fundingWalletId}
+            value={resolvedFundingWalletId}
             onValueChange={setFundingWalletId}
             options={fundingWallets.map((wallet) => ({
               value: wallet.id,
@@ -444,6 +451,8 @@ export function CreditCardCreate({
         name="description"
         rows={2}
         maxLength={2000}
+        value={description}
+        onChange={(event) => setDescription(event.target.value)}
         placeholder="Mục đích sử dụng, ưu đãi hoàn tiền..."
         className="min-h-[4rem] resize-none"
       />

@@ -120,7 +120,7 @@ export function WorkspaceSwitcher({
     workspaces.find((ws) => ws.id === currentId) ?? workspaces[0];
 
   function choose(id: string) {
-    if (id === currentId && pathname === `/workspace/${id}`) {
+    if (id === currentId) {
       setOpen(false);
       return;
     }
@@ -133,8 +133,13 @@ export function WorkspaceSwitcher({
           return;
         }
         setOpen(false);
-        if (pathname === "/wallets") router.refresh();
-        else router.push(`/workspace/${id}`);
+        if (pathname.startsWith("/workspace/") || pathname === "/dashboard") {
+          router.push(`/workspace/${id}`);
+        } else if (pathname.startsWith("/credit-cards/")) {
+          router.push("/credit-cards");
+        } else {
+          router.refresh();
+        }
       } catch {
         setError("Không thể chuyển nhóm tài chính.");
       }

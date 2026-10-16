@@ -146,15 +146,14 @@ export function QuickTransactionSheet({
   const [open, setOpen] = useState(shouldOpenFromQuery);
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
-  const [walletId, setWalletId] = useState(
-    initialWorkspace?.wallets[0]?.id ?? "",
-  );
+  const defaultWalletId =
+    initialWorkspace?.wallets.find((wallet) => wallet.kind === "asset")?.id ??
+    initialWorkspace?.wallets[0]?.id ??
+    "";
+  const [walletId, setWalletId] = useState(defaultWalletId);
   const [toWalletId, setToWalletId] = useState(
     initialWorkspace
-      ? destinationWallet(
-          initialWorkspace,
-          initialWorkspace.wallets[0]?.id ?? "",
-        )
+      ? destinationWallet(initialWorkspace, defaultWalletId)
       : "",
   );
   const [categoryId, setCategoryId] = useState(() =>
@@ -174,6 +173,16 @@ export function QuickTransactionSheet({
         const nextType = event.detail.type as TransactionType;
         setType(nextType);
         setCategoryId(defaultCategoryForType(initialWorkspace, nextType));
+        if (
+          nextType === "income" &&
+          initialWorkspace?.wallets.find((wallet) => wallet.id === walletId)
+            ?.kind === "credit_card"
+        ) {
+          setWalletId(
+            initialWorkspace.wallets.find((wallet) => wallet.kind === "asset")
+              ?.id ?? "",
+          );
+        }
         if (nextType === "transfer" && initialWorkspace) {
           setToWalletId(destinationWallet(initialWorkspace, walletId));
         }
