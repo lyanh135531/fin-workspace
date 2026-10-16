@@ -427,5 +427,185 @@ describe("credit card statement payments", () => {
       data: { status: "active", completedAt: null },
     });
   });
+
+  it("normalizes negative items against positive items and leaves paidAt null for 0 VND statements", async () => {
+    const tx = {
+      creditCardStatement: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn().mockImplementation(({ data }) => Promise.resolve({ id: "stmt-zero", ...data })),
+      },
+      creditCardObligationEntry: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "obl-pos",
+            fundingWalletId: "wallet-a",
+            amount: new Decimal("500"),
+            paymentAllocations: [],
+          },
+          {
+            id: "obl-neg",
+            fundingWalletId: "wallet-a",
+            amount: new Decimal("-200"),
+            paymentAllocations: [],
+          },
+        ]),
+      },
+      creditCardInstallment: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      creditCardStatementItem: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      transaction: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    const stmt = await createStatementForCycle(
+      tx,
+      "workspace-1",
+      "card-wallet-1",
+      "2026-10-01",
+      "2026-10-31",
+      15,
+    );
+
+    expect(stmt.totalAmount.toString()).toBe("300");
+
+    // Also verify statementPaymentDetails normalizes cross-wallet negative items against positive items
+    const txDetails = {
+      creditCardStatement: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "stmt-cross",
+          status: "issued",
+          totalAmount: new Decimal("300"),
+          items: [
+            { obligationEntryId: "obl-pos", fundingWalletId: "wallet-a", amount: new Decimal("500") },
+            { obligationEntryId: "obl-neg", fundingWalletId: "wallet-b", amount: new Decimal("-200") },
+          ],
+          payments: [],
+        }),
+      },
+    } as unknown as Prisma.TransactionClient;
+    const details = await statementPaymentDetails(txDetails, "stmt-cross");
+    expect(Object.fromEntries([...details.dueByWallet.entries()].map(([k, v]) => [k, v.toString()]))).toEqual({
+      "wallet-a": "300",
+    });
+
+    // Now test 0 VND statement has paidAt: null
+    (tx.creditCardObligationEntry.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+    const zeroStmt = await createStatementForCycle(
+      tx,
+      "workspace-1",
+      "card-wallet-1",
+      "2026-11-01",
+      "2026-11-30",
+      15,
+    );
+    expect(zeroStmt.status).toBe("paid");
+    expect(zeroStmt.paidAt).toBeNull();
+  });
+
+  it("attaches historical installment terms to unpaid statements in refreshHistoricalCardStatements", async () => {
+    const createdItems: unknown[] = [];
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      creditCardProfile: {
+        findFirst: vi.fn().mockResolvedValue({
+          walletId: "card-wallet-1",
+          statementClosingDay: 20,
+          paymentDueDay: 5,
+          statements: [{ cycleEndDate: new Date("2026-09-20T00:00:00.000Z") }],
+          obligations: [],
+          installmentPlans: [
+            {
+              installments: [
+                { statementMonth: new Date("2026-09-01T00:00:00.000Z") },
+              ],
+            },
+          ],
+        }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          walletId: "card-wallet-1",
+          statementClosingDay: 20,
+          paymentDueDay: 5,
+        }),
+      },
+      creditCardObligationEntry: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      creditCardInstallment: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "inst-1",
+            installmentNo: 1,
+            statementDate: new Date("2026-09-20T00:00:00.000Z"),
+            dueDate: new Date("2026-10-05T00:00:00.000Z"),
+            amount: new Decimal("1000"),
+            plan: {
+              id: "plan-1",
+              origin: "imported",
+              termCount: 3,
+              paidTermCount: 0,
+              transaction: null,
+              importedObligations: [
+                {
+                  id: "obl-imp-1",
+                  fundingWalletId: "wallet-1",
+                  amount: new Decimal("3000"),
+                  paymentAllocations: [],
+                  statementItems: [],
+                },
+              ],
+              feeTransaction: null,
+            },
+          },
+        ]),
+      },
+      creditCardStatement: {
+        findFirst: vi.fn().mockResolvedValue({ id: "stmt-sep" }),
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "stmt-sep",
+            status: "issued",
+            cycleStartDate: new Date("2026-08-21T00:00:00.000Z"),
+            cycleEndDate: new Date("2026-09-20T00:00:00.000Z"),
+            items: [],
+            payments: [],
+          },
+        ]),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      creditCardStatementItem: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        create: vi.fn().mockImplementation(({ data }) => {
+          createdItems.push(data);
+          return Promise.resolve({ id: "item-1", ...data });
+        }),
+      },
+      creditCardInstallmentPlan: {
+        findMany: vi.fn().mockResolvedValue([]),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      transaction: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    await refreshHistoricalCardStatements(tx, "workspace-1", "card-wallet-1", "2026-09-20");
+
+    expect(createdItems).toEqual([
+      expect.objectContaining({
+        statementId: "stmt-sep",
+        obligationEntryId: "obl-imp-1",
+        fundingWalletId: "wallet-1",
+        installmentId: "inst-1",
+        amount: new Decimal("1000"),
+      }),
+    ]);
+  });
 });
+
 

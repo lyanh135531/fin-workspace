@@ -82,10 +82,15 @@ function getPasswordStrength(pw: string) {
 
 export function AccountSettingsClient({
   username,
+  initialAccount,
   onOpenPasswordChange,
   onOpenGoogleAction,
 }: {
   username: string;
+  initialAccount?: {
+    googleEmail?: string | null;
+    googleLinked?: boolean;
+  };
   onOpenPasswordChange?: () => void;
   onOpenGoogleAction?: (
     mode: "link" | "replace" | "unlink",
@@ -108,7 +113,7 @@ export function AccountSettingsClient({
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialAccount?.googleEmail, initialAccount?.googleLinked]);
 
   function createPasswordWithGoogle() {
     start(async () => {
@@ -124,6 +129,7 @@ export function AccountSettingsClient({
   }
 
   const initialsText = getInitials(username);
+  const googleLinked = Boolean(security?.googleAccount);
 
   return (
     <div className="space-y-5 text-[var(--foreground)]">
@@ -168,66 +174,97 @@ export function AccountSettingsClient({
 
         <div className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
           {/* ── Google Auth Row ────────────────────── */}
-          <button
-            type="button"
-            disabled={pending || security === null}
-            onClick={() => {
-              if (!security?.hasPassword) {
-                createPasswordWithGoogle();
-              } else if (security.googleAccount) {
-                onOpenGoogleAction?.("unlink", security.googleAccount.email);
-              } else {
-                onOpenGoogleAction?.("link");
+          <div>
+            <button
+              type="button"
+              disabled={pending || security === null}
+              onClick={() => {
+                if (!security?.hasPassword) {
+                  createPasswordWithGoogle();
+                } else if (security.googleAccount) {
+                  onOpenGoogleAction?.("unlink", security.googleAccount.email);
+                } else {
+                  onOpenGoogleAction?.("link");
+                }
+              }}
+              aria-label={
+                security?.googleAccount
+                  ? `Quản lý tài khoản Google ${security.googleAccount.email}`
+                  : "Liên kết tài khoản Google"
               }
-            }}
-            aria-label={
-              security?.googleAccount
-                ? `Quản lý tài khoản Google ${security.googleAccount.email}`
-                : "Liên kết tài khoản Google"
-            }
-            className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-[var(--surface-hover)] transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ring)] disabled:pointer-events-none disabled:opacity-60"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <span
-                className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]"
-                aria-hidden="true"
-              >
-                <GoogleMark className="size-4.5" />
-              </span>
-              <div className="min-w-0">
-                <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
-                  Google
-                </h3>
-                <p className="break-words text-[11px] leading-snug text-[var(--text-muted)]">
-                  {security === null ? (
-                    "Đang tải…"
-                  ) : security.googleAccount ? (
-                    security.googleAccount.email
-                  ) : (
-                    "Chưa liên kết tài khoản"
-                  )}
-                </p>
-              </div>
-            </div>
-
-            {security === null ? (
-              <Skeleton className="h-5 w-5 rounded-full" />
-            ) : (
-              <div className="flex shrink-0 items-center gap-2">
-                {security.googleAccount && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] px-2 py-0.5 text-[10px] font-semibold text-[var(--success)]">
-                    <BadgeCheck size={11} aria-hidden="true" />
-                    Đã liên kết
-                  </span>
-                )}
-                <ChevronRight
-                  size={16}
-                  className="text-[var(--text-muted)]"
+              className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-[var(--surface-hover)] transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ring)] disabled:pointer-events-none disabled:opacity-60"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span
+                  className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]"
                   aria-hidden="true"
-                />
+                >
+                  <GoogleMark className="size-4.5" />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
+                    Google
+                  </h3>
+                  <p className="break-words text-[11px] leading-snug text-[var(--text-muted)]">
+                    {security === null ? (
+                      "Đang tải…"
+                    ) : security.googleAccount ? (
+                      security.googleAccount.email
+                    ) : (
+                      "Chưa liên kết tài khoản"
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {security === null ? (
+                <Skeleton className="h-5 w-5 rounded-full" />
+              ) : (
+                <div className="flex shrink-0 items-center gap-2">
+                  {security.googleAccount && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] px-2 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+                      <BadgeCheck size={11} aria-hidden="true" />
+                      Đã liên kết
+                    </span>
+                  )}
+                  <ChevronRight
+                    size={16}
+                    className="text-[var(--text-muted)]"
+                    aria-hidden="true"
+                  />
+                </div>
+              )}
+            </button>
+
+            {googleLinked && security?.hasPassword && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] px-4 py-2.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() =>
+                    onOpenGoogleAction?.("replace", security.googleAccount?.email)
+                  }
+                  className="text-xs"
+                >
+                  Đổi tài khoản Google
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() =>
+                    onOpenGoogleAction?.("unlink", security.googleAccount?.email)
+                  }
+                  className="text-xs text-[var(--destructive)]"
+                >
+                  Hủy liên kết
+                </Button>
               </div>
             )}
-          </button>
+          </div>
 
           {/* ── Password Row ──────────────────────── */}
           {security?.hasPassword !== false && (

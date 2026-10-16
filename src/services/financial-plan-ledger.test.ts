@@ -105,4 +105,20 @@ describe("financial plan ledger projection", () => {
     const balance = await getWorkspaceBalance(tx, "workspace", before);
     expect(balance.toFixed(0)).toBe("700");
   });
+
+  it("includes non-deleted deactive wallets and clamps negative credit card balance in live workspace balance", async () => {
+    const tx = {
+      workspaceWallet: {
+        findMany: vi.fn().mockResolvedValue([
+          { walletId: "w-active", wallet: { currentBalance: new Decimal(1000), kind: "asset", status: "active" } },
+          { walletId: "w-deactive", wallet: { currentBalance: new Decimal(500), kind: "asset", status: "deactive" } },
+          { walletId: "w-card-overpaid", wallet: { currentBalance: new Decimal(-50), kind: "credit_card", status: "active" } },
+          { walletId: "w-card-debt", wallet: { currentBalance: new Decimal(200), kind: "credit_card", status: "active" } },
+        ]),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    const balance = await getWorkspaceBalance(tx, "workspace");
+    expect(balance.toFixed(0)).toBe("1300");
+  });
 });

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import {
   getPortalUserById,
+  getPortalUserWorkspaces,
   listPortalUsers,
   portalUserSelect,
 } from "@/services/platform-user-query";
@@ -13,6 +14,9 @@ vi.mock("@/lib/prisma", () => ({
       count: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
+    },
+    workspaceMember: {
+      findMany: vi.fn(),
     },
   },
 }));
@@ -63,6 +67,32 @@ describe("platform user read-only queries", () => {
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: "user-id", deletedAt: null },
       select: portalUserSelect,
+    });
+  });
+
+  it("excludes soft-deleted workspace memberships and workspaces in getPortalUserWorkspaces", async () => {
+    vi.mocked(prisma.workspaceMember.findMany).mockResolvedValue([]);
+
+    await getPortalUserWorkspaces("user-id");
+
+    expect(prisma.workspaceMember.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: "user-id",
+        deletedAt: null,
+        workspace: { deletedAt: null },
+      },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        role: {
+          select: { name: true, code: true },
+        },
+        workspace: {
+          select: { id: true, name: true, status: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
     });
   });
 });

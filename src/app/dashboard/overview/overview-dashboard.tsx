@@ -833,6 +833,11 @@ export function OverviewDashboard({
     return wallets;
   }, [wallets, assetWallets, creditCardWallets, walletFilter]);
 
+  const walletNameById = useMemo(
+    () => new Map(wallets.map((w) => [w.id, w.name])),
+    [wallets],
+  );
+
   // Privacy-aware amount renderer
   function displayAmount(
     value: Decimal.Value,
@@ -2282,11 +2287,15 @@ export function OverviewDashboard({
                             <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
                               {tx.description ||
                                 tx.category?.name ||
-                                (isIncome
-                                  ? "Khoản thu"
-                                  : isExpense
-                                    ? "Khoản chi"
-                                    : "Chuyển khoản")}
+                                (tx.purpose === "credit_card_refund"
+                                  ? "Hoàn tiền thẻ"
+                                  : tx.purpose === "credit_card_payment"
+                                    ? "Thanh toán thẻ tín dụng"
+                                    : isIncome
+                                      ? "Khoản thu"
+                                      : isExpense
+                                        ? "Khoản chi"
+                                        : "Chuyển khoản")}
                             </p>
                             {tx.status !== "approved" && (
                               <span
@@ -2304,9 +2313,21 @@ export function OverviewDashboard({
                             )}
                           </div>
                           <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
-                            {tx.type === "transfer" && tx.toWallet
-                              ? `${tx.wallet} → ${tx.toWallet}`
-                              : `Ví ${tx.wallet}`}{" "}
+                            {tx.purpose === "credit_card_payment"
+                              ? tx.paymentSources && tx.paymentSources.length > 0
+                                ? `${tx.paymentSources
+                                    .map(
+                                      (s) =>
+                                        walletNameById.get(s.walletId) ??
+                                        "Ví tài sản",
+                                    )
+                                    .join(", ")} → ${tx.wallet}`
+                                : `Thanh toán thẻ ${tx.wallet}`
+                              : tx.purpose === "credit_card_refund"
+                                ? `Hoàn tiền vào ${tx.wallet}`
+                                : tx.type === "transfer" && tx.toWallet
+                                  ? `${tx.wallet} → ${tx.toWallet}`
+                                  : `Ví ${tx.wallet}`}{" "}
                             · {tx.member} · {formattedDate}
                           </p>
                         </div>
@@ -2461,7 +2482,11 @@ export function OverviewDashboard({
                         <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
                           {tx.description ||
                             tx.category?.name ||
-                            "Giao dịch chờ duyệt"}
+                            (tx.purpose === "credit_card_refund"
+                              ? "Hoàn tiền thẻ"
+                              : tx.purpose === "credit_card_payment"
+                                ? "Thanh toán thẻ tín dụng"
+                                : "Giao dịch chờ duyệt")}
                         </p>
                         <p className="mt-0.5 break-words text-xs text-[var(--text-muted)] tabular-nums">
                           {tx.member} · Ví {tx.wallet} ·{" "}
@@ -2545,11 +2570,15 @@ export function OverviewDashboard({
               {/* Amount Banner */}
               <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-4 text-center">
                 <span className="text-xs font-medium text-[var(--text-muted)]">
-                  {selectedTransaction.type === "income"
-                    ? "Khoản thu nhập"
-                    : selectedTransaction.type === "expense"
-                      ? "Khoản chi tiêu"
-                      : "Chuyển khoản nội bộ"}
+                  {selectedTransaction.purpose === "credit_card_refund"
+                    ? "Hoàn tiền thẻ tín dụng"
+                    : selectedTransaction.purpose === "credit_card_payment"
+                      ? "Thanh toán thẻ tín dụng"
+                      : selectedTransaction.type === "income"
+                        ? "Khoản thu nhập"
+                        : selectedTransaction.type === "expense"
+                          ? "Khoản chi tiêu"
+                          : "Chuyển khoản nội bộ"}
                 </span>
                 <strong
                   className={cn(
@@ -2590,10 +2619,19 @@ export function OverviewDashboard({
                 <div className="flex items-center justify-between gap-3 px-4 py-3">
                   <span className="text-[var(--text-muted)]">Ví / Tài khoản</span>
                   <strong className="font-semibold text-[var(--foreground)]">
-                    {selectedTransaction.type === "transfer" &&
-                    selectedTransaction.toWallet
-                      ? `${selectedTransaction.wallet} → ${selectedTransaction.toWallet}`
-                      : selectedTransaction.wallet}
+                    {selectedTransaction.purpose === "credit_card_payment" &&
+                    selectedTransaction.paymentSources &&
+                    selectedTransaction.paymentSources.length > 0
+                      ? `${selectedTransaction.paymentSources
+                          .map(
+                            (s) =>
+                              walletNameById.get(s.walletId) ?? "Ví tài sản",
+                          )
+                          .join(", ")} → ${selectedTransaction.wallet}`
+                      : selectedTransaction.type === "transfer" &&
+                          selectedTransaction.toWallet
+                        ? `${selectedTransaction.wallet} → ${selectedTransaction.toWallet}`
+                        : selectedTransaction.wallet}
                   </strong>
                 </div>
                 {selectedTransaction.category && (
@@ -2790,7 +2828,11 @@ export function OverviewDashboard({
                       <p className="break-words text-sm font-semibold text-[var(--foreground)]">
                         {tx.description ||
                           tx.category?.name ||
-                          "Giao dịch chờ duyệt"}
+                          (tx.purpose === "credit_card_refund"
+                            ? "Hoàn tiền thẻ"
+                            : tx.purpose === "credit_card_payment"
+                              ? "Thanh toán thẻ tín dụng"
+                              : "Giao dịch chờ duyệt")}
                       </p>
                       <p className="mt-0.5 text-xs text-[var(--text-muted)] tabular-nums">
                         {tx.member} · Ví {tx.wallet} ·{" "}

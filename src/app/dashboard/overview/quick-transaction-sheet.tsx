@@ -184,7 +184,28 @@ export function QuickTransactionSheet({
           );
         }
         if (nextType === "transfer" && initialWorkspace) {
-          setToWalletId(destinationWallet(initialWorkspace, walletId));
+          const hasValidDest = initialWorkspace.wallets.some(
+            (w) => w.kind === "asset" && w.id !== walletId,
+          );
+          const nextSourceWallet = hasValidDest
+            ? initialWorkspace.wallets.find((w) => w.id === walletId)
+            : initialWorkspace.wallets.find((w) =>
+                initialWorkspace.wallets.some(
+                  (dest) => dest.kind === "asset" && dest.id !== w.id,
+                ),
+              );
+          const nextSourceId = nextSourceWallet?.id ?? walletId;
+          if (nextSourceId !== walletId) {
+            setWalletId(nextSourceId);
+            if (nextSourceWallet?.kind === "credit_card") {
+              const fallbackFunding =
+                nextSourceWallet.creditCardProfile?.defaultFundingWalletId ??
+                initialWorkspace.wallets.find((w) => w.kind === "asset")?.id ??
+                "";
+              setAllocationWalletId(fallbackFunding);
+            }
+          }
+          setToWalletId(destinationWallet(initialWorkspace, nextSourceId));
         }
       } else {
         setCategoryId((prev) => {
@@ -229,7 +250,28 @@ export function QuickTransactionSheet({
       setWalletId(workspace.wallets.find((wallet) => wallet.kind === "asset")?.id ?? "");
     }
     if (nextType === "transfer") {
-      setToWalletId(destinationWallet(workspace, walletId));
+      const hasValidDest = workspace.wallets.some(
+        (w) => w.kind === "asset" && w.id !== walletId,
+      );
+      const nextSourceWallet = hasValidDest
+        ? workspace.wallets.find((w) => w.id === walletId)
+        : workspace.wallets.find((w) =>
+            workspace.wallets.some(
+              (dest) => dest.kind === "asset" && dest.id !== w.id,
+            ),
+          );
+      const nextSourceId = nextSourceWallet?.id ?? walletId;
+      if (nextSourceId !== walletId) {
+        setWalletId(nextSourceId);
+        if (nextSourceWallet?.kind === "credit_card") {
+          const fallbackFunding =
+            nextSourceWallet.creditCardProfile?.defaultFundingWalletId ??
+            workspace.wallets.find((w) => w.kind === "asset")?.id ??
+            "";
+          setAllocationWalletId(fallbackFunding);
+        }
+      }
+      setToWalletId(destinationWallet(workspace, nextSourceId));
     }
   }
 
@@ -292,7 +334,9 @@ export function QuickTransactionSheet({
       : date < workspace.businessDate && !isAdminRole(workspace.role)
         ? "Giao dịch quá khứ sẽ chờ Admin duyệt."
         : null;
-  const transferDisabled = workspace.wallets.length < 2;
+  const transferDisabled = !workspace.wallets.some((w) =>
+    workspace.wallets.some((dest) => dest.kind === "asset" && dest.id !== w.id),
+  );
 
   const amountToneLabel =
     type === "expense"

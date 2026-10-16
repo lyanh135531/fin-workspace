@@ -63,7 +63,7 @@ function defaultDestination(
   wallets: TransactionWalletOption[],
   sourceId: string,
 ) {
-  return wallets.find((wallet) => wallet.kind !== "credit_card" && wallet.id !== sourceId)?.id ?? sourceId;
+  return wallets.find((wallet) => wallet.kind !== "credit_card" && wallet.id !== sourceId)?.id ?? "";
 }
 
 function categoriesForTransactionType(
@@ -140,6 +140,9 @@ export function DesktopTransactionCreateDraft({
     ...wallets.filter((wallet) => wallet.kind === "credit_card"),
   ];
   const isCreditCardTransaction = (draft.type === "expense" || draft.type === "transfer") && selectedWallet?.kind === "credit_card";
+  const canTransfer = wallets.some((w) =>
+    wallets.some((dest) => dest.kind !== "credit_card" && dest.id !== w.id),
+  );
 
   function walletSelectOption(
     wallet: TransactionWalletOption,
@@ -208,9 +211,19 @@ export function DesktopTransactionCreateDraft({
 
   function changeType(type: TransactionType): void {
     const currentWallet = wallets.find((wallet) => wallet.id === draft.walletId);
-    const nextWallet = type === "income" && currentWallet?.kind === "credit_card"
-      ? assetWallets[0]
-      : currentWallet;
+    const nextWallet =
+      type === "income" && currentWallet?.kind === "credit_card"
+        ? assetWallets[0]
+        : type === "transfer" &&
+            !wallets.some(
+              (w) => w.kind !== "credit_card" && w.id !== draft.walletId,
+            )
+          ? (wallets.find((w) =>
+              wallets.some(
+                (dest) => dest.kind !== "credit_card" && dest.id !== w.id,
+              ),
+            ) ?? currentWallet)
+          : currentWallet;
     const nextWalletId = nextWallet?.id ?? draft.walletId;
     onChange({
       type,
@@ -283,7 +296,7 @@ export function DesktopTransactionCreateDraft({
                         : undefined
                   }
                   disabled={
-                    busy || (tab.value === "transfer" && wallets.length < 2)
+                    busy || (tab.value === "transfer" && !canTransfer)
                   }
                 >
                   <Icon aria-hidden="true" />

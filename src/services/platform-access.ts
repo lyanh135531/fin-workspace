@@ -13,8 +13,15 @@ export async function requirePlatformAdminSession() {
 
   const currentUser = await prisma.user?.findUnique?.({
     where: { id: session.user.id },
-    select: { username: true },
+    select: { username: true, status: true, deletedAt: true },
   });
+  if (
+    currentUser &&
+    ((currentUser.status !== undefined && currentUser.status !== "active") ||
+      (currentUser.deletedAt !== undefined && currentUser.deletedAt !== null))
+  ) {
+    redirect("/sign-in");
+  }
   const username = currentUser?.username ?? session.user.username;
 
   if (!username) {

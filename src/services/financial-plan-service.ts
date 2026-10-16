@@ -20,9 +20,9 @@ import {
   type PlanJarPercentagesInput,
   type UpdateFinancialPlanDraftInput,
 } from "@/domain";
+import { formatInTimeZone } from "date-fns-tz";
 import { FINANCIAL_JAR_CODES } from "@/domain/financial-jar/jars";
 import { addMonths, monthDateRange } from "@/domain/financial-plan/month";
-import { getBusinessDateInTimeZone } from "@/lib/date";
 import { isAdminRole } from "@/domain/role-policy";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
@@ -43,7 +43,7 @@ function appValidation(error: unknown): never {
 }
 
 function currentMonth(timeZone: string, now: Date) {
-  return getBusinessDateInTimeZone(timeZone, now).slice(0, 7);
+  return formatInTimeZone(now, timeZone, "yyyy-MM");
 }
 
 function allocationRows(planId: string, effectiveMonth: string, percentages: PlanJarPercentagesInput) {
@@ -407,16 +407,19 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
 }
 
 export async function catchUpFinancialPlan(planId: string, now = new Date()) {
-  const plan = await prisma.financialPlan.findFirst({
+  const plan = await prisma.financialPlan?.findFirst?.({
     where: { id: planId, status: "active", deletedAt: null },
     include: { workspace: { select: { timeZone: true } }, months: { select: { month: true } } },
   });
   if (!plan?.startMonth) return { closed: 0, completed: false };
+  const startMonth = databaseDateToMonth(plan.startMonth);
+  const rawTargetMonth = databaseDateToMonth(plan.targetMonth);
+  const targetMonth = rawTargetMonth < startMonth ? startMonth : rawTargetMonth;
   const openMonth = currentMonth(plan.workspace.timeZone, now);
-  const lastCloseable = [addMonths(openMonth, -1), databaseDateToMonth(plan.targetMonth)].sort()[0];
+  const lastCloseable = [addMonths(openMonth, -1), targetMonth].sort()[0];
   let closed = 0;
   let completed = false;
-  for (const month of monthsInclusive(databaseDateToMonth(plan.startMonth), databaseDateToMonth(plan.targetMonth))) {
+  for (const month of monthsInclusive(startMonth, targetMonth)) {
     if (month > lastCloseable || plan.months.some((item) => databaseDateToMonth(item.month) === month)) continue;
     const result = await closeOneFinancialPlanMonth(plan.id, month, now);
     if (result.kind === "closed") {
@@ -548,7 +551,8 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
       };
     }
     const startMonth = databaseDateToMonth(plan.startMonth);
-    const targetMonth = databaseDateToMonth(plan.targetMonth);
+    const rawTargetMonth = databaseDateToMonth(plan.targetMonth);
+    const targetMonth = rawTargetMonth < startMonth ? startMonth : rawTargetMonth;
     const businessMonth = currentMonth(member.workspace.timeZone, now);
     const goalProgress = await getPlanGoalProgressSummary(tx, plan.id);
     const baselineProgress = new Decimal(

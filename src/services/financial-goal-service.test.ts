@@ -346,4 +346,74 @@ describe("financial goal service", () => {
     expect(portfolio).toHaveLength(1);
     expect(portfolio[0]?.health).toBe("overdue");
   });
+
+  it("does not count the current open month as elapsed on Day 1 in getFinancialPlanGoalPortfolio", async () => {
+    mocks.tx.financialPlanGoal.findMany.mockResolvedValue([
+      {
+        id: goalId,
+        name: "Mục tiêu tháng đầu",
+        status: "active",
+        trackingMode: "manual",
+        linkedWalletId: null,
+        linkedWallet: null,
+        targetAmount: new Decimal(6_000_000),
+        targetMonth: new Date("2026-12-01T00:00:00.000Z"),
+        sortOrder: 0,
+        createdAt: new Date("2026-10-01T00:00:00.000Z"),
+        financialPlan: { startMonth: new Date("2026-10-01T00:00:00.000Z") },
+        fundingEntries: [],
+      },
+    ]);
+    mocks.tx.financialGoalFundingEntry.aggregate.mockResolvedValue({
+      _sum: { amount: new Decimal(0) },
+    });
+
+    const portfolio = await getFinancialPlanGoalPortfolio(
+      "user-1",
+      workspaceId,
+      "plan-1",
+      new Decimal(2_000_000),
+      new Date("2026-10-01T00:00:00.000Z"),
+    );
+
+    expect(portfolio).toHaveLength(1);
+    expect(portfolio[0]?.health).toBe("on_track");
+  });
+
+  it("allows editing a linked_wallet goal even when linked wallet live balance exceeds targetAmount", async () => {
+    mocks.requireWorkspaceMember.mockResolvedValue({
+      id: "admin-1",
+      role: { code: "ADMIN" },
+      workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+    });
+    mocks.tx.financialPlanGoal.findFirst
+      .mockResolvedValueOnce({
+        id: goalId,
+        financialPlanId: "plan-1",
+        trackingMode: "linked_wallet",
+        linkedWalletId: "wallet-1",
+        status: "active",
+        financialPlan: { id: "plan-1", workspaceId, status: "active" },
+      })
+      .mockResolvedValueOnce(null);
+    mocks.tx.workspaceWallet.findFirst.mockResolvedValue({
+      wallet: { id: "wallet-1", kind: "asset", status: "active" },
+    });
+    mocks.tx.wallet.findFirst.mockResolvedValue({
+      currentBalance: new Decimal(8_000_000),
+    });
+    mocks.tx.financialPlanGoal.update.mockResolvedValue({ id: goalId });
+    mocks.tx.financialPlanGoal.findMany.mockResolvedValue([]);
+
+    await expect(
+      updateFinancialPlanGoal("admin-user", workspaceId, {
+        goalId,
+        name: "Quỹ dự phòng",
+        targetAmount: new Decimal(5_000_000),
+        targetMonth: "2026-12",
+        trackingMode: "linked_wallet",
+        linkedWalletId: "wallet-1",
+      }),
+    ).resolves.toEqual({ id: goalId });
+  });
 });

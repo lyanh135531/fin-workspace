@@ -325,21 +325,28 @@ export function RecurringTransactionsManager({
   ).length;
   const attentionCount = errorCount + pendingApprovalCount;
 
+  const activeStatus: ScheduleStatusFilter =
+    (status === "deactive" && pausedCount === 0) ||
+    (status === "completed" && completedCount === 0) ||
+    (status === "active" && pausedCount === 0 && completedCount === 0)
+      ? "all"
+      : status;
+
   const visibleSchedules = useMemo(
     () =>
       schedules.filter((item) => {
-        if (status === "all") return true;
-        if (status === "income") return item.type === "income";
-        if (status === "expense") return item.type === "expense";
+        if (activeStatus === "all") return true;
+        if (activeStatus === "income") return item.type === "income";
+        if (activeStatus === "expense") return item.type === "expense";
         const displayStatus =
           item.approvalStatus === "approved"
             ? item.completedAt
               ? "completed"
               : item.status
             : item.approvalStatus;
-        return displayStatus === status;
+        return displayStatus === activeStatus;
       }),
-    [schedules, status],
+    [schedules, activeStatus],
   );
 
   function beginCreate() {
@@ -690,8 +697,8 @@ export function RecurringTransactionsManager({
             {/* Primary Filter: All / Expense / Income */}
             <Tabs
               value={
-                status === "all" || status === "expense" || status === "income"
-                  ? status
+                activeStatus === "all" || activeStatus === "expense" || activeStatus === "income"
+                  ? activeStatus
                   : "all"
               }
               onValueChange={(value) => setStatus(value as ScheduleStatusFilter)}
@@ -702,7 +709,12 @@ export function RecurringTransactionsManager({
                 aria-label="Lọc giao dịch định kỳ"
                 className="grid w-full grid-cols-3 md:inline-flex md:w-auto"
               >
-                <TabsTrigger variant="segmented" value="all" className="px-2 text-xs">
+                <TabsTrigger
+                  variant="segmented"
+                  value="all"
+                  className="px-2 text-xs"
+                  onClick={() => setStatus("all")}
+                >
                   Tất cả ({schedules.length})
                 </TabsTrigger>
                 <TabsTrigger variant="segmented" value="expense" className="px-2 text-xs">
@@ -718,10 +730,10 @@ export function RecurringTransactionsManager({
             {(pausedCount > 0 || completedCount > 0) && (
               <Tabs
                 value={
-                  status === "active" ||
-                  status === "deactive" ||
-                  status === "completed"
-                    ? status
+                  activeStatus === "active" ||
+                  activeStatus === "deactive" ||
+                  activeStatus === "completed"
+                    ? activeStatus
                     : "all"
                 }
                 onValueChange={(value) =>
@@ -736,7 +748,12 @@ export function RecurringTransactionsManager({
                     completedCount > 0 ? "grid-cols-4" : "grid-cols-3",
                   )}
                 >
-                  <TabsTrigger variant="segmented" value="all" className="px-2 text-xs">
+                  <TabsTrigger
+                    variant="segmented"
+                    value="all"
+                    className="px-2 text-xs"
+                    onClick={() => setStatus("all")}
+                  >
                     Tất cả
                   </TabsTrigger>
                   <TabsTrigger variant="segmented" value="active" className="px-2 text-xs">

@@ -86,7 +86,11 @@ export function getPortalUserById(userId: string) {
  */
 export async function getPortalUserWorkspaces(userId: string) {
   return prisma.workspaceMember.findMany({
-    where: { userId },
+    where: {
+      userId,
+      deletedAt: null,
+      workspace: { deletedAt: null },
+    },
     select: {
       id: true,
       status: true,

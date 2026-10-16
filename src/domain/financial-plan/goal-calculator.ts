@@ -98,7 +98,7 @@ export function simulateGoalFunding(input: {
 }) {
   const progress = new Map(input.goals.map((goal) => [goal.id, new Decimal(goal.actualProgress)]));
   const lastMonth = [...input.goals].sort((a, b) => b.targetMonth.localeCompare(a.targetMonth))[0]?.targetMonth;
-  if (!lastMonth) return { months: [], projectedByGoal: new Map<string, Decimal>() };
+  if (!lastMonth || lastMonth < input.startMonth) return { months: [], projectedByGoal: progress };
   const months = monthsInclusive(input.startMonth, lastMonth).map((month) => {
     const active = input.goals
       .filter((goal) => month <= goal.targetMonth && (progress.get(goal.id) ?? ZERO).lessThan(goal.targetAmount))

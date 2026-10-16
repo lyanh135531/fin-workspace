@@ -100,7 +100,7 @@ describe("deleteCreditCard checks", () => {
     creditCardPaymentSource: { deleteMany: vi.fn() },
     creditCardInstallment: { deleteMany: vi.fn() },
     recurringTransaction: { count: vi.fn(), updateMany: vi.fn() },
-    wallet: { update: vi.fn() },
+    wallet: { findFirst: vi.fn(), update: vi.fn() },
     creditCardProfile: { update: vi.fn(), deleteMany: vi.fn() },
     auditLog: { create: vi.fn() },
   };
@@ -120,6 +120,11 @@ describe("deleteCreditCard checks", () => {
     tx.transaction.findMany.mockResolvedValue([]);
     tx.creditCardStatement.findMany.mockResolvedValue([]);
     tx.creditCardInstallmentPlan.findMany.mockResolvedValue([]);
+    tx.wallet.findFirst.mockResolvedValue({
+      id: "asset-wallet",
+      currentBalance: new Decimal(1_000_000),
+      deletedAt: null,
+    });
   });
 
   it("rejects deletion without resolution when card still has outstanding debt", async () => {
@@ -407,6 +412,53 @@ describe("deleteCreditCard checks", () => {
     expect(tx.transaction.update).toHaveBeenCalledWith({
       where: { id: "tx-self-transfer" },
       data: { deletedAt: expect.any(Date) },
+    });
+  });
+
+  it("rejects void_transactions when counterparty asset wallet has insufficient balance to reverse a card-to-asset transfer", async () => {
+    tx.workspaceWallet.findFirst.mockResolvedValue({
+      wallet: { currentBalance: new Decimal(200_000) },
+    });
+    tx.transaction.findMany.mockResolvedValue([
+      {
+        id: "tx-transfer-out",
+        walletId: "card-id",
+        toWalletId: "bank-id",
+        type: "transfer",
+        purpose: "normal",
+        amount: new Decimal(200_000),
+        workflowStatus: "approved",
+        creditCardPaymentSources: [],
+      },
+    ]);
+    tx.wallet.findFirst.mockResolvedValueOnce({
+      id: "bank-id",
+      currentBalance: new Decimal(50_000),
+      deletedAt: null,
+    });
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id", {
+        action: "void_transactions",
+      }),
+    ).rejects.toThrow("ví liên kết không còn đủ số dư");
+  });
+
+  it("queries only genuinely paid positive-amount statements when checking paidStatements during card deletion", async () => {
+    tx.workspaceWallet.findFirst.mockResolvedValue({
+      wallet: { currentBalance: new Decimal(0) },
+    });
+    tx.transaction.count.mockResolvedValue(0);
+
+    await deleteCreditCard("user-id", "workspace-id", "card-id");
+
+    expect(tx.creditCardStatement.count).toHaveBeenCalledWith({
+      where: {
+        cardWalletId: "card-id",
+        status: "paid",
+        totalAmount: { gt: 0 },
+        paidAt: { not: null },
+      },
     });
   });
 });

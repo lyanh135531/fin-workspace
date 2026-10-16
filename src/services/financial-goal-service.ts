@@ -20,11 +20,16 @@ import { formatInTimeZone } from "date-fns-tz";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { monthToDatabaseDate } from "@/domain/financial-plan/month";
+import { catchUpFinancialPlan } from "@/services/financial-plan-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
 type TransactionClient = Prisma.TransactionClient;
 const ZERO = new Decimal(0);
 const DRAFT_ALLOCATION_MONTH = "1970-01";
+
+function currentBusinessMonth(now = new Date(), timeZone = "Asia/Ho_Chi_Minh") {
+  return monthToDatabaseDate(formatInTimeZone(now, timeZone, "yyyy-MM"));
+}
 
 function dateOnly(value: string) {
   return new Date(`${value}T00:00:00.000Z`);
@@ -197,6 +202,8 @@ export async function syncPlanAggregate(tx: TransactionClient, planId: string) {
       select: { month: true },
     });
     if (lastClosed?.month && targetMonth < lastClosed.month) targetMonth = lastClosed.month;
+    const currentMonth = currentBusinessMonth();
+    if (plan?.status === "active" && targetMonth < currentMonth) targetMonth = currentMonth;
   }
   await tx.financialPlan.update({
     where: { id: planId },
@@ -331,7 +338,9 @@ export async function updateFinancialPlanGoal(
       trackingMode: input.trackingMode,
       linkedWalletId: input.trackingMode === "linked_wallet" ? input.linkedWalletId ?? null : null,
     });
-    if (input.targetAmount.lessThan(progress)) throw new AppError("VALIDATION_ERROR", "Mục tiêu mới không được nhỏ hơn số tiền đã xác nhận.");
+    if (input.trackingMode === "manual" && input.targetAmount.lessThan(progress)) {
+      throw new AppError("VALIDATION_ERROR", "Mục tiêu mới không được nhỏ hơn số tiền đã xác nhận.");
+    }
     if (goal.status === "draft" && goal.trackingMode === "manual" && input.trackingMode === "linked_wallet") {
       await tx.financialGoalFundingEntry.deleteMany?.({
         where: { goalId: goal.id, kind: { in: ["opening", "adjustment"] } },
@@ -449,6 +458,13 @@ export async function reverseFinancialGoalFunding(userId: string, workspaceId: s
 
 export async function finishFinancialPlanGoal(userId: string, workspaceId: string, goalId: string, status: "completed" | "cancelled") {
   const member = await requireWorkspaceMember(userId, workspaceId, true);
+  const targetGoal = await prisma.financialPlanGoal?.findFirst?.({
+    where: { id: goalId, deletedAt: null },
+    select: { financialPlanId: true },
+  });
+  if (targetGoal) {
+    await catchUpFinancialPlan(targetGoal.financialPlanId);
+  }
   return prisma.$transaction(async (tx) => {
     const goal = await managedGoal(tx, workspaceId, goalId);
     const now = new Date();
@@ -568,9 +584,10 @@ export async function getFinancialPlanGoalPortfolio(
       const projected = simulation.projectedByGoal.get(goal.id) ?? actual;
       const goalTargetMonth = goal.targetMonth.toISOString().slice(0, 7);
       const totalMonths = goalTargetMonth < startMonth ? 1 : monthsInclusive(startMonth, goalTargetMonth).length;
-      const elapsedMonths = isDraftPlan || businessMonth < startMonth
-        ? 0
-        : Math.min(monthsInclusive(startMonth, businessMonth).length, totalMonths);
+      const elapsedMonths =
+        isDraftPlan || businessMonth <= startMonth
+          ? 0
+          : Math.min(monthsInclusive(startMonth, businessMonth).length - 1, totalMonths);
       const expected = target.times(elapsedMonths).dividedToIntegerBy(totalMonths);
       const monthly = allocation.get(goal.id);
       return {

@@ -15,6 +15,19 @@ export type LegalConsentStatus = {
 export async function getLegalConsentStatus(
   userId: string,
 ): Promise<LegalConsentStatus> {
+  if (typeof prisma.user?.findUnique === "function") {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { status: true, deletedAt: true },
+    });
+    if (
+      user &&
+      ((user.status !== undefined && user.status !== "active") ||
+        (user.deletedAt !== undefined && user.deletedAt !== null))
+    ) {
+      throw new AppError("FORBIDDEN", "Tài khoản đã bị khóa hoặc ngừng hoạt động.");
+    }
+  }
   const acceptance = await prisma.legalAcceptance.findUnique({
     where: {
       userId_privacyVersion_termsVersion: {

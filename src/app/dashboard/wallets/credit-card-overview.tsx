@@ -899,6 +899,9 @@ function CreditCardPanel({
   const [editWalletId, setEditWalletId] = useState<string>("");
   const [editToWalletId, setEditToWalletId] = useState<string>("");
   const [editAmount, setEditAmount] = useState<string>("");
+  const [editAllocations, setEditAllocations] = useState<
+    Array<{ walletId: string; amount: string }>
+  >([]);
   const [editDate, setEditDate] = useState<string>("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
   const [editActivityDescription, setEditActivityDescription] = useState<string>("");
@@ -969,12 +972,55 @@ function CreditCardPanel({
     setPaymentConfirmOpen(true);
   }
 
+  function scaleEditAllocations(
+    prev: Array<{ walletId: string; amount: string }>,
+    nextAmountRaw: string,
+  ): Array<{ walletId: string; amount: string }> {
+    if (prev.length === 0) return prev;
+    let nextTotal: Decimal;
+    try {
+      nextTotal = new Decimal(nextAmountRaw || "0");
+    } catch {
+      return prev;
+    }
+    if (nextTotal.lte(0)) return prev;
+    if (prev.length === 1) {
+      return [{ walletId: prev[0].walletId, amount: nextTotal.toString() }];
+    }
+    const oldTotal = prev.reduce(
+      (sum, item) => sum.plus(new Decimal(item.amount || "0")),
+      new Decimal(0),
+    );
+    if (oldTotal.eq(nextTotal)) {
+      return prev.map((item) => ({
+        walletId: item.walletId,
+        amount: item.amount,
+      }));
+    }
+    if (oldTotal.gt(0)) {
+      let remaining = nextTotal;
+      return prev.map((item, idx) => {
+        const share =
+          idx === prev.length - 1
+            ? remaining
+            : nextTotal
+                .mul(new Decimal(item.amount || "0"))
+                .div(oldTotal)
+                .toDecimalPlaces(0, Decimal.ROUND_FLOOR);
+        remaining = remaining.minus(share);
+        return {
+          walletId: item.walletId,
+          amount: Decimal.max(share, 0).toString(),
+        };
+      });
+    }
+    return prev;
+  }
+
   function startEditingActivity(activity: CardActivity) {
     const nextWalletId = activity.walletId || card.id;
     const defaultToWalletId =
-      fundingWallets.find((w) => w.id !== nextWalletId)?.id ??
-      fundingWallets[0]?.id ??
-      "";
+      fundingWallets.find((w) => w.id !== nextWalletId)?.id ?? "";
     setEditingActivity(activity);
     setEditWalletId(nextWalletId);
     setEditToWalletId(
@@ -983,6 +1029,7 @@ function CreditCardPanel({
         : defaultToWalletId,
     );
     setEditAmount(activity.amount);
+    setEditAllocations(activity.allocations ?? []);
     setEditDate(activity.date);
     setEditCategoryId(activity.categoryId || (expenseCategories[0]?.id ?? ""));
     setEditActivityDescription(activity.description ?? "");
@@ -997,36 +1044,12 @@ function CreditCardPanel({
     const buildAllocations = () => {
       if (!isCreditCard || txType === "income") return undefined;
       const originalWalletId = editingActivity.walletId || card.id;
-      const existingAllocations = editingActivity.allocations ?? [];
-      const nextTotal = new Decimal(editAmount);
+      const existingAllocations =
+        editAllocations.length > 0
+          ? editAllocations
+          : (editingActivity.allocations ?? []);
       if (editWalletId === originalWalletId && existingAllocations.length > 0) {
-        const oldTotal = existingAllocations.reduce(
-          (sum, item) => sum.plus(item.amount),
-          new Decimal(0),
-        );
-        if (oldTotal.eq(nextTotal)) {
-          return existingAllocations.map((item) => ({
-            walletId: item.walletId,
-            amount: item.amount,
-          }));
-        }
-        if (oldTotal.gt(0)) {
-          let remaining = nextTotal;
-          return existingAllocations.map((item, idx) => {
-            const share =
-              idx === existingAllocations.length - 1
-                ? remaining
-                : nextTotal
-                    .mul(item.amount)
-                    .div(oldTotal)
-                    .toDecimalPlaces(0, Decimal.ROUND_FLOOR);
-            remaining = remaining.minus(share);
-            return {
-              walletId: item.walletId,
-              amount: Decimal.max(share, 0).toString(),
-            };
-          });
-        }
+        return scaleEditAllocations(existingAllocations, editAmount);
       }
       const targetCard = allCards?.find((c) => c.id === editWalletId);
       const fallbackFundingWalletId =
@@ -3718,7 +3741,10 @@ function CreditCardPanel({
                   label="Số tiền giao dịch"
                   autoFocus
                   value={editAmount}
-                  onValueChange={setEditAmount}
+                  onValueChange={(val) => {
+                    setEditAmount(val);
+                    setEditAllocations((prev) => scaleEditAllocations(prev, val));
+                  }}
                   placeholder="0"
                   aria-label="Số tiền giao dịch"
                   required

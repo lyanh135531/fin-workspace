@@ -365,7 +365,7 @@ export async function setRecurringTransactionStatus(
       throw new AppError("CONFLICT", "Lịch phải được duyệt trước khi kích hoạt.");
     }
     if (status === "active") {
-      await requireTransactionResources(tx, workspaceId, current);
+      await requireRecurringTransactionResources(tx, workspaceId, current);
     }
     const effectiveStart = asBusinessDate(current.startDate) > today
       ? asBusinessDate(current.startDate)
@@ -470,7 +470,7 @@ export async function reviewRecurringTransaction(
       return record;
     }
 
-    await requireTransactionResources(tx, workspaceId, current);
+    await requireRecurringTransactionResources(tx, workspaceId, current);
     const effectiveStart = asBusinessDate(current.startDate) > today
       ? asBusinessDate(current.startDate)
       : today;

@@ -34,12 +34,13 @@ export async function getWorkspaceBalance(
     },
     select: { walletId: true, wallet: { select: { currentBalance: true, kind: true } } },
   });
-  let balance = links.reduce(
-    (sum, link) => link.wallet.kind === "credit_card"
-      ? sum.minus(link.wallet.currentBalance.toString())
-      : sum.plus(link.wallet.currentBalance.toString()),
-    ZERO,
-  );
+  let balance = ZERO;
+  for (const link of links) {
+    const amount = new Decimal(link.wallet.currentBalance.toString());
+    balance = link.wallet.kind === "credit_card"
+      ? balance.minus(before ? amount : Decimal.max(amount, ZERO))
+      : balance.plus(amount);
+  }
   if (!before || links.length === 0) return balance;
 
   const walletIds = links.map((link) => link.walletId);

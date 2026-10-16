@@ -597,6 +597,8 @@ export async function deleteCreditCard(
         where: {
           cardWalletId,
           status: "paid",
+          totalAmount: { gt: 0 },
+          paidAt: { not: null },
         },
       });
       if (paidStatements > 0) {
@@ -701,6 +703,12 @@ export async function deleteCreditCard(
       });
       const cardTransactionIds = cardTransactions.map((t) => t.id);
 
+      const netDeltaByWallet = new Map<string, Decimal>();
+      const addWalletDelta = (targetId: string, delta: Decimal) => {
+        if (!targetId || targetId === cardWalletId || delta.isZero()) return;
+        netDeltaByWallet.set(targetId, (netDeltaByWallet.get(targetId) ?? ZERO).plus(delta));
+      };
+
       for (const t of cardTransactions) {
         if (t.workflowStatus !== "approved") continue;
         if (t.purpose === "credit_card_payment") {
@@ -711,25 +719,43 @@ export async function deleteCreditCard(
             })) ??
             [];
           for (const source of sources) {
-            await tx.wallet.update({
-              where: { id: source.sourceWalletId },
-              data: { currentBalance: { increment: new Decimal(source.amount.toString()) } },
-            });
+            addWalletDelta(source.sourceWalletId, new Decimal(source.amount.toString()));
           }
         } else if (t.type === "transfer") {
           const txAmount = new Decimal(t.amount.toString());
           if (t.walletId === cardWalletId && t.toWalletId) {
-            await tx.wallet.update({
-              where: { id: t.toWalletId },
-              data: { currentBalance: { decrement: txAmount } },
-            });
+            addWalletDelta(t.toWalletId, txAmount.negated());
           } else if (t.toWalletId === cardWalletId && t.walletId && t.walletId !== cardWalletId) {
-            await tx.wallet.update({
-              where: { id: t.walletId },
-              data: { currentBalance: { increment: txAmount } },
-            });
+            addWalletDelta(t.walletId, txAmount);
           }
         }
+      }
+
+      for (const [assetWalletId, netDelta] of netDeltaByWallet.entries()) {
+        if (netDelta.isZero()) continue;
+        await lockWallets(tx, [assetWalletId]);
+        if (typeof tx.wallet.findFirst === "function") {
+          const assetWallet = await tx.wallet.findFirst({
+            where: { id: assetWalletId, deletedAt: null },
+            select: { id: true, currentBalance: true },
+          });
+          if (!assetWallet) continue;
+          const nextAssetBalance = new Decimal(assetWallet.currentBalance.toString()).plus(netDelta);
+          if (nextAssetBalance.lt(0)) {
+            throw new AppError(
+              "CONFLICT",
+              "Không thể hủy toàn bộ giao dịch thẻ vì ví liên kết không còn đủ số dư để hoàn trả giao dịch rút/chuyển tiền từ thẻ.",
+            );
+          }
+        }
+        await tx.wallet.update({
+          where: { id: assetWalletId },
+          data: {
+            currentBalance: netDelta.gt(0)
+              ? { increment: netDelta }
+              : { decrement: netDelta.abs() },
+          },
+        });
       }
 
       if (cardTransactionIds.length > 0) {

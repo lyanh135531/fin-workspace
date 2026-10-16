@@ -69,7 +69,7 @@ export default async function PortalActivityPage({
         {/* Filters Header (Fixed top) */}
         <div className="shrink-0 space-y-4 border-b border-[var(--border)] p-4 md:p-5">
           <PortalActivityFilters
-            key={`${filters.q}:${filters.dateFrom ?? ""}:${filters.dateTo ?? ""}`}
+            key={`${filters.dateFrom ?? ""}:${filters.dateTo ?? ""}`}
             q={filters.q}
             dateFrom={filters.dateFrom}
             dateTo={filters.dateTo}

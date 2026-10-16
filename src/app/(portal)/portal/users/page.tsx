@@ -78,7 +78,7 @@ export default async function PortalUsersPage({ searchParams }: UsersPageProps) 
         {/* Search header (Fixed top) */}
         <div className="shrink-0 space-y-4 border-b border-[var(--border)] p-4 md:p-5">
           <PortalUserFilters
-            key={`${filters.q}:${filters.status}`}
+            key={filters.status}
             q={filters.q}
             status={filters.status}
           />

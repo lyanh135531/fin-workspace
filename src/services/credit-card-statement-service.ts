@@ -35,6 +35,30 @@ export function shareForImportedInstallment(
   return shareForInstallment(amount, termCount - paidTermCount, installmentNo - paidTermCount);
 }
 
+function normalizeWalletBreakdownMap(raw: Map<string, Decimal>): Map<string, Decimal> {
+  let negativePool = ZERO;
+  const positiveEntries: Array<[string, Decimal]> = [];
+  for (const [walletId, amount] of raw.entries()) {
+    if (amount.lt(0)) {
+      negativePool = negativePool.plus(amount.abs());
+    } else if (amount.gt(0)) {
+      positiveEntries.push([walletId, amount]);
+    }
+  }
+  const result = new Map<string, Decimal>();
+  for (const [walletId, amount] of positiveEntries) {
+    if (negativePool.gt(0)) {
+      const deduct = Decimal.min(amount, negativePool);
+      const rem = amount.minus(deduct);
+      negativePool = negativePool.minus(deduct);
+      if (rem.gt(0)) result.set(walletId, rem);
+    } else {
+      result.set(walletId, amount);
+    }
+  }
+  return result;
+}
+
 function capInstallmentShareToRemainingObligation(
   share: Decimal,
   obligation: {
@@ -237,7 +261,7 @@ export async function createStatementForCycle(
       dueDate: dbDate(dueDateAfterStatement(cycleEnd, dueDay)),
       totalAmount,
       status,
-      paidAt: status === "paid" ? new Date() : null,
+      paidAt: null,
       items: items.length ? { create: items } : undefined,
     },
   });
@@ -367,6 +391,56 @@ export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: strin
     await reopenUnpaidInstallmentPlansForCard(tx, cardWalletId);
     return;
   }
+  const activeInstallments = (await tx.creditCardInstallment?.findMany?.({
+    where: {
+      statementDate: { in: statements.map((s) => s.cycleEndDate) },
+      plan: { workspaceId, cardWalletId, status: "active" },
+    },
+    include: {
+      plan: {
+        include: {
+          transaction: {
+            include: {
+              creditCardAllocations: true,
+              creditCardObligationEntries: {
+                include: {
+                  paymentAllocations: { select: { amount: true } },
+                  statementItems: {
+                    where: { isCarry: false },
+                    select: { amount: true, isCarry: true },
+                  },
+                },
+              },
+            },
+          },
+          feeTransaction: {
+            include: {
+              creditCardAllocations: true,
+              creditCardObligationEntries: {
+                include: {
+                  paymentAllocations: { select: { amount: true } },
+                  statementItems: {
+                    where: { isCarry: false },
+                    select: { amount: true, isCarry: true },
+                  },
+                },
+              },
+            },
+          },
+          importedObligations: {
+            include: {
+              paymentAllocations: { select: { amount: true } },
+              statementItems: {
+                where: { isCarry: false },
+                select: { amount: true, isCarry: true },
+              },
+            },
+          },
+        },
+      },
+    },
+    orderBy: [{ planId: "asc" }, { installmentNo: "asc" }],
+  })) ?? [];
   const regularIds = obligations.map((entry) => entry.id);
   const regularIdSet = new Set(regularIds);
   await tx.creditCardStatementItem.deleteMany({ where: {
@@ -422,7 +496,91 @@ export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: strin
         fundingWalletId, amount, isCarry: true,
       } });
     }
-    for (const item of itemsByStatement.get(statement.id)!) {
+    const statementItems = itemsByStatement.get(statement.id)!;
+    const statementCycleIso = isoDate(statement.cycleEndDate);
+    for (const installment of activeInstallments) {
+      if (isoDate(installment.statementDate) !== statementCycleIso) continue;
+      const hasInstallmentItem = statementItems.some((existing) => existing.installmentId === installment.id);
+      if (!hasInstallmentItem) {
+        if (installment.plan.origin === "imported") {
+          for (const obligation of installment.plan.importedObligations) {
+            const rawShare = shareForImportedInstallment(
+              obligation.amount.toString(),
+              installment.plan.termCount,
+              installment.plan.paidTermCount,
+              installment.installmentNo,
+            );
+            const amount = capInstallmentShareToRemainingObligation(rawShare, obligation);
+            if (amount.gt(0)) {
+              const createdItem = await tx.creditCardStatementItem.create({
+                data: {
+                  statementId: statement.id,
+                  obligationEntryId: obligation.id,
+                  installmentId: installment.id,
+                  fundingWalletId: obligation.fundingWalletId,
+                  amount,
+                },
+              });
+              statementItems.push(createdItem);
+              obligation.statementItems.push({ amount, isCarry: false });
+            }
+          }
+        } else if (installment.plan.transaction) {
+          const original = installment.plan.transaction;
+          for (const allocation of original.creditCardAllocations) {
+            const obligation = original.creditCardObligationEntries.find(
+              (entry) => entry.fundingWalletId === allocation.fundingWalletId,
+            );
+            if (!obligation) continue;
+            const rawShare = shareForInstallment(
+              allocation.amount.toString(),
+              installment.plan.termCount,
+              installment.installmentNo,
+            );
+            const amount = capInstallmentShareToRemainingObligation(rawShare, obligation);
+            if (amount.gt(0)) {
+              const createdItem = await tx.creditCardStatementItem.create({
+                data: {
+                  statementId: statement.id,
+                  obligationEntryId: obligation.id,
+                  installmentId: installment.id,
+                  fundingWalletId: allocation.fundingWalletId,
+                  amount,
+                },
+              });
+              statementItems.push(createdItem);
+              obligation.statementItems.push({ amount, isCarry: false });
+            }
+          }
+        }
+      }
+      if (installment.installmentNo === 1 && installment.plan.feeTransaction) {
+        const fee = installment.plan.feeTransaction;
+        for (const allocation of fee.creditCardAllocations) {
+          const obligation = fee.creditCardObligationEntries.find(
+            (entry) => entry.fundingWalletId === allocation.fundingWalletId,
+          );
+          if (!obligation) continue;
+          if (statementItems.some((existing) => existing.obligationEntryId === obligation.id)) continue;
+          const rawFee = new Decimal(allocation.amount.toString());
+          const amount = capInstallmentShareToRemainingObligation(rawFee, obligation);
+          if (amount.gt(0)) {
+            const createdFeeItem = await tx.creditCardStatementItem.create({
+              data: {
+                statementId: statement.id,
+                obligationEntryId: obligation.id,
+                installmentId: installment.id,
+                fundingWalletId: allocation.fundingWalletId,
+                amount,
+              },
+            });
+            statementItems.push(createdFeeItem);
+            obligation.statementItems.push({ amount, isCarry: false });
+          }
+        }
+      }
+    }
+    for (const item of statementItems) {
       totals.set(item.fundingWalletId, (totals.get(item.fundingWalletId) ?? ZERO).plus(item.amount.toString()));
       representative.set(item.fundingWalletId, item.obligationEntryId);
     }
@@ -434,13 +592,17 @@ export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: strin
     const rolledOver = statement.id !== statements[statements.length - 1].id;
     const isTrulyPaid = remaining.isZero();
     const status = rolledOver || isTrulyPaid ? "paid" : "issued";
-    const paidAt = isTrulyPaid ? (statement.paidAt ?? new Date()) : null;
+    const paidAt = isTrulyPaid
+      ? totalAmount.isZero() && statement.payments.length === 0
+        ? null
+        : (statement.paidAt ?? new Date())
+      : null;
     await tx.creditCardStatement.update({ where: { id: statement.id }, data: {
       totalAmount, status, paidAt,
     } });
     if (isTrulyPaid) {
       for (const priorId of rolledOverUnpaidIds) {
-        await tx.creditCardStatement.update({ where: { id: priorId }, data: { paidAt } });
+        await tx.creditCardStatement.update({ where: { id: priorId }, data: { paidAt: paidAt ?? new Date() } });
         await completePaidInstallmentPlansInTransaction(tx, priorId);
       }
       rolledOverUnpaidIds.length = 0;
@@ -548,14 +710,14 @@ export async function statementPaymentDetails(
     );
   }
 
-  const remainingByWallet = new Map<string, Decimal>();
+  const rawRemainingByWallet = new Map<string, Decimal>();
   for (const [walletId, due] of dueByWallet) {
-    const paid = paidByWallet.get(walletId) ?? ZERO;
-    const remaining = Decimal.max(due.minus(paid), ZERO);
-    if (remaining.gt(0)) {
-      remainingByWallet.set(walletId, remaining);
-    }
+    rawRemainingByWallet.set(walletId, due);
   }
+  for (const [walletId, paid] of paidByWallet) {
+    rawRemainingByWallet.set(walletId, (rawRemainingByWallet.get(walletId) ?? ZERO).minus(paid));
+  }
+  const remainingByWallet = normalizeWalletBreakdownMap(rawRemainingByWallet);
 
   const totalRemaining = [...remainingByWallet.values()].reduce(
     (sum, amount) => sum.plus(amount),
@@ -829,22 +991,26 @@ export async function recalculateUnpaidStatementTotal(tx: Tx, statementId: strin
       (totalsByWallet.get(item.fundingWalletId) ?? ZERO).plus(item.amount.toString()),
     );
   }
-  const totalItemsAmount = [...totalsByWallet.values()].reduce(
-    (sum, amount) => sum.plus(Decimal.max(amount, ZERO)),
+  const totalAmount = Decimal.max(
+    [...totalsByWallet.values()].reduce((sum, amount) => sum.plus(amount), ZERO),
     ZERO,
   );
   const totalPaid = statement.payments.reduce(
     (sum, payment) => sum.plus(payment.amount.toString()),
     ZERO,
   );
-  const remaining = totalItemsAmount.minus(totalPaid);
+  const remaining = totalAmount.minus(totalPaid);
   const isPaid = remaining.lte(0);
   await tx.creditCardStatement.update({
     where: { id: statementId },
     data: {
-      totalAmount: Decimal.max(totalItemsAmount, ZERO),
+      totalAmount,
       status: isPaid ? "paid" : "issued",
-      paidAt: isPaid ? (statement.paidAt ?? new Date()) : null,
+      paidAt: isPaid
+        ? totalAmount.isZero() && statement.payments.length === 0
+          ? null
+          : (statement.paidAt ?? new Date())
+        : null,
     },
   });
 }

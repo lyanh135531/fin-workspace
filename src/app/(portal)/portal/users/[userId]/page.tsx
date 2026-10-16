@@ -162,8 +162,8 @@ export default async function PortalUserDetailPage({
                         </Badge>
                       </td>
                       <td className="px-5 py-3">
-                        <Badge variant={ws.status === "active" ? "outline" : "destructive"}>
-                          {ws.status === "active" ? "Hoạt động" : "Vô hiệu"}
+                        <Badge variant={ws.status === "active" && ws.workspace.status === "active" ? "outline" : "destructive"}>
+                          {ws.status === "active" && ws.workspace.status === "active" ? "Hoạt động" : "Vô hiệu"}
                         </Badge>
                       </td>
                       <td className="px-5 py-3 text-right tabular-nums text-[var(--text-muted)]">
@@ -186,8 +186,8 @@ export default async function PortalUserDetailPage({
                     <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
                       {ws.workspace.name}
                     </p>
-                    <Badge variant={ws.status === "active" ? "outline" : "destructive"}>
-                      {ws.status === "active" ? "Hoạt động" : "Vô hiệu"}
+                    <Badge variant={ws.status === "active" && ws.workspace.status === "active" ? "outline" : "destructive"}>
+                      {ws.status === "active" && ws.workspace.status === "active" ? "Hoạt động" : "Vô hiệu"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">

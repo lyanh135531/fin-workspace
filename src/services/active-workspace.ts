@@ -10,6 +10,7 @@ export function accessibleWorkspaceMemberWhere(userId: string, workspaceId?: str
     ...(workspaceId ? { workspaceId } : {}),
     status: "active" as const,
     deletedAt: null,
+    user: { status: "active" as const, deletedAt: null },
     OR: [
       { workspace: { status: "active" as const, deletedAt: null } },
       { workspace: { deletedAt: null }, role: { code: { in: [...ADMIN_ROLE_CODES] } } },

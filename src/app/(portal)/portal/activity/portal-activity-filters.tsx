@@ -24,8 +24,15 @@ export function PortalActivityFilters({
   const [, startTransition] = useTransition();
 
   const [searchValue, setSearchValue] = useState(q);
+  const [prevQ, setPrevQ] = useState(q);
+  if (prevQ !== q) {
+    setPrevQ(q);
+    if (q === "") {
+      setSearchValue(q);
+    }
+  }
   const [dateRange, setDateRange] = useState<DateRangeValue | null>(() =>
-    dateFrom && dateTo ? { from: dateFrom, to: dateTo } : null,
+    dateFrom || dateTo ? { from: dateFrom ?? dateTo!, to: dateTo ?? dateFrom! } : null,
   );
 
   // Debounced search on input change
@@ -102,6 +109,7 @@ export function PortalActivityFilters({
           size="icon"
           title="Xóa lọc"
           aria-label="Xóa lọc"
+          onClick={() => setSearchValue("")}
           render={<Link href="/portal/activity" aria-label="Xóa lọc" title="Xóa lọc" />}
         >
           <RotateCcw className="size-4" aria-hidden />

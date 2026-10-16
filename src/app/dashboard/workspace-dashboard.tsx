@@ -15,6 +15,7 @@ import {
   resolveActiveWorkspaceId,
 } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
+import { generateWorkspaceCreditCardStatements } from "@/services/credit-card-statement-service";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 import { redirect } from "next/navigation";
 
@@ -40,6 +41,10 @@ export async function WorkspaceDashboard({
   if (!membership) redirect("/onboarding");
 
   await activateDueScheduledTransactionsForRequest(workspaceId);
+  await generateWorkspaceCreditCardStatements(
+    workspaceId,
+    membership.workspace.timeZone,
+  );
   const businessDate = getBusinessDateInTimeZone(membership.workspace.timeZone);
   const currentPeriod = businessDate.slice(0, 7);
 

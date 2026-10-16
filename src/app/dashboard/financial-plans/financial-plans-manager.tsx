@@ -2986,6 +2986,7 @@ function PlanEditorSheet({
       if (plan) {
         const result = await updateFinancialPlanDraftAction({
           ...draft,
+          existingGoalAmount: hideExistingGoalAmount ? "0" : draft.existingGoalAmount,
           planId: plan.id,
         });
         if (!result.ok) {

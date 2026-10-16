@@ -158,7 +158,7 @@ function defaultDestination(wallets: Option[], sourceId: string) {
   return (
     wallets.find(
       (wallet) => wallet.kind !== "credit_card" && wallet.id !== sourceId,
-    )?.id ?? sourceId
+    )?.id ?? ""
   );
 }
 
@@ -2217,12 +2217,69 @@ function TransactionEditorForm({
   const assetWallets = wallets.filter(
     (wallet) => wallet.kind !== "credit_card",
   );
+  const canTransfer = wallets.some((w) =>
+    wallets.some((dest) => dest.kind !== "credit_card" && dest.id !== w.id),
+  );
+
+  function scaleAllocations(
+    prev: Array<{ walletId: string; amount: string }>,
+    nextAmountRaw: string,
+  ): Array<{ walletId: string; amount: string }> {
+    if (prev.length === 0) return prev;
+    let nextTotal: Decimal;
+    try {
+      nextTotal = new Decimal(nextAmountRaw || "0");
+    } catch {
+      return prev;
+    }
+    if (nextTotal.lte(0)) return prev;
+    if (prev.length === 1) {
+      return [{ walletId: prev[0].walletId, amount: nextTotal.toString() }];
+    }
+    const oldTotal = prev.reduce(
+      (sum, item) => sum.plus(new Decimal(item.amount || "0")),
+      new Decimal(0),
+    );
+    if (oldTotal.eq(nextTotal)) {
+      return prev.map((item) => ({
+        walletId: item.walletId,
+        amount: item.amount,
+      }));
+    }
+    if (oldTotal.gt(0)) {
+      let remaining = nextTotal;
+      return prev.map((item, idx) => {
+        const share =
+          idx === prev.length - 1
+            ? remaining
+            : nextTotal
+                .mul(new Decimal(item.amount || "0"))
+                .div(oldTotal)
+                .toDecimalPlaces(0, Decimal.ROUND_FLOOR);
+        remaining = remaining.minus(share);
+        return {
+          walletId: item.walletId,
+          amount: Decimal.max(share, 0).toString(),
+        };
+      });
+    }
+    return prev;
+  }
 
   function changeType(type: TransactionType): void {
     const nextWalletId =
       type === "income" && selectedWallet?.kind === "credit_card"
         ? (assetWallets[0]?.id ?? draft.walletId)
-        : draft.walletId;
+        : type === "transfer" &&
+            !wallets.some(
+              (w) => w.kind !== "credit_card" && w.id !== draft.walletId,
+            )
+          ? (wallets.find((w) =>
+              wallets.some(
+                (dest) => dest.kind !== "credit_card" && dest.id !== w.id,
+              ),
+            )?.id ?? draft.walletId)
+          : draft.walletId;
     const nextWallet = wallets.find((w) => w.id === nextWalletId);
     const isCard = nextWallet?.kind === "credit_card";
     const defaultFundingId =
@@ -2274,7 +2331,7 @@ function TransactionEditorForm({
                       : undefined
                 }
                 disabled={
-                  locked || (tab.value === "transfer" && wallets.length < 2)
+                  locked || (tab.value === "transfer" && !canTransfer)
                 }
               >
                 <Icon aria-hidden="true" />
@@ -2299,16 +2356,18 @@ function TransactionEditorForm({
               onChange({
                 amount,
                 allocations: isCreditCardExpense
-                  ? [
-                      {
-                        walletId:
-                          draft.allocations[0]?.walletId ||
-                          selectedWallet?.defaultFundingWalletId ||
-                          assetWallets[0]?.id ||
-                          "",
-                        amount,
-                      },
-                    ]
+                  ? draft.allocations.length > 1
+                    ? scaleAllocations(draft.allocations, amount)
+                    : [
+                        {
+                          walletId:
+                            draft.allocations[0]?.walletId ||
+                            selectedWallet?.defaultFundingWalletId ||
+                            assetWallets[0]?.id ||
+                            "",
+                          amount,
+                        },
+                      ]
                   : [],
               })
             }

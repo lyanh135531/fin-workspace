@@ -397,6 +397,7 @@ export async function importCreditCardInstallment(
         };
       }),
     });
+    await refreshHistoricalCardStatements(tx, workspaceId, input.cardWalletId, effectiveDate);
     await assertCardBalanceReconciled(tx, input.cardWalletId);
     await tx.auditLog.create({
       data: {

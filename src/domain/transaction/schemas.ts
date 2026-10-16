@@ -31,7 +31,7 @@ export const createTransactionSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["toWalletId"],
-        message: "A destination wallet is required for transfers.",
+        message: "Vui lòng chọn ví nhận cho giao dịch chuyển khoản.",
       });
     }
 
@@ -39,7 +39,7 @@ export const createTransactionSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["toWalletId"],
-        message: "A destination wallet is only valid for transfers.",
+        message: "Ví nhận chỉ áp dụng cho giao dịch chuyển khoản.",
       });
     }
 
@@ -47,7 +47,7 @@ export const createTransactionSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["toWalletId"],
-        message: "The source and destination wallets must be different.",
+        message: "Ví gửi và ví nhận phải khác nhau.",
       });
     }
 

@@ -23,6 +23,13 @@ export function PortalUserFilters({ q, status }: PortalUserFiltersProps) {
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
   const [value, setValue] = useState(q);
+  const [prevQ, setPrevQ] = useState(q);
+  if (prevQ !== q) {
+    setPrevQ(q);
+    if (q === "") {
+      setValue(q);
+    }
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -49,7 +56,8 @@ export function PortalUserFilters({ q, status }: PortalUserFiltersProps) {
 
   function buildStatusHref(nextStatus: typeof status) {
     const params = new URLSearchParams();
-    if (q) params.set("q", q);
+    const trimmed = value.trim();
+    if (trimmed) params.set("q", trimmed);
     if (nextStatus !== "all") params.set("status", nextStatus);
     const query = params.toString();
     return query ? `/portal/users?${query}` : "/portal/users";
@@ -71,6 +79,7 @@ export function PortalUserFilters({ q, status }: PortalUserFiltersProps) {
             size="icon"
             title="Xóa lọc"
             aria-label="Xóa lọc"
+            onClick={() => setValue("")}
             render={<Link href="/portal/users" aria-label="Xóa lọc" title="Xóa lọc" />}
           >
             <RotateCcw className="size-4" aria-hidden />
