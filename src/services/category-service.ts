@@ -96,19 +96,46 @@ export async function updateWorkspaceCategory(userId: string, workspaceId: strin
   if (!category) throw new AppError("NOT_FOUND", "Danh mục của nhóm không tồn tại.");
   if (category.type !== input.type) throw new AppError("VALIDATION_ERROR", "Không thể đổi loại Thu/Chi sau khi tạo danh mục.");
   const parent = await validateParent(workspaceId, input.parentId, input.type, category.id);
-  if (input.parentId) {
-    const childCount = await prisma.category.count({ where: { workspaceId, parentId: category.id, deletedAt: null } });
-    if (childCount > 0) throw new AppError("VALIDATION_ERROR", "Danh mục đang có danh mục con nên không thể chuyển thành danh mục con.");
+  const children = await prisma.category.findMany({
+    where: { workspaceId, parentId: category.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (input.parentId && children.length > 0) {
+    throw new AppError("VALIDATION_ERROR", "Danh mục đang có danh mục con nên không thể chuyển thành danh mục con.");
   }
-  if (await hasWorkspaceCategoryConflict(workspaceId, input, category.id)) {
+  const scopedCode = scopeCategoryCode(input.code, input.parentId);
+  if (await hasWorkspaceCategoryConflict(workspaceId, { ...input, code: scopedCode }, category.id)) {
     throw new AppError("CONFLICT", "Tên danh mục này đã tồn tại.");
   }
   return prisma.$transaction(async (tx) => {
     const jarCode = resolveCategoryJarCode(input, parent);
-    const updated = await tx.category.update({ where: { id: category.id }, data: { name: input.name, code: input.code, color: input.color, icon: input.icon, parentId: input.parentId ?? null, jarCode, sortOrder: input.sortOrder } });
+    const updated = await tx.category.update({
+      where: { id: category.id },
+      data: {
+        name: input.name,
+        code: scopedCode,
+        color: input.color,
+        icon: input.icon,
+        parentId: input.parentId ?? null,
+        jarCode,
+        sortOrder: input.sortOrder,
+      },
+    });
+    const childIds = children.map((child) => child.id);
     if (!input.parentId && category.jarCode !== jarCode) {
       await tx.category.updateMany({
         where: { workspaceId, parentId: category.id, deletedAt: null },
+        data: { jarCode },
+      });
+    }
+    if (category.type === "expense" && category.jarCode !== jarCode) {
+      await tx.transaction.updateMany({
+        where: {
+          member: { workspaceId },
+          categoryId: { in: [category.id, ...childIds] },
+          workflowStatus: { in: ["pending", "scheduled"] },
+          deletedAt: null,
+        },
         data: { jarCode },
       });
     }
@@ -127,8 +154,28 @@ export async function setWorkspaceCategoryStatus(userId: string, workspaceId: st
       select: { id: true, status: true },
     });
     if (children.some((child) => child.status === "active")) throw new AppError("VALIDATION_ERROR", "Hãy xử lý các danh mục con đang hoạt động trước khi vô hiệu hóa danh mục cha.");
-    const activeRecurring = await prisma.recurringTransaction.count({ where: { workspaceId, categoryId: { in: [category.id, ...children.map((child) => child.id)] }, status: "active", deletedAt: null } });
+    const categoryIds = [category.id, ...children.map((child) => child.id)];
+    const [activeRecurring, pendingOrScheduledTransactions] = await Promise.all([
+      prisma.recurringTransaction.count({
+        where: {
+          workspaceId,
+          categoryId: { in: categoryIds },
+          deletedAt: null,
+          completedAt: null,
+          approvalStatus: { not: "rejected" },
+        },
+      }),
+      prisma.transaction.count({
+        where: {
+          member: { workspaceId },
+          categoryId: { in: categoryIds },
+          deletedAt: null,
+          workflowStatus: { in: ["pending", "scheduled"] },
+        },
+      }),
+    ]);
     if (activeRecurring) throw new AppError("VALIDATION_ERROR", "Danh mục đang được giao dịch định kỳ hoạt động sử dụng nên không thể vô hiệu hóa.");
+    if (pendingOrScheduledTransactions) throw new AppError("VALIDATION_ERROR", "Danh mục đang có giao dịch chờ duyệt hoặc đã lên lịch nên không thể vô hiệu hóa.");
   }
   return prisma.$transaction(async (tx) => {
     const updated = await tx.category.update({ where: { id: category.id }, data: { status } });

@@ -171,16 +171,20 @@ export function WorkspaceSettings({
                       </span>
                     ),
                   },
-                  {
-                    value: "deactive",
-                    label: "Tạm ngưng",
-                    content: (
-                      <span className="flex items-center gap-2">
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--warning)]" />
-                        <span>Tạm ngưng</span>
-                      </span>
-                    ),
-                  },
+                  ...(workspace.status === "deactive"
+                    ? [
+                        {
+                          value: "deactive",
+                          label: "Tạm ngưng",
+                          content: (
+                            <span className="flex items-center gap-2">
+                              <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--warning)]" />
+                              <span>Tạm ngưng</span>
+                            </span>
+                          ),
+                        },
+                      ]
+                    : []),
                 ]}
               />
             </div>

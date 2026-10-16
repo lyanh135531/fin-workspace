@@ -25,7 +25,12 @@ export async function getWorkspaceBalance(
   const links = await tx.workspaceWallet.findMany({
     where: {
       workspaceId,
-      wallet: { deletedAt: null, ...(before ? { createdAt: { lt: before } } : {}) },
+      wallet: before
+        ? {
+            createdAt: { lt: before },
+            OR: [{ deletedAt: null }, { deletedAt: { gte: before } }],
+          }
+        : { deletedAt: null },
     },
     select: { walletId: true, wallet: { select: { currentBalance: true, kind: true } } },
   });
@@ -84,7 +89,14 @@ export async function getFinancialPlanMonthLedger(
   const { start, end } = monthDateRange(month);
   const records = await tx.transaction.findMany({
     where: { member: { workspaceId }, deletedAt: null, date: { gte: start, lt: end } },
-    select: { type: true, purpose: true, workflowStatus: true, amount: true, jarCode: true },
+    select: {
+      type: true,
+      purpose: true,
+      workflowStatus: true,
+      amount: true,
+      jarCode: true,
+      category: { select: { jarCode: true } },
+    },
   });
   const result: FinancialPlanMonthLedger = {
     approvedIncome: new Decimal(0), forecastIncome: new Decimal(0),
@@ -94,30 +106,44 @@ export async function getFinancialPlanMonthLedger(
   for (const record of records) {
     if (record.purpose === "credit_card_payment" || record.type === "transfer" || record.workflowStatus === "rejected") continue;
     const amount = new Decimal(record.amount.toString());
+    const refundJar = record.jarCode ?? record.category?.jarCode ?? null;
     if (record.workflowStatus === "approved") {
-      if (record.purpose === "credit_card_refund") addExpense(result.approvedExpenseByJar, record.jarCode, amount.negated());
+      if (record.purpose === "credit_card_refund") addExpense(result.approvedExpenseByJar, refundJar, amount.negated());
       else if (record.type === "income") result.approvedIncome = result.approvedIncome.plus(amount);
-      else addExpense(result.approvedExpenseByJar, record.jarCode, amount);
+      else addExpense(result.approvedExpenseByJar, refundJar, amount);
     } else if (record.workflowStatus === "scheduled" && includeForecast) {
-      if (record.purpose === "credit_card_refund") addExpense(result.forecastExpenseByJar, record.jarCode, amount.negated());
+      if (record.purpose === "credit_card_refund") addExpense(result.forecastExpenseByJar, refundJar, amount.negated());
       else if (record.type === "income") result.forecastIncome = result.forecastIncome.plus(amount);
-      else addExpense(result.forecastExpenseByJar, record.jarCode, amount);
+      else addExpense(result.forecastExpenseByJar, refundJar, amount);
     } else if (record.workflowStatus === "pending") {
       if (record.purpose === "credit_card_refund") result.pendingExpense = result.pendingExpense.minus(amount);
       else if (record.type === "income") result.pendingIncome = result.pendingIncome.plus(amount);
       else result.pendingExpense = result.pendingExpense.plus(amount);
     }
   }
+  for (const jarCode of FINANCIAL_JAR_CODES) {
+    result.approvedExpenseByJar[jarCode] = Decimal.max(ZERO, result.approvedExpenseByJar[jarCode]);
+  }
+  result.pendingExpense = Decimal.max(ZERO, result.pendingExpense);
 
   if (!includeForecast) return result;
   const rules = await tx.recurringTransaction.findMany({
     where: {
-      workspaceId, status: "active", deletedAt: null,
+      workspaceId,
+      status: "active",
+      approvalStatus: "approved",
+      deletedAt: null,
       startDate: { lt: end },
       OR: [{ endDate: null }, { endDate: { gte: start } }],
     },
     select: {
-      id: true, type: true, amount: true, dayOfMonth: true, startDate: true, endDate: true,
+      id: true,
+      type: true,
+      amount: true,
+      dayOfMonth: true,
+      startDate: true,
+      endDate: true,
+      nextExecutionDate: true,
       category: { select: { jarCode: true } },
     },
   });
@@ -131,8 +157,12 @@ export async function getFinancialPlanMonthLedger(
     if (materializedIds.has(rule.id) || rule.type === "transfer") continue;
     const date = occurrenceDate(month, rule.dayOfMonth);
     if (date < asIsoDate(rule.startDate) || (rule.endDate && date > asIsoDate(rule.endDate))) continue;
+    if (rule.nextExecutionDate && date < asIsoDate(rule.nextExecutionDate)) continue;
     if (rule.type === "income") result.forecastIncome = result.forecastIncome.plus(rule.amount.toString());
     else addExpense(result.forecastExpenseByJar, rule.category?.jarCode ?? null, rule.amount.toString());
+  }
+  for (const jarCode of FINANCIAL_JAR_CODES) {
+    result.forecastExpenseByJar[jarCode] = Decimal.max(ZERO, result.forecastExpenseByJar[jarCode]);
   }
   return result;
 }

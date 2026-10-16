@@ -79,6 +79,7 @@ describe("financial goal service", () => {
     const result = await getPlanGoalProgressSummary(mocks.tx as never, "plan-1");
 
     expect(result.totalProgress.toFixed(0)).toBe("2600000");
+    expect(result.workspaceReserved.toFixed(0)).toBe("2600000");
     expect(mocks.tx.financialPlanGoal.findMany).toHaveBeenCalledWith({
       where: {
         financialPlanId: "plan-1",
@@ -86,6 +87,24 @@ describe("financial goal service", () => {
         status: { in: ["draft", "active", "completed"] },
       },
     });
+  });
+
+  it("includes both manual and linked_wallet goals in workspaceReserved", async () => {
+    mocks.tx.financialPlanGoal.findMany.mockResolvedValue([
+      { id: "goal-manual", trackingMode: "manual", linkedWalletId: null, targetAmount: new Decimal(1_000_000) },
+      { id: "goal-wallet", trackingMode: "linked_wallet", linkedWalletId: "wallet-1", targetAmount: new Decimal(2_000_000) },
+    ]);
+    mocks.tx.financialGoalFundingEntry.aggregate.mockResolvedValueOnce({
+      _sum: { amount: new Decimal(400_000) },
+    });
+    mocks.tx.wallet.findFirst.mockResolvedValueOnce({
+      currentBalance: new Decimal(1_500_000),
+    });
+
+    const result = await getPlanGoalProgressSummary(mocks.tx as never, "plan-1");
+
+    expect(result.totalProgress.toFixed(0)).toBe("1900000");
+    expect(result.workspaceReserved.toFixed(0)).toBe("1900000");
   });
 
   it("never allows a reversal entry to be reversed again", async () => {

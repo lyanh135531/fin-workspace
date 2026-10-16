@@ -5,6 +5,7 @@ import {
   createRecurringTransactionAction,
   deleteRecurringTransactionAction,
   reviewRecurringTransactionAction,
+  runRecurringTransactionNowAction,
   setRecurringTransactionStatusAction,
   updateRecurringTransactionAction,
 } from "@/app/dashboard/recurring-transactions/actions";
@@ -428,11 +429,27 @@ export function RecurringTransactionsManager({
     });
   }
 
+  function runNow(schedule: Schedule) {
+    startTransition(async () => {
+      const result = await runRecurringTransactionNowAction(schedule.id);
+      if (result.ok) {
+        toast.success("Đã thực hiện kỳ này ngay.");
+      } else {
+        toast.error(result.message);
+      }
+    });
+  }
+
   function permissions(schedule: Schedule) {
     const isOwner = schedule.createdByMemberId === currentMemberId;
     const canManageOwnApprovedSchedule = canApprove || isOwner;
     return {
       canApprove: canApprove && schedule.approvalStatus === "pending",
+      canRunNow:
+        !schedule.completedAt &&
+        schedule.approvalStatus === "approved" &&
+        schedule.status === "active" &&
+        canManageOwnApprovedSchedule,
       canPause:
         !schedule.completedAt &&
         schedule.approvalStatus === "approved" &&
@@ -782,6 +799,7 @@ export function RecurringTransactionsManager({
                 currencySymbol={currencySymbol}
                 busy={busy || Boolean(draft)}
                 permissions={permissions(schedule)}
+                onRunNow={() => runNow(schedule)}
                 onToggle={() => toggleStatus(schedule)}
                 onEdit={() => beginEdit(schedule)}
                 onDelete={() => remove(schedule.id)}
@@ -852,6 +870,7 @@ function RecurringScheduleRow({
   currencySymbol,
   busy,
   permissions,
+  onRunNow,
   onToggle,
   onEdit,
   onDelete,
@@ -862,11 +881,13 @@ function RecurringScheduleRow({
   busy: boolean;
   permissions: {
     canApprove: boolean;
+    canRunNow: boolean;
     canPause: boolean;
     canReactivate: boolean;
     canEdit: boolean;
     canDelete: boolean;
   };
+  onRunNow: () => void;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -877,6 +898,7 @@ function RecurringScheduleRow({
 
   const hasActions =
     permissions.canApprove ||
+    permissions.canRunNow ||
     permissions.canPause ||
     permissions.canReactivate ||
     permissions.canEdit ||
@@ -1075,6 +1097,20 @@ function RecurringScheduleRow({
               </>
             )}
 
+            {permissions.canRunNow && (
+              <Button
+                variant="icon"
+                size="icon"
+                type="button"
+                disabled={busy}
+                onClick={onRunNow}
+                title="Thực hiện kỳ này ngay"
+                aria-label="Thực hiện kỳ này ngay"
+              >
+                <Play size={16} aria-hidden="true" />
+              </Button>
+            )}
+
             {(permissions.canPause || permissions.canReactivate) && (
               <Button
                 variant={schedule.status === "active" ? "icon" : "selected"}
@@ -1216,6 +1252,12 @@ function RecurringScheduleRow({
               </DropdownMenuItem>
             </>
           )}
+          {permissions.canRunNow && (
+            <DropdownMenuItem disabled={busy} onClick={() => run(onRunNow)}>
+              <Play size={15} aria-hidden="true" />
+              <span>Thực hiện kỳ này ngay</span>
+            </DropdownMenuItem>
+          )}
           {(permissions.canPause || permissions.canReactivate) && (
             <DropdownMenuItem disabled={busy} onClick={() => run(onToggle)}>
               {schedule.status === "active" ? (
@@ -1239,6 +1281,7 @@ function RecurringScheduleRow({
           {permissions.canDelete && (
             <>
               {(permissions.canApprove ||
+                permissions.canRunNow ||
                 permissions.canPause ||
                 permissions.canReactivate ||
                 permissions.canEdit) && <DropdownMenuSeparator />}

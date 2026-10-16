@@ -100,7 +100,7 @@ export async function getPlanGoalProgressSummary(tx: TransactionClient, planId: 
   for (const goal of goals) {
     const liveProgress = Decimal.min(await goalProgress(tx, goal), goal.targetAmount.toString());
     totalProgress = totalProgress.plus(goal.status === "completed" ? goal.targetAmount.toString() : liveProgress);
-    if (goal.trackingMode === "linked_wallet") workspaceReserved = workspaceReserved.plus(liveProgress);
+    workspaceReserved = workspaceReserved.plus(liveProgress);
   }
   return { totalProgress, workspaceReserved, hasGoals: goals.length > 0 };
 }
@@ -115,6 +115,10 @@ async function managedGoal(tx: TransactionClient, workspaceId: string, goalId: s
 }
 
 async function syncPlanAggregate(tx: TransactionClient, planId: string) {
+  const plan = await tx.financialPlan.findFirst?.({
+    where: { id: planId, deletedAt: null },
+    select: { targetMonth: true },
+  });
   const goals = await tx.financialPlanGoal.findMany({
     where: { financialPlanId: planId, deletedAt: null, status: { in: ["draft", "active", "completed"] } },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -122,12 +126,18 @@ async function syncPlanAggregate(tx: TransactionClient, planId: string) {
   if (!goals.length) return;
   let target = ZERO;
   let progress = ZERO;
-  let targetMonth = goals[0].targetMonth;
+  const activeGoals = goals.filter((goal) => goal.status === "draft" || goal.status === "active");
+  const monthGoals = activeGoals.length > 0 ? activeGoals : goals;
+  let targetMonth = plan?.targetMonth && plan.targetMonth > monthGoals[0].targetMonth
+    ? plan.targetMonth
+    : monthGoals[0].targetMonth;
   for (const goal of goals) {
     target = target.plus(goal.targetAmount.toString());
     progress = progress.plus(goal.status === "completed"
       ? goal.targetAmount.toString()
       : Decimal.min(await goalProgress(tx, goal), goal.targetAmount.toString()));
+  }
+  for (const goal of monthGoals) {
     if (goal.targetMonth > targetMonth) targetMonth = goal.targetMonth;
   }
   await tx.financialPlan.update({

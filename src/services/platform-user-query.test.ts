@@ -35,6 +35,7 @@ describe("platform user read-only queries", () => {
 
     expect(prisma.user.findMany).toHaveBeenCalledWith({
       where: {
+        deletedAt: null,
         username: { contains: "felix", mode: "insensitive" },
         status: "active",
       },
@@ -60,7 +61,7 @@ describe("platform user read-only queries", () => {
     await getPortalUserById("user-id");
 
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
-      where: { id: "user-id" },
+      where: { id: "user-id", deletedAt: null },
       select: portalUserSelect,
     });
   });

@@ -256,4 +256,46 @@ describe("createCreditCardPayment", () => {
       sources: [{ walletId: sourceWalletId, amount: new Decimal("100000") }],
     })).rejects.toThrow("Thẻ không có dư nợ cần thanh toán.");
   });
+
+  it("prioritizes non-installment obligations over unbilled active installment principal when paying current_debt", async () => {
+    const tx = setupTx({
+      hasStatement: false,
+      cardBalance: "1500000",
+      obligations: [],
+    });
+    tx.creditCardObligationEntry.findMany.mockResolvedValue([
+      {
+        id: "obl-installment-older",
+        fundingWalletId: sourceWalletId,
+        amount: new Decimal("1000000"),
+        postedDate: new Date("2026-08-01"),
+        paymentAllocations: [],
+        statementItems: [],
+        transaction: { installmentPlan: { id: "plan-1", status: "active" }, installmentFeePlan: null },
+      },
+      {
+        id: "obl-regular-newer",
+        fundingWalletId: sourceWalletId,
+        amount: new Decimal("500000"),
+        postedDate: new Date("2026-08-05"),
+        paymentAllocations: [],
+        statementItems: [],
+        transaction: { installmentPlan: null, installmentFeePlan: null },
+      },
+    ]);
+
+    await createCreditCardPayment("user-1", "ws-1", {
+      cardWalletId,
+      target: "current_debt",
+      date: "2026-08-10",
+      sources: [{ walletId: sourceWalletId, amount: new Decimal("700000") }],
+    });
+
+    expect(tx.creditCardPaymentAllocation.createMany).toHaveBeenCalledWith({
+      data: [
+        { paymentTransactionId: "tx-pay-1", obligationEntryId: "obl-regular-newer", amount: new Decimal("500000") },
+        { paymentTransactionId: "tx-pay-1", obligationEntryId: "obl-installment-older", amount: new Decimal("200000") },
+      ],
+    });
+  });
 });

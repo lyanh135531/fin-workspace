@@ -51,6 +51,14 @@ export async function deactivateWorkspaceMember(actorUserId: string, workspaceId
   if (member.userId === actorUserId) throw new AppError("FORBIDDEN", "Bạn không thể tự gỡ mình khỏi nhóm.");
   return prisma.$transaction(async (tx) => {
     const updated = await tx.workspaceMember.update({ where: { id: member.id }, data: { status: "deactive" } });
+    await tx.recurringTransaction.updateMany({
+      where: { workspaceId, createdByMemberId: member.id, status: "active", deletedAt: null },
+      data: { status: "deactive" },
+    });
+    await tx.transactionChangeRequest.updateMany({
+      where: { requesterMemberId: member.id, status: "pending" },
+      data: { status: "rejected", reviewedAt: new Date() },
+    });
     await tx.auditLog.create({ data: { workspaceId, actorUserId, action: "workspace.member_deactivated", entityType: "workspace_member", entityId: member.id, metadata: { userId: member.userId } } });
     return updated;
   });

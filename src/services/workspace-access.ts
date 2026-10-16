@@ -10,12 +10,14 @@ export async function requireWorkspaceMember(userId: string, workspaceId: string
       status: "active",
       deletedAt: null,
       user: { status: "active", deletedAt: null },
-      workspace: { status: "active", deletedAt: null },
+      workspace: { deletedAt: null },
       role: requireAdmin ? { code: { in: [...ADMIN_ROLE_CODES] } } : undefined,
     },
     include: { role: true, workspace: true },
   });
-  if (!member) throw new AppError("FORBIDDEN", "Bạn không có quyền truy cập nhóm tài chính này.");
+  if (!member || (member.workspace?.status === "deactive" && !ADMIN_ROLE_CODES.includes(member.role.code as never))) {
+    throw new AppError("FORBIDDEN", "Bạn không có quyền truy cập nhóm tài chính này.");
+  }
   return member;
 }
 

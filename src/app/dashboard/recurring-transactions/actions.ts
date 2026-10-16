@@ -14,6 +14,7 @@ import {
   createRecurringTransaction,
   deleteRecurringTransaction,
   reviewRecurringTransaction,
+  runRecurringTransactionNow,
   setRecurringTransactionStatus,
   updateRecurringTransaction,
 } from "@/services/recurring-transaction-service";
@@ -28,6 +29,7 @@ async function workspaceActor() {
 function refreshRecurringPages(workspaceId: string) {
   revalidatePath("/recurring-transactions");
   revalidatePath("/dashboard");
+  revalidatePath("/wallets");
   revalidatePath(`/workspace/${workspaceId}`);
   revalidatePath("/overview");
   revalidatePath("/financial-plans");
@@ -113,5 +115,24 @@ export async function reviewRecurringTransactionAction(id: unknown, approve: boo
     return { ok: true as const };
   } catch (error) {
     return failure(error, "Không thể xử lý lịch định kỳ.", "recurring_transaction.review_failed");
+  }
+}
+
+export async function runRecurringTransactionNowAction(id: unknown) {
+  try {
+    const actor = await workspaceActor();
+    const record = await runRecurringTransactionNow(
+      actor.userId,
+      actor.workspaceId,
+      idSchema.parse(id),
+    );
+    refreshRecurringPages(actor.workspaceId);
+    return {
+      ok: true as const,
+      nextExecutionDate: record.nextExecutionDate.toISOString().slice(0, 10),
+      status: record.status,
+    };
+  } catch (error) {
+    return failure(error, "Không thể thực hiện giao dịch định kỳ ngay.", "recurring_transaction.run_now_failed");
   }
 }

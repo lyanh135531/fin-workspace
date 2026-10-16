@@ -60,7 +60,15 @@ export default async function CreditCardStatementPage({
       },
       payments: {
         where: { deletedAt: null, workflowStatus: { not: "rejected" } },
-        select: { id: true, amount: true, date: true, workflowStatus: true },
+        select: {
+          id: true,
+          amount: true,
+          date: true,
+          workflowStatus: true,
+          creditCardPaymentSources: {
+            select: { sourceWalletId: true, amount: true },
+          },
+        },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -68,16 +76,6 @@ export default async function CreditCardStatementPage({
   if (!statement) notFound();
 
   const currency = membership.workspace.baseCurrency;
-  const byWallet = new Map<string, Decimal>();
-  for (const item of statement.items) {
-    byWallet.set(
-      item.obligationEntry.fundingWallet.name,
-      (byWallet.get(item.obligationEntry.fundingWallet.name) ?? new Decimal(0)).plus(
-        item.amount.toString(),
-      ),
-    );
-  }
-
   const approvedPayments = statement.payments.filter((p) => p.workflowStatus === "approved");
   const totalPaid = approvedPayments.reduce(
     (sum, p) => sum.plus(p.amount.toString()),
@@ -87,8 +85,73 @@ export default async function CreditCardStatementPage({
     new Decimal(statement.totalAmount.toString()).minus(totalPaid),
     0,
   );
+  const isTrulyPaid = statement.status === "paid" && statement.paidAt !== null;
+  const isRolledOver = statement.status === "paid" && statement.paidAt === null;
   const isPartiallyPaid =
-    statement.status !== "paid" && totalPaid.gt(0) && remainingDebt.gt(0);
+    !isTrulyPaid && !isRolledOver && totalPaid.gt(0) && remainingDebt.gt(0);
+
+  const grossByWalletId = new Map<string, { name: string; amount: Decimal }>();
+  for (const item of statement.items) {
+    const walletId = item.obligationEntry.fundingWalletId;
+    const walletName = item.obligationEntry.fundingWallet.name;
+    const current = grossByWalletId.get(walletId);
+    grossByWalletId.set(walletId, {
+      name: walletName,
+      amount: (current?.amount ?? new Decimal(0)).plus(item.amount.toString()),
+    });
+  }
+
+  const paidByWalletId = new Map<string, Decimal>();
+  let unattributedPaid = new Decimal(0);
+  for (const payment of approvedPayments) {
+    let sourcesSum = new Decimal(0);
+    for (const source of payment.creditCardPaymentSources) {
+      const amt = new Decimal(source.amount.toString());
+      sourcesSum = sourcesSum.plus(amt);
+      if (grossByWalletId.has(source.sourceWalletId)) {
+        paidByWalletId.set(
+          source.sourceWalletId,
+          (paidByWalletId.get(source.sourceWalletId) ?? new Decimal(0)).plus(amt),
+        );
+      } else {
+        unattributedPaid = unattributedPaid.plus(amt);
+      }
+    }
+    const paymentAmt = new Decimal(payment.amount.toString());
+    if (paymentAmt.gt(sourcesSum)) {
+      unattributedPaid = unattributedPaid.plus(paymentAmt.minus(sourcesSum));
+    }
+  }
+
+  let excessPaidPool = unattributedPaid;
+  const netByWalletId = new Map<string, { name: string; amount: Decimal }>();
+  for (const [walletId, entry] of grossByWalletId) {
+    const grossPositive = Decimal.max(entry.amount, 0);
+    const paidForWallet = paidByWalletId.get(walletId) ?? new Decimal(0);
+    if (paidForWallet.gt(grossPositive)) {
+      excessPaidPool = excessPaidPool.plus(paidForWallet.minus(grossPositive));
+      netByWalletId.set(walletId, { name: entry.name, amount: new Decimal(0) });
+    } else {
+      netByWalletId.set(walletId, {
+        name: entry.name,
+        amount: grossPositive.minus(paidForWallet),
+      });
+    }
+  }
+
+  const byWallet = new Map<string, Decimal>();
+  for (const [, entry] of netByWalletId) {
+    let netAmount = entry.amount;
+    if (excessPaidPool.gt(0) && netAmount.gt(0)) {
+      const deduct = Decimal.min(netAmount, excessPaidPool);
+      netAmount = netAmount.minus(deduct);
+      excessPaidPool = excessPaidPool.minus(deduct);
+    }
+    byWallet.set(
+      entry.name,
+      (byWallet.get(entry.name) ?? new Decimal(0)).plus(netAmount),
+    );
+  }
 
   return (
     <PageContainer>
@@ -116,7 +179,7 @@ export default async function CreditCardStatementPage({
                   {statement.card.wallet.name}
                 </p>
                 <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)] md:px-2.5 md:text-[11px]">
-                  {statement.status === "paid" ? (
+                  {isTrulyPaid ? (
                     <CheckCircle2 className="size-3 text-[var(--success)]" aria-hidden="true" />
                   ) : isPartiallyPaid ? (
                     <Clock3 className="size-3 text-[var(--primary)]" aria-hidden="true" />
@@ -124,11 +187,13 @@ export default async function CreditCardStatementPage({
                     <Clock3 className="size-3 text-[var(--warning)]" aria-hidden="true" />
                   )}
                   <span>
-                    {statement.status === "paid"
+                    {isTrulyPaid
                       ? "Đã thanh toán"
-                      : isPartiallyPaid
-                        ? "Đã trả một phần"
-                        : "Chưa thanh toán"}
+                      : isRolledOver
+                        ? "Đã gộp sang kỳ sau"
+                        : isPartiallyPaid
+                          ? "Đã trả một phần"
+                          : "Chưa thanh toán"}
                   </span>
                 </span>
               </div>

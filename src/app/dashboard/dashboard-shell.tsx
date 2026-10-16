@@ -49,6 +49,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getPendingJoinRequestCount } from "@/services/join-request-query";
+import { processDueRecurringTransactions } from "@/services/recurring-transaction-service";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 
 type DashboardShellProps = {
@@ -104,8 +105,12 @@ async function loadDashboardShellData() {
   const userId = session.user.id;
   const activeWorkspaceId = await resolveActiveWorkspaceId(userId);
 
-  if (activeWorkspaceId)
-    await activateDueScheduledTransactionsForRequest(activeWorkspaceId);
+  if (activeWorkspaceId) {
+    await Promise.all([
+      activateDueScheduledTransactionsForRequest(activeWorkspaceId),
+      processDueRecurringTransactions({ workspaceId: activeWorkspaceId }).catch(() => null),
+    ]);
+  }
 
   const [membership, workspaces] = await Promise.all([
         activeWorkspaceId
@@ -115,7 +120,10 @@ async function loadDashboardShellData() {
                 workspaceId: activeWorkspaceId,
                 status: "active",
                 deletedAt: null,
-                workspace: { status: "active", deletedAt: null },
+                OR: [
+                  { workspace: { status: "active", deletedAt: null } },
+                  { workspace: { deletedAt: null }, role: { code: "ADMIN" } },
+                ],
               },
               include: { workspace: true, role: true },
             })
@@ -125,7 +133,10 @@ async function loadDashboardShellData() {
             userId,
             status: "active",
             deletedAt: null,
-            workspace: { status: "active", deletedAt: null },
+            OR: [
+              { workspace: { status: "active", deletedAt: null } },
+              { workspace: { deletedAt: null }, role: { code: "ADMIN" } },
+            ],
           },
           include: {
             workspace: {

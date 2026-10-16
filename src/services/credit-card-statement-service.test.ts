@@ -203,6 +203,85 @@ describe("credit card statement payments", () => {
       }),
     ]);
     expect(statement.totalAmount.toString()).toBe("500");
+    expect(tx.creditCardStatement.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["statement-prev"] } },
+      data: { status: "paid", paidAt: null },
+    });
+  });
+
+  it("caps installment statement items at remaining unbilled/unpaid obligation balance after early principal payment", async () => {
+    const createdItems: Array<{ obligationEntryId: string; fundingWalletId: string; amount: Decimal; installmentId?: string }> = [];
+    const tx = {
+      creditCardObligationEntry: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      creditCardInstallment: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "inst-2",
+            installmentNo: 2,
+            amount: new Decimal("500"),
+            plan: {
+              termCount: 2,
+              completedInstallmentsAtImport: 0,
+              transaction: {
+                id: "tx-inst",
+                deletedAt: null,
+                workflowStatus: "approved",
+                amount: new Decimal("1000"),
+                creditCardAllocations: [
+                  { fundingWalletId: "wallet-1", amount: new Decimal("1000") },
+                ],
+                creditCardObligationEntries: [
+                  {
+                    id: "obl-inst",
+                    fundingWalletId: "wallet-1",
+                    amount: new Decimal("1000"),
+                    // Term 1 (500) already billed in statement 1
+                    statementItems: [{ amount: new Decimal("500") }],
+                    // Paid 500 for statement 1 + 300 early principal payment = 800 total paid
+                    paymentAllocations: [{ amount: new Decimal("800") }],
+                  },
+                ],
+              },
+            },
+          },
+        ]),
+      },
+      creditCardStatementItem: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      transaction: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      creditCardStatement: {
+        create: vi.fn().mockImplementation(({ data }) => {
+          if (data.items?.create) createdItems.push(...data.items.create);
+          return Promise.resolve({ id: "statement-2", ...data });
+        }),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    const statement = await createStatementForCycle(
+      tx,
+      "workspace-1",
+      "card-wallet-1",
+      "2026-10-01",
+      "2026-10-31",
+      15,
+    );
+
+    // Remaining obligation is 1000 - 500 (billed) - 300 (early paid) = 200
+    expect(createdItems).toEqual([
+      expect.objectContaining({
+        obligationEntryId: "obl-inst",
+        fundingWalletId: "wallet-1",
+        installmentId: "inst-2",
+        amount: new Decimal("200"),
+      }),
+    ]);
+    expect(statement.totalAmount.toString()).toBe("200");
   });
 });
 

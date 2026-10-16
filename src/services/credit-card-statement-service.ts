@@ -35,6 +35,27 @@ export function shareForImportedInstallment(
   return shareForInstallment(amount, termCount - paidTermCount, installmentNo - paidTermCount);
 }
 
+function capInstallmentShareToRemainingObligation(
+  share: Decimal,
+  obligation: {
+    amount: Decimal.Value;
+    paymentAllocations?: Array<{ amount: Decimal.Value }>;
+    statementItems?: Array<{ amount: Decimal.Value; isCarry?: boolean }>;
+  },
+) {
+  const alreadyBilled = (obligation.statementItems ?? [])
+    .filter((item) => !item.isCarry)
+    .reduce((sum, item) => sum.plus(item.amount.toString()), ZERO);
+  const totalPaid = (obligation.paymentAllocations ?? [])
+    .reduce((sum, alloc) => sum.plus(alloc.amount.toString()), ZERO);
+  const committedOrPaid = Decimal.max(alreadyBilled, totalPaid);
+  const available = Decimal.max(
+    new Decimal(obligation.amount.toString()).minus(committedOrPaid),
+    ZERO,
+  );
+  return Decimal.min(share, available);
+}
+
 export async function createStatementForCycle(
   tx: Tx,
   workspaceId: string,
@@ -63,9 +84,49 @@ export async function createStatementForCycle(
     include: {
       plan: {
         include: {
-          transaction: { include: { creditCardAllocations: true, creditCardObligationEntries: true } },
-          feeTransaction: { include: { creditCardAllocations: true, creditCardObligationEntries: true } },
-          importedObligations: true,
+          transaction: {
+            include: {
+              creditCardAllocations: true,
+              creditCardObligationEntries: {
+                include: {
+                  paymentAllocations: {
+                    select: { amount: true },
+                  },
+                  statementItems: {
+                    where: { isCarry: false },
+                    select: { amount: true, isCarry: true },
+                  },
+                },
+              },
+            },
+          },
+          feeTransaction: {
+            include: {
+              creditCardAllocations: true,
+              creditCardObligationEntries: {
+                include: {
+                  paymentAllocations: {
+                    select: { amount: true },
+                  },
+                  statementItems: {
+                    where: { isCarry: false },
+                    select: { amount: true, isCarry: true },
+                  },
+                },
+              },
+            },
+          },
+          importedObligations: {
+            include: {
+              paymentAllocations: {
+                select: { amount: true },
+              },
+              statementItems: {
+                where: { isCarry: false },
+                select: { amount: true, isCarry: true },
+              },
+            },
+          },
         },
       },
     },
@@ -116,17 +177,21 @@ export async function createStatementForCycle(
   for (const installment of installments) {
     if (installment.plan.origin === "imported") {
       for (const obligation of installment.plan.importedObligations) {
-        items.push({
-          obligationEntryId: obligation.id,
-          installmentId: installment.id,
-          fundingWalletId: obligation.fundingWalletId,
-          amount: shareForImportedInstallment(
-            obligation.amount.toString(),
-            installment.plan.termCount,
-            installment.plan.paidTermCount,
-            installment.installmentNo,
-          ),
-        });
+        const rawShare = shareForImportedInstallment(
+          obligation.amount.toString(),
+          installment.plan.termCount,
+          installment.plan.paidTermCount,
+          installment.installmentNo,
+        );
+        const amount = capInstallmentShareToRemainingObligation(rawShare, obligation);
+        if (amount.gt(0)) {
+          items.push({
+            obligationEntryId: obligation.id,
+            installmentId: installment.id,
+            fundingWalletId: obligation.fundingWalletId,
+            amount,
+          });
+        }
       }
       continue;
     }
@@ -135,19 +200,27 @@ export async function createStatementForCycle(
     for (const allocation of original.creditCardAllocations) {
       const obligation = original.creditCardObligationEntries.find((entry) => entry.fundingWalletId === allocation.fundingWalletId);
       if (!obligation) throw new AppError("CONFLICT", "Thiếu nghĩa vụ gốc của giao dịch trả góp.");
-      items.push({
-        obligationEntryId: obligation.id,
-        installmentId: installment.id,
-        fundingWalletId: allocation.fundingWalletId,
-        amount: shareForInstallment(allocation.amount.toString(), installment.plan.termCount, installment.installmentNo),
-      });
+      const rawShare = shareForInstallment(allocation.amount.toString(), installment.plan.termCount, installment.installmentNo);
+      const amount = capInstallmentShareToRemainingObligation(rawShare, obligation);
+      if (amount.gt(0)) {
+        items.push({
+          obligationEntryId: obligation.id,
+          installmentId: installment.id,
+          fundingWalletId: allocation.fundingWalletId,
+          amount,
+        });
+      }
     }
     if (installment.installmentNo === 1 && installment.plan.feeTransaction) {
       const fee = installment.plan.feeTransaction;
       for (const allocation of fee.creditCardAllocations) {
         const obligation = fee.creditCardObligationEntries.find((entry) => entry.fundingWalletId === allocation.fundingWalletId);
         if (!obligation) throw new AppError("CONFLICT", "Thiếu nghĩa vụ phí trả góp.");
-        items.push({ obligationEntryId: obligation.id, installmentId: installment.id, fundingWalletId: allocation.fundingWalletId, amount: new Decimal(allocation.amount.toString()) });
+        const rawFee = new Decimal(allocation.amount.toString());
+        const amount = capInstallmentShareToRemainingObligation(rawFee, obligation);
+        if (amount.gt(0)) {
+          items.push({ obligationEntryId: obligation.id, installmentId: installment.id, fundingWalletId: allocation.fundingWalletId, amount });
+        }
       }
     }
   }
@@ -181,11 +254,8 @@ export async function createStatementForCycle(
   if (rolledOverStatements.length > 0) {
     await tx.creditCardStatement.updateMany({
       where: { id: { in: rolledOverStatements.map((s) => s.id) } },
-      data: { status: "paid", paidAt: new Date() },
+      data: { status: "paid", paidAt: null },
     });
-    for (const rolled of rolledOverStatements) {
-      await completePaidInstallmentPlansInTransaction(tx, rolled.id);
-    }
   }
 
   return created;
@@ -300,6 +370,7 @@ export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: strin
   }
   const carried = new Map<string, Decimal>();
   const representative = new Map<string, string>();
+  const rolledOverUnpaidIds: string[] = [];
   for (const statement of statements) {
     const totals = new Map(carried);
     for (const [fundingWalletId, amount] of carried) {
@@ -319,12 +390,23 @@ export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: strin
     }
     const remaining = [...totals.values()].reduce((sum, amount) => sum.plus(Decimal.max(amount, ZERO)), ZERO);
     const rolledOver = statement.id !== statements[statements.length - 1].id;
-    const status = rolledOver || remaining.isZero() ? "paid" : "issued";
+    const isTrulyPaid = remaining.isZero();
+    const status = rolledOver || isTrulyPaid ? "paid" : "issued";
+    const paidAt = isTrulyPaid ? (statement.paidAt ?? new Date()) : null;
     await tx.creditCardStatement.update({ where: { id: statement.id }, data: {
-      totalAmount, status, paidAt: status === "paid" ? (statement.paidAt ?? new Date()) : null,
+      totalAmount, status, paidAt,
     } });
-    if (status === "issued") await reopenUnpaidInstallmentPlansInTransaction(tx, statement.id);
-    else await completePaidInstallmentPlansInTransaction(tx, statement.id);
+    if (isTrulyPaid) {
+      for (const priorId of rolledOverUnpaidIds) {
+        await tx.creditCardStatement.update({ where: { id: priorId }, data: { paidAt } });
+        await completePaidInstallmentPlansInTransaction(tx, priorId);
+      }
+      rolledOverUnpaidIds.length = 0;
+      await completePaidInstallmentPlansInTransaction(tx, statement.id);
+    } else {
+      if (rolledOver) rolledOverUnpaidIds.push(statement.id);
+      await reopenUnpaidInstallmentPlansInTransaction(tx, statement.id);
+    }
     carried.clear();
     for (const [walletId, amount] of totals) carried.set(walletId, amount);
   }
@@ -453,6 +535,82 @@ export async function statementPaymentDetails(
   };
 }
 
+export async function statementFullyPaid(tx: Tx, statementId: string) {
+  const details = await statementPaymentDetails(tx, statementId);
+  if (details.totalRemaining.lte(0)) return true;
+  const statementWithObligations = await tx.creditCardStatement.findUnique({
+    where: { id: statementId },
+    include: {
+      items: {
+        include: {
+          obligationEntry: {
+            include: { paymentAllocations: { select: { amount: true } } },
+          },
+        },
+      },
+      payments: {
+        where: { deletedAt: null, workflowStatus: "approved" },
+        select: { amount: true },
+      },
+    },
+  });
+  if (!statementWithObligations) return false;
+  const totalPaid = (statementWithObligations.payments ?? []).reduce(
+    (sum, p) => sum.plus(p.amount.toString()),
+    ZERO,
+  );
+  if (new Decimal(statementWithObligations.totalAmount.toString()).minus(totalPaid).lte(0)) {
+    return true;
+  }
+  const itemsWithObligation = (statementWithObligations.items ?? []).filter(
+    (item) => Boolean(item.obligationEntry),
+  );
+  if (itemsWithObligation.length > 0) {
+    const allObligationsPaid = itemsWithObligation.every((item) => {
+      const paid = (item.obligationEntry.paymentAllocations ?? []).reduce(
+        (sum, alloc) => sum.plus(alloc.amount.toString()),
+        ZERO,
+      );
+      return new Decimal(item.obligationEntry.amount.toString()).minus(paid).lte(0);
+    });
+    if (allObligationsPaid) return true;
+  }
+  return false;
+}
+
+export async function settleStatementAndPriorRolloversInTransaction(
+  tx: Tx,
+  statementId: string,
+  paidAt = new Date(),
+) {
+  const updated = await tx.creditCardStatement.update({
+    where: { id: statementId },
+    data: { status: "paid", paidAt },
+  });
+  await completePaidInstallmentPlansInTransaction(tx, statementId);
+  if (updated?.workspaceId && updated?.cardWalletId && updated?.cycleEndDate && tx.creditCardStatement.findMany) {
+    const rolledOverUnpaid = await tx.creditCardStatement.findMany({
+      where: {
+        workspaceId: updated.workspaceId,
+        cardWalletId: updated.cardWalletId,
+        status: "paid",
+        paidAt: null,
+        cycleEndDate: { lte: updated.cycleEndDate },
+      },
+      select: { id: true },
+    });
+    if (rolledOverUnpaid.length > 0) {
+      await tx.creditCardStatement.updateMany?.({
+        where: { id: { in: rolledOverUnpaid.map((s) => s.id) } },
+        data: { paidAt },
+      });
+      for (const prior of rolledOverUnpaid) {
+        await completePaidInstallmentPlansInTransaction(tx, prior.id);
+      }
+    }
+  }
+}
+
 export async function completePaidInstallmentPlansInTransaction(tx: Tx, statementId: string) {
   const items = await tx.creditCardStatementItem.findMany({
     where: { statementId, installmentId: { not: null } },
@@ -461,7 +619,10 @@ export async function completePaidInstallmentPlansInTransaction(tx: Tx, statemen
   const planIds = [...new Set(items.flatMap((item) => item.installment ? [item.installment.planId] : []))];
   for (const planId of planIds) {
     const unpaid = await tx.creditCardInstallment.count({
-      where: { planId, statementItems: { none: { statement: { status: "paid" } } } },
+      where: {
+        planId,
+        statementItems: { none: { statement: { status: "paid", paidAt: { not: null } } } },
+      },
     });
     if (unpaid === 0) {
       await tx.creditCardInstallmentPlan.updateMany({
@@ -476,7 +637,18 @@ export async function reopenUnpaidInstallmentPlansInTransaction(tx: Tx, statemen
   await tx.creditCardInstallmentPlan.updateMany({
     where: {
       status: "completed",
-      installments: { some: { statementItems: { some: { statementId, statement: { status: "issued" } } } } },
+      installments: {
+        some: {
+          statementItems: {
+            some: {
+              statementId,
+              statement: {
+                OR: [{ status: "issued" }, { status: "paid", paidAt: null }],
+              },
+            },
+          },
+        },
+      },
     },
     data: { status: "active", completedAt: null },
   });

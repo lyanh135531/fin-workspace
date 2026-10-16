@@ -55,6 +55,14 @@ function history() {
         Object.assign(statement, data);
         return statement;
       }),
+      updateMany: vi.fn().mockImplementation(({ where, data }) => {
+        for (const statement of statements) {
+          if (where.id?.in?.includes(statement.id) && statement.paidAt === null) {
+            Object.assign(statement, data);
+          }
+        }
+        return { count: 1 };
+      }),
       create: vi.fn().mockImplementation(({ data }) => {
         const statement = { id: `added-${++nextId}`, paidAt: null, payments: [], ...data };
         statements.push(statement);
@@ -76,8 +84,8 @@ function history() {
     creditCardInstallmentPlan: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
   };
   const refresh = () => refreshHistoricalCardStatements(tx as unknown as Prisma.TransactionClient, "workspace-1", "card-1", "2026-09-30");
-  const pay = (amount: string, status: Payment["workflowStatus"] = "approved", deletedAt: Date | null = null) => {
-    statements[0].payments.push({
+  const pay = (amount: string, status: Payment["workflowStatus"] = "approved", deletedAt: Date | null = null, statementIdx = 0) => {
+    statements[statementIdx].payments.push({
       workflowStatus: status, deletedAt,
       creditCardPaymentSources: [{ sourceWalletId: "source-1", amount: new Decimal(amount) }],
     });
@@ -174,5 +182,22 @@ describe("historical credit card billing", () => {
     await state.refresh();
     expect(snapshot()).toEqual(original);
     expect(state.items().some((item) => item.obligationEntryId === "open-cycle")).toBe(false);
+  });
+
+  it("marks rolled-over unpaid statements with paidAt: null and settles them when a later statement is paid", async () => {
+    const state = history();
+    await state.refresh();
+    // Statements 07 and 08 are rolled over (unpaid), while statement 09 is issued
+    expect(state.statements[0]).toEqual(expect.objectContaining({ status: "paid", paidAt: null }));
+    expect(state.statements[1]).toEqual(expect.objectContaining({ status: "paid", paidAt: null }));
+    expect(state.statements[2]).toEqual(expect.objectContaining({ status: "issued", paidAt: null }));
+
+    // Paying statement 09 in full settles statements 07, 08, and 09 with non-null paidAt
+    state.pay("100", "approved", null, 2);
+    await state.refresh();
+    expect(state.statements[0].paidAt).not.toBeNull();
+    expect(state.statements[1].paidAt).not.toBeNull();
+    expect(state.statements[2].status).toBe("paid");
+    expect(state.statements[2].paidAt).not.toBeNull();
   });
 });

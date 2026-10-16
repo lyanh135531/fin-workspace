@@ -166,25 +166,27 @@ export async function updateFinancialPlanDraft(
     const primaryGoal = goals[0];
     if (primaryGoal && !hasMultipleGoals) {
       await tx.financialPlanGoal.update({ where: { id: primaryGoal.id }, data: { name: input.name, targetAmount: input.targetAmount, targetMonth: monthToDatabaseDate(input.targetMonth) } });
-      const currentFunding = await tx.financialGoalFundingEntry.aggregate({
-        where: { goalId: primaryGoal.id, status: "approved" },
-        _sum: { amount: true },
-      });
-      const adjustment = input.existingGoalAmount.minus(currentFunding._sum.amount?.toString() ?? 0);
-      if (!adjustment.isZero()) {
-        await tx.financialGoalFundingEntry.create({
-          data: {
-            goalId: primaryGoal.id,
-            amount: adjustment,
-            kind: "adjustment",
-            status: "approved",
-            effectiveDate: new Date(),
-            requesterMemberId: plan.createdByMemberId,
-            reviewerMemberId: plan.createdByMemberId,
-            reviewedAt: new Date(),
-            note: "Điều chỉnh số tiền đã xác nhận trong bản nháp",
-          },
+      if (primaryGoal.trackingMode === "manual") {
+        const currentFunding = await tx.financialGoalFundingEntry.aggregate({
+          where: { goalId: primaryGoal.id, status: "approved" },
+          _sum: { amount: true },
         });
+        const adjustment = input.existingGoalAmount.minus(currentFunding._sum.amount?.toString() ?? 0);
+        if (!adjustment.isZero()) {
+          await tx.financialGoalFundingEntry.create({
+            data: {
+              goalId: primaryGoal.id,
+              amount: adjustment,
+              kind: "adjustment",
+              status: "approved",
+              effectiveDate: new Date(),
+              requesterMemberId: plan.createdByMemberId,
+              reviewerMemberId: plan.createdByMemberId,
+              reviewedAt: new Date(),
+              note: "Điều chỉnh số tiền đã xác nhận trong bản nháp",
+            },
+          });
+        }
       }
     }
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "financial_plan.draft_updated", entityType: "financial_plan", entityId: plan.id } });
@@ -361,7 +363,7 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
 
     const totalAfterClose = realized.plus(result.actualGoalAmountForMonth);
     let completed = false;
-    if (!goalProgress.hasGoals && month === targetMonth && totalAfterClose.greaterThanOrEqualTo(plan.targetAmount.toString())) {
+    if (month === targetMonth && totalAfterClose.greaterThanOrEqualTo(plan.targetAmount.toString())) {
       await tx.financialPlan.update({ where: { id: plan.id }, data: { status: "completed", completedAt: now } });
       await tx.auditLog.create({ data: { workspaceId: plan.workspaceId, action: "financial_plan.completed", entityType: "financial_plan", entityId: plan.id,
         metadata: { automatic: true, realizedProgress: totalAfterClose.toFixed(0) } } });
@@ -404,6 +406,15 @@ export async function updateFinancialPlanDeadline(
     await advisoryPlanLock(tx, planId);
     const plan = await managedPlan(tx, workspaceId, planId);
     if (plan.status !== "active") throw new AppError("CONFLICT", "Chỉ kế hoạch đang hoạt động mới được đổi deadline.");
+    const activeGoals = await tx.financialPlanGoal?.findMany?.({
+      where: { financialPlanId: plan.id, status: "active", deletedAt: null },
+      select: { id: true, targetMonth: true },
+    }) ?? [];
+    for (const goal of activeGoals) {
+      if (targetMonth < databaseDateToMonth(goal.targetMonth)) {
+        throw new AppError("VALIDATION_ERROR", "Deadline mới không được sớm hơn deadline của các mục tiêu đang hoạt động.");
+      }
+    }
     const previous = databaseDateToMonth(plan.targetMonth);
     const updated = await tx.financialPlan.update({ where: { id: plan.id }, data: { targetMonth: monthToDatabaseDate(targetMonth) } });
     await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "financial_plan.deadline_updated", entityType: "financial_plan", entityId: plan.id,

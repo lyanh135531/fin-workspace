@@ -96,6 +96,8 @@ export type FundingWallet = { id: string; name: string };
 
 type CardActivity = {
   id: string;
+  type?: "income" | "expense" | "transfer";
+  toWalletId?: string | null;
   purpose:
     | "standard"
     | "credit_card_payment"
@@ -113,6 +115,7 @@ type CardActivity = {
   categoryId?: string | null;
   category?: string | null;
   walletId?: string;
+  allocations?: Array<{ walletId: string; amount: string }>;
 };
 
 type RefundCandidate = {
@@ -970,29 +973,68 @@ function CreditCardPanel({
     if (!editingActivity || !editWalletId || !editAmount || !editDate) return;
     const selectedWallet = wallets?.find((w) => w.id === editWalletId);
     const isCreditCard = selectedWallet?.kind === "credit_card";
+    const txType = editingActivity.type ?? "expense";
+    const buildAllocations = () => {
+      if (!isCreditCard) return undefined;
+      const originalWalletId = editingActivity.walletId || card.id;
+      const existingAllocations = editingActivity.allocations ?? [];
+      const nextTotal = new Decimal(editAmount);
+      if (editWalletId === originalWalletId && existingAllocations.length > 0) {
+        const oldTotal = existingAllocations.reduce(
+          (sum, item) => sum.plus(item.amount),
+          new Decimal(0),
+        );
+        if (oldTotal.eq(nextTotal)) {
+          return existingAllocations.map((item) => ({
+            walletId: item.walletId,
+            amount: item.amount,
+          }));
+        }
+        if (oldTotal.gt(0)) {
+          let remaining = nextTotal;
+          return existingAllocations.map((item, idx) => {
+            const share =
+              idx === existingAllocations.length - 1
+                ? remaining
+                : nextTotal
+                    .mul(item.amount)
+                    .div(oldTotal)
+                    .toDecimalPlaces(0, Decimal.ROUND_FLOOR);
+            remaining = remaining.minus(share);
+            return {
+              walletId: item.walletId,
+              amount: Decimal.max(share, 0).toString(),
+            };
+          });
+        }
+      }
+      const targetCard = allCards?.find((c) => c.id === editWalletId);
+      const fallbackFundingWalletId =
+        targetCard?.defaultFundingWalletId ??
+        card.defaultFundingWalletId ??
+        fundingWallets[0]?.id ??
+        wallets?.find((w) => w.kind === "asset")?.id ??
+        "";
+      return [
+        {
+          walletId: fallbackFundingWalletId,
+          amount: editAmount,
+        },
+      ];
+    };
     startTransition(async () => {
       const res = await updateTransactionAction(
         workspaceId,
         editingActivity.id,
         {
           walletId: editWalletId,
-          amount: new Decimal(editAmount),
+          toWalletId: txType === "transfer" ? (editingActivity.toWalletId ?? undefined) : undefined,
+          amount: editAmount,
           date: editDate,
-          type: "expense",
-          categoryId: editCategoryId || undefined,
+          type: txType,
+          categoryId: txType === "transfer" ? undefined : (editCategoryId || undefined),
           description: editActivityDescription.trim() || undefined,
-          allocations: isCreditCard
-            ? [
-                {
-                  walletId:
-                    card.defaultFundingWalletId ??
-                    fundingWallets[0]?.id ??
-                    wallets?.find((w) => w.kind === "asset")?.id ??
-                    "",
-                  amount: new Decimal(editAmount),
-                },
-              ]
-            : undefined,
+          allocations: buildAllocations(),
         },
         "Sửa giao dịch từ trang Thẻ tín dụng",
       );
@@ -1241,9 +1283,18 @@ function CreditCardPanel({
       return basePaymentSources;
     }
     if (!effectivePaymentAmount.gt(0)) return [];
+    const useStatementSources =
+      paymentTargetMode === "custom" &&
+      hasStatementDebt &&
+      Boolean(card.statement?.sources?.length) &&
+      effectivePaymentAmount.lte(statementRemaining);
+    const activeSources = useStatementSources
+      ? (card.statement?.sources ?? [])
+      : basePaymentSources;
+    const activeMax = useStatementSources ? statementRemaining : targetMaxAmount;
     let allocated = new Decimal(0);
     const result: Array<{ walletId: string; amount: string }> = [];
-    const validSources = basePaymentSources.filter((s) => new Decimal(s.amount).gt(0));
+    const validSources = activeSources.filter((s) => new Decimal(s.amount).gt(0));
     for (let i = 0; i < validSources.length; i++) {
       const src = validSources[i];
       if (i === validSources.length - 1) {
@@ -1254,7 +1305,7 @@ function CreditCardPanel({
       } else {
         const share = effectivePaymentAmount
           .mul(new Decimal(src.amount))
-          .div(targetMaxAmount)
+          .div(activeMax)
           .floor();
         allocated = allocated.plus(share);
         if (share.gt(0)) {
@@ -1269,6 +1320,8 @@ function CreditCardPanel({
     paymentTargetMode,
     effectivePaymentAmount,
     targetMaxAmount,
+    hasStatementDebt,
+    statementRemaining,
     card.statement,
     customSourcesMap,
   ]);
@@ -1315,12 +1368,26 @@ function CreditCardPanel({
     if (!isPaymentValid) return;
     const sourcesToPay = computedPaymentSources;
     if (sourcesToPay.length === 0) return;
-    const target = paymentTargetMode === "statement" ? "statement" : "current_debt";
+    const statementMaxByWallet = new Map(
+      (card.statement?.sources ?? []).map((s) => [s.walletId, new Decimal(s.amount)]),
+    );
+    const canApplyCustomToStatement =
+      paymentTargetMode === "custom" &&
+      hasStatementDebt &&
+      Boolean(card.statement?.id) &&
+      effectivePaymentAmount.lte(statementRemaining) &&
+      sourcesToPay.every((s) =>
+        new Decimal(s.amount).lte(statementMaxByWallet.get(s.walletId) ?? new Decimal(0)),
+      );
+    const target =
+      paymentTargetMode === "statement" || canApplyCustomToStatement
+        ? "statement"
+        : "current_debt";
     const isFull =
-      (paymentTargetMode === "statement" && effectivePaymentAmount.gte(statementRemaining)) ||
-      (paymentTargetMode === "current_debt" && effectivePaymentAmount.gte(debtDecimal));
+      (target === "statement" && effectivePaymentAmount.gte(statementRemaining)) ||
+      (target === "current_debt" && effectivePaymentAmount.gte(debtDecimal));
     const description =
-      paymentTargetMode === "statement"
+      target === "statement"
         ? isFull
           ? "Thanh toán toàn bộ sao kê kỳ này"
           : `Thanh toán một phần sao kê (${formatAmount(effectivePaymentAmount)} ${currency})`

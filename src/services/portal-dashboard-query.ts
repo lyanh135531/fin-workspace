@@ -23,11 +23,12 @@ function getBusinessDayStart(daysAgo: number) {
  */
 export async function getPortalDashboardStats() {
   const [total, active, deactive, newLast30] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { status: "active" } }),
-    prisma.user.count({ where: { status: "deactive" } }),
+    prisma.user.count({ where: { deletedAt: null } }),
+    prisma.user.count({ where: { status: "active", deletedAt: null } }),
+    prisma.user.count({ where: { status: "deactive", deletedAt: null } }),
     prisma.user.count({
       where: {
+        deletedAt: null,
         createdAt: {
           gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
         },
@@ -52,6 +53,7 @@ export async function getUserRegistrationsByMonth() {
            COUNT(*)::bigint                  AS count
     FROM "USERS"
     WHERE "created_at" >= ${twelveMonthsAgo}
+      AND "deleted_at" IS NULL
     GROUP BY month
     ORDER BY month ASC
   `;
@@ -114,11 +116,12 @@ export async function getDailyActiveUsers() {
  */
 export async function getTopActiveUsers(limit = 10) {
   const rows = await prisma.$queryRaw<
-    Array<{ id: string; username: string; action_count: bigint; last_active: Date }>
+    Array<{ id: string; username: string | null; action_count: bigint; last_active: Date }>
   >`
     SELECT u."id", u."username", COUNT(a."id")::bigint AS action_count, MAX(a."created_at") AS last_active
     FROM "USERS" u
     JOIN "AUDIT_LOG" a ON a."actor_user_id" = u."id"
+    WHERE u."deleted_at" IS NULL
     GROUP BY u."id", u."username"
     ORDER BY action_count DESC
     LIMIT ${limit}
@@ -126,7 +129,7 @@ export async function getTopActiveUsers(limit = 10) {
 
   return rows.map((row) => ({
     id: row.id,
-    username: row.username,
+    username: row.username ?? "Chưa đặt tên đăng nhập",
     actionCount: Number(row.action_count),
     lastActive: row.last_active,
   }));

@@ -86,6 +86,8 @@ describe("wallet-service lifecycle", () => {
       where: {
         workspaceId: "workspace-1",
         deletedAt: null,
+        completedAt: null,
+        approvalStatus: { not: "rejected" },
         OR: [{ walletId: "wallet-1" }, { toWalletId: "wallet-1" }],
       },
     });

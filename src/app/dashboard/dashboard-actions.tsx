@@ -204,7 +204,8 @@ function draftFromTransaction(
 ): TransactionDraft {
   const selectedWallet = wallets.find((w) => w.id === item.walletId);
   const isCreditCard =
-    item.type === "expense" && selectedWallet?.kind === "credit_card";
+    (item.type === "expense" || item.type === "transfer") &&
+    selectedWallet?.kind === "credit_card";
   const defaultFundingId =
     selectedWallet?.defaultFundingWalletId ??
     wallets.find((w) => w.kind === "asset")?.id ??
@@ -250,7 +251,7 @@ function isChanged(item: LedgerItem, draft: TransactionDraft) {
     item.date.slice(0, 10) !== draft.date ||
     item.amount !== draft.amount;
   if (baseChanged) return true;
-  if (draft.type === "expense") {
+  if (draft.type === "expense" || draft.type === "transfer") {
     const itemAllocs = item.allocations ?? [];
     if (itemAllocs.length !== draft.allocations.length) return true;
     return draft.allocations.some(
@@ -476,6 +477,12 @@ function TouchTransactionRow({
             {!hasReviewRequest && item.status === "scheduled" && (
               <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--info)_14%,var(--surface))] px-2 py-0.5 text-[0.65rem] font-semibold text-[var(--info)]">
                 Đã lên lịch
+              </span>
+            )}
+
+            {!hasReviewRequest && item.status === "rejected" && (
+              <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--danger)_14%,var(--surface))] px-2 py-0.5 text-[0.65rem] font-semibold text-[var(--danger)]">
+                Đã từ chối
               </span>
             )}
           </div>
@@ -1358,6 +1365,12 @@ export function Ledger({
                   Đã lên lịch
                 </span>
               )}
+
+              {!hasReviewRequest && item.status === "rejected" && (
+                <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--danger)_14%,var(--surface))] px-2 py-0.5 text-[0.65rem] font-semibold text-[var(--danger)]">
+                  Đã từ chối
+                </span>
+              )}
             </div>
 
             <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
@@ -2057,7 +2070,8 @@ export function Ledger({
               canEdit={
                 canEditTransactions &&
                 activeTarget.canRequestEdit &&
-                !activeTarget.hasPendingChange
+                !activeTarget.hasPendingChange &&
+                activeTarget.status !== "rejected"
               }
               canDelete={!readonly && activeTarget.canRequestDelete}
               isAdmin={isAdmin}
@@ -2173,14 +2187,15 @@ function TransactionEditorForm({
   const locked = Boolean(disabled || busy);
   const selectedWallet = wallets.find((wallet) => wallet.id === draft.walletId);
   const isCreditCardExpense =
-    draft.type === "expense" && selectedWallet?.kind === "credit_card";
+    (draft.type === "expense" || draft.type === "transfer") &&
+    selectedWallet?.kind === "credit_card";
   const assetWallets = wallets.filter(
     (wallet) => wallet.kind !== "credit_card",
   );
 
   function changeType(type: TransactionType): void {
     const nextWalletId =
-      type !== "expense" && selectedWallet?.kind === "credit_card"
+      type === "income" && selectedWallet?.kind === "credit_card"
         ? (assetWallets[0]?.id ?? draft.walletId)
         : draft.walletId;
     const nextWallet = wallets.find((w) => w.id === nextWalletId);
@@ -2193,12 +2208,16 @@ function TransactionEditorForm({
       categoryId:
         categoriesForTransactionType(categories, type)[0]?.id ?? "none",
       allocations:
-        type === "expense" && isCard
-          ? [{ walletId: defaultFundingId, amount: draft.amount }]
+        (type === "expense" || type === "transfer") && isCard
+          ? draft.allocations.length > 0
+            ? draft.allocations
+            : [{ walletId: defaultFundingId, amount: draft.amount }]
           : [],
       toWalletId:
         type === "transfer"
-          ? draft.toWalletId || defaultDestination(wallets, nextWalletId)
+          ? draft.toWalletId && draft.toWalletId !== nextWalletId
+            ? draft.toWalletId
+            : defaultDestination(wallets, nextWalletId)
           : draft.toWalletId,
     });
   }
@@ -2293,7 +2312,8 @@ function TransactionEditorForm({
                   ? defaultDestination(wallets, walletId)
                   : draft.toWalletId,
               allocations:
-                draft.type === "expense" && isCard
+                (draft.type === "expense" || draft.type === "transfer") &&
+                isCard
                   ? [{ walletId: defaultFundingId, amount: draft.amount }]
                   : [],
             });
@@ -2353,7 +2373,7 @@ function TransactionEditorForm({
                   <span className="break-words leading-snug">{wallet.name}</span>
                 </span>
               ),
-              disabled: isCard && draft.type !== "expense",
+              disabled: isCard && draft.type === "income",
             };
           })}
         />
@@ -2659,7 +2679,7 @@ function TransactionDetailSheetBody({
         />
 
         {/* Delete Confirmation Section */}
-        {canDelete && !requiresReview(item) && (
+        {canDelete && !item.pendingChangeRequestId && (
           <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-4">
             {!showDeleteConfirm ? (
               <>

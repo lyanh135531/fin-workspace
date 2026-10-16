@@ -21,6 +21,7 @@ function buildPortalUserWhere(
   filters: Pick<PortalUserSearch, "q" | "status">,
 ): Prisma.UserWhereInput {
   return {
+    deletedAt: null,
     ...(filters.q
       ? { username: { contains: filters.q, mode: "insensitive" } }
       : {}),
@@ -75,7 +76,7 @@ export async function listPortalUsers(filters: PortalUserSearch) {
 
 export function getPortalUserById(userId: string) {
   return prisma.user.findUnique({
-    where: { id: userId },
+    where: { id: userId, deletedAt: null },
     select: portalUserSelect,
   });
 }

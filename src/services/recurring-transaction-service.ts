@@ -82,6 +82,34 @@ function transactionInput(record: {
   };
 }
 
+async function requireRecurringTransactionResources(
+  tx: TransactionClient,
+  workspaceId: string,
+  input: Parameters<typeof requireTransactionResources>[2],
+) {
+  if (typeof tx.workspaceWallet?.findFirst === "function") {
+    const link = await tx.workspaceWallet.findFirst({
+      where: { workspaceId, walletId: input.walletId, wallet: { status: "active", deletedAt: null } },
+      select: { wallet: { select: { kind: true } } },
+    });
+    if (link?.wallet?.kind === "credit_card") {
+      throw new AppError("VALIDATION_ERROR", "Giao dịch định kỳ chỉ áp dụng cho ví tài sản.");
+    }
+  }
+  try {
+    const resources = await requireTransactionResources(tx, workspaceId, input);
+    if (resources.walletKind === "credit_card") {
+      throw new AppError("VALIDATION_ERROR", "Giao dịch định kỳ chỉ áp dụng cho ví tài sản.");
+    }
+    return resources;
+  } catch (error) {
+    if (error instanceof AppError && error.message.includes("Thẻ thiếu cấu hình")) {
+      throw new AppError("VALIDATION_ERROR", "Giao dịch định kỳ chỉ áp dụng cho ví tài sản.");
+    }
+    throw error;
+  }
+}
+
 export async function createRecurringTransaction(
   userId: string,
   workspaceId: string,
@@ -94,7 +122,7 @@ export async function createRecurringTransaction(
   const now = new Date();
 
   return prisma.$transaction(async (tx) => {
-    await requireTransactionResources(tx, workspaceId, input);
+    await requireRecurringTransactionResources(tx, workspaceId, input);
     const record = await tx.recurringTransaction.create({
       data: {
         workspaceId,
@@ -160,7 +188,7 @@ export async function updateRecurringTransaction(
         throw new AppError("CONFLICT", "Hãy tạm dừng lịch trước khi chỉnh sửa.");
       }
     }
-    await requireTransactionResources(tx, workspaceId, input);
+    await requireRecurringTransactionResources(tx, workspaceId, input);
     const dayOfMonth = dayOfMonthFromStartDate(input.startDate);
     const timingChanged = current.dayOfMonth !== dayOfMonth
       || asBusinessDate(current.startDate) !== input.startDate
@@ -533,17 +561,103 @@ async function processOneDueOccurrence(workspaceId: string, recurringTransaction
   }
 }
 
-export async function processDueRecurringTransactions(
+export async function runRecurringTransactionNow(
+  userId: string,
   workspaceId: string,
+  recurringTransactionId: string,
+  now = new Date(),
+) {
+  const member = await requireWorkspaceMember(userId, workspaceId);
+  const isAdmin = isAdminRole(member.role.code);
+  return prisma.$transaction(async (tx) => {
+    const current = await findManagedRecurringTransaction(tx, workspaceId, recurringTransactionId);
+    if (!isAdmin && current.createdByMemberId !== member.id) {
+      throw new AppError("FORBIDDEN", "Bạn chỉ có thể thực hiện lịch do mình tạo.");
+    }
+    if (current.status !== "active" || current.approvalStatus !== "approved" || current.completedAt) {
+      throw new AppError("CONFLICT", "Chỉ lịch định kỳ đang bật và đã được duyệt mới có thể thực hiện ngay.");
+    }
+    await requireRecurringTransactionResources(tx, workspaceId, current);
+    const dueDate = asBusinessDate(current.nextExecutionDate);
+    if (current.endDate && dueDate > asBusinessDate(current.endDate)) {
+      throw new AppError("CONFLICT", "Khoảng hiệu lực của lịch định kỳ đã kết thúc.");
+    }
+    const period = dueDate.slice(0, 7);
+    const nextExecutionDate = nextMonthlyExecution(dueDate, current.dayOfMonth);
+    const existing = await tx.transaction?.findUnique?.({
+      where: {
+        recurringTransactionId_recurringPeriod: {
+          recurringTransactionId: current.id,
+          recurringPeriod: period,
+        },
+      },
+      select: { id: true },
+    });
+    if (!existing) {
+      const transaction = await createApprovedTransactionInTransaction(
+        tx,
+        workspaceId,
+        current.createdByMemberId,
+        transactionInput(current, dueDate),
+        { id: current.id, period },
+      );
+      await tx.auditLog.create({
+        data: {
+          workspaceId,
+          actorUserId: userId,
+          action: "recurring_transaction.posted",
+          entityType: "transaction",
+          entityId: transaction.id,
+          metadata: {
+            recurringTransactionId: current.id,
+            period,
+            dueDate,
+            jarCode: transaction.jarCode,
+            manualRun: true,
+          },
+        },
+      });
+    }
+    const completed = Boolean(current.endDate && nextExecutionDate > asBusinessDate(current.endDate));
+    const record = await tx.recurringTransaction.update({
+      where: { id: current.id },
+      data: {
+        nextExecutionDate: asDatabaseDate(nextExecutionDate),
+        status: completed ? "deactive" : "active",
+        completedAt: completed ? now : null,
+        lastError: null,
+      },
+    });
+    if (completed) {
+      await tx.auditLog.create({
+        data: {
+          workspaceId,
+          actorUserId: userId,
+          action: "recurring_transaction.completed",
+          entityType: "recurring_transaction",
+          entityId: current.id,
+          metadata: { endDate: asBusinessDate(current.endDate!), lastPeriod: period },
+        },
+      });
+    }
+    return record;
+  });
+}
+
+export async function processDueRecurringTransactions(
+  workspaceOrInput: string | { workspaceId: string; now?: Date; limit?: number },
   now = new Date(),
   limit = 500,
 ) {
+  const workspaceId = typeof workspaceOrInput === "string" ? workspaceOrInput : workspaceOrInput.workspaceId;
+  const effectiveNow = typeof workspaceOrInput === "string" ? now : (workspaceOrInput.now ?? now);
+  const effectiveLimit = typeof workspaceOrInput === "string" ? limit : (workspaceOrInput.limit ?? limit);
   const workspace = await prisma.workspace.findFirst({
     where: { id: workspaceId, status: "active", deletedAt: null },
     select: { timeZone: true },
   });
   if (!workspace) return { posted: 0, failed: 0, advanced: 0, completed: 0, handled: 0 };
-  const today = getBusinessDateInTimeZone(workspace.timeZone, now);
+  const today = getBusinessDateInTimeZone(workspace.timeZone, effectiveNow);
   await prisma.recurringTransaction.updateMany({
     where: {
       workspaceId,
@@ -553,11 +667,11 @@ export async function processDueRecurringTransactions(
       lastError: null,
       endDate: { lt: asDatabaseDate(today) },
     },
-    data: { completedAt: now },
+    data: { completedAt: effectiveNow },
   });
   const result = { posted: 0, failed: 0, advanced: 0, completed: 0, handled: 0 };
 
-  for (let attempted = 0; attempted < limit; attempted += 1) {
+  for (let attempted = 0; attempted < effectiveLimit; attempted += 1) {
     const due = await prisma.recurringTransaction.findFirst({
       where: {
         workspaceId,

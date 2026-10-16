@@ -98,7 +98,7 @@ export async function getCreditCardsData() {
                       include: {
                         statementItems: {
                           include: {
-                            statement: { select: { status: true } },
+                            statement: { select: { status: true, paidAt: true } },
                           },
                         },
                       },
@@ -123,6 +123,9 @@ export async function getCreditCardsData() {
               },
               include: {
                 category: { select: { id: true, name: true } },
+                creditCardAllocations: {
+                  select: { fundingWalletId: true, amount: true },
+                },
                 creditCardPaymentReservations: {
                   where: { releasedAt: null },
                   select: { sourceWalletId: true, amount: true },
@@ -138,7 +141,7 @@ export async function getCreditCardsData() {
                     statementItems: {
                       select: {
                         id: true,
-                        statement: { select: { status: true } },
+                        statement: { select: { status: true, paidAt: true } },
                       },
                     },
                   },
@@ -404,7 +407,11 @@ export async function getCreditCardsData() {
                 ).toString(),
           ).minus(
             plan.installments
-              .filter((i) => i.statementItems.some((s) => s.statement.status === "paid"))
+              .filter((i) =>
+                i.statementItems.some(
+                  (s) => s.statement.status === "paid" && s.statement.paidAt !== null,
+                ),
+              )
               .reduce((sum, i) => sum.plus(i.principalAmount.toString()), ZERO),
           ),
           ZERO,
@@ -433,7 +440,7 @@ export async function getCreditCardsData() {
           paid:
             installment.statementItems.length > 0 &&
             installment.statementItems.every(
-              (item) => item.statement.status === "paid",
+              (item) => item.statement.status === "paid" && item.statement.paidAt !== null,
             ),
         })),
       })),
@@ -493,6 +500,7 @@ export async function getCreditCardsData() {
         );
         const canModify =
           transaction.purpose === "standard" &&
+          transaction.workflowStatus !== "rejected" &&
           !transaction.installmentPlan &&
           !transaction.creditCardStatementId &&
           transaction.refundTransactions.length === 0;
@@ -502,6 +510,8 @@ export async function getCreditCardsData() {
           (transaction.purpose === "credit_card_refund" && !isPaidOrClosed);
         return {
           id: transaction.id,
+          type: transaction.type,
+          toWalletId: transaction.toWalletId ?? null,
           purpose: transaction.purpose,
           description: transaction.description,
           amount: transaction.amount.toString(),
@@ -510,17 +520,23 @@ export async function getCreditCardsData() {
           categoryId: transaction.categoryId ?? null,
           category: transaction.category?.name ?? null,
           walletId: transaction.walletId,
+          allocations: transaction.creditCardAllocations.map((allocation) => ({
+            walletId: allocation.fundingWalletId,
+            amount: allocation.amount.toString(),
+          })),
           installmentEligible:
             transaction.purpose === "standard" &&
+            transaction.type === "expense" &&
             transaction.workflowStatus === "approved" &&
             !transaction.installmentPlan &&
+            transaction.refundTransactions.length === 0 &&
             transaction.creditCardObligationEntries.every(
               (entry) =>
                 entry.paymentAllocations.length === 0 &&
                 entry.statementItems.length === 0,
             ),
           canDelete,
-          canEdit: canModify,
+          canEdit: canModify && !isPaidOrClosed,
           installmentPlanId: transaction.installmentPlan?.id ?? null,
           refundableAmount: transaction.purpose === "standard"
             ? Decimal.max(

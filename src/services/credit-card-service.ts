@@ -19,7 +19,11 @@ import {
   normalizeApprovedRefundAllocations,
   syncCreditCardObligationsForTransaction,
 } from "@/services/credit-card-ledger";
-import { completePaidInstallmentPlansInTransaction, generateCardStatementsInTransaction, statementPaymentDetails } from "@/services/credit-card-statement-service";
+import {
+  generateCardStatementsInTransaction,
+  settleStatementAndPriorRolloversInTransaction,
+  statementPaymentDetails,
+} from "@/services/credit-card-statement-service";
 import { applyBalance } from "@/services/transaction-service";
 import { assertWalletHasNoOpenDependencies, ensureWalletNameAvailable } from "@/services/wallet-service";
 import { requireWorkspaceMember } from "@/services/workspace-access";
@@ -148,6 +152,33 @@ export async function createCreditCardPayment(
         throw new AppError("CONFLICT", "Thẻ không có dư nợ cần thanh toán.");
       }
 
+      const rawObligations = await tx.creditCardObligationEntry.findMany({
+        where: { cardWalletId: input.cardWalletId },
+        include: {
+          paymentAllocations: { select: { amount: true } },
+          statementItems: { select: { id: true } },
+          transaction: {
+            select: {
+              installmentPlan: { select: { id: true, status: true } },
+              installmentFeePlan: { select: { id: true, status: true } },
+            },
+          },
+        },
+        orderBy: [{ postedDate: "asc" }, { id: "asc" }],
+      });
+      const unbilledInstallmentIds = new Set(
+        rawObligations
+          .filter((entry) => {
+            const isInstallment =
+              Boolean((entry as { installmentPlanId?: string | null }).installmentPlanId) ||
+              entry.transaction?.installmentPlan?.status === "active" ||
+              entry.transaction?.installmentFeePlan?.status === "active";
+            const isBilled = (entry.statementItems?.length ?? 0) > 0;
+            return isInstallment && !isBilled;
+          })
+          .map((entry) => entry.id),
+      );
+
       const entries = await getCardObligationBalances(tx, input.cardWalletId);
       const supplied = new Map(input.sources.map((source) => [source.walletId, new Decimal(source.amount)]));
       for (const [, amount] of supplied) {
@@ -161,7 +192,40 @@ export async function createCreditCardPayment(
       }
 
       const paymentSources = input.sources.map((source) => ({ walletId: source.walletId, amount: new Decimal(source.amount) }));
-      allocationsToCreate = allocateOldestObligations(entries, paymentSources);
+      if (unbilledInstallmentIds.size === 0) {
+        allocationsToCreate = allocateOldestObligations(entries, paymentSources);
+      } else {
+        const priorityEntries = entries.filter((entry) => !unbilledInstallmentIds.has(entry.id));
+        const deferredEntries = entries.filter((entry) => unbilledInstallmentIds.has(entry.id));
+        const combinedAllocations: Array<{ obligationEntryId: string; amount: Decimal }> = [];
+        for (const source of paymentSources) {
+          const totalWalletNet = entries
+            .filter((entry) => entry.fundingWalletId === source.walletId)
+            .reduce((sum, entry) => sum.plus(entry.amount.toString()).minus(entry.paid.toString()), ZERO);
+          if (source.amount.gt(Decimal.max(totalWalletNet, ZERO))) {
+            throw new AppError("VALIDATION_ERROR", "Số tiền trích từ ví vượt quá nghĩa vụ của ví đối với thẻ này.");
+          }
+          const priorityNet = Decimal.max(
+            priorityEntries
+              .filter((entry) => entry.fundingWalletId === source.walletId)
+              .reduce((sum, entry) => sum.plus(entry.amount.toString()).minus(entry.paid.toString()), ZERO),
+            ZERO,
+          );
+          const priorityPart = Decimal.min(source.amount, priorityNet);
+          const deferredPart = source.amount.minus(priorityPart);
+          if (priorityPart.gt(0)) {
+            combinedAllocations.push(
+              ...allocateOldestObligations(priorityEntries, [{ walletId: source.walletId, amount: priorityPart }]),
+            );
+          }
+          if (deferredPart.gt(0)) {
+            combinedAllocations.push(
+              ...allocateOldestObligations(deferredEntries, [{ walletId: source.walletId, amount: deferredPart }]),
+            );
+          }
+        }
+        allocationsToCreate = combinedAllocations;
+      }
 
       const oldestStatement = await tx.creditCardStatement.findFirst({
         where: { workspaceId, cardWalletId: input.cardWalletId, status: "issued" },
@@ -203,13 +267,11 @@ export async function createCreditCardPayment(
       });
       await applyBalance(tx, record);
       if (statementToComplete) {
-        await tx.creditCardStatement.update({ where: { id: statementToComplete }, data: { status: "paid", paidAt: new Date() } });
-        await completePaidInstallmentPlansInTransaction(tx, statementToComplete);
+        await settleStatementAndPriorRolloversInTransaction(tx, statementToComplete);
       } else if (statementIdToLink) {
         const { totalRemaining } = await statementPaymentDetails(tx, statementIdToLink);
         if (totalRemaining.lte(0)) {
-          await tx.creditCardStatement.update({ where: { id: statementIdToLink }, data: { status: "paid", paidAt: new Date() } });
-          await completePaidInstallmentPlansInTransaction(tx, statementIdToLink);
+          await settleStatementAndPriorRolloversInTransaction(tx, statementIdToLink);
         }
       }
       await assertCardBalanceReconciled(tx, input.cardWalletId);
@@ -303,6 +365,8 @@ export async function createCreditCardRefund(
       data: {
         memberId: member.id,
         walletId: input.cardWalletId,
+        categoryId: original?.categoryId ?? null,
+        jarCode: original?.jarCode ?? null,
         type: "income",
         purpose: "credit_card_refund",
         amount: input.amount,
@@ -585,9 +649,51 @@ export async function deleteCreditCard(
               : []),
           ],
         },
-        select: { id: true },
+        select: {
+          id: true,
+          type: true,
+          purpose: true,
+          amount: true,
+          walletId: true,
+          toWalletId: true,
+          workflowStatus: true,
+          creditCardPaymentSources: {
+            select: { sourceWalletId: true, amount: true },
+          },
+        },
       });
       const cardTransactionIds = cardTransactions.map((t) => t.id);
+
+      for (const t of cardTransactions) {
+        if (t.workflowStatus !== "approved") continue;
+        if (t.purpose === "credit_card_payment") {
+          const sources =
+            t.creditCardPaymentSources ??
+            (await tx.creditCardPaymentSource?.findMany?.({
+              where: { paymentTransactionId: t.id },
+            })) ??
+            [];
+          for (const source of sources) {
+            await tx.wallet.update({
+              where: { id: source.sourceWalletId },
+              data: { currentBalance: { increment: new Decimal(source.amount.toString()) } },
+            });
+          }
+        } else if (t.type === "transfer") {
+          const txAmount = new Decimal(t.amount.toString());
+          if (t.walletId === cardWalletId && t.toWalletId) {
+            await tx.wallet.update({
+              where: { id: t.toWalletId },
+              data: { currentBalance: { decrement: txAmount } },
+            });
+          } else if (t.toWalletId === cardWalletId && t.walletId && t.walletId !== cardWalletId) {
+            await tx.wallet.update({
+              where: { id: t.walletId },
+              data: { currentBalance: { increment: txAmount } },
+            });
+          }
+        }
+      }
 
       if (cardTransactionIds.length > 0) {
         await tx.creditCardPaymentReservation?.deleteMany?.({
@@ -707,6 +813,9 @@ export async function deleteCreditCard(
       if (!targetLink) {
         throw new AppError("NOT_FOUND", "Ví đích không tồn tại hoặc đã bị xóa.");
       }
+      if (targetLink.wallet.status && targetLink.wallet.status !== "active") {
+        throw new AppError("CONFLICT", "Ví đích phải đang hoạt động.");
+      }
 
       const cardTransactions = await tx.transaction.findMany({
         where: {
@@ -719,21 +828,19 @@ export async function deleteCreditCard(
         },
       });
 
-      let totalMigratedExpense = new Decimal(0);
       for (const t of cardTransactions) {
         if (t.installmentPlan?.status === "pending") {
           await tx.creditCardInstallmentPlan.delete({ where: { id: t.installmentPlan.id } });
         }
-        if (t.walletId === cardWalletId && t.type === "expense") {
-          if (t.workflowStatus === "approved") {
-            totalMigratedExpense = totalMigratedExpense.plus(t.amount.toString());
-          }
+        if (t.walletId === cardWalletId && (t.type === "expense" || t.type === "transfer")) {
           await tx.transaction.update({
             where: { id: t.id },
             data: { walletId: resolution.targetWalletId },
           });
-          await tx.creditCardObligationEntry.deleteMany({ where: { transactionId: t.id } });
-          await tx.creditCardAllocation.deleteMany({ where: { transactionId: t.id } });
+          if (targetLink.wallet.kind === "asset") {
+            await tx.creditCardObligationEntry.deleteMany({ where: { transactionId: t.id } });
+            await tx.creditCardAllocation.deleteMany({ where: { transactionId: t.id } });
+          }
         } else if (t.toWalletId === cardWalletId) {
           await tx.transaction.update({
             where: { id: t.id },
@@ -742,17 +849,42 @@ export async function deleteCreditCard(
         }
       }
 
-      if (targetLink.wallet.kind === "asset" && totalMigratedExpense.gt(0)) {
-        const newTargetBalance = new Decimal(targetLink.wallet.currentBalance.toString()).minus(totalMigratedExpense);
-        await tx.wallet.update({
-          where: { id: resolution.targetWalletId },
-          data: { currentBalance: newTargetBalance },
+      if (targetLink.wallet.kind === "asset") {
+        if (!balance.isZero()) {
+          const newTargetBalance = new Decimal(targetLink.wallet.currentBalance.toString()).minus(balance);
+          await tx.wallet.update({
+            where: { id: resolution.targetWalletId },
+            data: { currentBalance: newTargetBalance },
+          });
+        }
+        await tx.creditCardPaymentAllocation?.deleteMany?.({
+          where: { obligationEntry: { cardWalletId } },
         });
-      } else if (targetLink.wallet.kind === "credit_card" && totalMigratedExpense.gt(0)) {
-        const newTargetBalance = new Decimal(targetLink.wallet.currentBalance.toString()).plus(totalMigratedExpense);
-        await tx.wallet.update({
-          where: { id: resolution.targetWalletId },
-          data: { currentBalance: newTargetBalance },
+        await tx.creditCardObligationEntry?.deleteMany?.({
+          where: { cardWalletId },
+        });
+        await tx.creditCardOpeningAllocation?.deleteMany?.({
+          where: { cardWalletId },
+        });
+      } else if (targetLink.wallet.kind === "credit_card") {
+        if (!balance.isZero()) {
+          const newTargetBalance = new Decimal(targetLink.wallet.currentBalance.toString()).plus(balance);
+          await tx.wallet.update({
+            where: { id: resolution.targetWalletId },
+            data: { currentBalance: newTargetBalance },
+          });
+        }
+        await tx.creditCardObligationEntry?.updateMany?.({
+          where: { cardWalletId },
+          data: { cardWalletId: resolution.targetWalletId },
+        });
+        await tx.creditCardOpeningAllocation?.updateMany?.({
+          where: { cardWalletId },
+          data: { cardWalletId: resolution.targetWalletId },
+        });
+        await tx.creditCardInstallmentPlan?.updateMany?.({
+          where: { cardWalletId, status: { in: ["active", "completed"] } },
+          data: { cardWalletId: resolution.targetWalletId },
         });
       }
 

@@ -274,6 +274,76 @@ describe("deleteCreditCard checks", () => {
       },
     });
   });
+
+  it("reverses counterparty asset wallet balances when voiding card payments and transfers", async () => {
+    tx.workspaceWallet.findFirst.mockResolvedValue({
+      wallet: { currentBalance: new Decimal(150_000) },
+    });
+    tx.transaction.findMany.mockResolvedValue([
+      {
+        id: "tx-pay",
+        walletId: "card-id",
+        toWalletId: null,
+        type: "expense",
+        purpose: "credit_card_payment",
+        amount: new Decimal(100_000),
+        workflowStatus: "approved",
+        creditCardPaymentSources: [{ sourceWalletId: "cash-id", amount: new Decimal(100_000) }],
+      },
+      {
+        id: "tx-transfer",
+        walletId: "card-id",
+        toWalletId: "bank-id",
+        type: "transfer",
+        purpose: "normal",
+        amount: new Decimal(50_000),
+        workflowStatus: "approved",
+        creditCardPaymentSources: [],
+      },
+    ]);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id", {
+        action: "void_transactions",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "cash-id" },
+      data: { currentBalance: { increment: new Decimal(100_000) } },
+    });
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "bank-id" },
+      data: { currentBalance: { decrement: new Decimal(50_000) } },
+    });
+  });
+
+  it("deducts only remaining unpaid card debt (not gross spend) when migrating to an asset wallet", async () => {
+    // Card has 500k total spend, 300k already paid from asset wallet, so only 200k unpaid debt remains
+    tx.workspaceWallet.findFirst
+      .mockResolvedValueOnce({
+        wallet: { id: "card-id", kind: "credit_card", currentBalance: new Decimal(200_000) },
+      })
+      .mockResolvedValueOnce({
+        wallet: { id: "cash-id", kind: "asset", status: "active", currentBalance: new Decimal(1_000_000) },
+      });
+    tx.transaction.findMany.mockResolvedValue([
+      { id: "tx-1", walletId: "card-id", type: "expense", purpose: "normal", amount: new Decimal(500_000), workflowStatus: "approved" },
+    ]);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id", {
+        action: "migrate_transactions",
+        targetWalletId: "cash-id",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    // Destination asset wallet balance should be 1,000,000 - 200,000 = 800,000 (not 500,000)
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "cash-id" },
+      data: { currentBalance: new Decimal(800_000) },
+    });
+  });
 });
 
 describe("updateCreditCard checks", () => {

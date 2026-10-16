@@ -257,6 +257,36 @@ export async function assertWalletHasNoOpenDependencies(
   workspaceId: string,
   walletId: string,
 ) {
+  const countOpenObligations = async () => {
+    if (tx.creditCardObligationEntry?.findMany) {
+      const entries = await tx.creditCardObligationEntry.findMany({
+        where: {
+          fundingWalletId: walletId,
+          card: { wallet: { deletedAt: null } },
+        },
+        select: {
+          amount: true,
+          paymentAllocations: { select: { amount: true } },
+        },
+      });
+      return entries.filter((entry) => {
+        const paid = (entry.paymentAllocations ?? []).reduce(
+          (sum, alloc) => sum.plus(alloc.amount.toString()),
+          new Decimal(0),
+        );
+        return new Decimal(entry.amount.toString()).minus(paid).gt(0);
+      }).length;
+    }
+    return (
+      (await tx.creditCardObligationEntry?.count?.({
+        where: {
+          fundingWalletId: walletId,
+          card: { wallet: { deletedAt: null } },
+        },
+      })) ?? 0
+    );
+  };
+
   const [openTransactions, recurringTransactions, creditCardDependencies, linkedGoals] = await Promise.all([
     tx.transaction.count({
       where: {
@@ -270,12 +300,25 @@ export async function assertWalletHasNoOpenDependencies(
       where: {
         workspaceId,
         deletedAt: null,
+        completedAt: null,
+        approvalStatus: { not: "rejected" },
         OR: [{ walletId }, { toWalletId: walletId }],
       },
     }),
     Promise.all([
-      tx.creditCardProfile?.count?.({ where: { defaultFundingWalletId: walletId } }) ?? 0,
-      tx.creditCardObligationEntry?.count?.({ where: { fundingWalletId: walletId } }) ?? 0,
+      tx.creditCardProfile?.count?.({
+        where: { defaultFundingWalletId: walletId, wallet: { deletedAt: null } },
+      }) ?? 0,
+      countOpenObligations(),
+      tx.creditCardAllocation?.count?.({
+        where: {
+          fundingWalletId: walletId,
+          transaction: {
+            deletedAt: null,
+            workflowStatus: { in: ["pending", "scheduled"] },
+          },
+        },
+      }) ?? 0,
       tx.creditCardPaymentReservation?.count?.({ where: { sourceWalletId: walletId, releasedAt: null } }) ?? 0,
     ]).then((counts) => counts.reduce((sum, count) => sum + count, 0)),
     tx.financialPlanGoal?.count?.({

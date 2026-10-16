@@ -61,8 +61,13 @@ export default async function PortalUserDetailPage({
     );
   }
 
+  const displayUsername =
+    user.username ??
+    (user as { email?: string | null }).email ??
+    "Chưa đặt tên đăng nhập";
+
   const fields = [
-    ["Tên đăng nhập", user.username],
+    ["Tên đăng nhập", displayUsername],
     ["Ngày tạo", dateTimeFormatter.format(user.createdAt)],
     ["Thao tác lần cuối", lastActivity ? dateTimeFormatter.format(lastActivity) : "Chưa có"],
   ] as const;
@@ -70,7 +75,7 @@ export default async function PortalUserDetailPage({
   return (
     <PageContainer className="flex-1 min-h-0 space-y-6 overflow-y-auto px-4 py-6 md:px-6 md:py-8 lg:px-8">
       <PageHeader
-        title={user.username}
+        title={displayUsername}
         description="Thông tin tài khoản, nhóm tài chính và lịch sử hoạt động."
       >
         <Button
@@ -133,7 +138,7 @@ export default async function PortalUserDetailPage({
             {/* Desktop table */}
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full border-collapse text-left text-sm">
-                <caption className="sr-only">Nhóm tài chính của {user.username}</caption>
+                <caption className="sr-only">Nhóm tài chính của {displayUsername}</caption>
                 <thead className="bg-[var(--surface-secondary)] text-xs text-[var(--text-muted)]">
                   <tr>
                     <th scope="col" className="px-5 py-3 font-medium">Nhóm tài chính</th>
@@ -221,7 +226,7 @@ export default async function PortalUserDetailPage({
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full border-collapse text-left text-sm">
                 <caption className="sr-only">
-                  Lịch sử hoạt động của {user.username}
+                  Lịch sử hoạt động của {displayUsername}
                 </caption>
                 <thead className="bg-[var(--surface-secondary)] text-xs text-[var(--text-muted)]">
                   <tr>

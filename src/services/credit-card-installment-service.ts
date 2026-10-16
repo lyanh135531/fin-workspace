@@ -127,11 +127,11 @@ export async function createInstallmentPlanInTransaction(
   transactionId: string,
   effectiveDate: string,
   input: InstallmentInput,
-  activate: boolean,
+  activate = true,
 ) {
   const transaction = await tx.transaction.findFirst({
     where: { id: transactionId, member: { workspaceId }, wallet: { kind: "credit_card", workspaceLinks: { some: { workspaceId } } } },
-    select: { walletId: true },
+    select: { walletId: true, workflowStatus: true },
   });
   if (!transaction) throw new AppError("VALIDATION_ERROR", "Trả góp chỉ áp dụng cho giao dịch chi tiêu thẻ.");
   const plan = await tx.creditCardInstallmentPlan.create({
@@ -146,7 +146,8 @@ export async function createInstallmentPlanInTransaction(
       status: "pending",
     },
   });
-  return activate ? activateInstallmentPlanInTransaction(tx, workspaceId, plan.id) : plan;
+  const shouldActivate = activate || transaction.workflowStatus === "approved";
+  return shouldActivate ? activateInstallmentPlanInTransaction(tx, workspaceId, plan.id) : plan;
 }
 
 export async function registerCreditCardInstallment(
@@ -177,8 +178,11 @@ export async function registerCreditCardInstallment(
     });
     if (!original) throw new AppError("NOT_FOUND", "Không tìm thấy giao dịch thẻ có thể chuyển trả góp.");
     await generateCardStatementsInTransaction(tx, workspaceId, original.walletId, getBusinessDateInTimeZone(member.workspace.timeZone, now));
+    if (original.creditCardObligationEntries.some((entry) => entry.paymentAllocations.length > 0)) {
+      throw new AppError("CONFLICT", "Giao dịch đã được thanh toán một phần hoặc toàn bộ, không thể chuyển trả góp.");
+    }
     const newlyStatemented = await tx.creditCardStatementItem.count({ where: { obligationEntry: { transactionId: original.id } } });
-    if (newlyStatemented || original.refundTransactions.length || original.creditCardObligationEntries.some((entry) => entry.paymentAllocations.length || entry.statementItems.length)) {
+    if (newlyStatemented || original.refundTransactions.length || original.creditCardObligationEntries.some((entry) => entry.statementItems.length > 0)) {
       throw new AppError("CONFLICT", "Chỉ giao dịch chưa thanh toán, chưa hoàn tiền và chưa vào sao kê mới được chuyển trả góp.");
     }
     const plan = await createInstallmentPlanInTransaction(tx, workspaceId, member.id, original.id, effectiveDate, input, true);
@@ -188,6 +192,8 @@ export async function registerCreditCardInstallment(
     return plan;
   });
 }
+
+export const convertTransactionToInstallment = registerCreditCardInstallment;
 
 function assertValidImportedStatementDate(
   firstStatementDate: string,
