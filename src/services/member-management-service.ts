@@ -50,14 +50,27 @@ export async function deactivateWorkspaceMember(actorUserId: string, workspaceId
   if (!member) throw new AppError("NOT_FOUND", "Không tìm thấy thành viên đang hoạt động trong nhóm này.");
   if (member.userId === actorUserId) throw new AppError("FORBIDDEN", "Bạn không thể tự gỡ mình khỏi nhóm.");
   return prisma.$transaction(async (tx) => {
+    const now = new Date();
     const updated = await tx.workspaceMember.update({ where: { id: member.id }, data: { status: "deactive" } });
     await tx.recurringTransaction.updateMany({
       where: { workspaceId, createdByMemberId: member.id, status: "active", deletedAt: null },
       data: { status: "deactive" },
     });
+    await tx.recurringTransaction.updateMany({
+      where: { workspaceId, createdByMemberId: member.id, approvalStatus: "pending", deletedAt: null },
+      data: { status: "deactive", approvalStatus: "rejected", reviewedAt: now },
+    });
     await tx.transactionChangeRequest.updateMany({
       where: { requesterMemberId: member.id, status: "pending" },
-      data: { status: "rejected", reviewedAt: new Date() },
+      data: { status: "rejected", reviewedAt: now },
+    });
+    await tx.financialGoalFundingEntry.updateMany({
+      where: { requesterMemberId: member.id, status: "pending", goal: { financialPlan: { workspaceId } } },
+      data: { status: "rejected", reviewedAt: now },
+    });
+    await tx.transaction.updateMany({
+      where: { memberId: member.id, workflowStatus: "pending", deletedAt: null },
+      data: { workflowStatus: "rejected" },
     });
     await tx.auditLog.create({ data: { workspaceId, actorUserId, action: "workspace.member_deactivated", entityType: "workspace_member", entityId: member.id, metadata: { userId: member.userId } } });
     return updated;

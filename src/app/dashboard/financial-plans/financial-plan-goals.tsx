@@ -163,7 +163,7 @@ function monthLabel(month: string) {
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
 }
 
 export function FinancialPlanGoals({

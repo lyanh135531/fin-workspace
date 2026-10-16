@@ -810,6 +810,7 @@ function CreditCardPanel({
     icon?: string | null;
     color?: string | null;
     parentId?: string | null;
+    type?: "income" | "expense";
   }>;
   autoOpenPayment?: boolean;
   onAutoPaymentHandled?: () => void;
@@ -909,14 +910,19 @@ function CreditCardPanel({
     [card.fundingShares],
   );
 
-  const categoriesById = useMemo(
-    () => new Map((categories ?? []).map((cat) => [cat.id, cat])),
+  const expenseCategories = useMemo(
+    () => (categories ?? []).filter((cat) => !("type" in cat) || !cat.type || cat.type === "expense"),
     [categories],
   );
 
+  const categoriesById = useMemo(
+    () => new Map(expenseCategories.map((cat) => [cat.id, cat])),
+    [expenseCategories],
+  );
+
   const categoriesByName = useMemo(
-    () => new Map((categories ?? []).map((cat) => [cat.name, cat])),
-    [categories],
+    () => new Map(expenseCategories.map((cat) => [cat.name, cat])),
+    [expenseCategories],
   );
 
   const limitDecimal = useMemo(() => new Decimal(card.limit || 0), [card.limit]);
@@ -964,12 +970,21 @@ function CreditCardPanel({
   }
 
   function startEditingActivity(activity: CardActivity) {
+    const nextWalletId = activity.walletId || card.id;
+    const defaultToWalletId =
+      fundingWallets.find((w) => w.id !== nextWalletId)?.id ??
+      fundingWallets[0]?.id ??
+      "";
     setEditingActivity(activity);
-    setEditWalletId(activity.walletId || card.id);
-    setEditToWalletId(activity.toWalletId || fundingWallets[0]?.id || "");
+    setEditWalletId(nextWalletId);
+    setEditToWalletId(
+      activity.toWalletId && activity.toWalletId !== nextWalletId
+        ? activity.toWalletId
+        : defaultToWalletId,
+    );
     setEditAmount(activity.amount);
     setEditDate(activity.date);
-    setEditCategoryId(activity.categoryId || (categories?.[0]?.id ?? ""));
+    setEditCategoryId(activity.categoryId || (expenseCategories[0]?.id ?? ""));
     setEditActivityDescription(activity.description ?? "");
     setShowEditDetails(false);
   }
@@ -3262,7 +3277,7 @@ function CreditCardPanel({
                   </div>
                   <div className="flex items-start justify-between gap-2">
                     <p className="break-words font-semibold leading-snug text-[var(--foreground)]">
-                      {installmentTarget.description || "Chi tiêu thẻ"}
+                      {installmentTarget.description || activityLabel(installmentTarget)}
                     </p>
                     <span className="shrink-0 font-bold tabular-nums text-[var(--foreground)]">
                       {formatAmount(installmentTarget.amount)} {currency}
@@ -3713,7 +3728,17 @@ function CreditCardPanel({
                   <Select
                     label="Ví"
                     value={editWalletId}
-                    onValueChange={setEditWalletId}
+                    onValueChange={(nextWalletId) => {
+                      setEditWalletId(nextWalletId);
+                      if (
+                        (editingActivity?.type ?? "expense") === "transfer" &&
+                        nextWalletId === editToWalletId
+                      ) {
+                        const fallback =
+                          fundingWallets.find((w) => w.id !== nextWalletId)?.id ?? "";
+                        setEditToWalletId(fallback);
+                      }
+                    }}
                     placeholder="Chọn ví"
                     options={(wallets ?? []).map((w) => ({
                       value: w.id,
@@ -3731,20 +3756,20 @@ function CreditCardPanel({
                       options={fundingWallets.map((w) => ({
                         value: w.id,
                         label: w.name,
+                        disabled: w.id === editWalletId,
                       }))}
                       required
                     />
                   )}
 
                   {(editingActivity?.type ?? "expense") === "expense" &&
-                    categories &&
-                    categories.length > 0 && (
+                    expenseCategories.length > 0 && (
                       <CategoryTreeSelect
                         label="Danh mục"
                         value={editCategoryId}
                         onValueChange={setEditCategoryId}
                         placeholder="Chọn danh mục"
-                        categories={categories.map((c) => ({
+                        categories={expenseCategories.map((c) => ({
                           id: c.id,
                           name: c.name,
                           icon: c.icon ?? undefined,
@@ -3799,7 +3824,8 @@ function CreditCardPanel({
                 submitDisabled={
                   pending ||
                   !editWalletId ||
-                  ((editingActivity?.type ?? "expense") === "transfer" && !editToWalletId) ||
+                  ((editingActivity?.type ?? "expense") === "transfer" &&
+                    (!editToWalletId || editToWalletId === editWalletId)) ||
                   !editAmount ||
                   new Decimal(editAmount || 0).lte(0) ||
                   !editDate
@@ -3962,6 +3988,7 @@ export function CreditCardOverview(props: {
     icon?: string | null;
     color?: string | null;
     parentId?: string | null;
+    type?: "income" | "expense";
   }>;
 }) {
   usePrivacyMask();
@@ -4008,7 +4035,7 @@ export function CreditCardOverview(props: {
 
   const totalDebt = useMemo(() => {
     return props.cards.reduce(
-      (sum, c) => sum.plus(new Decimal(c.debt || 0)),
+      (sum, c) => sum.plus(Decimal.max(new Decimal(c.debt || 0), 0)),
       new Decimal(0),
     );
   }, [props.cards]);

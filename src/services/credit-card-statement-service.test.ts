@@ -5,6 +5,7 @@ import {
   createStatementForCycle,
   recalculateUnpaidStatementTotal,
   refreshHistoricalCardStatements,
+  reopenUnpaidInstallmentPlansForCard,
   shareForImportedInstallment,
   statementPaymentDetails,
 } from "@/services/credit-card-statement-service";
@@ -389,6 +390,42 @@ describe("credit card statement payments", () => {
         }),
       }),
     );
+  });
+
+  it("reopens completed installment plans when early payment allocations are deleted", async () => {
+    const tx = {
+      creditCardInstallmentPlan: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "plan-early-paid",
+            origin: "transaction",
+            transactionId: "tx-1",
+            transaction: {
+              creditCardObligationEntries: [
+                {
+                  amount: new Decimal("1000"),
+                  paymentAllocations: [],
+                },
+              ],
+            },
+            importedObligations: [],
+            feeTransaction: null,
+            installments: [
+              { id: "inst-1", statementItems: [] },
+              { id: "inst-2", statementItems: [] },
+            ],
+          },
+        ]),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    await reopenUnpaidInstallmentPlansForCard(tx, "card-wallet-1");
+
+    expect(tx.creditCardInstallmentPlan.updateMany).toHaveBeenCalledWith({
+      where: { id: "plan-early-paid", status: "completed" },
+      data: { status: "active", completedAt: null },
+    });
   });
 });
 

@@ -25,6 +25,7 @@ import {
   completeFullyPaidInstallmentPlansForCard,
   recalculateUnpaidStatementTotal,
   refreshHistoricalCardStatements,
+  reopenUnpaidInstallmentPlansForCard,
   reopenUnpaidInstallmentPlansInTransaction,
   settleStatementAndPriorRolloversInTransaction,
   statementFullyPaid,
@@ -590,6 +591,7 @@ async function softDeleteCardPayment(tx: TransactionClient, workspaceId: string,
         await reopenUnpaidInstallmentPlansInTransaction(tx, record.creditCardStatementId);
       }
     }
+    await reopenUnpaidInstallmentPlansForCard(tx, record.walletId);
     const today = await getWorkspaceBusinessDate(tx, workspaceId, asBusinessDate(record.date));
     await refreshHistoricalCardStatements(tx, workspaceId, record.walletId, today);
     await assertCardBalanceReconciled(tx, record.walletId);

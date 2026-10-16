@@ -368,7 +368,8 @@ function TouchTransactionRow({
   const primaryTitle = item.description || categoryName;
   const hasReviewRequest = Boolean(item.pendingChangeRequestId);
   const isDeleteRequest = item.pendingChangeAction === "delete";
-  const canSelect = canApprove && !requiresReview(item);
+  const canSelect =
+    canApprove && !requiresReview(item) && Boolean(item.canRequestDelete);
 
   const actions = getMobileLedgerActions({
     canApprove: canSelect,
@@ -884,7 +885,9 @@ export function Ledger({
   const pageCount = Math.max(1, Math.ceil(latestRows.length / pageSize));
   const page = Math.min(currentPage, pageCount);
   const rows = latestRows.slice((page - 1) * pageSize, page * pageSize);
-  const selectableRows = rows.filter((item) => !requiresReview(item));
+  const selectableRows = rows.filter(
+    (item) => !requiresReview(item) && Boolean(item.canRequestDelete),
+  );
   const allSelected =
     selectableRows.length > 0 &&
     selectableRows.every((row) => selected.has(row.id));
@@ -1253,21 +1256,26 @@ export function Ledger({
       );
     }
 
+    const isCreditRefund = item.purpose === "credit_card_refund";
     const subtitleText = item.description
       ? isTransfer
         ? "Ghi chú chuyển khoản nội bộ"
-        : isIncome
-          ? "Ghi chú khoản thu nhập"
-          : isCreditWallet
-            ? "Chi tiêu qua thẻ tín dụng"
-            : "Ghi chú khoản chi tiêu"
+        : isCreditRefund
+          ? "Hoàn tiền vào thẻ tín dụng"
+          : isIncome
+            ? "Ghi chú khoản thu nhập"
+            : isCreditWallet
+              ? "Chi tiêu qua thẻ tín dụng"
+              : "Ghi chú khoản chi tiêu"
       : isTransfer
         ? "Luân chuyển số dư giữa các ví"
-        : isIncome
-          ? "Khoản thu nhập vào ví"
-          : isCreditWallet
-            ? "Giao dịch chi tiêu thẻ tín dụng"
-            : "Giao dịch chi tiêu trực tiếp";
+        : isCreditRefund
+          ? "Hoàn tiền vào thẻ tín dụng"
+          : isIncome
+            ? "Khoản thu nhập vào ví"
+            : isCreditWallet
+              ? "Giao dịch chi tiêu thẻ tín dụng"
+              : "Giao dịch chi tiêu trực tiếp";
 
     return (
       <article
@@ -1296,7 +1304,7 @@ export function Ledger({
               onKeyDown={(event) => event.stopPropagation()}
               className="flex shrink-0 items-center"
             >
-              {!requiresReview(item) ? (
+              {!requiresReview(item) && Boolean(item.canRequestDelete) ? (
                 <Checkbox
                   checked={isSelected}
                   onCheckedChange={() => toggle(item.id)}
@@ -1463,7 +1471,13 @@ export function Ledger({
               </span>
             </strong>
             <span className="mt-0.5 block text-[11px] text-[var(--text-muted)]">
-              {isIncome ? "Khoản thu" : isExpense ? "Khoản chi" : "Chuyển ví"}
+              {isCreditRefund
+                ? "Hoàn tiền thẻ"
+                : isIncome
+                  ? "Khoản thu"
+                  : isExpense
+                    ? "Khoản chi"
+                    : "Chuyển ví"}
             </span>
           </div>
 

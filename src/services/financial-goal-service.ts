@@ -167,7 +167,7 @@ async function managedGoal(tx: TransactionClient, workspaceId: string, goalId: s
 export async function syncPlanAggregate(tx: TransactionClient, planId: string) {
   const plan = await tx.financialPlan.findFirst?.({
     where: { id: planId, deletedAt: null },
-    select: { targetMonth: true, status: true },
+    select: { targetMonth: true, startMonth: true, status: true },
   });
   const goals = await tx.financialPlanGoal.findMany({
     where: { financialPlanId: planId, deletedAt: null, status: { in: ["draft", "active", "completed"] } },
@@ -178,12 +178,7 @@ export async function syncPlanAggregate(tx: TransactionClient, planId: string) {
   let progress = ZERO;
   const activeGoals = goals.filter((goal) => goal.status === "draft" || goal.status === "active");
   const monthGoals = activeGoals.length > 0 ? activeGoals : goals;
-  let targetMonth =
-    plan?.status === "draft"
-      ? monthGoals[0].targetMonth
-      : plan?.targetMonth && plan.targetMonth > monthGoals[0].targetMonth
-        ? plan.targetMonth
-        : monthGoals[0].targetMonth;
+  let maxGoalTargetMonth = monthGoals[0].targetMonth;
   for (const goal of goals) {
     target = target.plus(goal.targetAmount.toString());
     progress = progress.plus(goal.status === "completed"
@@ -191,7 +186,17 @@ export async function syncPlanAggregate(tx: TransactionClient, planId: string) {
       : Decimal.min(await goalProgress(tx, goal), goal.targetAmount.toString()));
   }
   for (const goal of monthGoals) {
-    if (goal.targetMonth > targetMonth) targetMonth = goal.targetMonth;
+    if (goal.targetMonth > maxGoalTargetMonth) maxGoalTargetMonth = goal.targetMonth;
+  }
+  let targetMonth = maxGoalTargetMonth;
+  if (plan?.status !== "draft") {
+    if (plan?.startMonth && targetMonth < plan.startMonth) targetMonth = plan.startMonth;
+    const lastClosed = await tx.financialPlanMonth?.findFirst?.({
+      where: { financialPlanId: planId },
+      orderBy: { month: "desc" },
+      select: { month: true },
+    });
+    if (lastClosed?.month && targetMonth < lastClosed.month) targetMonth = lastClosed.month;
   }
   await tx.financialPlan.update({
     where: { id: planId },
@@ -553,14 +558,17 @@ export async function getFinancialPlanGoalPortfolio(
         )
       : monthlyFundingCapacity;
     const allocation = new Map(allocateGoalFundingByPriority(candidates, effectiveCapacity, businessMonth).map((item) => [item.goalId, item]));
-    const simulation = simulateGoalFunding({ goals: candidates, monthlyFundingCapacity: effectiveCapacity, startMonth: businessMonth });
+    const simulation = candidates.some((candidate) => candidate.targetMonth >= businessMonth)
+      ? simulateGoalFunding({ goals: candidates, monthlyFundingCapacity: effectiveCapacity, startMonth: businessMonth })
+      : { months: [], projectedByGoal: new Map(candidates.map((candidate) => [candidate.id, new Decimal(candidate.actualProgress)])) };
     const startMonth = goals[0]?.financialPlan.startMonth?.toISOString().slice(0, 7) ?? businessMonth;
     return goals.map((goal) => {
       const actual = actualByGoal.get(goal.id) ?? ZERO;
       const target = new Decimal(goal.targetAmount.toString());
       const projected = simulation.projectedByGoal.get(goal.id) ?? actual;
-      const totalMonths = monthsInclusive(startMonth, goal.targetMonth.toISOString().slice(0, 7)).length;
-      const elapsedMonths = isDraftPlan
+      const goalTargetMonth = goal.targetMonth.toISOString().slice(0, 7);
+      const totalMonths = goalTargetMonth < startMonth ? 1 : monthsInclusive(startMonth, goalTargetMonth).length;
+      const elapsedMonths = isDraftPlan || businessMonth < startMonth
         ? 0
         : Math.min(monthsInclusive(startMonth, businessMonth).length, totalMonths);
       const expected = target.times(elapsedMonths).dividedToIntegerBy(totalMonths);

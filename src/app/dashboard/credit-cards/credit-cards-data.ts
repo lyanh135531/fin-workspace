@@ -88,7 +88,27 @@ export async function getCreditCardsData() {
                 },
                 installmentPlans: {
                   include: {
-                    transaction: { select: { description: true, amount: true } },
+                    transaction: {
+                      select: {
+                        description: true,
+                        amount: true,
+                        type: true,
+                        creditCardObligationEntries: {
+                          select: {
+                            paymentAllocations: { select: { id: true } },
+                          },
+                        },
+                      },
+                    },
+                    feeTransaction: {
+                      select: {
+                        creditCardObligationEntries: {
+                          select: {
+                            paymentAllocations: { select: { id: true } },
+                          },
+                        },
+                      },
+                    },
                     importedObligations: {
                       include: {
                         paymentAllocations: { select: { id: true } },
@@ -381,7 +401,10 @@ export async function getCreditCardsData() {
       installmentPlans: profile.installmentPlans.map((plan) => ({
         id: plan.id,
         origin: plan.origin,
-        description: plan.description ?? plan.transaction?.description ?? null,
+        description:
+          plan.description ??
+          plan.transaction?.description ??
+          (plan.transaction?.type === "transfer" ? "Chuyển tiền từ thẻ" : null),
         principal: plan.transaction
           ? plan.transaction.amount.toString()
           : plan.importedObligations.reduce(
@@ -398,39 +421,50 @@ export async function getCreditCardsData() {
               .plus(plan.installments[0].feeAmount.toString())
               .toString()
           : "0",
-        remainingPrincipal: Decimal.max(
-          new Decimal(
-            plan.transaction
-              ? plan.transaction.amount.toString()
-              : plan.importedObligations.reduce(
-                  (sum, entry) => sum.plus(entry.amount.toString()),
-                  ZERO,
-                ).toString(),
-          ).minus(
-            plan.installments
-              .filter((i) =>
-                i.statementItems.some(
-                  (s) => s.statement.status === "paid" && s.statement.paidAt !== null,
+        remainingPrincipal:
+          plan.status === "completed"
+            ? "0"
+            : Decimal.max(
+                new Decimal(
+                  plan.transaction
+                    ? plan.transaction.amount.toString()
+                    : plan.importedObligations.reduce(
+                        (sum, entry) => sum.plus(entry.amount.toString()),
+                        ZERO,
+                      ).toString(),
+                ).minus(
+                  plan.installments
+                    .filter((i) =>
+                      i.statementItems.some(
+                        (s) => s.statement.status === "paid" && s.statement.paidAt !== null,
+                      ),
+                    )
+                    .reduce((sum, i) => sum.plus(i.principalAmount.toString()), ZERO),
                 ),
-              )
-              .reduce((sum, i) => sum.plus(i.principalAmount.toString()), ZERO),
-          ),
-          ZERO,
-        ).toString(),
-        nextStatementDate: profile.statementClosingDay
-          ? firstStatementOnOrAfter(
-              getBusinessDateInTimeZone(membership.workspace.timeZone),
-              profile.statementClosingDay,
-            )
-          : null,
+                ZERO,
+              ).toString(),
+        nextStatementDate:
+          plan.status === "completed"
+            ? null
+            : profile.statementClosingDay
+              ? firstStatementOnOrAfter(
+                  getBusinessDateInTimeZone(membership.workspace.timeZone),
+                  profile.statementClosingDay,
+                )
+              : null,
         importBalanceMode: plan.importBalanceMode,
         status: plan.status,
         canDelete:
-          (plan.origin === "imported"
-            ? plan.importedObligations.every(
-                (entry) => entry.paymentAllocations.length === 0 && entry.statementItems.length === 0,
-              )
-            : true) &&
+          plan.status !== "completed" &&
+          plan.importedObligations.every(
+            (entry) => entry.paymentAllocations.length === 0 && entry.statementItems.length === 0,
+          ) &&
+          (plan.transaction?.creditCardObligationEntries.every(
+            (entry) => entry.paymentAllocations.length === 0,
+          ) ?? true) &&
+          (plan.feeTransaction?.creditCardObligationEntries.every(
+            (entry) => entry.paymentAllocations.length === 0,
+          ) ?? true) &&
           plan.installments.every((installment) => installment.statementItems.length === 0),
         installments: plan.installments.map((installment) => ({
           number: installment.installmentNo,
@@ -439,10 +473,11 @@ export async function getCreditCardsData() {
             .plus(installment.feeAmount.toString())
             .toString(),
           paid:
-            installment.statementItems.length > 0 &&
-            installment.statementItems.every(
-              (item) => item.statement.status === "paid" && item.statement.paidAt !== null,
-            ),
+            plan.status === "completed" ||
+            (installment.statementItems.length > 0 &&
+              installment.statementItems.every(
+                (item) => item.statement.status === "paid" && item.statement.paidAt !== null,
+              )),
         })),
       })),
       fundingShares: [...outstandingByWallet.entries()].map(

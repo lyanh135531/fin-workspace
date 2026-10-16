@@ -241,6 +241,16 @@ export async function activateFinancialPlan(
     if (databaseDateToMonth(plan.targetMonth) < month) throw new AppError("VALIDATION_ERROR", "Deadline không được trước tháng hiện tại.");
     const active = await tx.financialPlan.findFirst({ where: { workspaceId, status: "active", deletedAt: null }, select: { id: true } });
     if (active) throw new AppError("CONFLICT", "Nhóm tài chính đã có một kế hoạch đang hoạt động.");
+    const planGoals = await tx.financialPlanGoal?.findMany?.({
+      where: { financialPlanId: plan.id, status: { in: ["draft", "active"] }, deletedAt: null },
+      select: { targetMonth: true },
+    }) ?? [];
+    if (planGoals.some((goal) => databaseDateToMonth(goal.targetMonth) < month)) {
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Có mục tiêu trong kế hoạch đã qua tháng hạn hoàn thành. Vui lòng cập nhật hạn mục tiêu trước khi kích hoạt.",
+      );
+    }
     await activateFinancialPlanGoals(tx, workspaceId, plan.id, month);
     plan = await managedPlan(tx, workspaceId, planId);
     const balance = await getWorkspaceBalance(tx, workspaceId);

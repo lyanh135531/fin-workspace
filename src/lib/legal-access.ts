@@ -14,6 +14,13 @@ export async function requireAcceptedLegalSession(options: { authMessage?: strin
     );
   }
 
+  if (session.user.profileCompleted === false) {
+    throw new AppError(
+      "FORBIDDEN",
+      "Vui lòng hoàn tất thiết lập hồ sơ tài khoản trước khi tiếp tục.",
+    );
+  }
+
   if (isLegalConsentEnforced()) {
     const { getLegalConsentStatus } = await import(
       "@/services/legal-consent-service"
@@ -36,6 +43,7 @@ export async function requireAcceptedLegalPageSession() {
   } catch (error) {
     if (error instanceof AppError) {
       if (error.code === "AUTHENTICATION_REQUIRED") redirect("/sign-in");
+      if (error.code === "FORBIDDEN") redirect("/setup/google");
       if (error.code === "LEGAL_CONSENT_REQUIRED") redirect("/consent");
     }
     throw error;

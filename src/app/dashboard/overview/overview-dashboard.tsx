@@ -1872,7 +1872,9 @@ export function OverviewDashboard({
                           )}
                         >
                           {displayAmount(
-                            isCard ? wallet.balance : wallet.available,
+                            isCard
+                              ? Decimal.max(balanceDec, 0)
+                              : wallet.available,
                           )}
                         </strong>
                         <span className="block text-[0.65rem] text-[var(--text-muted)]">

@@ -227,7 +227,9 @@ export default async function OverviewPage() {
       );
       totals[membership.workspace.baseCurrency] = (
         wallet.kind === "credit_card"
-          ? current.minus(wallet.currentBalance.toString())
+          ? current.minus(
+              Decimal.max(new Decimal(wallet.currentBalance.toString()), 0),
+            )
           : current.plus(wallet.currentBalance.toString())
       ).toString();
       return totals;

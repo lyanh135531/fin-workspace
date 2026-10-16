@@ -363,7 +363,10 @@ export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: strin
       },
     },
   });
-  if (!statements.length) return;
+  if (!statements.length) {
+    await reopenUnpaidInstallmentPlansForCard(tx, cardWalletId);
+    return;
+  }
   const regularIds = obligations.map((entry) => entry.id);
   const regularIdSet = new Set(regularIds);
   await tx.creditCardStatementItem.deleteMany({ where: {
@@ -449,6 +452,7 @@ export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: strin
     carried.clear();
     for (const [walletId, amount] of totals) carried.set(walletId, amount);
   }
+  await reopenUnpaidInstallmentPlansForCard(tx, cardWalletId);
 }
 
 export async function generateWorkspaceCreditCardStatements(workspaceId: string, timeZone: string, now = new Date()) {
@@ -715,6 +719,70 @@ export async function completeFullyPaidInstallmentPlansForCard(tx: Tx, cardWalle
       await tx.creditCardInstallmentPlan.updateMany({
         where: { id: plan.id, status: "active" },
         data: { status: "completed", completedAt: new Date() },
+      });
+    }
+  }
+}
+
+export async function reopenUnpaidInstallmentPlansForCard(tx: Tx, cardWalletId: string) {
+  if (!tx.creditCardInstallmentPlan?.findMany) return;
+  const completedPlans = await tx.creditCardInstallmentPlan.findMany({
+    where: { cardWalletId, status: "completed" },
+    include: {
+      transaction: {
+        include: {
+          creditCardObligationEntries: {
+            include: { paymentAllocations: { select: { amount: true } } },
+          },
+        },
+      },
+      importedObligations: {
+        include: { paymentAllocations: { select: { amount: true } } },
+      },
+      feeTransaction: {
+        include: {
+          creditCardObligationEntries: {
+            include: { paymentAllocations: { select: { amount: true } } },
+          },
+        },
+      },
+      installments: {
+        include: {
+          statementItems: {
+            include: {
+              statement: { select: { status: true, paidAt: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  for (const plan of completedPlans) {
+    const principalEntries =
+      plan.origin === "imported" || !plan.transactionId
+        ? plan.importedObligations ?? []
+        : plan.transaction?.creditCardObligationEntries ?? [];
+    if (principalEntries.length === 0) continue;
+    const feeEntries = plan.feeTransaction?.creditCardObligationEntries ?? [];
+    const allEntries = [...principalEntries, ...feeEntries];
+    const remaining = allEntries.reduce((sum, entry) => {
+      const paid = (entry.paymentAllocations ?? []).reduce(
+        (sub, alloc) => sub.plus(alloc.amount.toString()),
+        ZERO,
+      );
+      return sum.plus(Decimal.max(new Decimal(entry.amount.toString()).minus(paid), ZERO));
+    }, ZERO);
+    const allTermsPaidViaStatements =
+      (plan.installments ?? []).length > 0 &&
+      (plan.installments ?? []).every((inst) =>
+        (inst.statementItems ?? []).some(
+          (item) => item.statement?.status === "paid" && item.statement.paidAt !== null,
+        ),
+      );
+    if (remaining.gt(0) && !allTermsPaidViaStatements) {
+      await tx.creditCardInstallmentPlan.updateMany({
+        where: { id: plan.id, status: "completed" },
+        data: { status: "active", completedAt: null },
       });
     }
   }

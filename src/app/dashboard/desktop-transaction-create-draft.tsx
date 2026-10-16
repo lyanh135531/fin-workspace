@@ -211,17 +211,20 @@ export function DesktopTransactionCreateDraft({
     const nextWallet = type === "income" && currentWallet?.kind === "credit_card"
       ? assetWallets[0]
       : currentWallet;
+    const nextWalletId = nextWallet?.id ?? draft.walletId;
     onChange({
       type,
-      walletId: nextWallet?.id ?? draft.walletId,
+      walletId: nextWalletId,
       categoryId:
         categoriesForTransactionType(categories, type)[0]?.id ?? "none",
-      allocations: (type === "expense" || type === "transfer") && currentWallet?.kind === "credit_card"
-        ? allocationForCard(currentWallet, draft.amount)
+      allocations: (type === "expense" || type === "transfer") && nextWallet?.kind === "credit_card"
+        ? allocationForCard(nextWallet, draft.amount)
         : [],
       toWalletId:
         type === "transfer"
-          ? draft.toWalletId || defaultDestination(wallets, nextWallet?.id ?? draft.walletId)
+          ? draft.toWalletId && draft.toWalletId !== nextWalletId
+            ? draft.toWalletId
+            : defaultDestination(wallets, nextWalletId)
           : draft.toWalletId,
     });
   }

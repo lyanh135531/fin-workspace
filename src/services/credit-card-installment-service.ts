@@ -82,7 +82,7 @@ export async function activateInstallmentPlanInTransaction(tx: Tx, workspaceId: 
         purpose: "credit_card_installment_fee",
         workflowStatus: "approved",
         amount: plan.feeAmount,
-        description: `Phí trả góp: ${original.description ?? "giao dịch thẻ"}`,
+        description: `Phí trả góp: ${original.description || (original.type === "transfer" ? "Chuyển tiền từ thẻ" : "giao dịch thẻ")}`,
         date: plan.effectiveDate,
         postedDate: plan.effectiveDate,
         jarCode: feeCategory.jarCode,
@@ -136,15 +136,19 @@ export async function createInstallmentPlanInTransaction(
 ) {
   const transaction = await tx.transaction.findFirst({
     where: { id: transactionId, member: { workspaceId }, wallet: { kind: "credit_card", workspaceLinks: { some: { workspaceId } } } },
-    select: { walletId: true, workflowStatus: true },
+    select: { walletId: true, workflowStatus: true, type: true, description: true },
   });
   if (!transaction) throw new AppError("VALIDATION_ERROR", "Trả góp chỉ áp dụng cho giao dịch thẻ tín dụng.");
+  const fallbackDescription =
+    transaction.description ||
+    (transaction.type === "transfer" ? "Chuyển tiền từ thẻ" : undefined);
   const plan = await tx.creditCardInstallmentPlan.create({
     data: {
       workspaceId,
       cardWalletId: transaction.walletId,
       transactionId,
       createdByMemberId: memberId,
+      ...(fallbackDescription ? { description: fallbackDescription } : {}),
       termCount: input.termCount,
       feeAmount: input.feeAmount,
       effectiveDate: dbDate(effectiveDate),

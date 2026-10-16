@@ -68,6 +68,25 @@ export async function WorkspaceDashboard({
         toWallet: { select: { name: true } },
         category: { select: { name: true, color: true, icon: true } },
         member: { include: { user: { select: { username: true } } } },
+        installmentPlan: { select: { id: true } },
+        refundTransactions: {
+          where: { deletedAt: null },
+          select: { id: true },
+        },
+        creditCardStatement: {
+          select: { id: true, status: true, paidAt: true },
+        },
+        creditCardObligationEntries: {
+          select: {
+            paymentAllocations: { select: { id: true } },
+            statementItems: {
+              select: {
+                id: true,
+                statement: { select: { status: true, paidAt: true } },
+              },
+            },
+          },
+        },
         creditCardAllocations: {
           select: {
             fundingWalletId: true,
@@ -98,71 +117,94 @@ export async function WorkspaceDashboard({
       categories.map((category) => [category.id, category.name] as const),
     ),
   };
-  const ledger = transactions.map((item) => ({
-    id: item.id,
-    amount: item.amount.toString(),
-    type: item.type,
-    purpose: item.purpose,
-    status: item.workflowStatus,
-    description: item.description,
-    date: item.date.toISOString(),
-    walletId: item.walletId,
-    toWalletId: item.toWalletId,
-    categoryId: item.categoryId,
-    wallet: item.wallet.name,
-    toWallet: item.toWallet?.name ?? null,
-    category: item.category
-      ? {
-          name: item.category.name,
-          color: item.category.color,
-          icon: item.category.icon,
-        }
-      : null,
-    member: item.member.user.username ?? "Người dùng",
-    canRequestEdit:
-      (isAdmin || item.memberId === membership.id) &&
-      item.purpose === "standard" &&
-      item.workflowStatus !== "rejected",
-    canRequestDelete:
-      item.purpose === "credit_card_payment"
-        ? isAdmin
-        : item.purpose === "credit_card_installment_fee"
-          ? false
-          : (isAdmin || item.memberId === membership.id) &&
-            item.workflowStatus !== "rejected",
-    hasPendingChange: item.changeRequests.length > 0,
-    pendingChangeRequestId: item.changeRequests[0]?.id ?? null,
-    pendingChangeAction: getTransactionChangeAction(
-      item.changeRequests[0]?.proposedData,
-    ),
-    pendingChangeRequester:
-      item.changeRequests[0]?.requester.user.username ?? null,
-    pendingChangeReason: getTransactionChangeReason(
-      item.changeRequests[0]?.proposedData,
-    ),
-    pendingChangeDetails: getTransactionChangeDetails(
-      item.changeRequests[0]?.proposedData,
-      {
-        walletId: item.walletId,
-        toWalletId: item.toWalletId,
-        categoryId: item.categoryId,
-        type: item.type,
-        amount: item.amount.toString(),
-        description: item.description,
-        date: item.date.toISOString().slice(0, 10),
-        allocations: item.creditCardAllocations.map((alloc) => ({
-          walletId: alloc.fundingWalletId,
-          amount: alloc.amount.toString(),
-        })),
-      },
-      changeLookups,
-    ),
-    isRecurring: Boolean(item.recurringTransactionId),
-    allocations: item.creditCardAllocations.map((alloc) => ({
-      walletId: alloc.fundingWalletId,
-      amount: alloc.amount.toString(),
-    })),
-  }));
+  const ledger = transactions.map((item) => {
+    const isLockedForEdit =
+      Boolean(item.installmentPlan) ||
+      item.refundTransactions.length > 0 ||
+      Boolean(item.creditCardStatement) ||
+      item.creditCardObligationEntries.some(
+        (e) => e.paymentAllocations.length > 0 || e.statementItems.length > 0,
+      );
+    const isLockedForDelete =
+      Boolean(item.installmentPlan) ||
+      item.refundTransactions.length > 0 ||
+      (item.creditCardStatement?.status === "paid" &&
+        item.creditCardStatement.paidAt !== null) ||
+      item.creditCardObligationEntries.some(
+        (e) =>
+          e.paymentAllocations.length > 0 ||
+          e.statementItems.some(
+            (s) => s.statement.status === "paid" && s.statement.paidAt !== null,
+          ),
+      );
+    return {
+      id: item.id,
+      amount: item.amount.toString(),
+      type: item.type,
+      purpose: item.purpose,
+      status: item.workflowStatus,
+      description: item.description,
+      date: item.date.toISOString(),
+      walletId: item.walletId,
+      toWalletId: item.toWalletId,
+      categoryId: item.categoryId,
+      wallet: item.wallet.name,
+      toWallet: item.toWallet?.name ?? null,
+      category: item.category
+        ? {
+            name: item.category.name,
+            color: item.category.color,
+            icon: item.category.icon,
+          }
+        : null,
+      member: item.member.user.username ?? "Người dùng",
+      canRequestEdit:
+        (isAdmin || item.memberId === membership.id) &&
+        item.purpose === "standard" &&
+        item.workflowStatus !== "rejected" &&
+        !isLockedForEdit,
+      canRequestDelete:
+        item.purpose === "credit_card_payment"
+          ? isAdmin && item.workflowStatus !== "rejected"
+          : item.purpose === "credit_card_installment_fee"
+            ? false
+            : (isAdmin || item.memberId === membership.id) &&
+              item.workflowStatus !== "rejected" &&
+              !isLockedForDelete,
+      hasPendingChange: item.changeRequests.length > 0,
+      pendingChangeRequestId: item.changeRequests[0]?.id ?? null,
+      pendingChangeAction: getTransactionChangeAction(
+        item.changeRequests[0]?.proposedData,
+      ),
+      pendingChangeRequester:
+        item.changeRequests[0]?.requester.user.username ?? null,
+      pendingChangeReason: getTransactionChangeReason(
+        item.changeRequests[0]?.proposedData,
+      ),
+      pendingChangeDetails: getTransactionChangeDetails(
+        item.changeRequests[0]?.proposedData,
+        {
+          walletId: item.walletId,
+          toWalletId: item.toWalletId,
+          categoryId: item.categoryId,
+          type: item.type,
+          amount: item.amount.toString(),
+          description: item.description,
+          date: item.date.toISOString().slice(0, 10),
+          allocations: item.creditCardAllocations.map((alloc) => ({
+            walletId: alloc.fundingWalletId,
+            amount: alloc.amount.toString(),
+          })),
+        },
+        changeLookups,
+      ),
+      isRecurring: Boolean(item.recurringTransactionId),
+      allocations: item.creditCardAllocations.map((alloc) => ({
+        walletId: alloc.fundingWalletId,
+        amount: alloc.amount.toString(),
+      })),
+    };
+  });
   return (
     <DashboardLedgerWorkspace
       initialMonth={currentPeriod}

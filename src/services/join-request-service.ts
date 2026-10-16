@@ -41,6 +41,7 @@ export async function reviewWorkspaceJoinRequest(
   return prisma.$transaction(async (tx) => {
     const request = await tx.workspaceJoinRequest.findFirst({
       where: { id: requestId, workspaceId, status: "pending" },
+      include: { requester: { select: { status: true, deletedAt: true } } },
     });
     if (!request) throw new AppError("NOT_FOUND", "Yêu cầu đang chờ không tồn tại.");
 
@@ -48,6 +49,12 @@ export async function reviewWorkspaceJoinRequest(
     let roleId: string | undefined;
 
     if (approve) {
+      if (
+        request.requester &&
+        (request.requester.status !== "active" || Boolean(request.requester.deletedAt))
+      ) {
+        throw new AppError("CONFLICT", "Tài khoản người yêu cầu không còn hoạt động.");
+      }
       if (!isWorkspaceRoleCode(selectedRoleCode)) throw new AppError("VALIDATION_ERROR", "Vai trò chỉ có thể là ADMIN hoặc MEMBER.");
       const role = await tx.role.findUnique({ where: { code: selectedRoleCode } });
       if (!role) throw new AppError("NOT_FOUND", "Vai trò được chọn không tồn tại.");

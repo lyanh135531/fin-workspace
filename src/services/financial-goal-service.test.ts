@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => {
       updateMany: vi.fn(),
     },
     financialPlan: { findFirst: vi.fn(), findFirstOrThrow: vi.fn(), update: vi.fn() },
+    financialPlanMonth: { findFirst: vi.fn() },
     auditLog: { create: vi.fn() },
     wallet: { findFirst: vi.fn() },
     workspaceWallet: { findFirst: vi.fn() },
@@ -35,6 +36,7 @@ vi.mock("@/services/workspace-access", () => ({ requireWorkspaceMember: mocks.re
 import {
   createFinancialGoalFunding,
   finishFinancialPlanGoal,
+  getFinancialPlanGoalPortfolio,
   getPlanGoalProgressSummary,
   reverseFinancialGoalFunding,
   syncPlanAggregate,
@@ -276,5 +278,72 @@ describe("financial goal service", () => {
     await expect(
       finishFinancialPlanGoal("admin-user", workspaceId, goalId, "cancelled"),
     ).rejects.toThrow("Kế hoạch phải có ít nhất 1 mục tiêu.");
+  });
+
+  it("syncs active plan targetMonth backward when furthest goal is shortened or cancelled while clamping to closed months", async () => {
+    mocks.tx.financialPlan.findFirst.mockResolvedValue({
+      id: "plan-1",
+      status: "active",
+      startMonth: new Date("2026-08-01T00:00:00.000Z"),
+      targetMonth: new Date("2026-12-01T00:00:00.000Z"),
+    });
+    mocks.tx.financialPlanMonth.findFirst.mockResolvedValue({
+      month: new Date("2026-09-01T00:00:00.000Z"),
+    });
+    mocks.tx.financialPlanGoal.findMany.mockResolvedValue([
+      {
+        id: "goal-1",
+        status: "active",
+        trackingMode: "manual",
+        linkedWalletId: null,
+        targetAmount: new Decimal(10_000_000),
+        targetMonth: new Date("2026-10-01T00:00:00.000Z"),
+      },
+    ]);
+    mocks.tx.financialGoalFundingEntry.aggregate.mockResolvedValue({
+      _sum: { amount: new Decimal(2_000_000) },
+    });
+
+    await syncPlanAggregate(mocks.tx as never, "plan-1");
+
+    expect(mocks.tx.financialPlan.update).toHaveBeenCalledWith({
+      where: { id: "plan-1" },
+      data: expect.objectContaining({
+        targetMonth: new Date("2026-10-01T00:00:00.000Z"),
+      }),
+    });
+  });
+
+  it("does not crash getFinancialPlanGoalPortfolio when a draft plan sits across a month boundary", async () => {
+    mocks.tx.financialPlanGoal.findMany.mockResolvedValue([
+      {
+        id: goalId,
+        name: "Mục tiêu qua tháng",
+        status: "draft",
+        trackingMode: "manual",
+        linkedWalletId: null,
+        linkedWallet: null,
+        targetAmount: new Decimal(5_000_000),
+        targetMonth: new Date("2026-08-01T00:00:00.000Z"),
+        sortOrder: 0,
+        createdAt: new Date("2026-08-01T00:00:00.000Z"),
+        financialPlan: { startMonth: null },
+        fundingEntries: [],
+      },
+    ]);
+    mocks.tx.financialGoalFundingEntry.aggregate.mockResolvedValue({
+      _sum: { amount: new Decimal(0) },
+    });
+
+    const portfolio = await getFinancialPlanGoalPortfolio(
+      "user-1",
+      workspaceId,
+      "plan-1",
+      new Decimal(2_000_000),
+      new Date("2026-10-15T00:00:00.000Z"),
+    );
+
+    expect(portfolio).toHaveLength(1);
+    expect(portfolio[0]?.health).toBe("overdue");
   });
 });
