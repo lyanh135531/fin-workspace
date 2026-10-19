@@ -75,7 +75,7 @@ export function InviteCodeCard({
             variant="icon"
             size="icon"
             type="button"
-            className={copied ? "size-8 text-[var(--success)]" : "size-8"}
+            className={copied ? "text-[var(--success)]" : undefined}
             onClick={copy}
             disabled={copied}
             title={copied ? "Đã sao chép mã mời" : `Sao chép mã mời ${code}`}
@@ -92,7 +92,6 @@ export function InviteCodeCard({
             variant="icon"
             size="icon"
             type="button"
-            className="size-8"
             disabled={pending}
             onClick={handleRegenerate}
             title="Đổi mã mới"

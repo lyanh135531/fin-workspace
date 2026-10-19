@@ -385,11 +385,6 @@ export function CreditCardVirtualCard({
     ? Math.min(100, Math.max(0, Math.round(debtDecimal.div(limitDecimal).mul(100).toNumber())))
     : 0;
 
-  const reservedAmount = card.fundingShares.reduce(
-    (sum, s) => sum.plus(new Decimal(s.outstanding || 0)),
-    new Decimal(card.pendingPayment || 0),
-  );
-
   function handleMenuOpenChange(nextOpen: boolean) {
     if (
       nextOpen &&
@@ -513,9 +508,13 @@ export function CreditCardVirtualCard({
             <span className="break-words">
               Đã dùng <strong className="font-semibold tabular-nums text-[var(--foreground)]">{utilizationPercent}%</strong> / {formatAmount(card.limit, { maximumFractionDigits: 0 })} {currency}
             </span>
-            {reservedAmount.gt(0) && (
+            {card.statement && card.statement.status !== "paid" ? (
               <span className="break-words tabular-nums">
-                Tiền chờ thanh toán thẻ: <strong className="font-semibold text-[var(--primary)]">{formatAmount(reservedAmount.toString(), { maximumFractionDigits: 0 })} {currency}</strong>
+                Sao kê: <strong className="font-semibold text-[var(--warning)]">{formatAmount(card.statement.remainingAmount ?? card.statement.amount, { maximumFractionDigits: 0 })} {currency}</strong>
+              </span>
+            ) : (
+              <span className="break-words tabular-nums">
+                Chốt ngày {card.statementClosingDay} · Hạn ngày {card.paymentDueDay}
               </span>
             )}
           </div>
@@ -934,10 +933,6 @@ function CreditCardPanel({
     () => new Decimal(card.creditBalance || 0),
     [card.creditBalance],
   );
-  const pendingDecimal = useMemo(
-    () => new Decimal(card.pendingPayment || 0),
-    [card.pendingPayment],
-  );
 
   const hasCredit = creditBalanceDecimal.gt(0);
   const hasDebt = debtDecimal.gt(0);
@@ -1191,13 +1186,6 @@ function CreditCardPanel({
     const pct = debtDecimal.div(limitDecimal).mul(100).toNumber();
     return Math.min(100, Math.max(0, Math.round(pct)));
   }, [limitDecimal, debtDecimal]);
-
-  const totalReservedForCard = useMemo(() => {
-    return card.fundingShares.reduce(
-      (sum, share) => sum.plus(new Decimal(share.outstanding || 0)),
-      pendingDecimal,
-    );
-  }, [card.fundingShares, pendingDecimal]);
 
   const activeInstallmentPlans = useMemo(() => {
     return card.installmentPlans.filter((p) => {
@@ -2018,10 +2006,10 @@ function CreditCardPanel({
             </div>
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[11px] text-[var(--text-muted)]">
               <span>
-                Đã dùng <strong className="font-semibold tabular-nums text-[var(--foreground)]">{utilizationPercent}%</strong> / {formatAmount(card.limit, { maximumFractionDigits: 0 })} {currency}
+                Đã dùng <strong className="font-semibold tabular-nums text-[var(--foreground)]">{utilizationPercent}%</strong>
               </span>
-              <span>
-                Tiền chờ thanh toán thẻ: <strong className="font-semibold tabular-nums text-[var(--primary)]">{formatAmount(totalReservedForCard.toString(), { maximumFractionDigits: 0 })} {currency}</strong>
+              <span className="tabular-nums">
+                Hạn mức: <strong className="font-semibold tabular-nums text-[var(--foreground)]">{formatAmount(card.limit, { maximumFractionDigits: 0 })} {currency}</strong>
               </span>
             </div>
           </div>
@@ -2167,7 +2155,7 @@ function CreditCardPanel({
           className="flex flex-col justify-between gap-4 p-5 md:col-span-7 lg:col-span-8"
         >
           <div className="grid grid-cols-2 gap-5 divide-x divide-[var(--border)]">
-            {/* Metric 1: Hạn mức còn lại & Tiền chờ thanh toán thẻ */}
+            {/* Metric 1: Hạn mức còn lại */}
             <div className="min-w-0 pr-1">
               <div className="flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
@@ -2194,12 +2182,6 @@ function CreditCardPanel({
                   <span className="text-[var(--text-secondary)]">Chi tiêu chưa chốt sao kê</span>
                   <strong className="font-semibold tabular-nums text-[var(--foreground)]">
                     {formatAmount(unbilledAmount, { maximumFractionDigits: 0 })} {currency}
-                  </strong>
-                </div>
-                <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2">
-                  <span className="text-[var(--text-secondary)]">Tiền chờ thanh toán thẻ</span>
-                  <strong className="font-semibold tabular-nums text-[var(--primary)]">
-                    {formatAmount(totalReservedForCard.toString(), { maximumFractionDigits: 0 })} {currency}
                   </strong>
                 </div>
               </div>
@@ -3662,7 +3644,7 @@ function CreditCardPanel({
 
                 <div className="space-y-2">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                    Tiền chờ thanh toán thẻ theo ví nguồn
+                    Phân bổ dư nợ sao kê theo ví nguồn
                   </h4>
                   {card.statement.sources.length > 0 ? (
                     <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface)]">
@@ -4066,19 +4048,26 @@ export function CreditCardOverview(props: {
     );
   }, [props.cards]);
 
-  const totalPrepared = useMemo(() => {
-    return props.cards.reduce((sum, c) => {
-      const cardReserved = c.fundingShares.reduce(
-        (s, share) => s.plus(new Decimal(share.outstanding || 0)),
-        new Decimal(c.pendingPayment || 0),
-      );
-      return sum.plus(cardReserved);
-    }, new Decimal(0));
+  const totalLimit = useMemo(() => {
+    return props.cards.reduce(
+      (sum, c) => sum.plus(Decimal.max(new Decimal(c.limit || 0), 0)),
+      new Decimal(0),
+    );
   }, [props.cards]);
 
-  const totalAdditionalNeeded = useMemo(() => {
-    return Decimal.max(totalDebt.minus(totalPrepared), 0);
-  }, [totalDebt, totalPrepared]);
+  const totalAvailableCredit = useMemo(() => {
+    return props.cards.reduce(
+      (sum, c) => sum.plus(Decimal.max(new Decimal(c.availableCredit || 0), 0)),
+      new Decimal(0),
+    );
+  }, [props.cards]);
+
+  const totalStatementRemaining = useMemo(() => {
+    return props.cards.reduce((sum, c) => {
+      if (!c.statement || c.statement.status === "paid") return sum;
+      return sum.plus(Decimal.max(new Decimal(c.statement.remainingAmount ?? c.statement.amount ?? 0), 0));
+    }, new Decimal(0));
+  }, [props.cards]);
 
   const overdueCount = useMemo(() => {
     return props.cards.filter((c) => c.statement?.overdue).length;
@@ -4098,7 +4087,7 @@ export function CreditCardOverview(props: {
               Thẻ tín dụng
             </h1>
             <p className="mt-1 hidden text-sm text-[var(--text-secondary)] md:block">
-              Theo dõi dư nợ, hạn mức còn lại và tiền chờ thanh toán thẻ đúng hạn.
+              Theo dõi dư nợ, hạn mức tín dụng và kỳ sao kê đến hạn.
             </p>
           </div>
           {props.createCardAction && (
@@ -4124,7 +4113,7 @@ export function CreditCardOverview(props: {
                     <span className="hidden md:inline">Thẻ tín dụng</span>
                   </h1>
                   <p className="mt-0.5 hidden text-xs text-[var(--text-secondary)] md:block">
-                    Theo dõi dư nợ, hạn mức còn lại và tiền chờ thanh toán thẻ đúng hạn.
+                    Theo dõi dư nợ, hạn mức tín dụng và kỳ sao kê đến hạn.
                   </p>
                   <p
                     className={cn(
@@ -4167,42 +4156,44 @@ export function CreditCardOverview(props: {
 
                 <div className="min-w-0 md:flex md:flex-col md:items-start md:justify-center md:px-5">
                   <span className="block text-[11px] font-medium text-[var(--text-muted)] md:text-xs md:text-[var(--text-secondary)]">
-                    Tiền đã chuẩn bị trả thẻ
+                    Tổng hạn mức còn lại
                   </span>
                   <p className="mt-0.5 text-sm font-bold tabular-nums tracking-tight text-[var(--primary)] md:mt-1 md:text-2xl">
-                    {formatAmount(totalPrepared.toString())}{" "}
+                    {formatAmount(totalAvailableCredit.toString())}{" "}
                     <span className="text-[11px] font-semibold text-[var(--text-secondary)] md:text-xs">
                       {props.currency}
                     </span>
                   </p>
                   <span className="mt-1 hidden text-[11px] text-[var(--text-muted)] md:block">
-                    Tiền chờ thanh toán thẻ trên các ví nguồn
+                    Tổng hạn mức cấp: {formatAmount(totalLimit.toString())} {props.currency}
                   </span>
                 </div>
 
                 <div className="min-w-0 border-l border-[var(--border)] pl-3 md:flex md:flex-col md:items-start md:justify-center md:border-l-0 md:pl-5">
                   <span className="block text-[11px] font-medium text-[var(--text-muted)] md:text-xs md:text-[var(--text-secondary)]">
-                    Cần thanh toán thêm
+                    Sao kê chờ thanh toán
                   </span>
                   <p
                     className={cn(
                       "mt-0.5 text-sm font-bold tabular-nums tracking-tight md:mt-1 md:text-2xl",
-                      totalAdditionalNeeded.gt(0)
-                        ? "text-[var(--warning)]"
-                        : "text-[var(--success)]",
+                      overdueCount > 0
+                        ? "text-[var(--destructive)]"
+                        : totalStatementRemaining.gt(0)
+                          ? "text-[var(--warning)]"
+                          : "text-[var(--foreground)]",
                     )}
                   >
-                    {formatAmount(totalAdditionalNeeded.toString())}{" "}
+                    {formatAmount(totalStatementRemaining.toString())}{" "}
                     <span className="text-[11px] font-semibold text-[var(--text-secondary)] md:text-xs">
                       {props.currency}
                     </span>
                   </p>
                   <span className="mt-1 hidden text-[11px] text-[var(--text-muted)] md:block">
                     {overdueCount > 0
-                      ? `${overdueCount} thẻ có sao kê quá hạn`
+                      ? `${overdueCount} thẻ quá hạn`
                       : dueStatementCount > 0
-                        ? `${dueStatementCount} kỳ sao kê chờ thanh toán`
-                        : "Đã chuẩn bị đủ nguồn thanh toán"}
+                        ? `${dueStatementCount} kỳ sao kê đến hạn`
+                        : "Chưa có sao kê cần thanh toán"}
                   </span>
                 </div>
               </div>

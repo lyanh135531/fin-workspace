@@ -1,7 +1,11 @@
 import Decimal from "decimal.js";
 import type { Prisma } from "@/generated/prisma/client";
 import { describe, expect, it, vi } from "vitest";
-import { getFinancialPlanMonthLedger, getWorkspaceBalance } from "@/services/financial-plan-ledger";
+import {
+  combinedExpenseByJar,
+  getFinancialPlanMonthLedger,
+  getWorkspaceBalance,
+} from "@/services/financial-plan-ledger";
 
 describe("financial plan ledger projection", () => {
   it("excludes transfers and recurring occurrences already materialized", async () => {
@@ -53,6 +57,23 @@ describe("financial plan ledger projection", () => {
     expect(ledger.approvedIncome.toFixed(0)).toBe("0");
     expect(ledger.approvedExpenseByJar.ESSENTIAL.toFixed(0)).toBe("60");
     expect(ledger.forecastExpenseByJar.ESSENTIAL.toFixed(0)).toBe("0");
+  });
+
+  it("clamps scheduled credit_card_refund to zero when no recurring rules exist", async () => {
+    const tx = {
+      transaction: {
+        findMany: vi.fn().mockResolvedValueOnce([
+          { type: "expense", purpose: "credit_card_refund", workflowStatus: "scheduled", amount: new Decimal(80), jarCode: "ESSENTIAL", category: null },
+        ]),
+      },
+      recurringTransaction: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    const ledger = await getFinancialPlanMonthLedger(tx, "workspace", "2026-08", true);
+    expect(ledger.forecastExpenseByJar.ESSENTIAL.toFixed(0)).toBe("0");
+    expect(combinedExpenseByJar(ledger, true).ESSENTIAL.toFixed(0)).toBe("0");
   });
 
   it("includes wallets deleted at or after the snapshot boundary when reversing historical balances", async () => {

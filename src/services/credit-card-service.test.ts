@@ -7,13 +7,19 @@ vi.hoisted(() => {
 
 const deleteMocks = vi.hoisted(() => ({
   transaction: vi.fn(),
+  findManyObligations: vi.fn(),
   requireWorkspaceMember: vi.fn(),
   assertWalletHasNoOpenDependencies: vi.fn(),
   ensureWalletNameAvailable: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { $transaction: deleteMocks.transaction },
+  prisma: {
+    $transaction: deleteMocks.transaction,
+    creditCardObligationEntry: {
+      findMany: deleteMocks.findManyObligations,
+    },
+  },
 }));
 vi.mock("@/services/workspace-access", () => ({
   requireWorkspaceMember: deleteMocks.requireWorkspaceMember,
@@ -24,7 +30,12 @@ vi.mock("@/services/wallet-service", () => ({
 }));
 
 import { allocateLinkedRefundByFundingWallet, allocateOldestObligations, allocateRefundByFundingWallet } from "@/services/credit-card-ledger";
-import { deleteCreditCard, updateCreditCard } from "@/services/credit-card-service";
+import {
+  deleteCreditCard,
+  getWorkspaceCreditCardCommitmentDetails,
+  getWorkspaceCreditCardCommitments,
+  updateCreditCard,
+} from "@/services/credit-card-service";
 import Decimal from "decimal.js";
 
 describe("credit card obligation ledger", () => {
@@ -535,4 +546,147 @@ describe("updateCreditCard checks", () => {
     })).rejects.toThrow("kế hoạch trả góp đang hoạt động");
   });
 });
+
+describe("getWorkspaceCreditCardCommitments & getWorkspaceCreditCardCommitmentDetails", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("leaves 0 items in getWorkspaceCreditCardCommitmentDetails and 0 in getWorkspaceCreditCardCommitments after purchase + refund + full payment", async () => {
+    const settledEntries = [
+      {
+        id: "ob-purchase",
+        cardWalletId: "card-1",
+        fundingWalletId: "wallet-a",
+        kind: "purchase" as const,
+        source: "transaction" as const,
+        effectiveDate: new Date("2026-08-01T00:00:00.000Z"),
+        postedDate: new Date("2026-08-01T00:00:00.000Z"),
+        createdAt: new Date("2026-08-01T01:00:00.000Z"),
+        amount: new Decimal(500_000),
+        card: {
+          wallet: { name: "Visa", status: "active" as const, deletedAt: null },
+        },
+        fundingWallet: { name: "Techcombank" },
+        paymentAllocations: [{ amount: new Decimal(200_000) }],
+        transaction: {
+          id: "tx-1",
+          description: "Mua hàng",
+          type: "expense" as const,
+          purpose: "standard" as const,
+          category: { name: "Mua sắm" },
+        },
+        installmentPlan: null,
+        statementItems: [],
+      },
+      {
+        id: "ob-refund",
+        cardWalletId: "card-1",
+        fundingWalletId: "wallet-a",
+        kind: "refund" as const,
+        source: "transaction" as const,
+        effectiveDate: new Date("2026-08-02T00:00:00.000Z"),
+        postedDate: new Date("2026-08-02T00:00:00.000Z"),
+        createdAt: new Date("2026-08-02T01:00:00.000Z"),
+        amount: new Decimal(-300_000),
+        card: {
+          wallet: { name: "Visa", status: "active" as const, deletedAt: null },
+        },
+        fundingWallet: { name: "Techcombank" },
+        paymentAllocations: [],
+        transaction: {
+          id: "tx-2",
+          description: "Hoàn tiền",
+          type: "income" as const,
+          purpose: "credit_card_refund" as const,
+          category: null,
+        },
+        installmentPlan: null,
+        statementItems: [],
+      },
+    ];
+
+    deleteMocks.findManyObligations.mockResolvedValue(settledEntries);
+
+    const details = await getWorkspaceCreditCardCommitmentDetails("workspace-id");
+    const commitments = await getWorkspaceCreditCardCommitments("workspace-id");
+
+    expect(details).toEqual([]);
+    expect(commitments.get("wallet-a") ?? new Decimal(0)).toEqual(new Decimal(0));
+  });
+
+  it("nets cross-wallet refunds on the same card without leaking credit across different cards", async () => {
+    const entries = [
+      {
+        id: "card-a-refund",
+        cardWalletId: "card-a",
+        fundingWalletId: "wallet-1",
+        kind: "refund" as const,
+        source: "transaction" as const,
+        effectiveDate: new Date("2026-08-01T00:00:00.000Z"),
+        postedDate: new Date("2026-08-01T00:00:00.000Z"),
+        createdAt: new Date("2026-08-01T01:00:00.000Z"),
+        amount: new Decimal(-100_000),
+        card: {
+          wallet: { name: "Card A", status: "active" as const, deletedAt: null },
+        },
+        fundingWallet: { name: "Wallet 1" },
+        paymentAllocations: [],
+        transaction: null,
+        installmentPlan: null,
+        statementItems: [],
+      },
+      {
+        id: "card-b-purchase",
+        cardWalletId: "card-b",
+        fundingWalletId: "wallet-1",
+        kind: "purchase" as const,
+        source: "transaction" as const,
+        effectiveDate: new Date("2026-08-02T00:00:00.000Z"),
+        postedDate: new Date("2026-08-02T00:00:00.000Z"),
+        createdAt: new Date("2026-08-02T01:00:00.000Z"),
+        amount: new Decimal(400_000),
+        card: {
+          wallet: { name: "Card B", status: "active" as const, deletedAt: null },
+        },
+        fundingWallet: { name: "Wallet 1" },
+        paymentAllocations: [],
+        transaction: null,
+        installmentPlan: null,
+        statementItems: [],
+      },
+      {
+        id: "card-b-cross-refund",
+        cardWalletId: "card-b",
+        fundingWalletId: "wallet-2",
+        kind: "refund" as const,
+        source: "transaction" as const,
+        effectiveDate: new Date("2026-08-03T00:00:00.000Z"),
+        postedDate: new Date("2026-08-03T00:00:00.000Z"),
+        createdAt: new Date("2026-08-03T01:00:00.000Z"),
+        amount: new Decimal(-150_000),
+        card: {
+          wallet: { name: "Card B", status: "active" as const, deletedAt: null },
+        },
+        fundingWallet: { name: "Wallet 2" },
+        paymentAllocations: [],
+        transaction: null,
+        installmentPlan: null,
+        statementItems: [],
+      },
+    ];
+
+    deleteMocks.findManyObligations.mockResolvedValue(entries);
+
+    const details = await getWorkspaceCreditCardCommitmentDetails("workspace-id");
+    const commitments = await getWorkspaceCreditCardCommitments("workspace-id");
+
+    expect(details).toHaveLength(1);
+    expect(details[0]?.id).toBe("card-b-purchase");
+    expect(details[0]?.remainingAmount).toBe("250000");
+    expect(details[0]?.paidAmount).toBe("150000");
+    expect(commitments.get("wallet-1")?.toString()).toBe("250000");
+  });
+});
+
 

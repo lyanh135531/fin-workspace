@@ -172,7 +172,12 @@ async function managedGoal(tx: TransactionClient, workspaceId: string, goalId: s
 export async function syncPlanAggregate(tx: TransactionClient, planId: string) {
   const plan = await tx.financialPlan.findFirst?.({
     where: { id: planId, deletedAt: null },
-    select: { targetMonth: true, startMonth: true, status: true },
+    select: {
+      targetMonth: true,
+      startMonth: true,
+      status: true,
+      workspace: { select: { timeZone: true } },
+    },
   });
   const goals = await tx.financialPlanGoal.findMany({
     where: { financialPlanId: planId, deletedAt: null, status: { in: ["draft", "active", "completed"] } },
@@ -202,7 +207,7 @@ export async function syncPlanAggregate(tx: TransactionClient, planId: string) {
       select: { month: true },
     });
     if (lastClosed?.month && targetMonth < lastClosed.month) targetMonth = lastClosed.month;
-    const currentMonth = currentBusinessMonth();
+    const currentMonth = currentBusinessMonth(new Date(), plan?.workspace?.timeZone);
     if (plan?.status === "active" && targetMonth < currentMonth) targetMonth = currentMonth;
   }
   await tx.financialPlan.update({

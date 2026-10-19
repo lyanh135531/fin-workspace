@@ -172,7 +172,7 @@ async function resolveNextExecutionCandidate(
   current: { id: string; nextExecutionDate: Date; startDate: Date },
   candidateDate: string,
   dayOfMonth: number,
-  today: string,
+  _today: string,
   startOrDayChanged = false,
 ) {
   if (!startOrDayChanged && asBusinessDate(current.nextExecutionDate) > candidateDate) {
@@ -186,12 +186,7 @@ async function resolveNextExecutionCandidate(
     },
     select: { id: true },
   });
-  if (
-    existing ||
-    (startOrDayChanged &&
-      asBusinessDate(current.startDate) <= today &&
-      asBusinessDate(current.nextExecutionDate).slice(0, 7) > candidateDate.slice(0, 7))
-  ) {
+  if (existing) {
     return nextMonthlyExecution(candidateDate, dayOfMonth);
   }
   return candidateDate;

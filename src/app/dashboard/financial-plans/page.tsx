@@ -104,7 +104,7 @@ export default async function FinancialPlansPage({
             category: { select: { id: true, name: true, color: true, icon: true, jarCode: true } },
           },
           orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-          take: 400,
+          take: 5000,
         })
       : Promise.resolve([]),
   ]);

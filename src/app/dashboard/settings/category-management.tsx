@@ -690,7 +690,11 @@ function WorkspaceCategoryActionsMenu({
             <SheetHeader
               icon={Trash2}
               title="Xóa danh mục?"
-              description="Hành động này không thể hoàn tác."
+              description={
+                childCount > 0
+                  ? `Danh mục "${category.name}" và ${childCount} danh mục con sẽ bị xóa, không thể hoàn tác.`
+                  : "Hành động này không thể hoàn tác."
+              }
             />
             <div className="p-4">
               <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
@@ -700,6 +704,7 @@ function WorkspaceCategoryActionsMenu({
                   </p>
                   <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                     {category.transactionCount} giao dịch
+                    {childCount > 0 && ` · ${childCount} danh mục con`}
                   </p>
                 </div>
                 <strong
@@ -734,7 +739,9 @@ function WorkspaceCategoryActionsMenu({
               </AlertDialogMedia>
               <AlertDialogTitle>Xóa danh mục?</AlertDialogTitle>
               <AlertDialogDescription>
-                Danh mục “{category.name}” sẽ bị xóa và không thể khôi phục.
+                {childCount > 0
+                  ? `Danh mục "${category.name}" và ${childCount} danh mục con sẽ bị xóa, không thể hoàn tác.`
+                  : `Danh mục “${category.name}” sẽ bị xóa và không thể khôi phục.`}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -892,7 +899,7 @@ function CategoryNode({
               )}
               data-category-sort-id={category.id}
               data-category-sort-parent="root"
-              draggable={!pending && !isMobile}
+              draggable={!pending && isDesktop}
               onDragStart={(event) => {
                 event.stopPropagation();
                 event.dataTransfer.effectAllowed = "move";
@@ -928,7 +935,7 @@ function CategoryNode({
               <CategoryMobileDragHandle
                 category={category}
                 disabled={pending}
-                isMobile={isMobile}
+                isMobile={!isDesktop}
                 size={17}
                 onDragStart={onDragStart}
                 onDragTargetChange={onDragOver}
@@ -1028,7 +1035,7 @@ function CategoryNode({
           )}
           data-category-sort-id={category.id}
           data-category-sort-parent={category.parentId ?? "root"}
-          draggable={!pending && !isMobile}
+          draggable={!pending && isDesktop}
           onDragStart={(event) => {
             event.stopPropagation();
             event.dataTransfer.effectAllowed = "move";
@@ -1064,7 +1071,7 @@ function CategoryNode({
           <CategoryMobileDragHandle
             category={category}
             disabled={pending}
-            isMobile={isMobile}
+            isMobile={!isDesktop}
             size={15}
             onDragStart={onDragStart}
             onDragTargetChange={onDragOver}

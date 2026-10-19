@@ -250,13 +250,34 @@ export async function getCreditCardsData() {
     refundCandidatesByCard.set(transaction.walletId, candidates);
   }
 
+  const activeReservations =
+    links.length && prisma.creditCardPaymentReservation?.findMany
+      ? await prisma.creditCardPaymentReservation.findMany({
+          where: {
+            releasedAt: null,
+            paymentTransaction: {
+              walletId: { in: links.map(({ wallet }) => wallet.id) },
+              workflowStatus: { in: ["pending", "scheduled"] },
+              deletedAt: null,
+              member: { workspaceId },
+            },
+          },
+          select: {
+            sourceWalletId: true,
+            amount: true,
+            paymentTransaction: { select: { walletId: true } },
+          },
+        })
+      : null;
+
   const cards: CreditCardOverviewItem[] = links.flatMap(({ wallet }) => {
     const profile = wallet.creditCardProfile;
     if (!profile) return [];
 
     const pendingByWallet = new Map<string, Decimal>();
-    for (const transaction of wallet.sourceTransactions) {
-      for (const reservation of transaction.creditCardPaymentReservations) {
+    if (activeReservations) {
+      for (const reservation of activeReservations) {
+        if (reservation.paymentTransaction.walletId !== wallet.id) continue;
         pendingByWallet.set(
           reservation.sourceWalletId,
           (pendingByWallet.get(reservation.sourceWalletId) ?? ZERO).plus(
@@ -264,9 +285,20 @@ export async function getCreditCardsData() {
           ),
         );
       }
+    } else {
+      for (const transaction of wallet.sourceTransactions) {
+        for (const reservation of transaction.creditCardPaymentReservations) {
+          pendingByWallet.set(
+            reservation.sourceWalletId,
+            (pendingByWallet.get(reservation.sourceWalletId) ?? ZERO).plus(
+              reservation.amount.toString(),
+            ),
+          );
+        }
+      }
     }
 
-    const outstandingByWallet = new Map<
+    const rawOutstandingByWallet = new Map<
       string,
       { walletName: string; amount: Decimal }
     >();
@@ -275,11 +307,40 @@ export async function getCreditCardsData() {
         (sum, item) => sum.plus(item.amount.toString()),
         ZERO,
       );
-      const current = outstandingByWallet.get(obligation.fundingWalletId)?.amount ?? ZERO;
-      outstandingByWallet.set(obligation.fundingWalletId, {
+      const current = rawOutstandingByWallet.get(obligation.fundingWalletId)?.amount ?? ZERO;
+      rawOutstandingByWallet.set(obligation.fundingWalletId, {
         walletName: obligation.fundingWallet.name,
         amount: current.plus(obligation.amount.toString()).minus(paid),
       });
+    }
+
+    let leftoverCardCredit = ZERO;
+    const positiveWalletEntries: Array<[string, { walletName: string; amount: Decimal }]> = [];
+    for (const [walletId, item] of rawOutstandingByWallet.entries()) {
+      if (item.amount.lt(0)) {
+        leftoverCardCredit = leftoverCardCredit.plus(item.amount.abs());
+      } else if (item.amount.gt(0)) {
+        positiveWalletEntries.push([walletId, item]);
+      }
+    }
+
+    const outstandingByWallet = new Map<
+      string,
+      { walletName: string; amount: Decimal }
+    >();
+    for (const [walletId, item] of positiveWalletEntries) {
+      let netAmount = item.amount;
+      if (leftoverCardCredit.gt(0)) {
+        const deduct = Decimal.min(netAmount, leftoverCardCredit);
+        netAmount = netAmount.minus(deduct);
+        leftoverCardCredit = leftoverCardCredit.minus(deduct);
+      }
+      if (netAmount.gt(0)) {
+        outstandingByWallet.set(walletId, {
+          walletName: item.walletName,
+          amount: netAmount,
+        });
+      }
     }
 
     const oldestStatement = [...profile.statements]
@@ -300,21 +361,53 @@ export async function getCreditCardsData() {
     }
 
     const paidByWallet = new Map<string, Decimal>();
+    let unattributedStatementPaid = ZERO;
     for (const payment of approvedPayments) {
+      let sourcesSum = ZERO;
       for (const source of payment.creditCardPaymentSources) {
+        const amt = new Decimal(source.amount.toString());
+        sourcesSum = sourcesSum.plus(amt);
         paidByWallet.set(
           source.sourceWalletId,
-          (paidByWallet.get(source.sourceWalletId) ?? ZERO).plus(source.amount.toString()),
+          (paidByWallet.get(source.sourceWalletId) ?? ZERO).plus(amt),
+        );
+      }
+      const paymentAmt = new Decimal(payment.amount.toString());
+      if (paymentAmt.gt(sourcesSum)) {
+        unattributedStatementPaid = unattributedStatementPaid.plus(
+          paymentAmt.minus(sourcesSum),
         );
       }
     }
 
+    const rawRemainingSources = new Map<string, Decimal>();
+    for (const [walletId, due] of statementSources) {
+      rawRemainingSources.set(walletId, due);
+    }
+    for (const [walletId, paid] of paidByWallet) {
+      rawRemainingSources.set(
+        walletId,
+        (rawRemainingSources.get(walletId) ?? ZERO).minus(paid),
+      );
+    }
+    let excessStatementPaidPool = unattributedStatementPaid;
+    const positiveStatementEntries: Array<[string, Decimal]> = [];
+    for (const [walletId, amount] of rawRemainingSources.entries()) {
+      if (amount.lt(0)) {
+        excessStatementPaidPool = excessStatementPaidPool.plus(amount.abs());
+      } else if (amount.gt(0)) {
+        positiveStatementEntries.push([walletId, amount]);
+      }
+    }
     const remainingSources = new Map<string, Decimal>();
-    for (const [walletId, amount] of statementSources) {
-      const paid = paidByWallet.get(walletId) ?? ZERO;
-      const remaining = Decimal.max(amount.minus(paid), ZERO);
-      if (remaining.gt(0)) {
-        remainingSources.set(walletId, remaining);
+    for (const [walletId, amount] of positiveStatementEntries) {
+      if (excessStatementPaidPool.gt(0)) {
+        const deduct = Decimal.min(amount, excessStatementPaidPool);
+        const rem = amount.minus(deduct);
+        excessStatementPaidPool = excessStatementPaidPool.minus(deduct);
+        if (rem.gt(0)) remainingSources.set(walletId, rem);
+      } else {
+        remainingSources.set(walletId, amount);
       }
     }
 
@@ -484,10 +577,7 @@ export async function getCreditCardsData() {
         ([walletId, item]) => ({
           walletId,
           walletName: item.walletName,
-          outstanding: Decimal.max(
-            item.amount.minus(pendingByWallet.get(walletId) ?? ZERO),
-            ZERO,
-          ).toString(),
+          outstanding: Decimal.max(item.amount, ZERO).toString(),
         }),
       ),
       importableOpeningDebt: profile.obligations
@@ -508,26 +598,12 @@ export async function getCreditCardsData() {
           }
           return items;
         }, []),
-      reservedFunding: profile.obligations
-        .filter((entry) =>
-          new Decimal(entry.amount.toString())
-            .minus(
-              entry.paymentAllocations.reduce(
-                (sum, a) => sum.plus(a.amount.toString()),
-                ZERO,
-              ),
-            )
-            .gt(0),
-        )
-        .reduce<Array<{ walletId: string; amount: string }>>((items, entry) => {
-          const current = items.find((item) => item.walletId === entry.fundingWalletId);
-          if (current) {
-            current.amount = new Decimal(current.amount).plus(entry.amount.toString()).toString();
-          } else {
-            items.push({ walletId: entry.fundingWalletId, amount: entry.amount.toString() });
-          }
-          return items;
-        }, []),
+      reservedFunding: [...outstandingByWallet.entries()].map(
+        ([walletId, item]) => ({
+          walletId,
+          amount: Decimal.max(item.amount, ZERO).toString(),
+        }),
+      ),
       activities: wallet.sourceTransactions.map((transaction) => {
         const isInPaidStatement = transaction.creditCardObligationEntries.some(
           (entry) =>

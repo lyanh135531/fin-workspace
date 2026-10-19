@@ -1171,31 +1171,36 @@ export function OverviewDashboard({
               <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-[var(--text-secondary)] tabular-nums">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-[var(--income)]" />
-                  <span>Có thể dùng:</span>
+                  <span>Tổng số dư ví:</span>
                   <strong className="font-semibold text-[var(--foreground)]">
-                    {displayAmount(totalAvailableDecimal)}
+                    {displayAmount(totalAssetBalanceDecimal)}
                   </strong>
                 </span>
 
                 {totalCommittedDecimal.gt(0) && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-[var(--primary)]" />
-                    <span>Chờ trả thẻ:</span>
-                    <strong className="font-semibold text-[var(--foreground)]">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      beginNavigation("/wallets?reservedWalletId=all")
+                    }
+                    className="inline-flex cursor-pointer items-center gap-1.5 underline-offset-4 hover:underline"
+                    title="Xem chi tiết tiền chờ thanh toán thẻ"
+                  >
+                    <span className="size-2 rounded-full bg-[var(--warning)]" />
+                    <span>Chờ thanh toán thẻ:</span>
+                    <strong className="font-semibold text-[var(--warning)]">
                       {displayAmount(totalCommittedDecimal)}
                     </strong>
-                  </span>
+                  </button>
                 )}
 
-                {totalCreditDebtDecimal.gt(0) && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-[var(--expense)]" />
-                    <span>Dư nợ thẻ:</span>
-                    <strong className="font-semibold text-[var(--expense)]">
-                      {displayAmount(totalCreditDebtDecimal)}
-                    </strong>
-                  </span>
-                )}
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-[var(--primary)]" />
+                  <span>Còn lại sau khi trừ:</span>
+                  <strong className="font-semibold text-[var(--foreground)]">
+                    {displayAmount(totalAvailableDecimal)}
+                  </strong>
+                </span>
               </div>
             </div>
 
@@ -1707,11 +1712,22 @@ export function OverviewDashboard({
               <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
                 Danh mục Ví & Thẻ ({wallets.length})
               </h2>
-              <p className="mt-0.5 break-words text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
-                {totalCommittedDecimal.gt(0)
-                  ? `Đã giữ chỗ trả thẻ: ${privacyMasked ? "••••" : money(totalCommittedDecimal, workspace.currency)}`
-                  : "Số dư thực tế và hạn mức tín dụng"}
-              </p>
+              {totalCommittedDecimal.gt(0) ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    beginNavigation("/wallets?reservedWalletId=all")
+                  }
+                  className="mt-0.5 block cursor-pointer break-words text-left text-[0.7rem] font-medium leading-snug text-[var(--warning)] tabular-nums underline-offset-4 hover:underline"
+                  title="Xem chi tiết tiền chờ thanh toán thẻ"
+                >
+                  {`Tiền chờ thanh toán thẻ: ${privacyMasked ? "••••" : money(totalCommittedDecimal, workspace.currency)}`}
+                </button>
+              ) : (
+                <p className="mt-0.5 break-words text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
+                  Số dư thực tế và hạn mức tín dụng
+                </p>
+              )}
             </div>
 
             <div className="flex shrink-0 items-center gap-1">

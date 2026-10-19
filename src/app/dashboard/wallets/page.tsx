@@ -111,7 +111,7 @@ export default async function WalletsPage({
             updatedAt: wallet.updatedAt.toISOString(),
             kind: wallet.kind,
             reservedBalance:
-              wallet.kind === "asset" ? committed.toString() : currentBalanceStr,
+              wallet.kind === "credit_card" ? "0" : committed.toString(),
             availableBalance:
               wallet.kind === "asset"
                 ? new Decimal(currentBalanceStr).minus(committed).toString()

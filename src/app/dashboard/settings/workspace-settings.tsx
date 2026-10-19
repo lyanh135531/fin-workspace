@@ -58,9 +58,13 @@ export function WorkspaceSettings({
       const result = await updateWorkspaceSettingsAction({
         name: form.get("name"),
         description: form.get("description") || undefined,
-        baseCurrency: "VND",
-        timeZone: "Asia/Ho_Chi_Minh",
-        status: form.get("status"),
+        baseCurrency: String(
+          form.get("baseCurrency") || workspace.baseCurrency || "VND",
+        ),
+        timeZone: String(
+          form.get("timeZone") || workspace.timeZone || "Asia/Ho_Chi_Minh",
+        ),
+        status: String(form.get("status") || workspace.status),
       });
       if (result.ok) {
         toast.success("Đã lưu cài đặt nhóm.");
@@ -142,7 +146,13 @@ export function WorkspaceSettings({
         >
           <div className="grid gap-3.5 md:grid-cols-2 md:gap-5">
             {/* Workspace name */}
-            <div className="space-y-1.5">
+            <div
+              className={
+                workspace.status === "deactive"
+                  ? "space-y-1.5"
+                  : "space-y-1.5 md:col-span-2"
+              }
+            >
               <Input
                 label="Tên nhóm tài chính"
                 id="ws-name"
@@ -153,41 +163,39 @@ export function WorkspaceSettings({
               />
             </div>
 
-            {/* Status */}
-            <div className="space-y-1.5">
-              <Select
-                label="Trạng thái hoạt động"
-                id="ws-status"
-                name="status"
-                defaultValue={workspace.status}
-                options={[
-                  {
-                    value: "active",
-                    label: "Đang hoạt động",
-                    content: (
-                      <span className="flex items-center gap-2">
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--success)]" />
-                        <span>Đang hoạt động</span>
-                      </span>
-                    ),
-                  },
-                  ...(workspace.status === "deactive"
-                    ? [
-                        {
-                          value: "deactive",
-                          label: "Tạm ngưng",
-                          content: (
-                            <span className="flex items-center gap-2">
-                              <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--warning)]" />
-                              <span>Tạm ngưng</span>
-                            </span>
-                          ),
-                        },
-                      ]
-                    : []),
-                ]}
-              />
-            </div>
+            {/* Status (only shown when workspace is deactivated so it can be reactivated) */}
+            {workspace.status === "deactive" && (
+              <div className="space-y-1.5">
+                <Select
+                  label="Trạng thái hoạt động"
+                  id="ws-status"
+                  name="status"
+                  defaultValue={workspace.status}
+                  options={[
+                    {
+                      value: "active",
+                      label: "Đang hoạt động",
+                      content: (
+                        <span className="flex items-center gap-2">
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--success)]" />
+                          <span>Đang hoạt động</span>
+                        </span>
+                      ),
+                    },
+                    {
+                      value: "deactive",
+                      label: "Tạm ngưng",
+                      content: (
+                        <span className="flex items-center gap-2">
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--warning)]" />
+                          <span>Tạm ngưng</span>
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
+              </div>
+            )}
 
             {/* Description */}
             <div className="space-y-1.5 md:col-span-2">

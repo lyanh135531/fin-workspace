@@ -1634,6 +1634,7 @@ function PlanDetail({
             <MonthHistory
               months={plan.months}
               currency={currency}
+              isMobile={isMobile}
               onInspectInJarsTab={(monthKey) => {
                 setSelectedJarMonthKey(monthKey);
                 setActiveTab("jars");
@@ -1855,7 +1856,7 @@ function PlanDetail({
         open={cancelConfirmOpen}
         onOpenChange={setCancelConfirmOpen}
         trigger={null}
-        presentation="sheet"
+        presentation={isMobile ? "sheet" : "popover"}
         ariaLabel="Hủy kế hoạch"
         title="Hủy kế hoạch đang chạy?"
         description="Kế hoạch sẽ dừng và chuyển sang chế độ chỉ đọc. Số liệu các tháng đã chốt vẫn được giữ nguyên."
@@ -1872,7 +1873,7 @@ function PlanDetail({
         title="Xóa kế hoạch?"
         description="Kế hoạch sẽ bị xóa khỏi danh sách."
         confirmLabel="Xóa kế hoạch"
-        presentation="sheet"
+        presentation={isMobile ? "sheet" : "popover"}
         onConfirm={onDelete ?? (() => {})}
         disabled={disabled}
       />
@@ -2269,6 +2270,7 @@ function SixJarsSection({
           }}
           jar={inspectedJar}
           month={month}
+          includeForecast={!month.closed && month.month >= businessMonth}
           remainingDays={isCurrentBusinessMonth ? remainingDays : 0}
           currency={currency}
           isMobile={isMobile}
@@ -2298,6 +2300,7 @@ function JarDetailSheet({
   onOpenChange,
   jar,
   month,
+  includeForecast,
   remainingDays,
   currency,
   isMobile,
@@ -2310,6 +2313,7 @@ function JarDetailSheet({
   onOpenChange: (open: boolean) => void;
   jar: PlanMonthJar;
   month: PlanMonth;
+  includeForecast: boolean;
   remainingDays: number;
   currency: string;
   isMobile: boolean;
@@ -2346,7 +2350,11 @@ function JarDetailSheet({
       });
     }
     for (const tx of transactions) {
-      if (tx.workflowStatus === "rejected") continue;
+      const included = month.closed
+        ? tx.workflowStatus === "approved"
+        : tx.workflowStatus === "approved" ||
+          (includeForecast && tx.workflowStatus === "scheduled");
+      if (!included) continue;
       const key = tx.categoryId ?? "__uncategorized__";
       const existing = totals.get(key) ?? {
         name: tx.categoryName,
@@ -2378,7 +2386,7 @@ function JarDetailSheet({
         };
       })
       .sort((a, b) => new Decimal(b.amount).comparedTo(a.amount));
-  }, [categories, transactions, spent]);
+  }, [categories, transactions, month.closed, includeForecast, spent]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -2651,10 +2659,12 @@ function BudgetJarList({
 function MonthHistory({
   months,
   currency,
+  isMobile = false,
   onInspectInJarsTab,
 }: {
   months: PlanMonth[];
   currency: string;
+  isMobile?: boolean;
   onInspectInJarsTab?: (monthKey: string) => void;
 }) {
   const [selectedMonth, setSelectedMonth] = useState<PlanMonth | null>(null);
@@ -2784,9 +2794,9 @@ function MonthHistory({
         }}
       >
         <SheetContent
-          side="right"
-          placement="inset"
-          size="wide"
+          side={isMobile ? "bottom" : "right"}
+          placement={isMobile ? "edge" : "inset"}
+          size={isMobile ? "default" : "wide"}
           spacing="flush"
           elevation="flat"
         >
@@ -2973,7 +2983,7 @@ function PlanEditorSheet({
       return false;
     }
   }, [draft.targetAmount]);
-  const minPlanTargetMonth = plan ? businessMonth : nextMonth(businessMonth);
+  const minPlanTargetMonth = businessMonth;
   const valid = Boolean(
     draft.name.trim() &&
       (hasMultipleGoals ||
@@ -3021,11 +3031,19 @@ function PlanEditorSheet({
         toast.error(result.message);
         return;
       }
-      toast.success(
-        activateImmediately && "activated" in result && result.activated
-          ? "Đã tạo và kích hoạt kế hoạch tài chính."
-          : "Đã tạo bản nháp kế hoạch.",
-      );
+      if (activateImmediately && "activated" in result && !result.activated) {
+        const warningMessage =
+          "message" in result && typeof result.message === "string" && result.message
+            ? `Đã lưu bản nháp nhưng chưa thể kích hoạt: ${result.message}`
+            : "Đã lưu bản nháp kế hoạch.";
+        toast.warning(warningMessage);
+      } else {
+        toast.success(
+          activateImmediately && "activated" in result && result.activated
+            ? "Đã tạo và kích hoạt kế hoạch tài chính."
+            : "Đã tạo bản nháp kế hoạch.",
+        );
+      }
       onSaved("id" in result ? String(result.id) : "");
     });
   }

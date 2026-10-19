@@ -474,23 +474,117 @@ export async function updateCreditCard(
   });
 }
 
+function netObligationsByCard<
+  T extends {
+    cardWalletId: string;
+    fundingWalletId: string;
+    amount: Decimal.Value;
+    paymentAllocations: Array<{ amount: Decimal.Value }>;
+  },
+>(obligations: T[]) {
+  const byCard = new Map<string, T[]>();
+  for (const entry of obligations) {
+    const cardKey = entry.cardWalletId ?? "default-card";
+    const list = byCard.get(cardKey) ?? [];
+    list.push(entry);
+    byCard.set(cardKey, list);
+  }
+
+  const netted: Array<{
+    entry: T;
+    original: Decimal;
+    paid: Decimal;
+    remaining: Decimal;
+  }> = [];
+
+  for (const cardEntries of byCard.values()) {
+    const creditByWallet = new Map<string, Decimal>();
+    const positiveEntries: Array<{
+      entry: T;
+      original: Decimal;
+      paid: Decimal;
+      remaining: Decimal;
+    }> = [];
+
+    for (const entry of cardEntries) {
+      const original = new Decimal(entry.amount.toString());
+      const paid = entry.paymentAllocations.reduce(
+        (sum, allocation) => sum.plus(allocation.amount.toString()),
+        ZERO,
+      );
+      const rawRemaining = original.minus(paid);
+      if (rawRemaining.lt(0)) {
+        creditByWallet.set(
+          entry.fundingWalletId,
+          (creditByWallet.get(entry.fundingWalletId) ?? ZERO).plus(rawRemaining.abs()),
+        );
+      } else if (rawRemaining.gt(0)) {
+        positiveEntries.push({
+          entry,
+          original,
+          paid,
+          remaining: rawRemaining,
+        });
+      }
+    }
+
+    // Pass 1: Same-wallet FIFO offset
+    for (const item of positiveEntries) {
+      const sameWalletCredit = creditByWallet.get(item.entry.fundingWalletId) ?? ZERO;
+      if (sameWalletCredit.gt(0) && item.remaining.gt(0)) {
+        const used = Decimal.min(item.remaining, sameWalletCredit);
+        item.remaining = item.remaining.minus(used);
+        item.paid = item.paid.plus(used);
+        creditByWallet.set(item.entry.fundingWalletId, sameWalletCredit.minus(used));
+      }
+    }
+
+    // Pass 2: Cross-wallet FIFO offset on the same card
+    let leftoverCardCredit = [...creditByWallet.values()].reduce(
+      (sum, credit) => sum.plus(credit),
+      ZERO,
+    );
+    if (leftoverCardCredit.gt(0)) {
+      for (const item of positiveEntries) {
+        if (!leftoverCardCredit.gt(0)) break;
+        if (!item.remaining.gt(0)) continue;
+        const used = Decimal.min(item.remaining, leftoverCardCredit);
+        item.remaining = item.remaining.minus(used);
+        item.paid = item.paid.plus(used);
+        leftoverCardCredit = leftoverCardCredit.minus(used);
+      }
+    }
+
+    for (const item of positiveEntries) {
+      if (item.remaining.gt(0)) {
+        netted.push(item);
+      }
+    }
+  }
+
+  return netted;
+}
+
 export async function getWorkspaceCreditCardCommitments(workspaceId: string) {
   const obligations = await prisma.creditCardObligationEntry.findMany({
     where: {
       workspaceId,
       card: { wallet: { deletedAt: null, status: "active" } },
     },
-    select: { fundingWalletId: true, amount: true, paymentAllocations: { select: { amount: true } } },
+    select: {
+      cardWalletId: true,
+      fundingWalletId: true,
+      amount: true,
+      paymentAllocations: { select: { amount: true } },
+    },
+    orderBy: [{ effectiveDate: "asc" }, { createdAt: "asc" }],
   });
+  const netted = netObligationsByCard(obligations);
   const totals = new Map<string, Decimal>();
-  for (const obligation of obligations) {
-    const paid = obligation.paymentAllocations.reduce(
-      (sum, allocation) => sum.plus(allocation.amount.toString()),
-      ZERO,
-    );
+  for (const item of netted) {
     totals.set(
-      obligation.fundingWalletId,
-      (totals.get(obligation.fundingWalletId) ?? ZERO).plus(obligation.amount.toString()).minus(paid),
+      item.entry.fundingWalletId,
+      (totals.get(item.entry.fundingWalletId) ?? ZERO).plus(item.remaining),
     );
   }
   return new Map([...totals.entries()].map(([walletId, amount]) => [walletId, Decimal.max(amount, ZERO)]));
@@ -616,21 +710,19 @@ export async function getWorkspaceCreditCardCommitmentDetails(
         take: 1,
       },
     },
-    orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ effectiveDate: "asc" }, { createdAt: "asc" }],
   });
 
-  const items: CreditCardCommitmentDetailItem[] = [];
-  for (const entry of obligations) {
-    const original = new Decimal(entry.amount.toString());
-    const paid = entry.paymentAllocations.reduce(
-      (sum, allocation) => sum.plus(allocation.amount.toString()),
-      ZERO,
-    );
-    const remaining = original.minus(paid);
-    if (remaining.isZero()) continue;
+  const netted = netObligationsByCard(obligations);
+  netted.sort((a, b) => {
+    const effDiff = b.entry.effectiveDate.getTime() - a.entry.effectiveDate.getTime();
+    if (effDiff !== 0) return effDiff;
+    return b.entry.createdAt.getTime() - a.entry.createdAt.getTime();
+  });
 
+  return netted.map(({ entry, original, paid, remaining }) => {
     const latestStatement = entry.statementItems[0]?.statement ?? null;
-    items.push({
+    return {
       id: entry.id,
       cardWalletId: entry.cardWalletId,
       cardName: entry.card.wallet.name,
@@ -669,10 +761,8 @@ export async function getWorkspaceCreditCardCommitmentDetails(
             paidAt: latestStatement.paidAt ? latestStatement.paidAt.toISOString() : null,
           }
         : null,
-    });
-  }
-
-  return items;
+    };
+  });
 }
 
 export async function getCreditCardSummary(workspaceId: string, cardWalletId: string) {

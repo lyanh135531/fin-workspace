@@ -332,6 +332,7 @@ function getLedgerDateTotals(items: LedgerItem[]): LedgerDateTotals {
 function TouchTransactionRow({
   item,
   currency,
+  isCreditWallet = false,
   selected,
   selectionMode,
   canApprove,
@@ -346,6 +347,7 @@ function TouchTransactionRow({
 }: {
   item: LedgerItem;
   currency: string;
+  isCreditWallet?: boolean;
   selected: boolean;
   selectionMode: boolean;
   canApprove: boolean;
@@ -502,7 +504,9 @@ function TouchTransactionRow({
           <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
             {/^(ví|thẻ)(\s|$)/i.test(item.wallet.trim())
               ? item.wallet
-              : `Ví ${item.wallet}`}
+              : isCreditWallet
+                ? `Thẻ ${item.wallet}`
+                : `Ví ${item.wallet}`}
             {item.toWallet ? ` → ${item.toWallet}` : ""}
             {item.member ? ` · ${item.member}` : ""}
             {item.isRecurring ? " · Định kỳ" : ""}
@@ -1129,6 +1133,7 @@ export function Ledger({
           key={item.id}
           item={item}
           currency={currency}
+          isCreditWallet={walletKindById.get(item.walletId) === "credit_card"}
           selected={selected.has(item.id)}
           selectionMode={selectionMode}
           canApprove={canApprove}
@@ -2593,9 +2598,13 @@ function TransactionDetailSheetBody({
         item.pendingChangeAction === "delete"),
   );
   const isDeleteReview = item.pendingChangeAction === "delete";
+  const isCreditWallet =
+    wallets.find((w) => w.id === item.walletId)?.kind === "credit_card";
   const formattedWallet = /^(ví|thẻ)(\s|$)/i.test(item.wallet.trim())
     ? item.wallet
-    : `Ví ${item.wallet}`;
+    : isCreditWallet
+      ? `Thẻ ${item.wallet}`
+      : `Ví ${item.wallet}`;
 
   return (
     <>

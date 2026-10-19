@@ -88,10 +88,20 @@ export async function createAndActivateFinancialPlanAction(input: unknown) {
     try {
       await activateFinancialPlan(actor.userId, actor.workspaceId, record.id);
       refresh();
-      return { ok: true as const, id: record.id, activated: true as const };
-    } catch {
+      return { ok: true as const, message: null, id: record.id, activated: true as const };
+    } catch (activationError) {
+      const activationFailure = failure(
+        activationError,
+        "Không thể kích hoạt kế hoạch.",
+        "financial_plan.create_and_activate_failed",
+      );
       refresh();
-      return { ok: true as const, id: record.id, activated: false as const };
+      return {
+        ok: true as const,
+        message: activationFailure.message,
+        id: record.id,
+        activated: false as const,
+      };
     }
   } catch (error) {
     return failure(error, "Không thể tạo và kích hoạt kế hoạch.", "financial_plan.create_and_activate_failed");

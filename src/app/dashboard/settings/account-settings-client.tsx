@@ -388,7 +388,7 @@ export function ChangePasswordSheet({
     >
       <SheetContent
         side={isMobile ? "bottom" : "right"}
-        placement="inset"
+        placement={isMobile ? "edge" : "inset"}
         size={isMobile ? "default" : "wide"}
         spacing="flush"
         elevation="flat"
@@ -577,7 +577,7 @@ export function GoogleConfirmSheet({
     >
       <SheetContent
         side={isMobile ? "bottom" : "right"}
-        placement="inset"
+        placement={isMobile ? "edge" : "inset"}
         size={isMobile ? "default" : "wide"}
         spacing="flush"
         elevation="flat"

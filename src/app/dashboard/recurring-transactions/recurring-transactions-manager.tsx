@@ -64,13 +64,13 @@ type Option = {
 };
 type CategoryOption = Option & { type: "income" | "expense" };
 type TransactionType = "income" | "expense" | "transfer";
+type ScheduleTypeFilter = "all" | "expense" | "income" | "transfer";
 type ScheduleStatusFilter =
   | "all"
-  | "income"
-  | "expense"
   | "active"
   | "deactive"
-  | "completed";
+  | "completed"
+  | "pending";
 type Schedule = {
   id: string;
   createdByMemberId: string;
@@ -244,6 +244,7 @@ export function RecurringTransactionsManager({
   schedules: Schedule[];
 }) {
   usePrivacyMask();
+  const [typeFilter, setTypeFilter] = useState<ScheduleTypeFilter>("all");
   const [status, setStatus] = useState<ScheduleStatusFilter>("all");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -319,25 +320,36 @@ export function RecurringTransactionsManager({
   const expenseCount = schedules.filter(
     (item) => item.type === "expense",
   ).length;
+  const transferCount = schedules.filter(
+    (item) => item.type === "transfer",
+  ).length;
   const errorCount = schedules.filter((item) => Boolean(item.lastError)).length;
   const pendingApprovalCount = schedules.filter(
     (item) => item.approvalStatus === "pending",
   ).length;
   const attentionCount = errorCount + pendingApprovalCount;
 
+  const activeTypeFilter: ScheduleTypeFilter =
+    typeFilter === "transfer" && transferCount === 0 ? "all" : typeFilter;
+
   const activeStatus: ScheduleStatusFilter =
     (status === "deactive" && pausedCount === 0) ||
     (status === "completed" && completedCount === 0) ||
-    (status === "active" && pausedCount === 0 && completedCount === 0)
+    (status === "pending" && pendingApprovalCount === 0) ||
+    (status === "active" &&
+      pausedCount === 0 &&
+      completedCount === 0 &&
+      pendingApprovalCount === 0)
       ? "all"
       : status;
 
   const visibleSchedules = useMemo(
     () =>
       schedules.filter((item) => {
+        if (activeTypeFilter !== "all" && item.type !== activeTypeFilter) {
+          return false;
+        }
         if (activeStatus === "all") return true;
-        if (activeStatus === "income") return item.type === "income";
-        if (activeStatus === "expense") return item.type === "expense";
         const displayStatus =
           item.approvalStatus === "approved"
             ? item.completedAt
@@ -346,7 +358,7 @@ export function RecurringTransactionsManager({
             : item.approvalStatus;
         return displayStatus === activeStatus;
       }),
-    [schedules, activeStatus],
+    [schedules, activeTypeFilter, activeStatus],
   );
 
   function beginCreate() {
@@ -694,26 +706,27 @@ export function RecurringTransactionsManager({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Primary Filter: All / Expense / Income */}
+            {/* Primary Filter: All / Expense / Income / Transfer */}
             <Tabs
-              value={
-                activeStatus === "all" || activeStatus === "expense" || activeStatus === "income"
-                  ? activeStatus
-                  : "all"
+              value={activeTypeFilter}
+              onValueChange={(value) =>
+                setTypeFilter(value as ScheduleTypeFilter)
               }
-              onValueChange={(value) => setStatus(value as ScheduleStatusFilter)}
               className="w-full md:w-auto"
             >
               <TabsList
                 variant="segmented"
                 aria-label="Lọc giao dịch định kỳ"
-                className="grid w-full grid-cols-3 md:inline-flex md:w-auto"
+                className={cn(
+                  "grid w-full md:inline-flex md:w-auto",
+                  transferCount > 0 ? "grid-cols-4" : "grid-cols-3",
+                )}
               >
                 <TabsTrigger
                   variant="segmented"
                   value="all"
                   className="px-2 text-xs"
-                  onClick={() => setStatus("all")}
+                  onClick={() => setTypeFilter("all")}
                 >
                   Tất cả ({schedules.length})
                 </TabsTrigger>
@@ -723,19 +736,18 @@ export function RecurringTransactionsManager({
                 <TabsTrigger variant="segmented" value="income" className="px-2 text-xs">
                   Thu nhập ({incomeCount})
                 </TabsTrigger>
+                {transferCount > 0 && (
+                  <TabsTrigger variant="segmented" value="transfer" className="px-2 text-xs">
+                    Chuyển khoản ({transferCount})
+                  </TabsTrigger>
+                )}
               </TabsList>
             </Tabs>
 
-            {/* Secondary Status Filter: Only shown when paused or completed schedules exist */}
-            {(pausedCount > 0 || completedCount > 0) && (
+            {/* Secondary Status Filter: Only shown when paused, completed, or pending schedules exist */}
+            {(pausedCount > 0 || completedCount > 0 || pendingApprovalCount > 0) && (
               <Tabs
-                value={
-                  activeStatus === "active" ||
-                  activeStatus === "deactive" ||
-                  activeStatus === "completed"
-                    ? activeStatus
-                    : "all"
-                }
+                value={activeStatus}
                 onValueChange={(value) =>
                   setStatus(value as ScheduleStatusFilter)
                 }
@@ -745,7 +757,11 @@ export function RecurringTransactionsManager({
                   variant="segmented"
                   className={cn(
                     "grid w-full md:inline-flex md:w-auto",
-                    completedCount > 0 ? "grid-cols-4" : "grid-cols-3",
+                    completedCount > 0 && pendingApprovalCount > 0
+                      ? "grid-cols-5"
+                      : completedCount > 0 || pendingApprovalCount > 0
+                        ? "grid-cols-4"
+                        : "grid-cols-3",
                   )}
                 >
                   <TabsTrigger
@@ -762,6 +778,15 @@ export function RecurringTransactionsManager({
                   <TabsTrigger variant="segmented" value="deactive" className="px-2 text-xs">
                     Tạm dừng ({pausedCount})
                   </TabsTrigger>
+                  {pendingApprovalCount > 0 && (
+                    <TabsTrigger
+                      variant="segmented"
+                      value="pending"
+                      className="px-2 text-xs"
+                    >
+                      Chờ duyệt ({pendingApprovalCount})
+                    </TabsTrigger>
+                  )}
                   {completedCount > 0 && (
                     <TabsTrigger
                       variant="segmented"

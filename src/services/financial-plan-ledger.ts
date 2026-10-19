@@ -38,7 +38,7 @@ export async function getWorkspaceBalance(
   for (const link of links) {
     const amount = new Decimal(link.wallet.currentBalance.toString());
     balance = link.wallet.kind === "credit_card"
-      ? balance.minus(before ? amount : Decimal.max(amount, ZERO))
+      ? balance.minus(Decimal.max(amount, ZERO))
       : balance.plus(amount);
   }
   if (!before || links.length === 0) return balance;
@@ -153,23 +153,24 @@ export async function getFinancialPlanMonthLedger(
       category: { select: { jarCode: true } },
     },
   });
-  if (rules.length === 0) return result;
-  const materialized = await tx.transaction.findMany({
-    where: {
-      recurringTransactionId: { in: rules.map((rule) => rule.id) },
-      recurringPeriod: month,
-      deletedAt: null,
-    },
-    select: { recurringTransactionId: true },
-  });
-  const materializedIds = new Set(materialized.map((record) => record.recurringTransactionId));
-  for (const rule of rules) {
-    if (materializedIds.has(rule.id) || rule.type === "transfer") continue;
-    const dueDate = occurrenceDate(month, rule.dayOfMonth);
-    if (dueDate < asIsoDate(rule.startDate) || (rule.endDate && dueDate > asIsoDate(rule.endDate))) continue;
-    if (rule.nextExecutionDate && dueDate < asIsoDate(rule.nextExecutionDate)) continue;
-    if (rule.type === "income") result.forecastIncome = result.forecastIncome.plus(rule.amount.toString());
-    else addExpense(result.forecastExpenseByJar, rule.category?.jarCode ?? null, rule.amount.toString());
+  if (rules.length > 0) {
+    const materialized = await tx.transaction.findMany({
+      where: {
+        recurringTransactionId: { in: rules.map((rule) => rule.id) },
+        recurringPeriod: month,
+        deletedAt: null,
+      },
+      select: { recurringTransactionId: true },
+    });
+    const materializedIds = new Set(materialized.map((record) => record.recurringTransactionId));
+    for (const rule of rules) {
+      if (materializedIds.has(rule.id) || rule.type === "transfer") continue;
+      const dueDate = occurrenceDate(month, rule.dayOfMonth);
+      if (dueDate < asIsoDate(rule.startDate) || (rule.endDate && dueDate > asIsoDate(rule.endDate))) continue;
+      if (rule.nextExecutionDate && dueDate < asIsoDate(rule.nextExecutionDate)) continue;
+      if (rule.type === "income") result.forecastIncome = result.forecastIncome.plus(rule.amount.toString());
+      else addExpense(result.forecastExpenseByJar, rule.category?.jarCode ?? null, rule.amount.toString());
+    }
   }
   for (const jarCode of FINANCIAL_JAR_CODES) {
     result.forecastExpenseByJar[jarCode] = Decimal.max(ZERO, result.forecastExpenseByJar[jarCode]);
@@ -180,6 +181,9 @@ export async function getFinancialPlanMonthLedger(
 export function combinedExpenseByJar(ledger: FinancialPlanMonthLedger, includeForecast: boolean) {
   return Object.fromEntries(FINANCIAL_JAR_CODES.map((jarCode) => [
     jarCode,
-    ledger.approvedExpenseByJar[jarCode].plus(includeForecast ? ledger.forecastExpenseByJar[jarCode] : 0),
+    Decimal.max(
+      ZERO,
+      ledger.approvedExpenseByJar[jarCode].plus(includeForecast ? ledger.forecastExpenseByJar[jarCode] : 0),
+    ),
   ])) as JarDecimalMap;
 }

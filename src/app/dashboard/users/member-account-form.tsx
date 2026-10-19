@@ -13,6 +13,10 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
 
   function submit(form: FormData) {
     const workspaceIds = form.getAll("workspaceIds").map(String);
+    if (workspaceIds.length === 0) {
+      toast.error("Vui lòng chọn ít nhất một nhóm tài chính.");
+      return;
+    }
     start(async () => {
       const result = await createMemberAccountAction({
         username: form.get("username"),

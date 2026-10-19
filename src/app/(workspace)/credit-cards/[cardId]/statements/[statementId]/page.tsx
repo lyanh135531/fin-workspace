@@ -328,7 +328,7 @@ export default async function CreditCardStatementPage({
           {byWallet.size > 0 && (
             <div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3 md:mt-4 md:space-y-2.5 md:pt-4">
               <p className="text-[11px] font-semibold text-[var(--text-secondary)] md:text-xs">
-                Tiền chờ thanh toán thẻ theo ví nguồn
+                Phân bổ dư nợ sao kê theo ví nguồn
               </p>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3 lg:grid-cols-3">
                 {[...byWallet].map(([name, amount]) => (

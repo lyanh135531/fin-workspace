@@ -332,7 +332,7 @@ function getWalletVisual(wallet: WalletItem, index: number) {
       kindBadge: wallet.ownerLabel || "Thẻ tín dụng",
       kindBadgeClass:
         "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20",
-      balanceLabel: "Tiền chờ thanh toán thẻ",
+      balanceLabel: "Dư nợ hiện tại",
       balanceColor: "text-rose-600 dark:text-rose-400",
       isCreditCard: true,
     };
@@ -422,11 +422,34 @@ export function WalletManagement({
   );
   const [selectedReservedWalletId, setSelectedReservedWalletId] =
     useState<string>(initialReservedWalletId || "all");
+  const [prevInitialReservedWalletId, setPrevInitialReservedWalletId] =
+    useState<string | undefined>(initialReservedWalletId);
+
+  if (initialReservedWalletId !== prevInitialReservedWalletId) {
+    setPrevInitialReservedWalletId(initialReservedWalletId);
+    if (initialReservedWalletId) {
+      setSelectedReservedWalletId(
+        initialReservedWalletId === "all" ? "all" : initialReservedWalletId,
+      );
+      setReservedBreakdownOpen(true);
+    }
+  }
 
   function openReservedBreakdown(walletId = "all") {
     setMobileMenuWalletId(null);
     setSelectedReservedWalletId(walletId);
     setReservedBreakdownOpen(true);
+  }
+
+  function handleReservedBreakdownOpenChange(open: boolean) {
+    setReservedBreakdownOpen(open);
+    if (!open && typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("reservedWalletId")) {
+        url.searchParams.delete("reservedWalletId");
+        window.history.replaceState(null, "", url.pathname + url.search);
+      }
+    }
   }
 
   const [filterStatus, setFilterStatus] = useState<
@@ -940,21 +963,33 @@ export function WalletManagement({
         <div className="space-y-2.5 border-t border-[var(--border)] pt-3">
           <div className="flex items-baseline justify-between gap-3 md:block md:space-y-1">
             <span className="text-xs font-medium text-[var(--text-secondary)]">
-              {isCredit ? "Dư nợ hiện tại" : "Số dư hiện tại"}
+              {isCredit
+                ? actualBalanceDec.lt(0)
+                  ? "Số dư nộp thừa"
+                  : "Dư nợ hiện tại"
+                : "Số dư hiện tại"}
             </span>
             <div className="flex flex-wrap items-baseline justify-end gap-1 md:justify-start md:gap-1.5">
               <strong
                 className={cn(
                   "text-base font-bold tracking-tight tabular-nums md:text-xl",
                   isCredit
-                    ? "text-rose-600 dark:text-rose-400"
+                    ? actualBalanceDec.lt(0)
+                      ? "text-[var(--success)]"
+                      : cardDebtDec.gt(0)
+                        ? "text-rose-600 dark:text-rose-400"
+                        : "text-[var(--foreground)]"
                     : actualBalanceDec.lt(0)
                       ? "text-[var(--destructive)]"
                       : "text-[var(--foreground)]",
                 )}
               >
                 {showBalance
-                  ? `${isCredit && cardDebtDec.gt(0) ? "-" : ""}${formatAmount(isCredit ? cardDebtDec : actualBalanceDec)}`
+                  ? isCredit
+                    ? actualBalanceDec.lt(0)
+                      ? `+${formatAmount(actualBalanceDec.abs())}`
+                      : formatAmount(cardDebtDec)
+                    : formatAmount(actualBalanceDec)
                   : "••••••••"}
               </strong>
               <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)] md:text-xs">
@@ -986,16 +1021,27 @@ export function WalletManagement({
                 <span className="block text-[11px] text-[var(--text-muted)]">
                   Biến động dư nợ
                 </span>
-                <strong className="mt-0.5 block font-semibold tabular-nums text-[var(--text-secondary)]">
-                  {showBalance
-                    ? (() => {
-                        const netDiff = actualBalanceDec.minus(
-                          wallet.openingBalance,
-                        );
-                        return `${netDiff.gt(0) ? "+" : ""}${formatAmount(netDiff)} ${workspace.currency}`;
-                      })()
-                    : "••••••"}
-                </strong>
+                {(() => {
+                  const netDiff = actualBalanceDec.minus(
+                    wallet.openingBalance,
+                  );
+                  return (
+                    <strong
+                      className={cn(
+                        "mt-0.5 block font-semibold tabular-nums",
+                        netDiff.gt(0)
+                          ? "text-[var(--destructive)]"
+                          : netDiff.lt(0)
+                            ? "text-[var(--success)]"
+                            : "text-[var(--text-secondary)]",
+                      )}
+                    >
+                      {showBalance
+                        ? `${netDiff.gt(0) ? "+" : netDiff.lt(0) ? "-" : ""}${formatAmount(netDiff.abs())} ${workspace.currency}`
+                        : "••••••"}
+                    </strong>
+                  );
+                })()}
               </div>
             ) : (
               <button
@@ -1187,16 +1233,15 @@ export function WalletManagement({
     <div className="space-y-4 md:space-y-6">
       {/* Unified Header + Top Summary Strip */}
       <Card as="section" className="p-4 md:p-5" aria-label="Tổng quan số dư ví">
-        {/* Top Row: Mobile shows Primary Hero Metric (Số dư có thể dùng) + Action Buttons; Desktop shows Page Title + Action Buttons */}
+        {/* Top Row: Mobile shows Primary Hero Metric (Tổng số dư hiện tại) + Action Buttons; Desktop shows Page Title + Action Buttons */}
         <div className="flex items-start justify-between gap-3 md:items-center md:border-b md:border-[var(--border)] md:pb-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 md:hidden">
-              <span className="text-xs font-semibold text-[var(--primary)]">
-                Số dư có thể dùng
+              <span className="text-xs font-semibold text-[var(--text-secondary)]">
+                Tổng số dư hiện tại
               </span>
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--primary-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]">
-                <ShieldCheck size={11} aria-hidden="true" />
-                An toàn chi tiêu
+              <span className="inline-flex shrink-0 items-center rounded-full bg-[var(--surface-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+                {assetWallets.length} ví thanh toán
               </span>
             </div>
 
@@ -1204,12 +1249,12 @@ export function WalletManagement({
               Ví tài chính
             </h1>
             <p className="mt-0.5 hidden text-xs text-[var(--text-secondary)] md:block">
-              Theo dõi số dư thực tế, tiền chờ thanh toán thẻ và số dư có thể dùng của {workspace.name}.
+              Theo dõi tổng số dư hiện tại, tiền chờ thanh toán thẻ và số dư còn lại sau khi trừ của {workspace.name}.
             </p>
 
             <div className="mt-1 flex flex-wrap items-baseline gap-1.5 md:hidden">
               <strong className="text-2xl font-bold tracking-tight tabular-nums text-[var(--foreground)]">
-                {showBalance ? formatAmount(totalBalance) : "••••••••"}
+                {showBalance ? formatAmount(totalAssetBalance) : "••••••••"}
               </strong>
               <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
                 {workspace.currency}
@@ -1248,25 +1293,25 @@ export function WalletManagement({
 
         {/* Mobile 2-Col Secondary Strip (<768px) & Desktop 3-Col Summary Strip (md:grid) */}
         <div className="mt-3.5 grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-3 md:mt-4 md:grid-cols-3 md:gap-5 md:divide-x md:divide-[var(--border)] md:border-t-0 md:pt-0">
-          {/* Metric 1: Tổng số dư thực tế */}
-          <div className="min-w-0 space-y-0.5 md:space-y-1">
+          {/* Metric 1: Tổng số dư hiện tại (Desktop only — already shown as Hero Metric on Mobile) */}
+          <div className="hidden min-w-0 space-y-1 md:block">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-medium text-[var(--text-muted)] md:text-xs md:text-[var(--text-secondary)]">
-                Tổng số dư thực tế
+              <span className="text-xs font-medium text-[var(--text-secondary)]">
+                Tổng số dư hiện tại
               </span>
-              <span className="hidden shrink-0 rounded-md bg-[var(--surface-secondary)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] md:inline-flex">
+              <span className="inline-flex shrink-0 rounded-md bg-[var(--surface-secondary)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
                 {assetWallets.length} ví thanh toán
               </span>
             </div>
             <div className="flex flex-wrap items-baseline gap-1">
-              <strong className="text-sm font-bold tracking-tight tabular-nums text-[var(--foreground)] md:text-2xl">
+              <strong className="text-2xl font-bold tracking-tight tabular-nums text-[var(--foreground)]">
                 {showBalance ? formatAmount(totalAssetBalance) : "••••••••"}
               </strong>
-              <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)] md:text-xs">
+              <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
                 {workspace.currency}
               </span>
             </div>
-            <p className="hidden text-xs leading-snug text-[var(--text-muted)] md:block">
+            <p className="text-xs leading-snug text-[var(--text-muted)]">
               Tổng tiền hiện có trong các ví thanh toán đang hoạt động
             </p>
           </div>
@@ -1282,7 +1327,7 @@ export function WalletManagement({
                 openReservedBreakdown("all");
               }
             }}
-            className="group/kpi-reserved min-w-0 cursor-pointer space-y-0.5 border-l border-[var(--border)] pl-3 transition-colors md:space-y-1 md:border-l-0 md:pl-5"
+            className="group/kpi-reserved min-w-0 cursor-pointer space-y-0.5 transition-colors md:space-y-1 md:pl-5"
             title="Bấm để xem chi tiết tiền chờ thanh toán thẻ"
           >
             <div className="flex items-center justify-between gap-1.5">
@@ -1328,26 +1373,26 @@ export function WalletManagement({
             </p>
           </div>
 
-          {/* Metric 3: Số dư có thể dùng (Desktop only — already shown as Hero Metric on Mobile) */}
-          <div className="hidden min-w-0 space-y-1 md:block md:pl-5">
+          {/* Metric 3: Còn lại sau khi trừ */}
+          <div className="min-w-0 space-y-0.5 border-l border-[var(--border)] pl-3 md:space-y-1 md:border-l-0 md:pl-5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-[var(--primary)]">
-                Số dư có thể dùng
+              <span className="text-[11px] font-semibold text-[var(--primary)] md:text-xs">
+                Còn lại sau khi trừ
               </span>
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--primary-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--primary)]">
+              <span className="hidden shrink-0 items-center gap-1 rounded-md bg-[var(--primary-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--primary)] md:inline-flex">
                 <ShieldCheck size={12} aria-hidden="true" />
                 An toàn chi tiêu
               </span>
             </div>
-            <div className="flex flex-wrap items-baseline gap-1.5">
-              <strong className="text-2xl font-bold tracking-tight tabular-nums text-[var(--foreground)]">
+            <div className="flex flex-wrap items-baseline gap-1 md:gap-1.5">
+              <strong className="text-sm font-bold tracking-tight tabular-nums text-[var(--foreground)] md:text-2xl">
                 {showBalance ? formatAmount(totalBalance) : "••••••••"}
               </strong>
-              <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
+              <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)] md:text-xs">
                 {workspace.currency}
               </span>
             </div>
-            <p className="text-xs leading-snug text-[var(--text-muted)]">
+            <p className="hidden text-xs leading-snug text-[var(--text-muted)] md:block">
               Số dư thực tế sau khi trừ tiền chờ thanh toán thẻ
             </p>
           </div>
@@ -1689,19 +1734,51 @@ export function WalletManagement({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <span className="block text-[11px] font-medium text-[var(--text-muted)]">
-                        {editingWallet.kind === "credit_card"
-                          ? "Dư nợ hiện tại"
-                          : "Số dư hiện tại"}
-                      </span>
-                      <div className="mt-0.5 flex flex-wrap items-baseline gap-1">
-                        <strong className="text-lg font-bold tracking-tight tabular-nums text-[var(--foreground)]">
-                          {formatAmount(editingWallet.currentBalance)}
-                        </strong>
-                        <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)]">
-                          {workspace.currency}
-                        </span>
-                      </div>
+                      {(() => {
+                        const editBalDec = new Decimal(
+                          editingWallet.currentBalance,
+                        );
+                        const isCreditEdit =
+                          editingWallet.kind === "credit_card";
+                        return (
+                          <>
+                            <span className="block text-[11px] font-medium text-[var(--text-muted)]">
+                              {isCreditEdit
+                                ? editBalDec.lt(0)
+                                  ? "Số dư nộp thừa"
+                                  : "Dư nợ hiện tại"
+                                : "Số dư hiện tại"}
+                            </span>
+                            <div className="mt-0.5 flex flex-wrap items-baseline gap-1">
+                              <strong
+                                className={cn(
+                                  "text-lg font-bold tracking-tight tabular-nums",
+                                  isCreditEdit
+                                    ? editBalDec.lt(0)
+                                      ? "text-[var(--success)]"
+                                      : editBalDec.gt(0)
+                                        ? "text-rose-600 dark:text-rose-400"
+                                        : "text-[var(--foreground)]"
+                                    : editBalDec.lt(0)
+                                      ? "text-[var(--destructive)]"
+                                      : "text-[var(--foreground)]",
+                                )}
+                              >
+                                {isCreditEdit
+                                  ? editBalDec.lt(0)
+                                    ? `+${formatAmount(editBalDec.abs())}`
+                                    : formatAmount(
+                                        Decimal.max(editBalDec, new Decimal(0)),
+                                      )
+                                  : formatAmount(editBalDec)}
+                              </strong>
+                              <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)]">
+                                {workspace.currency}
+                              </span>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
 
                     <span
@@ -1742,16 +1819,37 @@ export function WalletManagement({
 
                     <div className="min-w-0 border-l border-[var(--border)] pl-3">
                       <span className="block text-[11px] text-[var(--text-muted)]">
-                        Chênh lệch thu chi
+                        {editingWallet.kind === "credit_card"
+                          ? "Biến động dư nợ"
+                          : "Chênh lệch thu chi"}
                       </span>
-                      <strong className="mt-0.5 block font-semibold tabular-nums text-[var(--foreground)]">
-                        {(() => {
-                          const netDiff = new Decimal(
-                            editingWallet.currentBalance,
-                          ).minus(editingWallet.openingBalance);
-                          return `${netDiff.gt(0) ? "+" : ""}${formatAmount(netDiff)} ${workspace.currency}`;
-                        })()}
-                      </strong>
+                      {(() => {
+                        const netDiff = new Decimal(
+                          editingWallet.currentBalance,
+                        ).minus(editingWallet.openingBalance);
+                        const isCreditEdit =
+                          editingWallet.kind === "credit_card";
+                        return (
+                          <strong
+                            className={cn(
+                              "mt-0.5 block font-semibold tabular-nums",
+                              isCreditEdit
+                                ? netDiff.gt(0)
+                                  ? "text-[var(--destructive)]"
+                                  : netDiff.lt(0)
+                                    ? "text-[var(--success)]"
+                                    : "text-[var(--foreground)]"
+                                : netDiff.gt(0)
+                                  ? "text-[var(--success)]"
+                                  : netDiff.lt(0)
+                                    ? "text-[var(--destructive)]"
+                                    : "text-[var(--foreground)]",
+                            )}
+                          >
+                            {`${netDiff.gt(0) ? "+" : netDiff.lt(0) ? "-" : ""}${formatAmount(netDiff.abs())} ${workspace.currency}`}
+                          </strong>
+                        );
+                      })()}
                     </div>
                   </div>
                 </section>
@@ -1921,19 +2019,51 @@ export function WalletManagement({
 
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 md:p-5">
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-4">
-                  <span className="block text-xs font-medium text-[var(--text-secondary)]">
-                    {detailWallet.kind === "credit_card"
-                      ? "Dư nợ hiện tại"
-                      : "Số dư hiện tại"}
-                  </span>
-                  <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
-                    <strong className="text-2xl font-bold tabular-nums text-[var(--foreground)]">
-                      {formatAmount(detailWallet.currentBalance)}
-                    </strong>
-                    <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
-                      {workspace.currency}
-                    </span>
-                  </div>
+                  {(() => {
+                    const detailBalDec = new Decimal(
+                      detailWallet.currentBalance,
+                    );
+                    const isCreditDetail =
+                      detailWallet.kind === "credit_card";
+                    return (
+                      <>
+                        <span className="block text-xs font-medium text-[var(--text-secondary)]">
+                          {isCreditDetail
+                            ? detailBalDec.lt(0)
+                              ? "Số dư nộp thừa"
+                              : "Dư nợ hiện tại"
+                            : "Số dư hiện tại"}
+                        </span>
+                        <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+                          <strong
+                            className={cn(
+                              "text-2xl font-bold tabular-nums",
+                              isCreditDetail
+                                ? detailBalDec.lt(0)
+                                  ? "text-[var(--success)]"
+                                  : detailBalDec.gt(0)
+                                    ? "text-rose-600 dark:text-rose-400"
+                                    : "text-[var(--foreground)]"
+                                : detailBalDec.lt(0)
+                                  ? "text-[var(--destructive)]"
+                                  : "text-[var(--foreground)]",
+                            )}
+                          >
+                            {isCreditDetail
+                              ? detailBalDec.lt(0)
+                                ? `+${formatAmount(detailBalDec.abs())}`
+                                : formatAmount(
+                                    Decimal.max(detailBalDec, new Decimal(0)),
+                                  )
+                              : formatAmount(detailBalDec)}
+                          </strong>
+                          <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
+                            {workspace.currency}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-xs">
@@ -1977,14 +2107,33 @@ export function WalletManagement({
                         ? "Biến động dư nợ"
                         : "Chênh lệch thu chi"}
                     </span>
-                    <strong className="font-semibold tabular-nums text-[var(--foreground)]">
-                      {formatAmount(
-                        new Decimal(detailWallet.currentBalance).minus(
-                          detailWallet.openingBalance,
-                        ),
-                      )}{" "}
-                      {workspace.currency}
-                    </strong>
+                    {(() => {
+                      const netDiff = new Decimal(
+                        detailWallet.currentBalance,
+                      ).minus(detailWallet.openingBalance);
+                      const isCreditDetail =
+                        detailWallet.kind === "credit_card";
+                      return (
+                        <strong
+                          className={cn(
+                            "font-semibold tabular-nums",
+                            isCreditDetail
+                              ? netDiff.gt(0)
+                                ? "text-[var(--destructive)]"
+                                : netDiff.lt(0)
+                                  ? "text-[var(--success)]"
+                                  : "text-[var(--foreground)]"
+                              : netDiff.gt(0)
+                                ? "text-[var(--success)]"
+                                : netDiff.lt(0)
+                                  ? "text-[var(--destructive)]"
+                                  : "text-[var(--foreground)]",
+                          )}
+                        >
+                          {`${netDiff.gt(0) ? "+" : netDiff.lt(0) ? "-" : ""}${formatAmount(netDiff.abs())} ${workspace.currency}`}
+                        </strong>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center justify-between gap-3 py-3">
                     <span className="text-[var(--text-secondary)]">
@@ -2037,7 +2186,7 @@ export function WalletManagement({
       {/* Sheet 4: Chi tiết Tiền chờ thanh toán thẻ (Reserved Breakdown Sheet) */}
       <Sheet
         open={reservedBreakdownOpen}
-        onOpenChange={setReservedBreakdownOpen}
+        onOpenChange={handleReservedBreakdownOpenChange}
       >
         <SheetContent
           side={isDesktop ? "right" : "bottom"}
@@ -2092,17 +2241,12 @@ export function WalletManagement({
             const summaryActualBalance = selectedWallet
               ? new Decimal(selectedWallet.currentBalance)
               : totalAssetBalance;
-            const summaryReservedBalance = selectedWallet
-              ? new Decimal(selectedWallet.reservedBalance ?? 0)
-              : totalCreditDebt;
-            const summaryUsableBalance = selectedWallet
-              ? new Decimal(
-                  selectedWallet.availableBalance ??
-                    new Decimal(selectedWallet.currentBalance).minus(
-                      selectedWallet.reservedBalance ?? 0,
-                    ),
-                )
-              : new Decimal(totalBalance);
+            const summaryReservedBalance = activeItems.reduce(
+              (sum, item) => sum.plus(new Decimal(item.remainingAmount)),
+              new Decimal(0),
+            );
+            const summaryUsableBalance =
+              summaryActualBalance.minus(summaryReservedBalance);
 
             function getObligationPresentation(
               item: CreditCardCommitmentDetailItem,
@@ -2476,7 +2620,7 @@ export function WalletManagement({
                 </div>
 
                 <SheetFooter
-                  onCancel={() => setReservedBreakdownOpen(false)}
+                  onCancel={() => handleReservedBreakdownOpenChange(false)}
                   cancelLabel="Đóng"
                   submitLabel={
                     creditWallets.length > 0
@@ -2485,7 +2629,7 @@ export function WalletManagement({
                   }
                   submitType="button"
                   onSubmit={() => {
-                    setReservedBreakdownOpen(false);
+                    handleReservedBreakdownOpenChange(false);
                     router.push("/credit-cards");
                   }}
                 />

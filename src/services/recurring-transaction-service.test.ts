@@ -288,4 +288,59 @@ describe("recurring transaction approval workflow", () => {
       }),
     });
   });
+
+  it("schedules for the current month when changing dayOfMonth to a future day in the current month without an existing occurrence", async () => {
+    const existing = {
+      id: "recurring-1",
+      workspaceId: "workspace-1",
+      createdByMemberId: "member-1",
+      walletId: "wallet-1",
+      toWalletId: null,
+      categoryId: null,
+      type: "income" as const,
+      amount: new Decimal("1000000"),
+      description: "Lương",
+      dayOfMonth: 5,
+      startDate: new Date("2026-08-05T00:00:00.000Z"),
+      endDate: null,
+      nextExecutionDate: new Date("2026-10-05T00:00:00.000Z"),
+      status: "active" as const,
+      approvalStatus: "approved" as const,
+      reviewedByMemberId: "admin-1",
+      reviewedAt: new Date("2026-08-01T00:00:00.000Z"),
+      approvedAt: new Date("2026-08-01T00:00:00.000Z"),
+      completedAt: null,
+      lastError: null,
+      deletedAt: null,
+    };
+    const tx = {
+      ...transactionClient(existing),
+      transaction: { findFirst: vi.fn().mockResolvedValue(null) },
+    };
+    vi.mocked(requireWorkspaceMember).mockResolvedValue({
+      id: "admin-1",
+      role: { code: "ADMIN" },
+      workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+    } as never);
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback) => callback(tx as never));
+
+    await updateRecurringTransaction(
+      "admin-user",
+      "workspace-1",
+      "recurring-1",
+      {
+        ...input,
+        startDate: "2026-08-25",
+      },
+      new Date("2026-09-20T00:00:00.000Z"),
+    );
+
+    expect(tx.recurringTransaction.update).toHaveBeenCalledWith({
+      where: { id: "recurring-1" },
+      data: expect.objectContaining({
+        dayOfMonth: 25,
+        nextExecutionDate: new Date("2026-09-25T00:00:00.000Z"),
+      }),
+    });
+  });
 });
