@@ -28,7 +28,7 @@ export function GoogleSetupClient({ email }: { email: string }) {
       redirect: false,
     });
     if (!authenticated?.ok || authenticated.error) {
-      setError("Đã lưu tên đăng nhập nhưng chưa làm mới được phiên đăng nhập. Hãy đăng nhập lại bằng Google.");
+      setError("Đã lưu tên đăng nhập. Vui lòng đăng nhập lại bằng Google để tiếp tục.");
       setPending(false);
       return;
     }

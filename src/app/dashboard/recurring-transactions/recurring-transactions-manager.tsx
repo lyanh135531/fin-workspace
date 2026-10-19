@@ -208,7 +208,7 @@ function dateLabel(date: string) {
 function scheduleDayLabel(day: number) {
   return day <= 28
     ? `Hằng tháng (ngày ${day})`
-    : `Hằng tháng (ngày ${day} · cuối tháng nếu thiếu ngày)`;
+    : `Hằng tháng (ngày ${day}, hoặc ngày cuối tháng)`;
 }
 
 function daysBetweenIsoDates(fromDate: string, toDate: string): number {
@@ -387,10 +387,10 @@ export function RecurringTransactionsManager({
           editingId
             ? canApprove
               ? "Đã cập nhật giao dịch định kỳ."
-              : "Đã gửi thay đổi để Quản trị viên duyệt."
+              : "Đã gửi thay đổi chờ duyệt."
             : canApprove
-              ? "Đã đăng ký giao dịch định kỳ."
-              : "Đã gửi lịch để Quản trị viên duyệt.",
+              ? "Đã tạo giao dịch định kỳ."
+              : "Đã gửi giao dịch định kỳ chờ duyệt.",
         );
         closeEditor();
       } else {
@@ -425,7 +425,7 @@ export function RecurringTransactionsManager({
       const result = await deleteRecurringTransactionAction(id);
       if (result.ok) {
         toast.success(
-          "Đã xóa đăng ký. Các giao dịch đã phát sinh được giữ nguyên.",
+          "Đã xóa lịch định kỳ. Các giao dịch trước đó vẫn được giữ nguyên.",
         );
       } else {
         toast.error(result.message);
@@ -452,7 +452,7 @@ export function RecurringTransactionsManager({
     startTransition(async () => {
       const result = await runRecurringTransactionNowAction(schedule.id);
       if (result.ok) {
-        toast.success("Đã thực hiện kỳ này ngay.");
+        toast.success("Đã ghi nhận giao dịch kỳ này.");
       } else {
         toast.error(result.message);
       }
@@ -565,11 +565,11 @@ export function RecurringTransactionsManager({
 
         {/* Mobile 2-Col Income/Expense Strip & Desktop 3-Col Summary Strip */}
         <div className="mt-3.5 grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-3 md:mt-4 md:grid-cols-3 md:gap-5 md:divide-x md:divide-[var(--border)] md:border-t-0 md:pt-0">
-          {/* Metric 1: Tổng thu định kỳ/tháng */}
+          {/* Metric 1: Thu định kỳ mỗi tháng */}
           <div className="min-w-0 space-y-0.5 md:space-y-1">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-medium text-[var(--text-muted)] md:text-xs md:text-[var(--text-secondary)]">
-                Tổng thu định kỳ/tháng
+                Thu định kỳ mỗi tháng
               </span>
               <span
                 className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--income)] md:grid"
@@ -591,11 +591,11 @@ export function RecurringTransactionsManager({
             </p>
           </div>
 
-          {/* Metric 2: Tổng chi định kỳ/tháng */}
+          {/* Metric 2: Chi định kỳ mỗi tháng */}
           <div className="min-w-0 space-y-0.5 border-l border-[var(--border)] pl-3 md:space-y-1 md:border-l-0 md:pl-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-medium text-[var(--text-muted)] md:text-xs md:text-[var(--text-secondary)]">
-                Tổng chi định kỳ/tháng
+                Chi định kỳ mỗi tháng
               </span>
               <span
                 className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--expense)] md:grid"
@@ -647,7 +647,7 @@ export function RecurringTransactionsManager({
               ) : nextDueSchedule ? (
                 `${nextDueSchedule.description || "Giao dịch định kỳ"} · Ngày ${nextDueSchedule.dayOfMonth} hằng tháng`
               ) : (
-                `Ngày làm việc: ${dateLabel(workspace.businessDate)}`
+                `Hôm nay: ${dateLabel(workspace.businessDate)}`
               )}
             </p>
           </div>
@@ -1150,8 +1150,8 @@ function RecurringScheduleRow({
                 type="button"
                 disabled={busy}
                 onClick={onRunNow}
-                title="Thực hiện kỳ này ngay"
-                aria-label="Thực hiện kỳ này ngay"
+                title="Ghi nhận kỳ này ngay"
+                aria-label="Ghi nhận kỳ này ngay"
               >
                 <Play size={16} aria-hidden="true" />
               </Button>
@@ -1301,7 +1301,7 @@ function RecurringScheduleRow({
           {permissions.canRunNow && (
             <DropdownMenuItem disabled={busy} onClick={() => run(onRunNow)}>
               <Play size={15} aria-hidden="true" />
-              <span>Thực hiện kỳ này ngay</span>
+              <span>Ghi nhận kỳ này ngay</span>
             </DropdownMenuItem>
           )}
           {(permissions.canPause || permissions.canReactivate) && (
@@ -1511,7 +1511,7 @@ function RecurringEditor({
                   : draft.toWalletId,
             })
           }
-          label={draft.type === "transfer" ? "Ví gửi" : "Ví thực hiện"}
+          label={draft.type === "transfer" ? "Ví chuyển" : "Ví thanh toán"}
           options={wallets.map((wallet) => ({
             value: wallet.id,
             label: wallet.name,

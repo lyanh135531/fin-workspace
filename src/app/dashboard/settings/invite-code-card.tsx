@@ -28,10 +28,10 @@ export function InviteCodeCard({
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
-      toast.success("Đã sao chép mã mời vào bộ nhớ tạm.");
+      toast.success("Đã sao chép mã mời.");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Không thể sao chép tự động. Vui lòng sao chép thủ công.");
+      toast.error("Không thể sao chép mã mời.");
     }
   }
 
@@ -40,7 +40,7 @@ export function InviteCodeCard({
       const result = await regenerateInviteCodeAction();
       if (result.ok && "inviteCode" in result && result.inviteCode) {
         setRegenerated({ baseCode: initialCode, code: result.inviteCode });
-        toast.success("Đã tạo mã mời 6 chữ số mới.");
+        toast.success("Đã tạo mã mời mới.");
       } else {
         toast.error(result.message ?? "Không thể đổi mã mời.");
       }

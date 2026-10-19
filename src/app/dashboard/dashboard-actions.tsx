@@ -664,7 +664,6 @@ export function Ledger({
   canApprove,
   canEditTransactions,
   isAdmin,
-  scopeLabel,
   wallets,
   categories,
   currency,
@@ -877,11 +876,6 @@ export function Ledger({
   const scheduledRows = filteredRows.filter(
     (item) => item.status === "scheduled",
   );
-  const nearestScheduledDate = scheduledRows.reduce<string | null>(
-    (nearestDate, item) =>
-      nearestDate === null || item.date < nearestDate ? item.date : nearestDate,
-    null,
-  );
   const orderedScheduledRows = [...scheduledRows].sort((left, right) =>
     left.date.localeCompare(right.date),
   );
@@ -957,8 +951,8 @@ export function Ledger({
       if (result.ok) {
         toast.success(
           result.kind === "requested"
-            ? "Đã gửi yêu cầu xóa đến Admin."
-            : "Đã xóa giao dịch và cập nhật lại số dư ví.",
+            ? "Đã gửi yêu cầu xóa chờ duyệt."
+            : "Đã xóa giao dịch.",
         );
         setDeleteReason("");
         setShowDeleteConfirmInSheet(false);
@@ -1042,10 +1036,10 @@ export function Ledger({
       if (result.ok) {
         toast.success(
           result.status === "pending"
-            ? "Đã gửi giao dịch quá khứ để Admin duyệt."
+            ? "Đã gửi giao dịch chờ duyệt."
             : result.status === "scheduled"
-              ? "Đã lên lịch giao dịch tương lai."
-              : "Đã ghi nhận giao dịch và cập nhật số dư ví.",
+              ? "Đã lên lịch giao dịch."
+              : "Đã lưu giao dịch.",
         );
         setCreateDraft(null);
       } else {
@@ -1095,7 +1089,7 @@ export function Ledger({
       if (result.ok) {
         toast.success(
           result.requested
-            ? "Đã gửi yêu cầu sửa đến Admin."
+            ? "Đã gửi yêu cầu sửa chờ duyệt."
             : "Đã lưu thay đổi giao dịch.",
         );
       } else {
@@ -1262,25 +1256,15 @@ export function Ledger({
     }
 
     const isCreditRefund = item.purpose === "credit_card_refund";
-    const subtitleText = item.description
-      ? isTransfer
-        ? "Ghi chú chuyển khoản nội bộ"
-        : isCreditRefund
-          ? "Hoàn tiền vào thẻ tín dụng"
+    const subtitleText = isTransfer
+      ? "Chuyển tiền giữa các ví"
+      : isCreditRefund
+        ? "Hoàn tiền thẻ tín dụng"
+        : isCreditWallet
+          ? "Chi tiêu thẻ tín dụng"
           : isIncome
-            ? "Ghi chú khoản thu nhập"
-            : isCreditWallet
-              ? "Chi tiêu qua thẻ tín dụng"
-              : "Ghi chú khoản chi tiêu"
-      : isTransfer
-        ? "Luân chuyển số dư giữa các ví"
-        : isCreditRefund
-          ? "Hoàn tiền vào thẻ tín dụng"
-          : isIncome
-            ? "Khoản thu nhập vào ví"
-            : isCreditWallet
-              ? "Giao dịch chi tiêu thẻ tín dụng"
-              : "Giao dịch chi tiêu trực tiếp";
+            ? "Thu nhập"
+            : "Chi tiêu";
 
     return (
       <article
@@ -1588,7 +1572,7 @@ export function Ledger({
                 <SheetHeader
                   icon={SlidersHorizontal}
                   title="Bộ lọc giao dịch"
-                  description={`Thu hẹp danh sách theo loại, ví, danh mục và thời gian trong ${scopeLabel}.`}
+                  description="Lọc giao dịch theo loại, ví, danh mục và thời gian."
                 />
 
                 <div className="overflow-y-auto px-4 py-3.5">
@@ -1605,7 +1589,7 @@ export function Ledger({
                     />
 
                     <Select
-                      label="Ví thực hiện"
+                      label="Ví / Thẻ"
                       value={filterWallet || "all"}
                       onValueChange={(val) =>
                         changeFilter(() =>
@@ -1980,7 +1964,7 @@ export function Ledger({
               title="Chưa có giao dịch phù hợp"
               description={
                 scheduledRows.length > 0
-                  ? "Các giao dịch đang chờ thực thi nằm trong mục Đã lên lịch."
+                  ? "Các giao dịch chưa đến ngày nằm ở mục Đã lên lịch."
                   : "Thử thay đổi từ khóa tìm kiếm hoặc đặt lại bộ lọc."
               }
             />
@@ -2039,7 +2023,7 @@ export function Ledger({
           <SheetHeader
             icon={Plus}
             title="Tạo giao dịch mới"
-            description="Nhập số tiền và thông tin phân loại giao dịch."
+            description="Thêm khoản thu, chi hoặc chuyển tiền."
           />
           {createDraft && (
             <>
@@ -2138,7 +2122,7 @@ export function Ledger({
           <SheetHeader
             icon={CalendarClock}
             title="Giao dịch đã lên lịch"
-            description={`Có ${scheduledRows.length} giao dịch đang chờ đến ngày tự động ghi nhận${nearestScheduledDate ? ` (gần nhất: ${formatLedgerDate(nearestScheduledDate)})` : ""}.`}
+            description={`${scheduledRows.length} giao dịch sẽ tự động ghi nhận khi đến ngày.`}
           />
           <div className="min-h-0 flex-1 divide-y divide-[var(--border)] overflow-y-auto">
             {orderedScheduledRows.length > 0 ? (
@@ -2169,7 +2153,7 @@ export function Ledger({
           <SheetHeader
             icon={Trash2}
             title={`Xóa ${selected.size} giao dịch đã chọn?`}
-            description="Các giao dịch đã ghi nhận sẽ được hoàn tác khỏi số dư ví. Hành động này không thể hoàn tác."
+            description="Số dư ví sẽ được tính lại tương ứng. Thao tác này không thể khôi phục."
           />
           <SheetFooter>
             <Button
@@ -2412,7 +2396,7 @@ function TransactionEditorForm({
               ? "Ví gửi"
               : isCreditCardExpense
                 ? "Thẻ thanh toán"
-                : "Ví thực hiện"
+                : "Ví thanh toán"
           }
           options={wallets.map((wallet) => {
             const isCard = wallet.kind === "credit_card";
@@ -2442,7 +2426,7 @@ function TransactionEditorForm({
                         : "bg-[var(--surface-secondary)] text-[var(--text-muted)]"
                     }`}
                   >
-                    {isCard ? "Thẻ tín dụng" : "Ví tài sản"}
+                    {isCard ? "Thẻ tín dụng" : "Ví thanh toán"}
                   </span>
                 </div>
               ),
@@ -2782,8 +2766,8 @@ function TransactionDetailSheetBody({
                   </p>
                   <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                     {isAdmin
-                      ? "Xóa giao dịch và hoàn tác số dư ví."
-                      : "Gửi yêu cầu xóa giao dịch đến Admin."}
+                      ? "Xóa giao dịch và cập nhật lại số dư ví."
+                      : "Gửi yêu cầu xóa cho Quản trị viên duyệt."}
                   </p>
                 </div>
                 <Button
@@ -2806,8 +2790,8 @@ function TransactionDetailSheetBody({
                   </h4>
                   <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                     {isAdmin
-                      ? "Số dư ví sẽ được hoàn tác sau khi xóa."
-                      : "Yêu cầu xóa sẽ được gửi đến Admin để phê duyệt."}
+                      ? "Số dư ví sẽ được cập nhật lại sau khi xóa."
+                      : "Yêu cầu xóa sẽ được gửi cho Quản trị viên duyệt."}
                   </p>
                 </div>
                 {!isAdmin && (

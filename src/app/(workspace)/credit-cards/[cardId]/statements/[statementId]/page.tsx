@@ -263,7 +263,7 @@ export default async function CreditCardStatementPage({
           {/* Mobile Hero Metric (<768px): Còn cần thanh toán */}
           <div className="flex items-baseline justify-between gap-2 md:hidden">
             <span className="text-xs font-medium text-[var(--text-secondary)]">
-              Còn cần thanh toán
+              Còn phải trả
             </span>
             <p
               className={cn(
@@ -301,14 +301,14 @@ export default async function CreditCardStatementPage({
               </p>
               <span className="mt-1 hidden text-[11px] text-[var(--text-muted)] md:block">
                 {approvedPayments.length > 0
-                  ? `${approvedPayments.length} lần thanh toán đã duyệt`
-                  : "Chưa phát sinh thanh toán"}
+                  ? `${approvedPayments.length} lần thanh toán`
+                  : "Chưa có thanh toán"}
               </span>
             </div>
 
             <div className="hidden md:flex md:flex-col md:items-start md:justify-center md:pl-5">
               <span className="text-xs font-medium text-[var(--text-secondary)]">
-                Còn cần thanh toán
+                Còn phải trả
               </span>
               <p
                 className={cn(
@@ -328,7 +328,7 @@ export default async function CreditCardStatementPage({
           {byWallet.size > 0 && (
             <div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3 md:mt-4 md:space-y-2.5 md:pt-4">
               <p className="text-[11px] font-semibold text-[var(--text-secondary)] md:text-xs">
-                Phân bổ dư nợ sao kê theo ví nguồn
+                Số tiền cần trả theo từng ví
               </p>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3 lg:grid-cols-3">
                 {[...byWallet].map(([name, amount]) => (
@@ -410,10 +410,10 @@ export default async function CreditCardStatementPage({
             <table className="w-full text-left text-sm">
               <thead className="border-b border-[var(--border)] bg-[var(--surface-secondary)] text-xs font-semibold text-[var(--text-secondary)]">
                 <tr>
-                  <th className="px-4 py-2.5">Nội dung giao dịch</th>
-                  <th className="px-4 py-2.5">Ví nguồn trích trả</th>
-                  <th className="px-4 py-2.5">Ngày ghi nhận</th>
-                  <th className="px-4 py-2.5 text-right">Số tiền sao kê</th>
+                  <th className="px-4 py-2.5">Giao dịch</th>
+                  <th className="px-4 py-2.5">Ví thanh toán</th>
+                  <th className="px-4 py-2.5">Ngày giao dịch</th>
+                  <th className="px-4 py-2.5 text-right">Số tiền</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)] bg-[var(--surface)]">

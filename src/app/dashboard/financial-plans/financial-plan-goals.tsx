@@ -243,10 +243,10 @@ export function FinancialPlanGoals({
             id="financial-goals-title"
             className="break-words text-sm font-semibold leading-snug text-[var(--foreground)] md:text-base"
           >
-            Danh mục mục tiêu tích lũy ({goals.length})
+            Mục tiêu tích lũy ({goals.length})
           </h2>
           <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-secondary)]">
-            Tự động phân bổ ưu tiên theo thứ tự từ trên xuống hoặc liên kết trực tiếp số dư ví tiết kiệm.
+            Ưu tiên phân bổ từ trên xuống hoặc theo dõi theo số dư ví liên kết.
           </p>
         </div>
         {canManage && mutable && (
@@ -517,7 +517,7 @@ export function FinancialPlanGoals({
                   <dl className="grid grid-cols-2 gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 p-2.5">
                     <div className="min-w-0">
                       <dt className="break-words text-[11px] leading-snug text-[var(--text-secondary)]">
-                        Mục tiêu tiết kiệm tháng này
+                        Cần tiết kiệm tháng này
                       </dt>
                       <dd className="mt-0.5 text-xs font-bold text-[var(--foreground)] tabular-nums shrink-0 sm:text-sm">
                         {money(goal.requiredThisMonth, currency)}
@@ -527,7 +527,7 @@ export function FinancialPlanGoals({
                     {shortfall ? (
                       <div className="min-w-0">
                         <dt className="break-words text-[11px] font-medium leading-snug text-[var(--warning)]">
-                          Mức cần bù thêm
+                          Cần bù thêm
                         </dt>
                         <dd className="mt-0.5 text-xs font-bold text-[var(--warning)] tabular-nums shrink-0 sm:text-sm">
                           {money(goal.shortfallThisMonth, currency)}
@@ -768,7 +768,7 @@ export function FinancialPlanGoals({
             setFundingGoal(null);
             toast.success(
               status === "pending"
-                ? "Đã gửi Quản trị viên duyệt khoản đóng góp."
+                ? "Đã gửi khoản đóng góp chờ duyệt."
                 : "Đã ghi nhận khoản đóng góp.",
             );
             router.refresh();
@@ -811,7 +811,7 @@ export function FinancialPlanGoals({
         description={
           cancellingGoal?.status === "draft"
             ? "Mục tiêu sẽ bị xóa khỏi bản nháp kế hoạch."
-            : "Mục tiêu sẽ chuyển sang trạng thái chỉ đọc. Số tiền đã tích lũy và lịch sử đóng góp vẫn được lưu giữ."
+            : "Mục tiêu sẽ ngừng theo dõi. Số tiền đã tích lũy và lịch sử đóng góp vẫn được giữ nguyên."
         }
         confirmLabel={
           cancellingGoal?.status === "draft" ? "Xóa mục tiêu" : "Hủy mục tiêu"
@@ -1105,7 +1105,7 @@ function GoalEditorSheet({
         <SheetHeader
           icon={Target}
           title={goal ? "Chỉnh sửa mục tiêu tích lũy" : "Thêm mục tiêu tích lũy"}
-          description="Thiết lập số tiền cần tích lũy, thời hạn hoàn thành và cách theo dõi tiến độ."
+          description="Chọn số tiền mục tiêu, thời hạn và cách theo dõi."
         />
         <div className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto px-4 py-5 md:px-6">
           {error && (
@@ -1150,19 +1150,19 @@ function GoalEditorSheet({
             options={[
               {
                 value: "manual",
-                label: "Ghi nhận đóng góp thủ công",
+                label: "Tự ghi nhận đóng góp",
                 content: (
                   <>
-                    <ListChecks aria-hidden="true" /> Ghi nhận đóng góp thủ công
+                    <ListChecks aria-hidden="true" /> Tự ghi nhận đóng góp
                   </>
                 ),
               },
               {
                 value: "linked_wallet",
-                label: "Theo số dư ví tiết kiệm liên kết",
+                label: "Theo số dư ví liên kết",
                 content: (
                   <>
-                    <Link2 aria-hidden="true" /> Theo số dư ví tiết kiệm liên kết
+                    <Link2 aria-hidden="true" /> Theo số dư ví liên kết
                   </>
                 ),
               },
@@ -1170,7 +1170,7 @@ function GoalEditorSheet({
           />
           {trackingMode === "linked_wallet" ? (
             <Select
-              label="Chọn ví tiết kiệm liên kết"
+              label="Ví liên kết"
               value={walletId}
               onValueChange={setWalletId}
               disabled={lockedSource}
@@ -1190,15 +1190,14 @@ function GoalEditorSheet({
             />
           ) : !goal ? (
             <MoneyInput
-              label="Số tiền đã tích lũy sẵn"
+              label="Số tiền đã có sẵn"
               value={existingAmount}
               onValueChange={setExistingAmount}
             />
           ) : null}
           {lockedSource && (
             <p className="text-xs text-[var(--text-secondary)]">
-              Cách theo dõi được cố định sau khi kế hoạch bắt đầu chạy để đảm
-              bảo tính chính xác của dữ liệu lịch sử.
+              Không thể đổi cách theo dõi sau khi kế hoạch đã bắt đầu chạy.
             </p>
           )}
           {planStatus === "active" && (
@@ -1207,8 +1206,8 @@ function GoalEditorSheet({
                 className="mr-1 inline size-3.5"
                 aria-hidden="true"
               />
-              Thay đổi số tiền mục tiêu hoặc thời hạn sẽ tự động tính lại mục
-              tiêu tiết kiệm tháng này.
+              Khi đổi số tiền hoặc thời hạn, mức tiết kiệm hàng tháng sẽ tự động
+              tính lại.
             </p>
           )}
         </div>
@@ -1270,7 +1269,7 @@ function FundingSheet({
         <SheetHeader
           icon={CircleDollarSign}
           title="Ghi nhận đóng góp"
-          description={`Mục tiêu ${goal.name}. Khoản đóng góp của thành viên sẽ được cộng vào tiến độ sau khi Quản trị viên duyệt.`}
+          description={`Cập nhật số tiền tích lũy cho mục tiêu ${goal.name}.`}
         />
         <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-4 py-5 md:px-6">
           {error && (

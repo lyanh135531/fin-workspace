@@ -205,7 +205,7 @@ function JoinNotificationCard({
               value={selectedRole}
               disabled={pending}
               onValueChange={onRoleChange}
-              placeholder={`Vai trò cấp cho ${item.username}`}
+              placeholder={`Chọn vai trò cho ${item.username}`}
               options={roles.map((role) => ({
                 value: role.code,
                 label: role.name,
@@ -260,7 +260,7 @@ function TransactionNotificationCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <p className="min-w-0 break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
-              {item.description || item.category || "Giao dịch chưa ghi chú"}
+              {item.description || item.category || "Không có ghi chú"}
             </p>
             <span
               className={`shrink-0 text-xs font-semibold ${config.className}`}
@@ -362,7 +362,7 @@ function ChangeNotificationCard({
           </div>
 
           <p className="mt-2 break-words text-sm font-medium leading-snug text-[var(--foreground)]">
-            {item.description || "Giao dịch chưa ghi chú"}
+            {item.description || "Không có ghi chú"}
           </p>
           <p className="mt-1 break-words text-xs leading-snug text-[var(--text-muted)]">
             {item.username} · {item.wallet} · {transactionTypeLabel[item.type]}
@@ -590,7 +590,7 @@ export function NotificationsMenu({
         toast.success(
           action === "delete"
             ? approve
-              ? "Đã duyệt xóa giao dịch và cập nhật lại số dư ví."
+              ? "Đã duyệt xóa giao dịch."
               : "Đã từ chối yêu cầu xóa giao dịch."
             : approve
               ? "Đã duyệt thay đổi giao dịch."
@@ -817,7 +817,7 @@ export function NotificationsMenu({
             </PopoverTitle>
             <PopoverDescription className="mt-0.5 text-xs text-[var(--text-muted)]">
               {items.length > 0
-                ? "Các cập nhật cần bạn xem xét"
+                ? "Các yêu cầu và cập nhật mới"
                 : "Bạn đã xem hết thông báo"}
             </PopoverDescription>
           </div>

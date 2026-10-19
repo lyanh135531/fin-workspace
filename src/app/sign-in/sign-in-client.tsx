@@ -89,7 +89,7 @@ type SignInClientProps = {
 export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleError }: SignInClientProps) {
   const id = useId();
   const [error, setError] = useState<string | null>(
-    googleError ? "Không đăng nhập được bằng Google. Kiểm tra tài khoản và thử lại." : null,
+    googleError ? "Không thể đăng nhập bằng Google. Vui lòng thử lại." : null,
   );
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -136,7 +136,7 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
       if (result?.error) {
         setErrorKey((key) => key + 1);
         setError(
-          "Không đăng nhập được. Kiểm tra lại tên đăng nhập và mật khẩu.",
+          "Tên đăng nhập hoặc mật khẩu không đúng.",
         );
         setLoading(false);
         return;
@@ -195,7 +195,7 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
               <p className="auth-form-subtitle">
                 {portalMode
                   ? "Chỉ tài khoản quản trị hệ thống được phép truy cập"
-                  : "Tiếp tục quản lý thu chi và cập nhật biến động"}
+                  : "Quản lý thu chi, ngân sách và kế hoạch tài chính của bạn."}
               </p>
             </div>
 

@@ -238,7 +238,7 @@ export default async function FinancialPlansPage({
       month: isoDate.slice(0, 7),
       date: isoDate,
       amount: totalInstAmount,
-      description: `Trả góp kỳ #${inst.installmentNo}/${inst.plan.termCount}: ${inst.plan.description || inst.plan.transaction?.description || "Khoản trả góp thẻ"}`,
+      description: `Trả góp kỳ ${inst.installmentNo}/${inst.plan.termCount}: ${inst.plan.description || inst.plan.transaction?.description || "Khoản trả góp thẻ"}`,
       workflowStatus,
       walletName: inst.plan.card.wallet.name,
       walletKind: "credit_card" as const,

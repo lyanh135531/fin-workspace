@@ -244,7 +244,7 @@ export function DashboardLedgerWorkspace({
               Sổ giao dịch
             </h1>
             <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-              Theo dõi, tìm kiếm và quản lý toàn bộ khoản thu, chi và chuyển khoản.
+              Tra cứu và quản lý lịch sử thu, chi, chuyển tiền.
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
@@ -307,8 +307,8 @@ export function DashboardLedgerWorkspace({
             </div>
             <p className="text-xs leading-snug text-[var(--text-muted)]">
               {summary.incomeCount > 0
-                ? `${summary.incomeCount} khoản thu đã ghi nhận trong kỳ`
-                : "Chưa phát sinh khoản thu trong kỳ đang xem"}
+                ? `${summary.incomeCount} giao dịch thu`
+                : "Chưa có khoản thu"}
             </p>
           </div>
 
@@ -336,8 +336,8 @@ export function DashboardLedgerWorkspace({
             </div>
             <p className="text-xs leading-snug text-[var(--text-muted)]">
               {summary.expenseCount > 0
-                ? `${summary.expenseCount} khoản chi tiêu đã ghi nhận trong kỳ`
-                : "Chưa phát sinh khoản chi trong kỳ đang xem"}
+                ? `${summary.expenseCount} giao dịch chi`
+                : "Chưa có khoản chi"}
             </p>
           </div>
 
@@ -389,8 +389,8 @@ export function DashboardLedgerWorkspace({
             </div>
             <p className="text-xs leading-snug text-[var(--text-muted)]">
               {summary.transferCount > 0
-                ? `Tổng ${filteredRows.length} giao dịch (gồm ${summary.transferCount} chuyển khoản nội bộ)`
-                : `Tổng cộng ${filteredRows.length} giao dịch khớp điều kiện lọc`}
+                ? `${filteredRows.length} giao dịch (gồm ${summary.transferCount} chuyển tiền)`
+                : `${filteredRows.length} giao dịch trong kỳ`}
             </p>
           </div>
         </div>

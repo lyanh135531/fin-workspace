@@ -110,14 +110,14 @@ export default function SetupPage() {
           }
         } catch {
           setMessage(
-            "Tài khoản đã tạo, nhưng Felix chưa đăng nhập được.",
+            "Đã tạo tài khoản. Vui lòng đăng nhập để tiếp tục.",
           );
         }
 
         setCompletionState("manual-sign-in");
       } else {
         setErrorKey((k) => k + 1);
-        setMessage(res.message || "Chưa tạo được tài khoản. Thử lại.");
+        setMessage(res.message || "Không thể tạo tài khoản. Vui lòng thử lại.");
         if (res.fieldErrors) {
           setFieldErrors(res.fieldErrors);
         }

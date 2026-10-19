@@ -82,7 +82,7 @@ export function DashboardNavigation({
 
       <SidebarGroup className="pt-1">
         <span className="mb-1.5 block px-2 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] group-data-[collapsible=icon]:hidden!">
-          Danh mục
+          Quản lý
         </span>
         <SidebarGroupContent>
           <NavigationMenu

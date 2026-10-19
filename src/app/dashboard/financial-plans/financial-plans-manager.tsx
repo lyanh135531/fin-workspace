@@ -639,7 +639,7 @@ export function FinancialPlansManager({
                 : "Xóa kế hoạch"
             }
             title="Xóa kế hoạch?"
-            description="Kế hoạch sẽ bị xóa khỏi danh sách. Các số liệu tài chính đã chốt vẫn được lưu trong hệ thống."
+            description="Kế hoạch sẽ bị xóa khỏi danh sách. Số liệu các tháng đã chốt vẫn được giữ nguyên."
             confirmLabel="Xóa kế hoạch"
             confirmDisabled={isPending}
             onConfirm={() => {
@@ -667,7 +667,7 @@ export function FinancialPlansManager({
               title="Chưa có kế hoạch tài chính"
               description={
                 canManage
-                  ? "Thiết lập mục tiêu tiết kiệm, chọn thời hạn hoàn thành và tỷ lệ phân bổ 6 hũ. Hệ thống sẽ tự động tính ngân sách chi tiêu tháng từ thu nhập và số dư thực tế."
+                  ? "Đặt mục tiêu tiết kiệm và tỷ lệ 6 hũ để tự động tính ngân sách chi tiêu mỗi tháng."
                   : "Quản trị viên chưa thiết lập kế hoạch tài chính cho nhóm này."
               }
               action={
@@ -1058,7 +1058,7 @@ function DraftReview({
         </div>
         <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
           <p className="break-words text-xs font-medium leading-snug text-[var(--text-secondary)]">
-            Tích lũy ban đầu
+            Số tiền đã có sẵn
           </p>
           <p className="mt-1 text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums shrink-0 md:text-lg">
             {money(plan.existingGoalAmount, currency)}
@@ -1078,10 +1078,10 @@ function DraftReview({
       <div className="space-y-3 border-t border-[var(--border)] pt-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs font-semibold text-[var(--foreground)]">
-            Cấu hình phân bổ 6 hũ chi tiêu
+            Tỷ lệ 6 hũ chi tiêu
           </p>
           <span className="text-xs font-medium text-[var(--text-muted)] tabular-nums">
-            Tổng 100% ngân sách chi tiêu tháng
+            Tổng 100% ngân sách tháng
           </span>
         </div>
 
@@ -1481,7 +1481,7 @@ function PlanDetail({
             </span>
             {hasShortfall ? (
               <span className="font-semibold text-[var(--warning)] tabular-nums">
-                Mức cần bù thêm: {money(shortfall, currency)}
+                Cần bù thêm: {money(shortfall, currency)}
               </span>
             ) : (
               <span className="tabular-nums">
@@ -1520,11 +1520,11 @@ function PlanDetail({
             </p>
           </div>
 
-          {/* Tile 2: Mục tiêu tiết kiệm tháng này */}
+          {/* Tile 2: Cần tiết kiệm tháng này */}
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3">
             <div className="flex items-center justify-between gap-1.5">
               <p className="break-words text-xs font-medium leading-snug text-[var(--text-secondary)]">
-                Mục tiêu tiết kiệm tháng này
+                Cần tiết kiệm tháng này
               </p>
               <Target
                 className="size-3.5 shrink-0 text-[var(--primary)]"
@@ -1540,7 +1540,7 @@ function PlanDetail({
                   Bù thêm: {compactMoney(shortfall, currency)}
                 </span>
               ) : (
-                `Đã gán ${financialGoals.length} mục tiêu`
+                `${financialGoals.length} mục tiêu tích lũy`
               )}
             </p>
           </div>
@@ -1572,15 +1572,15 @@ function PlanDetail({
                       className="w-80 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 text-xs"
                     >
                       <p className="font-bold text-[var(--foreground)]">
-                        Công thức tính Ngân sách 6 Hũ tháng này
+                        Cách tính ngân sách 6 hũ tháng này
                       </p>
                       <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
-                        Dựa trên số dư thực tế, dư nợ thẻ tín dụng và chỉ tiêu tích lũy của kỳ hiện tại.
+                        Tính từ số dư ví, dư nợ thẻ tín dụng và mức cần tiết kiệm trong tháng.
                       </p>
                       <dl className="mt-2.5 grid gap-1.5 border-t border-[var(--border)] pt-2.5 tabular-nums">
                         <div className="flex items-center justify-between gap-2">
                           <dt className="text-[var(--text-secondary)]">
-                            Số dư thực tế ({walletSummary.assetWalletCount} ví)
+                            Số dư hiện tại ({walletSummary.assetWalletCount} ví)
                           </dt>
                           <dd
                             className={cn(
@@ -1624,7 +1624,7 @@ function PlanDetail({
                         </div>
                         <div className="flex items-center justify-between gap-2">
                           <dt className="text-[var(--text-secondary)]">
-                            Cộng lại chi tiêu đầu tháng & thu dự kiến
+                            Chi đầu tháng & thu dự kiến
                           </dt>
                           <dd className="font-semibold text-[var(--foreground)]">
                             {spentThisMonth.gt(0)
@@ -1634,7 +1634,7 @@ function PlanDetail({
                         </div>
                         <div className="flex items-center justify-between gap-2">
                           <dt className="text-[var(--text-secondary)]">
-                            Trừ mục tiêu tiết kiệm tháng này
+                            Trừ khoản tiết kiệm tháng này
                           </dt>
                           <dd className="font-semibold text-[var(--primary)]">
                             {requiredSavingsThisMonth.gt(0)
@@ -1643,7 +1643,7 @@ function PlanDetail({
                           </dd>
                         </div>
                         <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 font-bold text-[var(--foreground)]">
-                          <dt>= Ngân sách phân bổ 6 Hũ</dt>
+                          <dt>= Ngân sách 6 hũ</dt>
                           <dd>{money(monthlyBudget.toFixed(0), currency)}</dd>
                         </div>
                       </dl>
@@ -1660,7 +1660,7 @@ function PlanDetail({
               {money(monthlyBudget.toString(), currency)}
             </p>
             <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
-              Số dư có thể dùng:{" "}
+              Ngân sách còn lại:{" "}
               <span
                 className={cn(
                   "font-semibold tabular-nums",
@@ -1822,10 +1822,9 @@ function PlanDetail({
             {/* Plan Progress & Settings Card */}
             <Card>
               <CardHeader className="border-b border-[var(--border)]">
-                <CardTitle>Dự báo tích lũy & Quản trị kế hoạch</CardTitle>
+                <CardTitle>Tiến độ & Cài đặt kế hoạch</CardTitle>
                 <CardDescription>
-                  Theo dõi tiến độ tích lũy toàn kỳ và điều chỉnh thông số kế
-                  hoạch khi cần.
+                  Theo dõi tiến độ tích lũy và điều chỉnh kế hoạch khi cần.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4">
@@ -1868,7 +1867,7 @@ function PlanDetail({
 
                   <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
                     <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
-                      Mức cần bù thêm
+                      Cần bù thêm
                     </dt>
                     <dd
                       className={cn(
@@ -1882,8 +1881,8 @@ function PlanDetail({
                     </dd>
                     <small className="mt-0.5 block text-[11px] text-[var(--text-muted)]">
                       {hasShortfall
-                        ? "Cần bổ sung thu nhập hoặc giãn hạn"
-                        : "Đảm bảo đủ nguồn tích lũy"}
+                        ? "Cần tăng thu nhập hoặc lùi hạn hoàn thành"
+                        : "Đủ khả năng đạt mục tiêu"}
                     </small>
                   </div>
                 </dl>
@@ -1891,7 +1890,7 @@ function PlanDetail({
                 {plan.canManage && (
                   <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-3.5">
                     <span className="text-xs font-medium text-[var(--text-secondary)]">
-                      Thao tác quản trị kế hoạch
+                      Tùy chỉnh kế hoạch
                     </span>
                     <div className="flex flex-wrap items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-1">
                       {plan.status === "active" && (
@@ -2037,7 +2036,7 @@ function PlanDetail({
         presentation={isMobile ? "sheet" : "popover"}
         ariaLabel="Hủy kế hoạch"
         title="Hủy kế hoạch đang chạy?"
-        description="Kế hoạch sẽ dừng và chuyển sang chế độ chỉ đọc. Số liệu các tháng đã chốt vẫn được giữ nguyên."
+        description="Kế hoạch sẽ ngừng chạy và không thể chỉnh sửa thêm. Số liệu các tháng đã chốt vẫn được giữ nguyên."
         confirmLabel="Hủy kế hoạch"
         onConfirm={onCancel}
         disabled={disabled}
@@ -2225,7 +2224,7 @@ function DailySpendingCompass({
                 : "text-[var(--text-secondary)] hover:text-[var(--foreground)]",
             )}
           >
-            Sinh hoạt (Thiết yếu & Hưởng thụ)
+            Thiết yếu & Hưởng thụ
           </button>
           <button
             type="button"
@@ -2312,11 +2311,11 @@ function DailySpendingCompass({
       <div className="grid gap-1.5 border-t border-[var(--border)] pt-2.5 text-xs">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-[var(--text-secondary)] tabular-nums">
-            Thời gian tháng đã qua:{" "}
+            Đã qua{" "}
             <strong className="font-semibold text-[var(--foreground)]">
               {timeElapsedPct}%
             </strong>{" "}
-            (Ngày {currentDayOfMonth}/{totalDaysInMonth}) · Đã dùng:{" "}
+            tháng (Ngày {currentDayOfMonth}/{totalDaysInMonth}) · Đã tiêu{" "}
             <strong className="font-semibold text-[var(--foreground)]">
               {budgetUsedPct}%
             </strong>{" "}
@@ -2325,15 +2324,15 @@ function DailySpendingCompass({
 
           {scopeAllocated.lte(0) ? (
             <span className="break-words text-[11px] font-medium text-[var(--warning)]">
-              Ngân sách khả dụng đang bằng 0 ₫ do mục tiêu tiết kiệm hoặc dư nợ thẻ cao hơn số dư ví hiện tại. Bấm xem chi tiết công thức bên trên.
+              Ngân sách chi tiêu bằng 0 ₫ do mức cần tiết kiệm và dư nợ thẻ vượt số dư ví. Xem cách tính ở trên.
             </span>
           ) : budgetUsedPct <= timeElapsedPct ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold text-[var(--success)] tabular-nums">
-              🟢 Nhịp chi tiêu tốt (chậm hơn thời gian {timeElapsedPct - budgetUsedPct}%)
+              🟢 Chi tiêu hợp lý (thấp hơn tiến độ tháng {timeElapsedPct - budgetUsedPct}%)
             </span>
           ) : budgetUsedPct <= 100 ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--warning)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold text-[var(--warning)] tabular-nums">
-              🟡 Tiêu nhanh hơn thời gian (+{budgetUsedPct - timeElapsedPct}%)
+              🟡 Chi tiêu hơi nhanh (vượt tiến độ tháng +{budgetUsedPct - timeElapsedPct}%)
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--destructive)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold text-[var(--destructive)]">
@@ -2475,7 +2474,7 @@ function SixJarsSection({
               >
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-semibold text-[var(--foreground)]">
-                    Chọn kỳ ngân sách 6 hũ
+                    Chọn tháng
                   </span>
                   {month.month !== businessMonth &&
                     months.some((m) => m.month === businessMonth) && (
@@ -2555,7 +2554,7 @@ function SixJarsSection({
               ? `Còn ${remainingDays} ngày trong tháng`
               : month.closed
                 ? "Đã chốt sổ"
-                : "Kỳ dự kiến"}
+                : "Dự kiến"}
           </span>
         </div>
 
@@ -2988,7 +2987,7 @@ function JarDetailSheet({
           <dl className="grid grid-cols-2 gap-2.5">
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
               <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
-                Hạn mức phân bổ ({jar.percentage}%)
+                Ngân sách hũ ({jar.percentage}%)
               </dt>
               <dd className="mt-1 text-base font-bold text-[var(--foreground)] tabular-nums">
                 {money(jar.allocatedAmount, currency)}
@@ -2997,7 +2996,7 @@ function JarDetailSheet({
 
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
               <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
-                Đã chi thực tế ({jarUsage.toFixed(0)}%)
+                Đã chi ({jarUsage.toFixed(0)}%)
               </dt>
               <dd
                 className={cn(
@@ -3011,7 +3010,7 @@ function JarDetailSheet({
 
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
               <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
-                {overspent ? "Vượt hạn mức" : "Ngân sách còn lại"}
+                {overspent ? "Vượt hạn mức" : "Còn được tiêu"}
               </dt>
               <dd
                 className={cn(
@@ -3029,7 +3028,7 @@ function JarDetailSheet({
 
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
               <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
-                Định mức an toàn/ngày
+                An toàn mỗi ngày
               </dt>
               <dd className="mt-1 text-base font-bold text-[var(--foreground)] tabular-nums">
                 {remainingDays > 0
@@ -3352,8 +3351,8 @@ function MonthHistory({
               <span>Lộ trình ngân sách theo tháng</span>
             </CardTitle>
             <CardDescription className="mt-0.5 text-xs">
-              Theo dõi mục tiêu tiết kiệm tháng này, ngân sách chi tiêu tháng và
-              số dư có thể dùng của từng kỳ.
+              Theo dõi mức tiết kiệm, ngân sách chi tiêu và ngân sách còn lại
+              của từng tháng.
             </CardDescription>
           </div>
           <span className="shrink-0 rounded-full bg-[var(--surface-secondary)] px-2.5 py-0.5 text-xs font-semibold text-[var(--text-secondary)] tabular-nums">
@@ -3402,7 +3401,7 @@ function MonthHistory({
 
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--text-secondary)]">
                   <span className="tabular-nums">
-                    Mục tiêu tiết kiệm tháng này:{" "}
+                    Cần tiết kiệm:{" "}
                     <strong className="font-semibold text-[var(--foreground)]">
                       {money(month.adjustedRequiredAmount, currency)}
                     </strong>
@@ -3415,7 +3414,7 @@ function MonthHistory({
                   </span>
                   {hasShortfall && (
                     <span className="font-semibold text-[var(--warning)] tabular-nums">
-                      Mức cần bù thêm: {money(month.resourceShortfall, currency)}
+                      Cần bù thêm: {money(month.resourceShortfall, currency)}
                     </span>
                   )}
                 </div>
@@ -3424,7 +3423,7 @@ function MonthHistory({
               <div className="flex items-center justify-between gap-2.5 md:shrink-0 md:justify-end">
                 <div className="text-left md:text-right">
                   <span className="block text-[11px] text-[var(--text-muted)]">
-                    Số dư có thể dùng
+                    Ngân sách còn lại
                   </span>
                   <strong
                     className={cn(
@@ -3525,13 +3524,13 @@ function MonthSheetDetail({
       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
           <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
-            Mục tiêu tiết kiệm tháng này
+            Cần tiết kiệm
           </dt>
           <dd className="mt-1 text-base font-bold text-[var(--foreground)] tabular-nums shrink-0">
             {money(month.adjustedRequiredAmount, currency)}
           </dd>
           <small className="mt-0.5 block text-xs text-[var(--text-muted)] tabular-nums">
-            Thực tế ghi nhận: {money(savedAmount, currency)}
+            Đã tiết kiệm: {money(savedAmount, currency)}
           </small>
         </div>
 
@@ -3543,7 +3542,7 @@ function MonthSheetDetail({
             {money(month.allocatableGrossBudget, currency)}
           </dd>
           <small className="mt-0.5 block text-xs text-[var(--text-muted)] tabular-nums">
-            Số dư có thể dùng:{" "}
+            Ngân sách còn lại:{" "}
             <span
               className={cn(
                 "font-semibold",
@@ -3562,7 +3561,7 @@ function MonthSheetDetail({
 
       {hasShortfall && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-[color-mix(in_srgb,var(--warning)_30%,var(--border))] bg-[color-mix(in_srgb,var(--warning)_10%,var(--surface))] px-3.5 py-2.5 text-xs font-medium text-[var(--warning)]">
-          <span>Mức cần bù thêm cho mục tiêu tháng này</span>
+          <span>Cần bù thêm tháng này</span>
           <strong className="tabular-nums shrink-0">
             {money(month.resourceShortfall, currency)}
           </strong>
@@ -3571,8 +3570,8 @@ function MonthSheetDetail({
 
       {month.closed && month.adjustedDelta && month.adjustedDelta !== "0" && (
         <p className="text-xs leading-5 text-[var(--warning)]">
-          Tháng này có điều chỉnh bổ sung {money(month.adjustedDelta, currency)}{" "}
-          do chênh lệch thu chi khi chốt sổ.
+          Đã điều chỉnh {money(month.adjustedDelta, currency)} theo chênh lệch
+          thu chi thực tế khi chốt sổ.
         </p>
       )}
 
@@ -3806,8 +3805,8 @@ function PlanEditorSheet({
                     />
                   ) : (
                     <p className="text-sm leading-6 text-[var(--text-secondary)]">
-                      Số tiền mục tiêu và thời hạn hoàn thành được quản lý riêng
-                      trên từng mục tiêu tích lũy.
+                      Số tiền và thời hạn được chỉnh riêng trong từng mục tiêu
+                      tích lũy.
                     </p>
                   )}
                 </div>
@@ -3879,8 +3878,8 @@ function PlanEditorSheet({
                   />
                 ) : (
                   <p className="text-sm leading-6 text-[var(--text-secondary)]">
-                    Số tiền mục tiêu và thời hạn hoàn thành được quản lý riêng
-                    trên từng mục tiêu tích lũy.
+                    Số tiền và thời hạn được chỉnh riêng trong từng mục tiêu
+                    tích lũy.
                   </p>
                 )}
               </div>
@@ -4006,7 +4005,7 @@ function DeadlineSheet({
           isMobile={isMobile}
           icon={CalendarClock}
           title="Đổi thời hạn hoàn thành"
-          description="Số liệu các tháng đã chốt được giữ nguyên. Các tháng chưa chốt sẽ tự động tính lại mục tiêu tiết kiệm tháng này."
+          description="Số liệu các tháng đã chốt được giữ nguyên. Mức tiết kiệm hàng tháng sẽ tự động tính lại cho các tháng còn lại."
         />
         <div className="grid min-h-0 flex-1 content-start gap-6 overflow-y-auto px-4 py-5 md:px-6">
           <MonthPicker
@@ -4065,7 +4064,7 @@ function AllocationSheet({
           isMobile={isMobile}
           icon={SlidersHorizontal}
           title="Tỷ lệ phân bổ 6 hũ"
-          description="Áp dụng cho kỳ ngân sách từ tháng kế tiếp."
+          description="Tỷ lệ mới sẽ áp dụng từ tháng sau."
         />
         <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto px-4 py-3.5 md:px-6 md:py-4">
           <RatioEditor

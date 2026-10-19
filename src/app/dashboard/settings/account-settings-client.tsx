@@ -161,7 +161,7 @@ export function AccountSettingsClient({
             </span>
           </div>
           <p className="text-xs text-[var(--text-muted)]">
-            Tài khoản hệ thống Felix
+            Tài khoản Felix
           </p>
         </div>
       </div>
@@ -329,12 +329,12 @@ export function ChangePasswordSheet({
     const currentPassword = String(formData.get("currentPassword") || "");
 
     if (newPassword !== confirmPassword) {
-      toast.error("Mật khẩu xác nhận không trùng khớp với mật khẩu mới.");
+      toast.error("Mật khẩu nhập lại không khớp.");
       return;
     }
 
     if (newPassword.length < 8) {
-      toast.error("Mật khẩu mới phải có tối thiểu 8 ký tự.");
+      toast.error("Mật khẩu mới cần ít nhất 8 ký tự.");
       return;
     }
 
@@ -558,7 +558,7 @@ export function GoogleConfirmSheet({
       }
       setGooglePassword("");
       setShowPassword(false);
-      toast.success("Đã gỡ liên kết Google.");
+      toast.success("Đã hủy liên kết tài khoản Google.");
       onClose();
     });
   }
@@ -608,7 +608,7 @@ export function GoogleConfirmSheet({
                 {mode === "unlink" && !confirmingUnlink
                   ? "Tài khoản Google"
                   : mode === "unlink"
-                  ? "Xác nhận ngắt liên kết"
+                  ? "Hủy liên kết Google?"
                   : mode === "replace"
                   ? "Đổi tài khoản Google"
                   : "Liên kết tài khoản Google"}
@@ -686,7 +686,7 @@ export function GoogleConfirmSheet({
                 className="w-full text-xs"
               >
                 <Unlink size={14} aria-hidden="true" />
-                Ngắt liên kết
+                Hủy liên kết
               </Button>
             </div>
           </div>
@@ -702,10 +702,10 @@ export function GoogleConfirmSheet({
                 </span>
                 <div className="min-w-0 space-y-0.5">
                   <p className="text-xs font-semibold text-[var(--destructive)]">
-                    Lưu ý khi ngắt liên kết
+                    Lưu ý khi hủy liên kết
                   </p>
                   <p className="text-[11px] leading-relaxed text-[var(--text-secondary)]">
-                    Bạn sẽ không thể đăng nhập bằng Google nữa. Sau khi ngắt, bạn sẽ sử dụng mật khẩu tài khoản Felix để đăng nhập.
+                    Bạn sẽ không thể đăng nhập bằng Google nữa. Sau khi hủy liên kết, bạn sẽ sử dụng mật khẩu tài khoản Felix để đăng nhập.
                   </p>
                 </div>
               </div>
@@ -775,7 +775,7 @@ export function GoogleConfirmSheet({
                 {pending
                   ? "Đang xử lý…"
                   : mode === "unlink"
-                  ? "Xác nhận ngắt liên kết"
+                  ? "Hủy liên kết"
                   : "Xác nhận"}
               </Button>
             </div>

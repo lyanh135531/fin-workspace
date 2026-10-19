@@ -1089,7 +1089,7 @@ function CreditCardPanel({
           (res as { data?: { kind?: string } }).data?.kind === "requested";
         toast.success(
           isRequested
-            ? "Đã gửi yêu cầu chỉnh sửa giao dịch chờ Quản trị viên duyệt."
+            ? "Đã gửi yêu cầu sửa chờ duyệt."
             : "Đã cập nhật giao dịch thành công.",
         );
         setEditingActivity(null);
@@ -1542,10 +1542,10 @@ function CreditCardPanel({
         allocations: [{ walletId: importFundingWalletId, amount: importRemainingAmount }],
       });
       if (!result.ok) {
-        toast.error(result.message ?? "Không thể nhập khoản trả góp đang có.");
+        toast.error(result.message ?? "Không thể thêm khoản trả góp.");
         return;
       }
-      toast.success("Đã nhập khoản trả góp đang có.");
+      toast.success("Đã thêm khoản trả góp.");
       setImportOpen(false);
       setImportStep(1);
     });
@@ -2273,13 +2273,13 @@ function CreditCardPanel({
                   </p>
                   <div className="mt-3.5 space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3 text-xs">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[var(--text-secondary)]">Kỳ chốt sao kê định kỳ</span>
+                      <span className="text-[var(--text-secondary)]">Ngày chốt sao kê</span>
                       <strong className="font-semibold text-[var(--foreground)]">
                         Ngày {card.statementClosingDay} hàng tháng
                       </strong>
                     </div>
                     <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2">
-                      <span className="text-[var(--text-secondary)]">Hạn thanh toán định kỳ</span>
+                      <span className="text-[var(--text-secondary)]">Hạn thanh toán</span>
                       <strong className="font-semibold text-[var(--foreground)]">
                         Ngày {card.paymentDueDay} hàng tháng
                       </strong>
@@ -2295,7 +2295,7 @@ function CreditCardPanel({
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 font-medium text-[var(--text-secondary)]">
                 <Wallet className="size-3.5 text-[var(--primary)]" aria-hidden="true" />
-                <span>Ví chuẩn bị trả thẻ:</span>
+                <span>Ví chờ trả thẻ:</span>
               </span>
               {card.fundingShares.some((s) => new Decimal(s.outstanding || 0).gt(0)) ? (
                 card.fundingShares
@@ -2316,7 +2316,7 @@ function CreditCardPanel({
                   ))
               ) : (
                 <span className="text-[var(--text-muted)]">
-                  Chưa có khoản chờ thanh toán trên ví nguồn
+                  Chưa có khoản chờ trả
                 </span>
               )}
             </div>
@@ -2734,7 +2734,7 @@ function CreditCardPanel({
                     Cần thanh toán: {formatAmount(statementRemaining.toString())} {currency}
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">
-                    Hạn thanh toán: {formatIsoDate(card.statement.dueDate)} · Tổng phát sinh kỳ này:{" "}
+                    Hạn thanh toán: {formatIsoDate(card.statement.dueDate)} · Tổng sao kê:{" "}
                     {formatAmount(card.statement.amount)} {currency}
                   </p>
                 </div>
@@ -2910,8 +2910,8 @@ function CreditCardPanel({
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <SheetHeader
               icon={WalletCards}
-              title="Thanh toán sao kê & dư nợ thẻ"
-              description={`Thẻ ${card.name} · Trích từ tiền chờ thanh toán thẻ trên ví nguồn`}
+              title="Thanh toán thẻ tín dụng"
+              description={`Thẻ ${card.name} · Trích tiền từ ví thanh toán`}
             />
 
             <div className="flex-1 space-y-4 overflow-y-auto p-4 md:p-5 overscroll-contain">
@@ -2972,10 +2972,10 @@ function CreditCardPanel({
               <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-4 text-center">
                 <p className="text-xs font-medium text-[var(--text-secondary)]">
                   {paymentTargetMode === "statement"
-                    ? "Số tiền thanh toán sao kê kỳ này"
+                    ? "Thanh toán sao kê kỳ này"
                     : paymentTargetMode === "current_debt"
-                      ? "Tổng dư nợ hiện tại cần tất toán"
-                      : "Số tiền thanh toán tùy chọn"}
+                      ? "Tất toán toàn bộ dư nợ"
+                      : "Số tiền muốn trả"}
                 </p>
                 <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--foreground)]">
                   {formatAmount(effectivePaymentAmount.toString())}{" "}
@@ -3078,7 +3078,7 @@ function CreditCardPanel({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-[var(--foreground)]">
-                      Ví nguồn trích thanh toán ({computedPaymentSources.length})
+                      Trích từ ví ({computedPaymentSources.length})
                     </span>
                     {hasMultipleSources && (
                       <button
@@ -3111,7 +3111,7 @@ function CreditCardPanel({
                       })
                     ) : (
                       <div className="p-4 text-center text-xs text-[var(--text-muted)]">
-                        Nhập số tiền hợp lệ để phân bổ nguồn trích thanh toán.
+                        Nhập số tiền hợp lệ để xem số tiền trích từ từng ví.
                       </div>
                     )}
                   </div>
@@ -3381,11 +3381,11 @@ function CreditCardPanel({
           >
             <SheetHeader
               icon={History}
-              title={importStep === 1 ? "Thêm khoản trả góp đã có" : "Nguồn tiền & Dư nợ ban đầu"}
+              title="Thêm khoản trả góp có sẵn"
               description={
                 importStep === 1
-                  ? "Bước 1/2 · Thông tin khoản trả góp"
-                  : "Bước 2/2 · Nguồn tiền và tính vào dư nợ thẻ"
+                  ? "Bước 1/2 · Thông tin kỳ trả góp"
+                  : "Bước 2/2 · Chọn ví trả và cách tính dư nợ"
               }
             />
 
@@ -3457,7 +3457,7 @@ function CreditCardPanel({
                 </div>
                 <div>
                   <Select
-                    label="Ví trích tiền chờ thanh toán thẻ"
+                    label="Ví thanh toán hàng tháng"
                     value={importFundingWalletId}
                     onValueChange={setImportFundingWalletId}
                     options={fundingWallets.map((wallet) => ({ value: wallet.id, label: wallet.name }))}
@@ -3465,7 +3465,7 @@ function CreditCardPanel({
                   />
                   {importBalanceMode === "included_opening_debt" && (
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      Dư nợ ban đầu còn có thể phân bổ: {formatAmount(selectedImportableOpeningDebt)} {currency}
+                      Dư nợ ban đầu còn lại: {formatAmount(selectedImportableOpeningDebt)} {currency}
                     </p>
                   )}
                 </div>
@@ -3480,7 +3480,7 @@ function CreditCardPanel({
                   <p role="alert" className="flex items-start gap-2 text-xs text-[var(--destructive)]">
                     <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <span>
-                      Số tiền vượt quá phần dư nợ ban đầu còn lại của thẻ. Hãy giảm số tiền hoặc chọn cộng thêm vào dư nợ thẻ.
+                      Vượt quá dư nợ ban đầu còn lại. Hãy giảm số tiền hoặc chọn Cộng thêm vào dư nợ thẻ.
                     </span>
                   </p>
                 )}
@@ -3505,7 +3505,7 @@ function CreditCardPanel({
                 className="border-t border-[var(--border)] p-4 md:px-5"
                 onCancel={() => setImportStep(1)}
                 cancelLabel="Quay lại"
-                submitLabel={pending ? "Đang xử lý..." : "Nhập khoản trả góp"}
+                submitLabel={pending ? "Đang xử lý..." : "Thêm khoản trả góp"}
                 submitType="submit"
                 isSubmitting={pending}
                 submitDisabled={
@@ -3540,7 +3540,7 @@ function CreditCardPanel({
             <SheetHeader
               icon={Pencil}
               title="Chỉnh sửa thẻ tín dụng"
-              description="Thông tin mới áp dụng cho các kỳ sao kê phát sinh sau khi cập nhật."
+              description="Thay đổi sẽ áp dụng từ kỳ sao kê tiếp theo."
             />
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
               <div className="space-y-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/35 p-3.5">
@@ -3644,7 +3644,7 @@ function CreditCardPanel({
 
                 <div className="space-y-2">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                    Phân bổ dư nợ sao kê theo ví nguồn
+                    Số tiền trích theo từng ví
                   </h4>
                   {card.statement.sources.length > 0 ? (
                     <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface)]">
@@ -3855,7 +3855,7 @@ function CreditCardPanel({
           trigger={null}
           ariaLabel={`Xóa thẻ ${card.name}`}
           title={`Xóa thẻ “${card.name}”?`}
-          description="Hành động này sẽ xóa vĩnh viễn thẻ tín dụng khỏi hệ thống và không thể hoàn tác."
+          description="Thẻ và toàn bộ dữ liệu liên quan sẽ bị xóa vĩnh viễn."
           contentClassName="w-80 md:w-96"
           content={
             <div className="space-y-3 pt-1">
@@ -3886,7 +3886,7 @@ function CreditCardPanel({
                   className="mt-0.5 shrink-0"
                 />
                 <span className="text-xs font-medium leading-snug text-[var(--foreground)]">
-                  Tôi hiểu và xác nhận rằng sẽ mất tất cả dữ liệu liên quan đến thẻ tín dụng này.
+                  Tôi hiểu mọi dữ liệu của thẻ này sẽ bị xóa vĩnh viễn.
                 </span>
               </label>
             </div>
@@ -3945,7 +3945,7 @@ function CreditCardPanel({
           }
           description={
             deletingActivity.purpose === "credit_card_payment" && deletingActivity.status !== "approved"
-              ? "Giao dịch sẽ bị xóa và phần tiền chờ thanh toán thẻ sẽ được giải phóng."
+              ? "Giao dịch sẽ bị xóa và hoàn lại số tiền chờ trả thẻ trên ví."
               : `Giao dịch ${formatAmount(deletingActivity.amount)} ${currency} sẽ bị xóa và dư nợ thẻ sẽ được cập nhật tương ứng.`
           }
           confirmLabel="Xóa giao dịch"
@@ -3963,7 +3963,7 @@ function CreditCardPanel({
                 (res as { data?: { kind?: string } }).data?.kind === "requested";
               toast.success(
                 isRequested
-                  ? "Đã gửi yêu cầu xóa giao dịch chờ Quản trị viên duyệt."
+                  ? "Đã gửi yêu cầu xóa chờ duyệt."
                   : `Đã xóa giao dịch "${deletingActivity.description || "giao dịch"}".`,
               );
               setDeletingActivity(null);

@@ -58,7 +58,7 @@ function ConsentForm({
 
     const refreshed = await update({});
     if (!refreshed?.user?.legalConsentSatisfied) {
-      setError("Đã lưu xác nhận nhưng chưa làm mới được phiên. Hãy thử lại.");
+      setError("Đã lưu xác nhận. Vui lòng tải lại trang để tiếp tục.");
       setLoading(false);
       return;
     }
@@ -107,8 +107,8 @@ function ConsentForm({
           Xác nhận trước khi tiếp tục
         </h1>
         <p className="text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base">
-          Vui lòng xác nhận đồng ý với Điều khoản và Chính sách bảo mật mới để
-          Felix bảo vệ tốt nhất cho dữ liệu của bạn.
+          Vui lòng đồng ý với Điều khoản sử dụng và Chính sách bảo mật để tiếp
+          tục sử dụng Felix.
         </p>
       </div>
 

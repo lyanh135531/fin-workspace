@@ -53,7 +53,7 @@ export function OnboardingClient({
     startCreating(async () => {
       const result = await createPersonalWorkspaceAction();
       if (!result.ok) {
-        setError(result.message ?? "Không thể tạo không gian cá nhân.");
+        setError(result.message ?? "Không thể tạo nhóm tài chính cá nhân.");
         return;
       }
 
@@ -119,7 +119,7 @@ export function OnboardingClient({
             Bạn muốn bắt đầu với Felix thế nào?
           </h1>
           <p className="mt-5 max-w-lg break-words text-base leading-7 text-[var(--text-secondary)]">
-            Chào {username}. Chọn mục đích gần nhất với bạn; mọi thiết lập đều có thể thay đổi sau.
+            Chào {username}! Chọn cách bạn muốn bắt đầu. Bạn có thể thay đổi hoặc tạo thêm nhóm bất cứ lúc nào.
           </p>
 
           <div className="mt-8 grid gap-3 text-sm text-[var(--text-secondary)] md:grid-cols-2 lg:grid-cols-1">
@@ -127,7 +127,7 @@ export function OnboardingClient({
               <span className="grid size-9 shrink-0 place-items-center rounded-md bg-[var(--surface-secondary)] text-[var(--primary)]">
                 <WalletCards size={18} aria-hidden="true" />
               </span>
-              <p className="pt-1.5">Ví chính và danh mục được chuẩn bị sẵn.</p>
+              <p className="pt-1.5">Có sẵn Ví chính và bộ danh mục thu chi mặc định.</p>
             </div>
             <div className="flex items-start gap-3">
               <span className="grid size-9 shrink-0 place-items-center rounded-md bg-[var(--surface-secondary)] text-[var(--primary)]">
@@ -153,7 +153,7 @@ export function OnboardingClient({
                     ))}
                   </ul>
                   <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                    Bạn vẫn có thể tạo không gian cá nhân và sử dụng Felix trong lúc chờ.
+                    Bạn vẫn có thể tạo nhóm tài chính cá nhân và sử dụng Felix trong lúc chờ.
                   </p>
                 </div>
               </div>
@@ -171,7 +171,7 @@ export function OnboardingClient({
                     <p className="text-xs font-medium text-[var(--primary)]">Khuyên dùng</p>
                     <h2 className="mt-1 text-lg font-semibold">Quản lý tài chính của tôi</h2>
                     <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                      Tạo không gian cá nhân với Ví chính và các danh mục thu chi phổ biến.
+                      Tạo nhóm tài chính cá nhân với Ví chính và các danh mục thu chi phổ biến.
                     </p>
                   </div>
                 </div>
@@ -192,7 +192,7 @@ export function OnboardingClient({
                     <KeyRound size={21} aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-lg font-semibold">Tham gia nhóm của tôi</h2>
+                    <h2 className="text-lg font-semibold">Tham gia nhóm bằng mã mời</h2>
                     <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
                       Dùng mã mời từ quản trị viên để gửi yêu cầu tham gia nhóm tài chính đã có.
                     </p>
@@ -231,7 +231,7 @@ export function OnboardingClient({
               <div className="mt-5">
                 <p className="text-sm font-medium text-[var(--primary)]">Sẵn sàng trong vài giây</p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">
-                  Tạo không gian cá nhân
+                  Tạo nhóm tài chính cá nhân
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
                   Felix sẽ tạo “Tài chính cá nhân”, một Ví chính có số dư ban đầu bằng 0 và các danh mục mặc định.
@@ -240,7 +240,7 @@ export function OnboardingClient({
 
               <div className="mt-6 flex items-center gap-3 text-sm text-[var(--text-secondary)]">
                 <CheckCircle2 className="text-[var(--success)]" size={18} aria-hidden="true" />
-                <span>Bạn sẽ là quản trị viên của không gian này.</span>
+                <span>Bạn sẽ là quản trị viên của nhóm này.</span>
               </div>
 
               {error && (

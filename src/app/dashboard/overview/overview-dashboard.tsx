@@ -384,7 +384,7 @@ function walletSubtypeLabel(subtype?: string): string {
   if (subtype === "bank") return "Tài khoản ngân hàng";
   if (subtype === "cash") return "Tiền mặt";
   if (subtype === "e_wallet") return "Ví điện tử";
-  return "Ví tài sản";
+  return "Ví thanh toán";
 }
 
 function planHealthMeta(health: string): {
@@ -684,7 +684,7 @@ export function OverviewDashboard({
         id: `rec-${rec.id}`,
         kind: "recurring",
         title:
-          rec.description || rec.category?.name || "Khoản thu chi định kỳ",
+          rec.description || rec.category?.name || "Giao dịch định kỳ",
         subtitle:
           rec.type === "transfer" && rec.toWallet
             ? `${rec.wallet} → ${rec.toWallet}`
@@ -900,7 +900,7 @@ export function OverviewDashboard({
           {/* Top Row: Label (left) & Sleek Period Capsule (right) */}
           <div className="flex items-center justify-between gap-2">
             <span className="text-[0.7rem] font-semibold tracking-wider text-[var(--text-muted)] uppercase">
-              Tổng tài sản ròng
+              Tài sản ròng
             </span>
 
             {/* Minimalist Period Filter Capsule */}
@@ -1178,7 +1178,7 @@ export function OverviewDashboard({
               <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-[var(--text-secondary)] tabular-nums">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-[var(--income)]" />
-                  <span>Tổng số dư ví:</span>
+                  <span>Số dư ví:</span>
                   <strong className="font-semibold text-[var(--foreground)]">
                     {displayAmount(totalAssetBalanceDecimal)}
                   </strong>
@@ -1194,7 +1194,7 @@ export function OverviewDashboard({
                     title="Xem chi tiết tiền chờ thanh toán thẻ"
                   >
                     <span className="size-2 rounded-full bg-[var(--warning)]" />
-                    <span>Chờ thanh toán thẻ:</span>
+                    <span>Chờ trả thẻ:</span>
                     <strong className="font-semibold text-[var(--warning)]">
                       {displayAmount(totalCommittedDecimal)}
                     </strong>
@@ -1203,7 +1203,7 @@ export function OverviewDashboard({
 
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-[var(--primary)]" />
-                  <span>Còn lại sau khi trừ:</span>
+                  <span>Có thể dùng:</span>
                   <strong className="font-semibold text-[var(--foreground)]">
                     {displayAmount(totalAvailableDecimal)}
                   </strong>
@@ -1219,7 +1219,7 @@ export function OverviewDashboard({
                 className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--foreground)] px-3.5 text-xs font-semibold text-[var(--background)] transition-transform active:scale-[0.98] sm:flex-none"
               >
                 <ArrowUpRight className="size-3.5 shrink-0" />
-                <span>Ghi chi tiêu</span>
+                <span>Chi tiêu</span>
               </button>
 
               <button
@@ -1287,7 +1287,7 @@ export function OverviewDashboard({
               <span className="mt-0.5 block text-[0.7rem] text-[var(--text-muted)] tabular-nums">
                 {prevTotals.income.gt(0)
                   ? `Kỳ trước: ${privacyMasked ? "••••" : formatAmount(prevTotals.income)}`
-                  : "Chưa phát sinh kỳ trước"}
+                  : "Chưa có ở kỳ trước"}
               </span>
             </div>
 
@@ -1393,8 +1393,8 @@ export function OverviewDashboard({
               <div className="flex items-center justify-between gap-1">
                 <span className="text-xs font-medium text-[var(--text-muted)]">
                   {safeDailyBudget
-                    ? "An toàn chi mỗi ngày"
-                    : "Tiến độ kỳ báo cáo"}
+                    ? "Mức chi an toàn/ngày"
+                    : "Hoạt động trong kỳ"}
                 </span>
                 <span className="text-[0.65rem] font-medium text-[var(--text-muted)] tabular-nums">
                   Ngày {periodProgress.elapsed}/{periodProgress.total}
@@ -1406,7 +1406,7 @@ export function OverviewDashboard({
                     {displayAmount(safeDailyBudget.round(), { prefix: "~" })}
                   </strong>
                   <span className="mt-0.5 block text-[0.7rem] text-[var(--text-muted)]">
-                    Trong {remainingDaysInPeriod} ngày còn lại của kỳ
+                    Cho {remainingDaysInPeriod} ngày còn lại
                   </span>
                 </>
               ) : (
@@ -1417,7 +1417,7 @@ export function OverviewDashboard({
                   <span className="mt-0.5 block text-[0.7rem] text-[var(--text-muted)]">
                     {topExpenseCategory
                       ? `Chi nhiều nhất: ${topExpenseCategory.name} (${topExpenseCategory.percent.toFixed(0)}%)`
-                      : "Chưa phát sinh chi tiêu trong kỳ"}
+                      : "Chưa có chi tiêu trong kỳ"}
                   </span>
                 </>
               )}
@@ -1704,8 +1704,8 @@ export function OverviewDashboard({
                 ) : (
                   <Empty
                     variant="compact"
-                    title="Chưa có dữ liệu phát sinh"
-                    description="Chưa có giao dịch đã duyệt thuộc nhóm này trong kỳ."
+                    title="Chưa có dữ liệu"
+                    description="Chưa có giao dịch nào trong kỳ này."
                   />
                 )}
               </div>
@@ -1721,7 +1721,7 @@ export function OverviewDashboard({
           <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3.5 md:px-5 md:py-4">
             <div className="min-w-0">
               <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
-                Danh mục Ví & Thẻ ({wallets.length})
+                Ví & Thẻ ({wallets.length})
               </h2>
               {totalCommittedDecimal.gt(0) ? (
                 <button
@@ -1732,11 +1732,11 @@ export function OverviewDashboard({
                   className="mt-0.5 block cursor-pointer break-words text-left text-[0.7rem] font-medium leading-snug text-[var(--warning)] tabular-nums underline-offset-4 hover:underline"
                   title="Xem chi tiết tiền chờ thanh toán thẻ"
                 >
-                  {`Tiền chờ thanh toán thẻ: ${privacyMasked ? "••••" : money(totalCommittedDecimal, workspace.currency)}`}
+                  {`Chờ trả thẻ: ${privacyMasked ? "••••" : money(totalCommittedDecimal, workspace.currency)}`}
                 </button>
               ) : (
                 <p className="mt-0.5 break-words text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
-                  Số dư thực tế và hạn mức tín dụng
+                  Số dư hiện tại và hạn mức thẻ
                 </p>
               )}
             </div>
@@ -1864,7 +1864,7 @@ export function OverviewDashboard({
                                     : "bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] text-[var(--warning)]",
                                 )}
                               >
-                                Có sao kê
+                                Chờ thanh toán
                               </span>
                             )}
                           </div>
@@ -1970,7 +1970,7 @@ export function OverviewDashboard({
                 <Empty
                   variant="compact"
                   title="Chưa có ví hoặc thẻ"
-                  description="Thêm ví tài sản hoặc thẻ tín dụng để quản lý dòng tiền."
+                  description="Thêm ví hoặc thẻ tín dụng để bắt đầu theo dõi thu chi."
                 />
               </div>
             )}
@@ -2007,7 +2007,7 @@ export function OverviewDashboard({
               <p className="mt-0.5 break-words text-[0.7rem] leading-snug text-[var(--text-muted)]">
                 {financialPlanSnapshot
                   ? `Mục tiêu đến ${financialPlanSnapshot.targetMonth} · Tiến độ ${financialPlanSnapshot.realizedProgressPercentage}%`
-                  : "Phân bổ ngân sách chi tiêu theo 6 hũ và theo dõi mục tiêu tiết kiệm"}
+                  : "Chia ngân sách 6 hũ và theo dõi mục tiêu tiết kiệm"}
               </p>
             </div>
 
@@ -2037,7 +2037,7 @@ export function OverviewDashboard({
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
                     <Target className="size-3.5 text-[var(--primary)]" />
-                    <span>Đã tích lũy mục tiêu</span>
+                    <span>Tiến độ tích lũy</span>
                   </span>
                   <div className="text-right tabular-nums">
                     <strong className="text-sm font-bold text-[var(--foreground)]">
@@ -2160,8 +2160,7 @@ export function OverviewDashboard({
                 Thiết lập Kế hoạch 6 Hũ & Tích lũy
               </h3>
               <p className="mt-1 max-w-sm text-xs leading-relaxed text-[var(--text-muted)]">
-                Tự động chia ngân sách tháng vào 6 hũ chi tiêu và theo dõi tiến
-                độ tiết kiệm theo mục tiêu của nhóm.
+                Tự động chia ngân sách tháng vào 6 hũ và theo dõi mục tiêu tiết kiệm.
               </p>
               <Link
                 href="/financial-plans"
@@ -2195,7 +2194,7 @@ export function OverviewDashboard({
                   Hoạt động & Lịch sắp tới
                 </h2>
                 <p className="mt-0.5 break-words text-[0.7rem] leading-snug text-[var(--text-muted)]">
-                  Chạm vào giao dịch để xem chi tiết hoặc xử lý nhanh
+                  Giao dịch gần đây và lịch sắp đến hạn
                 </p>
               </div>
               <Link
@@ -2355,7 +2354,7 @@ export function OverviewDashboard({
                                     .map(
                                       (s) =>
                                         walletNameById.get(s.walletId) ??
-                                        "Ví tài sản",
+                                        "Ví thanh toán",
                                     )
                                     .join(", ")} → ${tx.wallet}`
                                 : `Thanh toán thẻ ${tx.wallet}`
@@ -2494,8 +2493,8 @@ export function OverviewDashboard({
                   <Empty
                     variant="compact"
                     icon={CalendarClock}
-                    title="Không có khoản đến hạn sắp tới"
-                    description="Mọi sao kê thẻ và lịch thu chi định kỳ đều đã được xử lý."
+                    title="Không có lịch sắp tới"
+                    description="Chưa có sao kê thẻ hay giao dịch định kỳ nào sắp đến hạn."
                   />
                 </div>
               ))}
@@ -2598,7 +2597,7 @@ export function OverviewDashboard({
           <SheetHeader
             icon={ReceiptText}
             title="Chi tiết giao dịch"
-            description="Thông tin bút toán ghi nhận trong sổ giao dịch."
+            description="Thông tin chi tiết giao dịch."
           />
 
           {selectedTransaction && (
@@ -2611,10 +2610,10 @@ export function OverviewDashboard({
                     : selectedTransaction.purpose === "credit_card_payment"
                       ? "Thanh toán thẻ tín dụng"
                       : selectedTransaction.type === "income"
-                        ? "Khoản thu nhập"
+                        ? "Thu nhập"
                         : selectedTransaction.type === "expense"
-                          ? "Khoản chi tiêu"
-                          : "Chuyển khoản nội bộ"}
+                          ? "Chi tiêu"
+                          : "Chuyển tiền"}
                 </span>
                 <strong
                   className={cn(
@@ -2661,7 +2660,7 @@ export function OverviewDashboard({
                       ? `${selectedTransaction.paymentSources
                           .map(
                             (s) =>
-                              walletNameById.get(s.walletId) ?? "Ví tài sản",
+                              walletNameById.get(s.walletId) ?? "Ví thanh toán",
                           )
                           .join(", ")} → ${selectedTransaction.wallet}`
                       : selectedTransaction.type === "transfer" &&
@@ -2847,7 +2846,7 @@ export function OverviewDashboard({
           <SheetHeader
             icon={CircleAlert}
             title={`Giao dịch chờ duyệt (${pendingTransactions.length})`}
-            description="Kiểm tra và phê duyệt nhanh các giao dịch quá khứ hoặc cần xác nhận."
+            description="Kiểm tra và duyệt các giao dịch chờ xác nhận."
           />
 
           <div className="min-h-0 flex-1 divide-y divide-[var(--border)] overflow-y-auto px-4 py-2 md:px-6">
@@ -3200,10 +3199,10 @@ function MonthlyFinancialChart({
 
   const emptyText =
     transactionType === "transfer"
-      ? "Biểu đồ thu chi không áp dụng cho giao dịch chuyển khoản."
+      ? "Chuyển tiền nội bộ không tính vào thu chi."
       : visibleTypes.length === 0
-        ? "Loại giao dịch không thuộc danh mục đang chọn."
-        : "Chưa có giao dịch đã ghi nhận trong khoảng thời gian này.";
+        ? "Không có dữ liệu khớp bộ lọc."
+        : "Chưa có giao dịch trong kỳ này.";
 
   return (
     <section className="min-w-0" aria-label="Biểu đồ thu nhập và chi tiêu">

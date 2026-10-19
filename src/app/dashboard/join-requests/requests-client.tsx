@@ -141,7 +141,7 @@ export function JoinRequestsClient({
                 {/* Identity */}
                 <div className="member-identity min-w-0">
                   <strong className="break-words leading-snug">{r.username}</strong>
-                  <span>Đang chờ được phê duyệt</span>
+                  <span>Yêu cầu tham gia qua mã mời</span>
                 </div>
 
                 {/* Role selection dropdown */}
@@ -243,7 +243,7 @@ export function JoinRequestsClient({
                       {selectedRequest.username}
                     </span>
                     <small className="text-xs text-[var(--text-secondary)]">
-                      Đang chờ được phê duyệt
+                      Yêu cầu tham gia qua mã mời
                     </small>
                   </div>
                   <strong className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs font-semibold text-[var(--warning)]">

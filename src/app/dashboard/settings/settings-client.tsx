@@ -135,7 +135,7 @@ export function SettingsClient({
               Thành viên của nhóm
             </h2>
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-              Quản lý vai trò và quyền hoạt động của từng tài khoản.
+              Quản lý vai trò và quyền truy cập của thành viên.
             </p>
           </div>
           <span className="ws-fixed-pill rounded-2xl md:text-xs md:font-medium md:text-[var(--text-muted)]">
@@ -205,7 +205,7 @@ export function SettingsClient({
                     <span>
                       {member.isSelf
                         ? "Tài khoản của bạn"
-                        : "Đang có quyền truy cập"}
+                        : "Thành viên nhóm"}
                     </span>
                   </div>
 

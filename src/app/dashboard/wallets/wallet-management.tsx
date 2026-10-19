@@ -125,8 +125,8 @@ function WalletDeactivateSheet({
         }
         description={
           hasRecurringDependencies
-            ? "Hãy xử lý các lịch định kỳ đang sử dụng ví này trước."
-            : "Ví sẽ được chuyển sang trạng thái tạm ngưng và không nhận giao dịch mới."
+            ? "Cần chuyển hoặc xóa các giao dịch định kỳ của ví này trước."
+            : "Ví sẽ ngừng nhận giao dịch mới nhưng vẫn giữ nguyên số dư và lịch sử."
         }
       />
 
@@ -155,7 +155,7 @@ function WalletDeactivateSheet({
             </div>
             <div className="shrink-0 text-right">
               <span className="block text-xs text-[var(--text-muted)]">
-                Số dư thực tế
+                Số dư hiện tại
               </span>
               <strong className="mt-1 block text-sm font-semibold tabular-nums text-[var(--foreground)]">
                 {formatAmount(wallet.currentBalance)} {currency}
@@ -216,7 +216,7 @@ function WalletDeactivateSheet({
                   aria-hidden="true"
                 />
                 <p className="text-xs leading-5 text-[var(--text-secondary)]">
-                  Số dư thực tế và toàn bộ lịch sử giao dịch vẫn được giữ
+                  Số dư hiện tại và toàn bộ lịch sử giao dịch vẫn được giữ
                   nguyên.
                 </p>
               </div>
@@ -1249,7 +1249,7 @@ export function WalletManagement({
               Ví tài chính
             </h1>
             <p className="mt-0.5 hidden text-xs text-[var(--text-secondary)] md:block">
-              Theo dõi tổng số dư hiện tại, tiền chờ thanh toán thẻ và số dư còn lại sau khi trừ của {workspace.name}.
+              Quản lý các ví thanh toán, thẻ tín dụng và số dư khả dụng.
             </p>
 
             <div className="mt-1 flex flex-wrap items-baseline gap-1.5 md:hidden">
@@ -1312,7 +1312,7 @@ export function WalletManagement({
               </span>
             </div>
             <p className="text-xs leading-snug text-[var(--text-muted)]">
-              Tổng tiền hiện có trong các ví thanh toán đang hoạt động
+              Tổng tiền trong các ví đang hoạt động
             </p>
           </div>
 
@@ -1368,16 +1368,16 @@ export function WalletManagement({
             </div>
             <p className="hidden text-xs leading-snug text-[var(--text-muted)] md:block">
               {creditWallets.length > 0
-                ? `Bấm để xem chi tiết các khoản chờ thanh toán của ${creditWallets.length} thẻ tín dụng`
-                : "Bấm để kiểm tra chi tiết nghĩa vụ thanh toán thẻ"}
+                ? `Khoản chờ trả của ${creditWallets.length} thẻ tín dụng`
+                : "Chưa có khoản chờ trả thẻ"}
             </p>
           </div>
 
-          {/* Metric 3: Còn lại sau khi trừ */}
+          {/* Metric 3: Số dư khả dụng */}
           <div className="min-w-0 space-y-0.5 border-l border-[var(--border)] pl-3 md:space-y-1 md:border-l-0 md:pl-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-semibold text-[var(--primary)] md:text-xs">
-                Còn lại sau khi trừ
+                Số dư khả dụng
               </span>
               <span className="hidden shrink-0 items-center gap-1 rounded-md bg-[var(--primary-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--primary)] md:inline-flex">
                 <ShieldCheck size={12} aria-hidden="true" />
@@ -1393,7 +1393,7 @@ export function WalletManagement({
               </span>
             </div>
             <p className="hidden text-xs leading-snug text-[var(--text-muted)] md:block">
-              Số dư thực tế sau khi trừ tiền chờ thanh toán thẻ
+              Số tiền có thể chi tiêu (đã trừ khoản chờ trả thẻ)
             </p>
           </div>
         </div>
@@ -1484,7 +1484,7 @@ export function WalletManagement({
               description={
                 wallets.length === 0
                   ? isAdmin
-                    ? "Tạo ví đầu tiên để bắt đầu theo dõi số dư thực tế và số dư có thể dùng."
+                    ? "Tạo ví đầu tiên để bắt đầu quản lý thu chi và số dư."
                     : "Quản trị viên chưa tạo ví cho nhóm này."
                   : "Hãy chọn bộ lọc khác để xem các ví còn lại."
               }
@@ -1593,7 +1593,7 @@ export function WalletManagement({
                               Tiền có sẵn
                             </strong>
                             <small className="block text-[11px] text-[var(--text-muted)]">
-                              Ghi nhận khoản thu
+                              Tạo khoản thu ban đầu
                             </small>
                           </div>
                         </div>
@@ -1634,7 +1634,7 @@ export function WalletManagement({
                               Chuyển từ ví khác
                             </strong>
                             <small className="block text-[11px] text-[var(--text-muted)]">
-                              Chuyển nội bộ
+                              Trừ từ ví đang có
                             </small>
                           </div>
                         </div>
@@ -1670,8 +1670,8 @@ export function WalletManagement({
                       />
                       <span>
                         {createFundingType === "income"
-                          ? "Hệ thống sẽ tự động ghi nhận giao dịch thu cho số dư ban đầu."
-                          : "Hệ thống sẽ tạo giao dịch chuyển tiền nội bộ từ ví nguồn sang ví mới."}
+                          ? "Tự động tạo một giao dịch thu cho số dư ban đầu."
+                          : "Tự động chuyển tiền từ ví đã chọn sang ví mới."}
                       </span>
                     </p>
                   </div>
@@ -2012,8 +2012,8 @@ export function WalletManagement({
                 title={detailWallet.name}
                 description={
                   detailWallet.kind === "credit_card"
-                    ? "Chi tiết dư nợ hiện tại, dư nợ ban đầu và biến động của thẻ tín dụng."
-                    : "Chi tiết số dư hiện tại, số dư ban đầu và tiền chờ thanh toán thẻ."
+                    ? "Thông tin số dư và biến động của thẻ."
+                    : "Thông tin số dư và khoản chờ trả thẻ của ví."
                 }
               />
 
@@ -2253,7 +2253,7 @@ export function WalletManagement({
             ) {
               if (item.kind === "opening_debt") {
                 return {
-                  title: "Dư nợ đầu kỳ lúc tạo thẻ",
+                  title: "Dư nợ lúc tạo thẻ",
                   badge: "Dư nợ đầu kỳ",
                   badgeClass:
                     "bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] text-[var(--warning)]",
@@ -2263,7 +2263,7 @@ export function WalletManagement({
                 return {
                   title:
                     item.installmentPlan.description ||
-                    "Khoản trả góp nhập sẵn",
+                    "Trả góp có sẵn",
                   badge: `Trả góp ${item.installmentPlan.termCount} kỳ`,
                   badgeClass:
                     "bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] text-[var(--warning)]",
@@ -2339,7 +2339,7 @@ export function WalletManagement({
                       ? `Chờ thanh toán thẻ · ${selectedWallet.name}`
                       : "Tiền chờ thanh toán thẻ"
                   }
-                  description="Các khoản chi qua thẻ tín dụng đang chờ trích thanh toán."
+                  description="Các khoản chi thẻ tín dụng sẽ trích từ ví này khi thanh toán sao kê."
                 />
 
                 <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain p-4 md:p-5">
@@ -2418,7 +2418,7 @@ export function WalletManagement({
                         <span className="block text-[11px] text-[var(--text-muted)]">
                           {selectedWallet
                             ? "Số dư hiện tại"
-                            : "Tổng số dư thực tế"}
+                            : "Tổng số dư hiện tại"}
                         </span>
                         <strong className="mt-0.5 block whitespace-nowrap font-semibold tabular-nums text-[var(--foreground)]">
                           {formatAmount(summaryActualBalance)}{" "}
@@ -2428,7 +2428,7 @@ export function WalletManagement({
 
                       <div className="min-w-0 border-l border-[var(--border)] pl-3">
                         <span className="block text-[11px] text-[var(--text-muted)]">
-                          Còn lại sau khi trừ
+                          Số dư khả dụng
                         </span>
                         <strong
                           className={cn(
@@ -2514,11 +2514,11 @@ export function WalletManagement({
                               if (item.categoryName) {
                                 subtextParts.push(item.categoryName);
                               } else if (item.kind === "opening_debt") {
-                                subtextParts.push("Khai báo lúc tạo thẻ");
+                                subtextParts.push("Dư nợ lúc tạo thẻ");
                               } else if (
                                 item.installmentPlan?.origin === "imported"
                               ) {
-                                subtextParts.push("Nhập sẵn");
+                                subtextParts.push("Trả góp có sẵn");
                               }
 
                               return (
@@ -2585,7 +2585,7 @@ export function WalletManagement({
                                       </Link>
                                     ) : !item.statement.paidAt ? (
                                       <span className="text-[var(--warning)]">
-                                        Đã kết chuyển kỳ sau
+                                        Đã gộp sang kỳ sau
                                       </span>
                                     ) : (
                                       <span className="text-[var(--success)]">
@@ -2663,9 +2663,7 @@ export function WalletManagement({
 
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 md:p-5">
                 <div className="rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--surface))] p-4 text-xs leading-relaxed text-[var(--text-secondary)]">
-                  Để tiếp tục, hãy mở mục Giao dịch định kỳ và chuyển các lịch
-                  này sang ví khác hoặc xóa lịch định kỳ đang dùng ví này. Lịch
-                  sử giao dịch đã phát sinh vẫn được giữ nguyên.
+                  Hãy chuyển các lịch định kỳ này sang ví khác hoặc xóa trước khi thực hiện. Lịch sử giao dịch cũ vẫn được giữ nguyên.
                 </div>
               </div>
 
@@ -2758,7 +2756,7 @@ export function WalletManagement({
                   <section className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
                     <div className="flex items-center justify-between gap-2 text-xs">
                       <span className="font-medium text-[var(--text-secondary)]">
-                        Số dư thực tế cần tất toán
+                        Số dư cần tất toán
                       </span>
                       <strong
                         data-required={requiresSettlement || undefined}

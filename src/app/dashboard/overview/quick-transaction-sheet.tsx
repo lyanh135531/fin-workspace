@@ -86,8 +86,8 @@ export function QuickTransactionHeaderButton() {
       size="icon"
       type="button"
       className="hidden md:inline-flex"
-      aria-label="Nhập nhanh giao dịch"
-      title="Nhập nhanh giao dịch"
+      aria-label="Ghi giao dịch"
+      title="Ghi giao dịch"
       onClick={() => window.dispatchEvent(new CustomEvent("open-quick-transaction"))}
     >
       <Plus size={17} strokeWidth={2.2} aria-hidden="true" />
@@ -312,15 +312,15 @@ export function QuickTransactionSheet({
   function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!workspace || !walletId || !amount.trim()) {
-      toast.error("Hãy chọn ví và nhập số tiền.");
+      toast.error("Vui lòng chọn ví và nhập số tiền.");
       return;
     }
     if (type === "transfer" && (!toWalletId || toWalletId === walletId)) {
-      toast.error("Hãy chọn một ví nhận khác ví gửi.");
+      toast.error("Ví nhận phải khác ví chuyển.");
       return;
     }
     if (isCreditCardTransaction && !allocationWalletId) {
-      toast.error("Hãy chọn ví nguồn thanh toán sao kê.");
+      toast.error("Vui lòng chọn ví thanh toán thẻ.");
       return;
     }
 
@@ -341,10 +341,10 @@ export function QuickTransactionSheet({
       }
       const message =
         result.status === "pending"
-          ? `Đã gửi giao dịch vào ${workspace.name} để Admin duyệt.`
+          ? "Đã gửi giao dịch chờ duyệt."
           : result.status === "scheduled"
-            ? `Đã lên lịch giao dịch trong ${workspace.name}.`
-            : `Đã ghi nhận giao dịch trong ${workspace.name}.`;
+            ? "Đã lên lịch giao dịch."
+            : "Đã lưu giao dịch.";
       toast.success(message);
       resetEntry();
       setOpen(false);
@@ -356,9 +356,9 @@ export function QuickTransactionSheet({
 
   const statusHint =
     date > workspace.businessDate
-      ? "Giao dịch sẽ được lên lịch."
+      ? "Giao dịch sẽ tự động ghi nhận khi đến ngày."
       : date < workspace.businessDate && !isAdminRole(workspace.role)
-        ? "Giao dịch quá khứ sẽ chờ Admin duyệt."
+        ? "Giao dịch lùi ngày cần Quản trị viên duyệt."
         : null;
   const transferDisabled = !workspace.wallets.some((w) =>
     workspace.wallets.some((dest) => dest.kind === "asset" && dest.id !== w.id),
@@ -386,7 +386,7 @@ export function QuickTransactionSheet({
           ? "Ví gửi"
           : isCreditCardTransaction
             ? "Thẻ thanh toán"
-            : "Ví thực hiện"
+            : "Ví thanh toán"
       }
       value={walletId}
       onValueChange={(nextWalletId) => {
@@ -437,7 +437,7 @@ export function QuickTransactionSheet({
                     : "bg-[var(--surface-secondary)] text-[var(--text-muted)]"
                 }`}
               >
-                {isCard ? "Thẻ tín dụng" : "Ví tài sản"}
+                {isCard ? "Thẻ tín dụng" : "Ví thanh toán"}
               </span>
             </div>
           ),
@@ -646,7 +646,7 @@ export function QuickTransactionSheet({
             </div>
             <div className="min-w-0">
               <Input
-                label="Nội dung ghi chú"
+                label="Ghi chú"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Ăn trưa, cà phê, nhận lương..."
@@ -659,8 +659,8 @@ export function QuickTransactionSheet({
           <Empty
             variant="compact"
             icon={WalletCards}
-            title="Nhóm chưa có ví hoạt động"
-            description="Tạo hoặc kích hoạt ví trước khi nhập giao dịch."
+            title="Chưa có ví hoạt động"
+            description="Hãy tạo hoặc kích hoạt ví để ghi giao dịch."
             role="status"
           />
         )}
@@ -746,8 +746,8 @@ export function QuickTransactionSheet({
           <Empty
             variant="compact"
             icon={WalletCards}
-            title="Nhóm chưa có ví hoạt động"
-            description="Tạo hoặc kích hoạt ví trước khi nhập giao dịch."
+            title="Chưa có ví hoạt động"
+            description="Hãy tạo hoặc kích hoạt ví để ghi giao dịch."
             role="status"
           />
         )}
@@ -780,7 +780,7 @@ export function QuickTransactionSheet({
               onValueChange={setDate}
             />
             <Textarea
-              label="Nội dung"
+              label="Ghi chú"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Ăn trưa, nhận lương"
@@ -835,8 +835,8 @@ export function QuickTransactionSheet({
       >
         <SheetHeader
           icon={WalletCards}
-          title="Nhập nhanh giao dịch"
-          description="Ghi nhận nhanh khoản thu, chi hoặc chuyển khoản."
+          title="Ghi giao dịch"
+          description="Ghi nhanh khoản thu, chi hoặc chuyển tiền."
         />
         {isDesktop ? desktopTransactionForm : mobileTransactionForm}
       </SheetContent>

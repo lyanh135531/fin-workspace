@@ -86,7 +86,7 @@ export function WorkspaceSettings({
         toast.error(result.message ?? "Không thể xóa nhóm tài chính.");
         return false;
       }
-      toast.success("Đã xóa nhóm tài chính. Đang chuyển về tổng quan...");
+      toast.success("Đã xóa nhóm tài chính.");
       window.location.assign("/overview");
       return true;
     } finally {
@@ -241,15 +241,15 @@ export function WorkspaceSettings({
             </div>
             <div className="min-w-0 space-y-0.5">
               <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                Khu vực nguy hiểm
+                Xóa nhóm tài chính
               </h3>
               <p className="max-w-lg text-xs leading-snug text-[var(--text-secondary)]">
-                Vô hiệu hóa nhóm{" "}
+                Xóa nhóm{" "}
                 <strong className="break-words font-semibold text-[var(--foreground)]">
                   {workspace.name}
                 </strong>
                 <span className="hidden md:inline">
-                  {" "}và gỡ khỏi danh sách của tất cả thành viên
+                  {" "}và gỡ quyền truy cập của tất cả thành viên
                 </span>
                 .
               </p>
@@ -262,8 +262,7 @@ export function WorkspaceSettings({
               title="Xóa nhóm tài chính?"
               description={
                 <>
-                  Nhóm <strong className="break-words leading-snug">{workspace.name}</strong> sẽ bị vô hiệu hóa và gỡ
-                  khỏi danh sách của tất cả thành viên.
+                  Nhóm <strong className="break-words leading-snug">{workspace.name}</strong> sẽ bị xóa khỏi danh sách của tất cả thành viên.
                 </>
               }
               content={
@@ -335,7 +334,7 @@ export function WorkspaceSettings({
                 <div>
                   <SheetTitle>Xóa nhóm tài chính?</SheetTitle>
                   <SheetDescription>
-                    Hành động này cần được xác nhận bằng mật khẩu.
+                    Hành động này không thể hoàn tác.
                   </SheetDescription>
                 </div>
               </div>
@@ -343,8 +342,7 @@ export function WorkspaceSettings({
 
             <div className="grid gap-4 overflow-y-auto p-4">
               <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
-                Nhóm <strong className="text-[var(--foreground)]">{workspace.name}</strong> sẽ bị vô hiệu hóa. Để
-                tiếp tục, vui lòng xác nhận bằng mật khẩu tài khoản của bạn.
+                Nhóm <strong className="text-[var(--foreground)]">{workspace.name}</strong> sẽ bị xóa khỏi danh sách của tất cả thành viên. Vui lòng nhập mật khẩu để xác nhận.
               </p>
 
               <div className="space-y-1.5">

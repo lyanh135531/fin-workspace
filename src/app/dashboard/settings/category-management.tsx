@@ -211,8 +211,8 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
       if (result.ok) {
         toast.success(
           status === "active"
-            ? "Đã kích hoạt danh mục."
-            : "Đã vô hiệu hóa danh mục.",
+            ? "Đã bật danh mục."
+            : "Đã tắt danh mục.",
         );
       } else {
         toast.error(result.message ?? "Không thể đổi trạng thái.");
@@ -224,7 +224,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
     start(async () => {
       const result = await deleteCategoryAction(id);
       if (result.ok) {
-        toast.success("Đã xóa danh mục thành công.");
+        toast.success("Đã xóa danh mục.");
       } else {
         toast.error(result.message ?? "Không thể xóa danh mục.");
       }
@@ -357,7 +357,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
               Quản lý danh mục
             </h2>
             <p className="mt-0.5 hidden text-xs leading-relaxed text-[var(--text-secondary)] md:block">
-              Tổ chức danh mục cha, danh mục con và sắp xếp theo cấu trúc phù hợp với nhóm tài chính.
+              Quản lý và sắp xếp các danh mục thu chi của nhóm.
             </p>
           </div>
         </div>
@@ -412,10 +412,10 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
 
         <p className="hidden text-xs text-[var(--text-muted)] md:block">
           <span className="hidden lg:inline">
-            Kéo thả để thay đổi thứ tự trong cùng một cấp
+            Kéo thả để sắp xếp thứ tự
           </span>
           <span className="lg:hidden">
-            Chạm vào danh mục để chỉnh sửa hoặc kéo biểu tượng để sắp xếp
+            Chạm để sửa hoặc giữ kéo để sắp xếp
           </span>
         </p>
       </div>
@@ -446,7 +446,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
             description={
               editingCategory
                 ? "Cập nhật thông tin, màu sắc và biểu tượng của danh mục."
-                : "Tạo danh mục mới để sử dụng trong nhóm tài chính này."
+                : "Tạo danh mục thu chi mới cho nhóm."
             }
           />
           {(creating || editingCategory) && (
@@ -478,7 +478,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
           <Empty
             icon={Tag}
             title={`Chưa có danh mục ${filterType === "expense" ? "chi tiêu" : "thu nhập"}`}
-            description="Tạo danh mục mới để sử dụng trong nhóm tài chính này."
+            description="Tạo danh mục thu chi mới cho nhóm."
           />
         ) : filterType === "expense" ? (
           <div className="space-y-5">
@@ -1215,7 +1215,7 @@ function CategoryForm({
                 }
               }}
               label="Danh mục cha"
-              emptyOption={{ value: "none", label: "Không có (Danh mục gốc)" }}
+              emptyOption={{ value: "none", label: "Không chọn (Danh mục cha)" }}
               categories={categories.filter(
                 (item) =>
                   item.status === "active" &&
@@ -1241,7 +1241,7 @@ function CategoryForm({
                   required
                 />
                 <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
-                  Giao dịch thuộc danh mục này sẽ tiêu hạn mức của hũ đã chọn.
+                  Chi tiêu thuộc danh mục này sẽ tính vào hũ đã chọn.
                 </p>
               </div>
             ) : (

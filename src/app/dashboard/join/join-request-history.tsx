@@ -14,17 +14,17 @@ export type JoinRequestItem = {
 const STATUS_CONFIG = {
   pending: {
     icon: Clock,
-    label: "Đang chờ duyệt",
+    label: "Chờ duyệt",
     className: "text-[var(--warning)]",
   },
   approved: {
     icon: CheckCircle2,
-    label: "Đã được duyệt",
+    label: "Đã duyệt",
     className: "text-[var(--success)]",
   },
   rejected: {
     icon: XCircle,
-    label: "Bị từ chối",
+    label: "Từ chối",
     className: "text-[var(--danger)]",
   },
 } as const;

@@ -175,7 +175,7 @@ export function DesktopTransactionCreateDraft({
                 : "bg-[var(--surface-secondary)] text-[var(--text-muted)]"
             }`}
           >
-            {isCard ? "Thẻ tín dụng" : "Ví tài sản"}
+            {isCard ? "Thẻ tín dụng" : "Ví thanh toán"}
           </span>
         </div>
       ),
@@ -265,7 +265,7 @@ export function DesktopTransactionCreateDraft({
             data-slot="popover-description"
             className="mt-1 text-xs leading-5 text-[var(--text-muted)]"
           >
-            Ghi nhận khoản thu, chi hoặc chuyển khoản vào sổ giao dịch.
+            Thêm khoản thu, chi hoặc chuyển tiền mới.
           </p>
         </div>
       </div>
@@ -319,10 +319,10 @@ export function DesktopTransactionCreateDraft({
                   size={15}
                   aria-hidden="true"
                 />
-                Số tiền & Ví thực hiện
+                Số tiền & Nguồn tiền
               </h3>
               <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">
-                Nhập số tiền và chọn ví hoặc thẻ thanh toán.
+                Chọn ví hoặc thẻ dùng cho giao dịch.
               </p>
             </div>
 
@@ -432,7 +432,7 @@ export function DesktopTransactionCreateDraft({
                   size={15}
                   aria-hidden="true"
                 />
-                Chi tiết phân loại
+                Thông tin giao dịch
               </h3>
               <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">
                 Danh mục, ngày giao dịch và ghi chú.
@@ -483,7 +483,7 @@ export function DesktopTransactionCreateDraft({
 
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-2 pt-3">
         <span className="min-w-0 break-words text-xs leading-snug text-[var(--text-muted)]">
-          Số dư ví sẽ cập nhật khi giao dịch được ghi nhận.
+          Số dư ví sẽ tự động cập nhật sau khi lưu.
         </span>
         <div className="flex shrink-0 items-center gap-2">
           <Button variant="ghost" disabled={busy} onClick={onCancel}>

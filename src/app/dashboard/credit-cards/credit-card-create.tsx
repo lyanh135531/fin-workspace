@@ -383,7 +383,7 @@ export function CreditCardCreate({
 
         <div className="space-y-1.5 border-t border-[var(--border)] pt-3">
           <Select
-            label="Ví thanh toán sao kê mặc định"
+            label="Ví thanh toán mặc định"
             value={resolvedFundingWalletId}
             onValueChange={setFundingWalletId}
             options={fundingWallets.map((wallet) => ({
@@ -393,7 +393,7 @@ export function CreditCardCreate({
             required
           />
           <p className="px-0.5 text-[11px] leading-relaxed text-[var(--text-muted)]">
-            Khi quẹt thẻ, khoản chi được tính vào Tiền chờ thanh toán thẻ. Số dư thực tế của ví chỉ trừ khi bạn bấm &ldquo;Thanh toán sao kê&rdquo;.
+            Khi chi tiêu thẻ, tiền sẽ được giữ ở mục Chờ trả thẻ. Số dư ví chỉ bị trừ khi bạn thanh toán sao kê.
           </p>
         </div>
       </div>
@@ -406,10 +406,10 @@ export function CreditCardCreate({
         >
           <div className="min-w-0 space-y-0.5">
             <p className="text-xs font-semibold leading-snug text-[var(--foreground)]">
-              Thẻ đã có dư nợ ban đầu?
+              Thẻ đang có sẵn dư nợ?
             </p>
             <p className="text-[11px] leading-snug text-[var(--text-muted)]">
-              Dành cho thẻ đang có dư nợ trước khi thêm vào hệ thống.
+              Bật nếu thẻ đã có khoản chi tiêu trước khi thêm vào ứng dụng.
             </p>
           </div>
           <input
@@ -438,7 +438,7 @@ export function CreditCardCreate({
                 className="flex items-center gap-1.5 text-xs text-[var(--warning)]"
               >
                 <AlertCircle size={14} className="shrink-0" aria-hidden="true" />
-                <span>Dư nợ ban đầu vượt quá hạn mức thẻ (thẻ sẽ bắt đầu ở trạng thái vượt hạn mức).</span>
+                <span>Dư nợ ban đầu đang vượt hạn mức thẻ.</span>
               </div>
             )}
           </div>

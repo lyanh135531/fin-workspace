@@ -82,8 +82,7 @@ export function CreateWorkspaceForm() {
               Một không gian rõ ràng cho mọi quyết định tài chính.
             </h1>
             <p>
-              Tập hợp ví, giao dịch và những người quan trọng vào một nơi được
-              thiết kế để mọi thứ luôn dễ hiểu.
+              Quản lý ví, thu chi và ngân sách chung của gia đình hoặc đội nhóm tại một nơi.
             </p>
           </div>
 
@@ -94,7 +93,7 @@ export function CreateWorkspaceForm() {
               <span>TỔNG QUAN NHÓM</span>
               <span className="workspace-create-live-label">
                 <span className="workspace-create-live-dot" />
-                READY TO SET UP
+                SẴN SÀNG
               </span>
             </div>
             <div className="workspace-create-visual-heading">
@@ -126,7 +125,7 @@ export function CreateWorkspaceForm() {
 
           <div className="workspace-create-intro-note">
             <Sparkles size={15} strokeWidth={1.8} aria-hidden="true" />
-            <span>Bạn sẽ là Admin đầu tiên của không gian này.</span>
+            <span>Bạn sẽ là quản trị viên của nhóm này.</span>
           </div>
         </section>
 
@@ -144,8 +143,7 @@ export function CreateWorkspaceForm() {
           </div>
 
           <p className="workspace-create-form-description">
-            Chọn một cái tên thân thuộc. Bạn luôn có thể cập nhật thông tin này
-            trong phần cài đặt sau đó.
+            Đặt tên dễ nhớ cho nhóm. Bạn có thể đổi lại bất cứ lúc nào trong Cài đặt.
           </p>
 
           <form

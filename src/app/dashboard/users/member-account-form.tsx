@@ -40,7 +40,7 @@ export function MemberAccountForm({ workspaces }: { workspaces: Workspace[] }) {
           <p className="settings-eyebrow">Quản lý tài khoản</p>
           <h1 className="mt-1 text-2xl font-semibold text-[var(--foreground)]">Tạo tài khoản thành viên</h1>
           <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-            Tài khoản mới sẽ là thành viên. Bạn chỉ có thể cấp quyền vào nhóm mình quản trị.
+            Tạo tài khoản mới và thêm trực tiếp vào các nhóm bạn đang quản lý.
           </p>
         </div>
       </div>
