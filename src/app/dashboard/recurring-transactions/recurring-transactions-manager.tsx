@@ -537,8 +537,8 @@ export function RecurringTransactionsManager({
                       : "text-[var(--foreground)]",
                 )}
               >
-                {monthlyNetAmount.gt(0) ? "+" : ""}
-                {formatAmount(activeMonthlyNetAmount)} {currencySymbol}
+                {monthlyNetAmount.gt(0) ? "+" : monthlyNetAmount.lt(0) ? "−" : ""}
+                {formatAmount(monthlyNetAmount.abs().toString())} {currencySymbol}
               </strong>
               <span className="shrink-0 text-xs font-medium text-[var(--text-muted)]">
                 / tháng
@@ -579,13 +579,14 @@ export function RecurringTransactionsManager({
               </span>
             </div>
             <p className="text-sm font-bold tracking-tight tabular-nums text-[var(--income)] md:text-2xl">
-              +{formatAmount(monthlyIncomeTotal.toString())} {currencySymbol}
+              {monthlyIncomeTotal.gt(0) ? "+" : ""}
+              {formatAmount(monthlyIncomeTotal.toString())} {currencySymbol}
             </p>
             <p className="hidden text-xs leading-snug text-[var(--text-muted)] md:block">
               Chênh lệch thu chi:{" "}
               <span className="font-semibold tabular-nums text-[var(--foreground)]">
-                {monthlyNetAmount.isPositive() ? "+" : ""}
-                {formatAmount(activeMonthlyNetAmount)} {currencySymbol}
+                {monthlyNetAmount.gt(0) ? "+" : monthlyNetAmount.lt(0) ? "−" : ""}
+                {formatAmount(monthlyNetAmount.abs().toString())} {currencySymbol}
               </span>
             </p>
           </div>
@@ -604,7 +605,8 @@ export function RecurringTransactionsManager({
               </span>
             </div>
             <p className="text-sm font-bold tracking-tight tabular-nums text-[var(--expense)] md:text-2xl">
-              −{formatAmount(monthlyExpenseTotal.toString())} {currencySymbol}
+              {monthlyExpenseTotal.gt(0) ? "−" : ""}
+              {formatAmount(monthlyExpenseTotal.toString())} {currencySymbol}
             </p>
             <p className="hidden text-xs leading-snug text-[var(--text-muted)] md:block">
               {activeCount > 0

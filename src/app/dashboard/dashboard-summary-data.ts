@@ -48,11 +48,16 @@ export function buildLedgerPeriodSummaries(
   }
 
   return [
-    { period: "all", income: allPeriods.income.toString(), expense: allPeriods.expense.toString(), pending: allPeriods.pending },
+    {
+      period: "all",
+      income: allPeriods.income.toString(),
+      expense: Decimal.max(0, allPeriods.expense).toString(),
+      pending: allPeriods.pending,
+    },
     ...[...summaryByPeriod.entries()].map(([period, summary]) => ({
       period,
       income: summary.income.toString(),
-      expense: summary.expense.toString(),
+      expense: Decimal.max(0, summary.expense).toString(),
       pending: summary.pending,
     })),
   ];

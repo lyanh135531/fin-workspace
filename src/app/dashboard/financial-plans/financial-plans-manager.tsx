@@ -80,6 +80,9 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleX,
+  Compass,
+  CreditCard,
+  HelpCircle,
   History,
   Layers,
   Minus,
@@ -209,10 +212,19 @@ export type JarTransactionItem = {
   description: string | null;
   workflowStatus: "pending" | "scheduled" | "approved" | "rejected";
   walletName: string;
+  walletKind?: "asset" | "credit_card";
+  isInstallment?: boolean;
   memberName: string;
   categoryId: string | null;
   categoryName: string;
   categoryColor: string | null;
+};
+
+export type PlanWalletSummary = {
+  totalAssetBalance: string;
+  totalCreditCardDebt: string;
+  assetWalletCount: number;
+  creditCardCount: number;
 };
 
 type SelectedPlan = DraftView | RunningView | null;
@@ -444,6 +456,7 @@ export function FinancialPlansManager({
   selectedPlan,
   financialGoals,
   goalWallets,
+  walletSummary,
   jarCategories = [],
   jarTransactions = [],
 }: {
@@ -456,6 +469,7 @@ export function FinancialPlansManager({
   selectedPlan: SelectedPlan;
   financialGoals: FinancialGoalView[];
   goalWallets: Array<{ id: string; name: string; balance: string }>;
+  walletSummary?: PlanWalletSummary;
   jarCategories?: JarCategoryItem[];
   jarTransactions?: JarTransactionItem[];
 }) {
@@ -721,6 +735,7 @@ export function FinancialPlansManager({
             activeExists={activeExists}
             financialGoals={financialGoals}
             goalWallets={goalWallets}
+            walletSummary={walletSummary}
             jarCategories={jarCategories}
             jarTransactions={jarTransactions}
             currentMonth={currentPlanMonth}
@@ -1145,6 +1160,7 @@ function PlanDetail({
   activeExists,
   financialGoals,
   goalWallets,
+  walletSummary,
   jarCategories,
   jarTransactions,
   currentMonth,
@@ -1168,6 +1184,7 @@ function PlanDetail({
   activeExists: boolean;
   financialGoals: FinancialGoalView[];
   goalWallets: Array<{ id: string; name: string; balance: string }>;
+  walletSummary?: PlanWalletSummary;
   jarCategories: JarCategoryItem[];
   jarTransactions: JarTransactionItem[];
   currentMonth?: PlanMonth;
@@ -1225,7 +1242,7 @@ function PlanDetail({
   );
   const availableToSpend = new Decimal(currentMonth?.availableToSpend ?? "0");
   const monthlyUsage = monthlyBudget.isZero()
-    ? spentThisMonth.isPositive()
+    ? spentThisMonth.gt(0)
       ? new Decimal(100)
       : new Decimal(0)
     : spentThisMonth.dividedBy(monthlyBudget).times(100);
@@ -1240,6 +1257,46 @@ function PlanDetail({
     remainingDaysThisMonth > 0 && availableToSpend.greaterThan(0)
       ? availableToSpend.dividedToIntegerBy(remainingDaysThisMonth)
       : new Decimal(0);
+
+  const currentMonthKey = currentMonth?.month ?? plan.businessMonth;
+  const isCurrentClosed = currentMonth?.closed ?? false;
+  const includeCurrentForecast =
+    !isCurrentClosed && currentMonthKey >= plan.businessMonth;
+
+  const currentMonthActiveTxs = useMemo(
+    () =>
+      jarTransactions.filter((tx) => {
+        if (tx.month !== currentMonthKey) return false;
+        if (isCurrentClosed) return tx.workflowStatus === "approved";
+        return (
+          tx.workflowStatus === "approved" ||
+          (includeCurrentForecast && tx.workflowStatus === "scheduled")
+        );
+      }),
+    [jarTransactions, currentMonthKey, isCurrentClosed, includeCurrentForecast],
+  );
+
+  const monthAssetSpent = useMemo(
+    () =>
+      Decimal.max(
+        0,
+        currentMonthActiveTxs
+          .filter((tx) => tx.walletKind !== "credit_card")
+          .reduce((sum, tx) => sum.plus(tx.amount), new Decimal(0)),
+      ),
+    [currentMonthActiveTxs],
+  );
+
+  const monthCardSpent = useMemo(
+    () =>
+      Decimal.max(
+        0,
+        currentMonthActiveTxs
+          .filter((tx) => tx.walletKind === "credit_card")
+          .reduce((sum, tx) => sum.plus(tx.amount), new Decimal(0)),
+      ),
+    [currentMonthActiveTxs],
+  );
 
   const realizedProgressPct = progressWidth(plan.realizedProgressPercentage);
   const projectedProgressPct = progressWidth(
@@ -1494,10 +1551,110 @@ function PlanDetail({
               <p className="break-words text-xs font-medium leading-snug text-[var(--text-secondary)]">
                 Ngân sách chi tiêu tháng
               </p>
-              <Wallet
-                className="size-3.5 shrink-0 text-[var(--foreground)]"
-                aria-hidden="true"
-              />
+              <div className="flex shrink-0 items-center gap-1">
+                {walletSummary && (
+                  <Popover>
+                    <PopoverTrigger
+                      render={
+                        <button
+                          type="button"
+                          aria-label="Cách tính ngân sách chi tiêu tháng"
+                          className="inline-flex items-center gap-0.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary-soft)]"
+                        />
+                      }
+                    >
+                      <HelpCircle className="size-2.5" aria-hidden="true" />
+                      <span>Cách tính</span>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="end"
+                      sideOffset={8}
+                      className="w-80 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 text-xs"
+                    >
+                      <p className="font-bold text-[var(--foreground)]">
+                        Công thức tính Ngân sách 6 Hũ tháng này
+                      </p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
+                        Dựa trên số dư thực tế, dư nợ thẻ tín dụng và chỉ tiêu tích lũy của kỳ hiện tại.
+                      </p>
+                      <dl className="mt-2.5 grid gap-1.5 border-t border-[var(--border)] pt-2.5 tabular-nums">
+                        <div className="flex items-center justify-between gap-2">
+                          <dt className="text-[var(--text-secondary)]">
+                            Số dư thực tế ({walletSummary.assetWalletCount} ví)
+                          </dt>
+                          <dd
+                            className={cn(
+                              "font-semibold",
+                              new Decimal(walletSummary.totalAssetBalance).isNegative()
+                                ? "text-[var(--destructive)]"
+                                : "text-[var(--success)]",
+                            )}
+                          >
+                            {new Decimal(walletSummary.totalAssetBalance).gt(0)
+                              ? `+${money(walletSummary.totalAssetBalance, currency)}`
+                              : new Decimal(walletSummary.totalAssetBalance).isNegative()
+                                ? `−${money(new Decimal(walletSummary.totalAssetBalance).abs().toFixed(0), currency)}`
+                                : money("0", currency)}
+                          </dd>
+                        </div>
+                        {new Decimal(walletSummary.totalCreditCardDebt).gt(0) && (
+                          <div className="flex items-center justify-between gap-2">
+                            <dt className="text-[var(--text-secondary)]">
+                              <Link
+                                href="/wallets?reservedWalletId=all"
+                                className="underline decoration-dotted hover:text-[var(--primary)]"
+                              >
+                                Dư nợ thẻ tín dụng ({walletSummary.creditCardCount} thẻ)
+                              </Link>
+                            </dt>
+                            <dd className="font-semibold text-[var(--warning)]">
+                              −{money(new Decimal(walletSummary.totalCreditCardDebt).abs().toFixed(0), currency)}
+                            </dd>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between gap-2">
+                          <dt className="text-[var(--text-secondary)]">
+                            Đã tích lũy cho mục tiêu
+                          </dt>
+                          <dd className="font-semibold text-[var(--foreground)]">
+                            {new Decimal(plan.realizedProgress).gt(0)
+                              ? `−${money(new Decimal(plan.realizedProgress).abs().toFixed(0), currency)}`
+                              : money("0", currency)}
+                          </dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <dt className="text-[var(--text-secondary)]">
+                            Cộng lại chi tiêu đầu tháng & thu dự kiến
+                          </dt>
+                          <dd className="font-semibold text-[var(--foreground)]">
+                            {spentThisMonth.gt(0)
+                              ? `+${money(spentThisMonth.toFixed(0), currency)}`
+                              : money("0", currency)}
+                          </dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <dt className="text-[var(--text-secondary)]">
+                            Trừ mục tiêu tiết kiệm tháng này
+                          </dt>
+                          <dd className="font-semibold text-[var(--primary)]">
+                            {requiredSavingsThisMonth.gt(0)
+                              ? `−${money(requiredSavingsThisMonth.toFixed(0), currency)}`
+                              : money("0", currency)}
+                          </dd>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 font-bold text-[var(--foreground)]">
+                          <dt>= Ngân sách phân bổ 6 Hũ</dt>
+                          <dd>{money(monthlyBudget.toFixed(0), currency)}</dd>
+                        </div>
+                      </dl>
+                    </PopoverContent>
+                  </Popover>
+                )}
+                <Wallet
+                  className="size-3.5 shrink-0 text-[var(--foreground)]"
+                  aria-hidden="true"
+                />
+              </div>
             </div>
             <p className="mt-1.5 text-sm font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-base md:text-lg">
               {money(monthlyBudget.toString(), currency)}
@@ -1512,7 +1669,9 @@ function PlanDetail({
                     : "text-[var(--foreground)]",
                 )}
               >
-                {compactMoney(availableToSpend.toString(), currency)}
+                {availableToSpend.isNegative()
+                  ? `−${compactMoney(availableToSpend.abs().toString(), currency)}`
+                  : compactMoney(availableToSpend.toString(), currency)}
               </span>
             </p>
           </div>
@@ -1542,9 +1701,28 @@ function PlanDetail({
                 ? ` · An toàn ${compactMoney(safeDailyOverall.toFixed(0), currency)}/ngày`
                 : ""}
             </p>
+            {monthCardSpent.gt(0) && (
+              <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-secondary)] tabular-nums">
+                Ví: {compactMoney(monthAssetSpent.toFixed(0), currency)} · Thẻ tín dụng:{" "}
+                <strong className="font-semibold text-[var(--foreground)]">
+                  {compactMoney(monthCardSpent.toFixed(0), currency)}
+                </strong>
+              </p>
+            )}
           </div>
         </section>
       </Card>
+
+      {/* Daily Spending Compass (La bàn chi tiêu mỗi ngày) */}
+      {plan.status === "active" && currentMonth && (
+        <DailySpendingCompass
+          currentMonth={currentMonth}
+          businessDate={businessDate}
+          remainingDaysThisMonth={remainingDaysThisMonth}
+          currency={currency}
+          jarTransactions={jarTransactions}
+        />
+      )}
 
       {/* Full-Width 3-Column Segmented Navigation Bar (Zero Horizontal Overflow) */}
       <Tabs
@@ -1881,6 +2059,293 @@ function PlanDetail({
   );
 }
 
+function DailySpendingCompass({
+  currentMonth,
+  businessDate,
+  remainingDaysThisMonth,
+  currency,
+  jarTransactions,
+}: {
+  currentMonth: PlanMonth;
+  businessDate?: string;
+  remainingDaysThisMonth: number;
+  currency: string;
+  jarTransactions: JarTransactionItem[];
+}) {
+  const [compassScope, setCompassScope] = useState<"daily_living" | "all_jars">(
+    "daily_living",
+  );
+
+  const scopeJars = useMemo(
+    () =>
+      compassScope === "daily_living"
+        ? currentMonth.jars.filter(
+            (j) => j.jarCode === "ESSENTIAL" || j.jarCode === "ENJOYMENT",
+          )
+        : currentMonth.jars,
+    [compassScope, currentMonth.jars],
+  );
+
+  const scopeAllocated = useMemo(
+    () =>
+      scopeJars.reduce(
+        (sum, jar) => sum.plus(jar.allocatedAmount || "0"),
+        new Decimal(0),
+      ),
+    [scopeJars],
+  );
+
+  const scopeSpentMonth = useMemo(
+    () =>
+      scopeJars.reduce(
+        (sum, jar) =>
+          sum.plus(jar.expenseAmount ?? jar.closedActualAmount ?? "0"),
+        new Decimal(0),
+      ),
+    [scopeJars],
+  );
+
+  const scopeRemainingMonth = useMemo(
+    () => scopeAllocated.minus(scopeSpentMonth),
+    [scopeAllocated, scopeSpentMonth],
+  );
+
+  const todayTransactions = useMemo(
+    () =>
+      jarTransactions.filter((tx) => {
+        if (!businessDate || tx.date !== businessDate) return false;
+        if (tx.workflowStatus === "rejected" || tx.workflowStatus === "pending") {
+          return false;
+        }
+        if (compassScope === "daily_living") {
+          return tx.jarCode === "ESSENTIAL" || tx.jarCode === "ENJOYMENT";
+        }
+        return true;
+      }),
+    [jarTransactions, businessDate, compassScope],
+  );
+
+  const spentTodayTotal = useMemo(
+    () =>
+      todayTransactions.reduce(
+        (sum, tx) => sum.plus(tx.amount),
+        new Decimal(0),
+      ),
+    [todayTransactions],
+  );
+
+  const spentTodayAsset = useMemo(
+    () =>
+      Decimal.max(
+        0,
+        todayTransactions
+          .filter((tx) => tx.walletKind !== "credit_card")
+          .reduce((sum, tx) => sum.plus(tx.amount), new Decimal(0)),
+      ),
+    [todayTransactions],
+  );
+
+  const spentTodayCard = useMemo(
+    () =>
+      Decimal.max(
+        0,
+        todayTransactions
+          .filter((tx) => tx.walletKind === "credit_card")
+          .reduce((sum, tx) => sum.plus(tx.amount), new Decimal(0)),
+      ),
+    [todayTransactions],
+  );
+
+  const poolAtStartOfToday = Decimal.max(
+    0,
+    scopeRemainingMonth.plus(Decimal.max(0, spentTodayTotal)),
+  );
+  const dailyAllowance =
+    remainingDaysThisMonth > 0
+      ? poolAtStartOfToday.dividedToIntegerBy(remainingDaysThisMonth)
+      : new Decimal(0);
+  const remainingForToday = dailyAllowance.minus(
+    Decimal.max(0, spentTodayTotal),
+  );
+  const nextDaysSafeDaily =
+    remainingDaysThisMonth > 0 && scopeRemainingMonth.gt(0)
+      ? scopeRemainingMonth.dividedToIntegerBy(remainingDaysThisMonth)
+      : new Decimal(0);
+
+  const [yearNum, monthNum] = currentMonth.month.split("-").map(Number);
+  const totalDaysInMonth = new Date(Date.UTC(yearNum, monthNum, 0)).getUTCDate();
+  const currentDayOfMonth =
+    businessDate && businessDate.slice(0, 7) === currentMonth.month
+      ? Math.min(Math.max(Number(businessDate.slice(8, 10)) || 1, 1), totalDaysInMonth)
+      : 1;
+  const timeElapsedPct = Math.round((currentDayOfMonth / totalDaysInMonth) * 100);
+  const budgetUsedPct = scopeAllocated.gt(0)
+    ? Math.min(
+        100,
+        Math.round(scopeSpentMonth.dividedBy(scopeAllocated).times(100).toNumber()),
+      )
+    : scopeSpentMonth.gt(0)
+      ? 100
+      : 0;
+
+  return (
+    <Card className="border border-[var(--border)] bg-[var(--surface)]">
+      {/* Compass Header + Scope Toggle */}
+      <div className="flex flex-col gap-2.5 border-b border-[var(--border)] pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]">
+              <Compass className="size-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <h3 className="break-words text-sm font-bold leading-snug text-[var(--foreground)] md:text-base">
+                Định mức chi tiêu mỗi ngày
+              </h3>
+              <p className="text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
+                {businessDate ? `Hôm nay ${formatViDate(businessDate)} · ` : ""}
+                Còn {remainingDaysThisMonth} ngày trong tháng
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          role="group"
+          aria-label="Phạm vi tính định mức chi tiêu mỗi ngày"
+          className="inline-flex shrink-0 items-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/70 p-0.5"
+        >
+          <button
+            type="button"
+            onClick={() => setCompassScope("daily_living")}
+            aria-pressed={compassScope === "daily_living"}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              compassScope === "daily_living"
+                ? "bg-[var(--surface)] text-[var(--primary)]"
+                : "text-[var(--text-secondary)] hover:text-[var(--foreground)]",
+            )}
+          >
+            Sinh hoạt (Thiết yếu & Hưởng thụ)
+          </button>
+          <button
+            type="button"
+            onClick={() => setCompassScope("all_jars")}
+            aria-pressed={compassScope === "all_jars"}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              compassScope === "all_jars"
+                ? "bg-[var(--surface)] text-[var(--primary)]"
+                : "text-[var(--text-secondary)] hover:text-[var(--foreground)]",
+            )}
+          >
+            Tất cả 6 Hũ
+          </button>
+        </div>
+      </div>
+
+      {/* 3-Column Daily Strip */}
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+        {/* Box 1: Định mức hôm nay */}
+        <div className="rounded-xl border border-[var(--primary)]/30 bg-[var(--primary-soft)]/45 p-3">
+          <p className="text-xs font-medium text-[var(--text-secondary)]">
+            Định mức hôm nay
+          </p>
+          <p className="mt-1 text-base font-bold tracking-tight text-[var(--primary)] tabular-nums md:text-lg">
+            {money(dailyAllowance.toFixed(0), currency)} / ngày
+          </p>
+          <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
+            Trung bình {compactMoney(nextDaysSafeDaily.toFixed(0), currency)}/ngày
+            cho {remainingDaysThisMonth} ngày cuối tháng
+          </p>
+        </div>
+
+        {/* Box 2: Hôm nay đã chi */}
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3">
+          <p className="text-xs font-medium text-[var(--text-secondary)]">
+            Hôm nay đã chi
+          </p>
+          <p className="mt-1 text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums md:text-lg">
+            {money(Decimal.max(0, spentTodayTotal).toFixed(0), currency)}
+          </p>
+          <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
+            {spentTodayCard.gt(0) || spentTodayAsset.gt(0)
+              ? `Ví: ${compactMoney(spentTodayAsset.toFixed(0), currency)} · Thẻ: ${compactMoney(spentTodayCard.toFixed(0), currency)}`
+              : "Chưa phát sinh chi tiêu hôm nay"}
+          </p>
+        </div>
+
+        {/* Box 3: Còn được tiêu hôm nay */}
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3">
+          <p className="text-xs font-medium text-[var(--text-secondary)]">
+            Còn được tiêu hôm nay
+          </p>
+          {remainingForToday.gte(0) ? (
+            <>
+              <p className="mt-1 text-base font-bold tracking-tight text-[var(--success)] tabular-nums md:text-lg">
+                {money(remainingForToday.toFixed(0), currency)}
+              </p>
+              <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
+                Trong ngưỡng an toàn hôm nay
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-1 text-base font-bold tracking-tight text-[var(--warning)] tabular-nums md:text-lg">
+                Vượt {money(remainingForToday.abs().toFixed(0), currency)}
+              </p>
+              <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
+                Từ ngày mai nên giữ mức{" "}
+                {compactMoney(
+                  Decimal.max(0, scopeRemainingMonth)
+                    .dividedToIntegerBy(Math.max(remainingDaysThisMonth - 1, 1))
+                    .toFixed(0),
+                  currency,
+                )}
+                /ngày
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Spending Pace vs Time Bar (Nhịp độ chi tiêu tháng) */}
+      <div className="grid gap-1.5 border-t border-[var(--border)] pt-2.5 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[var(--text-secondary)] tabular-nums">
+            Thời gian tháng đã qua:{" "}
+            <strong className="font-semibold text-[var(--foreground)]">
+              {timeElapsedPct}%
+            </strong>{" "}
+            (Ngày {currentDayOfMonth}/{totalDaysInMonth}) · Đã dùng:{" "}
+            <strong className="font-semibold text-[var(--foreground)]">
+              {budgetUsedPct}%
+            </strong>{" "}
+            ngân sách
+          </span>
+
+          {scopeAllocated.lte(0) ? (
+            <span className="break-words text-[11px] font-medium text-[var(--warning)]">
+              Ngân sách khả dụng đang bằng 0 ₫ do mục tiêu tiết kiệm hoặc dư nợ thẻ cao hơn số dư ví hiện tại. Bấm xem chi tiết công thức bên trên.
+            </span>
+          ) : budgetUsedPct <= timeElapsedPct ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold text-[var(--success)] tabular-nums">
+              🟢 Nhịp chi tiêu tốt (chậm hơn thời gian {timeElapsedPct - budgetUsedPct}%)
+            </span>
+          ) : budgetUsedPct <= 100 ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--warning)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold text-[var(--warning)] tabular-nums">
+              🟡 Tiêu nhanh hơn thời gian (+{budgetUsedPct - timeElapsedPct}%)
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--destructive)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold text-[var(--destructive)]">
+              🔴 Đã vượt ngân sách nhóm này
+            </span>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function SixJarsSection({
   month,
   months,
@@ -1922,11 +2387,28 @@ function SixJarsSection({
   const remainingDays = getRemainingDaysInMonth(month.month, businessDate);
   const isCurrentBusinessMonth =
     month.month === businessMonth && !month.closed;
+  const includeForecast = !month.closed && month.month >= businessMonth;
 
   const monthTransactions = useMemo(
     () => jarTransactions.filter((tx) => tx.month === month.month),
     [jarTransactions, month.month],
   );
+
+  const donorJar = useMemo(() => {
+    let best: { jarCode: FinancialJarCode; remainingAmount: string } | null = null;
+    for (const candidate of month.jars) {
+      const rem =
+        candidate.remainingAmount ??
+        new Decimal(candidate.allocatedAmount)
+          .minus(candidate.closedActualAmount ?? 0)
+          .toFixed(0);
+      if (new Decimal(rem).lte(0)) continue;
+      if (!best || new Decimal(rem).gt(best.remainingAmount)) {
+        best = { jarCode: candidate.jarCode, remainingAmount: rem };
+      }
+    }
+    return best;
+  }, [month.jars]);
 
   const inspectedJar = useMemo(
     () =>
@@ -2128,13 +2610,37 @@ function SixJarsSection({
           const jarUsage = jarUsagePercentage(jar);
           const jarUsageTone = overspent ? "critical" : progressTone(jarUsage);
           const color = JAR_COLORS[jar.jarCode];
+          const isDailyCadence =
+            jar.jarCode === "ESSENTIAL" || jar.jarCode === "ENJOYMENT";
 
-          const jarTxCount = monthTransactions.filter(
+          const jarTxs = monthTransactions.filter(
             (tx) => tx.jarCode === jar.jarCode,
-          ).length;
-          const mappedCatsCount = jarCategories.filter(
+          );
+          const jarActiveTxs = jarTxs.filter((tx) =>
+            month.closed
+              ? tx.workflowStatus === "approved"
+              : tx.workflowStatus === "approved" ||
+                (includeForecast && tx.workflowStatus === "scheduled"),
+          );
+          const jarAssetSpent = Decimal.max(
+            0,
+            jarActiveTxs
+              .filter((tx) => tx.walletKind !== "credit_card")
+              .reduce((sum, tx) => sum.plus(tx.amount), new Decimal(0)),
+          );
+          const jarCardSpent = Decimal.max(
+            0,
+            jarActiveTxs
+              .filter((tx) => tx.walletKind === "credit_card")
+              .reduce((sum, tx) => sum.plus(tx.amount), new Decimal(0)),
+          );
+
+          const jarTxCount = jarTxs.length;
+          const jarCats = jarCategories.filter(
             (cat) => cat.jarCode === jar.jarCode,
-          ).length;
+          );
+          const mappedCatsCount = jarCats.length;
+          const firstJarCat = jarCats[0];
           const safeDailyJar =
             isCurrentBusinessMonth &&
             remainingDays > 0 &&
@@ -2158,10 +2664,10 @@ function SixJarsSection({
               aria-label={`Xem chi tiết hũ ${FINANCIAL_JAR_LABELS[jar.jarCode]} (${jar.percentage}%)`}
               className="cursor-pointer select-none text-left transition-colors duration-150 hover:border-[var(--primary)]/50 active:bg-[var(--surface-secondary)]/50"
             >
-              {/* Top Row: Jar Name + Category Count + % Share Badge */}
+              {/* Top Row: Jar Name + Cadence Badge + % Share Badge */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                     <span
                       className="size-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: color }}
@@ -2170,6 +2676,16 @@ function SixJarsSection({
                     <h4 className="min-w-0 break-words text-sm font-bold leading-snug text-[var(--foreground)] md:text-base">
                       {FINANCIAL_JAR_LABELS[jar.jarCode]}
                     </h4>
+                    <span
+                      className={cn(
+                        "rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                        isDailyCadence
+                          ? "bg-[var(--primary-soft)] text-[var(--primary)]"
+                          : "bg-[var(--surface-secondary)] text-[var(--text-muted)]",
+                      )}
+                    >
+                      {isDailyCadence ? "Chi hàng ngày" : "Chi theo đợt"}
+                    </span>
                   </div>
                   <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
                     {JAR_DESCRIPTIONS[jar.jarCode]}
@@ -2181,18 +2697,31 @@ function SixJarsSection({
                 </span>
               </div>
 
-              {/* Middle Row: Spent vs Allocated Amount + Progress Bar */}
+              {/* Middle Row: Prominent Remaining Budget + Daily Safe Spend + Progress Bar */}
               <div className="space-y-2 border-t border-[var(--border)] pt-2.5">
-                <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-                  <span className="break-words text-[var(--text-secondary)]">
-                    Đã chi:{" "}
-                    <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums">
-                      {money(spent, currency)}
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="text-[11px] text-[var(--text-secondary)]">
+                      {overspent ? "Vượt hạn mức: " : "Còn được tiêu: "}
+                    </span>
+                    <strong
+                      className={cn(
+                        "text-sm font-bold tabular-nums md:text-base",
+                        overspent
+                          ? "text-[var(--destructive)]"
+                          : "text-[var(--success)]",
+                      )}
+                    >
+                      {overspent
+                        ? `−${money(new Decimal(remaining).abs().toFixed(0), currency)}`
+                        : money(remaining, currency)}
                     </strong>
-                  </span>
-                  <span className="text-[var(--text-muted)] tabular-nums shrink-0">
-                    / {money(jar.allocatedAmount, currency)}
-                  </span>
+                  </div>
+                  {safeDailyJar && safeDailyJar.greaterThan(0) && (
+                    <span className="rounded-md bg-[var(--primary-soft)]/70 px-1.5 py-0.5 text-[11px] font-semibold text-[var(--primary)] tabular-nums shrink-0">
+                      ~ {compactMoney(safeDailyJar.toFixed(0), currency)}/ngày
+                    </span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5">
@@ -2221,34 +2750,56 @@ function SixJarsSection({
                     {jarUsage.toFixed(0)}%
                   </span>
                 </div>
-              </div>
 
-              {/* Bottom Row: Remaining Budget + Daily Safe Spend / Transactions Count */}
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 px-3 py-2 text-xs">
-                <div className="min-w-0">
-                  <span className="text-[11px] text-[var(--text-secondary)]">
-                    {overspent ? "Vượt hạn mức: " : "Còn lại: "}
+                <div className="flex flex-wrap items-baseline justify-between gap-1.5 text-[11px] text-[var(--text-muted)] tabular-nums">
+                  <span>
+                    Đã chi:{" "}
+                    <strong className="font-semibold text-[var(--foreground)]">
+                      {money(spent, currency)}
+                    </strong>{" "}
+                    / {money(jar.allocatedAmount, currency)}
                   </span>
-                  <strong
-                    className={cn(
-                      "font-bold tabular-nums",
-                      overspent
-                        ? "text-[var(--destructive)]"
-                        : "text-[var(--success)]",
-                    )}
-                  >
-                    {overspent
-                      ? `−${money(new Decimal(remaining).abs().toFixed(0), currency)}`
-                      : money(remaining, currency)}
-                  </strong>
+                  {jarCardSpent.gt(0) && (
+                    <span className="text-[var(--text-secondary)]">
+                      Ví: {compactMoney(jarAssetSpent.toFixed(0), currency)} · Thẻ:{" "}
+                      <strong className="font-semibold text-[var(--foreground)]">
+                        {compactMoney(jarCardSpent.toFixed(0), currency)}
+                      </strong>
+                    </span>
+                  )}
                 </div>
 
+                {overspent && donorJar && donorJar.jarCode !== jar.jarCode && (
+                  <p className="rounded-lg bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))] px-2.5 py-1 text-[11px] font-medium text-[var(--warning)] tabular-nums">
+                    Có thể bù từ hũ {FINANCIAL_JAR_LABELS[donorJar.jarCode]} (còn{" "}
+                    {compactMoney(donorJar.remainingAmount, currency)})
+                  </p>
+                )}
+              </div>
+
+              {/* Bottom Row: Quick Expense Action + Details Link */}
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 px-2.5 py-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    window.dispatchEvent(
+                      new CustomEvent("open-quick-transaction", {
+                        detail: {
+                          type: "expense",
+                          categoryId: firstJarCat?.id,
+                        },
+                      }),
+                    );
+                  }}
+                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary-soft)]"
+                >
+                  <Plus className="size-3" aria-hidden="true" />
+                  <span>Ghi chi</span>
+                </button>
+
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--text-muted)] tabular-nums">
-                  {safeDailyJar && safeDailyJar.greaterThan(0) ? (
-                    <span>
-                      {compactMoney(safeDailyJar.toFixed(0), currency)}/ngày
-                    </span>
-                  ) : jarTxCount > 0 ? (
+                  {jarTxCount > 0 ? (
                     <span>{jarTxCount} giao dịch</span>
                   ) : (
                     <span>{mappedCatsCount} danh mục</span>
@@ -2270,7 +2821,7 @@ function SixJarsSection({
           }}
           jar={inspectedJar}
           month={month}
-          includeForecast={!month.closed && month.month >= businessMonth}
+          includeForecast={includeForecast}
           remainingDays={isCurrentBusinessMonth ? remainingDays : 0}
           currency={currency}
           isMobile={isMobile}
@@ -2335,6 +2886,40 @@ function JarDetailSheet({
     remainingDays > 0 && new Decimal(remaining).greaterThan(0)
       ? new Decimal(remaining).dividedToIntegerBy(remainingDays)
       : new Decimal(0);
+  const firstJarCat = categories[0];
+
+  const includedTransactions = useMemo(
+    () =>
+      transactions.filter((tx) =>
+        month.closed
+          ? tx.workflowStatus === "approved"
+          : tx.workflowStatus === "approved" ||
+            (includeForecast && tx.workflowStatus === "scheduled"),
+      ),
+    [transactions, month.closed, includeForecast],
+  );
+
+  const jarAssetSpent = useMemo(
+    () =>
+      Decimal.max(
+        0,
+        includedTransactions
+          .filter((tx) => tx.walletKind !== "credit_card")
+          .reduce((sum, tx) => sum.plus(tx.amount), new Decimal(0)),
+      ),
+    [includedTransactions],
+  );
+
+  const jarCardSpent = useMemo(
+    () =>
+      Decimal.max(
+        0,
+        includedTransactions
+          .filter((tx) => tx.walletKind === "credit_card")
+          .reduce((sum, tx) => sum.plus(tx.amount), new Decimal(0)),
+      ),
+    [includedTransactions],
+  );
 
   const categoryBreakdown = useMemo(() => {
     const totals = new Map<
@@ -2349,12 +2934,7 @@ function JarDetailSheet({
         count: 0,
       });
     }
-    for (const tx of transactions) {
-      const included = month.closed
-        ? tx.workflowStatus === "approved"
-        : tx.workflowStatus === "approved" ||
-          (includeForecast && tx.workflowStatus === "scheduled");
-      if (!included) continue;
+    for (const tx of includedTransactions) {
       const key = tx.categoryId ?? "__uncategorized__";
       const existing = totals.get(key) ?? {
         name: tx.categoryName,
@@ -2380,13 +2960,13 @@ function JarDetailSheet({
           id,
           name: item.name,
           color: item.color,
-          amount: item.amount.toFixed(0),
+          amount: Decimal.max(0, item.amount).toFixed(0),
           count: item.count,
           share,
         };
       })
       .sort((a, b) => new Decimal(b.amount).comparedTo(a.amount));
-  }, [categories, transactions, month.closed, includeForecast, spent]);
+  }, [categories, includedTransactions, spent]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -2458,6 +3038,46 @@ function JarDetailSheet({
               </dd>
             </div>
           </dl>
+
+          {/* Wallet vs Credit Card Split + 1-Tap Quick Record Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 px-3 py-2.5 text-xs">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 tabular-nums">
+              <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
+                <Wallet className="size-3.5 text-[var(--primary)]" aria-hidden="true" />
+                <span>Chi từ Ví:</span>
+                <strong className="font-semibold text-[var(--foreground)]">
+                  {money(jarAssetSpent.toFixed(0), currency)}
+                </strong>
+              </span>
+              <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
+                <CreditCard className="size-3.5 text-[var(--warning)]" aria-hidden="true" />
+                <span>Chi qua Thẻ tín dụng:</span>
+                <strong className="font-semibold text-[var(--foreground)]">
+                  {money(jarCardSpent.toFixed(0), currency)}
+                </strong>
+              </span>
+            </div>
+
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => {
+                onOpenChange(false);
+                window.dispatchEvent(
+                  new CustomEvent("open-quick-transaction", {
+                    detail: {
+                      type: "expense",
+                      categoryId: firstJarCat?.id,
+                    },
+                  }),
+                );
+              }}
+              className="h-8 text-xs"
+            >
+              <Plus size={14} aria-hidden="true" />
+              <span>Ghi chi</span>
+            </Button>
+          </div>
 
           {/* Category Breakdown */}
           <section className="grid gap-2.5">
@@ -2531,30 +3151,65 @@ function JarDetailSheet({
               </p>
             ) : (
               <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3">
-                {transactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="flex items-start justify-between gap-3 py-2.5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="break-words text-xs font-semibold leading-snug text-[var(--foreground)] sm:text-sm">
-                        {tx.description || tx.categoryName}
-                      </p>
-                      <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
-                        {formatViDate(tx.date)} · {tx.categoryName} ·{" "}
-                        {tx.walletName}
-                        {tx.workflowStatus === "pending"
-                          ? " · Chờ duyệt"
-                          : tx.workflowStatus === "scheduled"
-                            ? " · Dự kiến"
-                            : ""}
-                      </p>
+                {transactions.map((tx) => {
+                  const isCard = tx.walletKind === "credit_card";
+                  const txAmountDec = new Decimal(tx.amount);
+                  const isRefund = txAmountDec.isNegative();
+                  return (
+                    <div
+                      key={tx.id}
+                      className="flex items-start justify-between gap-3 py-2.5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="break-words text-xs font-semibold leading-snug text-[var(--foreground)] sm:text-sm">
+                            {tx.description || tx.categoryName}
+                          </p>
+                          {tx.isInstallment && (
+                            <span className="rounded-md bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)]">
+                              Trả góp
+                            </span>
+                          )}
+                          {isRefund && (
+                            <span className="rounded-md bg-[color-mix(in_srgb,var(--success)_15%,var(--surface))] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+                              Hoàn tiền
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
+                          {formatViDate(tx.date)} · {tx.categoryName} ·{" "}
+                          <span
+                            className={cn(
+                              "font-medium",
+                              isCard
+                                ? "text-[var(--warning)]"
+                                : "text-[var(--text-secondary)]",
+                            )}
+                          >
+                            {isCard ? `Thẻ ${tx.walletName}` : `Ví ${tx.walletName}`}
+                          </span>
+                          {tx.workflowStatus === "pending"
+                            ? " · Chờ duyệt"
+                            : tx.workflowStatus === "scheduled"
+                              ? " · Dự kiến"
+                              : ""}
+                        </p>
+                      </div>
+                      <strong
+                        className={cn(
+                          "text-xs font-bold tabular-nums shrink-0 sm:text-sm",
+                          isRefund
+                            ? "text-[var(--success)]"
+                            : "text-[var(--foreground)]",
+                        )}
+                      >
+                        {isRefund
+                          ? `−${money(txAmountDec.abs().toFixed(0), currency)}`
+                          : money(txAmountDec.toFixed(0), currency)}
+                      </strong>
                     </div>
-                    <strong className="text-xs font-bold text-[var(--foreground)] tabular-nums shrink-0 sm:text-sm">
-                      {money(tx.amount, currency)}
-                    </strong>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -2566,9 +3221,23 @@ function JarDetailSheet({
           submitLabel={
             canEditAllocation && onEditAllocation
               ? "Điều chỉnh tỷ lệ 6 hũ"
-              : undefined
+              : "+ Ghi chi vào hũ này"
           }
-          onSubmit={canEditAllocation ? onEditAllocation : undefined}
+          onSubmit={() => {
+            if (canEditAllocation && onEditAllocation) {
+              onEditAllocation();
+              return;
+            }
+            onOpenChange(false);
+            window.dispatchEvent(
+              new CustomEvent("open-quick-transaction", {
+                detail: {
+                  type: "expense",
+                  categoryId: firstJarCat?.id,
+                },
+              }),
+            );
+          }}
           submitType="button"
         />
       </SheetContent>
@@ -2765,7 +3434,9 @@ function MonthHistory({
                         : "text-[var(--foreground)]",
                     )}
                   >
-                    {money(month.availableToSpend, currency)}
+                    {isNegativeAvailable
+                      ? `−${money(new Decimal(month.availableToSpend).abs().toFixed(0), currency)}`
+                      : money(month.availableToSpend, currency)}
                   </strong>
                 </div>
 
@@ -2881,7 +3552,9 @@ function MonthSheetDetail({
                   : "text-[var(--foreground)]",
               )}
             >
-              {money(month.availableToSpend, currency)}
+              {availableToSpend.isNegative()
+                ? `−${money(availableToSpend.abs().toFixed(0), currency)}`
+                : money(month.availableToSpend, currency)}
             </span>
           </small>
         </div>

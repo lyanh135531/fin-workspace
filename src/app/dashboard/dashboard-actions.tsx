@@ -1950,14 +1950,14 @@ export function Ledger({
                   <span
                     className={cn(
                       "shrink-0 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-0.5 text-[0.7rem] font-semibold tabular-nums",
-                      totalAmount.isPositive()
+                      totalAmount.gt(0)
                         ? "text-[var(--income)]"
                         : totalAmount.isNegative()
                           ? "text-[var(--expense)]"
                           : "text-[var(--text-secondary)]",
                     )}
                   >
-                    {totalAmount.isPositive()
+                    {totalAmount.gt(0)
                       ? "+"
                       : totalAmount.isNegative()
                         ? "−"

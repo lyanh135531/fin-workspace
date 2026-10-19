@@ -161,7 +161,7 @@ export function buildMonthlyCashflow(
   return periods.map((period) => {
     const periodTotals = totals.get(period);
     const income = periodTotals?.income ?? new Decimal(0);
-    const expense = periodTotals?.expense ?? new Decimal(0);
+    const expense = Decimal.max(0, periodTotals?.expense ?? new Decimal(0));
     const hasWarning = expense.greaterThan(income);
 
     return {
@@ -223,7 +223,7 @@ export function buildMemberMonthlyTotals(
     totals: Object.fromEntries(
       members.map((member) => [
         member.id,
-        (totals.get(period)?.get(member.id) ?? new Decimal(0)).toString(),
+        Decimal.max(0, totals.get(period)?.get(member.id) ?? new Decimal(0)).toString(),
       ]),
     ),
   }));
@@ -366,7 +366,7 @@ export function buildDailyCashflow(
   return days.map((day) => {
     const dayTotals = totals.get(day);
     const income = dayTotals?.income ?? new Decimal(0);
-    const expense = dayTotals?.expense ?? new Decimal(0);
+    const expense = Decimal.max(0, dayTotals?.expense ?? new Decimal(0));
     const hasWarning = expense.greaterThan(income);
 
     return {

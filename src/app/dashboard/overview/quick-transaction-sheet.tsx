@@ -169,10 +169,27 @@ export function QuickTransactionSheet({
 
   useEffect(() => {
     function handleOpenEvent(event: Event) {
+      const requestedCategoryId =
+        event instanceof CustomEvent
+          ? (event.detail?.categoryId as string | undefined)
+          : undefined;
       if (event instanceof CustomEvent && event.detail?.type) {
         const nextType = event.detail.type as TransactionType;
         setType(nextType);
-        setCategoryId(defaultCategoryForType(initialWorkspace, nextType));
+        const matchesRequestedCategory =
+          Boolean(requestedCategoryId) &&
+          Boolean(
+            initialWorkspace?.categories.some(
+              (category) =>
+                category.id === requestedCategoryId &&
+                category.type === nextType,
+            ),
+          );
+        setCategoryId(
+          matchesRequestedCategory && requestedCategoryId
+            ? requestedCategoryId
+            : defaultCategoryForType(initialWorkspace, nextType),
+        );
         if (
           nextType === "income" &&
           initialWorkspace?.wallets.find((wallet) => wallet.id === walletId)
@@ -209,6 +226,15 @@ export function QuickTransactionSheet({
         }
       } else {
         setCategoryId((prev) => {
+          if (
+            requestedCategoryId &&
+            initialWorkspace?.categories.some(
+              (category) =>
+                category.id === requestedCategoryId && category.type === type,
+            )
+          ) {
+            return requestedCategoryId;
+          }
           const isValid = initialWorkspace?.categories.some(
             (category) => category.id === prev && category.type === type,
           );

@@ -848,10 +848,17 @@ export function OverviewDashboard({
         <span className="tracking-widest select-none">••••••••</span>
       );
     }
-    const formatted = formatAmount(value);
+    const dec = new Decimal(value);
+    const hasCustomPrefix = Boolean(options?.prefix && options.prefix.length > 0);
+    const effectivePrefix = hasCustomPrefix
+      ? options?.prefix
+      : dec.isNegative()
+        ? "−"
+        : "";
+    const formatted = formatAmount(dec.abs());
     return (
       <>
-        {options?.prefix ?? ""}
+        {effectivePrefix}
         {formatted}
         {options?.showCurrency !== false && (
           <>
@@ -1273,7 +1280,9 @@ export function OverviewDashboard({
                 )}
               </div>
               <strong className="mt-1 block break-words text-base font-bold leading-snug text-[var(--income)] tabular-nums md:text-lg">
-                {displayAmount(activeTotals.income, { prefix: "+" })}
+                {displayAmount(activeTotals.income, {
+                  prefix: activeTotals.income.gt(0) ? "+" : "",
+                })}
               </strong>
               <span className="mt-0.5 block text-[0.7rem] text-[var(--text-muted)] tabular-nums">
                 {prevTotals.income.gt(0)
@@ -1303,7 +1312,9 @@ export function OverviewDashboard({
                 )}
               </div>
               <strong className="mt-1 block break-words text-base font-bold leading-snug text-[var(--expense)] tabular-nums md:text-lg">
-                {displayAmount(activeTotals.expense, { prefix: "−" })}
+                {displayAmount(activeTotals.expense, {
+                  prefix: activeTotals.expense.gt(0) ? "−" : "",
+                })}
               </strong>
               <span className="mt-0.5 block text-[0.7rem] text-[var(--text-muted)] tabular-nums">
                 TB ~

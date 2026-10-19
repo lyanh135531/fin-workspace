@@ -59,7 +59,7 @@ export default async function FinancialPlansPage({
     ? monthDateRange(view.months[view.months.length - 1].month).end
     : monthDateRange(businessMonth).end;
 
-  const [financialGoals, walletLinks, expenseCategories, rawTransactions] = await Promise.all([
+  const [financialGoals, walletLinks, expenseCategories, rawTransactions, rawInstallments] = await Promise.all([
     selected
       ? getFinancialPlanGoalPortfolio(
           session.user.id,
@@ -71,8 +71,18 @@ export default async function FinancialPlansPage({
         )
       : Promise.resolve([]),
     prisma.workspaceWallet.findMany({
-      where: { workspaceId, wallet: { kind: "asset", status: "active", deletedAt: null } },
-      select: { wallet: { select: { id: true, name: true, currentBalance: true } } },
+      where: { workspaceId, wallet: { deletedAt: null } },
+      select: {
+        wallet: {
+          select: {
+            id: true,
+            name: true,
+            kind: true,
+            status: true,
+            currentBalance: true,
+          },
+        },
+      },
       orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
     }),
     prisma.category.findMany({
@@ -85,11 +95,15 @@ export default async function FinancialPlansPage({
           where: {
             member: { workspaceId },
             deletedAt: null,
-            type: "expense",
-            purpose: { not: "credit_card_payment" },
             workflowStatus: { in: ["approved", "scheduled", "pending"] },
             date: { gte: planRangeStart, lt: planRangeEnd },
-            OR: [{ jarCode: { not: null } }, { category: { jarCode: { not: null } } }],
+            OR: [
+              { type: "expense", purpose: { not: "credit_card_payment" } },
+              { purpose: "credit_card_refund" },
+            ],
+            AND: [
+              { OR: [{ jarCode: { not: null } }, { category: { jarCode: { not: null } } }] },
+            ],
           },
           select: {
             id: true,
@@ -99,15 +113,66 @@ export default async function FinancialPlansPage({
             purpose: true,
             workflowStatus: true,
             jarCode: true,
-            wallet: { select: { name: true } },
+            wallet: { select: { name: true, kind: true } },
             member: { select: { user: { select: { username: true } } } },
             category: { select: { id: true, name: true, color: true, icon: true, jarCode: true } },
+            installmentPlan: { select: { id: true, status: true } },
+            installmentFeePlan: { select: { id: true, status: true } },
           },
           orderBy: [{ date: "desc" }, { createdAt: "desc" }],
           take: 5000,
         })
       : Promise.resolve([]),
+    view && view.status !== "draft"
+      ? prisma.creditCardInstallment.findMany({
+          where: {
+            dueDate: { gte: planRangeStart, lt: planRangeEnd },
+            plan: {
+              workspaceId,
+              status: { in: ["active", "completed"] },
+              card: { wallet: { deletedAt: null } },
+            },
+          },
+          select: {
+            id: true,
+            installmentNo: true,
+            dueDate: true,
+            principalAmount: true,
+            feeAmount: true,
+            statementItems: { select: { id: true } },
+            plan: {
+              select: {
+                termCount: true,
+                description: true,
+                status: true,
+                card: { select: { wallet: { select: { name: true } } } },
+                createdBy: { select: { user: { select: { username: true } } } },
+                transaction: {
+                  select: {
+                    description: true,
+                    jarCode: true,
+                    category: { select: { id: true, name: true, color: true, jarCode: true } },
+                  },
+                },
+              },
+            },
+          },
+          orderBy: [{ dueDate: "desc" }, { installmentNo: "desc" }],
+        })
+      : Promise.resolve([]),
   ]);
+
+  const assetWallets = walletLinks.filter(({ wallet }) => wallet.kind === "asset");
+  const activeAssetWallets = assetWallets.filter(({ wallet }) => wallet.status === "active");
+  const creditCardWallets = walletLinks.filter(({ wallet }) => wallet.kind === "credit_card");
+  const totalAssetBalance = assetWallets.reduce(
+    (sum, { wallet }) => sum.plus(wallet.currentBalance.toString()),
+    new Decimal(0),
+  );
+  const totalCreditCardDebt = creditCardWallets.reduce(
+    (sum, { wallet }) => sum.plus(Decimal.max(new Decimal(wallet.currentBalance.toString()), 0)),
+    new Decimal(0),
+  );
 
   const jarCategories = expenseCategories
     .filter((cat) => isFinancialJarCode(cat.jarCode))
@@ -119,7 +184,15 @@ export default async function FinancialPlansPage({
       jarCode: cat.jarCode as FinancialJarCode,
     }));
 
-  const jarTransactions = rawTransactions.flatMap((tx) => {
+  const regularJarTransactions = rawTransactions.flatMap((tx) => {
+    if (
+      (tx.installmentPlan && tx.installmentPlan.status !== "pending") ||
+      (tx.purpose === "credit_card_installment_fee" &&
+        tx.installmentFeePlan &&
+        tx.installmentFeePlan.status !== "pending")
+    ) {
+      return [];
+    }
     const resolvedJar = tx.jarCode ?? tx.category?.jarCode ?? null;
     if (!isFinancialJarCode(resolvedJar)) return [];
     const isoDate = tx.date.toISOString().slice(0, 10);
@@ -135,12 +208,51 @@ export default async function FinancialPlansPage({
       description: tx.description,
       workflowStatus: tx.workflowStatus,
       walletName: tx.wallet.name,
+      walletKind: tx.wallet.kind,
       memberName: tx.member.user.username ?? "Thành viên",
       categoryId: tx.category?.id ?? null,
       categoryName: tx.category?.name ?? "Chưa phân loại",
       categoryColor: tx.category?.color ?? null,
     }];
   });
+
+  const installmentJarTransactions = rawInstallments.flatMap((inst) => {
+    const resolvedJar =
+      inst.plan.transaction?.jarCode ??
+      inst.plan.transaction?.category?.jarCode ??
+      "RESPONSIBILITY";
+    if (!isFinancialJarCode(resolvedJar)) return [];
+    const isoDate = inst.dueDate.toISOString().slice(0, 10);
+    const totalInstAmount = new Decimal(inst.principalAmount.toString())
+      .plus(inst.feeAmount.toString())
+      .toString();
+    const workflowStatus =
+      inst.statementItems.length > 0 ||
+      inst.plan.status === "completed" ||
+      isoDate.slice(0, 7) <= businessMonth
+        ? ("approved" as const)
+        : ("scheduled" as const);
+    return [{
+      id: `inst-${inst.id}`,
+      jarCode: resolvedJar,
+      month: isoDate.slice(0, 7),
+      date: isoDate,
+      amount: totalInstAmount,
+      description: `Trả góp kỳ #${inst.installmentNo}/${inst.plan.termCount}: ${inst.plan.description || inst.plan.transaction?.description || "Khoản trả góp thẻ"}`,
+      workflowStatus,
+      walletName: inst.plan.card.wallet.name,
+      walletKind: "credit_card" as const,
+      isInstallment: true,
+      memberName: inst.plan.createdBy.user.username ?? "Thành viên",
+      categoryId: inst.plan.transaction?.category?.id ?? null,
+      categoryName: inst.plan.transaction?.category?.name ?? "Trả góp thẻ tín dụng",
+      categoryColor: inst.plan.transaction?.category?.color ?? null,
+    }];
+  });
+
+  const jarTransactions = [...regularJarTransactions, ...installmentJarTransactions].sort(
+    (a, b) => b.date.localeCompare(a.date),
+  );
 
   return (
     <PageContainer>
@@ -161,7 +273,13 @@ export default async function FinancialPlansPage({
         }))}
         selectedPlan={view}
         financialGoals={financialGoals}
-        goalWallets={walletLinks.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString() }))}
+        goalWallets={activeAssetWallets.map(({ wallet }) => ({ id: wallet.id, name: wallet.name, balance: wallet.currentBalance.toString() }))}
+        walletSummary={{
+          totalAssetBalance: totalAssetBalance.toFixed(0),
+          totalCreditCardDebt: totalCreditCardDebt.toFixed(0),
+          assetWalletCount: assetWallets.length,
+          creditCardCount: creditCardWallets.length,
+        }}
         jarCategories={jarCategories}
         jarTransactions={jarTransactions}
       />

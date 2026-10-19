@@ -123,15 +123,18 @@ export function DashboardLedgerWorkspace({
         pending += 1;
       }
     }
+    const netCashflow = income.minus(expense);
     expense = Decimal.max(new Decimal(0), expense);
 
     return {
       income: income.toString(),
       expense: expense.toString(),
+      incomeDecimal: income,
+      expenseDecimal: expense,
       incomeCount,
       expenseCount,
       transferCount,
-      cashflow: income.minus(expense),
+      cashflow: netCashflow,
       pending,
     };
   }, [filteredRows]);
@@ -211,7 +214,8 @@ export function DashboardLedgerWorkspace({
                 Tổng thu
               </span>
               <strong className="mt-0.5 block break-words text-sm font-bold leading-snug text-[var(--income)] tabular-nums">
-                +{formatAmount(summary.income)}{" "}
+                {summary.incomeDecimal.gt(0) ? "+" : ""}
+                {formatAmount(summary.income)}{" "}
                 <span className="text-[0.68rem] font-medium opacity-80">
                   {ledgerProps.currency}
                 </span>
@@ -223,7 +227,8 @@ export function DashboardLedgerWorkspace({
                 Tổng chi
               </span>
               <strong className="mt-0.5 block break-words text-sm font-bold leading-snug text-[var(--expense)] tabular-nums">
-                −{formatAmount(summary.expense)}{" "}
+                {summary.expenseDecimal.gt(0) ? "−" : ""}
+                {formatAmount(summary.expense)}{" "}
                 <span className="text-[0.68rem] font-medium opacity-80">
                   {ledgerProps.currency}
                 </span>
@@ -293,7 +298,8 @@ export function DashboardLedgerWorkspace({
             </div>
             <div className="flex flex-wrap items-baseline gap-1.5">
               <strong className="break-words text-2xl font-bold leading-snug tracking-tight text-[var(--income)] tabular-nums">
-                +{formatAmount(summary.income)}
+                {summary.incomeDecimal.gt(0) ? "+" : ""}
+                {formatAmount(summary.income)}
               </strong>
               <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
                 {ledgerProps.currency}
@@ -321,7 +327,8 @@ export function DashboardLedgerWorkspace({
             </div>
             <div className="flex flex-wrap items-baseline gap-1.5">
               <strong className="break-words text-2xl font-bold leading-snug tracking-tight text-[var(--expense)] tabular-nums">
-                −{formatAmount(summary.expense)}
+                {summary.expenseDecimal.gt(0) ? "−" : ""}
+                {formatAmount(summary.expense)}
               </strong>
               <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
                 {ledgerProps.currency}

@@ -41,7 +41,91 @@ export async function getWorkspaceBalance(
       ? balance.minus(Decimal.max(amount, ZERO))
       : balance.plus(amount);
   }
-  if (!before || links.length === 0) return balance;
+  if (!before) {
+    const activePlans =
+      (await tx.creditCardInstallmentPlan?.findMany?.({
+        where: {
+          workspaceId,
+          status: "active",
+          card: { wallet: { deletedAt: null } },
+        },
+        select: {
+          transaction: {
+            select: {
+              date: true,
+              creditCardObligationEntries: {
+                select: {
+                  amount: true,
+                  paymentAllocations: { select: { amount: true } },
+                },
+              },
+            },
+          },
+          importedObligations: {
+            select: {
+              amount: true,
+              paymentAllocations: { select: { amount: true } },
+            },
+          },
+          installments: {
+            select: {
+              dueDate: true,
+              principalAmount: true,
+              statementItems: { select: { id: true } },
+            },
+          },
+        },
+      })) ?? [];
+
+    const currentUtcMonth = new Date().toISOString().slice(0, 7);
+    for (const plan of activePlans) {
+      const obligations = [
+        ...(plan.transaction?.creditCardObligationEntries ?? []),
+        ...(plan.importedObligations ?? []),
+      ];
+      const obligationRemaining = obligations.reduce((sum, entry) => {
+        const paid = entry.paymentAllocations.reduce(
+          (pSum, alloc) => pSum.plus(alloc.amount.toString()),
+          ZERO,
+        );
+        return sum.plus(
+          Decimal.max(new Decimal(entry.amount.toString()).minus(paid), ZERO),
+        );
+      }, ZERO);
+
+      const sortedInstallments = [...plan.installments].sort((a, b) =>
+        asIsoDate(a.dueDate).localeCompare(asIsoDate(b.dueDate)),
+      );
+      const unbilled = sortedInstallments.filter(
+        (inst) => inst.statementItems.length === 0,
+      );
+      if (unbilled.length === 0) continue;
+
+      const billedInCurrentOrLater = sortedInstallments.find(
+        (inst) =>
+          inst.statementItems.length > 0 &&
+          asIsoDate(inst.dueDate).slice(0, 7) >= currentUtcMonth,
+      );
+      const baselineMonth = billedInCurrentOrLater
+        ? asIsoDate(billedInCurrentOrLater.dueDate).slice(0, 7)
+        : asIsoDate(unbilled[0].dueDate).slice(0, 7);
+
+      const futureUnbilledPrincipal = unbilled
+        .filter((inst) => asIsoDate(inst.dueDate).slice(0, 7) > baselineMonth)
+        .reduce(
+          (sum, inst) => sum.plus(inst.principalAmount.toString()),
+          ZERO,
+        );
+
+      const deferredPrincipal = Decimal.max(
+        Decimal.min(futureUnbilledPrincipal, obligationRemaining),
+        ZERO,
+      );
+      balance = balance.plus(deferredPrincipal);
+    }
+    return balance;
+  }
+  if (links.length === 0) return balance;
 
   const walletIds = links.map((link) => link.walletId);
   const laterTransactions = await tx.transaction.findMany({
@@ -101,6 +185,8 @@ export async function getFinancialPlanMonthLedger(
       amount: true,
       jarCode: true,
       category: { select: { jarCode: true } },
+      installmentPlan: { select: { id: true, status: true } },
+      installmentFeePlan: { select: { id: true, status: true } },
     },
   });
   const result: FinancialPlanMonthLedger = {
@@ -110,6 +196,14 @@ export async function getFinancialPlanMonthLedger(
   };
   for (const record of records) {
     if (record.purpose === "credit_card_payment" || record.type === "transfer" || record.workflowStatus === "rejected") continue;
+    if (record.installmentPlan && record.installmentPlan.status !== "pending") continue;
+    if (
+      record.purpose === "credit_card_installment_fee" &&
+      record.installmentFeePlan &&
+      record.installmentFeePlan.status !== "pending"
+    ) {
+      continue;
+    }
     const amount = new Decimal(record.amount.toString());
     const refundJar = record.jarCode ?? record.category?.jarCode ?? null;
     if (record.workflowStatus === "approved") {
@@ -126,6 +220,57 @@ export async function getFinancialPlanMonthLedger(
       else result.pendingExpense = result.pendingExpense.plus(amount);
     }
   }
+
+  const installments =
+    (await tx.creditCardInstallment?.findMany?.({
+      where: {
+        dueDate: { gte: start, lt: end },
+        plan: {
+          workspaceId,
+          status: { in: ["active", "completed"] },
+          card: { wallet: { deletedAt: null } },
+        },
+      },
+      select: {
+        dueDate: true,
+        principalAmount: true,
+        feeAmount: true,
+        statementItems: { select: { id: true } },
+        plan: {
+          select: {
+            status: true,
+            transaction: {
+              select: {
+                jarCode: true,
+                category: { select: { jarCode: true } },
+              },
+            },
+          },
+        },
+      },
+    })) ?? [];
+
+  const currentUtcMonth = new Date().toISOString().slice(0, 7);
+  for (const inst of installments) {
+    const instJar =
+      inst.plan.transaction?.jarCode ??
+      inst.plan.transaction?.category?.jarCode ??
+      ("RESPONSIBILITY" as JarCode);
+    const instAmount = new Decimal(inst.principalAmount.toString()).plus(
+      inst.feeAmount.toString(),
+    );
+    if (
+      inst.statementItems.length > 0 ||
+      !includeForecast ||
+      inst.plan.status === "completed" ||
+      asIsoDate(inst.dueDate).slice(0, 7) <= currentUtcMonth
+    ) {
+      addExpense(result.approvedExpenseByJar, instJar, instAmount);
+    } else {
+      addExpense(result.forecastExpenseByJar, instJar, instAmount);
+    }
+  }
+
   for (const jarCode of FINANCIAL_JAR_CODES) {
     result.approvedExpenseByJar[jarCode] = Decimal.max(ZERO, result.approvedExpenseByJar[jarCode]);
   }

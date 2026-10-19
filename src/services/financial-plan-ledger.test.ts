@@ -142,4 +142,88 @@ describe("financial plan ledger projection", () => {
     const balance = await getWorkspaceBalance(tx, "workspace");
     expect(balance.toFixed(0)).toBe("1300");
   });
+
+  it("skips lump-sum active installment transactions and bills monthly creditCardInstallment instead", async () => {
+    const tx = {
+      transaction: {
+        findMany: vi.fn().mockResolvedValueOnce([
+          {
+            type: "expense",
+            purpose: "standard",
+            workflowStatus: "approved",
+            amount: new Decimal(1200),
+            jarCode: "ENJOYMENT",
+            category: null,
+            installmentPlan: { id: "plan-1", status: "active" },
+            installmentFeePlan: null,
+          },
+          {
+            type: "expense",
+            purpose: "credit_card_installment_fee",
+            workflowStatus: "approved",
+            amount: new Decimal(60),
+            jarCode: "RESPONSIBILITY",
+            category: null,
+            installmentPlan: null,
+            installmentFeePlan: { id: "plan-1", status: "active" },
+          },
+        ]),
+      },
+      creditCardInstallment: {
+        findMany: vi.fn().mockResolvedValueOnce([
+          {
+            dueDate: new Date("2026-08-25T00:00:00.000Z"),
+            principalAmount: new Decimal(100),
+            feeAmount: new Decimal(60),
+            statementItems: [],
+            plan: {
+              status: "active",
+              transaction: { jarCode: "ENJOYMENT", category: null },
+            },
+          },
+        ]),
+      },
+      recurringTransaction: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    const ledger = await getFinancialPlanMonthLedger(tx, "workspace", "2026-08", true);
+    expect(ledger.approvedExpenseByJar.ENJOYMENT.toFixed(0)).toBe("160");
+    expect(ledger.approvedExpenseByJar.RESPONSIBILITY.toFixed(0)).toBe("0");
+  });
+
+  it("adds back future unbilled installment principal in live workspace balance", async () => {
+    const tx = {
+      workspaceWallet: {
+        findMany: vi.fn().mockResolvedValue([
+          { walletId: "w-asset", wallet: { currentBalance: new Decimal(2000), kind: "asset", status: "active" } },
+          { walletId: "w-card", wallet: { currentBalance: new Decimal(1200), kind: "credit_card", status: "active" } },
+        ]),
+      },
+      creditCardInstallmentPlan: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            transaction: {
+              date: new Date("2026-08-05T00:00:00.000Z"),
+              creditCardObligationEntries: [
+                { amount: new Decimal(1200), paymentAllocations: [] },
+              ],
+            },
+            importedObligations: [],
+            installments: [
+              { dueDate: new Date("2026-08-25T00:00:00.000Z"), principalAmount: new Decimal(400), statementItems: [] },
+              { dueDate: new Date("2026-09-25T00:00:00.000Z"), principalAmount: new Decimal(400), statementItems: [] },
+              { dueDate: new Date("2026-10-25T00:00:00.000Z"), principalAmount: new Decimal(400), statementItems: [] },
+            ],
+          },
+        ]),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    // 2000 - 1200 + 800 (future terms #2 & #3) = 1600
+    const balance = await getWorkspaceBalance(tx, "workspace");
+    expect(balance.toFixed(0)).toBe("1600");
+  });
 });
+
