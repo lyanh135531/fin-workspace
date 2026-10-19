@@ -152,12 +152,15 @@ function ConfirmDelete({
     )
   }
 
-  if (resolvedPresentation === "sheet" || isMobileViewport) {
+  const hasPopoverAnchor = trigger !== null || Boolean(anchor)
+
+  if (resolvedPresentation === "sheet" || isMobileViewport || !hasPopoverAnchor) {
     return (
       <Sheet open={open} onOpenChange={handleOpenChange}>
         {resolvedTrigger && <SheetTrigger render={resolvedTrigger} />}
         <SheetContent
-          side="bottom"
+          side={isMobileViewport ? "bottom" : "center"}
+          size={isMobileViewport ? "default" : "sm"}
           className={cn(contentClassName)}
           aria-label={ariaLabel}
         >

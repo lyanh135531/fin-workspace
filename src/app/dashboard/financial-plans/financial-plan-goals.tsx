@@ -63,18 +63,74 @@ import { formatAmount } from "@/lib/format";
 import { usePrivacyMask } from "@/lib/privacy-mask";
 import { cn } from "@/lib/utils";
 
-function subscribeDesktop(callback: () => void) {
-  const query = window.matchMedia("(min-width: 768px)");
-  query.addEventListener("change", callback);
-  return () => query.removeEventListener("change", callback);
+type DeviceTier = "mobile" | "tablet" | "desktop";
+
+function subscribeDeviceTier(callback: () => void) {
+  const tabletQuery = window.matchMedia("(min-width: 768px)");
+  const desktopQuery = window.matchMedia("(min-width: 1024px)");
+  tabletQuery.addEventListener("change", callback);
+  desktopQuery.addEventListener("change", callback);
+  return () => {
+    tabletQuery.removeEventListener("change", callback);
+    desktopQuery.removeEventListener("change", callback);
+  };
 }
 
-function desktopSnapshot() {
-  return window.matchMedia("(min-width: 768px)").matches;
+function getDeviceTierSnapshot(): DeviceTier {
+  if (window.matchMedia("(min-width: 1024px)").matches) return "desktop";
+  if (window.matchMedia("(min-width: 768px)").matches) return "tablet";
+  return "mobile";
 }
 
-function serverDesktopSnapshot() {
-  return false;
+function getServerDeviceTierSnapshot(): DeviceTier {
+  return "desktop";
+}
+
+function getGoalSheetPresentation(
+  device: DeviceTier,
+  variant: "compact" | "form" | "detail" = "form",
+): {
+  side: "bottom" | "center" | "right";
+  placement: "edge" | "inset";
+  size: "default" | "sm" | "md" | "lg" | "wide";
+  className?: string;
+} {
+  if (device === "mobile") {
+    return {
+      side: "bottom",
+      placement: "edge",
+      size: "default",
+    };
+  }
+  if (device === "tablet") {
+    const maxWidthClass =
+      variant === "compact"
+        ? "max-w-[30rem]"
+        : variant === "form"
+          ? "max-w-[36rem]"
+          : "max-w-[38rem]";
+    return {
+      side: "center",
+      placement: "inset",
+      size: "lg",
+      className: cn(
+        "w-[calc(100%-2.5rem)] !h-auto max-h-[85dvh] rounded-2xl",
+        maxWidthClass,
+      ),
+    };
+  }
+  const desktopWidthClass =
+    variant === "compact"
+      ? "lg:max-w-[28rem]"
+      : variant === "form"
+        ? "lg:max-w-[34rem]"
+        : "lg:max-w-[36rem]";
+  return {
+    side: "right",
+    placement: "inset",
+    size: "wide",
+    className: desktopWidthClass,
+  };
 }
 
 export type FinancialGoalView = {
@@ -153,6 +209,17 @@ const HEALTH = {
   },
 } as const;
 
+const ENTRY_KIND_LABELS: Record<
+  FinancialGoalView["fundingEntries"][number]["kind"],
+  string
+> = {
+  opening: "Số dư ban đầu",
+  contribution: "Đóng góp",
+  withdrawal: "Rút ra",
+  adjustment: "Điều chỉnh",
+  reversal: "Hoàn tác",
+};
+
 function money(value: string, currency: string) {
   return `${formatAmount(value)} ${currency === "VND" ? "₫" : currency}`;
 }
@@ -160,6 +227,30 @@ function money(value: string, currency: string) {
 function monthLabel(month: string) {
   const [year, value] = month.split("-");
   return `Tháng ${Number(value)}/${year}`;
+}
+
+function formatViDate(isoDate: string): string {
+  const parts = isoDate.split("-");
+  if (parts.length !== 3) return isoDate;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function monthCountInclusive(startMonth: string, targetMonth: string): number {
+  const [startYear, startValue] = startMonth.split("-").map(Number);
+  const [targetYear, targetValue] = targetMonth.split("-").map(Number);
+  if (
+    !startYear ||
+    !startValue ||
+    !targetYear ||
+    !targetValue ||
+    targetMonth < startMonth
+  ) {
+    return 1;
+  }
+  return Math.max(
+    (targetYear - startYear) * 12 + (targetValue - startValue) + 1,
+    1,
+  );
 }
 
 function today() {
@@ -185,10 +276,10 @@ export function FinancialPlanGoals({
 }) {
   usePrivacyMask();
   const router = useRouter();
-  const isDesktop = useSyncExternalStore(
-    subscribeDesktop,
-    desktopSnapshot,
-    serverDesktopSnapshot,
+  const device = useSyncExternalStore(
+    subscribeDeviceTier,
+    getDeviceTierSnapshot,
+    getServerDeviceTierSnapshot,
   );
   const [editor, setEditor] = useState<FinancialGoalView | "new" | null>(null);
   const [fundingGoal, setFundingGoal] = useState<FinancialGoalView | null>(
@@ -420,7 +511,7 @@ export function FinancialPlanGoals({
                       {hasManageActions && (
                         <>
                           {goals.length > 1 && (
-                            <div className="hidden items-center gap-0.5 lg:flex">
+                            <div className="hidden items-center gap-0.5 md:flex">
                               <Button
                                 variant="icon"
                                 size="icon"
@@ -566,12 +657,7 @@ export function FinancialPlanGoals({
             }
 
             function handleGoalMenuOpenChange(nextOpen: boolean) {
-              if (
-                nextOpen &&
-                typeof window !== "undefined" &&
-                typeof window.matchMedia === "function" &&
-                window.matchMedia("(min-width: 1024px)").matches
-              ) {
+              if (nextOpen && device === "desktop") {
                 return;
               }
               setMenuGoalId(nextOpen ? goal.id : null);
@@ -750,6 +836,7 @@ export function FinancialPlanGoals({
           wallets={wallets}
           currency={currency}
           businessMonth={businessMonth}
+          device={device}
           onSaved={() => {
             setEditor(null);
             router.refresh();
@@ -761,6 +848,8 @@ export function FinancialPlanGoals({
         <FundingSheet
           open
           goal={fundingGoal}
+          currency={currency}
+          device={device}
           onOpenChange={(open) => {
             if (!open) setFundingGoal(null);
           }}
@@ -784,6 +873,7 @@ export function FinancialPlanGoals({
           }}
           goal={goals.find((g) => g.id === historyGoal.id) ?? historyGoal}
           currency={currency}
+          device={device}
           pending={pending}
           canManage={canManage}
           mutable={mutable}
@@ -831,7 +921,7 @@ export function FinancialPlanGoals({
           setCancellingGoal(null);
         }}
         disabled={pending}
-        presentation={isDesktop ? "popover" : "sheet"}
+        presentation={device === "mobile" ? "sheet" : "popover"}
       />
     </section>
   );
@@ -842,6 +932,7 @@ function GoalFundingHistorySheet({
   onOpenChange,
   goal,
   currency,
+  device,
   pending,
   canManage,
   mutable,
@@ -852,6 +943,7 @@ function GoalFundingHistorySheet({
   onOpenChange: (open: boolean) => void;
   goal: FinancialGoalView;
   currency: string;
+  device: DeviceTier;
   pending: boolean;
   canManage: boolean;
   mutable: boolean;
@@ -862,36 +954,79 @@ function GoalFundingHistorySheet({
   ) => void;
   onAddFunding?: () => void;
 }) {
-  const isDesktop = useSyncExternalStore(
-    subscribeDesktop,
-    desktopSnapshot,
-    serverDesktopSnapshot,
-  );
+  const sheetProps = getGoalSheetPresentation(device, "detail");
+  const isMobile = device === "mobile";
   const canMutateGoalFunding =
     canManage &&
     mutable &&
     (goal.status === "active" || goal.status === "draft");
+  const remainingGoalAmount = Decimal.max(
+    new Decimal(goal.targetAmount || 0).minus(goal.actualProgress || 0),
+    0,
+  ).toFixed(0);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side={isDesktop ? "right" : "bottom"}
-        placement={isDesktop ? "inset" : "edge"}
-        size={isDesktop ? "wide" : "default"}
+        side={sheetProps.side}
+        placement={sheetProps.placement}
+        size={sheetProps.size}
+        className={sheetProps.className}
         spacing="flush"
         elevation="flat"
       >
         <SheetHeader
           icon={History}
           title="Lịch sử đóng góp"
-          description={`Mục tiêu ${goal.name} · Đã tích lũy ${money(goal.actualProgress, currency)} / ${money(goal.targetAmount, currency)}`}
+          description={`Mục tiêu ${goal.name} · Hạn ${monthLabel(goal.targetMonth)}`}
         />
-        <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto px-4 py-5 md:px-6">
+        <div
+          className={cn(
+            "grid min-h-0 flex-1 content-start overflow-y-auto",
+            isMobile ? "gap-3.5 px-4 py-4" : "gap-4 px-5 py-5 lg:px-6",
+          )}
+        >
+          {/* Goal Progress Summary Strip */}
+          <dl
+            className={cn(
+              "grid gap-2.5",
+              isMobile ? "grid-cols-2" : "grid-cols-3",
+            )}
+          >
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
+              <dt className="text-[11px] text-[var(--text-secondary)]">
+                Đã tích lũy ({goal.progressPercentage}%)
+              </dt>
+              <dd className="mt-1 text-sm font-bold text-[var(--foreground)] tabular-nums sm:text-base">
+                {money(goal.actualProgress, currency)}
+              </dd>
+            </div>
+            {!isMobile && (
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
+                <dt className="text-[11px] text-[var(--text-secondary)]">
+                  Mục tiêu
+                </dt>
+                <dd className="mt-1 text-sm font-bold text-[var(--foreground)] tabular-nums sm:text-base">
+                  {money(goal.targetAmount, currency)}
+                </dd>
+              </div>
+            )}
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
+              <dt className="text-[11px] text-[var(--text-secondary)]">
+                Còn cần tích lũy
+              </dt>
+              <dd className="mt-1 text-sm font-bold text-[var(--primary)] tabular-nums sm:text-base">
+                {money(remainingGoalAmount, currency)}
+              </dd>
+            </div>
+          </dl>
+
           {goal.fundingEntries.length === 0 ? (
-            <p className="py-8 text-center text-sm text-[var(--text-muted)]">
+            <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 py-8 text-center text-sm text-[var(--text-muted)]">
               Chưa có khoản đóng góp nào được ghi nhận.
             </p>
           ) : (
-            <div className="divide-y divide-[var(--border)]">
+            <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5">
               {goal.fundingEntries.map((entry) => (
                 <div
                   key={entry.id}
@@ -901,6 +1036,9 @@ function GoalFundingHistorySheet({
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-[var(--foreground)] tabular-nums shrink-0">
                         {money(entry.amount, currency)}
+                      </span>
+                      <span className="rounded-md bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] shrink-0">
+                        {ENTRY_KIND_LABELS[entry.kind] ?? "Đóng góp"}
                       </span>
                       <span
                         className={cn(
@@ -920,7 +1058,8 @@ function GoalFundingHistorySheet({
                       </span>
                     </div>
                     <p className="mt-1 break-words text-xs leading-snug text-[var(--text-muted)]">
-                      {entry.effectiveDate} · Người gửi: {entry.requester}
+                      {formatViDate(entry.effectiveDate)} · Người gửi:{" "}
+                      {entry.requester}
                       {entry.reviewer ? ` · Người duyệt: ${entry.reviewer}` : ""}
                       {entry.note ? ` · Ghi chú: ${entry.note}` : ""}
                     </p>
@@ -1005,7 +1144,7 @@ function GoalFundingHistorySheet({
           cancelLabel="Đóng"
           submitLabel={
             mutable && goal.status === "active"
-              ? "Ghi nhận đóng góp"
+              ? "+ Ghi nhận đóng góp"
               : undefined
           }
           onSubmit={
@@ -1032,6 +1171,7 @@ function GoalEditorSheet({
   wallets,
   currency,
   businessMonth,
+  device,
   onSaved,
 }: {
   open: boolean;
@@ -1042,13 +1182,11 @@ function GoalEditorSheet({
   wallets: WalletOption[];
   currency: string;
   businessMonth: string;
+  device: DeviceTier;
   onSaved: () => void;
 }) {
-  const isDesktop = useSyncExternalStore(
-    subscribeDesktop,
-    desktopSnapshot,
-    serverDesktopSnapshot,
-  );
+  const sheetProps = getGoalSheetPresentation(device, "form");
+  const isMobile = device === "mobile";
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(goal?.name ?? "");
   const [targetAmount, setTargetAmount] = useState(goal?.targetAmount ?? "");
@@ -1068,6 +1206,40 @@ function GoalEditorSheet({
     targetAmount &&
     targetMonth >= businessMonth &&
     (trackingMode === "manual" || walletId);
+
+  const selectedWalletBalance = useMemo(() => {
+    if (trackingMode !== "linked_wallet" || !walletId) return "0";
+    return wallets.find((w) => w.id === walletId)?.balance ?? "0";
+  }, [trackingMode, walletId, wallets]);
+
+  const currentProgressDecimal = useMemo(() => {
+    try {
+      if (trackingMode === "linked_wallet") {
+        return Decimal.max(new Decimal(selectedWalletBalance || 0), 0);
+      }
+      if (goal) {
+        return Decimal.max(new Decimal(goal.actualProgress || 0), 0);
+      }
+      return Decimal.max(new Decimal(existingAmount || 0), 0);
+    } catch {
+      return new Decimal(0);
+    }
+  }, [trackingMode, selectedWalletBalance, goal, existingAmount]);
+
+  const estimatedMonthly = useMemo(() => {
+    try {
+      const targetDec = Decimal.max(new Decimal(targetAmount || 0), 0);
+      const remaining = Decimal.max(targetDec.minus(currentProgressDecimal), 0);
+      const months = monthCountInclusive(businessMonth, targetMonth);
+      return {
+        months,
+        remaining: remaining.toFixed(0),
+        monthly: remaining.dividedToIntegerBy(months).toFixed(0),
+      };
+    } catch {
+      return { months: 1, remaining: "0", monthly: "0" };
+    }
+  }, [targetAmount, currentProgressDecimal, businessMonth, targetMonth]);
 
   function submit() {
     setError(null);
@@ -1093,12 +1265,16 @@ function GoalEditorSheet({
     });
   }
 
+  const showSecondarySourceField =
+    trackingMode === "linked_wallet" || !goal;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side={isDesktop ? "right" : "bottom"}
-        placement={isDesktop ? "inset" : "edge"}
-        size={isDesktop ? "wide" : "default"}
+        side={sheetProps.side}
+        placement={sheetProps.placement}
+        size={sheetProps.size}
+        className={sheetProps.className}
         spacing="flush"
         elevation="flat"
       >
@@ -1107,7 +1283,12 @@ function GoalEditorSheet({
           title={goal ? "Chỉnh sửa mục tiêu tích lũy" : "Thêm mục tiêu tích lũy"}
           description="Chọn số tiền mục tiêu, thời hạn và cách theo dõi."
         />
-        <div className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto px-4 py-5 md:px-6">
+        <div
+          className={cn(
+            "grid min-h-0 flex-1 content-start overflow-y-auto",
+            isMobile ? "gap-4 px-4 py-4" : "gap-5 px-5 py-5 lg:px-6",
+          )}
+        >
           {error && (
             <div
               role="alert"
@@ -1125,7 +1306,12 @@ function GoalEditorSheet({
             placeholder="Ví dụ: Quỹ dự phòng khẩn cấp, Mua xe..."
             aria-invalid={Boolean(error) || undefined}
           />
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div
+            className={cn(
+              "grid gap-4",
+              !isMobile && "grid-cols-2",
+            )}
+          >
             <MoneyInput
               label="Số tiền mục tiêu"
               required
@@ -1140,61 +1326,89 @@ function GoalEditorSheet({
               onValueChange={setTargetMonth}
             />
           </div>
-          <Select
-            label="Cách theo dõi tiến độ"
-            value={trackingMode}
-            onValueChange={(value) =>
-              setTrackingMode(value as "manual" | "linked_wallet")
-            }
-            disabled={lockedSource}
-            options={[
-              {
-                value: "manual",
-                label: "Tự ghi nhận đóng góp",
-                content: (
-                  <>
-                    <ListChecks aria-hidden="true" /> Tự ghi nhận đóng góp
-                  </>
-                ),
-              },
-              {
-                value: "linked_wallet",
-                label: "Theo số dư ví liên kết",
-                content: (
-                  <>
-                    <Link2 aria-hidden="true" /> Theo số dư ví liên kết
-                  </>
-                ),
-              },
-            ]}
-          />
-          {trackingMode === "linked_wallet" ? (
+
+          <div
+            className={cn(
+              "grid gap-4",
+              !isMobile && showSecondarySourceField && "grid-cols-2",
+            )}
+          >
             <Select
-              label="Ví liên kết"
-              value={walletId}
-              onValueChange={setWalletId}
+              label="Cách theo dõi tiến độ"
+              value={trackingMode}
+              onValueChange={(value) =>
+                setTrackingMode(value as "manual" | "linked_wallet")
+              }
               disabled={lockedSource}
-              placeholder="Chọn ví"
-              options={wallets.map((wallet) => ({
-                value: wallet.id,
-                label: wallet.name,
-                content: (
-                  <span className="flex w-full justify-between gap-3">
-                    <span className="break-words">{wallet.name}</span>
-                    <span className="text-[var(--text-muted)] tabular-nums shrink-0">
-                      {money(wallet.balance, currency)}
+              options={[
+                {
+                  value: "manual",
+                  label: "Tự ghi nhận đóng góp",
+                  content: (
+                    <>
+                      <ListChecks aria-hidden="true" /> Tự ghi nhận đóng góp
+                    </>
+                  ),
+                },
+                {
+                  value: "linked_wallet",
+                  label: "Theo số dư ví liên kết",
+                  content: (
+                    <>
+                      <Link2 aria-hidden="true" /> Theo số dư ví liên kết
+                    </>
+                  ),
+                },
+              ]}
+            />
+            {trackingMode === "linked_wallet" ? (
+              <Select
+                label="Ví liên kết"
+                value={walletId}
+                onValueChange={setWalletId}
+                disabled={lockedSource}
+                placeholder="Chọn ví"
+                options={wallets.map((wallet) => ({
+                  value: wallet.id,
+                  label: wallet.name,
+                  content: (
+                    <span className="flex w-full justify-between gap-3">
+                      <span className="break-words">{wallet.name}</span>
+                      <span className="text-[var(--text-muted)] tabular-nums shrink-0">
+                        {money(wallet.balance, currency)}
+                      </span>
                     </span>
-                  </span>
-                ),
-              }))}
-            />
-          ) : !goal ? (
-            <MoneyInput
-              label="Số tiền đã có sẵn"
-              value={existingAmount}
-              onValueChange={setExistingAmount}
-            />
-          ) : null}
+                  ),
+                }))}
+              />
+            ) : !goal ? (
+              <MoneyInput
+                label="Số tiền đã có sẵn"
+                value={existingAmount}
+                onValueChange={setExistingAmount}
+              />
+            ) : null}
+          </div>
+
+          {/* Live Monthly Savings Requirement Preview */}
+          <div
+            className="grid gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 text-xs"
+            aria-live="polite"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[var(--text-secondary)]">
+                Cần tiết kiệm dự kiến ({estimatedMonthly.months} tháng)
+              </span>
+              <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums shrink-0">
+                ~ {money(estimatedMonthly.monthly, currency)} / tháng
+              </strong>
+            </div>
+            <p className="text-[11px] leading-5 text-[var(--text-muted)]">
+              Còn cần tích lũy thêm {money(estimatedMonthly.remaining, currency)}{" "}
+              đến {monthLabel(targetMonth)}.
+            </p>
+          </div>
+
           {lockedSource && (
             <p className="text-xs text-[var(--text-secondary)]">
               Không thể đổi cách theo dõi sau khi kế hoạch đã bắt đầu chạy.
@@ -1229,19 +1443,20 @@ function GoalEditorSheet({
 function FundingSheet({
   open,
   goal,
+  currency,
+  device,
   onOpenChange,
   onSaved,
 }: {
   open: boolean;
   goal: FinancialGoalView;
+  currency: string;
+  device: DeviceTier;
   onOpenChange: (open: boolean) => void;
   onSaved: (status: "pending" | "approved" | "rejected") => void;
 }) {
-  const isDesktop = useSyncExternalStore(
-    subscribeDesktop,
-    desktopSnapshot,
-    serverDesktopSnapshot,
-  );
+  const sheetProps = getGoalSheetPresentation(device, "compact");
+  const isMobile = device === "mobile";
   const [amount, setAmount] = useState("");
   const [effectiveDate, setEffectiveDate] = useState(today());
   const [note, setNote] = useState("");
@@ -1257,12 +1472,53 @@ function FundingSheet({
     }
   }, [amount, effectiveDate]);
 
+  const remainingGoalAmount = useMemo(
+    () =>
+      Decimal.max(
+        new Decimal(goal.targetAmount || 0).minus(goal.actualProgress || 0),
+        0,
+      ).toFixed(0),
+    [goal.targetAmount, goal.actualProgress],
+  );
+
+  const quickFillPresets = useMemo(() => {
+    const items: Array<{ label: string; value: string }> = [];
+    const reqDec = new Decimal(goal.requiredThisMonth || 0);
+    const shortDec = new Decimal(goal.shortfallThisMonth || 0);
+    const remDec = new Decimal(remainingGoalAmount || 0);
+
+    if (reqDec.greaterThan(0)) {
+      items.push({
+        label: `Định mức tháng (${money(reqDec.toFixed(0), currency)})`,
+        value: reqDec.toFixed(0),
+      });
+    }
+    if (shortDec.greaterThan(0) && !shortDec.equals(reqDec)) {
+      items.push({
+        label: `Bù thiếu tháng (${money(shortDec.toFixed(0), currency)})`,
+        value: shortDec.toFixed(0),
+      });
+    }
+    if (
+      remDec.greaterThan(0) &&
+      !remDec.equals(reqDec) &&
+      !remDec.equals(shortDec)
+    ) {
+      items.push({
+        label: `Đủ mục tiêu (${money(remDec.toFixed(0), currency)})`,
+        value: remDec.toFixed(0),
+      });
+    }
+    return items;
+  }, [goal.requiredThisMonth, goal.shortfallThisMonth, remainingGoalAmount, currency]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side={isDesktop ? "right" : "bottom"}
-        placement={isDesktop ? "inset" : "edge"}
-        size={isDesktop ? "wide" : "default"}
+        side={sheetProps.side}
+        placement={sheetProps.placement}
+        size={sheetProps.size}
+        className={sheetProps.className}
         spacing="flush"
         elevation="flat"
       >
@@ -1271,7 +1527,12 @@ function FundingSheet({
           title="Ghi nhận đóng góp"
           description={`Cập nhật số tiền tích lũy cho mục tiêu ${goal.name}.`}
         />
-        <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-4 py-5 md:px-6">
+        <div
+          className={cn(
+            "grid min-h-0 flex-1 content-start overflow-y-auto",
+            isMobile ? "gap-4 px-4 py-4" : "gap-4.5 px-5 py-5 lg:px-6",
+          )}
+        >
           {error && (
             <div
               role="alert"
@@ -1280,18 +1541,66 @@ function FundingSheet({
               {error}
             </div>
           )}
-          <MoneyInput
-            label="Số tiền đóng góp"
-            required
-            value={amount}
-            onValueChange={setAmount}
-          />
-          <DatePicker
-            label="Ngày ghi nhận"
-            required
-            value={effectiveDate}
-            onValueChange={setEffectiveDate}
-          />
+
+          {/* Goal Context & Quick-Fill Strip */}
+          <div className="grid gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 tabular-nums">
+              <span className="text-[var(--text-secondary)]">
+                Đã tích lũy:{" "}
+                <strong className="font-semibold text-[var(--foreground)]">
+                  {money(goal.actualProgress, currency)}
+                </strong>{" "}
+                / {money(goal.targetAmount, currency)} ({goal.progressPercentage}
+                %)
+              </span>
+              <span className="font-semibold text-[var(--primary)]">
+                Còn thiếu: {money(remainingGoalAmount, currency)}
+              </span>
+            </div>
+
+            {quickFillPresets.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 border-t border-[var(--border)] pt-2">
+                {quickFillPresets.map((preset) => {
+                  const selected = amount === preset.value;
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setAmount(preset.value)}
+                      className={cn(
+                        "rounded-lg border px-2 py-1 text-[11px] font-semibold transition-colors tabular-nums",
+                        selected
+                          ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
+                          : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--foreground)]",
+                      )}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div
+            className={cn(
+              "grid gap-4",
+              !isMobile && "grid-cols-2",
+            )}
+          >
+            <MoneyInput
+              label="Số tiền đóng góp"
+              required
+              value={amount}
+              onValueChange={setAmount}
+            />
+            <DatePicker
+              label="Ngày ghi nhận"
+              required
+              value={effectiveDate}
+              onValueChange={setEffectiveDate}
+            />
+          </div>
           <Input
             label="Ghi chú (Không bắt buộc)"
             value={note}
@@ -1328,4 +1637,5 @@ function FundingSheet({
     </Sheet>
   );
 }
+
 

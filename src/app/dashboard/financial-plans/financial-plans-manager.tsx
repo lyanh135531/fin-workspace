@@ -99,18 +99,86 @@ import {
   Wallet,
 } from "lucide-react";
 
-function subscribeDesktop(callback: () => void) {
-  const query = window.matchMedia("(min-width: 768px)");
-  query.addEventListener("change", callback);
-  return () => query.removeEventListener("change", callback);
+export type DeviceTier = "mobile" | "tablet" | "desktop";
+
+function subscribeDeviceTier(callback: () => void) {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function"
+  ) {
+    return () => {};
+  }
+  const mdQuery = window.matchMedia("(min-width: 768px)");
+  const lgQuery = window.matchMedia("(min-width: 1024px)");
+  mdQuery.addEventListener("change", callback);
+  lgQuery.addEventListener("change", callback);
+  return () => {
+    mdQuery.removeEventListener("change", callback);
+    lgQuery.removeEventListener("change", callback);
+  };
 }
 
-function desktopSnapshot() {
-  return window.matchMedia("(min-width: 768px)").matches;
+function getDeviceTierSnapshot(): DeviceTier {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function"
+  ) {
+    return "desktop";
+  }
+  if (window.matchMedia("(min-width: 1024px)").matches) {
+    return "desktop";
+  }
+  if (window.matchMedia("(min-width: 768px)").matches) {
+    return "tablet";
+  }
+  return "mobile";
 }
 
-function serverDesktopSnapshot() {
-  return false;
+function getServerDeviceTierSnapshot(): DeviceTier {
+  return "mobile";
+}
+
+function getPlanSheetPresentation(
+  device: DeviceTier,
+  variant: "compact" | "form" | "detail",
+): {
+  side: "bottom" | "center" | "right";
+  placement: "edge" | "inset";
+  size: "default" | "md" | "wide";
+  className: string;
+} {
+  if (device === "mobile") {
+    return {
+      side: "bottom",
+      placement: "edge",
+      size: variant === "compact" ? "default" : "wide",
+      className: variant === "compact" ? "max-h-[78dvh]" : "max-h-[85dvh]",
+    };
+  }
+  if (device === "tablet") {
+    return {
+      side: "center",
+      placement: "inset",
+      size: variant === "compact" ? "md" : "wide",
+      className:
+        variant === "compact"
+          ? "w-[calc(100%-2.5rem)] max-w-[30rem] max-h-[82dvh]"
+          : variant === "form"
+            ? "w-[calc(100%-2.5rem)] max-w-[36rem] max-h-[85dvh]"
+            : "w-[calc(100%-2.5rem)] max-w-[40rem] max-h-[86dvh]",
+    };
+  }
+  return {
+    side: "right",
+    placement: "inset",
+    size: variant === "compact" ? "md" : "wide",
+    className:
+      variant === "compact"
+        ? "lg:max-w-[28rem]"
+        : variant === "form"
+          ? "lg:max-w-[34rem]"
+          : "lg:max-w-[38rem]",
+  };
 }
 
 type PlanListItem = {
@@ -483,12 +551,15 @@ export function FinancialPlansManager({
   const [deleteCandidate, setDeleteCandidate] = useState<PlanListItem | null>(
     null,
   );
-  const isDesktop = useSyncExternalStore(
-    subscribeDesktop,
-    desktopSnapshot,
-    serverDesktopSnapshot,
+  const device = useSyncExternalStore(
+    subscribeDeviceTier,
+    getDeviceTierSnapshot,
+    getServerDeviceTierSnapshot,
   );
-  const isMobile = !isDesktop;
+  const planPickerSheetProps = getPlanSheetPresentation(
+    device,
+    device === "tablet" ? "form" : "compact",
+  );
   const [isPending, startTransition] = useTransition();
 
   function runAction(
@@ -529,20 +600,31 @@ export function FinancialPlansManager({
         <>
           <Sheet open={planPickerOpen} onOpenChange={setPlanPickerOpen}>
             <SheetContent
-              side={isMobile ? "bottom" : "right"}
-              placement={isMobile ? "edge" : "inset"}
-              size="md"
+              side={planPickerSheetProps.side}
+              placement={planPickerSheetProps.placement}
+              size={planPickerSheetProps.size}
+              className={planPickerSheetProps.className}
               spacing="flush"
               elevation="flat"
             >
               <SheetHeader
                 icon={CalendarRange}
                 title="Danh sách kế hoạch"
-                description={`Quản lý các kế hoạch tài chính của ${workspaceName}.`}
+                description={`Quản lý ${plans.length} kế hoạch tài chính của ${workspaceName}.`}
               />
               <nav
                 aria-label="Danh sách kế hoạch"
-                className="grid min-h-0 flex-1 content-start gap-2.5 overflow-y-auto px-4 py-4 md:px-6"
+                className={cn(
+                  "grid min-h-0 flex-1 content-start overflow-y-auto",
+                  device === "mobile"
+                    ? "grid-cols-1 gap-2 px-4 py-3.5"
+                    : device === "tablet"
+                      ? cn(
+                          "gap-2.5 px-5 py-4",
+                          plans.length >= 4 ? "grid-cols-2" : "grid-cols-1",
+                        )
+                      : "grid-cols-1 gap-2.5 px-6 py-5",
+                )}
               >
                 {plans.map((plan) => {
                   const StatusIcon = STATUS_ICONS[plan.status];
@@ -632,7 +714,7 @@ export function FinancialPlansManager({
               if (!open) setDeleteCandidate(null);
             }}
             trigger={null}
-            presentation={isMobile ? "sheet" : "popover"}
+            presentation="sheet"
             ariaLabel={
               deleteCandidate
                 ? `Xóa kế hoạch ${deleteCandidate.name}`
@@ -671,17 +753,31 @@ export function FinancialPlansManager({
                   : "Quản trị viên chưa thiết lập kế hoạch tài chính cho nhóm này."
               }
               action={
-                canManage ? (
-                  <Button
-                    size="lg"
-                    onClick={() => {
-                      setEditorMode("create");
-                      setEditorOpen(true);
-                    }}
-                  >
-                    <Plus aria-hidden="true" />
-                    <span>Tạo kế hoạch đầu tiên</span>
-                  </Button>
+                canManage || plans.length > 0 ? (
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {plans.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() => setPlanPickerOpen(true)}
+                      >
+                        <CalendarRange aria-hidden="true" />
+                        <span>Danh sách kế hoạch ({plans.length})</span>
+                      </Button>
+                    )}
+                    {canManage && (
+                      <Button
+                        size="lg"
+                        onClick={() => {
+                          setEditorMode("create");
+                          setEditorOpen(true);
+                        }}
+                      >
+                        <Plus aria-hidden="true" />
+                        <span>Tạo kế hoạch đầu tiên</span>
+                      </Button>
+                    )}
+                  </div>
                 ) : undefined
               }
             />
@@ -692,7 +788,7 @@ export function FinancialPlansManager({
               plan={selectedPlan}
               plans={plans}
               currency={currency}
-              isMobile={isMobile}
+              device={device}
               disabled={isPending}
               onEdit={() => {
                 setEditorMode("edit");
@@ -739,7 +835,7 @@ export function FinancialPlansManager({
             jarCategories={jarCategories}
             jarTransactions={jarTransactions}
             currentMonth={currentPlanMonth}
-            isMobile={isMobile}
+            device={device}
             disabled={isPending}
             onCreatePlan={() => {
               setEditorMode("create");
@@ -788,7 +884,7 @@ export function FinancialPlansManager({
             selectedPlan?.status === "draft" &&
             financialGoals.length > 1
           }
-          isMobile={isMobile}
+          device={device}
           disabled={isPending}
           onSaved={(id) => {
             setEditorOpen(false);
@@ -805,7 +901,8 @@ export function FinancialPlansManager({
               open={deadlineOpen}
               onOpenChange={setDeadlineOpen}
               plan={running}
-              isMobile={isMobile}
+              currency={currency}
+              device={device}
               disabled={isPending}
               onSave={(targetMonth) =>
                 runAction(
@@ -827,7 +924,7 @@ export function FinancialPlansManager({
               initialRatios={ratiosFromMonth(nextAllocationMonth)}
               referenceBudget={currentPlanMonth?.allocatableGrossBudget}
               currency={currency}
-              isMobile={isMobile}
+              device={device}
               disabled={isPending}
               onSave={(percentages) =>
                 runAction(
@@ -852,7 +949,7 @@ function DraftReview({
   plan,
   plans,
   currency,
-  isMobile,
+  device,
   disabled,
   onEdit,
   onOpenPlanPicker,
@@ -862,7 +959,7 @@ function DraftReview({
   plan: DraftView;
   plans: PlanListItem[];
   currency: string;
-  isMobile: boolean;
+  device: DeviceTier;
   disabled: boolean;
   onEdit: () => void;
   onOpenPlanPicker: () => void;
@@ -873,12 +970,7 @@ function DraftReview({
   const [draftMenuOpen, setDraftMenuOpen] = useState(false);
 
   function handleDraftMenuOpenChange(nextOpen: boolean) {
-    if (
-      nextOpen &&
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(min-width: 1024px)").matches
-    ) {
+    if (nextOpen && device === "desktop") {
       return;
     }
     setDraftMenuOpen(nextOpen);
@@ -1028,6 +1120,21 @@ function DraftReview({
               />
               <span>Chỉnh sửa bản nháp</span>
             </DropdownMenuItem>
+            {plans.length > 1 && (
+              <DropdownMenuItem
+                disabled={disabled}
+                onClick={() => {
+                  setDraftMenuOpen(false);
+                  onOpenPlanPicker();
+                }}
+              >
+                <CalendarRange
+                  className="size-4 text-[var(--text-secondary)]"
+                  aria-hidden="true"
+                />
+                <span>Đổi kế hoạch ({plans.length})</span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"
@@ -1142,7 +1249,7 @@ function DraftReview({
         title="Xóa bản nháp kế hoạch?"
         description="Bản nháp kế hoạch sẽ bị xóa khỏi danh sách."
         confirmLabel="Xóa bản nháp"
-        presentation={isMobile ? "sheet" : "popover"}
+        presentation="sheet"
         onConfirm={onDelete}
         disabled={disabled}
       />
@@ -1164,7 +1271,7 @@ function PlanDetail({
   jarCategories,
   jarTransactions,
   currentMonth,
-  isMobile,
+  device,
   disabled,
   onCreatePlan,
   onEditDeadline,
@@ -1188,7 +1295,7 @@ function PlanDetail({
   jarCategories: JarCategoryItem[];
   jarTransactions: JarTransactionItem[];
   currentMonth?: PlanMonth;
-  isMobile: boolean;
+  device: DeviceTier;
   disabled: boolean;
   onCreatePlan: () => void;
   onEditDeadline: () => void;
@@ -1775,7 +1882,7 @@ function PlanDetail({
               currency={currency}
               jarCategories={jarCategories}
               jarTransactions={jarTransactions}
-              isMobile={isMobile}
+              device={device}
               canEditAllocation={plan.status === "active" && plan.canManage}
               disabled={disabled}
               onSelectMonth={(monthKey) => setSelectedJarMonthKey(monthKey)}
@@ -1812,7 +1919,7 @@ function PlanDetail({
             <MonthHistory
               months={plan.months}
               currency={currency}
-              isMobile={isMobile}
+              device={device}
               onInspectInJarsTab={(monthKey) => {
                 setSelectedJarMonthKey(monthKey);
                 setActiveTab("jars");
@@ -1888,69 +1995,69 @@ function PlanDetail({
                 </dl>
 
                 {plan.canManage && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-3.5">
+                  <div className="flex flex-col gap-2.5 border-t border-[var(--border)] pt-3.5 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-xs font-medium text-[var(--text-secondary)]">
                       Tùy chỉnh kế hoạch
                     </span>
-                    <div className="flex flex-wrap items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-1">
+                    <div className="flex flex-wrap items-center gap-2">
                       {plan.status === "active" && (
                         <>
                           <Button
-                            variant="icon"
-                            size="icon"
+                            variant="outline"
+                            size="sm"
                             onClick={onEditAllocation}
                             disabled={disabled}
                             aria-label="Điều chỉnh tỷ lệ 6 hũ tháng sau"
-                            title="Điều chỉnh tỷ lệ 6 hũ tháng sau"
                           >
-                            <SlidersHorizontal size={16} aria-hidden="true" />
+                            <SlidersHorizontal size={14} aria-hidden="true" />
+                            <span>Tỷ lệ 6 hũ</span>
                           </Button>
                           <Button
-                            variant="icon"
-                            size="icon"
+                            variant="outline"
+                            size="sm"
                             onClick={onEditDeadline}
                             disabled={disabled}
                             aria-label="Đổi thời hạn hoàn thành"
-                            title="Đổi thời hạn hoàn thành"
                           >
-                            <CalendarClock size={16} aria-hidden="true" />
+                            <CalendarClock size={14} aria-hidden="true" />
+                            <span>Đổi thời hạn</span>
                           </Button>
                           {plan.canComplete && (
                             <Button
                               variant="success"
-                              size="icon"
+                              size="sm"
                               onClick={onComplete}
                               disabled={disabled}
                               aria-label="Hoàn thành kế hoạch"
-                              title="Hoàn thành kế hoạch"
                             >
-                              <CheckCircle2 size={16} aria-hidden="true" />
+                              <CheckCircle2 size={14} aria-hidden="true" />
+                              <span>Hoàn thành kế hoạch</span>
                             </Button>
                           )}
                         </>
                       )}
                       {plans.length > 1 && (
                         <Button
-                          variant="icon"
-                          size="icon"
+                          variant="outline"
+                          size="sm"
                           onClick={onOpenPlanPicker}
                           disabled={disabled}
                           aria-label={`Chuyển đổi kế hoạch (${plans.length})`}
-                          title={`Chuyển đổi kế hoạch (${plans.length})`}
                         >
-                          <CalendarRange size={16} aria-hidden="true" />
+                          <CalendarRange size={14} aria-hidden="true" />
+                          <span>Đổi kế hoạch ({plans.length})</span>
                         </Button>
                       )}
                       {plan.status === "active" && (
                         <Button
-                          variant="destructiveIcon"
-                          size="icon"
+                          variant="destructive"
+                          size="sm"
                           onClick={() => setCancelConfirmOpen(true)}
                           disabled={disabled}
                           aria-label="Hủy kế hoạch"
-                          title="Hủy kế hoạch"
                         >
-                          <AlertTriangle size={16} aria-hidden="true" />
+                          <AlertTriangle size={14} aria-hidden="true" />
+                          <span>Hủy kế hoạch</span>
                         </Button>
                       )}
                     </div>
@@ -2033,7 +2140,7 @@ function PlanDetail({
         open={cancelConfirmOpen}
         onOpenChange={setCancelConfirmOpen}
         trigger={null}
-        presentation={isMobile ? "sheet" : "popover"}
+        presentation="sheet"
         ariaLabel="Hủy kế hoạch"
         title="Hủy kế hoạch đang chạy?"
         description="Kế hoạch sẽ ngừng chạy và không thể chỉnh sửa thêm. Số liệu các tháng đã chốt vẫn được giữ nguyên."
@@ -2050,7 +2157,7 @@ function PlanDetail({
         title="Xóa kế hoạch?"
         description="Kế hoạch sẽ bị xóa khỏi danh sách."
         confirmLabel="Xóa kế hoạch"
-        presentation={isMobile ? "sheet" : "popover"}
+        presentation="sheet"
         onConfirm={onDelete ?? (() => {})}
         disabled={disabled}
       />
@@ -2353,7 +2460,7 @@ function SixJarsSection({
   currency,
   jarCategories,
   jarTransactions,
-  isMobile,
+  device,
   canEditAllocation,
   disabled,
   onSelectMonth,
@@ -2366,7 +2473,7 @@ function SixJarsSection({
   currency: string;
   jarCategories: JarCategoryItem[];
   jarTransactions: JarTransactionItem[];
-  isMobile: boolean;
+  device: DeviceTier;
   canEditAllocation?: boolean;
   disabled?: boolean;
   onSelectMonth: (monthKey: string) => void;
@@ -2655,6 +2762,7 @@ function SixJarsSection({
               tabIndex={0}
               onClick={() => setInspectedJarCode(jar.jarCode)}
               onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) return;
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
                   setInspectedJarCode(jar.jarCode);
@@ -2780,6 +2888,7 @@ function SixJarsSection({
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 px-2.5 py-1.5 text-xs">
                 <button
                   type="button"
+                  onKeyDown={(event) => event.stopPropagation()}
                   onClick={(event) => {
                     event.stopPropagation();
                     window.dispatchEvent(
@@ -2823,7 +2932,7 @@ function SixJarsSection({
           includeForecast={includeForecast}
           remainingDays={isCurrentBusinessMonth ? remainingDays : 0}
           currency={currency}
-          isMobile={isMobile}
+          device={device}
           categories={jarCategories.filter(
             (cat) => cat.jarCode === inspectedJar.jarCode,
           )}
@@ -2853,7 +2962,7 @@ function JarDetailSheet({
   includeForecast,
   remainingDays,
   currency,
-  isMobile,
+  device,
   categories,
   transactions,
   canEditAllocation,
@@ -2866,12 +2975,18 @@ function JarDetailSheet({
   includeForecast: boolean;
   remainingDays: number;
   currency: string;
-  isMobile: boolean;
+  device: DeviceTier;
   categories: JarCategoryItem[];
   transactions: JarTransactionItem[];
   canEditAllocation?: boolean;
   onEditAllocation?: () => void;
 }) {
+  const sheetProps = getPlanSheetPresentation(device, "detail");
+  const isMobile = device === "mobile";
+  const [mobileSection, setMobileSection] = useState<
+    "transactions" | "categories"
+  >(() => (transactions.length > 0 ? "transactions" : "categories"));
+
   const remaining =
     jar.remainingAmount ??
     new Decimal(jar.allocatedAmount)
@@ -2967,12 +3082,164 @@ function JarDetailSheet({
       .sort((a, b) => new Decimal(b.amount).comparedTo(a.amount));
   }, [categories, includedTransactions, spent]);
 
+  const categoriesBlock = (
+    <section className="grid gap-2.5">
+      {!isMobile && (
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+            <Layers className="size-3.5 text-[var(--primary)]" />
+            <span>Danh mục thuộc hũ ({categoryBreakdown.length})</span>
+          </h4>
+        </div>
+      )}
+
+      {categoryBreakdown.length === 0 ? (
+        <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3.5 text-xs text-[var(--text-muted)]">
+          Chưa có danh mục chi tiêu nào được gán vào hũ này.
+        </p>
+      ) : (
+        <div
+          className={cn(
+            "grid gap-2",
+            !isMobile && categoryBreakdown.length > 1 && "grid-cols-2",
+          )}
+        >
+          {categoryBreakdown.map((cat) => (
+            <div
+              key={cat.id}
+              className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="size-2.5 shrink-0 rounded-full"
+                    style={{
+                      backgroundColor: cat.color || "var(--primary)",
+                    }}
+                    aria-hidden="true"
+                  />
+                  <span className="break-words text-xs font-semibold text-[var(--foreground)] sm:text-sm">
+                    {cat.name}
+                  </span>
+                  {cat.count > 0 && (
+                    <span className="rounded-md bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)] tabular-nums shrink-0">
+                      {cat.count} GD
+                    </span>
+                  )}
+                </div>
+                <strong className="text-xs font-bold text-[var(--foreground)] tabular-nums shrink-0 sm:text-sm">
+                  {money(cat.amount, currency)}
+                </strong>
+              </div>
+              {cat.share > 0 && (
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--primary)]"
+                    style={{ width: `${Math.max(cat.share, 3)}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+
+  const transactionsBlock = (
+    <section
+      className={cn(
+        "grid gap-2.5",
+        !isMobile && "border-t border-[var(--border)] pt-4",
+      )}
+    >
+      {!isMobile && (
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+            <ReceiptText className="size-3.5 text-[var(--primary)]" />
+            <span>Giao dịch trong tháng ({transactions.length})</span>
+          </h4>
+        </div>
+      )}
+
+      {transactions.length === 0 ? (
+        <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-4 text-center text-xs text-[var(--text-muted)]">
+          Chưa có giao dịch chi tiêu nào trong hũ này vào{" "}
+          {monthLabel(month.month)}.
+        </p>
+      ) : (
+        <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3">
+          {transactions.map((tx) => {
+            const isCard = tx.walletKind === "credit_card";
+            const txAmountDec = new Decimal(tx.amount);
+            const isRefund = txAmountDec.isNegative();
+            return (
+              <div
+                key={tx.id}
+                className="flex items-start justify-between gap-3 py-2.5"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="break-words text-xs font-semibold leading-snug text-[var(--foreground)] sm:text-sm">
+                      {tx.description || tx.categoryName}
+                    </p>
+                    {tx.isInstallment && (
+                      <span className="rounded-md bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)]">
+                        Trả góp
+                      </span>
+                    )}
+                    {isRefund && (
+                      <span className="rounded-md bg-[color-mix(in_srgb,var(--success)_15%,var(--surface))] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+                        Hoàn tiền
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
+                    {formatViDate(tx.date)} · {tx.categoryName} ·{" "}
+                    <span
+                      className={cn(
+                        "font-medium",
+                        isCard
+                          ? "text-[var(--warning)]"
+                          : "text-[var(--text-secondary)]",
+                      )}
+                    >
+                      {isCard ? `Thẻ ${tx.walletName}` : `Ví ${tx.walletName}`}
+                    </span>
+                    {tx.workflowStatus === "pending"
+                      ? " · Chờ duyệt"
+                      : tx.workflowStatus === "scheduled"
+                        ? " · Dự kiến"
+                        : ""}
+                  </p>
+                </div>
+                <strong
+                  className={cn(
+                    "text-xs font-bold tabular-nums shrink-0 sm:text-sm",
+                    isRefund
+                      ? "text-[var(--success)]"
+                      : "text-[var(--foreground)]",
+                  )}
+                >
+                  {isRefund
+                    ? `−${money(txAmountDec.abs().toFixed(0), currency)}`
+                    : money(txAmountDec.toFixed(0), currency)}
+                </strong>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side={isMobile ? "bottom" : "right"}
-        placement={isMobile ? "edge" : "inset"}
-        size={isMobile ? "default" : "wide"}
+        side={sheetProps.side}
+        placement={sheetProps.placement}
+        size={sheetProps.size}
+        className={sheetProps.className}
         spacing="flush"
         elevation="flat"
       >
@@ -2982,25 +3249,37 @@ function JarDetailSheet({
           description={`${monthLabel(month.month)} · ${JAR_DESCRIPTIONS[jar.jarCode]}`}
         />
 
-        <div className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto px-4 py-5 md:px-6">
-          {/* 2x2 Summary Metrics */}
-          <dl className="grid grid-cols-2 gap-2.5">
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
-              <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
+        <div
+          className={cn(
+            "grid min-h-0 flex-1 content-start overflow-y-auto",
+            isMobile
+              ? "gap-3.5 px-4 py-4"
+              : "gap-4 px-5 py-5 lg:px-6",
+          )}
+        >
+          {/* Summary Metrics: 2x2 on Mobile, 4-col strip on Tablet & Desktop */}
+          <dl
+            className={cn(
+              "grid",
+              isMobile ? "grid-cols-2 gap-2" : "grid-cols-2 gap-2.5 sm:grid-cols-4",
+            )}
+          >
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-2.5 sm:p-3">
+              <dt className="break-words text-[11px] leading-snug text-[var(--text-secondary)]">
                 Ngân sách hũ ({jar.percentage}%)
               </dt>
-              <dd className="mt-1 text-base font-bold text-[var(--foreground)] tabular-nums">
+              <dd className="mt-1 text-sm font-bold text-[var(--foreground)] tabular-nums sm:text-base">
                 {money(jar.allocatedAmount, currency)}
               </dd>
             </div>
 
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
-              <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-2.5 sm:p-3">
+              <dt className="break-words text-[11px] leading-snug text-[var(--text-secondary)]">
                 Đã chi ({jarUsage.toFixed(0)}%)
               </dt>
               <dd
                 className={cn(
-                  "mt-1 text-base font-bold tabular-nums",
+                  "mt-1 text-sm font-bold tabular-nums sm:text-base",
                   PROGRESS_TEXT_TONES[jarUsageTone],
                 )}
               >
@@ -3008,13 +3287,13 @@ function JarDetailSheet({
               </dd>
             </div>
 
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
-              <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-2.5 sm:p-3">
+              <dt className="break-words text-[11px] leading-snug text-[var(--text-secondary)]">
                 {overspent ? "Vượt hạn mức" : "Còn được tiêu"}
               </dt>
               <dd
                 className={cn(
-                  "mt-1 text-base font-bold tabular-nums",
+                  "mt-1 text-sm font-bold tabular-nums sm:text-base",
                   overspent
                     ? "text-[var(--destructive)]"
                     : "text-[var(--success)]",
@@ -3026,11 +3305,11 @@ function JarDetailSheet({
               </dd>
             </div>
 
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3">
-              <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-2.5 sm:p-3">
+              <dt className="break-words text-[11px] leading-snug text-[var(--text-secondary)]">
                 An toàn mỗi ngày
               </dt>
-              <dd className="mt-1 text-base font-bold text-[var(--foreground)] tabular-nums">
+              <dd className="mt-1 text-sm font-bold text-[var(--foreground)] tabular-nums sm:text-base">
                 {remainingDays > 0
                   ? `${money(safeDaily.toFixed(0), currency)}`
                   : "Kỳ đã qua"}
@@ -3039,7 +3318,7 @@ function JarDetailSheet({
           </dl>
 
           {/* Wallet vs Credit Card Split + 1-Tap Quick Record Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 px-3 py-2.5 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 px-3 py-2 text-xs">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 tabular-nums">
               <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
                 <Wallet className="size-3.5 text-[var(--primary)]" aria-hidden="true" />
@@ -3050,7 +3329,7 @@ function JarDetailSheet({
               </span>
               <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
                 <CreditCard className="size-3.5 text-[var(--warning)]" aria-hidden="true" />
-                <span>Chi qua Thẻ tín dụng:</span>
+                <span>Chi qua Thẻ:</span>
                 <strong className="font-semibold text-[var(--foreground)]">
                   {money(jarCardSpent.toFixed(0), currency)}
                 </strong>
@@ -3078,140 +3357,37 @@ function JarDetailSheet({
             </Button>
           </div>
 
-          {/* Category Breakdown */}
-          <section className="grid gap-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
-                <Layers className="size-3.5 text-[var(--primary)]" />
-                <span>Danh mục thuộc hũ ({categoryBreakdown.length})</span>
-              </h4>
-            </div>
-
-            {categoryBreakdown.length === 0 ? (
-              <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3.5 text-xs text-[var(--text-muted)]">
-                Chưa có danh mục chi tiêu nào được gán vào hũ này.
-              </p>
-            ) : (
-              <div className="grid gap-2">
-                {categoryBreakdown.map((cat) => (
-                  <div
-                    key={cat.id}
-                    className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span
-                          className="size-2.5 shrink-0 rounded-full"
-                          style={{
-                            backgroundColor: cat.color || "var(--primary)",
-                          }}
-                          aria-hidden="true"
-                        />
-                        <span className="break-words text-xs font-semibold text-[var(--foreground)] sm:text-sm">
-                          {cat.name}
-                        </span>
-                        {cat.count > 0 && (
-                          <span className="rounded-md bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)] tabular-nums">
-                            {cat.count} GD
-                          </span>
-                        )}
-                      </div>
-                      <strong className="text-xs font-bold text-[var(--foreground)] tabular-nums shrink-0 sm:text-sm">
-                        {money(cat.amount, currency)}
-                      </strong>
-                    </div>
-                    {cat.share > 0 && (
-                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]">
-                        <div
-                          className="h-full rounded-full bg-[var(--primary)]"
-                          style={{ width: `${Math.max(cat.share, 3)}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Transactions in Selected Month & Jar */}
-          <section className="grid gap-2.5 border-t border-[var(--border)] pt-4">
-            <div className="flex items-center justify-between gap-2">
-              <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
-                <ReceiptText className="size-3.5 text-[var(--primary)]" />
-                <span>Giao dịch trong tháng ({transactions.length})</span>
-              </h4>
-            </div>
-
-            {transactions.length === 0 ? (
-              <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-4 text-center text-xs text-[var(--text-muted)]">
-                Chưa có giao dịch chi tiêu nào trong hũ này vào{" "}
-                {monthLabel(month.month)}.
-              </p>
-            ) : (
-              <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3">
-                {transactions.map((tx) => {
-                  const isCard = tx.walletKind === "credit_card";
-                  const txAmountDec = new Decimal(tx.amount);
-                  const isRefund = txAmountDec.isNegative();
-                  return (
-                    <div
-                      key={tx.id}
-                      className="flex items-start justify-between gap-3 py-2.5"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <p className="break-words text-xs font-semibold leading-snug text-[var(--foreground)] sm:text-sm">
-                            {tx.description || tx.categoryName}
-                          </p>
-                          {tx.isInstallment && (
-                            <span className="rounded-md bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warning)]">
-                              Trả góp
-                            </span>
-                          )}
-                          {isRefund && (
-                            <span className="rounded-md bg-[color-mix(in_srgb,var(--success)_15%,var(--surface))] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--success)]">
-                              Hoàn tiền
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
-                          {formatViDate(tx.date)} · {tx.categoryName} ·{" "}
-                          <span
-                            className={cn(
-                              "font-medium",
-                              isCard
-                                ? "text-[var(--warning)]"
-                                : "text-[var(--text-secondary)]",
-                            )}
-                          >
-                            {isCard ? `Thẻ ${tx.walletName}` : `Ví ${tx.walletName}`}
-                          </span>
-                          {tx.workflowStatus === "pending"
-                            ? " · Chờ duyệt"
-                            : tx.workflowStatus === "scheduled"
-                              ? " · Dự kiến"
-                              : ""}
-                        </p>
-                      </div>
-                      <strong
-                        className={cn(
-                          "text-xs font-bold tabular-nums shrink-0 sm:text-sm",
-                          isRefund
-                            ? "text-[var(--success)]"
-                            : "text-[var(--foreground)]",
-                        )}
-                      >
-                        {isRefund
-                          ? `−${money(txAmountDec.abs().toFixed(0), currency)}`
-                          : money(txAmountDec.toFixed(0), currency)}
-                      </strong>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+          {isMobile ? (
+            <Tabs
+              value={mobileSection}
+              onValueChange={(value) =>
+                setMobileSection(value as "transactions" | "categories")
+              }
+              className="w-full"
+            >
+              <TabsList variant="segmented" className="grid w-full grid-cols-2">
+                <TabsTrigger value="transactions" variant="segmented">
+                  <ReceiptText className="size-3.5" aria-hidden="true" />
+                  <span>Giao dịch ({transactions.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="categories" variant="segmented">
+                  <Layers className="size-3.5" aria-hidden="true" />
+                  <span>Danh mục ({categoryBreakdown.length})</span>
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="transactions" className="mt-3">
+                {transactionsBlock}
+              </TabsContent>
+              <TabsContent value="categories" className="mt-3">
+                {categoriesBlock}
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <>
+              {categoriesBlock}
+              {transactionsBlock}
+            </>
+          )}
         </div>
 
         <SheetFooter
@@ -3247,12 +3423,19 @@ function JarDetailSheet({
 function BudgetJarList({
   month,
   currency,
+  device = "desktop",
 }: {
   month: PlanMonth;
   currency: string;
+  device?: DeviceTier;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+    <div
+      className={cn(
+        "grid",
+        device === "mobile" ? "grid-cols-1 gap-2.5" : "grid-cols-2 gap-3",
+      )}
+    >
       {month.jars.map((jar) => {
         const remaining =
           jar.remainingAmount ??
@@ -3327,16 +3510,17 @@ function BudgetJarList({
 function MonthHistory({
   months,
   currency,
-  isMobile = false,
+  device = "desktop",
   onInspectInJarsTab,
 }: {
   months: PlanMonth[];
   currency: string;
-  isMobile?: boolean;
+  device?: DeviceTier;
   onInspectInJarsTab?: (monthKey: string) => void;
 }) {
   const [selectedMonth, setSelectedMonth] = useState<PlanMonth | null>(null);
   const unclosedMonth = months.find((m) => !m.closed);
+  const monthSheetProps = getPlanSheetPresentation(device, "detail");
 
   return (
     <Card>
@@ -3352,7 +3536,7 @@ function MonthHistory({
             </CardTitle>
             <CardDescription className="mt-0.5 text-xs">
               Theo dõi mức tiết kiệm, ngân sách chi tiêu và ngân sách còn lại
-              của từng tháng.
+              của từng tháng. Nhấn vào tháng bất kỳ để xem chi tiết 6 hũ.
             </CardDescription>
           </div>
           <span className="shrink-0 rounded-full bg-[var(--surface-secondary)] px-2.5 py-0.5 text-xs font-semibold text-[var(--text-secondary)] tabular-nums">
@@ -3375,7 +3559,18 @@ function MonthHistory({
           return (
             <div
               key={month.month}
-              className="flex flex-col gap-3 py-3.5 first:pt-1 last:pb-0 md:flex-row md:items-center md:justify-between"
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedMonth(month)}
+              onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setSelectedMonth(month);
+                }
+              }}
+              aria-label={`Xem chi tiết 6 hũ ${monthLabel(month.month)}`}
+              className="flex cursor-pointer flex-col gap-3 rounded-xl px-2 py-3.5 transition-colors first:pt-2 last:pb-2 hover:bg-[var(--surface-secondary)]/50 md:flex-row md:items-center md:justify-between"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -3441,13 +3636,19 @@ function MonthHistory({
 
                 <div className="flex items-center gap-1">
                   <Button
-                    variant="icon"
-                    size="icon"
-                    onClick={() => setSelectedMonth(month)}
+                    variant="outline"
+                    size="sm"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setSelectedMonth(month);
+                    }}
+                    onKeyDown={(event) => event.stopPropagation()}
                     aria-label={`Chi tiết 6 hũ ${monthLabel(month.month)}`}
                     title={`Xem chi tiết 6 hũ ${monthLabel(month.month)}`}
+                    className="h-8 gap-1.5 px-2.5 text-xs"
                   >
-                    <PieChart size={16} aria-hidden="true" />
+                    <PieChart size={14} aria-hidden="true" />
+                    <span className="hidden sm:inline">6 Hũ</span>
                   </Button>
                 </div>
               </div>
@@ -3464,9 +3665,10 @@ function MonthHistory({
         }}
       >
         <SheetContent
-          side={isMobile ? "bottom" : "right"}
-          placement={isMobile ? "edge" : "inset"}
-          size={isMobile ? "default" : "wide"}
+          side={monthSheetProps.side}
+          placement={monthSheetProps.placement}
+          size={monthSheetProps.size}
+          className={monthSheetProps.className}
           spacing="flush"
           elevation="flat"
         >
@@ -3481,7 +3683,11 @@ function MonthHistory({
                     : "Số liệu phân bổ và chi tiêu trong tháng"
                 }
               />
-              <MonthSheetDetail month={selectedMonth} currency={currency} />
+              <MonthSheetDetail
+                month={selectedMonth}
+                currency={currency}
+                device={device}
+              />
               <SheetFooter
                 onCancel={() => setSelectedMonth(null)}
                 cancelLabel="Đóng"
@@ -3510,39 +3716,47 @@ function MonthHistory({
 function MonthSheetDetail({
   month,
   currency,
+  device = "desktop",
 }: {
   month: PlanMonth;
   currency: string;
+  device?: DeviceTier;
 }) {
   const availableToSpend = new Decimal(month.availableToSpend);
   const hasShortfall = new Decimal(month.resourceShortfall).greaterThan(0);
   const savedAmount =
     month.closedActualGoalAmount ?? month.projectedActualGoalAmount ?? "0";
+  const isMobile = device === "mobile";
 
   return (
-    <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-4 py-5 md:px-6">
-      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
-          <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
+    <div
+      className={cn(
+        "grid min-h-0 flex-1 content-start overflow-y-auto",
+        isMobile ? "gap-3.5 px-4 py-4" : "gap-4 px-5 py-5 lg:px-6",
+      )}
+    >
+      <dl className="grid grid-cols-2 gap-2.5 sm:gap-3">
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 sm:p-3.5">
+          <dt className="break-words text-[11px] leading-snug text-[var(--text-secondary)] sm:text-xs">
             Cần tiết kiệm
           </dt>
-          <dd className="mt-1 text-base font-bold text-[var(--foreground)] tabular-nums shrink-0">
+          <dd className="mt-1 text-sm font-bold text-[var(--foreground)] tabular-nums shrink-0 sm:text-base">
             {money(month.adjustedRequiredAmount, currency)}
           </dd>
-          <small className="mt-0.5 block text-xs text-[var(--text-muted)] tabular-nums">
+          <small className="mt-0.5 block text-[11px] text-[var(--text-muted)] tabular-nums sm:text-xs">
             Đã tiết kiệm: {money(savedAmount, currency)}
           </small>
         </div>
 
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
-          <dt className="break-words text-xs leading-snug text-[var(--text-secondary)]">
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 sm:p-3.5">
+          <dt className="break-words text-[11px] leading-snug text-[var(--text-secondary)] sm:text-xs">
             Ngân sách chi tiêu tháng
           </dt>
-          <dd className="mt-1 text-base font-bold text-[var(--foreground)] tabular-nums shrink-0">
+          <dd className="mt-1 text-sm font-bold text-[var(--foreground)] tabular-nums shrink-0 sm:text-base">
             {money(month.allocatableGrossBudget, currency)}
           </dd>
-          <small className="mt-0.5 block text-xs text-[var(--text-muted)] tabular-nums">
-            Ngân sách còn lại:{" "}
+          <small className="mt-0.5 block text-[11px] text-[var(--text-muted)] tabular-nums sm:text-xs">
+            Còn lại:{" "}
             <span
               className={cn(
                 "font-semibold",
@@ -3576,11 +3790,11 @@ function MonthSheetDetail({
       )}
 
       {month.jars && month.jars.length > 0 && (
-        <section className="grid gap-3 border-t border-[var(--border)] pt-4">
+        <section className="grid gap-3 border-t border-[var(--border)] pt-3.5">
           <h4 className="text-sm font-semibold text-[var(--foreground)]">
             Phân bổ 6 hũ ({monthLabel(month.month)})
           </h4>
-          <BudgetJarList month={month} currency={currency} />
+          <BudgetJarList month={month} currency={currency} device={device} />
         </section>
       )}
     </div>
@@ -3592,7 +3806,6 @@ function PlanSheetHeader({
   title,
   description,
 }: {
-  isMobile?: boolean;
   icon: typeof Target;
   title: string;
   description: string;
@@ -3607,7 +3820,7 @@ function PlanEditorSheet({
   plan,
   canAutoActivate,
   hasMultipleGoals,
-  isMobile,
+  device,
   disabled,
   onSaved,
 }: {
@@ -3617,12 +3830,15 @@ function PlanEditorSheet({
   plan: DraftView | null;
   canAutoActivate?: boolean;
   hasMultipleGoals: boolean;
-  isMobile: boolean;
+  device: DeviceTier;
   disabled: boolean;
   onSaved: (id: string) => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<"info" | "ratios">("info");
+  const sheetProps = getPlanSheetPresentation(device, "detail");
+  const isMobile = device === "mobile";
+  const isTablet = device === "tablet";
   const initial = useMemo<EditorDraft>(
     () =>
       plan
@@ -3723,19 +3939,26 @@ function PlanEditorSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side={isMobile ? "bottom" : "right"}
-        placement={isMobile ? "edge" : "inset"}
-        size={isMobile ? "default" : "wide"}
+        side={sheetProps.side}
+        placement={sheetProps.placement}
+        size={sheetProps.size}
+        className={sheetProps.className}
         spacing="flush"
         elevation="flat"
       >
         <PlanSheetHeader
-          isMobile={isMobile}
           icon={Target}
           title={plan ? "Chỉnh sửa bản nháp" : "Tạo kế hoạch tài chính"}
           description="Thiết lập mục tiêu tích lũy, thời hạn hoàn thành và tỷ lệ phân bổ 6 hũ chi tiêu."
         />
-        <div className="grid min-h-0 flex-1 content-start gap-6 overflow-y-auto px-4 py-5 md:px-6">
+        <div
+          className={cn(
+            "grid min-h-0 flex-1 content-start overflow-y-auto",
+            isMobile
+              ? "gap-4 px-4 py-4"
+              : "gap-5 px-5 py-5 lg:px-6",
+          )}
+        >
           {isMobile ? (
             <Tabs
               value={activeTab}
@@ -3815,6 +4038,7 @@ function PlanEditorSheet({
               <TabsContent value="ratios" className="mt-3">
                 <RatioEditor
                   ratios={draft.percentages}
+                  columns={1}
                   onChange={(percentages) =>
                     setDraft({ ...draft, percentages })
                   }
@@ -3822,34 +4046,41 @@ function PlanEditorSheet({
               </TabsContent>
             </Tabs>
           ) : (
-            <div className="grid gap-6">
+            <div className="grid gap-5">
               <div className="grid gap-4">
-                <Input
-                  label="Tên kế hoạch"
-                  required
-                  value={draft.name}
-                  onChange={(event) =>
-                    setDraft({ ...draft, name: event.target.value })
-                  }
-                  placeholder="Ví dụ: Kế hoạch tích lũy năm nay"
-                />
-                {!hasMultipleGoals && (
-                  <MonthPicker
-                    label="Tháng hoàn thành dự kiến"
+                <div
+                  className={cn(
+                    "grid gap-4",
+                    !hasMultipleGoals && "grid-cols-2",
+                  )}
+                >
+                  <Input
+                    label="Tên kế hoạch"
                     required
-                    minMonth={minPlanTargetMonth}
-                    value={draft.targetMonth}
-                    onValueChange={(targetMonth) =>
-                      setDraft({ ...draft, targetMonth })
+                    value={draft.name}
+                    onChange={(event) =>
+                      setDraft({ ...draft, name: event.target.value })
                     }
-                    disabled={isPending}
+                    placeholder="Ví dụ: Kế hoạch tích lũy năm nay"
                   />
-                )}
+                  {!hasMultipleGoals && (
+                    <MonthPicker
+                      label="Tháng hoàn thành dự kiến"
+                      required
+                      minMonth={minPlanTargetMonth}
+                      value={draft.targetMonth}
+                      onValueChange={(targetMonth) =>
+                        setDraft({ ...draft, targetMonth })
+                      }
+                      disabled={isPending}
+                    />
+                  )}
+                </div>
                 {!hasMultipleGoals && (
                   <div
                     className={cn(
                       "grid gap-4",
-                      !hideExistingGoalAmount && "sm:grid-cols-2",
+                      !hideExistingGoalAmount && "grid-cols-2",
                     )}
                   >
                     <MoneyInput
@@ -3884,9 +4115,10 @@ function PlanEditorSheet({
                 )}
               </div>
 
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-4 md:p-5">
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-4 md:p-4.5">
                 <RatioEditor
                   ratios={draft.percentages}
+                  columns={isTablet ? 2 : 1}
                   onChange={(percentages) =>
                     setDraft({ ...draft, percentages })
                   }
@@ -3980,34 +4212,64 @@ function DeadlineSheet({
   open,
   onOpenChange,
   plan,
-  isMobile,
+  currency = "VND",
+  device,
   disabled,
   onSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   plan: RunningView;
-  isMobile: boolean;
+  currency?: string;
+  device: DeviceTier;
   disabled: boolean;
   onSave: (month: string) => void;
 }) {
   const [targetMonth, setTargetMonth] = useState(plan.targetMonth);
+  const sheetProps = getPlanSheetPresentation(device, "compact");
+  const isMobile = device === "mobile";
+
+  const remainingToSave = useMemo(
+    () =>
+      Decimal.max(
+        new Decimal(plan.targetAmount || 0).minus(plan.realizedProgress || 0),
+        0,
+      ),
+    [plan.targetAmount, plan.realizedProgress],
+  );
+  const openMonthsCount = useMemo(
+    () =>
+      targetMonth >= plan.businessMonth
+        ? monthCountInclusive(plan.businessMonth, targetMonth)
+        : 1,
+    [plan.businessMonth, targetMonth],
+  );
+  const estimatedMonthlyRequired = useMemo(
+    () => remainingToSave.dividedToIntegerBy(openMonthsCount),
+    [remainingToSave, openMonthsCount],
+  );
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side={isMobile ? "bottom" : "right"}
-        placement={isMobile ? "edge" : "inset"}
-        size={isMobile ? "default" : "wide"}
+        side={sheetProps.side}
+        placement={sheetProps.placement}
+        size={sheetProps.size}
+        className={sheetProps.className}
         spacing="flush"
         elevation="flat"
       >
         <PlanSheetHeader
-          isMobile={isMobile}
           icon={CalendarClock}
           title="Đổi thời hạn hoàn thành"
           description="Số liệu các tháng đã chốt được giữ nguyên. Mức tiết kiệm hàng tháng sẽ tự động tính lại cho các tháng còn lại."
         />
-        <div className="grid min-h-0 flex-1 content-start gap-6 overflow-y-auto px-4 py-5 md:px-6">
+        <div
+          className={cn(
+            "grid min-h-0 flex-1 content-start overflow-y-auto",
+            isMobile ? "gap-4 px-4 py-4" : "gap-5 px-5 py-5 lg:px-6",
+          )}
+        >
           <MonthPicker
             label="Tháng hoàn thành mới"
             required
@@ -4016,12 +4278,43 @@ function DeadlineSheet({
             onValueChange={setTargetMonth}
             disabled={disabled}
           />
+
+          <div
+            className="grid gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 text-xs"
+            aria-live="polite"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[var(--text-secondary)]">
+                Thời hạn hiện tại → Thời hạn mới
+              </span>
+              <strong className="font-semibold text-[var(--foreground)] tabular-nums shrink-0">
+                {shortMonthLabel(plan.targetMonth)} →{" "}
+                <span className="text-[var(--primary)]">
+                  {shortMonthLabel(targetMonth)}
+                </span>{" "}
+                ({openMonthsCount} tháng còn lại)
+              </strong>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-2">
+              <span className="text-[var(--text-secondary)]">
+                Cần tiết kiệm dự kiến mỗi tháng
+              </span>
+              <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums shrink-0">
+                ~ {money(estimatedMonthlyRequired.toFixed(0), currency)} / tháng
+              </strong>
+            </div>
+          </div>
         </div>
         <SheetFooter
           onCancel={() => onOpenChange(false)}
           cancelLabel="Hủy"
           submitLabel="Lưu thay đổi"
-          submitDisabled={disabled || targetMonth < plan.businessMonth}
+          submitDisabled={
+            disabled ||
+            targetMonth < plan.businessMonth ||
+            targetMonth === plan.targetMonth
+          }
           onSubmit={() => onSave(targetMonth)}
           submitType="button"
         />
@@ -4036,7 +4329,7 @@ function AllocationSheet({
   initialRatios,
   referenceBudget,
   currency = "VND",
-  isMobile,
+  device,
   disabled,
   onSave,
 }: {
@@ -4045,32 +4338,42 @@ function AllocationSheet({
   initialRatios: RatioDraft;
   referenceBudget?: string;
   currency?: string;
-  isMobile: boolean;
+  device: DeviceTier;
   disabled: boolean;
   onSave: (ratios: RatioDraft) => void;
 }) {
   const [ratios, setRatios] = useState(initialRatios);
   const total = ratioTotal(ratios);
+  const sheetProps = getPlanSheetPresentation(device, "form");
+  const isMobile = device === "mobile";
+  const isTablet = device === "tablet";
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side={isMobile ? "bottom" : "right"}
-        placement={isMobile ? "edge" : "inset"}
-        size={isMobile ? "default" : "wide"}
+        side={sheetProps.side}
+        placement={sheetProps.placement}
+        size={sheetProps.size}
+        className={sheetProps.className}
         spacing="flush"
         elevation="flat"
       >
         <PlanSheetHeader
-          isMobile={isMobile}
           icon={SlidersHorizontal}
           title="Tỷ lệ phân bổ 6 hũ"
           description="Tỷ lệ mới sẽ áp dụng từ tháng sau."
         />
-        <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto px-4 py-3.5 md:px-6 md:py-4">
+        <div
+          className={cn(
+            "grid min-h-0 flex-1 content-start overflow-y-auto",
+            isMobile ? "gap-3 px-4 py-3.5" : "gap-4 px-5 py-4 lg:px-6",
+          )}
+        >
           <RatioEditor
             ratios={ratios}
             referenceBudget={referenceBudget}
             currency={currency}
+            columns={isTablet ? 2 : 1}
             onChange={setRatios}
           />
         </div>
@@ -4091,11 +4394,13 @@ function RatioEditor({
   ratios,
   referenceBudget,
   currency = "VND",
+  columns = 1,
   onChange,
 }: {
   ratios: RatioDraft;
   referenceBudget?: string;
   currency?: string;
+  columns?: 1 | 2;
   onChange: (ratios: RatioDraft) => void;
 }) {
   const ratioEditorId = useId();
@@ -4210,7 +4515,12 @@ function RatioEditor({
       </div>
 
       {/* Compact 6-Jar Tactile Rows */}
-      <div className="grid gap-1.5">
+      <div
+        className={cn(
+          "grid",
+          columns === 2 ? "grid-cols-2 gap-2" : "grid-cols-1 gap-1.5",
+        )}
+      >
         {FINANCIAL_JAR_CODES.map((jarCode) => {
           const label = FINANCIAL_JAR_LABELS[jarCode];
           const current = new Decimal(ratios[jarCode] || 0);
@@ -4288,3 +4598,4 @@ function RatioEditor({
     </fieldset>
   );
 }
+
