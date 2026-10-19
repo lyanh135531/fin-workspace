@@ -7,12 +7,22 @@ import { workspaceCapabilities } from "@/domain/role-policy";
 import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
-import { getWorkspaceCreditCardCommitments } from "@/services/credit-card-service";
+import {
+  getWorkspaceCreditCardCommitmentDetails,
+  getWorkspaceCreditCardCommitments,
+} from "@/services/credit-card-service";
 
 const ZERO = new Decimal(0);
 
-export default async function WalletsPage() {
-  const session = await requireAcceptedLegalPageSession();
+export default async function WalletsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ reservedWalletId?: string }>;
+}) {
+  const [session, resolvedParams] = await Promise.all([
+    requireAcceptedLegalPageSession(),
+    searchParams,
+  ]);
   const workspaceId = await resolveActiveWorkspaceId(session.user.id);
   if (!workspaceId) redirect("/overview");
 
@@ -28,7 +38,7 @@ export default async function WalletsPage() {
   });
   if (!membership) redirect("/overview");
 
-  const [links, commitments] = await Promise.all([
+  const [links, commitments, commitmentDetails] = await Promise.all([
     prisma.workspaceWallet.findMany({
       where: { workspaceId, wallet: { deletedAt: null } },
       include: {
@@ -52,6 +62,7 @@ export default async function WalletsPage() {
       orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
     }),
     getWorkspaceCreditCardCommitments(workspaceId),
+    getWorkspaceCreditCardCommitmentDetails(workspaceId),
   ]);
 
   const totalBalance = links
@@ -79,6 +90,8 @@ export default async function WalletsPage() {
         }}
         totalBalance={totalBalance.toString()}
         isAdmin={workspaceCapabilities(membership.role.code).canManageWallets}
+        commitmentDetails={commitmentDetails}
+        initialReservedWalletId={resolvedParams?.reservedWalletId}
         wallets={links.map(({ wallet }) => {
           const committed = commitments.get(wallet.id) ?? ZERO;
           const currentBalanceStr = wallet.currentBalance.toString();

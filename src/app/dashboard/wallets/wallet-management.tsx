@@ -70,6 +70,13 @@ import {
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { formatAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { CreditCardCommitmentDetailItem } from "@/services/credit-card-service";
+
+function formatDateVi(iso: string): string {
+  const [year, month, day] = iso.slice(0, 10).split("-");
+  if (!year || !month || !day) return iso;
+  return `${day}/${month}/${year}`;
+}
 
 type WalletItem = {
   id: string;
@@ -391,11 +398,15 @@ export function WalletManagement({
   wallets,
   totalBalance,
   isAdmin,
+  commitmentDetails = [],
+  initialReservedWalletId,
 }: {
   workspace: { name: string; currency: string };
   wallets: WalletItem[];
   totalBalance: string;
   isAdmin: boolean;
+  commitmentDetails?: CreditCardCommitmentDetailItem[];
+  initialReservedWalletId?: string;
 }) {
   const router = useRouter();
   const [creatingModal, setCreatingModal] = useState(false);
@@ -406,7 +417,18 @@ export function WalletManagement({
   const [createFundingWalletId, setCreateFundingWalletId] = useState("");
   const [editingWallet, setEditingWallet] = useState<WalletItem | null>(null);
   const [detailWallet, setDetailWallet] = useState<WalletItem | null>(null);
-  const [reservedBreakdownOpen, setReservedBreakdownOpen] = useState(false);
+  const [reservedBreakdownOpen, setReservedBreakdownOpen] = useState(
+    Boolean(initialReservedWalletId),
+  );
+  const [selectedReservedWalletId, setSelectedReservedWalletId] =
+    useState<string>(initialReservedWalletId || "all");
+
+  function openReservedBreakdown(walletId = "all") {
+    setMobileMenuWalletId(null);
+    setSelectedReservedWalletId(walletId);
+    setReservedBreakdownOpen(true);
+  }
+
   const [filterStatus, setFilterStatus] = useState<
     "all" | "active" | "deactive"
   >("all");
@@ -718,7 +740,14 @@ export function WalletManagement({
 
   function renderWalletGridCard(wallet: WalletItem, index: number) {
     const isActive = wallet.status === "active";
-    const menuOpen = mobileMenuWalletId === wallet.id;
+    const anySheetOpen =
+      reservedBreakdownOpen ||
+      detailWallet !== null ||
+      editingWallet !== null ||
+      confirmOperation !== null ||
+      blockedOperation !== null ||
+      creatingModal;
+    const menuOpen = mobileMenuWalletId === wallet.id && !anySheetOpen;
     const visual = getWalletVisual(wallet, index);
     const Icon = visual.icon;
     const isCredit = wallet.kind === "credit_card";
@@ -745,6 +774,21 @@ export function WalletManagement({
           <Info size={15} className="text-[var(--primary)]" aria-hidden="true" />
           <span>Chi tiết số dư</span>
         </DropdownMenuItem>
+        {!isCredit && (
+          <DropdownMenuItem
+            onClick={() => {
+              setMobileMenuWalletId(null);
+              openReservedBreakdown(wallet.id);
+            }}
+          >
+            <CreditCard
+              size={15}
+              className="text-[var(--warning)]"
+              aria-hidden="true"
+            />
+            <span>Chi tiết tiền chờ thanh toán thẻ</span>
+          </DropdownMenuItem>
+        )}
         {isCredit && (
           <DropdownMenuItem
             onClick={() => {
@@ -954,13 +998,32 @@ export function WalletManagement({
                 </strong>
               </div>
             ) : (
-              <div className="min-w-0 text-right">
-                <span className="block text-[11px] text-[var(--text-muted)]">
-                  Tiền chờ thanh toán thẻ
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openReservedBreakdown(wallet.id);
+                }}
+                className="group/reserved -mx-1.5 -my-1 min-w-0 cursor-pointer rounded-lg px-1.5 py-1 text-right transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                title={`Xem chi tiết tiền chờ thanh toán thẻ của ${wallet.name}`}
+              >
+                <span className="inline-flex items-center justify-end gap-1 text-[11px] text-[var(--text-muted)] group-hover/reserved:text-[var(--foreground)]">
+                  <span>Tiền chờ thanh toán thẻ</span>
+                  <Info
+                    size={11}
+                    className="shrink-0 text-[var(--primary)]"
+                    aria-hidden="true"
+                  />
                 </span>
                 <strong
                   className={cn(
-                    "mt-0.5 block font-semibold tabular-nums",
+                    "mt-0.5 block font-semibold tabular-nums underline-offset-2 group-hover/reserved:underline",
                     reservedBalanceDec.gt(0)
                       ? "text-[var(--warning)]"
                       : "text-[var(--text-secondary)]",
@@ -970,7 +1033,7 @@ export function WalletManagement({
                     ? `${formatAmount(reservedBalanceDec)} ${workspace.currency}`
                     : "••••••"}
                 </strong>
-              </div>
+              </button>
             )}
           </div>
         </div>
@@ -1043,13 +1106,13 @@ export function WalletManagement({
           <DropdownMenu
             open={menuOpen}
             onOpenChange={(open) =>
-              setMobileMenuWalletId(open ? wallet.id : null)
+              setMobileMenuWalletId(open && !anySheetOpen ? wallet.id : null)
             }
           >
             <SpotlightTrigger
               open={menuOpen}
               onOpenChange={(open) =>
-                setMobileMenuWalletId(open ? wallet.id : null)
+                setMobileMenuWalletId(open && !anySheetOpen ? wallet.id : null)
               }
               mobileOnly
               dismissLabel={`Đóng menu quản lý ${wallet.name}`}
@@ -1160,7 +1223,7 @@ export function WalletManagement({
               variant="outline"
               size="icon"
               className="size-8 md:size-9"
-              onClick={() => setReservedBreakdownOpen(true)}
+              onClick={() => openReservedBreakdown("all")}
               aria-label="Tiền chờ thanh toán thẻ"
               title="Xem phân bổ tiền chờ thanh toán thẻ"
             >
@@ -1209,9 +1272,21 @@ export function WalletManagement({
           </div>
 
           {/* Metric 2: Tiền chờ thanh toán thẻ */}
-          <div className="min-w-0 space-y-0.5 border-l border-[var(--border)] pl-3 md:space-y-1 md:border-l-0 md:pl-5">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => openReservedBreakdown("all")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openReservedBreakdown("all");
+              }
+            }}
+            className="group/kpi-reserved min-w-0 cursor-pointer space-y-0.5 border-l border-[var(--border)] pl-3 transition-colors md:space-y-1 md:border-l-0 md:pl-5"
+            title="Bấm để xem chi tiết tiền chờ thanh toán thẻ"
+          >
             <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[11px] font-medium text-[var(--text-muted)] md:text-xs md:text-[var(--text-secondary)]">
+              <span className="text-[11px] font-medium text-[var(--text-muted)] group-hover/kpi-reserved:text-[var(--foreground)] md:text-xs md:text-[var(--text-secondary)]">
                 Tiền chờ thanh toán thẻ
               </span>
               <Button
@@ -1219,7 +1294,10 @@ export function WalletManagement({
                 variant="ghost"
                 size="icon"
                 className="size-5 shrink-0 text-[var(--primary)] md:size-6"
-                onClick={() => setReservedBreakdownOpen(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openReservedBreakdown("all");
+                }}
                 aria-label="Chi tiết tiền chờ thanh toán thẻ"
                 title="Chi tiết tiền chờ thanh toán thẻ"
               >
@@ -1229,7 +1307,7 @@ export function WalletManagement({
             <div className="flex flex-wrap items-baseline gap-1">
               <strong
                 className={cn(
-                  "text-sm font-bold tracking-tight tabular-nums md:text-2xl",
+                  "text-sm font-bold tracking-tight tabular-nums underline-offset-4 group-hover/kpi-reserved:underline md:text-2xl",
                   totalCreditDebt.gt(0)
                     ? "text-[var(--warning)]"
                     : "text-[var(--foreground)]",
@@ -1245,8 +1323,8 @@ export function WalletManagement({
             </div>
             <p className="hidden text-xs leading-snug text-[var(--text-muted)] md:block">
               {creditWallets.length > 0
-                ? `Tạm giữ cho ${creditWallets.length} thẻ tín dụng chờ đến kỳ thanh toán`
-                : "Chưa phát sinh khoản chờ thanh toán thẻ"}
+                ? `Bấm để xem chi tiết các khoản chờ thanh toán của ${creditWallets.length} thẻ tín dụng`
+                : "Bấm để kiểm tra chi tiết nghĩa vụ thanh toán thẻ"}
             </p>
           </div>
 
@@ -1860,15 +1938,27 @@ export function WalletManagement({
 
                 <div className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-xs">
                   {detailWallet.kind !== "credit_card" && (
-                    <div className="flex items-center justify-between gap-3 py-3">
-                      <span className="text-[var(--text-secondary)]">
-                        Tiền chờ thanh toán thẻ
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetId = detailWallet.id;
+                        setDetailWallet(null);
+                        openReservedBreakdown(targetId);
+                      }}
+                      className="group/detail-reserved -mx-4 flex w-[calc(100%+2rem)] cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                    >
+                      <span className="inline-flex items-center gap-1.5 text-[var(--text-secondary)] group-hover/detail-reserved:text-[var(--foreground)]">
+                        <span>Tiền chờ thanh toán thẻ</span>
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-[var(--primary-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--primary)]">
+                          Xem chi tiết
+                          <ArrowUpRight size={11} aria-hidden="true" />
+                        </span>
                       </span>
-                      <strong className="font-semibold tabular-nums text-[var(--warning)]">
+                      <strong className="font-semibold tabular-nums text-[var(--warning)] underline-offset-2 group-hover/detail-reserved:underline">
                         {formatAmount(detailWallet.reservedBalance ?? "0")}{" "}
                         {workspace.currency}
                       </strong>
-                    </div>
+                    </button>
                   )}
                   <div className="flex items-center justify-between gap-3 py-3">
                     <span className="text-[var(--text-secondary)]">
@@ -1956,103 +2046,452 @@ export function WalletManagement({
           spacing="flush"
           elevation="flat"
         >
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <SheetHeader
-              icon={CreditCard}
-              title="Tiền chờ thanh toán thẻ"
-              description="Khoản tiền đã chi qua thẻ tín dụng đang chờ đến kỳ thanh toán sao kê."
-            />
+          {(() => {
+            const selectedWallet =
+              selectedReservedWalletId !== "all"
+                ? wallets.find(
+                    (w) =>
+                      w.id === selectedReservedWalletId &&
+                      w.kind !== "credit_card",
+                  ) ?? null
+                : null;
 
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 md:p-5">
-              <div className="grid grid-cols-1 gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-4 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[var(--text-secondary)]">
-                    Tổng số dư thực tế
-                  </span>
-                  <strong className="font-semibold tabular-nums text-[var(--foreground)]">
-                    {formatAmount(totalAssetBalance)} {workspace.currency}
-                  </strong>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[var(--text-secondary)]">
-                    Tiền chờ thanh toán thẻ
-                  </span>
-                  <strong className="font-semibold tabular-nums text-[var(--warning)]">
-                    {totalCreditDebt.gt(0) ? "-" : ""}
-                    {formatAmount(totalCreditDebt)} {workspace.currency}
-                  </strong>
-                </div>
-                <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2.5 text-sm">
-                  <span className="font-semibold text-[var(--foreground)]">
-                    Số dư có thể dùng
-                  </span>
-                  <strong className="font-bold tabular-nums text-[var(--primary)]">
-                    {formatAmount(totalBalance)} {workspace.currency}
-                  </strong>
-                </div>
-              </div>
+            const filteredCommitments = commitmentDetails.filter((item) =>
+              selectedWallet ? item.fundingWalletId === selectedWallet.id : true,
+            );
+            const activeItems = filteredCommitments.filter(
+              (item) => !item.cardDeleted && item.cardStatus === "active",
+            );
 
-              <div className="space-y-2">
-                <h3 className="text-xs font-semibold text-[var(--foreground)]">
-                  Phân bổ theo thẻ tín dụng ({creditWallets.length})
-                </h3>
-                {creditWallets.length > 0 ? (
-                  <div className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-                    {creditWallets.map((cardWallet) => (
-                      <div
-                        key={cardWallet.id}
-                        className="flex items-center justify-between gap-3 p-3.5 text-xs"
+            const byCardMap = new Map<
+              string,
+              {
+                cardWalletId: string;
+                cardName: string;
+                totalRemaining: Decimal;
+                items: CreditCardCommitmentDetailItem[];
+              }
+            >();
+            for (const item of activeItems) {
+              const prev = byCardMap.get(item.cardWalletId) ?? {
+                cardWalletId: item.cardWalletId,
+                cardName: item.cardName,
+                totalRemaining: new Decimal(0),
+                items: [],
+              };
+              prev.totalRemaining = prev.totalRemaining.plus(
+                item.remainingAmount,
+              );
+              prev.items.push(item);
+              byCardMap.set(item.cardWalletId, prev);
+            }
+            const cardGroups = [...byCardMap.values()].filter(
+              (c) => c.items.length > 0,
+            );
+
+            const summaryActualBalance = selectedWallet
+              ? new Decimal(selectedWallet.currentBalance)
+              : totalAssetBalance;
+            const summaryReservedBalance = selectedWallet
+              ? new Decimal(selectedWallet.reservedBalance ?? 0)
+              : totalCreditDebt;
+            const summaryUsableBalance = selectedWallet
+              ? new Decimal(
+                  selectedWallet.availableBalance ??
+                    new Decimal(selectedWallet.currentBalance).minus(
+                      selectedWallet.reservedBalance ?? 0,
+                    ),
+                )
+              : new Decimal(totalBalance);
+
+            function getObligationPresentation(
+              item: CreditCardCommitmentDetailItem,
+            ) {
+              if (item.kind === "opening_debt") {
+                return {
+                  title: "Dư nợ đầu kỳ lúc tạo thẻ",
+                  badge: "Dư nợ đầu kỳ",
+                  badgeClass:
+                    "bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] text-[var(--warning)]",
+                };
+              }
+              if (item.installmentPlan?.origin === "imported") {
+                return {
+                  title:
+                    item.installmentPlan.description ||
+                    "Khoản trả góp nhập sẵn",
+                  badge: `Trả góp ${item.installmentPlan.termCount} kỳ`,
+                  badgeClass:
+                    "bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] text-[var(--warning)]",
+                };
+              }
+              if (item.installmentPlan?.origin === "transaction") {
+                return {
+                  title:
+                    item.transactionDescription ||
+                    item.installmentPlan.description ||
+                    "Giao dịch trả góp",
+                  badge: `Trả góp ${item.installmentPlan.termCount} kỳ`,
+                  badgeClass:
+                    "bg-[var(--primary-soft)] text-[var(--primary)]",
+                };
+              }
+              if (item.transactionPurpose === "credit_card_installment_fee") {
+                return {
+                  title:
+                    item.transactionDescription || "Phí chuyển đổi trả góp",
+                  badge: "Phí trả góp",
+                  badgeClass:
+                    "bg-[var(--surface-secondary)] text-[var(--text-secondary)]",
+                };
+              }
+              if (
+                item.kind === "purchase" &&
+                item.transactionType === "transfer"
+              ) {
+                return {
+                  title:
+                    item.transactionDescription ||
+                    "Chuyển tiền từ thẻ tín dụng",
+                  badge: "Chuyển tiền",
+                  badgeClass:
+                    "bg-[var(--primary-soft)] text-[var(--primary)]",
+                };
+              }
+              if (item.kind === "refund") {
+                return {
+                  title:
+                    item.transactionDescription || "Hoàn tiền thẻ tín dụng",
+                  badge: "Hoàn tiền",
+                  badgeClass:
+                    "bg-[color-mix(in_srgb,var(--success)_14%,var(--surface))] text-[var(--success)]",
+                };
+              }
+              if (item.kind === "adjustment") {
+                return {
+                  title: item.transactionDescription || "Điều chỉnh dư nợ thẻ",
+                  badge: "Điều chỉnh",
+                  badgeClass:
+                    "bg-[var(--surface-secondary)] text-[var(--text-secondary)]",
+                };
+              }
+              return {
+                title:
+                  item.transactionDescription ||
+                  item.categoryName ||
+                  "Giao dịch chi tiêu thẻ",
+                badge: "Chi tiêu",
+                badgeClass:
+                  "bg-[var(--surface-secondary)] text-[var(--text-secondary)]",
+              };
+            }
+
+            return (
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <SheetHeader
+                  icon={CreditCard}
+                  title={
+                    selectedWallet
+                      ? `Chờ thanh toán thẻ · ${selectedWallet.name}`
+                      : "Tiền chờ thanh toán thẻ"
+                  }
+                  description="Các khoản chi qua thẻ tín dụng đang chờ trích thanh toán."
+                />
+
+                <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain p-4 md:p-5">
+                  {/* Horizontal Filter Pills by Asset Wallet */}
+                  {assetWallets.length > 1 && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedReservedWalletId("all")}
+                        className={cn(
+                          "shrink-0 cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                          !selectedWallet
+                            ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
+                            : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]",
+                        )}
                       >
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                            <CreditCard size={15} />
+                        Tất cả ({assetWallets.length})
+                      </button>
+                      {assetWallets.map((w) => {
+                        const wReserved = new Decimal(w.reservedBalance ?? 0);
+                        const active = selectedWallet?.id === w.id;
+                        return (
+                          <button
+                            key={w.id}
+                            type="button"
+                            onClick={() => setSelectedReservedWalletId(w.id)}
+                            className={cn(
+                              "inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                              active
+                                ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
+                                : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]",
+                            )}
+                          >
+                            <span>{w.name}</span>
+                            {wReserved.gt(0) && (
+                              <span className="text-[11px] font-semibold tabular-nums text-[var(--warning)]">
+                                {formatAmount(wReserved)}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Compact Luxury Balance Snapshot */}
+                  <section
+                    aria-label="Tóm tắt tiền chờ thanh toán thẻ"
+                    className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="block text-[11px] font-medium text-[var(--text-muted)]">
+                          {selectedWallet
+                            ? `Chờ thanh toán từ ví ${selectedWallet.name}`
+                            : "Tổng tiền chờ thanh toán thẻ"}
+                        </span>
+                        <div className="mt-0.5 flex flex-wrap items-baseline gap-1">
+                          <strong className="text-lg font-bold tracking-tight tabular-nums text-[var(--warning)]">
+                            {summaryReservedBalance.gt(0) ? "-" : ""}
+                            {formatAmount(summaryReservedBalance)}
+                          </strong>
+                          <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)]">
+                            {workspace.currency}
                           </span>
-                          <div className="min-w-0">
-                            <p className="break-words font-semibold leading-snug text-[var(--foreground)]">
-                              {cardWallet.name}
-                            </p>
-                            <Link
-                              href={`/credit-cards/${cardWallet.id}`}
-                              onClick={() => setReservedBreakdownOpen(false)}
-                              className="text-[11px] font-medium text-[var(--primary)] hover:underline"
-                            >
-                              Xem sao kê kỳ này
-                            </Link>
-                          </div>
                         </div>
-                        <strong className="shrink-0 font-bold tabular-nums text-[var(--foreground)]">
-                          {formatAmount(
-                            Decimal.max(
-                              new Decimal(cardWallet.currentBalance),
-                              new Decimal(0),
-                            ),
-                          )}{" "}
+                      </div>
+
+                      <span className="inline-flex shrink-0 items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
+                        {activeItems.length} khoản mục
+                      </span>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-2.5 text-xs">
+                      <div className="min-w-0">
+                        <span className="block text-[11px] text-[var(--text-muted)]">
+                          {selectedWallet
+                            ? "Số dư hiện tại"
+                            : "Tổng số dư thực tế"}
+                        </span>
+                        <strong className="mt-0.5 block whitespace-nowrap font-semibold tabular-nums text-[var(--foreground)]">
+                          {formatAmount(summaryActualBalance)}{" "}
                           {workspace.currency}
                         </strong>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-4 text-center text-xs text-[var(--text-muted)]">
-                    Hiện không có khoản tiền chờ thanh toán thẻ nào.
-                  </div>
-                )}
-              </div>
-            </div>
 
-            <SheetFooter
-              onCancel={() => setReservedBreakdownOpen(false)}
-              cancelLabel="Đóng"
-              submitLabel={
-                creditWallets.length > 0 ? "Quản lý thẻ tín dụng" : undefined
-              }
-              submitType="button"
-              onSubmit={() => {
-                setReservedBreakdownOpen(false);
-                router.push("/credit-cards");
-              }}
-            />
-          </div>
+                      <div className="min-w-0 border-l border-[var(--border)] pl-3">
+                        <span className="block text-[11px] text-[var(--text-muted)]">
+                          Còn lại sau khi trừ
+                        </span>
+                        <strong
+                          className={cn(
+                            "mt-0.5 block whitespace-nowrap font-semibold tabular-nums",
+                            summaryUsableBalance.lt(0)
+                              ? "text-[var(--destructive)]"
+                              : "text-[var(--primary)]",
+                          )}
+                        >
+                          {formatAmount(summaryUsableBalance)}{" "}
+                          {workspace.currency}
+                        </strong>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Unified Credit Card Groups & Compact Obligation Rows */}
+                  {cardGroups.length > 0 ? (
+                    <div className="space-y-3">
+                      {cardGroups.map((group) => (
+                        <div
+                          key={group.cardWalletId}
+                          className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]"
+                        >
+                          {/* Card Group Header */}
+                          <div className="flex items-center justify-between gap-2.5 border-b border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                                <CreditCard size={14} />
+                              </span>
+                              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                <span className="text-xs font-semibold text-[var(--foreground)]">
+                                  Thẻ {group.cardName}
+                                </span>
+                                <span className="text-[10px] text-[var(--text-muted)]">
+                                  ·
+                                </span>
+                                <Link
+                                  href={`/credit-cards/${group.cardWalletId}`}
+                                  onClick={() =>
+                                    setReservedBreakdownOpen(false)
+                                  }
+                                  className="inline-flex items-center gap-0.5 text-[11px] font-medium text-[var(--primary)] hover:underline"
+                                >
+                                  <span>Mở thẻ</span>
+                                  <ArrowUpRight size={10} aria-hidden="true" />
+                                </Link>
+                              </div>
+                            </div>
+
+                            <strong className="shrink-0 whitespace-nowrap text-xs font-bold tabular-nums text-[var(--warning)]">
+                              {formatAmount(
+                                Decimal.max(
+                                  group.totalRemaining,
+                                  new Decimal(0),
+                                ),
+                              )}{" "}
+                              {workspace.currency}
+                            </strong>
+                          </div>
+
+                          {/* Compact Ledger Items */}
+                          <div className="divide-y divide-[var(--border)]">
+                            {group.items.map((item) => {
+                              const meta = getObligationPresentation(item);
+                              const remainingDec = new Decimal(
+                                item.remainingAmount,
+                              );
+                              const originalDec = new Decimal(
+                                item.originalAmount,
+                              );
+                              const paidDec = new Decimal(item.paidAmount);
+                              const isNegative = remainingDec.lt(0);
+
+                              const subtextParts: string[] = [
+                                formatDateVi(item.effectiveDate),
+                              ];
+                              if (!selectedWallet) {
+                                subtextParts.push(
+                                  `Ví ${item.fundingWalletName}`,
+                                );
+                              }
+                              if (item.categoryName) {
+                                subtextParts.push(item.categoryName);
+                              } else if (item.kind === "opening_debt") {
+                                subtextParts.push("Khai báo lúc tạo thẻ");
+                              } else if (
+                                item.installmentPlan?.origin === "imported"
+                              ) {
+                                subtextParts.push("Nhập sẵn");
+                              }
+
+                              return (
+                                <div
+                                  key={item.id}
+                                  className="space-y-1 px-3.5 py-2.5 text-xs"
+                                >
+                                  <div className="flex items-start justify-between gap-2.5">
+                                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                                      <span className="break-words font-semibold leading-snug text-[var(--foreground)]">
+                                        {meta.title}
+                                      </span>
+                                      <span
+                                        className={cn(
+                                          "inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                          meta.badgeClass,
+                                        )}
+                                      >
+                                        {meta.badge}
+                                      </span>
+                                    </div>
+
+                                    <strong
+                                      className={cn(
+                                        "shrink-0 whitespace-nowrap font-bold tabular-nums",
+                                        isNegative
+                                          ? "text-[var(--success)]"
+                                          : "text-[var(--foreground)]",
+                                      )}
+                                    >
+                                      {formatAmount(remainingDec)}{" "}
+                                      {workspace.currency}
+                                    </strong>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px] text-[var(--text-muted)]">
+                                    <span>{subtextParts.join(" · ")}</span>
+
+                                    {!item.statement ? (
+                                      <span>Chưa lên sao kê</span>
+                                    ) : item.statement.status === "issued" ? (
+                                      <Link
+                                        href={`/credit-cards/${item.cardWalletId}/statements/${item.statement.id}`}
+                                        onClick={() =>
+                                          setReservedBreakdownOpen(false)
+                                        }
+                                        className="inline-flex items-center gap-0.5 font-medium text-[var(--warning)] hover:underline"
+                                      >
+                                        <span>
+                                          Sao kê{" "}
+                                          {formatDateVi(
+                                            item.statement.cycleEndDate,
+                                          ).slice(0, 5)}{" "}
+                                          (Hạn{" "}
+                                          {formatDateVi(
+                                            item.statement.dueDate,
+                                          ).slice(0, 5)}
+                                          )
+                                        </span>
+                                        <ArrowUpRight
+                                          size={10}
+                                          aria-hidden="true"
+                                        />
+                                      </Link>
+                                    ) : !item.statement.paidAt ? (
+                                      <span className="text-[var(--warning)]">
+                                        Đã kết chuyển kỳ sau
+                                      </span>
+                                    ) : (
+                                      <span className="text-[var(--success)]">
+                                        Đã tất toán
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {paidDec.gt(0) && (
+                                    <p className="text-[11px] text-[var(--text-secondary)] tabular-nums">
+                                      Gốc {formatAmount(originalDec)} · Đã trả{" "}
+                                      <span className="font-medium text-[var(--success)]">
+                                        {formatAmount(paidDec)}{" "}
+                                        {workspace.currency}
+                                      </span>
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-5 text-center text-xs text-[var(--text-muted)]">
+                      {selectedWallet
+                        ? `Ví “${selectedWallet.name}” hiện không có khoản tiền chờ thanh toán thẻ nào.`
+                        : "Hiện không có khoản tiền chờ thanh toán thẻ nào."}
+                    </div>
+                  )}
+                </div>
+
+                <SheetFooter
+                  onCancel={() => setReservedBreakdownOpen(false)}
+                  cancelLabel="Đóng"
+                  submitLabel={
+                    creditWallets.length > 0
+                      ? "Quản lý thẻ tín dụng"
+                      : undefined
+                  }
+                  submitType="button"
+                  onSubmit={() => {
+                    setReservedBreakdownOpen(false);
+                    router.push("/credit-cards");
+                  }}
+                />
+              </div>
+            );
+          })()}
         </SheetContent>
       </Sheet>
 

@@ -496,6 +496,185 @@ export async function getWorkspaceCreditCardCommitments(workspaceId: string) {
   return new Map([...totals.entries()].map(([walletId, amount]) => [walletId, Decimal.max(amount, ZERO)]));
 }
 
+export type CreditCardCommitmentDetailItem = {
+  id: string;
+  cardWalletId: string;
+  cardName: string;
+  cardStatus: "active" | "deactive";
+  cardDeleted: boolean;
+  fundingWalletId: string;
+  fundingWalletName: string;
+  kind: "purchase" | "opening_debt" | "refund" | "adjustment";
+  source: "transaction" | "opening_balance" | "adjustment";
+  effectiveDate: string;
+  postedDate: string;
+  originalAmount: string;
+  paidAmount: string;
+  remainingAmount: string;
+  transactionId: string | null;
+  transactionDescription: string | null;
+  transactionType: "income" | "expense" | "transfer" | null;
+  transactionPurpose:
+    | "standard"
+    | "credit_card_payment"
+    | "credit_card_refund"
+    | "credit_card_installment_fee"
+    | null;
+  categoryName: string | null;
+  installmentPlan: {
+    id: string;
+    description: string | null;
+    origin: "transaction" | "imported";
+    termCount: number;
+    paidTermCount: number;
+    status: "pending" | "active" | "completed";
+  } | null;
+  statement: {
+    id: string;
+    cycleEndDate: string;
+    dueDate: string;
+    status: "issued" | "paid";
+    paidAt: string | null;
+  } | null;
+};
+
+export async function getWorkspaceCreditCardCommitmentDetails(
+  workspaceId: string,
+): Promise<CreditCardCommitmentDetailItem[]> {
+  const obligations = await prisma.creditCardObligationEntry.findMany({
+    where: {
+      workspaceId,
+      card: { wallet: { deletedAt: null, status: "active" } },
+    },
+    select: {
+      id: true,
+      cardWalletId: true,
+      fundingWalletId: true,
+      kind: true,
+      source: true,
+      effectiveDate: true,
+      postedDate: true,
+      amount: true,
+      createdAt: true,
+      card: {
+        select: {
+          wallet: {
+            select: {
+              name: true,
+              status: true,
+              deletedAt: true,
+            },
+          },
+        },
+      },
+      fundingWallet: {
+        select: {
+          name: true,
+        },
+      },
+      paymentAllocations: {
+        select: {
+          amount: true,
+        },
+      },
+      transaction: {
+        select: {
+          id: true,
+          description: true,
+          type: true,
+          purpose: true,
+          category: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+      installmentPlan: {
+        select: {
+          id: true,
+          description: true,
+          origin: true,
+          termCount: true,
+          paidTermCount: true,
+          status: true,
+        },
+      },
+      statementItems: {
+        select: {
+          statement: {
+            select: {
+              id: true,
+              cycleEndDate: true,
+              dueDate: true,
+              status: true,
+              paidAt: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+    orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
+  });
+
+  const items: CreditCardCommitmentDetailItem[] = [];
+  for (const entry of obligations) {
+    const original = new Decimal(entry.amount.toString());
+    const paid = entry.paymentAllocations.reduce(
+      (sum, allocation) => sum.plus(allocation.amount.toString()),
+      ZERO,
+    );
+    const remaining = original.minus(paid);
+    if (remaining.isZero()) continue;
+
+    const latestStatement = entry.statementItems[0]?.statement ?? null;
+    items.push({
+      id: entry.id,
+      cardWalletId: entry.cardWalletId,
+      cardName: entry.card.wallet.name,
+      cardStatus: entry.card.wallet.status,
+      cardDeleted: Boolean(entry.card.wallet.deletedAt),
+      fundingWalletId: entry.fundingWalletId,
+      fundingWalletName: entry.fundingWallet.name,
+      kind: entry.kind,
+      source: entry.source,
+      effectiveDate: entry.effectiveDate.toISOString().slice(0, 10),
+      postedDate: entry.postedDate.toISOString().slice(0, 10),
+      originalAmount: original.toString(),
+      paidAmount: paid.toString(),
+      remainingAmount: remaining.toString(),
+      transactionId: entry.transaction?.id ?? null,
+      transactionDescription: entry.transaction?.description ?? null,
+      transactionType: entry.transaction?.type ?? null,
+      transactionPurpose: entry.transaction?.purpose ?? null,
+      categoryName: entry.transaction?.category?.name ?? null,
+      installmentPlan: entry.installmentPlan
+        ? {
+            id: entry.installmentPlan.id,
+            description: entry.installmentPlan.description,
+            origin: entry.installmentPlan.origin,
+            termCount: entry.installmentPlan.termCount,
+            paidTermCount: entry.installmentPlan.paidTermCount,
+            status: entry.installmentPlan.status,
+          }
+        : null,
+      statement: latestStatement
+        ? {
+            id: latestStatement.id,
+            cycleEndDate: latestStatement.cycleEndDate.toISOString().slice(0, 10),
+            dueDate: latestStatement.dueDate.toISOString().slice(0, 10),
+            status: latestStatement.status,
+            paidAt: latestStatement.paidAt ? latestStatement.paidAt.toISOString() : null,
+          }
+        : null,
+    });
+  }
+
+  return items;
+}
+
 export async function getCreditCardSummary(workspaceId: string, cardWalletId: string) {
   const card = await prisma.workspaceWallet.findFirst({
     where: { workspaceId, walletId: cardWalletId, wallet: { kind: "credit_card", deletedAt: null } },

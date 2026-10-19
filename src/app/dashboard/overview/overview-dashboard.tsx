@@ -1851,11 +1851,23 @@ export function OverviewDashboard({
                               )
                             ) : committedDec.gt(0) ? (
                               <>
-                                {walletSubtypeLabel(wallet.assetSubtype)} · Chờ
-                                thanh toán thẻ:{" "}
-                                {privacyMasked
-                                  ? "••••"
-                                  : formatAmount(wallet.committed)}
+                                {walletSubtypeLabel(wallet.assetSubtype)} ·{" "}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    beginNavigation(
+                                      `/wallets?reservedWalletId=${wallet.id}`,
+                                    );
+                                  }}
+                                  className="cursor-pointer font-medium text-[var(--warning)] underline-offset-2 hover:underline"
+                                  title="Xem chi tiết tiền chờ thanh toán thẻ"
+                                >
+                                  Chờ thanh toán thẻ:{" "}
+                                  {privacyMasked
+                                    ? "••••"
+                                    : formatAmount(wallet.committed)}
+                                </button>
                               </>
                             ) : (
                               walletSubtypeLabel(wallet.assetSubtype)
