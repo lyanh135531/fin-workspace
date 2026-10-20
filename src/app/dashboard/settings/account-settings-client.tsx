@@ -15,6 +15,7 @@ import {
   Unlink,
 } from "lucide-react";
 
+import { DailyReminderControls } from "@/app/dashboard/daily-reminder-controls";
 import {
   changePasswordAction,
   getAccountSecurityStateAction,
@@ -296,6 +297,9 @@ export function AccountSettingsClient({
           )}
         </div>
       </div>
+
+      {/* ── Daily Expense Reminder Section ──────────── */}
+      <DailyReminderControls variant="card" />
     </div>
   );
 }

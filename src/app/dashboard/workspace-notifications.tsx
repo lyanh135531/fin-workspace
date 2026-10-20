@@ -8,6 +8,7 @@ import {
   type TransactionChangeLookups,
 } from "@/lib/transaction-change-display";
 import { availableCategoryWhere } from "@/services/category-visibility";
+import { getUserReminderState } from "@/services/reminder-service";
 
 function changeDetails(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -23,12 +24,14 @@ function changeDetails(value: unknown) {
 export async function WorkspaceNotifications({
   workspaceId,
   memberId,
+  userId,
   currency,
   timeZone,
   isAdmin,
 }: {
   workspaceId: string;
   memberId: string;
+  userId: string;
   currency: string;
   timeZone: string;
   isAdmin: boolean;
@@ -172,6 +175,7 @@ export async function WorkspaceNotifications({
     changeCategories,
     recurringTransactions,
     goalFundingEntries,
+    reminderState,
   ] = await Promise.all([
     transactionsPromise,
     activationLogsPromise,
@@ -182,6 +186,7 @@ export async function WorkspaceNotifications({
     changeCategoriesPromise,
     recurringTransactionsPromise,
     goalFundingPromise,
+    getUserReminderState(userId, timeZone),
   ]);
   const walletNames = new Map(
     changeWallets.map((item) => [item.walletId, item.wallet.name] as const),
@@ -246,6 +251,15 @@ export async function WorkspaceNotifications({
   });
 
   const items: NotificationItem[] = [
+    ...(reminderState.activeReminderSlot
+      ? [
+          {
+            kind: "dailyReminder" as const,
+            id: `daily-reminder-${reminderState.activeReminderSlot}`,
+            slot: reminderState.activeReminderSlot,
+          },
+        ]
+      : []),
     ...joinRequests.map((item) => ({
       kind: "join" as const,
       id: item.id,
@@ -302,6 +316,7 @@ export async function WorkspaceNotifications({
       roles={roles}
       currency={currency}
       canReview={isAdmin}
+      reminderState={reminderState}
     />
   );
 }

@@ -28,9 +28,17 @@ function loadServiceWorker() {
     match: vi.fn(),
   };
   const fetchMock = vi.fn();
+  const showNotification = vi.fn().mockResolvedValue(undefined);
+  const matchAll = vi.fn().mockResolvedValue([]);
+  const openWindow = vi.fn().mockResolvedValue(undefined);
   const self = {
     location: { origin: "https://app.felixwise.io.vn" },
-    clients: { claim: vi.fn().mockResolvedValue(undefined) },
+    registration: { showNotification },
+    clients: {
+      claim: vi.fn().mockResolvedValue(undefined),
+      matchAll,
+      openWindow,
+    },
     skipWaiting: vi.fn().mockResolvedValue(undefined),
     addEventListener: (type: string, listener: ServiceWorkerListener) => {
       listeners.set(type, listener);
@@ -57,7 +65,16 @@ function loadServiceWorker() {
     Promise,
   });
 
-  return { cache, caches, fetchMock, listeners, self };
+  return {
+    cache,
+    caches,
+    fetchMock,
+    listeners,
+    matchAll,
+    openWindow,
+    self,
+    showNotification,
+  };
 }
 
 describe("Felix service worker", () => {
@@ -139,5 +156,92 @@ describe("Felix service worker", () => {
     expect(await responsePromise).toBe(offlineResponse);
     expect(worker.caches.match).toHaveBeenCalledWith("/offline.html");
     expect(worker.caches.open).not.toHaveBeenCalled();
+  });
+
+  it("displays a system notification on push and opens QuickTransactionSheet on notificationclick", async () => {
+    const worker = loadServiceWorker();
+    let pushCompletion = Promise.resolve();
+    worker.listeners.get("push")?.({
+      data: {
+        json: () => ({
+          title: "Nhắc ghi chi tiêu buổi tối (21:00)",
+          body: "Hôm nay bạn chưa ghi giao dịch nào.",
+          url: "/overview?action=new-transaction",
+          tag: "felix-daily-reminder-2026-10-20-evening",
+        }),
+        text: () => "",
+      },
+      waitUntil: (promise: Promise<unknown>) => {
+        pushCompletion = promise.then(() => undefined);
+      },
+    } as unknown as ServiceWorkerEvent);
+    await pushCompletion;
+
+    expect(worker.showNotification).toHaveBeenCalledWith(
+      "Nhắc ghi chi tiêu buổi tối (21:00)",
+      expect.objectContaining({
+        body: "Hôm nay bạn chưa ghi giao dịch nào.",
+        icon: "/pwa-icon-192.png",
+        tag: "felix-daily-reminder-2026-10-20-evening",
+        data: { url: "/overview?action=new-transaction" },
+      }),
+    );
+
+    const focus = vi.fn().mockResolvedValue(undefined);
+    const postMessage = vi.fn();
+    worker.matchAll.mockResolvedValueOnce([
+      {
+        url: "https://app.felixwise.io.vn/overview",
+        focus,
+        postMessage,
+      },
+    ]);
+
+    let clickCompletion = Promise.resolve();
+    const close = vi.fn();
+    worker.listeners.get("notificationclick")?.({
+      notification: {
+        close,
+        data: { url: "/overview?action=new-transaction" },
+      },
+      waitUntil: (promise: Promise<unknown>) => {
+        clickCompletion = promise.then(() => undefined);
+      },
+    } as unknown as ServiceWorkerEvent);
+    await clickCompletion;
+
+    expect(close).toHaveBeenCalledOnce();
+    expect(focus).toHaveBeenCalledOnce();
+    expect(postMessage).toHaveBeenCalledWith({
+      type: "FELIX_OPEN_QUICK_TRANSACTION",
+      url: "/overview?action=new-transaction",
+    });
+
+    const navigate = vi.fn().mockResolvedValue(undefined);
+    const landingFocus = vi.fn().mockResolvedValue(undefined);
+    worker.matchAll.mockResolvedValueOnce([
+      {
+        url: "https://app.felixwise.io.vn/",
+        navigate,
+        focus: landingFocus,
+      },
+    ]);
+
+    let nonWorkspaceClickCompletion = Promise.resolve();
+    worker.listeners.get("notificationclick")?.({
+      notification: {
+        close: vi.fn(),
+        data: { url: "/overview?action=new-transaction" },
+      },
+      waitUntil: (promise: Promise<unknown>) => {
+        nonWorkspaceClickCompletion = promise.then(() => undefined);
+      },
+    } as unknown as ServiceWorkerEvent);
+    await nonWorkspaceClickCompletion;
+
+    expect(navigate).toHaveBeenCalledWith(
+      "https://app.felixwise.io.vn/overview?action=new-transaction",
+    );
+    expect(landingFocus).toHaveBeenCalledOnce();
   });
 });

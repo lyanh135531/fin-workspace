@@ -243,14 +243,45 @@ export function QuickTransactionSheet({
       }
       setOpen(true);
     }
+    function handleServiceWorkerMessage(event: MessageEvent) {
+      if (
+        event.data &&
+        typeof event.data === "object" &&
+        (event.data as { type?: string }).type === "FELIX_OPEN_QUICK_TRANSACTION"
+      ) {
+        window.dispatchEvent(
+          new CustomEvent("open-quick-transaction", {
+            detail: { type: "expense" },
+          }),
+        );
+      }
+    }
     window.addEventListener("open-quick-transaction", handleOpenEvent);
-    return () =>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener(
+        "message",
+        handleServiceWorkerMessage,
+      );
+    }
+    return () => {
       window.removeEventListener("open-quick-transaction", handleOpenEvent);
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.removeEventListener(
+          "message",
+          handleServiceWorkerMessage,
+        );
+      }
+    };
   }, [initialWorkspace, type, walletId]);
 
   useEffect(() => {
     if (!shouldOpenFromQuery) return;
 
+    window.dispatchEvent(
+      new CustomEvent("open-quick-transaction", {
+        detail: { type: "expense" },
+      }),
+    );
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("action");
     const nextQuery = nextParams.toString();

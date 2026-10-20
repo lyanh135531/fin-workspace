@@ -213,6 +213,8 @@ model User {
   oauthAccounts        OAuthAccount[]
   oauthLinkIntents     OAuthLinkIntent[]
   legalAcceptances     LegalAcceptance[]
+  reminderSetting      UserReminderSetting?
+  pushSubscriptions    UserPushSubscription[]
 
   @@index([status, deletedAt])
   @@map("USERS")
@@ -902,3 +904,44 @@ model FinancialPlanMonthJar {
   @@index([jarCode])
   @@map("FINANCIAL_PLAN_MONTH_JAR")
 }
+
+model UserReminderSetting {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @unique @map("user_id") @db.Uuid
+  noonEnabled         Boolean  @default(false) @map("noon_enabled")
+  eveningEnabled      Boolean  @default(false) @map("evening_enabled")
+  timeZone            String   @default("Asia/Ho_Chi_Minh") @map("time_zone") @db.VarChar(64)
+  lastNoonSentDate    String?  @map("last_noon_sent_date") @db.VarChar(10)
+  lastEveningSentDate String?  @map("last_evening_sent_date") @db.VarChar(10)
+  dismissedDate       String?  @map("dismissed_date") @db.VarChar(10)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("USER_REMINDER_SETTING")
+}
+
+model UserPushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  endpoint  String   @unique
+  p256dh    String   @db.VarChar(255)
+  auth      String   @db.VarChar(255)
+  userAgent String?  @map("user_agent") @db.VarChar(512)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("USER_PUSH_SUBSCRIPTION")
+}
+
+model WebPushVapidKey {
+  id            String   @id @default("default") @db.VarChar(32)
+  publicKey     String   @map("public_key") @db.VarChar(255)
+  privateKeyJwk Json     @map("private_key_jwk")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("WEB_PUSH_VAPID_KEY")
+}
+

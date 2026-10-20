@@ -13,8 +13,11 @@ import {
   CircleDollarSign,
   CircleX,
   FilePenLine,
+  MoonStar,
+  Plus,
   ReceiptText,
   Repeat2,
+  SunMedium,
   Trash2,
   UserPlus,
 } from "lucide-react";
@@ -27,9 +30,11 @@ import {
   rejectTransactionAction,
   reviewTransactionChangeAction,
 } from "@/app/dashboard/actions";
+import { DailyReminderControls } from "@/app/dashboard/daily-reminder-controls";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
 import { reviewRecurringTransactionAction } from "@/app/dashboard/recurring-transactions/actions";
 import { reviewFinancialGoalFundingAction } from "@/app/dashboard/financial-plans/actions";
+import { dismissDailyReminderAction } from "@/app/dashboard/settings/reminder-actions";
 import { ApprovalActionButton } from "@/components/approval-action-icon";
 import {
   Button,
@@ -49,8 +54,14 @@ import {
 } from "@/components/ui/popover";
 import { formatAmount } from "@/lib/format";
 import type { TransactionChangeDetail } from "@/lib/transaction-change-display";
+import type { UserReminderState } from "@/services/reminder-service";
 
 export type NotificationItem =
+  | {
+      kind: "dailyReminder";
+      id: string;
+      slot: "noon" | "evening";
+    }
   | {
       kind: "transaction";
       id: string;
@@ -92,9 +103,12 @@ export type NotificationItem =
       goalName: string;
       amount: string;
       approvalStatus: "pending" | "approved" | "rejected";
-    }
-  ;
+    };
 
+type DailyReminderNotification = Extract<
+  NotificationItem,
+  { kind: "dailyReminder" }
+>;
 type TransactionNotification = Extract<
   NotificationItem,
   { kind: "transaction" }
@@ -528,24 +542,90 @@ function GoalFundingNotificationCard({ item, currency, pending, canReview, onRev
   );
 }
 
+function DailyReminderNotificationCard({
+  item,
+  pending,
+  onLogNow,
+  onDismissToday,
+}: {
+  item: DailyReminderNotification;
+  pending: boolean;
+  onLogNow: () => void;
+  onDismissToday: () => void;
+}) {
+  const isNoon = item.slot === "noon";
+  const Icon = isNoon ? SunMedium : MoonStar;
+
+  return (
+    <article role="listitem" className="notification-item p-4">
+      <div className="flex items-start gap-3">
+        <NotificationTypeIcon className="text-[var(--primary)]">
+          <Icon size={17} aria-hidden="true" />
+        </NotificationTypeIcon>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+              {isNoon
+                ? "Nhắc ghi chi tiêu buổi trưa"
+                : "Nhắc ghi chi tiêu cuối ngày"}
+            </p>
+            <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-[var(--primary)]">
+              {isNoon ? "12:30" : "21:00"}
+            </span>
+          </div>
+          <p className="mt-1 break-words text-xs leading-relaxed text-[var(--text-secondary)]">
+            Hôm nay bạn chưa ghi nhận giao dịch nào. Ghi ngay để theo dõi sát chi tiêu trong ngày nhé.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={pending}
+              onClick={onDismissToday}
+              className="h-8 px-2.5 text-xs text-[var(--text-muted)]"
+            >
+              Hôm nay không chi
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              disabled={pending}
+              onClick={onLogNow}
+              className="h-8 px-3 text-xs"
+            >
+              <Plus size={14} aria-hidden="true" />
+              Ghi chi tiêu ngay
+            </Button>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export function NotificationsMenu({
   workspaceId,
   items,
   roles,
   currency,
   canReview,
+  reminderState,
 }: {
   workspaceId: string;
   items: NotificationItem[];
   roles: Role[];
   currency: string;
   canReview: boolean;
+  reminderState?: UserReminderState | null;
 }) {
   usePrivacyMask();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const defaultRoleCode =
     roles.find((role) => role.code === "MEMBER")?.code ??
     roles[0]?.code ??
@@ -648,7 +728,43 @@ export function NotificationsMenu({
     });
   }
 
+  function openQuickTransactionFromReminder(): void {
+    setMobileOpen(false);
+    setPopoverOpen(false);
+    window.setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("open-quick-transaction", {
+          detail: { type: "expense" },
+        }),
+      );
+    }, 60);
+  }
+
+  function dismissReminderToday(): void {
+    start(async () => {
+      const result = await dismissDailyReminderAction();
+      if (result.ok) {
+        toast.success("Đã ghi nhận hôm nay chưa phát sinh chi tiêu.");
+        router.refresh();
+      } else {
+        toast.error(result.message ?? "Không thể cập nhật nhắc nhở.");
+      }
+    });
+  }
+
   const notificationItems = items.map((item) => {
+    if (item.kind === "dailyReminder") {
+      return (
+        <DailyReminderNotificationCard
+          key={item.id}
+          item={item}
+          pending={pending}
+          onLogNow={openQuickTransactionFromReminder}
+          onDismissToday={dismissReminderToday}
+        />
+      );
+    }
+
     if (item.kind === "join") {
       return (
         <JoinNotificationCard
@@ -694,7 +810,6 @@ export function NotificationsMenu({
       );
     }
 
-
     if (item.kind === "goalFunding") {
       return (
         <GoalFundingNotificationCard
@@ -725,7 +840,7 @@ export function NotificationsMenu({
       icon={Bell}
       title="Không có thông báo mới"
       description="Các yêu cầu và cập nhật mới sẽ xuất hiện tại đây."
-      className="notification-empty-state min-h-52"
+      className="notification-empty-state min-h-44"
     />
   );
 
@@ -769,10 +884,14 @@ export function NotificationsMenu({
           />
 
           <div
-            className="flex flex-1 flex-col gap-2 overflow-y-auto p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+            className="flex flex-1 flex-col gap-3 overflow-y-auto p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
             role="list"
             aria-label="Danh sách thông báo"
           >
+            <DailyReminderControls
+              initialState={reminderState}
+              variant="compact"
+            />
             {notificationItems}
             {emptyNotification}
           </div>
@@ -782,7 +901,7 @@ export function NotificationsMenu({
   }
 
   return (
-    <Popover>
+    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
       <PopoverTrigger
         render={
           <Button
@@ -808,7 +927,7 @@ export function NotificationsMenu({
         align="end"
         sideOffset={10}
         aria-busy={pending}
-        className="w-[min(26rem,calc(100vw-1rem))] max-h-[min(40rem,calc(100dvh-5rem))] gap-0 overflow-hidden p-0"
+        className="w-[min(26rem,calc(100vw-1rem))] max-h-[min(42rem,calc(100dvh-5rem))] gap-0 overflow-hidden p-0"
       >
         <header className="flex items-center justify-between gap-4 border-b border-[var(--border)] px-4 py-3.5">
           <div>
@@ -827,6 +946,13 @@ export function NotificationsMenu({
             </span>
           )}
         </header>
+
+        <div className="border-b border-[var(--border)] p-3">
+          <DailyReminderControls
+            initialState={reminderState}
+            variant="compact"
+          />
+        </div>
 
         <div
           className="min-h-0 flex-1 divide-y divide-[var(--border)] overflow-y-auto overscroll-contain"

@@ -50,6 +50,7 @@ import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getPendingJoinRequestCount } from "@/services/join-request-query";
 import { processDueRecurringTransactions } from "@/services/recurring-transaction-service";
+import { dispatchDueDailyReminders } from "@/services/reminder-service";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 
 type DashboardShellProps = {
@@ -109,6 +110,7 @@ async function loadDashboardShellData() {
     await Promise.all([
       activateDueScheduledTransactionsForRequest(activeWorkspaceId),
       processDueRecurringTransactions({ workspaceId: activeWorkspaceId }).catch(() => null),
+      dispatchDueDailyReminders().catch(() => null),
     ]);
   }
 
@@ -310,6 +312,7 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
           <WorkspaceNotifications
             workspaceId={membership.workspaceId}
             memberId={membership.id}
+            userId={membership.userId}
             currency={membership.workspace.baseCurrency}
             timeZone={membership.workspace.timeZone}
             isAdmin={isAdmin}
