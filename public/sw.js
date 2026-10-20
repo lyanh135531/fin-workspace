@@ -98,6 +98,12 @@ self.addEventListener("push", (event) => {
     }
   }
 
+  const actionTitle = payload.url.startsWith("/credit-cards")
+    ? "Kiểm tra & thanh toán"
+    : payload.url.startsWith("/recurring-transactions")
+      ? "Xem lịch định kỳ"
+      : "Ghi chi tiêu ngay";
+
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
@@ -108,8 +114,8 @@ self.addEventListener("push", (event) => {
       data: { url: payload.url },
       actions: [
         {
-          action: "log-expense",
-          title: "Ghi chi tiêu ngay",
+          action: "open-target",
+          title: actionTitle,
         },
       ],
     }),
@@ -145,6 +151,7 @@ self.addEventListener("notificationclick", (event) => {
     ? rawUrl
     : "/overview?action=new-transaction";
   const targetUrl = new URL(targetPath, self.location.origin).toString();
+  const isQuickTransactionTarget = targetPath.includes("action=new-transaction");
 
   event.waitUntil(
     self.clients
@@ -155,7 +162,8 @@ self.addEventListener("notificationclick", (event) => {
             const clientUrl = new URL(client.url);
             if (clientUrl.origin === self.location.origin) {
               if (
-                !isWorkspaceClientPath(clientUrl.pathname) &&
+                (!isWorkspaceClientPath(clientUrl.pathname) ||
+                  !isQuickTransactionTarget) &&
                 typeof client.navigate === "function"
               ) {
                 await client.navigate(targetUrl);
