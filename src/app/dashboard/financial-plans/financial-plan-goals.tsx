@@ -429,7 +429,7 @@ export function FinancialPlanGoals({
                         </CardTitle>
                         <span
                           className={cn(
-                            "inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[11px] font-semibold",
+                            "inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[10px] font-semibold sm:text-[11px]",
                             goal.status === "cancelled"
                               ? "bg-[var(--surface-secondary)] text-[var(--text-secondary)]"
                               : HEALTH[goal.health].className,
@@ -440,7 +440,7 @@ export function FinancialPlanGoals({
                             : HEALTH[goal.health].label}
                         </span>
                       </div>
-                      <CardDescription className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs leading-snug">
+                      <CardDescription className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] leading-snug sm:text-xs">
                         <span className="shrink-0">
                           Hạn {monthLabel(goal.targetMonth)}
                         </span>
@@ -471,8 +471,9 @@ export function FinancialPlanGoals({
                             disabled={pending}
                             aria-label={`Ghi nhận đóng góp ${goal.name}`}
                             title="Ghi nhận đóng góp"
+                            className="size-7 sm:size-8"
                           >
-                            <CircleDollarSign aria-hidden="true" />
+                            <CircleDollarSign className="size-3.5 sm:size-4" aria-hidden="true" />
                           </Button>
                         )}
                       {goal.trackingMode === "manual" &&
@@ -483,8 +484,9 @@ export function FinancialPlanGoals({
                             onClick={() => setHistoryGoal(goal)}
                             aria-label={`Lịch sử đóng góp ${goal.name}`}
                             title={`Lịch sử đóng góp (${goal.fundingEntries.length})`}
+                            className="size-7 sm:size-8"
                           >
-                            <History aria-hidden="true" />
+                            <History className="size-3.5 sm:size-4" aria-hidden="true" />
                           </Button>
                         )}
                       {canManage && reached && goal.status === "active" && (
@@ -504,8 +506,9 @@ export function FinancialPlanGoals({
                           disabled={pending}
                           aria-label={`Hoàn thành mục tiêu ${goal.name}`}
                           title="Hoàn thành mục tiêu"
+                          className="size-7 sm:size-8"
                         >
-                          <Check aria-hidden="true" />
+                          <Check className="size-3.5 sm:size-4" aria-hidden="true" />
                         </Button>
                       )}
                       {hasManageActions && (
@@ -519,8 +522,9 @@ export function FinancialPlanGoals({
                                 disabled={pending || index === 0}
                                 aria-label={`Tăng ưu tiên ${goal.name}`}
                                 title="Tăng mức ưu tiên"
+                                className="size-7 sm:size-8"
                               >
-                                <ArrowUp aria-hidden="true" />
+                                <ArrowUp className="size-3.5 sm:size-4" aria-hidden="true" />
                               </Button>
                               <Button
                                 variant="icon"
@@ -529,8 +533,9 @@ export function FinancialPlanGoals({
                                 disabled={pending || index === goals.length - 1}
                                 aria-label={`Giảm ưu tiên ${goal.name}`}
                                 title="Giảm mức ưu tiên"
+                                className="size-7 sm:size-8"
                               >
-                                <ArrowDown aria-hidden="true" />
+                                <ArrowDown className="size-3.5 sm:size-4" aria-hidden="true" />
                               </Button>
                             </div>
                           )}
@@ -541,8 +546,9 @@ export function FinancialPlanGoals({
                             disabled={pending}
                             aria-label={`Sửa mục tiêu ${goal.name}`}
                             title="Chỉnh sửa mục tiêu"
+                            className="size-7 sm:size-8"
                           >
-                            <Pencil aria-hidden="true" />
+                            <Pencil className="size-3.5 sm:size-4" aria-hidden="true" />
                           </Button>
                         </>
                       )}
@@ -564,8 +570,9 @@ export function FinancialPlanGoals({
                                 ? "Xóa mục tiêu"
                                 : "Hủy mục tiêu"
                             }
+                            className="size-7 sm:size-8"
                           >
-                            <Trash2 aria-hidden="true" />
+                            <Trash2 className="size-3.5 sm:size-4" aria-hidden="true" />
                           </Button>
                         )}
                     </div>

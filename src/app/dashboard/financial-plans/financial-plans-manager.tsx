@@ -72,7 +72,6 @@ import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   ArrowDownLeft,
-  ArrowUpRight,
   CalendarClock,
   CalendarRange,
   CheckCircle2,
@@ -977,82 +976,89 @@ function DraftReview({
   }
 
   const draftHeaderContent = (
-    <div className="flex flex-col gap-3 border-b border-[var(--border)] pb-3.5 md:flex-row md:items-center md:justify-between">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] px-2.5 py-0.5 text-xs font-semibold text-[var(--warning)]">
+    <div className="grid gap-2.5 border-b border-[var(--border)] pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--warning)_15%,var(--surface))] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--warning)] sm:text-xs">
             <Pencil className="size-3" aria-hidden="true" />
-            <span>Bản nháp kế hoạch</span>
+            <span>Bản nháp</span>
           </span>
-          <span className="text-xs text-[var(--text-muted)] tabular-nums">
-            Hạn dự kiến: {monthLabel(plan.targetMonth)}
+          <span className="rounded-full border border-[var(--border)] bg-[var(--surface)]/80 px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] tabular-nums">
+            Hạn {shortMonthLabel(plan.targetMonth)}
           </span>
         </div>
-        <h2 className="mt-1.5 break-words text-lg font-bold leading-snug tracking-tight text-[var(--foreground)] md:text-xl">
+
+        <div
+          className="flex shrink-0 items-center gap-1.5"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          {plan.canManage && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onActivate}
+              disabled={disabled}
+              aria-label="Kích hoạt kế hoạch"
+              title="Kích hoạt kế hoạch"
+              className="h-7 px-2.5 text-xs sm:h-8"
+            >
+              <CheckCircle2 size={14} aria-hidden="true" />
+              <span>Kích hoạt</span>
+            </Button>
+          )}
+          <div className="flex items-center gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--surface)]/80 p-0.5">
+            {plans.length > 1 && (
+              <Button
+                variant="icon"
+                size="icon"
+                onClick={onOpenPlanPicker}
+                disabled={disabled}
+                aria-label={`Đổi kế hoạch (${plans.length})`}
+                title={`Đổi kế hoạch (${plans.length})`}
+                className="size-7 sm:size-8"
+              >
+                <CalendarRange size={14} aria-hidden="true" />
+              </Button>
+            )}
+            {plan.canManage && (
+              <>
+                <Button
+                  variant="icon"
+                  size="icon"
+                  onClick={onEdit}
+                  disabled={disabled}
+                  aria-label="Chỉnh sửa bản nháp"
+                  title="Chỉnh sửa bản nháp"
+                  className="size-7 sm:size-8"
+                >
+                  <Pencil size={14} aria-hidden="true" />
+                </Button>
+                <Button
+                  variant="destructiveIcon"
+                  size="icon"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={disabled}
+                  aria-label="Xóa bản nháp"
+                  title="Xóa bản nháp"
+                  className="size-7 sm:size-8"
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="min-w-0">
+        <h2 className="break-words text-base font-bold leading-snug tracking-tight text-[var(--foreground)] sm:text-lg md:text-xl">
           {plan.name}
         </h2>
         <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-secondary)]">
           Kiểm tra mục tiêu và tỷ lệ phân bổ 6 hũ trước khi kích hoạt.
         </p>
-      </div>
-
-      <div
-        className="flex shrink-0 flex-wrap items-center gap-1.5"
-        onClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-      >
-        {plan.canManage && (
-          <Button
-            variant="default"
-            size="sm"
-            onClick={onActivate}
-            disabled={disabled}
-            aria-label="Kích hoạt kế hoạch"
-            title="Kích hoạt kế hoạch"
-          >
-            <CheckCircle2 size={15} aria-hidden="true" />
-            <span>Kích hoạt ngay</span>
-          </Button>
-        )}
-        <div className="flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)]/80 p-1">
-          {plans.length > 1 && (
-            <Button
-              variant="icon"
-              size="icon"
-              onClick={onOpenPlanPicker}
-              disabled={disabled}
-              aria-label={`Đổi kế hoạch (${plans.length})`}
-              title={`Đổi kế hoạch (${plans.length})`}
-            >
-              <CalendarRange size={16} aria-hidden="true" />
-            </Button>
-          )}
-          {plan.canManage && (
-            <>
-              <Button
-                variant="icon"
-                size="icon"
-                onClick={onEdit}
-                disabled={disabled}
-                aria-label="Chỉnh sửa bản nháp"
-                title="Chỉnh sửa bản nháp"
-              >
-                <Pencil size={16} aria-hidden="true" />
-              </Button>
-              <Button
-                variant="destructiveIcon"
-                size="icon"
-                onClick={() => setConfirmDelete(true)}
-                disabled={disabled}
-                aria-label="Xóa bản nháp"
-                title="Xóa bản nháp"
-              >
-                <Trash2 size={16} aria-hidden="true" />
-              </Button>
-            </>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -1415,9 +1421,9 @@ function PlanDetail({
       {/* Unified Executive Plan Hero Card */}
       <Card className="overflow-hidden border border-[var(--border)] bg-[var(--surface)]">
         {/* Top Identity & Action Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[var(--border)] pb-3">
+        <div className="flex items-center justify-between gap-2 border-b border-[var(--border)] pb-2.5 sm:pb-3">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--primary-soft)] px-2.5 py-0.5 text-xs font-semibold text-[var(--primary)]">
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--primary-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--primary)] sm:px-2.5 sm:text-xs">
               <span
                 className="size-1.5 rounded-full bg-[var(--primary)]"
                 aria-hidden="true"
@@ -1428,7 +1434,7 @@ function PlanDetail({
             {plan.status === "active" && (
               <span
                 className={cn(
-                  "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                  "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold sm:px-2.5 sm:text-xs",
                   plan.health === "at_risk" ||
                     plan.health === "behind" ||
                     plan.health === "overdue"
@@ -1443,14 +1449,14 @@ function PlanDetail({
               </span>
             )}
 
-            <span className="inline-flex shrink-0 items-center rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] tabular-nums">
+            <span className="hidden shrink-0 items-center rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] tabular-nums sm:inline-flex">
               {shortMonthLabel(plan.startMonth)} →{" "}
               {shortMonthLabel(plan.targetMonth)}
             </span>
           </div>
 
-          {/* Sleek Action Cluster (Accessible on Mobile & Desktop) */}
-          <div className="flex shrink-0 items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 p-0.5">
+          {/* Sleek Action Cluster (Inline on Right for Mobile & Desktop) */}
+          <div className="flex shrink-0 items-center gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 p-0.5 sm:gap-1">
             {plans.length > 1 && (
               <Button
                 variant="icon"
@@ -1459,8 +1465,9 @@ function PlanDetail({
                 disabled={disabled}
                 aria-label={`Đổi kế hoạch (${plans.length})`}
                 title={`Đổi kế hoạch (${plans.length})`}
+                className="size-7 sm:size-8"
               >
-                <CalendarRange size={15} aria-hidden="true" />
+                <CalendarRange size={14} aria-hidden="true" />
               </Button>
             )}
             {canManage && !activeExists && (
@@ -1471,8 +1478,9 @@ function PlanDetail({
                 disabled={disabled}
                 aria-label="Tạo kế hoạch mới"
                 title="Tạo kế hoạch mới"
+                className="size-7 sm:size-8"
               >
-                <Plus size={15} aria-hidden="true" />
+                <Plus size={14} aria-hidden="true" />
               </Button>
             )}
             {plan.canManage && plan.status === "active" && (
@@ -1484,8 +1492,9 @@ function PlanDetail({
                   disabled={disabled}
                   aria-label="Cấu hình tỷ lệ 6 hũ"
                   title="Cấu hình phân bổ 6 hũ"
+                  className="size-7 sm:size-8"
                 >
-                  <SlidersHorizontal size={15} aria-hidden="true" />
+                  <SlidersHorizontal size={14} aria-hidden="true" />
                 </Button>
                 <Button
                   variant="icon"
@@ -1494,8 +1503,9 @@ function PlanDetail({
                   disabled={disabled}
                   aria-label="Đổi thời hạn hoàn thành"
                   title="Đổi thời hạn hoàn thành"
+                  className="size-7 sm:size-8"
                 >
-                  <CalendarClock size={15} aria-hidden="true" />
+                  <CalendarClock size={14} aria-hidden="true" />
                 </Button>
                 {plan.canComplete && (
                   <Button
@@ -1505,8 +1515,9 @@ function PlanDetail({
                     disabled={disabled}
                     aria-label="Hoàn thành kế hoạch"
                     title="Hoàn thành kế hoạch"
+                    className="size-7 sm:size-8"
                   >
-                    <CheckCircle2 size={15} aria-hidden="true" />
+                    <CheckCircle2 size={14} aria-hidden="true" />
                   </Button>
                 )}
                 <Button
@@ -1516,8 +1527,9 @@ function PlanDetail({
                   disabled={disabled}
                   aria-label="Hủy kế hoạch"
                   title="Hủy kế hoạch"
+                  className="size-7 sm:size-8"
                 >
-                  <AlertTriangle size={15} aria-hidden="true" />
+                  <AlertTriangle size={14} aria-hidden="true" />
                 </Button>
               </>
             )}
@@ -1531,85 +1543,118 @@ function PlanDetail({
                   disabled={disabled}
                   aria-label="Xóa kế hoạch"
                   title="Xóa kế hoạch"
+                  className="size-7 sm:size-8"
                 >
-                  <Trash2 size={15} aria-hidden="true" />
+                  <Trash2 size={14} aria-hidden="true" />
                 </Button>
               )}
           </div>
         </div>
 
         {/* Plan Identity & Master Savings Progress */}
-        <div className="grid gap-2.5">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="min-w-0 break-words text-lg font-bold leading-snug tracking-tight text-[var(--foreground)] md:text-xl">
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="min-w-0 break-words text-base font-bold leading-snug tracking-tight text-[var(--foreground)] sm:text-lg md:text-xl">
               {plan.name}
             </h2>
-            <div className="flex flex-wrap items-baseline gap-1.5 text-xs tabular-nums">
-              <span className="text-[var(--text-secondary)]">Tích lũy:</span>
-              <strong className="text-sm font-bold text-[var(--foreground)] md:text-base">
-                {money(plan.realizedProgress, currency)}
-              </strong>
-              <span className="text-[var(--text-muted)]">
-                / {money(plan.targetAmount, currency)}
-              </span>
-              <span className="rounded-md bg-[var(--primary-soft)] px-1.5 py-0.5 text-xs font-bold text-[var(--primary)]">
+            <span className="inline-flex shrink-0 items-center rounded-md bg-[var(--surface-secondary)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] tabular-nums sm:hidden">
+              {shortMonthLabel(plan.startMonth)} →{" "}
+              {shortMonthLabel(plan.targetMonth)}
+            </span>
+          </div>
+
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-2.5 sm:p-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <div className="min-w-0">
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  Tiến độ tích lũy
+                </span>
+                <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5 tabular-nums">
+                  <strong className="text-base font-bold tracking-tight text-[var(--foreground)] sm:text-lg">
+                    {money(plan.realizedProgress, currency)}
+                  </strong>
+                  <span className="text-xs text-[var(--text-muted)]">
+                    / {money(plan.targetAmount, currency)}
+                  </span>
+                </div>
+              </div>
+              <span className="rounded-lg bg-[var(--primary-soft)] px-2 py-0.5 text-xs font-bold text-[var(--primary)] tabular-nums">
                 {plan.realizedProgressPercentage}%
               </span>
             </div>
-          </div>
 
-          <div
-            role="progressbar"
-            aria-label={`Tiến độ tích lũy kế hoạch ${plan.name}`}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(realizedProgressPct)}
-            className="relative h-2 w-full overflow-hidden rounded-full bg-[var(--surface-secondary)]"
-          >
-            {projectedProgressPct > realizedProgressPct && (
-              <div
-                className="absolute inset-y-0 left-0 rounded-full bg-[var(--primary)]/25 transition-all duration-300"
-                style={{ width: `${projectedProgressPct}%` }}
-              />
-            )}
             <div
-              className="relative h-full rounded-full bg-[var(--primary)] transition-all duration-300"
-              style={{ width: `${realizedProgressPct}%` }}
-            />
-          </div>
+              role="progressbar"
+              aria-label={`Tiến độ tích lũy kế hoạch ${plan.name}`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(realizedProgressPct)}
+              className="relative mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--surface)]"
+            >
+              {projectedProgressPct > realizedProgressPct && (
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-[var(--primary)]/25 transition-all duration-300"
+                  style={{ width: `${projectedProgressPct}%` }}
+                />
+              )}
+              <div
+                className="relative h-full rounded-full bg-[var(--primary)] transition-all duration-300"
+                style={{ width: `${realizedProgressPct}%` }}
+              />
+            </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
-            <span className="tabular-nums">
-              Dự kiến cuối tháng:{" "}
-              <strong className="font-semibold text-[var(--foreground)]">
-                {money(plan.projectedEndOfCurrentMonthProgress, currency)}
-              </strong>{" "}
-              ({plan.projectedCurrentProgressPercentage}%)
-            </span>
-            {hasShortfall ? (
-              <span className="font-semibold text-[var(--warning)] tabular-nums">
-                Cần bù thêm: {money(shortfall, currency)}
-              </span>
-            ) : (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-[var(--text-muted)] sm:text-xs">
               <span className="tabular-nums">
-                Dự kiến cuối kỳ:{" "}
+                Dự kiến cuối tháng:{" "}
                 <strong className="font-semibold text-[var(--foreground)]">
-                  {money(plan.projectedEndOfPlanProgress, currency)}
-                </strong>
+                  <span className="sm:hidden">
+                    {compactMoney(
+                      plan.projectedEndOfCurrentMonthProgress,
+                      currency,
+                    )}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {money(plan.projectedEndOfCurrentMonthProgress, currency)}
+                  </span>
+                </strong>{" "}
+                ({plan.projectedCurrentProgressPercentage}%)
               </span>
-            )}
+              {hasShortfall ? (
+                <span className="font-semibold text-[var(--warning)] tabular-nums">
+                  Cần bù:{" "}
+                  <span className="sm:hidden">
+                    {compactMoney(shortfall, currency)}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {money(shortfall, currency)}
+                  </span>
+                </span>
+              ) : (
+                <span className="tabular-nums">
+                  Cuối kỳ:{" "}
+                  <strong className="font-semibold text-[var(--foreground)]">
+                    <span className="sm:hidden">
+                      {compactMoney(plan.projectedEndOfPlanProgress, currency)}
+                    </span>
+                    <span className="hidden sm:inline">
+                      {money(plan.projectedEndOfPlanProgress, currency)}
+                    </span>
+                  </strong>
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Compact 2x2 Mobile / 4-Column Desktop Cashflow & Budget Matrix */}
         <section
           aria-label="Tổng quan ngân sách kế hoạch tháng này"
-          className="grid grid-cols-2 gap-2.5 border-t border-[var(--border)] pt-3.5 lg:grid-cols-4"
+          className="grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-2.5"
         >
           {/* Tile 1: Thu nhập dự kiến */}
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3">
+          <div className="flex flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-2.5 sm:p-3">
             <div className="flex items-center justify-between gap-1.5">
-              <p className="break-words text-xs font-medium leading-snug text-[var(--text-secondary)]">
+              <p className="text-[11px] font-medium leading-snug text-[var(--text-secondary)] sm:text-xs">
                 Thu nhập dự kiến
               </p>
               <ArrowDownLeft
@@ -1617,49 +1662,55 @@ function PlanDetail({
                 aria-hidden="true"
               />
             </div>
-            <p className="mt-1.5 text-sm font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-base md:text-lg">
-              {money(estimatedIncome.toString(), currency)}
-            </p>
-            <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
-              {currentMonth
-                ? `Kỳ ${monthLabel(currentMonth.month)}`
-                : `Kỳ ${monthLabel(plan.businessMonth)}`}
-            </p>
+            <div className="mt-1.5">
+              <p className="text-sm font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-base md:text-lg">
+                {money(estimatedIncome.toString(), currency)}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
+                {currentMonth
+                  ? `Kỳ ${shortMonthLabel(currentMonth.month)}`
+                  : `Kỳ ${shortMonthLabel(plan.businessMonth)}`}
+              </p>
+            </div>
           </div>
 
           {/* Tile 2: Cần tiết kiệm tháng này */}
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3">
+          <div className="flex flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-2.5 sm:p-3">
             <div className="flex items-center justify-between gap-1.5">
-              <p className="break-words text-xs font-medium leading-snug text-[var(--text-secondary)]">
-                Cần tiết kiệm tháng này
+              <p className="text-[11px] font-medium leading-snug text-[var(--text-secondary)] sm:text-xs">
+                <span className="sm:hidden">Cần tiết kiệm</span>
+                <span className="hidden sm:inline">Cần tiết kiệm tháng này</span>
               </p>
               <Target
                 className="size-3.5 shrink-0 text-[var(--primary)]"
                 aria-hidden="true"
               />
             </div>
-            <p className="mt-1.5 text-sm font-bold tracking-tight text-[var(--primary)] tabular-nums sm:text-base md:text-lg">
-              {money(requiredSavingsThisMonth.toString(), currency)}
-            </p>
-            <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
-              {hasShortfall ? (
-                <span className="font-semibold text-[var(--warning)]">
-                  Bù thêm: {compactMoney(shortfall, currency)}
-                </span>
-              ) : (
-                `${financialGoals.length} mục tiêu tích lũy`
-              )}
-            </p>
+            <div className="mt-1.5">
+              <p className="text-sm font-bold tracking-tight text-[var(--primary)] tabular-nums sm:text-base md:text-lg">
+                {money(requiredSavingsThisMonth.toString(), currency)}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
+                {hasShortfall ? (
+                  <span className="font-semibold text-[var(--warning)]">
+                    Bù thêm: {compactMoney(shortfall, currency)}
+                  </span>
+                ) : (
+                  `${financialGoals.length} mục tiêu tích lũy`
+                )}
+              </p>
+            </div>
           </div>
 
           {/* Tile 3: Ngân sách chi tiêu tháng */}
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3">
-            <div className="flex items-center justify-between gap-1.5">
-              <p className="break-words text-xs font-medium leading-snug text-[var(--text-secondary)]">
-                Ngân sách chi tiêu tháng
+          <div className="flex flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-2.5 sm:p-3">
+            <div className="flex items-center justify-between gap-1">
+              <p className="min-w-0 text-[11px] font-medium leading-snug text-[var(--text-secondary)] sm:text-xs">
+                <span className="sm:hidden">Ngân sách tháng</span>
+                <span className="hidden sm:inline">Ngân sách chi tiêu tháng</span>
               </p>
               <div className="flex shrink-0 items-center gap-1">
-                {walletSummary && (
+                {walletSummary ? (
                   <Popover>
                     <PopoverTrigger
                       render={
@@ -1756,66 +1807,75 @@ function PlanDetail({
                       </dl>
                     </PopoverContent>
                   </Popover>
+                ) : (
+                  <Wallet
+                    className="size-3.5 shrink-0 text-[var(--foreground)]"
+                    aria-hidden="true"
+                  />
                 )}
-                <Wallet
-                  className="size-3.5 shrink-0 text-[var(--foreground)]"
-                  aria-hidden="true"
-                />
               </div>
             </div>
-            <p className="mt-1.5 text-sm font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-base md:text-lg">
-              {money(monthlyBudget.toString(), currency)}
-            </p>
-            <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
-              Ngân sách còn lại:{" "}
-              <span
-                className={cn(
-                  "font-semibold tabular-nums",
-                  availableToSpend.isNegative()
-                    ? "text-[var(--destructive)]"
-                    : "text-[var(--foreground)]",
-                )}
-              >
-                {availableToSpend.isNegative()
-                  ? `−${compactMoney(availableToSpend.abs().toString(), currency)}`
-                  : compactMoney(availableToSpend.toString(), currency)}
-              </span>
-            </p>
+            <div className="mt-1.5">
+              <p className="text-sm font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-base md:text-lg">
+                {money(monthlyBudget.toString(), currency)}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
+                Còn lại:{" "}
+                <span
+                  className={cn(
+                    "font-semibold tabular-nums",
+                    availableToSpend.isNegative()
+                      ? "text-[var(--destructive)]"
+                      : "text-[var(--foreground)]",
+                  )}
+                >
+                  {availableToSpend.isNegative()
+                    ? `−${compactMoney(availableToSpend.abs().toString(), currency)}`
+                    : compactMoney(availableToSpend.toString(), currency)}
+                </span>
+              </p>
+            </div>
           </div>
 
           {/* Tile 4: Đã chi tiêu */}
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3">
+          <div className="flex flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-2.5 sm:p-3">
             <div className="flex items-center justify-between gap-1.5">
-              <p className="break-words text-xs font-medium leading-snug text-[var(--text-secondary)]">
+              <p className="text-[11px] font-medium leading-snug text-[var(--text-secondary)] sm:text-xs">
                 Đã chi tiêu
               </p>
-              <ArrowUpRight
-                className="size-3.5 shrink-0 text-[var(--expense)]"
-                aria-hidden="true"
-              />
+              <span
+                className={cn(
+                  "rounded-md bg-[var(--surface)] px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                  PROGRESS_TEXT_TONES[monthlyUsageTone],
+                )}
+              >
+                {monthlyUsage.toDecimalPlaces(0).toString()}%
+              </span>
             </div>
-            <p
-              className={cn(
-                "mt-1.5 text-sm font-bold tracking-tight tabular-nums sm:text-base md:text-lg",
-                PROGRESS_TEXT_TONES[monthlyUsageTone],
-              )}
-            >
-              {money(spentThisMonth.toString(), currency)}
-            </p>
-            <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
-              {monthlyUsage.toDecimalPlaces(0).toString()}% ngân sách
-              {safeDailyOverall.greaterThan(0)
-                ? ` · An toàn ${compactMoney(safeDailyOverall.toFixed(0), currency)}/ngày`
-                : ""}
-            </p>
-            {monthCardSpent.gt(0) && (
-              <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-secondary)] tabular-nums">
-                Ví: {compactMoney(monthAssetSpent.toFixed(0), currency)} · Thẻ tín dụng:{" "}
-                <strong className="font-semibold text-[var(--foreground)]">
-                  {compactMoney(monthCardSpent.toFixed(0), currency)}
-                </strong>
+            <div className="mt-1.5">
+              <p
+                className={cn(
+                  "text-sm font-bold tracking-tight tabular-nums sm:text-base md:text-lg",
+                  PROGRESS_TEXT_TONES[monthlyUsageTone],
+                )}
+              >
+                {money(spentThisMonth.toString(), currency)}
               </p>
-            )}
+              {monthCardSpent.gt(0) ? (
+                <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-secondary)] tabular-nums">
+                  Ví {compactMoney(monthAssetSpent.toFixed(0), currency)} · Thẻ{" "}
+                  <strong className="font-semibold text-[var(--foreground)]">
+                    {compactMoney(monthCardSpent.toFixed(0), currency)}
+                  </strong>
+                </p>
+              ) : (
+                <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
+                  {safeDailyOverall.greaterThan(0)
+                    ? `An toàn ${compactMoney(safeDailyOverall.toFixed(0), currency)}/ngày`
+                    : `${monthlyUsage.toDecimalPlaces(0).toString()}% ngân sách tháng`}
+                </p>
+              )}
+            </div>
           </div>
         </section>
       </Card>
@@ -2297,7 +2357,7 @@ function DailySpendingCompass({
   return (
     <Card className="border border-[var(--border)] bg-[var(--surface)]">
       {/* Compass Header + Scope Toggle */}
-      <div className="flex flex-col gap-2.5 border-b border-[var(--border)] pb-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 border-b border-[var(--border)] pb-2.5 sm:flex-row sm:items-center sm:justify-between sm:pb-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]">
@@ -2318,14 +2378,14 @@ function DailySpendingCompass({
         <div
           role="group"
           aria-label="Phạm vi tính định mức chi tiêu mỗi ngày"
-          className="inline-flex shrink-0 items-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/70 p-0.5"
+          className="grid w-full grid-cols-2 items-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/70 p-0.5 sm:inline-flex sm:w-auto sm:shrink-0"
         >
           <button
             type="button"
             onClick={() => setCompassScope("daily_living")}
             aria-pressed={compassScope === "daily_living"}
             className={cn(
-              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              "rounded-lg px-2.5 py-1 text-center text-xs font-semibold transition-colors",
               compassScope === "daily_living"
                 ? "bg-[var(--surface)] text-[var(--primary)]"
                 : "text-[var(--text-secondary)] hover:text-[var(--foreground)]",
@@ -2338,7 +2398,7 @@ function DailySpendingCompass({
             onClick={() => setCompassScope("all_jars")}
             aria-pressed={compassScope === "all_jars"}
             className={cn(
-              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              "rounded-lg px-2.5 py-1 text-center text-xs font-semibold transition-colors",
               compassScope === "all_jars"
                 ? "bg-[var(--surface)] text-[var(--primary)]"
                 : "text-[var(--text-secondary)] hover:text-[var(--foreground)]",
@@ -2349,73 +2409,82 @@ function DailySpendingCompass({
         </div>
       </div>
 
-      {/* 3-Column Daily Strip */}
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+      {/* Responsive Daily Strip: Hero Top + 2-Col Bottom on Mobile, 3-Col on Tablet/Desktop */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5">
         {/* Box 1: Định mức hôm nay */}
-        <div className="rounded-xl border border-[var(--primary)]/30 bg-[var(--primary-soft)]/45 p-3">
-          <p className="text-xs font-medium text-[var(--text-secondary)]">
-            Định mức hôm nay
-          </p>
+        <div className="col-span-2 flex flex-col justify-between rounded-xl border border-[var(--primary)]/30 bg-[var(--primary-soft)]/45 p-2.5 sm:col-span-1 sm:p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium text-[var(--text-secondary)] sm:text-xs">
+              Định mức hôm nay
+            </p>
+            <span className="rounded-md bg-[var(--surface)]/80 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)] tabular-nums sm:hidden">
+              TB {compactMoney(nextDaysSafeDaily.toFixed(0), currency)}/ngày
+            </span>
+          </div>
           <p className="mt-1 text-base font-bold tracking-tight text-[var(--primary)] tabular-nums md:text-lg">
             {money(dailyAllowance.toFixed(0), currency)} / ngày
           </p>
-          <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
+          <p className="mt-0.5 hidden break-words text-[11px] leading-snug text-[var(--text-muted)] tabular-nums sm:block">
             Trung bình {compactMoney(nextDaysSafeDaily.toFixed(0), currency)}/ngày
             cho {remainingDaysThisMonth} ngày cuối tháng
           </p>
         </div>
 
         {/* Box 2: Hôm nay đã chi */}
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3">
-          <p className="text-xs font-medium text-[var(--text-secondary)]">
+        <div className="flex flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-2.5 sm:p-3">
+          <p className="text-[11px] font-medium text-[var(--text-secondary)] sm:text-xs">
             Hôm nay đã chi
           </p>
-          <p className="mt-1 text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums md:text-lg">
-            {money(Decimal.max(0, spentTodayTotal).toFixed(0), currency)}
-          </p>
-          <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
-            {spentTodayCard.gt(0) || spentTodayAsset.gt(0)
-              ? `Ví: ${compactMoney(spentTodayAsset.toFixed(0), currency)} · Thẻ: ${compactMoney(spentTodayCard.toFixed(0), currency)}`
-              : "Chưa phát sinh chi tiêu hôm nay"}
-          </p>
+          <div className="mt-1">
+            <p className="text-sm font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-base md:text-lg">
+              {money(Decimal.max(0, spentTodayTotal).toFixed(0), currency)}
+            </p>
+            <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
+              {spentTodayCard.gt(0) || spentTodayAsset.gt(0)
+                ? `Ví ${compactMoney(spentTodayAsset.toFixed(0), currency)} · Thẻ ${compactMoney(spentTodayCard.toFixed(0), currency)}`
+                : "Chưa phát sinh"}
+            </p>
+          </div>
         </div>
 
         {/* Box 3: Còn được tiêu hôm nay */}
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3">
-          <p className="text-xs font-medium text-[var(--text-secondary)]">
-            Còn được tiêu hôm nay
+        <div className="flex flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-2.5 sm:p-3">
+          <p className="text-[11px] font-medium text-[var(--text-secondary)] sm:text-xs">
+            Còn được tiêu
           </p>
-          {remainingForToday.gte(0) ? (
-            <>
-              <p className="mt-1 text-base font-bold tracking-tight text-[var(--success)] tabular-nums md:text-lg">
-                {money(remainingForToday.toFixed(0), currency)}
-              </p>
-              <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
-                Trong ngưỡng an toàn hôm nay
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="mt-1 text-base font-bold tracking-tight text-[var(--warning)] tabular-nums md:text-lg">
-                Vượt {money(remainingForToday.abs().toFixed(0), currency)}
-              </p>
-              <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
-                Từ ngày mai nên giữ mức{" "}
-                {compactMoney(
-                  Decimal.max(0, scopeRemainingMonth)
-                    .dividedToIntegerBy(Math.max(remainingDaysThisMonth - 1, 1))
-                    .toFixed(0),
-                  currency,
-                )}
-                /ngày
-              </p>
-            </>
-          )}
+          <div className="mt-1">
+            {remainingForToday.gte(0) ? (
+              <>
+                <p className="text-sm font-bold tracking-tight text-[var(--success)] tabular-nums sm:text-base md:text-lg">
+                  {money(remainingForToday.toFixed(0), currency)}
+                </p>
+                <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
+                  Trong ngưỡng an toàn
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-bold tracking-tight text-[var(--warning)] tabular-nums sm:text-base md:text-lg">
+                  Vượt {money(remainingForToday.abs().toFixed(0), currency)}
+                </p>
+                <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)] tabular-nums">
+                  Từ mai:{" "}
+                  {compactMoney(
+                    Decimal.max(0, scopeRemainingMonth)
+                      .dividedToIntegerBy(Math.max(remainingDaysThisMonth - 1, 1))
+                      .toFixed(0),
+                    currency,
+                  )}
+                  /ngày
+                </p>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Spending Pace vs Time Bar (Nhịp độ chi tiêu tháng) */}
-      <div className="grid gap-1.5 border-t border-[var(--border)] pt-2.5 text-xs">
+      <div className="grid gap-1.5 border-t border-[var(--border)] pt-2 text-[11px] sm:pt-2.5 sm:text-xs">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-[var(--text-secondary)] tabular-nums">
             Đã qua{" "}
@@ -2431,19 +2500,35 @@ function DailySpendingCompass({
 
           {scopeAllocated.lte(0) ? (
             <span className="break-words text-[11px] font-medium text-[var(--warning)]">
-              Ngân sách chi tiêu bằng 0 ₫ do mức cần tiết kiệm và dư nợ thẻ vượt số dư ví. Xem cách tính ở trên.
+              Ngân sách chi tiêu bằng 0 ₫ do mức cần tiết kiệm và dư nợ thẻ vượt số dư ví.
             </span>
           ) : budgetUsedPct <= timeElapsedPct ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold text-[var(--success)] tabular-nums">
-              🟢 Chi tiêu hợp lý (thấp hơn tiến độ tháng {timeElapsedPct - budgetUsedPct}%)
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--success)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold text-[var(--success)] tabular-nums">
+              <span
+                className="size-1.5 rounded-full bg-[var(--success)]"
+                aria-hidden="true"
+              />
+              <span>
+                Chi tiêu hợp lý (thấp hơn tiến độ {timeElapsedPct - budgetUsedPct}%)
+              </span>
             </span>
           ) : budgetUsedPct <= 100 ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--warning)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold text-[var(--warning)] tabular-nums">
-              🟡 Chi tiêu hơi nhanh (vượt tiến độ tháng +{budgetUsedPct - timeElapsedPct}%)
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--warning)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold text-[var(--warning)] tabular-nums">
+              <span
+                className="size-1.5 rounded-full bg-[var(--warning)]"
+                aria-hidden="true"
+              />
+              <span>
+                Chi tiêu hơi nhanh (+{budgetUsedPct - timeElapsedPct}% tiến độ)
+              </span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--destructive)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold text-[var(--destructive)]">
-              🔴 Đã vượt ngân sách nhóm này
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--destructive)_14%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold text-[var(--destructive)]">
+              <span
+                className="size-1.5 rounded-full bg-[var(--destructive)]"
+                aria-hidden="true"
+              />
+              <span>Đã vượt ngân sách nhóm này</span>
             </span>
           )}
         </div>
@@ -2525,9 +2610,9 @@ function SixJarsSection({
   );
 
   return (
-    <div className="grid gap-3.5">
+    <div className="grid gap-3">
       {/* Header Bar with Direct Month Selector Capsule */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 sm:px-3.5 sm:py-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <div className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-secondary)]/70 p-0.5">
             <button
@@ -2666,7 +2751,7 @@ function SixJarsSection({
         </div>
 
         {/* Multi-segment visual bar + Edit Ratios Action */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <div
             className="hidden h-2 w-28 gap-0.5 overflow-hidden rounded-full bg-[var(--surface-secondary)] md:flex"
             aria-hidden="true"
@@ -2694,9 +2779,9 @@ function SixJarsSection({
               disabled={disabled}
               aria-label="Điều chỉnh tỷ lệ 6 hũ tháng sau"
               title="Điều chỉnh tỷ lệ 6 hũ tháng sau"
-              className="h-8 text-xs"
+              className="h-8 px-2.5 text-xs"
             >
-              <SlidersHorizontal size={14} aria-hidden="true" />
+              <SlidersHorizontal size={13} aria-hidden="true" />
               <span>Tỷ lệ 6 hũ</span>
             </Button>
           )}
@@ -2704,7 +2789,7 @@ function SixJarsSection({
       </div>
 
       {/* 6 Jars Interactive Responsive Grid */}
-      <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {month.jars.map((jar) => {
           const remaining =
             jar.remainingAmount ??
@@ -2795,7 +2880,12 @@ function SixJarsSection({
                     </span>
                   </div>
                   <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
-                    {JAR_DESCRIPTIONS[jar.jarCode]}
+                    <span className="sm:hidden">
+                      {JAR_SHORT_DESCRIPTIONS[jar.jarCode]}
+                    </span>
+                    <span className="hidden sm:inline">
+                      {JAR_DESCRIPTIONS[jar.jarCode]}
+                    </span>
                   </p>
                 </div>
 
@@ -2805,7 +2895,7 @@ function SixJarsSection({
               </div>
 
               {/* Middle Row: Prominent Remaining Budget + Daily Safe Spend + Progress Bar */}
-              <div className="space-y-2 border-t border-[var(--border)] pt-2.5">
+              <div className="space-y-2 border-t border-[var(--border)] pt-2">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <div className="min-w-0">
                     <span className="text-[11px] text-[var(--text-secondary)]">
@@ -2868,7 +2958,7 @@ function SixJarsSection({
                   </span>
                   {jarCardSpent.gt(0) && (
                     <span className="text-[var(--text-secondary)]">
-                      Ví: {compactMoney(jarAssetSpent.toFixed(0), currency)} · Thẻ:{" "}
+                      Ví {compactMoney(jarAssetSpent.toFixed(0), currency)} · Thẻ{" "}
                       <strong className="font-semibold text-[var(--foreground)]">
                         {compactMoney(jarCardSpent.toFixed(0), currency)}
                       </strong>
@@ -2884,8 +2974,8 @@ function SixJarsSection({
                 )}
               </div>
 
-              {/* Bottom Row: Quick Expense Action + Details Link */}
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 px-2.5 py-1.5 text-xs">
+              {/* Bottom Row: Clean Editorial Hairline Footer */}
+              <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 text-xs">
                 <button
                   type="button"
                   onKeyDown={(event) => event.stopPropagation()}
@@ -2900,7 +2990,7 @@ function SixJarsSection({
                       }),
                     );
                   }}
-                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary-soft)]"
+                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)]/70 px-2.5 py-1 text-[11px] font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary-soft)]"
                 >
                   <Plus className="size-3" aria-hidden="true" />
                   <span>Ghi chi</span>
