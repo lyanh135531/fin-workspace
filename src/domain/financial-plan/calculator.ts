@@ -114,7 +114,9 @@ export function calculateMonthlyPlanBudget(input: {
   eligibleExpensesByJar: Record<FinancialJarCode, DecimalValue>;
   percentages: Record<FinancialJarCode, DecimalValue>;
 }) {
-  const rawGrossBudget = new Decimal(input.rawGrossBudget);
+  // Ledger amounts support four decimal places. Round only at the planning
+  // boundary, after aggregation, so budgets and snapshots remain whole VND.
+  const rawGrossBudget = new Decimal(input.rawGrossBudget).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
   const requiredGoalAmount = assertVnd(input.requiredGoalAmount, "Khoản phải dành");
   const allocatableGrossBudget = Decimal.max(rawGrossBudget, ZERO);
   const resourceShortfall = Decimal.max(rawGrossBudget.negated(), ZERO);
@@ -123,7 +125,15 @@ export function calculateMonthlyPlanBudget(input: {
   const remainingByJar = decimalMap();
   const overspendByJar = decimalMap();
   for (const jarCode of FINANCIAL_JAR_CODES) {
-    expenseByJar[jarCode] = assertVnd(input.eligibleExpensesByJar[jarCode], `Chi phí hũ ${jarCode}`);
+    const expense = new Decimal(input.eligibleExpensesByJar[jarCode]);
+    // Validate before rounding so a small negative amount cannot become zero.
+    if (!expense.isFinite() || expense.lessThan(0)) {
+      throw new Error(`Chi phí hũ ${jarCode} phải là số tiền hữu hạn không âm.`);
+    }
+    expenseByJar[jarCode] = assertVnd(
+      expense.toDecimalPlaces(0, Decimal.ROUND_HALF_UP),
+      `Chi phí hũ ${jarCode}`,
+    );
     remainingByJar[jarCode] = allocatedByJar[jarCode].minus(expenseByJar[jarCode]);
     overspendByJar[jarCode] = Decimal.max(remainingByJar[jarCode].negated(), ZERO);
   }

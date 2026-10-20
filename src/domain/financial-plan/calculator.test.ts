@@ -21,6 +21,45 @@ import {
 import { addMonths, monthDateRange, monthsInclusive } from "@/domain/financial-plan/month";
 
 describe("financial plan calculator", () => {
+  it("accepts fractional ledger expenses and keeps planning outputs in whole VND", () => {
+    const result = calculateMonthlyPlanBudget({
+      rawGrossBudget: "1000000.5000",
+      requiredGoalAmount: "100000",
+      eligibleExpensesByJar: { ...decimalMap(), RESPONSIBILITY: new Decimal("333333.3333") },
+      percentages: DEFAULT_PLAN_JAR_PERCENTAGES,
+    });
+
+    expect(result.rawGrossBudget.toString()).toBe("1000001");
+    expect(result.expenseByJar.RESPONSIBILITY.toString()).toBe("333333");
+    expect(result.eligibleExpense.toString()).toBe("333333");
+    expect(result.totalRemaining.toString()).toBe("666668");
+    expect(result.actualGoalAmountForMonth.toString()).toBe("766668");
+    expect(Object.values(result.allocatedByJar).every((amount) => amount.isInteger())).toBe(true);
+  });
+
+  it("rounds fractional resource shortfalls to whole VND", () => {
+    const result = calculateMonthlyPlanBudget({
+      rawGrossBudget: "-100.5000",
+      requiredGoalAmount: "1000",
+      eligibleExpensesByJar: { ...decimalMap(), RESPONSIBILITY: new Decimal("0.5000") },
+      percentages: DEFAULT_PLAN_JAR_PERCENTAGES,
+    });
+
+    expect(result.rawGrossBudget.toString()).toBe("-101");
+    expect(result.resourceShortfall.toString()).toBe("101");
+    expect(result.expenseByJar.RESPONSIBILITY.toString()).toBe("1");
+    expect(result.actualGoalAmountForMonth.toString()).toBe("898");
+  });
+
+  it.each(["-0.0001", "-1", "NaN", "Infinity"])("rejects invalid ledger expenses before rounding: %s", (amount) => {
+    expect(() => calculateMonthlyPlanBudget({
+      rawGrossBudget: "1000",
+      requiredGoalAmount: "100",
+      eligibleExpensesByJar: { ...decimalMap(), RESPONSIBILITY: new Decimal(amount) },
+      percentages: DEFAULT_PLAN_JAR_PERCENTAGES,
+    })).toThrow("Chi phí hũ RESPONSIBILITY phải là số tiền hữu hạn không âm.");
+  });
+
   it.each(monthlyBudgetVectors)("implements monthly vector: $name", (vector) => {
     const result = calculateMonthlyPlanBudget({
       rawGrossBudget: new Decimal(vector.grossResources).minus(vector.requiredGoalAmount),
