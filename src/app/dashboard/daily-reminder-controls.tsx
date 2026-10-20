@@ -22,7 +22,7 @@ import { Button } from "@/components/base";
 import { cn } from "@/lib/utils";
 import type { UserReminderState } from "@/services/reminder-service";
 
-type PushSupportState =
+export type PushSupportState =
   | "checking"
   | "supported"
   | "ios-needs-install"
@@ -41,7 +41,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   return outputArray;
 }
 
-function detectPushSupport(): PushSupportState {
+export function detectPushSupport(): PushSupportState {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return "checking";
   }
@@ -84,12 +84,114 @@ async function ensureServiceWorkerRegistration(): Promise<ServiceWorkerRegistrat
   });
 }
 
+export async function requestPushPermissionFromGesture(): Promise<{
+  granted: boolean;
+  support: PushSupportState;
+}> {
+  const currentSupport = detectPushSupport();
+
+  if (currentSupport === "ios-needs-install") {
+    toast.error(
+      "Trên iPhone/iPad, hãy chọn Chia sẻ → Thêm vào Màn hình chính để nhận thông báo.",
+    );
+    return { granted: false, support: currentSupport };
+  }
+
+  if (currentSupport === "unsupported") {
+    toast.error("Trình duyệt hiện tại chưa hỗ trợ thông báo đẩy.");
+    return { granted: false, support: currentSupport };
+  }
+
+  if (Notification.permission === "granted") {
+    return { granted: true, support: "supported" };
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    const nextSupport = permission === "denied" ? "denied" : "supported";
+    toast.error("Vui lòng cho phép quyền Thông báo trên trình duyệt.");
+    return { granted: false, support: nextSupport };
+  }
+
+  return { granted: true, support: "supported" };
+}
+
+export async function subscribeBrowserToPush(
+  vapidPublicKey: string,
+): Promise<{ ok: boolean; subscriptionCount?: number }> {
+  try {
+    const registration = await ensureServiceWorkerRegistration();
+    await navigator.serviceWorker.ready;
+
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+      try {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        });
+      } catch (subscribeError) {
+        if (
+          subscribeError instanceof DOMException &&
+          subscribeError.name === "InvalidStateError"
+        ) {
+          const stale = await registration.pushManager.getSubscription();
+          await stale?.unsubscribe().catch(() => null);
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey,
+          });
+        } else {
+          throw subscribeError;
+        }
+      }
+    }
+
+    const json = subscription.toJSON();
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+      toast.error("Không thể khởi tạo khóa nhận thông báo cho thiết bị này.");
+      return { ok: false };
+    }
+
+    const saveResult = await saveUserPushSubscriptionAction({
+      endpoint: json.endpoint,
+      keys: {
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+      },
+      userAgent: navigator.userAgent,
+    });
+
+    if (!saveResult.ok) {
+      toast.error(saveResult.message);
+      return { ok: false };
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("felix-reminder-device-subscribed", {
+        detail: { subscriptionCount: saveResult.data.subscriptionCount },
+      }),
+    );
+
+    return {
+      ok: true,
+      subscriptionCount: saveResult.data.subscriptionCount,
+    };
+  } catch {
+    toast.error("Không thể đăng ký nhận thông báo đẩy trên thiết bị này.");
+    return { ok: false };
+  }
+}
+
 export function DailyReminderControls({
   initialState,
   variant = "card",
+  highlighted = false,
 }: {
   initialState?: UserReminderState | null;
   variant?: "compact" | "card";
+  highlighted?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -116,6 +218,23 @@ export function DailyReminderControls({
 
   useEffect(() => {
     let active = true;
+
+    function handleExternalSubscribe(event: Event) {
+      const custom = event as CustomEvent<{ subscriptionCount?: number }>;
+      setDeviceSubscribed(true);
+      setSupport("supported");
+      const nextCount = custom.detail?.subscriptionCount;
+      if (typeof nextCount === "number") {
+        setState((prev) =>
+          prev ? { ...prev, subscriptionCount: nextCount } : prev,
+        );
+      }
+    }
+
+    window.addEventListener(
+      "felix-reminder-device-subscribed",
+      handleExternalSubscribe,
+    );
 
     void Promise.resolve().then(async () => {
       const detected = detectPushSupport();
@@ -180,100 +299,30 @@ export function DailyReminderControls({
 
     return () => {
       active = false;
+      window.removeEventListener(
+        "felix-reminder-device-subscribed",
+        handleExternalSubscribe,
+      );
     };
   }, [initialState, setState]);
 
   async function requestNotificationPermissionFromGesture(): Promise<boolean> {
-    const currentSupport = detectPushSupport();
-    setSupport(currentSupport);
-
-    if (currentSupport === "ios-needs-install") {
-      toast.error(
-        "Trên iPhone/iPad, hãy chọn Chia sẻ → Thêm vào Màn hình chính để nhận thông báo.",
-      );
-      return false;
-    }
-
-    if (currentSupport === "unsupported") {
-      toast.error("Trình duyệt hiện tại chưa hỗ trợ thông báo đẩy.");
-      return false;
-    }
-
-    if (Notification.permission === "granted") {
-      return true;
-    }
-
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      setSupport(permission === "denied" ? "denied" : "supported");
-      toast.error("Vui lòng cho phép quyền Thông báo trên trình duyệt.");
-      return false;
-    }
-
-    return true;
+    const res = await requestPushPermissionFromGesture();
+    setSupport(res.support);
+    return res.granted;
   }
 
   async function subscribeCurrentDevice(vapidPublicKey: string): Promise<boolean> {
-    try {
-      const registration = await ensureServiceWorkerRegistration();
-      await navigator.serviceWorker.ready;
-
-      let subscription = await registration.pushManager.getSubscription();
-      if (!subscription) {
-        const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
-        try {
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey,
-          });
-        } catch (subscribeError) {
-          if (
-            subscribeError instanceof DOMException &&
-            subscribeError.name === "InvalidStateError"
-          ) {
-            const stale = await registration.pushManager.getSubscription();
-            await stale?.unsubscribe().catch(() => null);
-            subscription = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey,
-            });
-          } else {
-            throw subscribeError;
-          }
-        }
-      }
-
-      const json = subscription.toJSON();
-      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-        toast.error("Không thể khởi tạo khóa nhận thông báo cho thiết bị này.");
-        return false;
-      }
-
-      const saveResult = await saveUserPushSubscriptionAction({
-        endpoint: json.endpoint,
-        keys: {
-          p256dh: json.keys.p256dh,
-          auth: json.keys.auth,
-        },
-        userAgent: navigator.userAgent,
-      });
-
-      if (!saveResult.ok) {
-        toast.error(saveResult.message);
-        return false;
-      }
-
-      setDeviceSubscribed(true);
+    const res = await subscribeBrowserToPush(vapidPublicKey);
+    if (!res.ok) return false;
+    setDeviceSubscribed(true);
+    if (typeof res.subscriptionCount === "number") {
+      const count = res.subscriptionCount;
       setState((prev) =>
-        prev
-          ? { ...prev, subscriptionCount: saveResult.data.subscriptionCount }
-          : prev,
+        prev ? { ...prev, subscriptionCount: count } : prev,
       );
-      return true;
-    } catch {
-      toast.error("Không thể đăng ký nhận thông báo đẩy trên thiết bị này.");
-      return false;
     }
+    return true;
   }
 
   async function handleToggleSlot(slot: "noon" | "evening") {
@@ -405,41 +454,60 @@ export function DailyReminderControls({
   if (variant === "compact") {
     return (
       <section
+        id="daily-reminder-controls-compact"
         aria-label="Cài đặt nhắc ghi chi tiêu hàng ngày"
-        className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3"
+        className={cn(
+          "rounded-2xl border p-3 transition-colors",
+          highlighted
+            ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))] ring-2 ring-[var(--focus-ring)]"
+            : "border-[var(--border)] bg-[var(--surface-secondary)]/65",
+        )}
       >
-        <div className="flex items-start justify-between gap-2.5">
-          <div className="flex min-w-0 items-start gap-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <span
-              className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]"
+              className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]"
               aria-hidden="true"
             >
-              <BellRing size={15} />
+              <BellRing size={14} />
             </span>
-            <div className="min-w-0">
-              <p className="break-words text-xs font-semibold leading-snug text-[var(--foreground)]">
-                Nhắc ghi chi tiêu về điện thoại
-              </p>
-              <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
-                Chỉ nhắc khi trong ngày bạn chưa ghi giao dịch nào.
-              </p>
-            </div>
+            <p className="break-words text-xs font-semibold text-[var(--foreground)]">
+              Nhắc ghi chi tiêu
+            </p>
+            <span className="shrink-0 rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+              Mặc định
+            </span>
           </div>
 
-          {deviceSubscribed && (
+          {support === "supported" && !deviceSubscribed && anySlotEnabled ? (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              disabled={pending || !state}
+              onClick={handleEnableDeviceOnly}
+              className="h-7 shrink-0 rounded-lg px-2.5 text-[11px]"
+            >
+              Bật trên máy
+            </Button>
+          ) : deviceSubscribed ? (
             <Button
               type="button"
               variant="outline"
               size="sm"
               disabled={pending || !state}
               onClick={handleSendTest}
-              className="h-7 shrink-0 px-2.5 text-[11px]"
+              className="h-7 shrink-0 rounded-lg px-2.5 text-[11px]"
             >
-              <Send size={12} aria-hidden="true" />
+              <Send size={11} aria-hidden="true" />
               Gửi thử
             </Button>
-          )}
+          ) : null}
         </div>
+
+        <p className="mt-1.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
+          Chỉ nhắc khi trong ngày chưa có giao dịch. Chạm vào giờ để bật/tắt:
+        </p>
 
         <div className="mt-2.5 grid grid-cols-2 gap-2">
           <button
@@ -448,13 +516,13 @@ export function DailyReminderControls({
             aria-pressed={noonActive}
             onClick={() => handleToggleSlot("noon")}
             className={cn(
-              "flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60",
+              "flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60",
               noonActive
-                ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_12%,var(--surface))] text-[var(--foreground)]"
+                ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] text-[var(--foreground)]"
                 : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]",
             )}
           >
-            <span className="flex min-w-0 items-center gap-1.5">
+            <span className="flex min-w-0 items-center gap-2">
               <SunMedium
                 size={14}
                 className={
@@ -463,10 +531,10 @@ export function DailyReminderControls({
                 aria-hidden="true"
               />
               <span className="min-w-0">
-                <strong className="block font-mono text-xs font-semibold tabular-nums">
+                <strong className="block font-mono text-xs font-bold tabular-nums leading-tight">
                   12:30
                 </strong>
-                <span className="block text-[10px] text-[var(--text-muted)]">
+                <span className="block text-[10px] leading-tight text-[var(--text-muted)]">
                   Buổi trưa
                 </span>
               </span>
@@ -490,13 +558,13 @@ export function DailyReminderControls({
             aria-pressed={eveningActive}
             onClick={() => handleToggleSlot("evening")}
             className={cn(
-              "flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60",
+              "flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60",
               eveningActive
-                ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_12%,var(--surface))] text-[var(--foreground)]"
+                ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] text-[var(--foreground)]"
                 : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]",
             )}
           >
-            <span className="flex min-w-0 items-center gap-1.5">
+            <span className="flex min-w-0 items-center gap-2">
               <MoonStar
                 size={14}
                 className={
@@ -507,10 +575,10 @@ export function DailyReminderControls({
                 aria-hidden="true"
               />
               <span className="min-w-0">
-                <strong className="block font-mono text-xs font-semibold tabular-nums">
+                <strong className="block font-mono text-xs font-bold tabular-nums leading-tight">
                   21:00
                 </strong>
-                <span className="block text-[10px] text-[var(--text-muted)]">
+                <span className="block text-[10px] leading-tight text-[var(--text-muted)]">
                   Buổi tối
                 </span>
               </span>
@@ -531,32 +599,14 @@ export function DailyReminderControls({
 
         {support === "ios-needs-install" && (
           <p className="mt-2 break-words text-[11px] leading-relaxed text-[var(--warning)]">
-            Trên iPhone/iPad: chạm nút Chia sẻ và chọn Thêm vào Màn hình chính để nhận thông báo đẩy.
+            Trên iPhone/iPad: chạm Chia sẻ → Thêm vào Màn hình chính để nhận thông báo.
           </p>
         )}
 
         {support === "denied" && (
           <p className="mt-2 break-words text-[11px] leading-relaxed text-[var(--destructive)]">
-            Trình duyệt đang chặn quyền thông báo. Hãy mở cài đặt trang web để cấp lại quyền.
+            Quyền thông báo đang bị chặn. Hãy mở cài đặt trình duyệt để cấp lại quyền.
           </p>
-        )}
-
-        {support === "supported" && anySlotEnabled && !deviceSubscribed && (
-          <div className="mt-2.5 flex items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2">
-            <span className="min-w-0 break-words text-[11px] text-[var(--text-secondary)]">
-              Thiết bị này chưa bật nhận thông báo đẩy.
-            </span>
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              disabled={pending || !state}
-              onClick={handleEnableDeviceOnly}
-              className="h-7 shrink-0 px-2.5 text-[11px]"
-            >
-              Bật trên máy này
-            </Button>
-          </div>
         )}
       </section>
     );
@@ -569,69 +619,70 @@ export function DailyReminderControls({
       </p>
 
       <div className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-        <div className="p-4">
+        <div className="p-3.5 sm:p-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-3">
+            <div className="flex min-w-0 items-start gap-2.5">
               <span
-                className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
+                className="grid size-8 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
                 aria-hidden="true"
               >
-                <BellRing size={17} />
+                <BellRing size={16} />
               </span>
               <div className="min-w-0">
                 <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
                   Thông báo nhắc nhở thông minh
                 </h3>
                 <p className="mt-0.5 break-words text-[11px] leading-relaxed text-[var(--text-muted)]">
-                  Chỉ gửi thông báo về điện thoại nếu từ sáng đến giờ hẹn bạn chưa ghi giao dịch nào. Chạm vào thông báo sẽ mở ngay bảng Ghi giao dịch nhanh.
+                  Chỉ nhắc về điện thoại khi trong ngày chưa ghi giao dịch nào.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="mt-3.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
               disabled={pending || !state}
               aria-pressed={noonActive}
               onClick={() => handleToggleSlot("noon")}
               className={cn(
-                "flex items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60",
+                "flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60",
                 noonActive
                   ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))]"
                   : "border-[var(--border)] bg-[var(--surface-secondary)] hover:bg-[var(--surface-hover)]",
               )}
             >
-              <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex min-w-0 items-center gap-2">
                 <span
                   className={cn(
-                    "grid size-8 shrink-0 place-items-center rounded-lg",
+                    "grid size-7 shrink-0 place-items-center rounded-lg",
                     noonActive
                       ? "bg-[var(--primary)] text-white"
                       : "bg-[var(--surface)] text-[var(--text-muted)]",
                   )}
                   aria-hidden="true"
                 >
-                  <SunMedium size={16} />
+                  <SunMedium size={14} />
                 </span>
                 <div className="min-w-0">
-                  <p className="font-mono text-sm font-bold tabular-nums text-[var(--foreground)]">
-                    12:30 Trưa
+                  <p className="font-mono text-xs font-bold tabular-nums text-[var(--foreground)]">
+                    12:30
                   </p>
-                  <p className="break-words text-[11px] leading-snug text-[var(--text-muted)]">
-                    Nhắc ghi chi tiêu sáng & trưa
+                  <p className="text-[10px] text-[var(--text-muted)]">
+                    Buổi trưa
                   </p>
                 </div>
               </div>
               <span
                 className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  "grid size-4 shrink-0 place-items-center rounded-full border text-[10px]",
                   noonActive
-                    ? "bg-[var(--primary)] text-white"
-                    : "bg-[var(--surface)] text-[var(--text-muted)]",
+                    ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                    : "border-[var(--border)] bg-[var(--surface)] text-transparent",
                 )}
+                aria-hidden="true"
               >
-                {noonActive ? "Đang bật" : "Đang tắt"}
+                <Check size={10} strokeWidth={2.5} />
               </span>
             </button>
 
@@ -641,53 +692,54 @@ export function DailyReminderControls({
               aria-pressed={eveningActive}
               onClick={() => handleToggleSlot("evening")}
               className={cn(
-                "flex items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60",
+                "flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60",
                 eveningActive
                   ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))]"
                   : "border-[var(--border)] bg-[var(--surface-secondary)] hover:bg-[var(--surface-hover)]",
               )}
             >
-              <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex min-w-0 items-center gap-2">
                 <span
                   className={cn(
-                    "grid size-8 shrink-0 place-items-center rounded-lg",
+                    "grid size-7 shrink-0 place-items-center rounded-lg",
                     eveningActive
                       ? "bg-[var(--primary)] text-white"
                       : "bg-[var(--surface)] text-[var(--text-muted)]",
                   )}
                   aria-hidden="true"
                 >
-                  <MoonStar size={16} />
+                  <MoonStar size={14} />
                 </span>
                 <div className="min-w-0">
-                  <p className="font-mono text-sm font-bold tabular-nums text-[var(--foreground)]">
-                    21:00 Tối
+                  <p className="font-mono text-xs font-bold tabular-nums text-[var(--foreground)]">
+                    21:00
                   </p>
-                  <p className="break-words text-[11px] leading-snug text-[var(--text-muted)]">
-                    Nhắc tổng kết chi tiêu cuối ngày
+                  <p className="text-[10px] text-[var(--text-muted)]">
+                    Buổi tối
                   </p>
                 </div>
               </div>
               <span
                 className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  "grid size-4 shrink-0 place-items-center rounded-full border text-[10px]",
                   eveningActive
-                    ? "bg-[var(--primary)] text-white"
-                    : "bg-[var(--surface)] text-[var(--text-muted)]",
+                    ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                    : "border-[var(--border)] bg-[var(--surface)] text-transparent",
                 )}
+                aria-hidden="true"
               >
-                {eveningActive ? "Đang bật" : "Đang tắt"}
+                <Check size={10} strokeWidth={2.5} />
               </span>
             </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2.5 bg-[var(--surface-secondary)] px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-[var(--surface-secondary)] px-3.5 py-2.5 sm:px-4">
           <div className="flex min-w-0 items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <Smartphone size={15} className="shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
-            <span className="break-words">
+            <Smartphone size={14} className="shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+            <span className="break-words text-[11px]">
               {support === "ios-needs-install"
-                ? "Cần thêm Felix vào Màn hình chính (Safari) để nhận thông báo trên iPhone/iPad."
+                ? "Thêm Felix vào Màn hình chính (Safari) để nhận thông báo."
                 : support === "denied"
                   ? "Quyền thông báo đang bị chặn trên trình duyệt này."
                   : support === "unsupported"
@@ -699,7 +751,7 @@ export function DailyReminderControls({
           </div>
 
           {support === "supported" && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {deviceSubscribed ? (
                 <>
                   <Button
@@ -708,10 +760,10 @@ export function DailyReminderControls({
                     size="sm"
                     disabled={pending || !state}
                     onClick={handleSendTest}
-                    className="text-xs"
+                    className="h-7 px-2.5 text-[11px]"
                   >
-                    <Send size={13} aria-hidden="true" />
-                    Gửi thử thông báo
+                    <Send size={12} aria-hidden="true" />
+                    Gửi thử
                   </Button>
                   <Button
                     type="button"
@@ -719,9 +771,9 @@ export function DailyReminderControls({
                     size="sm"
                     disabled={pending}
                     onClick={handleDisableCurrentDevice}
-                    className="text-xs text-[var(--text-muted)]"
+                    className="h-7 px-2 text-[11px] text-[var(--text-muted)]"
                   >
-                    Tắt trên máy này
+                    Tắt
                   </Button>
                 </>
               ) : (
@@ -731,10 +783,10 @@ export function DailyReminderControls({
                   size="sm"
                   disabled={pending || !state}
                   onClick={handleEnableDeviceOnly}
-                  className="text-xs"
+                  className="h-7 px-2.5 text-[11px]"
                 >
-                  <BellRing size={13} aria-hidden="true" />
-                  Bật thông báo trên máy này
+                  <BellRing size={12} aria-hidden="true" />
+                  Bật trên máy này
                 </Button>
               )}
             </div>

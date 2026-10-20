@@ -173,16 +173,34 @@ export async function getUserReminderState(
 ): Promise<UserReminderState> {
   ensureReminderSchedulerRunning();
 
-  const [setting, subscriptionCount, vapid] = await Promise.all([
+  const [existingSetting, subscriptionCount, vapid] = await Promise.all([
     prisma.userReminderSetting.findUnique({ where: { userId } }),
     prisma.userPushSubscription.count({ where: { userId } }),
     getOrCreateVapidKeyPair(),
   ]);
 
-  const timeZone = resolveSafeTimeZone(setting?.timeZone ?? defaultTimeZone);
+  const timeZone = resolveSafeTimeZone(
+    existingSetting?.timeZone ?? defaultTimeZone,
+  );
+  let setting = existingSetting;
+  if (!setting && typeof prisma.userReminderSetting.upsert === "function") {
+    setting = await prisma.userReminderSetting
+      .upsert({
+        where: { userId },
+        update: {},
+        create: {
+          userId,
+          noonEnabled: true,
+          eveningEnabled: true,
+          timeZone,
+        },
+      })
+      .catch(() => null);
+  }
+
   const today = getBusinessDateInTimeZone(timeZone, now);
-  const noonEnabled = setting?.noonEnabled ?? false;
-  const eveningEnabled = setting?.eveningEnabled ?? false;
+  const noonEnabled = setting?.noonEnabled ?? true;
+  const eveningEnabled = setting?.eveningEnabled ?? true;
   const isDismissedToday = setting?.dismissedDate === today;
 
   const hasLoggedToday = await hasUserLoggedTransactionToday(userId, timeZone, now);
@@ -247,6 +265,21 @@ export async function saveUserPushSubscription(
       userAgent: parsed.data.userAgent ?? null,
     },
   });
+
+  if (typeof prisma.userReminderSetting?.upsert === "function") {
+    await prisma.userReminderSetting
+      .upsert({
+        where: { userId },
+        update: {},
+        create: {
+          userId,
+          noonEnabled: true,
+          eveningEnabled: true,
+          timeZone: resolveSafeTimeZone(),
+        },
+      })
+      .catch(() => null);
+  }
 
   const subscriptionCount = await prisma.userPushSubscription.count({
     where: { userId },
@@ -321,8 +354,8 @@ export async function dismissDailyReminderForToday(
     update: { dismissedDate: today },
     create: {
       userId,
-      noonEnabled: false,
-      eveningEnabled: false,
+      noonEnabled: true,
+      eveningEnabled: true,
       timeZone: safeZone,
       dismissedDate: today,
     },

@@ -318,6 +318,10 @@ export function PwaInstallProvider({
   );
 }
 
+export function useOptionalPwaInstall(): PwaInstallContextValue | null {
+  return useContext(PwaInstallContext);
+}
+
 export function usePwaInstall(): PwaInstallContextValue {
   const context = useContext(PwaInstallContext);
   if (!context) {

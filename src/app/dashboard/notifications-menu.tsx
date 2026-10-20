@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   Bell,
+  BellRing,
   CalendarClock,
   CircleCheckBig,
   CircleDollarSign,
@@ -17,6 +18,7 @@ import {
   Plus,
   ReceiptText,
   Repeat2,
+  SlidersHorizontal,
   SunMedium,
   Trash2,
   UserPlus,
@@ -24,17 +26,27 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { usePrivacyMask } from "@/lib/privacy-mask";
+import { useOptionalPwaInstall } from "@/app/pwa-install";
 
 import {
   approveTransactionAction,
   rejectTransactionAction,
   reviewTransactionChangeAction,
 } from "@/app/dashboard/actions";
-import { DailyReminderControls } from "@/app/dashboard/daily-reminder-controls";
+import {
+  DailyReminderControls,
+  detectPushSupport,
+  type PushSupportState,
+  requestPushPermissionFromGesture,
+  subscribeBrowserToPush,
+} from "@/app/dashboard/daily-reminder-controls";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
 import { reviewRecurringTransactionAction } from "@/app/dashboard/recurring-transactions/actions";
 import { reviewFinancialGoalFundingAction } from "@/app/dashboard/financial-plans/actions";
-import { dismissDailyReminderAction } from "@/app/dashboard/settings/reminder-actions";
+import {
+  dismissDailyReminderAction,
+  updateUserReminderSettingsAction,
+} from "@/app/dashboard/settings/reminder-actions";
 import { ApprovalActionButton } from "@/components/approval-action-icon";
 import {
   Button,
@@ -42,7 +54,10 @@ import {
   Select,
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetFooter,
   SheetHeader,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/base";
 import {
@@ -605,6 +620,233 @@ function DailyReminderNotificationCard({
   );
 }
 
+const REMINDER_INTRO_DISMISSED_KEY = "felix.reminder.intro-dismissed-v1";
+const REMINDER_BELL_GUIDE_DISMISSED_KEY = "felix.reminder.bell-guide-dismissed-v1";
+
+function ReminderGuideNotificationCard({
+  onFocusControls,
+  onDismiss,
+}: {
+  onFocusControls: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <article role="listitem" className="notification-item px-4 py-3.5">
+      <div className="flex items-start gap-3">
+        <NotificationTypeIcon className="text-[var(--primary)]">
+          <SlidersHorizontal size={16} aria-hidden="true" />
+        </NotificationTypeIcon>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="break-words text-[13px] font-semibold leading-snug text-[var(--foreground)]">
+              Tùy chỉnh giờ nhắc 12:30 & 21:00
+            </p>
+            <span className="shrink-0 rounded-full bg-[var(--primary-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]">
+              Hướng dẫn
+            </span>
+          </div>
+          <p className="mt-1 break-words text-xs leading-relaxed text-[var(--text-secondary)]">
+            Hai khung giờ 12:30 trưa và 21:00 tối đã được bật mặc định. Chạm trực tiếp vào 2 nút giờ ngay phía trên để bật hoặc tắt tùy ý.
+          </p>
+          <div className="mt-2.5 flex items-center justify-end gap-1.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onDismiss}
+              className="h-7 px-2.5 text-[11px] text-[var(--text-muted)]"
+            >
+              Đã hiểu
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onFocusControls}
+              className="h-7 px-2.5 text-[11px]"
+            >
+              Chọn khung giờ
+            </Button>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function DailyReminderIntroSheet({
+  open,
+  isMobile,
+  pending,
+  support,
+  deviceSubscribed,
+  onOpenChange,
+  onEnableDevice,
+  onOpenBellCustomize,
+  onDismiss,
+}: {
+  open: boolean;
+  isMobile: boolean;
+  pending: boolean;
+  support: PushSupportState;
+  deviceSubscribed: boolean;
+  onOpenChange: (open: boolean) => void;
+  onEnableDevice: () => void;
+  onOpenBellCustomize: () => void;
+  onDismiss: () => void;
+}) {
+  const canEnableDevice = support === "supported" && !deviceSubscribed;
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side={isMobile ? "bottom" : "center"}
+        placement="inset"
+        size="default"
+        spacing="flush"
+        elevation="flat"
+        aria-label="Giới thiệu nhắc ghi chi tiêu hàng ngày"
+      >
+        <SheetHeader className="px-5 pb-0 pt-5 sm:px-6 sm:pt-6">
+          <div className="flex items-center gap-3 pr-8">
+            <span
+              className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
+              aria-hidden="true"
+            >
+              <BellRing size={19} strokeWidth={2} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--primary)]">
+                Thông báo mặc định
+              </p>
+              <SheetTitle className="mt-0.5 text-base font-semibold leading-snug tracking-tight text-balance sm:text-lg">
+                Nhắc ghi chi tiêu 12:30 & 21:00
+              </SheetTitle>
+            </div>
+          </div>
+          <SheetDescription className="mt-2.5 text-xs leading-relaxed text-[var(--text-secondary)]">
+            Hệ thống mặc định nhắc nhẹ khi trong ngày bạn chưa ghi nhận giao dịch nào.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="mx-5 mt-3.5 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/55 sm:mx-6">
+          <div className="grid grid-cols-2 divide-x divide-[var(--border)]">
+            <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <SunMedium
+                  size={15}
+                  className="shrink-0 text-[var(--primary)]"
+                  aria-hidden="true"
+                />
+                <div className="min-w-0">
+                  <p className="font-mono text-xs font-bold tabular-nums leading-tight text-[var(--foreground)]">
+                    12:30
+                  </p>
+                  <p className="text-[10px] leading-tight text-[var(--text-muted)]">
+                    Buổi trưa
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--primary)]">
+                Bật
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <MoonStar
+                  size={15}
+                  className="shrink-0 text-[var(--primary)]"
+                  aria-hidden="true"
+                />
+                <div className="min-w-0">
+                  <p className="font-mono text-xs font-bold tabular-nums leading-tight text-[var(--foreground)]">
+                    21:00
+                  </p>
+                  <p className="text-[10px] leading-tight text-[var(--text-muted)]">
+                    Buổi tối
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--primary)]">
+                Bật
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 border-t border-[var(--border)] bg-[var(--surface)]/75 px-3.5 py-2.5">
+            <span
+              className="grid size-6 shrink-0 place-items-center rounded-md bg-[var(--surface-secondary)] text-[var(--primary)]"
+              aria-hidden="true"
+            >
+              <Bell size={13} strokeWidth={2} />
+            </span>
+            <p className="min-w-0 break-words text-[11px] leading-snug text-[var(--text-secondary)]">
+              Tùy chỉnh bất cứ lúc nào tại biểu tượng{" "}
+              <strong className="font-semibold text-[var(--foreground)]">
+                Chuông thông báo
+              </strong>{" "}
+              trên thanh công cụ.
+            </p>
+          </div>
+        </div>
+
+        <SheetFooter className="grid grid-cols-2 gap-2 px-5 pb-5 pt-4 sm:px-6 sm:pb-6">
+          {canEnableDevice ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="default"
+                disabled={pending}
+                className="h-10 w-full rounded-xl text-xs font-semibold"
+                onClick={onOpenBellCustomize}
+              >
+                Tùy chỉnh giờ
+              </Button>
+              <Button
+                type="button"
+                variant="landing"
+                size="default"
+                disabled={pending}
+                className="h-10 w-full rounded-xl text-xs font-semibold"
+                onClick={onEnableDevice}
+              >
+                <BellRing size={14} aria-hidden="true" />
+                Bật thông báo
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="default"
+                disabled={pending}
+                className="h-10 w-full rounded-xl text-xs font-semibold"
+                onClick={onDismiss}
+              >
+                Đã hiểu
+              </Button>
+              <Button
+                type="button"
+                variant="landing"
+                size="default"
+                disabled={pending}
+                className="h-10 w-full rounded-xl text-xs font-semibold"
+                onClick={onOpenBellCustomize}
+              >
+                <SlidersHorizontal size={14} aria-hidden="true" />
+                Tùy chỉnh giờ
+              </Button>
+            </>
+          )}
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export function NotificationsMenu({
   workspaceId,
   items,
@@ -622,15 +864,23 @@ export function NotificationsMenu({
 }) {
   usePrivacyMask();
   const router = useRouter();
+  const pwaInstall = useOptionalPwaInstall();
+  const isPwaBannerOpen = Boolean(pwaInstall?.canInstall && pwaInstall?.showBanner);
   const [pending, start] = useTransition();
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [highlightControls, setHighlightControls] = useState(false);
+  const [showGuideCard, setShowGuideCard] = useState(false);
+  const [introOpen, setIntroOpen] = useState(false);
+  const [pushSupport, setPushSupport] = useState<PushSupportState>("checking");
+  const [deviceSubscribed, setDeviceSubscribed] = useState(false);
   const defaultRoleCode =
     roles.find((role) => role.code === "MEMBER")?.code ??
     roles[0]?.code ??
     "MEMBER";
   const [joinRoles, setJoinRoles] = useState<Record<string, string>>({});
+
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 767px)");
     const update = () => setIsMobile(mediaQuery.matches);
@@ -638,6 +888,142 @@ export function NotificationsMenu({
     mediaQuery.addEventListener("change", update);
     return () => mediaQuery.removeEventListener("change", update);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    function handleExternalSubscribe() {
+      setDeviceSubscribed(true);
+      setPushSupport("supported");
+    }
+
+    window.addEventListener(
+      "felix-reminder-device-subscribed",
+      handleExternalSubscribe,
+    );
+
+    void Promise.resolve().then(async () => {
+      const detected = detectPushSupport();
+      if (!active) return;
+      setPushSupport(detected);
+
+      let hasSub = false;
+      if (detected === "supported") {
+        try {
+          const registration = await navigator.serviceWorker.getRegistration("/");
+          const sub = await registration?.pushManager.getSubscription();
+          hasSub = Boolean(sub);
+        } catch {
+          hasSub = false;
+        }
+      }
+      if (!active) return;
+      setDeviceSubscribed(hasSub);
+
+      let guideDismissed = false;
+      let introDismissed = false;
+      try {
+        guideDismissed =
+          window.localStorage.getItem(REMINDER_BELL_GUIDE_DISMISSED_KEY) === "1";
+        introDismissed =
+          window.localStorage.getItem(REMINDER_INTRO_DISMISSED_KEY) === "1";
+      } catch {
+        guideDismissed = false;
+        introDismissed = false;
+      }
+
+      if (!guideDismissed) {
+        setShowGuideCard(true);
+      }
+
+      const isAutomatedBrowser =
+        typeof navigator !== "undefined" && navigator.webdriver === true;
+      if (!introDismissed && !hasSub && !isAutomatedBrowser) {
+        setIntroOpen(true);
+      }
+    });
+
+    return () => {
+      active = false;
+      window.removeEventListener(
+        "felix-reminder-device-subscribed",
+        handleExternalSubscribe,
+      );
+    };
+  }, []);
+
+  function markIntroSeen(): void {
+    setIntroOpen(false);
+    try {
+      window.localStorage.setItem(REMINDER_INTRO_DISMISSED_KEY, "1");
+    } catch {
+      // Storage may be restricted in private browsing.
+    }
+  }
+
+  function dismissGuideCard(): void {
+    setShowGuideCard(false);
+    try {
+      window.localStorage.setItem(REMINDER_BELL_GUIDE_DISMISSED_KEY, "1");
+    } catch {
+      // Storage may be restricted in private browsing.
+    }
+  }
+
+  function triggerHighlightControls(): void {
+    setHighlightControls(true);
+    window.setTimeout(() => {
+      const el = document.getElementById("daily-reminder-controls-compact");
+      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 80);
+    window.setTimeout(() => {
+      setHighlightControls(false);
+    }, 3200);
+  }
+
+  function handleOpenBellFromIntro(): void {
+    markIntroSeen();
+    window.setTimeout(() => {
+      if (isMobile) {
+        setMobileOpen(true);
+      } else {
+        setPopoverOpen(true);
+      }
+      triggerHighlightControls();
+    }, 120);
+  }
+
+  async function handleEnableDeviceFromIntro(): Promise<void> {
+    if (!reminderState) {
+      handleOpenBellFromIntro();
+      return;
+    }
+
+    const permissionRes = await requestPushPermissionFromGesture();
+    setPushSupport(permissionRes.support);
+    if (!permissionRes.granted) return;
+
+    start(async () => {
+      const subRes = await subscribeBrowserToPush(reminderState.vapidPublicKey);
+      if (!subRes.ok) return;
+
+      const browserTimeZone =
+        Intl.DateTimeFormat().resolvedOptions().timeZone ||
+        reminderState.timeZone;
+      await updateUserReminderSettingsAction({
+        noonEnabled: true,
+        eveningEnabled: true,
+        timeZone: browserTimeZone,
+      });
+
+      setDeviceSubscribed(true);
+      markIntroSeen();
+      toast.success(
+        "Đã bật thông báo nhắc ghi chi tiêu (12:30 & 21:00). Bạn có thể tùy chỉnh bất cứ lúc nào tại mục Thông báo.",
+      );
+      router.refresh();
+    });
+  }
 
   function reviewTransaction(id: string, approve: boolean): void {
     if (!canReview) return;
@@ -752,6 +1138,16 @@ export function NotificationsMenu({
     });
   }
 
+  const totalBadgeCount = items.length + (showGuideCard ? 1 : 0);
+
+  const guideNotificationNode = showGuideCard ? (
+    <ReminderGuideNotificationCard
+      key="reminder-guide-default"
+      onFocusControls={triggerHighlightControls}
+      onDismiss={dismissGuideCard}
+    />
+  ) : null;
+
   const notificationItems = items.map((item) => {
     if (item.kind === "dailyReminder") {
       return (
@@ -834,7 +1230,7 @@ export function NotificationsMenu({
     );
   });
 
-  const emptyNotification = items.length === 0 && (
+  const emptyNotification = totalBadgeCount === 0 && (
     <Empty
       variant="compact"
       icon={Bell}
@@ -844,10 +1240,93 @@ export function NotificationsMenu({
     />
   );
 
+  const introSheetNode = (
+    <DailyReminderIntroSheet
+      open={introOpen && !isPwaBannerOpen}
+      isMobile={isMobile}
+      pending={pending}
+      support={pushSupport}
+      deviceSubscribed={deviceSubscribed}
+      onOpenChange={(open) => {
+        if (!open) markIntroSeen();
+      }}
+      onEnableDevice={() => void handleEnableDeviceFromIntro()}
+      onOpenBellCustomize={handleOpenBellFromIntro}
+      onDismiss={markIntroSeen}
+    />
+  );
+
   if (isMobile) {
     return (
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetTrigger
+      <>
+        {introSheetNode}
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger
+            render={
+              <Button
+                variant="icon"
+                size="icon"
+                type="button"
+                className="relative"
+                aria-label={
+                  totalBadgeCount > 0
+                    ? `Thông báo, ${totalBadgeCount} mục mới`
+                    : "Thông báo"
+                }
+              />
+            }
+          >
+            <Bell size={17} strokeWidth={2} />
+            {totalBadgeCount > 0 && (
+              <span className="notification-badge">{totalBadgeCount}</span>
+            )}
+          </SheetTrigger>
+
+          <SheetContent
+            side="bottom"
+            aria-busy={pending}
+            aria-label="Thông báo"
+          >
+            <SheetHeader
+              icon={Bell}
+              title="Thông báo"
+              description={
+                totalBadgeCount > 0
+                  ? `${totalBadgeCount} cập nhật mới trong nhóm`
+                  : "Bạn đã xem hết thông báo"
+              }
+            />
+
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+              <div className="border-b border-[var(--border)] px-3.5 py-3">
+                <DailyReminderControls
+                  initialState={reminderState}
+                  variant="compact"
+                  highlighted={highlightControls}
+                />
+              </div>
+
+              <div
+                className="divide-y divide-[var(--border)]"
+                role="list"
+                aria-label="Danh sách thông báo"
+              >
+                {guideNotificationNode}
+                {notificationItems}
+                {emptyNotification}
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {introSheetNode}
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <PopoverTrigger
           render={
             <Button
               variant="icon"
@@ -855,114 +1334,62 @@ export function NotificationsMenu({
               type="button"
               className="relative"
               aria-label={
-                items.length > 0
-                  ? `Thông báo, ${items.length} mục mới`
+                totalBadgeCount > 0
+                  ? `Thông báo, ${totalBadgeCount} mục mới`
                   : "Thông báo"
               }
             />
           }
         >
           <Bell size={17} strokeWidth={2} />
-          {items.length > 0 && (
-            <span className="notification-badge">{items.length}</span>
+          {totalBadgeCount > 0 && (
+            <span className="notification-badge">{totalBadgeCount}</span>
           )}
-        </SheetTrigger>
+        </PopoverTrigger>
 
-        <SheetContent
-          side="bottom"
+        <PopoverContent
+          align="end"
+          sideOffset={10}
           aria-busy={pending}
-          aria-label="Thông báo"
+          className="w-[min(26rem,calc(100vw-1rem))] max-h-[min(42rem,calc(100dvh-5rem))] gap-0 overflow-hidden p-0"
         >
-          <SheetHeader
-            icon={Bell}
-            title="Thông báo"
-            description={
-              items.length > 0
-                ? `${items.length} cập nhật mới trong nhóm`
-                : "Bạn đã xem hết thông báo"
-            }
-          />
+          <header className="flex items-center justify-between gap-4 border-b border-[var(--border)] px-4 py-3.5">
+            <div>
+              <PopoverTitle className="font-semibold text-[var(--foreground)]">
+                Thông báo
+              </PopoverTitle>
+              <PopoverDescription className="mt-0.5 text-xs text-[var(--text-muted)]">
+                {totalBadgeCount > 0
+                  ? "Các yêu cầu và cập nhật mới"
+                  : "Bạn đã xem hết thông báo"}
+              </PopoverDescription>
+            </div>
+            {totalBadgeCount > 0 && (
+              <span className="rounded-md bg-[var(--surface-secondary)] px-2 py-1 text-xs font-semibold tabular-nums text-[var(--text-secondary)]">
+                {totalBadgeCount} mục
+              </span>
+            )}
+          </header>
 
-          <div
-            className="flex flex-1 flex-col gap-3 overflow-y-auto p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
-            role="list"
-            aria-label="Danh sách thông báo"
-          >
+          <div className="border-b border-[var(--border)] p-3">
             <DailyReminderControls
               initialState={reminderState}
               variant="compact"
+              highlighted={highlightControls}
             />
+          </div>
+
+          <div
+            className="min-h-0 flex-1 divide-y divide-[var(--border)] overflow-y-auto overscroll-contain"
+            role="list"
+            aria-label="Danh sách thông báo"
+          >
+            {guideNotificationNode}
             {notificationItems}
             {emptyNotification}
           </div>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
-  return (
-    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="icon"
-            size="icon"
-            type="button"
-            className="relative"
-            aria-label={
-              items.length > 0
-                ? `Thông báo, ${items.length} mục mới`
-                : "Thông báo"
-            }
-          />
-        }
-      >
-        <Bell size={17} strokeWidth={2} />
-        {items.length > 0 && (
-          <span className="notification-badge">{items.length}</span>
-        )}
-      </PopoverTrigger>
-
-      <PopoverContent
-        align="end"
-        sideOffset={10}
-        aria-busy={pending}
-        className="w-[min(26rem,calc(100vw-1rem))] max-h-[min(42rem,calc(100dvh-5rem))] gap-0 overflow-hidden p-0"
-      >
-        <header className="flex items-center justify-between gap-4 border-b border-[var(--border)] px-4 py-3.5">
-          <div>
-            <PopoverTitle className="font-semibold text-[var(--foreground)]">
-              Thông báo
-            </PopoverTitle>
-            <PopoverDescription className="mt-0.5 text-xs text-[var(--text-muted)]">
-              {items.length > 0
-                ? "Các yêu cầu và cập nhật mới"
-                : "Bạn đã xem hết thông báo"}
-            </PopoverDescription>
-          </div>
-          {items.length > 0 && (
-            <span className="rounded-md bg-[var(--surface-secondary)] px-2 py-1 text-xs font-semibold tabular-nums text-[var(--text-secondary)]">
-              {items.length} mục
-            </span>
-          )}
-        </header>
-
-        <div className="border-b border-[var(--border)] p-3">
-          <DailyReminderControls
-            initialState={reminderState}
-            variant="compact"
-          />
-        </div>
-
-        <div
-          className="min-h-0 flex-1 divide-y divide-[var(--border)] overflow-y-auto overscroll-contain"
-          role="list"
-          aria-label="Danh sách thông báo"
-        >
-          {notificationItems}
-          {emptyNotification}
-        </div>
-      </PopoverContent>
-    </Popover>
+        </PopoverContent>
+      </Popover>
+    </>
   );
 }

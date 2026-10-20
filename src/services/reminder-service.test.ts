@@ -3,9 +3,12 @@ import { generateVapidKeyPair } from "@/lib/web-push";
 
 const mockFindUniqueVapid = vi.fn();
 const mockUpsertVapid = vi.fn();
+const mockFindUniqueSetting = vi.fn();
+const mockUpsertSetting = vi.fn();
 const mockFindManySettings = vi.fn();
 const mockUpdateManySettings = vi.fn();
 const mockCountTransactions = vi.fn();
+const mockCountSubs = vi.fn();
 const mockDeleteManySubs = vi.fn();
 const mockSendWebPush = vi.fn();
 
@@ -22,6 +25,8 @@ vi.mock("@/lib/prisma", () => ({
       upsert: (...args: unknown[]) => mockUpsertVapid(...args),
     },
     userReminderSetting: {
+      findUnique: (...args: unknown[]) => mockFindUniqueSetting(...args),
+      upsert: (...args: unknown[]) => mockUpsertSetting(...args),
       findMany: (...args: unknown[]) => mockFindManySettings(...args),
       updateMany: (...args: unknown[]) => mockUpdateManySettings(...args),
     },
@@ -29,6 +34,7 @@ vi.mock("@/lib/prisma", () => ({
       count: (...args: unknown[]) => mockCountTransactions(...args),
     },
     userPushSubscription: {
+      count: (...args: unknown[]) => mockCountSubs(...args),
       deleteMany: (...args: unknown[]) => mockDeleteManySubs(...args),
     },
   },
@@ -47,6 +53,7 @@ import {
   dispatchDueDailyReminders,
   EVENING_REMINDER_MINUTES,
   getLocalMinutesInTimeZone,
+  getUserReminderState,
   NOON_REMINDER_MINUTES,
 } from "./reminder-service";
 
@@ -60,6 +67,42 @@ describe("reminder-service smart daily expense reminders", () => {
       publicKey: sampleVapid.publicKey,
       privateKeyJwk: sampleVapid.privateKeyJwk,
     });
+  });
+
+  it("enables 12:30 and 21:00 reminders by default when a user opens the app without existing settings", async () => {
+    mockFindUniqueSetting.mockResolvedValue(null);
+    mockUpsertSetting.mockResolvedValue({
+      id: "setting-default",
+      userId: "user-1",
+      noonEnabled: true,
+      eveningEnabled: true,
+      timeZone: "Asia/Ho_Chi_Minh",
+      lastNoonSentDate: null,
+      lastEveningSentDate: null,
+      dismissedDate: null,
+    });
+    mockCountSubs.mockResolvedValue(0);
+    mockCountTransactions.mockResolvedValue(0);
+
+    const state = await getUserReminderState(
+      "user-1",
+      "Asia/Ho_Chi_Minh",
+      new Date("2026-10-19T05:35:00.000Z"), // 12:35 ICT
+    );
+
+    expect(state.noonEnabled).toBe(true);
+    expect(state.eveningEnabled).toBe(true);
+    expect(state.activeReminderSlot).toBe("noon");
+    expect(mockUpsertSetting).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "user-1" },
+        create: expect.objectContaining({
+          userId: "user-1",
+          noonEnabled: true,
+          eveningEnabled: true,
+        }),
+      }),
+    );
   });
 
   it("computes active reminder slot for 12:30 and 21:00 only when no transaction logged today", () => {

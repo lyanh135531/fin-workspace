@@ -1,8 +1,8 @@
 CREATE TABLE "USER_REMINDER_SETTING" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "user_id" UUID NOT NULL,
-    "noon_enabled" BOOLEAN NOT NULL DEFAULT false,
-    "evening_enabled" BOOLEAN NOT NULL DEFAULT false,
+    "noon_enabled" BOOLEAN NOT NULL DEFAULT true,
+    "evening_enabled" BOOLEAN NOT NULL DEFAULT true,
     "time_zone" VARCHAR(64) NOT NULL DEFAULT 'Asia/Ho_Chi_Minh',
     "last_noon_sent_date" VARCHAR(10),
     "last_evening_sent_date" VARCHAR(10),

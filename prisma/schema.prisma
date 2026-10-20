@@ -908,8 +908,8 @@ model FinancialPlanMonthJar {
 model UserReminderSetting {
   id                  String   @id @default(uuid()) @db.Uuid
   userId              String   @unique @map("user_id") @db.Uuid
-  noonEnabled         Boolean  @default(false) @map("noon_enabled")
-  eveningEnabled      Boolean  @default(false) @map("evening_enabled")
+  noonEnabled         Boolean  @default(true) @map("noon_enabled")
+  eveningEnabled      Boolean  @default(true) @map("evening_enabled")
   timeZone            String   @default("Asia/Ho_Chi_Minh") @map("time_zone") @db.VarChar(64)
   lastNoonSentDate    String?  @map("last_noon_sent_date") @db.VarChar(10)
   lastEveningSentDate String?  @map("last_evening_sent_date") @db.VarChar(10)
