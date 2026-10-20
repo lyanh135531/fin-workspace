@@ -572,14 +572,14 @@ function DailyReminderNotificationCard({
   const Icon = isNoon ? SunMedium : MoonStar;
 
   return (
-    <article role="listitem" className="notification-item p-4">
+    <article role="listitem" className="notification-item px-4 py-3.5">
       <div className="flex items-start gap-3">
         <NotificationTypeIcon className="text-[var(--primary)]">
           <Icon size={17} aria-hidden="true" />
         </NotificationTypeIcon>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+            <p className="break-words text-[13px] font-semibold leading-snug text-[var(--foreground)]">
               {isNoon
                 ? "Nhắc ghi chi tiêu buổi trưa"
                 : "Nhắc ghi chi tiêu cuối ngày"}
@@ -589,16 +589,18 @@ function DailyReminderNotificationCard({
             </span>
           </div>
           <p className="mt-1 break-words text-xs leading-relaxed text-[var(--text-secondary)]">
-            Hôm nay bạn chưa ghi nhận giao dịch nào. Ghi ngay để theo dõi sát chi tiêu trong ngày nhé.
+            {isNoon
+              ? "Bạn chưa ghi giao dịch nào trong sáng nay. Ghi nhanh để số dư luôn chính xác."
+              : "Hôm nay bạn chưa ghi giao dịch nào. Cập nhật ngay để khép sổ chi tiêu trong ngày."}
           </p>
-          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+          <div className="mt-2.5 flex flex-wrap items-center justify-end gap-1.5">
             <Button
               type="button"
               variant="ghost"
               size="sm"
               disabled={pending}
               onClick={onDismissToday}
-              className="h-8 px-2.5 text-xs text-[var(--text-muted)]"
+              className="h-7 px-2.5 text-[11px] text-[var(--text-muted)]"
             >
               Hôm nay không chi
             </Button>
@@ -608,10 +610,10 @@ function DailyReminderNotificationCard({
               size="sm"
               disabled={pending}
               onClick={onLogNow}
-              className="h-8 px-3 text-xs"
+              className="h-7 px-2.5 text-[11px]"
             >
-              <Plus size={14} aria-hidden="true" />
-              Ghi chi tiêu ngay
+              <Plus size={13} aria-hidden="true" />
+              Ghi giao dịch
             </Button>
           </div>
         </div>
@@ -639,14 +641,14 @@ function ReminderGuideNotificationCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <p className="break-words text-[13px] font-semibold leading-snug text-[var(--foreground)]">
-              Tùy chỉnh giờ nhắc 12:30 & 21:00
+              Lịch nhắc ghi chi tiêu mặc định
             </p>
             <span className="shrink-0 rounded-full bg-[var(--primary-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]">
-              Hướng dẫn
+              Mẹo
             </span>
           </div>
           <p className="mt-1 break-words text-xs leading-relaxed text-[var(--text-secondary)]">
-            Hai khung giờ 12:30 trưa và 21:00 tối đã được bật mặc định. Chạm trực tiếp vào 2 nút giờ ngay phía trên để bật hoặc tắt tùy ý.
+            Hệ thống tự nhắc lúc 12:30 và 21:00 khi trong ngày chưa có giao dịch. Chạm vào 2 khung giờ phía trên để bật hoặc tắt tùy ý.
           </p>
           <div className="mt-2.5 flex items-center justify-end gap-1.5">
             <Button
@@ -665,7 +667,7 @@ function ReminderGuideNotificationCard({
               onClick={onFocusControls}
               className="h-7 px-2.5 text-[11px]"
             >
-              Chọn khung giờ
+              Tùy chỉnh
             </Button>
           </div>
         </div>
@@ -717,15 +719,15 @@ function DailyReminderIntroSheet({
             </span>
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--primary)]">
-                Thông báo mặc định
+                Tiện ích nhắc nhở
               </p>
               <SheetTitle className="mt-0.5 text-base font-semibold leading-snug tracking-tight text-balance sm:text-lg">
-                Nhắc ghi chi tiêu 12:30 & 21:00
+                Nhắc ghi chi tiêu hàng ngày
               </SheetTitle>
             </div>
           </div>
           <SheetDescription className="mt-2.5 text-xs leading-relaxed text-[var(--text-secondary)]">
-            Hệ thống mặc định nhắc nhẹ khi trong ngày bạn chưa ghi nhận giao dịch nào.
+            Tự động nhắc nhẹ lúc 12:30 trưa và 21:00 tối nếu trong ngày bạn chưa ghi giao dịch nào.
           </SheetDescription>
         </SheetHeader>
 
@@ -782,7 +784,7 @@ function DailyReminderIntroSheet({
               <Bell size={13} strokeWidth={2} />
             </span>
             <p className="min-w-0 break-words text-[11px] leading-snug text-[var(--text-secondary)]">
-              Tùy chỉnh bất cứ lúc nào tại biểu tượng{" "}
+              Tùy chỉnh khung giờ bất cứ lúc nào tại biểu tượng{" "}
               <strong className="font-semibold text-[var(--foreground)]">
                 Chuông thông báo
               </strong>{" "}
@@ -1018,9 +1020,7 @@ export function NotificationsMenu({
 
       setDeviceSubscribed(true);
       markIntroSeen();
-      toast.success(
-        "Đã bật thông báo nhắc ghi chi tiêu (12:30 & 21:00). Bạn có thể tùy chỉnh bất cứ lúc nào tại mục Thông báo.",
-      );
+      toast.success("Đã bật nhận thông báo. Bạn có thể đổi giờ nhắc tại mục Thông báo.");
       router.refresh();
     });
   }

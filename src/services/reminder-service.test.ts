@@ -203,7 +203,7 @@ describe("reminder-service smart daily expense reminders", () => {
     expect(result).toEqual({ checkedUsers: 1, sentNotifications: 1 });
     expect(mockSendWebPush).toHaveBeenCalledTimes(1);
     expect(mockSendWebPush.mock.calls[0]?.[1]).toMatchObject({
-      title: "Nhắc ghi chi tiêu buổi trưa (12:30)",
+      title: "Nhắc ghi chi tiêu buổi trưa",
       url: "/overview?action=new-transaction",
     });
   });

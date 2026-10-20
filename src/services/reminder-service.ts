@@ -389,8 +389,8 @@ export async function sendTestReminderNotification(
           auth: sub.auth,
         },
         {
-          title: "Felix nhắc ghi chi tiêu",
-          body: "Thông báo trên thiết bị đã hoạt động! Chạm vào đây để mở bảng ghi giao dịch nhanh.",
+          title: "Thông báo nhắc ghi chi tiêu",
+          body: "Thiết bị đã sẵn sàng nhận thông báo. Chạm để mở bảng ghi giao dịch nhanh.",
           url: "/overview?action=new-transaction",
           tag: "felix-test-reminder",
         },
@@ -519,14 +519,14 @@ export async function dispatchDueDailyReminders(
     const payload =
       dueSlot === "noon"
         ? {
-            title: "Nhắc ghi chi tiêu buổi trưa (12:30)",
-            body: "Hôm nay bạn đã ghi chi tiêu chưa? Chạm để nhập nhanh các khoản sáng & trưa nhé.",
+            title: "Nhắc ghi chi tiêu buổi trưa",
+            body: "Bạn có khoản chi nào trong sáng nay chưa? Chạm để ghi nhanh trong vài giây.",
             url: "/overview?action=new-transaction",
             tag: `felix-daily-reminder-${today}-noon`,
           }
         : {
-            title: "Nhắc ghi chi tiêu buổi tối (21:00)",
-            body: "Bạn chưa ghi giao dịch nào hôm nay. Chạm để tổng kết chi tiêu trong ngày nhé!",
+            title: "Nhắc ghi chi tiêu cuối ngày",
+            body: "Hôm nay bạn chưa ghi giao dịch nào. Chạm để cập nhật chi tiêu trong ngày.",
             url: "/overview?action=new-transaction",
             tag: `felix-daily-reminder-${today}-evening`,
           };
