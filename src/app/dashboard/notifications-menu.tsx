@@ -13,6 +13,7 @@ import {
   CircleCheckBig,
   CircleDollarSign,
   CircleX,
+  CreditCard,
   FilePenLine,
   MoonStar,
   Plus,
@@ -21,6 +22,7 @@ import {
   SlidersHorizontal,
   SunMedium,
   Trash2,
+  TriangleAlert,
   UserPlus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -41,7 +43,10 @@ import {
   subscribeBrowserToPush,
 } from "@/app/dashboard/daily-reminder-controls";
 import { reviewJoinAction } from "@/app/dashboard/join/actions";
-import { reviewRecurringTransactionAction } from "@/app/dashboard/recurring-transactions/actions";
+import {
+  reviewRecurringTransactionAction,
+  runRecurringTransactionNowAction,
+} from "@/app/dashboard/recurring-transactions/actions";
 import { reviewFinancialGoalFundingAction } from "@/app/dashboard/financial-plans/actions";
 import {
   dismissDailyReminderAction,
@@ -69,7 +74,11 @@ import {
 } from "@/components/ui/popover";
 import { formatAmount } from "@/lib/format";
 import type { TransactionChangeDetail } from "@/lib/transaction-change-display";
-import type { UserReminderState } from "@/services/reminder-service";
+import type {
+  RecurringDueAlertItem,
+  StatementDueAlertItem,
+  UserReminderState,
+} from "@/services/reminder-service";
 
 export type NotificationItem =
   | {
@@ -77,6 +86,12 @@ export type NotificationItem =
       id: string;
       slot: "noon" | "evening";
     }
+  | ({
+      kind: "statementDue";
+    } & StatementDueAlertItem)
+  | ({
+      kind: "recurringDue";
+    } & RecurringDueAlertItem)
   | {
       kind: "transaction";
       id: string;
@@ -123,6 +138,14 @@ export type NotificationItem =
 type DailyReminderNotification = Extract<
   NotificationItem,
   { kind: "dailyReminder" }
+>;
+type StatementDueNotification = Extract<
+  NotificationItem,
+  { kind: "statementDue" }
+>;
+type RecurringDueNotification = Extract<
+  NotificationItem,
+  { kind: "recurringDue" }
 >;
 type TransactionNotification = Extract<
   NotificationItem,
@@ -615,6 +638,190 @@ function DailyReminderNotificationCard({
               <Plus size={13} aria-hidden="true" />
               Ghi giao dịch
             </Button>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function StatementDueNotificationCard({
+  item,
+  currency,
+  pending,
+  onPayNow,
+}: {
+  item: StatementDueNotification;
+  currency: string;
+  pending: boolean;
+  onPayNow: () => void;
+}) {
+  const isUrgent = item.daysUntilDue <= 0;
+  const toneClass = isUrgent
+    ? "text-[var(--destructive)]"
+    : "text-[var(--warning)]";
+  const badgeLabel =
+    item.daysUntilDue < 0
+      ? `Quá hạn ${Math.abs(item.daysUntilDue)} ngày`
+      : item.daysUntilDue === 0
+        ? "Hạn hôm nay"
+        : item.daysUntilDue === 1
+          ? "Hạn ngày mai"
+          : `Còn ${item.daysUntilDue} ngày`;
+
+  return (
+    <article role="listitem" className="notification-item px-4 py-3.5">
+      <div className="flex items-start gap-3">
+        <NotificationTypeIcon className={toneClass}>
+          <CreditCard size={17} aria-hidden="true" />
+        </NotificationTypeIcon>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2.5">
+            <p className="break-words text-[13px] font-semibold leading-snug text-[var(--foreground)]">
+              Sao kê thẻ {item.cardName}
+            </p>
+            <span className={`shrink-0 text-[11px] font-semibold ${toneClass}`}>
+              {badgeLabel}
+            </span>
+          </div>
+
+          <p className="mt-1 break-words text-xs leading-snug text-[var(--text-muted)]">
+            Hạn thanh toán {formatScheduledDate(item.dueDate)} · Ví trả:{" "}
+            {item.fundingWalletName}
+          </p>
+
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-xs text-[var(--text-secondary)]">
+              Cần thanh toán
+            </span>
+            <strong className="font-mono text-sm font-semibold tabular-nums text-[var(--foreground)]">
+              {money(item.remainingAmount, currency)}
+            </strong>
+          </div>
+
+          {item.fundingShortfall && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-[var(--warning)]">
+              <TriangleAlert size={12} aria-hidden="true" />
+              Ví {item.fundingWalletName} hiện chưa đủ số dư thanh toán.
+            </p>
+          )}
+
+          <div className="mt-2.5 flex justify-end">
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              disabled={pending}
+              onClick={onPayNow}
+              className="h-7 px-2.5 text-[11px]"
+            >
+              Thanh toán ngay
+            </Button>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function RecurringDueNotificationCard({
+  item,
+  currency,
+  pending,
+  onOpenSchedule,
+  onRunNow,
+}: {
+  item: RecurringDueNotification;
+  currency: string;
+  pending: boolean;
+  onOpenSchedule: () => void;
+  onRunNow: () => void;
+}) {
+  const isFailed = item.alertState === "failed";
+  const isUrgent = isFailed || item.daysUntilDue <= 0;
+  const toneClass = isFailed
+    ? "text-[var(--destructive)]"
+    : item.daysUntilDue <= 1 || item.walletShortfall
+      ? "text-[var(--warning)]"
+      : "text-[var(--primary)]";
+  const badgeLabel = isFailed
+    ? "Tạm dừng"
+    : item.daysUntilDue <= 0
+      ? "Hôm nay"
+      : item.daysUntilDue === 1
+        ? "Ngày mai"
+        : `Còn ${item.daysUntilDue} ngày`;
+
+  return (
+    <article role="listitem" className="notification-item px-4 py-3.5">
+      <div className="flex items-start gap-3">
+        <NotificationTypeIcon className={toneClass}>
+          <Repeat2 size={17} aria-hidden="true" />
+        </NotificationTypeIcon>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2.5">
+            <p className="break-words text-[13px] font-semibold leading-snug text-[var(--foreground)]">
+              {item.title}
+            </p>
+            <span className={`shrink-0 text-[11px] font-semibold ${toneClass}`}>
+              {badgeLabel}
+            </span>
+          </div>
+
+          <p className="mt-1 break-words text-xs leading-snug text-[var(--text-muted)]">
+            {transactionTypeLabel[item.type]} định kỳ ·{" "}
+            {item.toWalletName
+              ? `${item.walletName} → ${item.toWalletName}`
+              : item.walletName}
+          </p>
+
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span
+              className={`text-xs ${isUrgent ? "font-medium text-[var(--foreground)]" : "text-[var(--text-secondary)]"}`}
+            >
+              Kỳ ngày {formatScheduledDate(item.nextExecutionDate)}
+            </span>
+            <strong className="font-mono text-sm font-semibold tabular-nums text-[var(--foreground)]">
+              {money(item.amount, currency)}
+            </strong>
+          </div>
+
+          {isFailed && item.lastError ? (
+            <p className="mt-1.5 break-words text-[11px] leading-snug text-[var(--destructive)]">
+              {item.lastError}
+            </p>
+          ) : (
+            item.walletShortfall && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-[var(--warning)]">
+                <TriangleAlert size={12} aria-hidden="true" />
+                Ví {item.walletName} hiện chưa đủ số dư cho kỳ này.
+              </p>
+            )
+          )}
+
+          <div className="mt-2.5 flex flex-wrap items-center justify-end gap-1.5">
+            <Button
+              type="button"
+              variant={item.canRunNow ? "ghost" : "outline"}
+              size="sm"
+              disabled={pending}
+              onClick={onOpenSchedule}
+              className="h-7 px-2.5 text-[11px]"
+            >
+              Xem lịch
+            </Button>
+            {item.canRunNow && (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                disabled={pending}
+                onClick={onRunNow}
+                className="h-7 px-2.5 text-[11px]"
+              >
+                Thực hiện ngay
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -1138,6 +1345,32 @@ export function NotificationsMenu({
     });
   }
 
+  function openCardPaymentFromNotification(cardWalletId: string): void {
+    setMobileOpen(false);
+    setPopoverOpen(false);
+    router.push(`/credit-cards/${cardWalletId}?action=pay`);
+  }
+
+  function openRecurringScheduleFromNotification(): void {
+    setMobileOpen(false);
+    setPopoverOpen(false);
+    router.push("/recurring-transactions");
+  }
+
+  function runRecurringNowFromNotification(recurringId: string): void {
+    start(async () => {
+      const result = await runRecurringTransactionNowAction(recurringId);
+      if (result.ok) {
+        toast.success("Đã thực hiện giao dịch định kỳ cho kỳ này.");
+        router.refresh();
+      } else {
+        toast.error(
+          result.message ?? "Không thể thực hiện giao dịch định kỳ ngay.",
+        );
+      }
+    });
+  }
+
   const totalBadgeCount = items.length + (showGuideCard ? 1 : 0);
 
   const guideNotificationNode = showGuideCard ? (
@@ -1157,6 +1390,31 @@ export function NotificationsMenu({
           pending={pending}
           onLogNow={openQuickTransactionFromReminder}
           onDismissToday={dismissReminderToday}
+        />
+      );
+    }
+
+    if (item.kind === "statementDue") {
+      return (
+        <StatementDueNotificationCard
+          key={`statement-due-${item.id}`}
+          item={item}
+          currency={currency}
+          pending={pending}
+          onPayNow={() => openCardPaymentFromNotification(item.cardWalletId)}
+        />
+      );
+    }
+
+    if (item.kind === "recurringDue") {
+      return (
+        <RecurringDueNotificationCard
+          key={`recurring-due-${item.id}`}
+          item={item}
+          currency={currency}
+          pending={pending}
+          onOpenSchedule={openRecurringScheduleFromNotification}
+          onRunNow={() => runRecurringNowFromNotification(item.id)}
         />
       );
     }

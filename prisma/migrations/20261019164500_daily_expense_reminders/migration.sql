@@ -6,6 +6,7 @@ CREATE TABLE "USER_REMINDER_SETTING" (
     "time_zone" VARCHAR(64) NOT NULL DEFAULT 'Asia/Ho_Chi_Minh',
     "last_noon_sent_date" VARCHAR(10),
     "last_evening_sent_date" VARCHAR(10),
+    "last_bill_alert_sent_date" VARCHAR(10),
     "dismissed_date" VARCHAR(10),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,

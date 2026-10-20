@@ -4012,6 +4012,24 @@ export function CreditCardOverview(props: {
   }
 
   useEffect(() => {
+    if (!props.initialCardId || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("action") === "pay") {
+      const targetId = props.initialCardId;
+      params.delete("action");
+      const nextSearch = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}`,
+      );
+      window.setTimeout(() => {
+        setAutoOpenPaymentCardId(targetId);
+      }, 0);
+    }
+  }, [props.initialCardId]);
+
+  useEffect(() => {
     const onPopState = () => {
       const match = window.location.pathname.match(/\/credit-cards\/([^/]+)/);
       setSelectedCardId(match ? match[1] : null);

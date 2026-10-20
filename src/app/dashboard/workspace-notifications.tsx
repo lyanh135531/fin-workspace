@@ -8,7 +8,10 @@ import {
   type TransactionChangeLookups,
 } from "@/lib/transaction-change-display";
 import { availableCategoryWhere } from "@/services/category-visibility";
-import { getUserReminderState } from "@/services/reminder-service";
+import {
+  getUserReminderState,
+  getWorkspaceDueBillAlerts,
+} from "@/services/reminder-service";
 
 function changeDetails(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -176,6 +179,7 @@ export async function WorkspaceNotifications({
     recurringTransactions,
     goalFundingEntries,
     reminderState,
+    dueBillAlerts,
   ] = await Promise.all([
     transactionsPromise,
     activationLogsPromise,
@@ -187,6 +191,12 @@ export async function WorkspaceNotifications({
     recurringTransactionsPromise,
     goalFundingPromise,
     getUserReminderState(userId, timeZone),
+    getWorkspaceDueBillAlerts({
+      workspaceId,
+      memberId,
+      isAdmin,
+      timeZone,
+    }),
   ]);
   const walletNames = new Map(
     changeWallets.map((item) => [item.walletId, item.wallet.name] as const),
@@ -260,6 +270,14 @@ export async function WorkspaceNotifications({
           },
         ]
       : []),
+    ...dueBillAlerts.statementAlerts.map((item) => ({
+      kind: "statementDue" as const,
+      ...item,
+    })),
+    ...dueBillAlerts.recurringAlerts.map((item) => ({
+      kind: "recurringDue" as const,
+      ...item,
+    })),
     ...joinRequests.map((item) => ({
       kind: "join" as const,
       id: item.id,

@@ -12,6 +12,13 @@ const mockCountSubs = vi.fn();
 const mockDeleteManySubs = vi.fn();
 const mockSendWebPush = vi.fn();
 
+const mockFindManyStatements = vi.fn();
+const mockFindManyRecurring = vi.fn();
+
+vi.mock("@/services/credit-card-statement-service", () => ({
+  generateWorkspaceCreditCardStatements: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("@/lib/env", () => ({
   env: {
     APP_TIME_ZONE: "Asia/Ho_Chi_Minh",
@@ -37,6 +44,12 @@ vi.mock("@/lib/prisma", () => ({
       count: (...args: unknown[]) => mockCountSubs(...args),
       deleteMany: (...args: unknown[]) => mockDeleteManySubs(...args),
     },
+    creditCardStatement: {
+      findMany: (...args: unknown[]) => mockFindManyStatements(...args),
+    },
+    recurringTransaction: {
+      findMany: (...args: unknown[]) => mockFindManyRecurring(...args),
+    },
   },
 }));
 
@@ -49,11 +62,14 @@ vi.mock("@/lib/web-push", async (importOriginal) => {
 });
 
 import {
+  buildBillAlertPushPayload,
   computeActiveReminderSlot,
+  diffIsoDays,
   dispatchDueDailyReminders,
   EVENING_REMINDER_MINUTES,
   getLocalMinutesInTimeZone,
   getUserReminderState,
+  getWorkspaceDueBillAlerts,
   NOON_REMINDER_MINUTES,
 } from "./reminder-service";
 
@@ -67,6 +83,8 @@ describe("reminder-service smart daily expense reminders", () => {
       publicKey: sampleVapid.publicKey,
       privateKeyJwk: sampleVapid.privateKeyJwk,
     });
+    mockFindManyStatements.mockResolvedValue([]);
+    mockFindManyRecurring.mockResolvedValue([]);
   });
 
   it("enables 12:30 and 21:00 reminders by default when a user opens the app without existing settings", async () => {
@@ -238,5 +256,106 @@ describe("reminder-service smart daily expense reminders", () => {
     const result = await dispatchDueDailyReminders(eveningUtc);
     expect(result).toEqual({ checkedUsers: 1, sentNotifications: 0 });
     expect(mockSendWebPush).not.toHaveBeenCalled();
+  });
+
+  it("computes due credit card statements and upcoming/failed recurring bills with shortfall detection", async () => {
+    expect(diffIsoDays("2026-10-20", "2026-10-22")).toBe(2);
+    expect(diffIsoDays("2026-10-20", "2026-10-20")).toBe(0);
+    expect(diffIsoDays("2026-10-20", "2026-10-18")).toBe(-2);
+
+    mockFindManyStatements.mockResolvedValue([
+      {
+        id: "stmt-1",
+        cardWalletId: "card-1",
+        cycleEndDate: new Date("2026-10-05T00:00:00.000Z"),
+        dueDate: new Date("2026-10-22T00:00:00.000Z"),
+        totalAmount: "5000000",
+        card: {
+          wallet: { id: "card-1", name: "VIB Cash Back" },
+          defaultFundingWallet: {
+            id: "wallet-1",
+            name: "Techcombank",
+            currentBalance: "2000000",
+          },
+        },
+        payments: [{ amount: "1000000" }],
+      },
+    ]);
+
+    mockFindManyRecurring.mockResolvedValue([
+      {
+        id: "rec-1",
+        createdByMemberId: "member-1",
+        type: "expense",
+        amount: "1500000",
+        description: "Tiền điện tháng 10",
+        status: "active",
+        nextExecutionDate: new Date("2026-10-21T00:00:00.000Z"),
+        endDate: null,
+        lastError: null,
+        wallet: {
+          id: "wallet-1",
+          name: "Techcombank",
+          currentBalance: "1000000",
+        },
+        toWallet: null,
+        category: { id: "cat-1", name: "Hóa đơn" },
+        transactions: [],
+      },
+    ]);
+
+    const alerts = await getWorkspaceDueBillAlerts({
+      workspaceId: "ws-1",
+      memberId: "member-1",
+      isAdmin: true,
+      timeZone: "Asia/Ho_Chi_Minh",
+      now: new Date("2026-10-20T03:00:00.000Z"), // 2026-10-20 10:00 ICT
+    });
+
+    expect(alerts.statementAlerts).toEqual([
+      {
+        id: "stmt-1",
+        cardWalletId: "card-1",
+        cardName: "VIB Cash Back",
+        cycleEndDate: "2026-10-05",
+        dueDate: "2026-10-22",
+        daysUntilDue: 2,
+        remainingAmount: "4000000",
+        totalAmount: "5000000",
+        fundingWalletName: "Techcombank",
+        fundingShortfall: true,
+      },
+    ]);
+
+    expect(alerts.recurringAlerts).toEqual([
+      {
+        id: "rec-1",
+        title: "Tiền điện tháng 10",
+        walletName: "Techcombank",
+        toWalletName: null,
+        type: "expense",
+        amount: "1500000",
+        nextExecutionDate: "2026-10-21",
+        daysUntilDue: 1,
+        alertState: "upcoming",
+        lastError: null,
+        walletShortfall: true,
+        canRunNow: true,
+      },
+    ]);
+
+    const pushPayload = buildBillAlertPushPayload({
+      today: "2026-10-20",
+      currency: "VND",
+      statementAlerts: alerts.statementAlerts,
+      recurringAlerts: alerts.recurringAlerts,
+    });
+
+    expect(pushPayload).toMatchObject({
+      title: "Nhắc lịch thanh toán sao kê thẻ",
+      url: "/credit-cards/card-1?action=pay",
+    });
+    expect(pushPayload?.body).toContain("VIB Cash Back");
+    expect(pushPayload?.body).toContain("4.000.000 ₫");
   });
 });
