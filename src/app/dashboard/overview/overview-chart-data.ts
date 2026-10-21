@@ -8,7 +8,13 @@ export type DashboardPeriod = "month" | "quarter" | "year";
 type ChartTransaction = {
   amount: string;
   type: CashflowType | "transfer";
-  purpose?: "standard" | "credit_card_payment" | "credit_card_refund" | "credit_card_installment_fee";
+  purpose?:
+    | "standard"
+    | "credit_card_payment"
+    | "credit_card_refund"
+    | "credit_card_installment_fee"
+    | "investment_contribution"
+    | "investment_settlement";
   status: "pending" | "scheduled" | "approved" | "rejected";
   date: string;
   walletId: string;
@@ -135,6 +141,8 @@ export function buildMonthlyCashflow(
     if (
       transaction.status !== "approved"
       || transaction.type === "transfer"
+      || transaction.purpose === "investment_contribution"
+      || transaction.purpose === "investment_settlement"
       || !periodSet.has(period)
       || (filters.dateRange !== undefined
         && (transaction.date.slice(0, 10) < filters.dateRange.from
@@ -194,6 +202,8 @@ export function buildMemberMonthlyTotals(
     const period = transaction.date.slice(0, 7);
     if (
       transaction.status !== "approved"
+      || transaction.purpose === "investment_contribution"
+      || transaction.purpose === "investment_settlement"
       || (transaction.purpose === "credit_card_refund" ? filters.type !== "expense" : transaction.type !== filters.type)
       || !periodSet.has(period)
       || (filters.dateRange !== undefined
@@ -343,6 +353,8 @@ export function buildDailyCashflow(
     if (
       transaction.status !== "approved"
       || transaction.type === "transfer"
+      || transaction.purpose === "investment_contribution"
+      || transaction.purpose === "investment_settlement"
       || !daySet.has(txDay)
       || (filters.walletId !== "all"
         && transaction.walletId !== filters.walletId

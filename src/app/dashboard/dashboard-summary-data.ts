@@ -11,7 +11,13 @@ type SummaryTransaction = {
   amount: { toString(): string } | string;
   date: Date | string;
   type: "income" | "expense" | "transfer";
-  purpose?: "standard" | "credit_card_payment" | "credit_card_refund" | "credit_card_installment_fee";
+  purpose?:
+    | "standard"
+    | "credit_card_payment"
+    | "credit_card_refund"
+    | "credit_card_installment_fee"
+    | "investment_contribution"
+    | "investment_settlement";
   workflowStatus: "pending" | "scheduled" | "approved" | "rejected";
 };
 
@@ -29,6 +35,12 @@ export function buildLedgerPeriodSummaries(
     const period = date.slice(0, 7);
     const periodSummary = summaryByPeriod.get(period) ?? emptySummary();
     summaryByPeriod.set(period, periodSummary);
+    if (
+      transaction.purpose === "investment_contribution" ||
+      transaction.purpose === "investment_settlement"
+    ) {
+      continue;
+    }
     if (transaction.workflowStatus === "approved" && transaction.type === "income" && transaction.purpose !== "credit_card_refund") {
       periodSummary.income = periodSummary.income.plus(transaction.amount.toString());
       allPeriods.income = allPeriods.income.plus(transaction.amount.toString());

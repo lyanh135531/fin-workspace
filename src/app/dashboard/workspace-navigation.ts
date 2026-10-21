@@ -4,6 +4,7 @@ export type WorkspaceNavigationKey =
   | "recurring"
   | "plans"
   | "wallets"
+  | "investments"
   | "creditCards"
   | "settings";
 
@@ -62,6 +63,13 @@ export function workspaceNavigationItems(
       mobilePrimary: true,
     },
     {
+      key: "investments",
+      href: "/investments",
+      label: "Sổ tiết kiệm & Đầu tư",
+      description: "Đầu tư vàng tích sản và sổ tiết kiệm ngân hàng",
+      requiresWorkspace: true,
+    },
+    {
       key: "creditCards",
       href: "/credit-cards",
       label: "Thẻ tín dụng",
@@ -89,6 +97,13 @@ export function isWorkspaceNavigationActive(
   if (key === "recurring") return cleanPath === "/recurring-transactions";
   if (key === "plans") return cleanPath === "/financial-plans";
   if (key === "wallets") return cleanPath === "/wallets";
+  if (key === "investments") {
+    return (
+      cleanPath === "/investments" ||
+      cleanPath.startsWith("/investments/") ||
+      cleanPath === "/dashboard/investments"
+    );
+  }
   if (key === "creditCards") return cleanPath === "/credit-cards" || cleanPath.startsWith("/credit-cards/");
   return (
     cleanPath === "/settings/workspace" ||

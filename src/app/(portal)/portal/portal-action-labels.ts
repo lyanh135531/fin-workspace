@@ -90,6 +90,13 @@ const ACTION_LABELS: Record<string, string> = {
   "wallet.updated": "Cập nhật ví",
   "wallet.deleted": "Xóa ví",
   "wallet.deactivated": "Vô hiệu hóa ví",
+
+  // Investment & Savings
+  "investment.gold_holding_created": "Tạo vị thế vàng tích sản",
+  "investment.gold_lot_purchased": "Mua thêm vàng tích sản",
+  "investment.gold_sold": "Bán vàng tích sản",
+  "investment.savings_created": "Mở sổ tiết kiệm ngân hàng",
+  "investment.savings_settled": "Tất toán / Tái tục sổ tiết kiệm",
 };
 
 /**

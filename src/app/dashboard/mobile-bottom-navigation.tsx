@@ -4,6 +4,7 @@ import {
   BookOpen,
   CalendarRange,
   CreditCard,
+  Landmark,
   LayoutDashboard,
   Plus,
   Repeat2,
@@ -38,6 +39,7 @@ function navigationItems(currentWorkspaceId?: string): {
     recurring: Repeat2,
     plans: CalendarRange,
     wallets: WalletCards,
+    investments: Landmark,
     creditCards: CreditCard,
     settings: Settings,
   };

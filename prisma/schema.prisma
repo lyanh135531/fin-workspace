@@ -27,8 +27,66 @@ enum TransactionPurpose {
   credit_card_payment
   credit_card_refund
   credit_card_installment_fee
+  investment_contribution
+  investment_settlement
 
   @@map("TRANSACTION_PURPOSE")
+}
+
+enum GoldProductType {
+  sjc_bar
+  ring_9999
+  jewelry_24k
+  jewelry_18k
+  other
+
+  @@map("GOLD_PRODUCT_TYPE")
+}
+
+enum GoldPriceSourceMode {
+  auto_brand
+  pegged_brand
+  manual
+
+  @@map("GOLD_PRICE_SOURCE_MODE")
+}
+
+enum InvestmentFundingMode {
+  from_wallet
+  existing_asset
+
+  @@map("INVESTMENT_FUNDING_MODE")
+}
+
+enum GoldSellCostMode {
+  average_cost
+  specific_lot
+
+  @@map("GOLD_SELL_COST_MODE")
+}
+
+enum SavingsInterestPayoutMode {
+  maturity
+  upfront
+  monthly
+
+  @@map("SAVINGS_INTEREST_PAYOUT_MODE")
+}
+
+enum SavingsMaturityAction {
+  settle_to_wallet
+  renew_principal
+  renew_principal_and_interest
+
+  @@map("SAVINGS_MATURITY_ACTION")
+}
+
+enum SavingsDepositStatus {
+  active
+  settled
+  cancelled
+
+  @@map("SAVINGS_DEPOSIT_STATUS")
 }
 
 enum CreditCardInstallmentStatus {
@@ -257,6 +315,11 @@ model Workspace {
   creditCardObligations      CreditCardObligationEntry[]
   creditCardInstallmentPlans CreditCardInstallmentPlan[]
   creditCardStatements       CreditCardStatement[]
+  goldHoldings               GoldHolding[]
+  goldPurchaseLots           GoldPurchaseLot[]
+  goldSaleRecords            GoldSaleRecord[]
+  savingsDeposits            SavingsDeposit[]
+  savingsDepositSettlements  SavingsDepositSettlement[]
 
   @@index([status, deletedAt])
   @@map("WORKSPACES")
@@ -297,6 +360,11 @@ model WorkspaceMember {
   requestedGoalFundingEntries   FinancialGoalFundingEntry[] @relation("GoalFundingRequester")
   reviewedGoalFundingEntries    FinancialGoalFundingEntry[] @relation("GoalFundingReviewer")
   createdInstallmentPlans       CreditCardInstallmentPlan[]
+  createdGoldHoldings           GoldHolding[]
+  createdGoldPurchaseLots       GoldPurchaseLot[]
+  createdGoldSaleRecords        GoldSaleRecord[]
+  createdSavingsDeposits        SavingsDeposit[]
+  createdSavingsSettlements     SavingsDepositSettlement[]
 
   @@unique([workspaceId, userId])
   @@index([workspaceId, status, deletedAt])
@@ -329,6 +397,10 @@ model Wallet {
   fundedCreditCardObligations      CreditCardObligationEntry[]    @relation("CreditCardObligationFundingWallet")
   creditCardPaymentReservations    CreditCardPaymentReservation[] @relation("CreditCardReservationSourceWallet")
   linkedFinancialGoals             FinancialPlanGoal[]            @relation("FinancialGoalLinkedWallet")
+  goldPurchaseLots                 GoldPurchaseLot[]              @relation("GoldPurchaseSourceWallet")
+  goldSaleRecords                  GoldSaleRecord[]               @relation("GoldSaleDestinationWallet")
+  savingsDeposits                  SavingsDeposit[]               @relation("SavingsDepositSourceWallet")
+  savingsDepositSettlements        SavingsDepositSettlement[]     @relation("SavingsSettlementDestinationWallet")
 
   @@index([status, deletedAt])
   @@map("WALLETS")
@@ -489,6 +561,10 @@ model Transaction {
   installmentPlan               CreditCardInstallmentPlan?     @relation("InstallmentOriginalTransaction")
   installmentFeePlan            CreditCardInstallmentPlan?     @relation("InstallmentFeeTransaction")
   creditCardStatement           CreditCardStatement?           @relation(fields: [creditCardStatementId], references: [id], onDelete: Restrict)
+  goldPurchaseLot               GoldPurchaseLot?               @relation("GoldPurchaseTransaction")
+  goldSaleRecord                GoldSaleRecord?                @relation("GoldSaleTransaction")
+  savingsDeposit                SavingsDeposit?                @relation("SavingsDepositOpenTransaction")
+  savingsDepositSettlement      SavingsDepositSettlement?      @relation("SavingsSettlementTransaction")
 
   @@unique([recurringTransactionId, recurringPeriod])
   @@index([memberId, date])
@@ -945,4 +1021,181 @@ model WebPushVapidKey {
 
   @@map("WEB_PUSH_VAPID_KEY")
 }
+
+model GoldPriceQuote {
+  providerCode    String          @id @map("provider_code") @db.VarChar(32)
+  brandName       String          @map("brand_name")
+  productLabel    String          @map("product_label")
+  productType     GoldProductType @default(ring_9999) @map("product_type")
+  buyPricePerChi  Decimal         @map("buy_price_per_chi") @db.Decimal(20, 4)
+  sellPricePerChi Decimal         @map("sell_price_per_chi") @db.Decimal(20, 4)
+  changeBuyPerChi Decimal         @default(0) @map("change_buy_per_chi") @db.Decimal(20, 4)
+  changeSellPerChi Decimal        @default(0) @map("change_sell_per_chi") @db.Decimal(20, 4)
+  currency        String          @default("VND") @db.VarChar(8)
+  fetchedAt       DateTime        @default(now()) @map("fetched_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("GOLD_PRICE_QUOTE")
+}
+
+model GoldHolding {
+  id                      String              @id @default(uuid()) @db.Uuid
+  workspaceId             String              @map("workspace_id") @db.Uuid
+  createdByMemberId       String              @map("created_by_member_id") @db.Uuid
+  name                    String
+  brandName               String              @map("brand_name")
+  productType             GoldProductType     @default(ring_9999) @map("product_type")
+  priceSourceMode         GoldPriceSourceMode @default(auto_brand) @map("price_source_mode")
+  quoteProviderCode       String?             @map("quote_provider_code") @db.VarChar(32)
+  peggedBuyOffsetPerChi   Decimal             @default(0) @map("pegged_buy_offset_per_chi") @db.Decimal(20, 4)
+  peggedSellOffsetPerChi  Decimal             @default(0) @map("pegged_sell_offset_per_chi") @db.Decimal(20, 4)
+  manualBuybackPricePerChi Decimal?           @map("manual_buyback_price_per_chi") @db.Decimal(20, 4)
+  manualSellPricePerChi   Decimal?            @map("manual_sell_price_per_chi") @db.Decimal(20, 4)
+  totalQuantityChi        Decimal             @default(0) @map("total_quantity_chi") @db.Decimal(16, 4)
+  totalCostBasisAmount    Decimal             @default(0) @map("total_cost_basis_amount") @db.Decimal(20, 4)
+  realizedProfitAmount    Decimal             @default(0) @map("realized_profit_amount") @db.Decimal(20, 4)
+  storageLocation         String?             @map("storage_location")
+  note                    String?
+  status                  Status              @default(active)
+  createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt               DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  workspace               Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdBy               WorkspaceMember     @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  purchaseLots            GoldPurchaseLot[]
+  saleRecords             GoldSaleRecord[]
+
+  @@index([workspaceId, status, deletedAt])
+  @@index([quoteProviderCode])
+  @@map("GOLD_HOLDING")
+}
+
+model GoldPurchaseLot {
+  id                   String                @id @default(uuid()) @db.Uuid
+  workspaceId          String                @map("workspace_id") @db.Uuid
+  holdingId            String                @map("holding_id") @db.Uuid
+  createdByMemberId    String                @map("created_by_member_id") @db.Uuid
+  fundingMode          InvestmentFundingMode @default(from_wallet) @map("funding_mode")
+  sourceWalletId       String?               @map("source_wallet_id") @db.Uuid
+  ledgerTransactionId  String?               @unique @map("ledger_transaction_id") @db.Uuid
+  purchaseDate         DateTime              @map("purchase_date") @db.Date
+  quantityChi          Decimal               @map("quantity_chi") @db.Decimal(16, 4)
+  remainingQuantityChi Decimal               @map("remaining_quantity_chi") @db.Decimal(16, 4)
+  unitPricePerChi      Decimal               @map("unit_price_per_chi") @db.Decimal(20, 4)
+  craftingFeeAmount    Decimal               @default(0) @map("crafting_fee_amount") @db.Decimal(20, 4)
+  totalCostAmount      Decimal               @map("total_cost_amount") @db.Decimal(20, 4)
+  remainingCostAmount  Decimal               @map("remaining_cost_amount") @db.Decimal(20, 4)
+  shopName             String?               @map("shop_name")
+  invoiceOrSerial      String?               @map("invoice_or_serial")
+  note                 String?
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  workspace            Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  holding              GoldHolding           @relation(fields: [holdingId], references: [id], onDelete: Restrict)
+  createdBy            WorkspaceMember       @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  sourceWallet         Wallet?               @relation("GoldPurchaseSourceWallet", fields: [sourceWalletId], references: [id], onDelete: Restrict)
+  ledgerTransaction    Transaction?          @relation("GoldPurchaseTransaction", fields: [ledgerTransactionId], references: [id], onDelete: SetNull)
+  specificSaleRecords  GoldSaleRecord[]
+
+  @@index([holdingId, purchaseDate, deletedAt])
+  @@index([workspaceId, purchaseDate])
+  @@map("GOLD_PURCHASE_LOT")
+}
+
+model GoldSaleRecord {
+  id                       String           @id @default(uuid()) @db.Uuid
+  workspaceId              String           @map("workspace_id") @db.Uuid
+  holdingId                String           @map("holding_id") @db.Uuid
+  purchaseLotId            String?          @map("purchase_lot_id") @db.Uuid
+  createdByMemberId        String           @map("created_by_member_id") @db.Uuid
+  costMode                 GoldSellCostMode @default(average_cost) @map("cost_mode")
+  destinationWalletId      String           @map("destination_wallet_id") @db.Uuid
+  ledgerTransactionId      String?          @unique @map("ledger_transaction_id") @db.Uuid
+  saleDate                 DateTime         @map("sale_date") @db.Date
+  quantityChi              Decimal          @map("quantity_chi") @db.Decimal(16, 4)
+  sellPricePerChi          Decimal          @map("sell_price_per_chi") @db.Decimal(20, 4)
+  feeOrDeductionAmount     Decimal          @default(0) @map("fee_or_deduction_amount") @db.Decimal(20, 4)
+  grossProceedsAmount      Decimal          @map("gross_proceeds_amount") @db.Decimal(20, 4)
+  netProceedsAmount        Decimal          @map("net_proceeds_amount") @db.Decimal(20, 4)
+  costBasisAllocatedAmount Decimal          @map("cost_basis_allocated_amount") @db.Decimal(20, 4)
+  realizedProfitAmount     Decimal          @map("realized_profit_amount") @db.Decimal(20, 4)
+  note                     String?
+  createdAt                DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  workspace                Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  holding                  GoldHolding      @relation(fields: [holdingId], references: [id], onDelete: Restrict)
+  purchaseLot              GoldPurchaseLot? @relation(fields: [purchaseLotId], references: [id], onDelete: SetNull)
+  createdBy                WorkspaceMember  @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  destinationWallet        Wallet           @relation("GoldSaleDestinationWallet", fields: [destinationWalletId], references: [id], onDelete: Restrict)
+  ledgerTransaction        Transaction?     @relation("GoldSaleTransaction", fields: [ledgerTransactionId], references: [id], onDelete: SetNull)
+
+  @@index([holdingId, saleDate, deletedAt])
+  @@index([workspaceId, saleDate])
+  @@map("GOLD_SALE_RECORD")
+}
+
+model SavingsDeposit {
+  id                       String                    @id @default(uuid()) @db.Uuid
+  workspaceId              String                    @map("workspace_id") @db.Uuid
+  createdByMemberId        String                    @map("created_by_member_id") @db.Uuid
+  name                     String
+  bankName                 String                    @map("bank_name")
+  accountOrPassbookNumber  String?                   @map("account_or_passbook_number")
+  fundingMode              InvestmentFundingMode     @default(from_wallet) @map("funding_mode")
+  sourceWalletId           String?                   @map("source_wallet_id") @db.Uuid
+  openTransactionId        String?                   @unique @map("open_transaction_id") @db.Uuid
+  principalAmount          Decimal                   @map("principal_amount") @db.Decimal(20, 4)
+  currentPrincipalAmount   Decimal                   @map("current_principal_amount") @db.Decimal(20, 4)
+  annualInterestRate       Decimal                   @map("annual_interest_rate") @db.Decimal(8, 4)
+  nonTermInterestRate      Decimal                   @default(0.1) @map("non_term_interest_rate") @db.Decimal(8, 4)
+  termMonths               Int                       @map("term_months")
+  startDate                DateTime                  @map("start_date") @db.Date
+  maturityDate             DateTime                  @map("maturity_date") @db.Date
+  interestPayoutMode       SavingsInterestPayoutMode @default(maturity) @map("interest_payout_mode")
+  maturityAction           SavingsMaturityAction     @default(settle_to_wallet) @map("maturity_action")
+  expectedMaturityInterest Decimal                   @default(0) @map("expected_maturity_interest") @db.Decimal(20, 4)
+  totalInterestReceived    Decimal                   @default(0) @map("total_interest_received") @db.Decimal(20, 4)
+  status                   SavingsDepositStatus      @default(active)
+  settledAt                DateTime?                 @map("settled_at") @db.Timestamptz(6)
+  note                     String?
+  createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                DateTime?                 @map("deleted_at") @db.Timestamptz(6)
+  workspace                Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdBy                WorkspaceMember           @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  sourceWallet             Wallet?                   @relation("SavingsDepositSourceWallet", fields: [sourceWalletId], references: [id], onDelete: Restrict)
+  openTransaction          Transaction?              @relation("SavingsDepositOpenTransaction", fields: [openTransactionId], references: [id], onDelete: SetNull)
+  settlements              SavingsDepositSettlement[]
+
+  @@index([workspaceId, status, deletedAt, maturityDate])
+  @@map("SAVINGS_DEPOSIT")
+}
+
+model SavingsDepositSettlement {
+  id                       String         @id @default(uuid()) @db.Uuid
+  workspaceId              String         @map("workspace_id") @db.Uuid
+  depositId                String         @map("deposit_id") @db.Uuid
+  createdByMemberId        String         @map("created_by_member_id") @db.Uuid
+  destinationWalletId      String?        @map("destination_wallet_id") @db.Uuid
+  ledgerTransactionId      String?        @unique @map("ledger_transaction_id") @db.Uuid
+  settlementDate           DateTime       @map("settlement_date") @db.Date
+  settlementType           String         @map("settlement_type") @db.VarChar(32)
+  principalWithdrawnAmount Decimal        @map("principal_withdrawn_amount") @db.Decimal(20, 4)
+  interestReceivedAmount   Decimal        @map("interest_received_amount") @db.Decimal(20, 4)
+  totalReceivedAmount      Decimal        @map("total_received_amount") @db.Decimal(20, 4)
+  note                     String?
+  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace                Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  deposit                  SavingsDeposit @relation(fields: [depositId], references: [id], onDelete: Restrict)
+  createdBy                WorkspaceMember @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  destinationWallet        Wallet?        @relation("SavingsSettlementDestinationWallet", fields: [destinationWalletId], references: [id], onDelete: Restrict)
+  ledgerTransaction        Transaction?   @relation("SavingsSettlementTransaction", fields: [ledgerTransactionId], references: [id], onDelete: SetNull)
+
+  @@index([depositId, settlementDate])
+  @@index([workspaceId, settlementDate])
+  @@map("SAVINGS_DEPOSIT_SETTLEMENT")
+}
+
 

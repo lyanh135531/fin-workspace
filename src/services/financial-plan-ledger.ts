@@ -195,7 +195,15 @@ export async function getFinancialPlanMonthLedger(
     pendingIncome: new Decimal(0), pendingExpense: new Decimal(0),
   };
   for (const record of records) {
-    if (record.purpose === "credit_card_payment" || record.type === "transfer" || record.workflowStatus === "rejected") continue;
+    if (
+      record.purpose === "credit_card_payment" ||
+      record.purpose === "investment_contribution" ||
+      record.purpose === "investment_settlement" ||
+      record.type === "transfer" ||
+      record.workflowStatus === "rejected"
+    ) {
+      continue;
+    }
     if (record.installmentPlan && record.installmentPlan.status !== "pending") continue;
     if (
       record.purpose === "credit_card_installment_fee" &&

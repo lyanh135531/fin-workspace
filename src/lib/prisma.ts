@@ -8,7 +8,18 @@ const globalForPrisma = globalThis as unknown as {
 
 const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
+const cachedPrisma = globalForPrisma.prisma;
+const hasLatestDelegates =
+  Boolean(cachedPrisma) &&
+  typeof (cachedPrisma as unknown as Record<string, unknown>).goldPriceQuote !==
+    "undefined" &&
+  typeof (cachedPrisma as unknown as Record<string, unknown>).savingsDeposit !==
+    "undefined";
+
+export const prisma =
+  hasLatestDelegates && cachedPrisma
+    ? cachedPrisma
+    : new PrismaClient({ adapter });
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

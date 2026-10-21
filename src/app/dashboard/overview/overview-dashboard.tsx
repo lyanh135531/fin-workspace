@@ -117,7 +117,9 @@ type Transaction = {
     | "standard"
     | "credit_card_payment"
     | "credit_card_refund"
-    | "credit_card_installment_fee";
+    | "credit_card_installment_fee"
+    | "investment_contribution"
+    | "investment_settlement";
   paymentSources?: { walletId: string; amount: string }[];
 };
 
@@ -295,7 +297,12 @@ function summarizeTransactions(
 ): { income: Decimal; expense: Decimal; count: number } {
   const totals = transactions.reduce(
     (result, item) => {
-      if (item.status !== "approved" || !isInDateRange(item.date, dateRange)) {
+      if (
+        item.status !== "approved" ||
+        !isInDateRange(item.date, dateRange) ||
+        item.purpose === "investment_contribution" ||
+        item.purpose === "investment_settlement"
+      ) {
         return result;
       }
 
@@ -717,6 +724,8 @@ export function OverviewDashboard({
       .filter(
         (item) =>
           item.status === "approved" &&
+          item.purpose !== "investment_contribution" &&
+          item.purpose !== "investment_settlement" &&
           isInDateRange(item.date, activeDateRange) &&
           (targetType === "income"
             ? item.type === "income" && item.purpose !== "credit_card_refund"
@@ -762,6 +771,8 @@ export function OverviewDashboard({
       const matched = transactions.filter(
         (t) =>
           t.memberId === m.id &&
+          t.purpose !== "investment_contribution" &&
+          t.purpose !== "investment_settlement" &&
           (t.type === "expense" || t.purpose === "credit_card_refund") &&
           t.status === "approved" &&
           isInDateRange(t.date, activeDateRange),

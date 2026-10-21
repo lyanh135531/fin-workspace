@@ -65,6 +65,10 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
     { label: "Tổng quan", href: "/overview" },
     { label: "Thẻ tín dụng" },
   ],
+  "/investments": [
+    { label: "Tổng quan", href: "/overview" },
+    { label: "Sổ tiết kiệm & Đầu tư" },
+  ],
   "/financial-plans": [
     { label: "Tổng quan", href: "/overview" },
     { label: "Kế hoạch tài chính" },
@@ -73,6 +77,10 @@ const fixedTrails: Record<string, BreadcrumbEntry[]> = {
   "/dashboard/wallets": [
     { label: "Tổng quan", href: "/overview" },
     { label: "Quản lý ví" },
+  ],
+  "/dashboard/investments": [
+    { label: "Tổng quan", href: "/overview" },
+    { label: "Sổ tiết kiệm & Đầu tư" },
   ],
   "/dashboard/credit-cards": [
     { label: "Tổng quan", href: "/overview" },
@@ -108,6 +116,7 @@ const segmentLabels: Record<string, string> = {
   settings: "Cài đặt",
   users: "Tài khoản thành viên",
   wallets: "Quản lý ví",
+  investments: "Sổ tiết kiệm & Đầu tư",
   "credit-cards": "Thẻ tín dụng",
   workspace: "Nhóm tài chính",
   workspaces: "Nhóm tài chính",
@@ -138,6 +147,14 @@ function getTrail(
         { label: "Tổng quan", href: "/overview" },
         { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
         { label: "Quản lý ví" },
+      ]
+    }
+
+    if (normalizedPath === "/investments" || normalizedPath === "/dashboard/investments") {
+      return [
+        { label: "Tổng quan", href: "/overview" },
+        { label: currentWorkspace.name, href: `/workspace/${currentWorkspace.id}` },
+        { label: "Sổ tiết kiệm & Đầu tư" },
       ]
     }
 

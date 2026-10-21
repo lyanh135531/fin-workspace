@@ -613,6 +613,8 @@ export type CreditCardCommitmentDetailItem = {
     | "credit_card_payment"
     | "credit_card_refund"
     | "credit_card_installment_fee"
+    | "investment_contribution"
+    | "investment_settlement"
     | null;
   categoryName: string | null;
   installmentPlan: {

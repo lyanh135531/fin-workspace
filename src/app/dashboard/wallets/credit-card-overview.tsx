@@ -102,7 +102,9 @@ type CardActivity = {
     | "standard"
     | "credit_card_payment"
     | "credit_card_refund"
-    | "credit_card_installment_fee";
+    | "credit_card_installment_fee"
+    | "investment_contribution"
+    | "investment_settlement";
   description: string | null;
   amount: string;
   date: string;

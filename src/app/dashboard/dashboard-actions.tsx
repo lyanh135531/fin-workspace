@@ -94,7 +94,13 @@ type LedgerItem = {
   id: string;
   amount: string;
   type: TransactionType;
-  purpose?: "standard" | "credit_card_payment" | "credit_card_refund" | "credit_card_installment_fee";
+  purpose?:
+    | "standard"
+    | "credit_card_payment"
+    | "credit_card_refund"
+    | "credit_card_installment_fee"
+    | "investment_contribution"
+    | "investment_settlement";
   status: "pending" | "scheduled" | "approved" | "rejected";
   description: string | null;
   date: string;
