@@ -24,8 +24,8 @@ export const createGoldHoldingWithInitialLotSchema = z
     name: z
       .string()
       .trim()
-      .min(1, "Vui lòng nhập tên dòng vàng tích sản.")
-      .max(120, "Tên dòng vàng tối đa 120 ký tự."),
+      .min(1, "Vui lòng nhập tên gợi nhớ cho khoản vàng.")
+      .max(120, "Tên khoản vàng tối đa 120 ký tự."),
     brandName: z
       .string()
       .trim()
@@ -44,7 +44,7 @@ export const createGoldHoldingWithInitialLotSchema = z
     manualSellPricePerChi: nonNegativeDecimalString.optional().nullable(),
     storageLocation: z.string().trim().max(160).optional().nullable(),
     note: z.string().trim().max(400).optional().nullable(),
-    // Lô mua đầu tiên (tùy chọn hoặc mặc định tạo cùng vị thế)
+    // Đợt mua đầu tiên (tùy chọn hoặc mặc định tạo cùng khoản vàng)
     initialLot: z
       .object({
         fundingMode: z.enum(["from_wallet", "existing_asset"]),
@@ -71,14 +71,14 @@ export const createGoldHoldingWithInitialLotSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["initialLot", "sourceWalletId"],
-        message: "Vui lòng chọn ví tài sản để trích tiền mua vàng.",
+        message: "Vui lòng chọn ví để trích tiền mua vàng.",
       });
     }
   });
 
 export const addGoldPurchaseLotSchema = z
   .object({
-    holdingId: z.string().uuid("Mã vị thế vàng không hợp lệ."),
+    holdingId: z.string().uuid("Mã khoản vàng không hợp lệ."),
     fundingMode: z.enum(["from_wallet", "existing_asset"]),
     sourceWalletId: z.string().uuid().optional().nullable(),
     purchaseDate: z.string().regex(isoDateRegex, "Ngày mua không hợp lệ."),
@@ -94,19 +94,19 @@ export const addGoldPurchaseLotSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["sourceWalletId"],
-        message: "Vui lòng chọn ví tài sản để trích tiền mua vàng.",
+        message: "Vui lòng chọn ví để trích tiền mua vàng.",
       });
     }
   });
 
 export const recordGoldSaleSchema = z
   .object({
-    holdingId: z.string().uuid("Mã vị thế vàng không hợp lệ."),
+    holdingId: z.string().uuid("Mã khoản vàng không hợp lệ."),
     costMode: z.enum(["average_cost", "specific_lot"]),
     purchaseLotId: z.string().uuid().optional().nullable(),
     destinationWalletId: z
       .string()
-      .uuid("Vui lòng chọn ví tài sản nhận tiền bán vàng."),
+      .uuid("Vui lòng chọn ví nhận tiền bán vàng."),
     saleDate: z.string().regex(isoDateRegex, "Ngày bán không hợp lệ."),
     quantityChi: positiveDecimalString,
     sellPricePerChi: positiveDecimalString,
@@ -118,18 +118,18 @@ export const recordGoldSaleSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["purchaseLotId"],
-        message: "Vui lòng chọn lô vàng cụ thể muốn bán.",
+        message: "Vui lòng chọn đợt mua vàng muốn bán.",
       });
     }
   });
 
 export const updateGoldHoldingPriceSettingsSchema = z.object({
-  holdingId: z.string().uuid("Mã vị thế vàng không hợp lệ."),
+  holdingId: z.string().uuid("Mã khoản vàng không hợp lệ."),
   name: z
     .string()
     .trim()
-    .min(1, "Vui lòng nhập tên dòng vàng.")
-    .max(120, "Tên dòng vàng tối đa 120 ký tự."),
+    .min(1, "Vui lòng nhập tên gợi nhớ cho khoản vàng.")
+    .max(120, "Tên khoản vàng tối đa 120 ký tự."),
   brandName: z
     .string()
     .trim()

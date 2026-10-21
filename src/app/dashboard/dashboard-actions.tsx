@@ -1262,15 +1262,22 @@ export function Ledger({
     }
 
     const isCreditRefund = item.purpose === "credit_card_refund";
+    const isInvestmentContribution =
+      item.purpose === "investment_contribution";
+    const isInvestmentSettlement = item.purpose === "investment_settlement";
     const subtitleText = isTransfer
       ? "Chuyển tiền giữa các ví"
-      : isCreditRefund
-        ? "Hoàn tiền thẻ tín dụng"
-        : isCreditWallet
-          ? "Chi tiêu thẻ tín dụng"
-          : isIncome
-            ? "Thu nhập"
-            : "Chi tiêu";
+      : isInvestmentContribution
+        ? "Mua vàng / Mở sổ tiết kiệm"
+        : isInvestmentSettlement
+          ? "Bán vàng / Tất toán tiết kiệm"
+          : isCreditRefund
+            ? "Hoàn tiền thẻ tín dụng"
+            : isCreditWallet
+              ? "Chi tiêu thẻ tín dụng"
+              : isIncome
+                ? "Thu nhập"
+                : "Chi tiêu";
 
     return (
       <article
@@ -1400,6 +1407,19 @@ export function Ledger({
               <ArrowLeftRight className="size-3 shrink-0 text-[var(--primary)]" aria-hidden="true" />
               <span className="break-words leading-snug">Chuyển khoản</span>
             </span>
+          ) : isInvestmentContribution || isInvestmentSettlement ? (
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--primary)]">
+              <span className="size-1.5 shrink-0 rounded-full bg-[var(--primary)]" aria-hidden="true" />
+              <span className="break-words leading-snug">Đầu tư & Tiết kiệm</span>
+            </span>
+          ) : item.purpose === "credit_card_payment" ? (
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]">
+              <span className="break-words leading-snug">Thanh toán thẻ</span>
+            </span>
+          ) : isCreditRefund ? (
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--income)]">
+              <span className="break-words leading-snug">Hoàn tiền thẻ</span>
+            </span>
           ) : item.category ? (
             <span
               className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium"
@@ -1466,13 +1486,17 @@ export function Ledger({
               </span>
             </strong>
             <span className="mt-0.5 block text-[11px] text-[var(--text-muted)]">
-              {isCreditRefund
-                ? "Hoàn tiền thẻ"
-                : isIncome
-                  ? "Khoản thu"
-                  : isExpense
-                    ? "Khoản chi"
-                    : "Chuyển ví"}
+              {isInvestmentContribution
+                ? "Đầu tư / Gửi tiết kiệm"
+                : isInvestmentSettlement
+                  ? "Bán vàng / Tất toán"
+                  : isCreditRefund
+                    ? "Hoàn tiền thẻ"
+                    : isIncome
+                      ? "Khoản thu"
+                      : isExpense
+                        ? "Khoản chi"
+                        : "Chuyển ví"}
             </span>
           </div>
 
@@ -2748,6 +2772,26 @@ function TransactionDetailSheetBody({
             >
               <CircleCheckBig size={15} />
             </Button>
+          </div>
+        )}
+
+        {(item.purpose === "investment_contribution" ||
+          item.purpose === "investment_settlement") && (
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 text-xs text-[var(--text-secondary)]">
+            <p className="font-semibold text-[var(--foreground)]">
+              Giao dịch thuộc mục Sổ tiết kiệm & Đầu tư
+            </p>
+            <p className="mt-0.5 leading-relaxed">
+              Để bán vàng, tất toán sổ tiết kiệm hoặc xóa khoản đầu tư này, vui
+              lòng thực hiện tại trang{" "}
+              <a
+                href="/investments"
+                className="font-semibold text-[var(--primary)] hover:underline"
+              >
+                Sổ tiết kiệm & Đầu tư
+              </a>
+              .
+            </p>
           </div>
         )}
 

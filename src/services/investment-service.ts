@@ -842,7 +842,7 @@ export async function addGoldPurchaseLot(
       where: { id: input.holdingId, workspaceId, deletedAt: null },
     });
     if (!holding) {
-      throw new AppError("NOT_FOUND", "Không tìm thấy vị thế vàng đã chọn.");
+      throw new AppError("NOT_FOUND", "Không tìm thấy khoản vàng đã chọn.");
     }
 
     const lot = await createGoldPurchaseLotInTx(tx, {
@@ -899,7 +899,7 @@ export async function recordGoldSale(
       },
     });
     if (!holding) {
-      throw new AppError("NOT_FOUND", "Không tìm thấy vị thế vàng cần bán.");
+      throw new AppError("NOT_FOUND", "Không tìm thấy khoản vàng cần bán.");
     }
 
     const destinationWallet = await lockAndVerifyAssetWallet(
@@ -1032,7 +1032,7 @@ export async function updateGoldHoldingSettings(
     where: { id: input.holdingId, workspaceId, deletedAt: null },
   });
   if (!existing) {
-    throw new AppError("NOT_FOUND", "Không tìm thấy vị thế vàng.");
+    throw new AppError("NOT_FOUND", "Không tìm thấy khoản vàng.");
   }
 
   const brandDef =
@@ -1110,7 +1110,7 @@ export async function deleteGoldPurchaseLot(
       include: { holding: true },
     });
     if (!lot) {
-      throw new AppError("NOT_FOUND", "Không tìm thấy lô mua vàng.");
+      throw new AppError("NOT_FOUND", "Không tìm thấy đợt mua vàng.");
     }
 
     const initialQty = new Decimal(lot.quantityChi.toString());
@@ -1118,7 +1118,7 @@ export async function deleteGoldPurchaseLot(
     if (!initialQty.eq(remQty)) {
       throw new AppError(
         "CONFLICT",
-        "Lô vàng này đã được bán một phần hoặc toàn bộ nên không thể xóa.",
+        "Đợt mua vàng này đã được bán một phần hoặc toàn bộ nên không thể xóa.",
       );
     }
 
@@ -1127,7 +1127,7 @@ export async function deleteGoldPurchaseLot(
 
     if (lot.fundingMode === "from_wallet" && lot.sourceWalletId) {
       const wallet = await tx.wallet.findFirst({
-        where: { id: lot.sourceWalletId, deletedAt: null },
+        where: { id: lot.sourceWalletId, deletedAt: null, status: "active" },
       });
       if (wallet) {
         await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
@@ -1192,7 +1192,7 @@ export async function deleteGoldHolding(
       },
     });
     if (!holding) {
-      throw new AppError("NOT_FOUND", "Không tìm thấy vị thế vàng.");
+      throw new AppError("NOT_FOUND", "Không tìm thấy khoản vàng.");
     }
 
     const currentQty = new Decimal(holding.totalQuantityChi.toString());
@@ -1201,7 +1201,7 @@ export async function deleteGoldHolding(
     if (holding.saleRecords.length > 0 && currentQty.gt(0)) {
       throw new AppError(
         "CONFLICT",
-        "Vị thế vàng này đã có giao dịch bán một phần và vẫn còn vàng đang giữ. Vui lòng bán tất toán số vàng còn lại trước khi xóa vị thế.",
+        "Khoản vàng này đã có giao dịch bán một phần và vẫn còn vàng đang giữ. Vui lòng bán hết số vàng còn lại trước khi xóa.",
       );
     }
 
@@ -1210,7 +1210,7 @@ export async function deleteGoldHolding(
       for (const lot of holding.purchaseLots) {
         if (lot.fundingMode === "from_wallet" && lot.sourceWalletId) {
           const wallet = await tx.wallet.findFirst({
-            where: { id: lot.sourceWalletId, deletedAt: null },
+            where: { id: lot.sourceWalletId, deletedAt: null, status: "active" },
           });
           if (wallet) {
             await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
@@ -1409,11 +1409,13 @@ export async function settleSavingsDeposit(
         : new Decimal(deposit.annualInterestRate.toString());
 
       let ledgerTransactionId: string | null = null;
-      if (
-        rolloverMode === "renew_principal" &&
-        interestReceived.gt(0) &&
-        input.destinationWalletId
-      ) {
+      if (rolloverMode === "renew_principal" && interestReceived.gt(0)) {
+        if (!input.destinationWalletId) {
+          throw new AppError(
+            "VALIDATION_ERROR",
+            "Vui lòng chọn ví tài sản để nhận tiền lãi khi tái tục gốc.",
+          );
+        }
         const wallet = await lockAndVerifyAssetWallet(
           tx,
           workspaceId,
@@ -1466,7 +1468,10 @@ export async function settleSavingsDeposit(
           workspaceId,
           depositId: deposit.id,
           createdByMemberId: member.id,
-          destinationWalletId: input.destinationWalletId ?? null,
+          destinationWalletId:
+            rolloverMode === "renew_principal"
+              ? (input.destinationWalletId ?? null)
+              : null,
           ledgerTransactionId,
           settlementDate: parseDateOnly(input.settlementDate),
           settlementType: "rollover",
@@ -1652,7 +1657,7 @@ export async function deleteSavingsDeposit(
 
       if (deposit.fundingMode === "from_wallet" && deposit.sourceWalletId) {
         const wallet = await tx.wallet.findFirst({
-          where: { id: deposit.sourceWalletId, deletedAt: null },
+          where: { id: deposit.sourceWalletId, deletedAt: null, status: "active" },
         });
         if (wallet) {
           await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;

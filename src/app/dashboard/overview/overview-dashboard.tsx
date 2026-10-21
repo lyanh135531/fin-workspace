@@ -2620,11 +2620,17 @@ export function OverviewDashboard({
                     ? "Hoàn tiền thẻ tín dụng"
                     : selectedTransaction.purpose === "credit_card_payment"
                       ? "Thanh toán thẻ tín dụng"
-                      : selectedTransaction.type === "income"
-                        ? "Thu nhập"
-                        : selectedTransaction.type === "expense"
-                          ? "Chi tiêu"
-                          : "Chuyển tiền"}
+                      : selectedTransaction.purpose ===
+                          "investment_contribution"
+                        ? "Đầu tư & Gửi tiết kiệm"
+                        : selectedTransaction.purpose ===
+                            "investment_settlement"
+                          ? "Bán vàng & Tất toán tiết kiệm"
+                          : selectedTransaction.type === "income"
+                            ? "Thu nhập"
+                            : selectedTransaction.type === "expense"
+                              ? "Chi tiêu"
+                              : "Chuyển tiền"}
                 </span>
                 <strong
                   className={cn(

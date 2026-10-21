@@ -88,7 +88,7 @@ export async function createGoldHoldingAction(
     revalidateInvestmentPaths();
     return {
       ok: true,
-      message: "Đã tạo vị thế vàng tích sản thành công.",
+      message: "Đã lưu khoản vàng tích sản thành công.",
     };
   } catch (error) {
     return handleActionError(error);
@@ -104,7 +104,7 @@ export async function addGoldPurchaseLotAction(
     revalidateInvestmentPaths();
     return {
       ok: true,
-      message: "Đã ghi nhận đợt mua vàng tích lũy thành công.",
+      message: "Đã ghi nhận đợt mua thêm vàng thành công.",
     };
   } catch (error) {
     return handleActionError(error);
@@ -120,7 +120,7 @@ export async function recordGoldSaleAction(
     revalidateInvestmentPaths();
     return {
       ok: true,
-      message: "Đã chốt bán vàng và chuyển tiền về ví thành công.",
+      message: "Đã bán vàng và cộng tiền vào ví thành công.",
     };
   } catch (error) {
     return handleActionError(error);
@@ -136,7 +136,7 @@ export async function updateGoldHoldingSettingsAction(
     revalidateInvestmentPaths();
     return {
       ok: true,
-      message: "Đã cập nhật cấu hình vị thế vàng.",
+      message: "Đã lưu cài đặt khoản vàng.",
     };
   } catch (error) {
     return handleActionError(error);
@@ -168,7 +168,7 @@ export async function deleteGoldHoldingAction(
     revalidateInvestmentPaths();
     return {
       ok: true,
-      message: "Đã xóa vị thế vàng tích sản.",
+      message: "Đã xóa khoản vàng tích sản.",
     };
   } catch (error) {
     return handleActionError(error);

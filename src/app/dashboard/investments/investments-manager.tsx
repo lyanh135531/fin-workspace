@@ -153,7 +153,7 @@ function SheetBody({
   return (
     <div
       className={cn(
-        "min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-5 space-y-3.5",
+        "min-h-0 flex-1 overflow-y-auto overscroll-contain p-3.5 sm:p-5 space-y-3 sm:space-y-3.5",
         className,
       )}
     >
@@ -203,7 +203,7 @@ function buildFundingSourceOptions(
       value: w.id,
       label: `Ví ${w.name}`,
       selectedContent: (
-        <span className="flex min-w-0 items-center gap-1.5">
+        <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
           <Wallet className="size-3.5 shrink-0 text-[var(--text-muted)]" />
           <span>Ví: {w.name}</span>
         </span>
@@ -224,7 +224,7 @@ function buildFundingSourceOptions(
       value: EXISTING_ASSET_VALUE,
       label: existingLabel,
       selectedContent: (
-        <span className="font-medium text-[var(--foreground)]">
+        <span className="font-medium text-[var(--foreground)] whitespace-nowrap">
           {existingLabel}
         </span>
       ),
@@ -336,6 +336,9 @@ export function InvestmentsManager({
     null,
   );
   const [sellHolding, setSellHolding] = useState<GoldHoldingItem | null>(null);
+  const [sellPreselectedLotId, setSellPreselectedLotId] = useState<
+    string | null
+  >(null);
   const [detailHoldingId, setDetailHoldingId] = useState<string | null>(null);
   const [settingsHolding, setSettingsHolding] =
     useState<GoldHoldingItem | null>(null);
@@ -413,28 +416,17 @@ export function InvestmentsManager({
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* 1. UNIFIED HEADER + TOP SUMMARY STRIP (Matching WalletManagement & RecurringTransactionsManager) */}
+      {/* 1. UNIFIED HEADER + TOP SUMMARY STRIP */}
       <Card
         as="section"
         className="p-4 md:p-5"
         aria-label="Tổng quan sổ tiết kiệm và đầu tư"
       >
-        {/* Top Row: Mobile shows Primary Hero Metric; Desktop shows Page Title + Subtitle + Actions */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between md:border-b md:border-[var(--border)] md:pb-4">
+        {/* Top Row: Page Title + Subtitle + Primary Actions */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[var(--border)] pb-3.5 md:pb-4">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 md:hidden">
-              <span className="text-xs font-semibold text-[var(--text-secondary)]">
-                Tổng giá trị danh mục
-              </span>
-              {data.summary.savings.dueSoonCount > 0 && (
-                <Badge variant="warning">
-                  {data.summary.savings.dueSoonCount} sổ sắp đáo hạn
-                </Badge>
-              )}
-            </div>
-
-            <div className="hidden items-center gap-2.5 md:flex">
-              <h1 className="text-lg font-semibold text-[var(--foreground)]">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-base font-semibold text-[var(--foreground)] md:text-lg">
                 Sổ tiết kiệm & Đầu tư
               </h1>
               {data.summary.savings.dueSoonCount > 0 && (
@@ -444,28 +436,10 @@ export function InvestmentsManager({
                 </Badge>
               )}
             </div>
-            <p className="mt-0.5 hidden text-xs text-[var(--text-secondary)] md:block">
-              Quản lý tích sản vàng vật chất, sổ tiết kiệm ngân hàng và lợi
-              nhuận định giá thực tế.
+            <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+              Theo dõi vàng tích sản, sổ tiết kiệm ngân hàng và lời/lỗ thực tế
+              theo giá thị trường hôm nay.
             </p>
-
-            <div className="mt-1 flex flex-wrap items-baseline gap-2 md:hidden">
-              <strong className="text-2xl font-bold tracking-tight tabular-nums text-[var(--foreground)]">
-                {displayMoney(data.summary.totalPortfolioMarketValue)}
-              </strong>
-              <span
-                className={cn(
-                  "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
-                  unrealizedPortfolioDecimal.gt(0)
-                    ? "bg-[color-mix(in_srgb,var(--income)_12%,var(--surface))] text-[var(--income)]"
-                    : unrealizedPortfolioDecimal.lt(0)
-                      ? "bg-[color-mix(in_srgb,var(--expense)_12%,var(--surface))] text-[var(--expense)]"
-                      : "bg-[var(--surface-secondary)] text-[var(--text-secondary)]",
-                )}
-              >
-                {formatSignedMoney(data.summary.totalPortfolioUnrealizedGain)}
-              </span>
-            </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
@@ -497,8 +471,8 @@ export function InvestmentsManager({
           </div>
         </div>
 
-        {/* Bottom Symmetrical 4-Column KPI Strip */}
-        <div className="mt-3.5 grid grid-cols-2 gap-3.5 border-t border-[var(--border)] pt-3.5 md:mt-4 md:grid-cols-4 md:gap-5 md:divide-x md:divide-[var(--border)] md:border-t-0 md:pt-0">
+        {/* Bottom Symmetrical 2x2 (Mobile/Tablet) & 4-Column (Desktop) KPI Strip */}
+        <div className="mt-3.5 grid grid-cols-2 gap-3.5 md:mt-4 xl:grid-cols-4 xl:gap-5 xl:divide-x xl:divide-[var(--border)]">
           {/* Metric 1: Tổng giá trị danh mục */}
           <div className="min-w-0 space-y-1">
             <div className="flex items-center justify-between gap-2">
@@ -506,17 +480,17 @@ export function InvestmentsManager({
                 Tổng giá trị danh mục
               </span>
               <span
-                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)] md:grid"
+                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)] sm:grid"
                 aria-hidden="true"
               >
                 <Scale size={14} />
               </span>
             </div>
-            <p className="text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums md:text-2xl">
+            <p className="text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-lg xl:text-2xl">
               {displayMoney(data.summary.totalPortfolioMarketValue)}
             </p>
             <p className="text-xs leading-snug text-[var(--text-muted)]">
-              Vốn gốc:{" "}
+              Tổng tiền gốc:{" "}
               <span className="font-semibold text-[var(--text-secondary)] tabular-nums">
                 {displayMoney(data.summary.totalPortfolioCostBasis)}
               </span>
@@ -524,23 +498,23 @@ export function InvestmentsManager({
           </div>
 
           {/* Metric 2: Vàng tích sản */}
-          <div className="min-w-0 space-y-1 border-l border-[var(--border)] pl-3.5 md:border-l-0 md:pl-5">
+          <div className="min-w-0 space-y-1 border-l border-[var(--border)] pl-3.5 xl:pl-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-[var(--text-secondary)]">
-                Vàng tích sản
+                Vàng đang giữ
               </span>
               <span
-                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--warning)] md:grid"
+                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--warning)] sm:grid"
                 aria-hidden="true"
               >
                 <Coins size={14} />
               </span>
             </div>
-            <p className="text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums md:text-2xl">
+            <p className="text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-lg xl:text-2xl">
               {displayMoney(data.summary.gold.totalMarketValue)}
             </p>
             <p className="text-xs leading-snug text-[var(--text-muted)]">
-              Nắm giữ:{" "}
+              Khối lượng:{" "}
               <span className="font-semibold text-[var(--text-secondary)]">
                 {data.summary.gold.totalWeightFormatted.primary}
               </span>
@@ -548,19 +522,19 @@ export function InvestmentsManager({
           </div>
 
           {/* Metric 3: Sổ tiết kiệm đang gửi */}
-          <div className="min-w-0 space-y-1 border-t border-[var(--border)] pt-3 md:border-t-0 md:pt-0 md:pl-5">
+          <div className="min-w-0 space-y-1 border-t border-[var(--border)] pt-3 xl:border-t-0 xl:pt-0 xl:pl-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-[var(--text-secondary)]">
                 Sổ tiết kiệm đang gửi
               </span>
               <span
-                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)] md:grid"
+                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)] sm:grid"
                 aria-hidden="true"
               >
                 <Landmark size={14} />
               </span>
             </div>
-            <p className="text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums md:text-2xl">
+            <p className="text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-lg xl:text-2xl">
               {displayMoney(data.summary.savings.totalPrincipal)}
             </p>
             <p className="text-xs leading-snug text-[var(--text-muted)]">
@@ -572,13 +546,13 @@ export function InvestmentsManager({
           </div>
 
           {/* Metric 4: Lãi/Lỗ & Chốt lời */}
-          <div className="min-w-0 space-y-1 border-l border-t border-[var(--border)] pl-3.5 pt-3 md:border-l-0 md:border-t-0 md:pl-5 md:pt-0">
+          <div className="min-w-0 space-y-1 border-l border-t border-[var(--border)] pl-3.5 pt-3 xl:border-t-0 xl:pl-5 xl:pt-0">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-[var(--text-secondary)]">
-                Lãi tạm tính hiện tại
+                Lời / Lỗ tạm tính
               </span>
               <span
-                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--income)] md:grid"
+                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--income)] sm:grid"
                 aria-hidden="true"
               >
                 <TrendingUp size={14} />
@@ -586,7 +560,7 @@ export function InvestmentsManager({
             </div>
             <p
               className={cn(
-                "text-base font-bold tracking-tight tabular-nums md:text-2xl",
+                "text-base font-bold tracking-tight tabular-nums sm:text-lg xl:text-2xl",
                 unrealizedPortfolioDecimal.gt(0)
                   ? "text-[var(--income)]"
                   : unrealizedPortfolioDecimal.lt(0)
@@ -597,7 +571,7 @@ export function InvestmentsManager({
               {formatSignedMoney(data.summary.totalPortfolioUnrealizedGain)}
             </p>
             <p className="text-xs leading-snug text-[var(--text-muted)]">
-              Đã chốt:{" "}
+              Đã thu về ví:{" "}
               <span
                 className={cn(
                   "font-semibold tabular-nums",
@@ -725,12 +699,12 @@ export function InvestmentsManager({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--foreground)]">
                   <Sparkles className="size-3.5 text-[var(--warning)]" />
-                  Giá vàng niêm yết tham chiếu
+                  Bảng giá vàng hôm nay
                 </span>
                 <span className="hidden text-xs text-[var(--text-muted)] sm:inline">
-                  · Định giá theo{" "}
+                  · Tạm tính lời/lỗ theo{" "}
                   <strong className="font-medium text-[var(--text-secondary)]">
-                    giá tiệm mua vào
+                    giá tiệm thu mua
                   </strong>{" "}
                   ({priceDisplayUnit === "luong" ? "VND / lượng" : "VND / chỉ"})
                 </span>
@@ -744,7 +718,7 @@ export function InvestmentsManager({
                 <span>
                   {showAllBrandQuotes
                     ? "Thu gọn"
-                    : `Tất cả (${data.quotes.length} thương hiệu)`}
+                    : `Xem tất cả (${data.quotes.length})`}
                 </span>
                 {showAllBrandQuotes ? (
                   <ChevronUp className="size-3.5" />
@@ -754,7 +728,12 @@ export function InvestmentsManager({
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+            <div
+              className={cn(
+                "grid grid-cols-2 gap-2.5",
+                showAllBrandQuotes ? "xl:grid-cols-5" : "xl:grid-cols-4",
+              )}
+            >
               {primaryQuotes.map((q) => {
                 const buyVal =
                   priceDisplayUnit === "luong"
@@ -772,9 +751,9 @@ export function InvestmentsManager({
                 return (
                   <div
                     key={q.providerCode}
-                    className="flex flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3"
+                    className="flex flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-2.5 sm:p-3"
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-1.5">
                       <span className="text-xs font-bold text-[var(--foreground)] whitespace-nowrap">
                         {meta.brand}
                       </span>
@@ -783,10 +762,27 @@ export function InvestmentsManager({
                       </Badge>
                     </div>
 
-                    <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-[var(--border)]/60 pt-2">
+                    {/* Mobile (< sm): 2 clean horizontal lines so 8-9 digit prices never wrap inside a 2-col card */}
+                    <div className="mt-2 space-y-1 border-t border-[var(--border)]/60 pt-2 sm:hidden">
+                      <div className="flex items-center justify-between gap-1 text-[11px]">
+                        <span className="text-[var(--text-muted)]">Mua vào</span>
+                        <strong className="font-bold text-[var(--income)] tabular-nums">
+                          {rawFormatAmount(buyVal)}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between gap-1 text-[11px]">
+                        <span className="text-[var(--text-muted)]">Bán ra</span>
+                        <strong className="font-bold text-[var(--foreground)] tabular-nums">
+                          {rawFormatAmount(sellVal)}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Tablet & Desktop (>= sm): Side-by-side 2-column quote layout */}
+                    <div className="mt-2.5 hidden grid-cols-2 gap-2 border-t border-[var(--border)]/60 pt-2 sm:grid">
                       <div>
                         <span className="block text-[10px] text-[var(--text-muted)]">
-                          Mua vào
+                          Tiệm mua vào
                         </span>
                         <strong className="text-xs font-bold text-[var(--income)] tabular-nums md:text-sm">
                           {rawFormatAmount(buyVal)}
@@ -794,7 +790,7 @@ export function InvestmentsManager({
                       </div>
                       <div className="text-right">
                         <span className="block text-[10px] text-[var(--text-muted)]">
-                          Bán ra
+                          Tiệm bán ra
                         </span>
                         <strong className="text-xs font-bold text-[var(--foreground)] tabular-nums md:text-sm">
                           {rawFormatAmount(sellVal)}
@@ -812,15 +808,15 @@ export function InvestmentsManager({
             <Card>
               <Empty
                 icon={Coins}
-                title="Chưa có vị thế vàng tích sản"
-                description="Theo dõi vàng miếng SJC, nhẫn tròn trơn 9999 hoặc vàng mua tại tiệm địa phương. Tự động quy đổi Lượng/Chỉ/Phân, tính giá vốn bình quân (DCA) và lãi/lỗ thực thu."
+                title="Chưa có khoản vàng nào đang giữ"
+                description="Ghi lại vàng miếng SJC, nhẫn tròn trơn 9999 hoặc vàng mua tại tiệm quen để theo dõi giá mua trung bình và lời/lỗ nếu bán ra hôm nay."
                 action={
                   <Button
                     type="button"
                     onClick={() => setCreateGoldOpen(true)}
                   >
                     <Plus className="size-4" />
-                    <span>Mua & Tạo vị thế vàng đầu tiên</span>
+                    <span>Thêm khoản vàng đầu tiên</span>
                   </Button>
                 }
               />
@@ -829,18 +825,18 @@ export function InvestmentsManager({
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs text-[var(--text-secondary)]">
-                  Đang nắm giữ:{" "}
+                  Đang giữ:{" "}
                   <strong className="font-semibold text-[var(--foreground)]">
                     {data.summary.gold.totalWeightFormatted.fullText}
                   </strong>{" "}
-                  · Lãi/Lỗ tạm tính:{" "}
+                  · Lời/Lỗ tạm tính:{" "}
                   <strong
                     className={cn(
                       "font-semibold tabular-nums",
                       goldUnrealizedDecimal.gt(0)
                         ? "text-[var(--income)]"
                         : goldUnrealizedDecimal.lt(0)
-                          ? "text-[var(--expense)]"
+                           ? "text-[var(--expense)]"
                           : "text-[var(--foreground)]",
                     )}
                   >
@@ -855,11 +851,11 @@ export function InvestmentsManager({
                   className="h-8 gap-1.5 text-xs"
                 >
                   <Plus className="size-3.5" />
-                  <span>Thêm dòng vàng mới</span>
+                  <span>Thêm loại vàng mới</span>
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
                 {data.goldHoldings.map((holding) => {
                   const qtyDecimal = new Decimal(
                     holding.valuation.totalQuantityChi,
@@ -891,15 +887,15 @@ export function InvestmentsManager({
                               {holding.priceSourceMode === "auto_brand" ? (
                                 <Badge variant="default">
                                   <Sparkles className="size-2.5" />
-                                  Tự động hãng
+                                  Giá tự động
                                 </Badge>
                               ) : holding.priceSourceMode === "pegged_brand" ? (
                                 <Badge variant="income">
                                   <RefreshCw className="size-2.5" />
-                                  Theo thị trường
+                                  Theo giá chuẩn
                                 </Badge>
                               ) : (
-                                <Badge variant="secondary">Giá tự nhập</Badge>
+                                <Badge variant="secondary">Tự nhập giá</Badge>
                               )}
                             </div>
                             <h3 className="text-base font-semibold text-[var(--foreground)] break-words">
@@ -909,7 +905,7 @@ export function InvestmentsManager({
 
                           <div className="shrink-0 text-right">
                             <span className="block text-[11px] text-[var(--text-muted)]">
-                              Khối lượng
+                              Đang giữ
                             </span>
                             <strong className="text-sm font-bold text-[var(--foreground)] md:text-base">
                               {holding.weightFormatted.primary}
@@ -928,7 +924,7 @@ export function InvestmentsManager({
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <span className="block text-[11px] text-[var(--text-muted)]">
-                                Giá trị thực thu hiện tại
+                                Giá trị nếu bán hôm nay
                               </span>
                               <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums md:text-base">
                                 {displayMoney(
@@ -938,7 +934,7 @@ export function InvestmentsManager({
                             </div>
                             <div className="text-right">
                               <span className="block text-[11px] text-[var(--text-muted)]">
-                                Vốn gốc đang giữ
+                                Tổng tiền đã mua
                               </span>
                               <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums md:text-base">
                                 {displayMoney(
@@ -951,7 +947,7 @@ export function InvestmentsManager({
                           <div className="grid grid-cols-2 gap-3 border-t border-[var(--border)]/60 pt-2 text-xs">
                             <div>
                               <span className="block text-[11px] text-[var(--text-muted)]">
-                                Giá vốn bình quân
+                                Giá mua trung bình
                               </span>
                               <strong className="font-semibold text-[var(--foreground)] tabular-nums">
                                 {qtyDecimal.gt(0)
@@ -963,7 +959,7 @@ export function InvestmentsManager({
                             </div>
                             <div className="text-right">
                               <span className="block text-[11px] text-[var(--text-muted)]">
-                                Giá tiệm mua vào
+                                Giá tiệm thu mua
                               </span>
                               <strong className="font-semibold text-[var(--income)] tabular-nums">
                                 {formatGoldUnitPrice(
@@ -976,7 +972,7 @@ export function InvestmentsManager({
                           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)]/60 pt-2 text-xs">
                             <div className="flex items-center gap-1.5">
                               <span className="text-[11px] text-[var(--text-muted)]">
-                                Lãi/Lỗ tạm tính:
+                                Lời / Lỗ tạm tính:
                               </span>
                               <strong
                                 className={cn(
@@ -996,31 +992,34 @@ export function InvestmentsManager({
                               </strong>
                             </div>
 
-                            {holding.priceSourceMode !== "auto_brand" ? (
-                              <button
-                                type="button"
-                                onClick={() => setSettingsHolding(holding)}
-                                className="text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
-                              >
-                                Khớp giá tiệm
-                              </button>
-                            ) : !realizedDecimal.isZero() ? (
-                              <span className="text-[11px] text-[var(--text-muted)]">
-                                Đã chốt:{" "}
-                                <strong
-                                  className={cn(
-                                    "font-semibold tabular-nums",
-                                    realizedDecimal.gt(0)
-                                      ? "text-[var(--income)]"
-                                      : "text-[var(--expense)]",
-                                  )}
+                            <div className="flex flex-wrap items-center gap-2.5">
+                              {!realizedDecimal.isZero() && (
+                                <span className="text-[11px] text-[var(--text-muted)]">
+                                  Đã chốt:{" "}
+                                  <strong
+                                    className={cn(
+                                      "font-semibold tabular-nums",
+                                      realizedDecimal.gt(0)
+                                        ? "text-[var(--income)]"
+                                        : "text-[var(--expense)]",
+                                    )}
+                                  >
+                                    {formatSignedMoney(
+                                      holding.valuation.realizedProfitAmount,
+                                    )}
+                                  </strong>
+                                </span>
+                              )}
+                              {holding.priceSourceMode !== "auto_brand" && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSettingsHolding(holding)}
+                                  className="text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
                                 >
-                                  {formatSignedMoney(
-                                    holding.valuation.realizedProfitAmount,
-                                  )}
-                                </strong>
-                              </span>
-                            ) : null}
+                                  Cập nhật giá tiệm
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1042,7 +1041,10 @@ export function InvestmentsManager({
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => setSellHolding(holding)}
+                              onClick={() => {
+                                setSellPreselectedLotId(null);
+                                setSellHolding(holding);
+                              }}
                               className="h-8 gap-1 text-xs"
                             >
                               <ArrowUpRight className="size-3.5 text-[var(--income)]" />
@@ -1058,8 +1060,8 @@ export function InvestmentsManager({
                             size="icon"
                             onClick={() => setSettingsHolding(holding)}
                             className="size-8 text-[var(--text-secondary)]"
-                            title="Cài đặt nguồn giá & thông tin"
-                            aria-label="Cài đặt nguồn giá"
+                            title="Cài đặt giá & thông tin"
+                            aria-label="Cài đặt giá & thông tin"
                           >
                             <Settings2 className="size-3.5" />
                           </Button>
@@ -1071,7 +1073,7 @@ export function InvestmentsManager({
                             className="h-8 gap-1 px-2.5 text-xs font-semibold text-[var(--primary)]"
                           >
                             <Layers className="size-3.5" />
-                            <span>Lô mua ({holding.lots.length})</span>
+                            <span>Lịch sử ({holding.lots.length})</span>
                           </Button>
                         </div>
                       </div>
@@ -1109,7 +1111,7 @@ export function InvestmentsManager({
               />
             </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
               {visibleSavings.map((deposit) => {
                 const isActive = deposit.status === "active";
                 return (
@@ -1299,20 +1301,22 @@ export function InvestmentsManager({
       </Tabs>
 
       {/* ==================== SHEET 1: TẠO VỊ THẾ VÀNG & MUA LÔ ĐẦU TIÊN ==================== */}
-      <CreateGoldHoldingSheet
-        open={createGoldOpen}
-        onOpenChange={setCreateGoldOpen}
-        wallets={data.wallets}
-        quotes={data.quotes}
-        businessDate={data.workspace.businessDate}
-        currency={currency}
-        isPending={isPending}
-        startTransition={startTransition}
-        onSuccess={() => {
-          setCreateGoldOpen(false);
-          router.refresh();
-        }}
-      />
+      {createGoldOpen && (
+        <CreateGoldHoldingSheet
+          open={createGoldOpen}
+          onOpenChange={setCreateGoldOpen}
+          wallets={data.wallets}
+          quotes={data.quotes}
+          businessDate={data.workspace.businessDate}
+          currency={currency}
+          isPending={isPending}
+          startTransition={startTransition}
+          onSuccess={() => {
+            setCreateGoldOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
 
       {/* ==================== SHEET 2: MUA THÊM VÀNG TÍCH LŨY (DCA) ==================== */}
       {buyMoreHolding && (
@@ -1336,8 +1340,14 @@ export function InvestmentsManager({
       {sellHolding && (
         <SellGoldSheet
           open={Boolean(sellHolding)}
-          onOpenChange={(open) => !open && setSellHolding(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSellHolding(null);
+              setSellPreselectedLotId(null);
+            }
+          }}
           holding={sellHolding}
+          preselectedLotId={sellPreselectedLotId}
           wallets={data.wallets}
           businessDate={data.workspace.businessDate}
           currency={currency}
@@ -1345,6 +1355,7 @@ export function InvestmentsManager({
           startTransition={startTransition}
           onSuccess={() => {
             setSellHolding(null);
+            setSellPreselectedLotId(null);
             router.refresh();
           }}
         />
@@ -1365,10 +1376,8 @@ export function InvestmentsManager({
           }}
           onSellLot={(lotId) => {
             setDetailHoldingId(null);
-            setSellHolding({
-              ...detailHolding,
-              note: `preselect_lot:${lotId}`,
-            });
+            setSellPreselectedLotId(lotId);
+            setSellHolding(detailHolding);
           }}
           onRefresh={() => router.refresh()}
         />
@@ -1391,19 +1400,21 @@ export function InvestmentsManager({
       )}
 
       {/* ==================== SHEET 6: MỞ SỔ TIẾT KIỆM NGÂN HÀNG ==================== */}
-      <CreateSavingsDepositSheet
-        open={createSavingsOpen}
-        onOpenChange={setCreateSavingsOpen}
-        wallets={data.wallets}
-        businessDate={data.workspace.businessDate}
-        currency={currency}
-        isPending={isPending}
-        startTransition={startTransition}
-        onSuccess={() => {
-          setCreateSavingsOpen(false);
-          router.refresh();
-        }}
-      />
+      {createSavingsOpen && (
+        <CreateSavingsDepositSheet
+          open={createSavingsOpen}
+          onOpenChange={setCreateSavingsOpen}
+          wallets={data.wallets}
+          businessDate={data.workspace.businessDate}
+          currency={currency}
+          isPending={isPending}
+          startTransition={startTransition}
+          onSuccess={() => {
+            setCreateSavingsOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
 
       {/* ==================== SHEET 7: TẤT TOÁN / RÚT GỐC MỘT PHẦN / TÁI TỤC SỔ TIẾT KIỆM ==================== */}
       {settleDeposit && (
@@ -1475,7 +1486,6 @@ function CreateGoldHoldingSheet({
     "auto_brand" | "pegged_brand" | "manual"
   >("auto_brand");
   const [quoteProviderCode, setQuoteProviderCode] = useState("BT9999NTT");
-  const [name, setName] = useState("BTMC Nhẫn tròn trơn 9999");
   const [brandName, setBrandName] = useState("Bảo Tín Minh Châu");
   const [productType, setProductType] = useState<
     "sjc_bar" | "ring_9999" | "jewelry_24k" | "jewelry_18k" | "other"
@@ -1486,7 +1496,7 @@ function CreateGoldHoldingSheet({
   const [storageLocation, setStorageLocation] = useState("");
   const [showOptionalDetails, setShowOptionalDetails] = useState(false);
 
-  // Lô mua đầu tiên
+  // Đợt mua đầu tiên
   const [weightUnit, setWeightUnit] = useState<GoldWeightUnit>("chi");
   const [quantityInput, setQuantityInput] = useState("1");
   const [unitPriceInput, setUnitPriceInput] = useState(() => {
@@ -1535,7 +1545,6 @@ function CreateGoldHoldingSheet({
         brandName === "DOJI"
       ) {
         setBrandName("");
-        setName("Vàng nhẫn 9999 tiệm địa phương");
       }
     }
   };
@@ -1544,7 +1553,6 @@ function CreateGoldHoldingSheet({
     setQuoteProviderCode(code);
     const matched = quotes.find((q) => q.providerCode === code);
     if (matched) {
-      setName(matched.shortLabel);
       setBrandName(matched.brandName);
       setProductType(matched.productType);
       setUnitPriceInput(
@@ -1605,11 +1613,19 @@ function CreateGoldHoldingSheet({
     ZERO,
   );
 
+  const generatedHoldingName =
+    priceSourceMode === "auto_brand"
+      ? (GOLD_BRAND_QUOTES.find((q) => q.providerCode === quoteProviderCode)
+          ?.shortLabel ?? `${GOLD_PRODUCT_TYPE_LABELS[productType]} ${brandName}`)
+      : brandName.trim()
+        ? `${GOLD_PRODUCT_TYPE_LABELS[productType]} — ${brandName.trim()}`
+        : GOLD_PRODUCT_TYPE_LABELS[productType];
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
       const res = await createGoldHoldingAction({
-        name,
+        name: generatedHoldingName,
         brandName,
         productType,
         priceSourceMode,
@@ -1642,10 +1658,10 @@ function CreateGoldHoldingSheet({
         },
       });
       if (!res.ok) {
-        toast.error(res.error ?? "Không thể tạo vị thế vàng.");
+        toast.error(res.error ?? "Không thể lưu khoản vàng.");
         return;
       }
-      toast.success(res.message ?? "Đã tạo vị thế vàng thành công.");
+      toast.success(res.message ?? "Đã lưu khoản vàng thành công.");
       onSuccess();
     });
   }
@@ -1654,15 +1670,15 @@ function CreateGoldHoldingSheet({
     <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
       <SheetHeader
         icon={Coins}
-        title="Mua & Tạo vị thế Vàng"
-        description="Tự động tính giá vốn bình quân (DCA) và cập nhật giá thị trường."
+        title="Mua / Thêm vàng tích sản"
+        description="Theo dõi giá vốn và tự động tính lời/lỗ theo giá thị trường."
       />
       <form
         onSubmit={handleSubmit}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <SheetBody>
-          {/* 1. Equal-Width 3-Column Source Mode Tabs (Matching QuickTransactionSheet & RecurringEditor) */}
+          {/* 1. Equal-Width 3-Column Source Mode Tabs */}
           <Tabs
             value={priceSourceMode}
             onValueChange={(val) =>
@@ -1675,23 +1691,23 @@ function CreateGoldHoldingSheet({
               className="grid w-full grid-cols-3"
               aria-label="Nguồn giá vàng"
             >
-              <TabsTrigger value="auto_brand" className="px-2 text-xs">
+              <TabsTrigger value="auto_brand" className="px-1.5 text-xs">
                 Thương hiệu lớn
               </TabsTrigger>
-              <TabsTrigger value="pegged_brand" className="px-2 text-xs">
+              <TabsTrigger value="pegged_brand" className="px-1.5 text-xs">
                 Tiệm địa phương
               </TabsTrigger>
-              <TabsTrigger value="manual" className="px-2 text-xs">
+              <TabsTrigger value="manual" className="px-1.5 text-xs">
                 Tự nhập giá
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
           {/* 2. Luxury Hero Card for Purchase Quantity & Price */}
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 space-y-3">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 sm:p-3.5 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-[var(--foreground)]">
-                Chi tiết đợt mua đầu tiên
+              <span className="text-xs font-semibold text-[var(--foreground)] whitespace-nowrap">
+                Số lượng & Giá mua
               </span>
               <div className="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
                 <button
@@ -1704,7 +1720,7 @@ function CreateGoldHoldingSheet({
                       : "text-[var(--text-secondary)] hover:text-[var(--foreground)]",
                   )}
                 >
-                  Đơn vị: Chỉ
+                  Theo Chỉ
                 </button>
                 <button
                   type="button"
@@ -1721,7 +1737,7 @@ function CreateGoldHoldingSheet({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-[92px_1fr] gap-2.5 sm:grid-cols-[124px_1fr] sm:gap-3">
               <Input
                 label={`Số lượng (${weightUnit === "luong" ? "Lượng" : "Chỉ"})`}
                 type="number"
@@ -1729,202 +1745,171 @@ function CreateGoldHoldingSheet({
                 min="0.01"
                 value={quantityInput}
                 onChange={(e) => setQuantityInput(e.target.value)}
+                className="text-sm font-semibold tabular-nums"
                 required
               />
               <MoneyInput
-                label={`Đơn giá mua (${weightUnit === "luong" ? "đ/lượng" : "đ/chỉ"})`}
+                label={`Giá mua (${weightUnit === "luong" ? "đ/lượng" : "đ/chỉ"})`}
                 value={unitPriceInput}
                 onValueChange={setUnitPriceInput}
+                className="pr-11 text-sm font-semibold"
               />
             </div>
 
-            <div className="flex items-center justify-between border-t border-[var(--border)] pt-2.5 text-xs">
-              <span className="text-[var(--text-secondary)]">
-                Tổng vốn ({formatGoldWeightVi(computedChi).fullText}):
+            <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 text-xs">
+              <span className="text-[var(--text-secondary)] whitespace-nowrap">
+                Thành tiền ({formatGoldWeightVi(computedChi).fullText}):
               </span>
-              <strong className="text-sm font-bold text-[var(--primary)] tabular-nums">
+              <strong className="text-sm font-bold text-[var(--primary)] tabular-nums whitespace-nowrap">
                 {formatAmount(computedTotalCost.toFixed(0), currency)}
               </strong>
             </div>
           </div>
 
-          {/* 3. Brand / Shop Configuration (Clean 1-Col or 2-Col without text wrapping) */}
+          {/* 3. Brand / Shop Configuration (Zero line wrapping on Mobile & Desktop) */}
           {priceSourceMode === "auto_brand" ? (
-            <div className="space-y-3">
-              <Select
-                label="Dòng vàng & thương hiệu niêm yết"
-                value={quoteProviderCode}
-                onValueChange={(val) => val && handleSelectAutoBrand(val)}
-                options={GOLD_BRAND_QUOTES.map((q) => ({
-                  value: q.providerCode,
-                  label: q.shortLabel,
-                  selectedContent: (
-                    <span className="flex items-center gap-2">
-                      <span className="font-medium text-[var(--foreground)]">
-                        {q.shortLabel}
-                      </span>
-                      <span className="rounded bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-                        {q.brandName}
-                      </span>
+            <Select
+              label="Thương hiệu & Loại vàng"
+              value={quoteProviderCode}
+              onValueChange={(val) => val && handleSelectAutoBrand(val)}
+              className="text-sm whitespace-nowrap"
+              options={GOLD_BRAND_QUOTES.map((q) => ({
+                value: q.providerCode,
+                label: q.shortLabel,
+                selectedContent: (
+                  <span className="flex items-center gap-2 whitespace-nowrap">
+                    <span className="font-medium text-[var(--foreground)]">
+                      {q.shortLabel}
                     </span>
-                  ),
-                  content: (
-                    <div className="flex w-full items-center justify-between gap-2">
-                      <span className="font-medium text-[var(--foreground)]">
-                        {q.shortLabel}
-                      </span>
-                      <span className="shrink-0 rounded bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
-                        {q.brandName}
-                      </span>
-                    </div>
-                  ),
-                }))}
-              />
-
-              <Input
-                label="Tên hiển thị vị thế vàng"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="VD: Vàng nhẫn tròn trơn 9999 BTMC"
-                required
-              />
-            </div>
+                    <span className="rounded bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+                      {q.brandName}
+                    </span>
+                  </span>
+                ),
+                content: (
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <span className="font-medium text-[var(--foreground)]">
+                      {q.shortLabel}
+                    </span>
+                    <span className="shrink-0 rounded bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+                      {q.brandName}
+                    </span>
+                  </div>
+                ),
+              }))}
+            />
           ) : priceSourceMode === "pegged_brand" ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2.5 sm:space-y-3">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                 <Input
-                  label="Tên tiệm vàng địa phương"
+                  label="Tên tiệm vàng"
                   value={brandName}
-                  onChange={(e) => {
-                    const nextShop = e.target.value;
-                    setBrandName(nextShop);
-                    if (
-                      !name ||
-                      name.startsWith("Vàng nhẫn 9999 tiệm") ||
-                      name.includes("BTMC") ||
-                      name.includes("SJC")
-                    ) {
-                      setName(
-                        nextShop
-                          ? `Vàng ${GOLD_PRODUCT_TYPE_LABELS[productType]} — ${nextShop}`
-                          : "Vàng nhẫn 9999 tiệm địa phương",
-                      );
-                    }
-                  }}
+                  onChange={(e) => setBrandName(e.target.value)}
                   placeholder="VD: Kim Phát..."
+                  className="text-sm"
                   required
                 />
                 <Select
-                  label="Loại sản phẩm vàng"
+                  label="Loại vàng"
                   value={productType}
                   onValueChange={(val) =>
                     val &&
                     handleChangeLocalProductType(val as typeof productType)
                   }
+                  className="text-sm whitespace-nowrap"
                   options={GOLD_PRODUCT_TYPE_OPTIONS}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                 <Select
-                  label="Chuẩn giá tham chiếu"
+                  label="Theo giá vàng vùng"
                   value={quoteProviderCode}
                   onValueChange={(val) => val && setQuoteProviderCode(val)}
+                  className="text-sm whitespace-nowrap"
                   options={[
                     {
                       value: "SJ9999",
-                      label: "Nhẫn SJC 9999 (Miền Nam)",
-                      selectedContent: "Nhẫn SJC 9999",
+                      label: "Miền Nam (Nhẫn SJC 9999)",
+                      selectedContent: "Miền Nam · SJC",
                     },
                     {
                       value: "BT9999NTT",
-                      label: "Nhẫn BTMC 9999 (Miền Bắc)",
-                      selectedContent: "Nhẫn BTMC 9999",
+                      label: "Miền Bắc (Nhẫn BTMC 9999)",
+                      selectedContent: "Miền Bắc · BTMC",
                     },
                   ]}
                 />
 
                 <MoneyInput
-                  label="Chênh lệch tiệm mua vào"
+                  label="Tiệm mua thấp hơn"
                   value={localShopSpreadPerChi}
                   onValueChange={setLocalShopSpreadPerChi}
                   placeholder="150.000"
+                  className="pr-11 text-sm"
                 />
               </div>
 
-              <Input
-                label="Tên hiển thị vị thế vàng"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="VD: Vàng nhẫn 9999 — Kim Phát"
-                required
-              />
-
-              <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5 text-xs">
-                <span className="text-[var(--text-secondary)]">
-                  Giá tiệm thu mua ước tính (trừ{" "}
-                  <strong className="text-[var(--foreground)]">
-                    {rawFormatAmount(parsedLocalSpreadPerChi.toFixed(0))}đ/chỉ
-                  </strong>
-                  ):
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3 py-2 text-xs">
+                <span className="text-[var(--text-secondary)] whitespace-nowrap">
+                  Giá tiệm thu mua dự kiến:
                 </span>
-                <strong className="font-bold text-[var(--income)] tabular-nums">
-                  {formatAmount(peggedShopBuyPerChi.toFixed(0), currency)}/chỉ
+                <strong className="font-bold text-[var(--income)] tabular-nums whitespace-nowrap">
+                  {rawFormatAmount(peggedShopBuyPerChi.toFixed(0))} đ/chỉ
                 </strong>
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2.5 sm:space-y-3">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                 <Input
                   label="Tên tiệm / Thương hiệu"
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
                   placeholder="VD: Kim Phát..."
+                  className="text-sm"
                   required
                 />
                 <Select
-                  label="Loại sản phẩm vàng"
+                  label="Loại vàng"
                   value={productType}
                   onValueChange={(val) =>
                     val && setProductType(val as typeof productType)
                   }
+                  className="text-sm whitespace-nowrap"
                   options={GOLD_PRODUCT_TYPE_OPTIONS}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                 <MoneyInput
                   label="Giá tiệm mua vào (đ/chỉ)"
                   value={manualBuybackPrice}
                   onValueChange={setManualBuybackPrice}
+                  className="pr-11 text-sm"
                 />
                 <MoneyInput
                   label="Giá tiệm bán ra (đ/chỉ)"
                   value={manualSellPrice}
                   onValueChange={setManualSellPrice}
+                  className="pr-11 text-sm"
                 />
               </div>
-              <Input
-                label="Tên hiển thị vị thế vàng"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="VD: Vàng nhẫn tròn trơn 9999"
-                required
-              />
             </div>
           )}
 
           {/* 4. Symmetrical 2-Column Date & Funding Source */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <DatePicker
               label="Ngày mua"
               value={purchaseDate}
               onValueChange={(val: string) => val && setPurchaseDate(val)}
+              className="text-sm whitespace-nowrap"
             />
             <Select
               label="Nguồn tiền thanh toán"
               value={fundingSelection}
               onValueChange={(val) => val && setFundingSelection(val)}
+              className="text-sm whitespace-nowrap"
               options={buildFundingSourceOptions(
                 wallets,
                 currency,
@@ -1949,17 +1934,19 @@ function CreateGoldHoldingSheet({
             </button>
 
             {showOptionalDetails && (
-              <div className="mt-3 grid grid-cols-2 gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3.5">
+              <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3">
                 <MoneyInput
-                  label="Tiền công / Phí chế tác"
+                  label="Tiền công / Phí"
                   value={craftingFee}
                   onValueChange={setCraftingFee}
+                  className="pr-11 text-sm"
                 />
                 <Input
                   label="Số seri / Hóa đơn"
                   value={invoiceOrSerial}
                   onChange={(e) => setInvoiceOrSerial(e.target.value)}
                   placeholder="VD: Seri SJC / Mã vỉ..."
+                  className="text-sm"
                 />
                 <Input
                   wrapperClassName="col-span-2"
@@ -1967,6 +1954,7 @@ function CreateGoldHoldingSheet({
                   value={storageLocation}
                   onChange={(e) => setStorageLocation(e.target.value)}
                   placeholder="VD: Két sắt gia đình..."
+                  className="text-sm"
                 />
               </div>
             )}
@@ -1975,7 +1963,7 @@ function CreateGoldHoldingSheet({
         <SheetFooter
           onCancel={() => onOpenChange(false)}
           cancelLabel="Hủy"
-          submitLabel="Lưu vị thế vàng"
+          submitLabel="Lưu khoản vàng"
           isSubmitting={isPending}
           submittingLabel="Đang lưu..."
         />
@@ -2087,18 +2075,18 @@ function AddGoldLotSheet({
     <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
       <SheetHeader
         icon={Plus}
-        title={`Mua thêm tích lũy — ${holding.name}`}
-        description="Tự động cập nhật tổng khối lượng và tính lại giá vốn bình quân (DCA)."
+        title={`Mua thêm vàng — ${holding.name}`}
+        description="Tự động cộng thêm số vàng và tính lại giá mua trung bình."
       />
       <form
         onSubmit={handleSubmit}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <SheetBody>
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 space-y-3">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 sm:p-3.5 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-[var(--foreground)]">
-                Khối lượng & Đơn giá mua
+              <span className="text-xs font-semibold text-[var(--foreground)] whitespace-nowrap">
+                Số lượng & Giá mua
               </span>
               <div className="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
                 <button
@@ -2111,7 +2099,7 @@ function AddGoldLotSheet({
                       : "text-[var(--text-secondary)] hover:text-[var(--foreground)]",
                   )}
                 >
-                  Đơn vị: Chỉ
+                  Theo Chỉ
                 </button>
                 <button
                   type="button"
@@ -2128,7 +2116,7 @@ function AddGoldLotSheet({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-[92px_1fr] gap-2.5 sm:grid-cols-[124px_1fr] sm:gap-3">
               <Input
                 label={`Số lượng (${weightUnit === "luong" ? "Lượng" : "Chỉ"})`}
                 type="number"
@@ -2136,35 +2124,39 @@ function AddGoldLotSheet({
                 min="0.01"
                 value={quantityInput}
                 onChange={(e) => setQuantityInput(e.target.value)}
+                className="text-sm font-semibold tabular-nums"
                 required
               />
               <MoneyInput
-                label={`Đơn giá mua (${weightUnit === "luong" ? "đ/lượng" : "đ/chỉ"})`}
+                label={`Giá mua (${weightUnit === "luong" ? "đ/lượng" : "đ/chỉ"})`}
                 value={unitPriceInput}
                 onValueChange={setUnitPriceInput}
+                className="pr-11 text-sm font-semibold"
               />
             </div>
 
-            <div className="flex items-center justify-between border-t border-[var(--border)] pt-2.5 text-xs">
-              <span className="text-[var(--text-secondary)]">
-                Thanh toán đợt này ({formatGoldWeightVi(computedChi).fullText}):
+            <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 text-xs">
+              <span className="text-[var(--text-secondary)] whitespace-nowrap">
+                Thành tiền ({formatGoldWeightVi(computedChi).fullText}):
               </span>
-              <strong className="text-sm font-bold text-[var(--primary)] tabular-nums">
+              <strong className="text-sm font-bold text-[var(--primary)] tabular-nums whitespace-nowrap">
                 {formatAmount(computedTotalCost.toFixed(0), currency)}
               </strong>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <DatePicker
               label="Ngày mua"
               value={purchaseDate}
               onValueChange={(val: string) => val && setPurchaseDate(val)}
+              className="text-sm whitespace-nowrap"
             />
             <Select
               label="Nguồn tiền thanh toán"
               value={fundingSelection}
               onValueChange={(val) => val && setFundingSelection(val)}
+              className="text-sm whitespace-nowrap"
               options={buildFundingSourceOptions(
                 wallets,
                 currency,
@@ -2188,17 +2180,19 @@ function AddGoldLotSheet({
             </button>
 
             {showOptional && (
-              <div className="mt-3 grid grid-cols-2 gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3.5">
+              <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3">
                 <MoneyInput
                   label="Tiền công / Phí"
                   value={craftingFee}
                   onValueChange={setCraftingFee}
+                  className="pr-11 text-sm"
                 />
                 <Input
                   label="Số seri / Hóa đơn"
                   value={invoiceOrSerial}
                   onChange={(e) => setInvoiceOrSerial(e.target.value)}
                   placeholder="VD: Seri miếng / Mã vỉ..."
+                  className="text-sm"
                 />
                 <Input
                   wrapperClassName="col-span-2"
@@ -2206,16 +2200,17 @@ function AddGoldLotSheet({
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="VD: Mua tích sản..."
+                  className="text-sm"
                 />
               </div>
             )}
           </div>
 
           {/* DCA Summary */}
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3.5 space-y-1.5 text-xs">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3 space-y-1.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-[var(--text-secondary)]">
-                Tổng vàng nắm giữ sau mua:
+                Tổng số vàng sau khi mua:
               </span>
               <strong className="font-semibold text-[var(--foreground)]">
                 {formatGoldWeightVi(nextTotalChi).fullText}
@@ -2223,7 +2218,7 @@ function AddGoldLotSheet({
             </div>
             <div className="flex items-center justify-between border-t border-[var(--border)]/60 pt-1.5">
               <span className="text-[var(--text-secondary)]">
-                Giá vốn bình quân mới (DCA):
+                Giá mua trung bình mới:
               </span>
               <strong className="font-bold text-[var(--primary)] tabular-nums">
                 {formatAmount(nextAvgCostPerChi.toFixed(0), currency)}/chỉ
@@ -2247,6 +2242,7 @@ function SellGoldSheet({
   open,
   onOpenChange,
   holding,
+  preselectedLotId = null,
   wallets,
   businessDate,
   currency,
@@ -2257,6 +2253,7 @@ function SellGoldSheet({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   holding: GoldHoldingItem;
+  preselectedLotId?: string | null;
   wallets: InvestmentsOverviewData["wallets"];
   businessDate: string;
   currency: string;
@@ -2264,9 +2261,6 @@ function SellGoldSheet({
   startTransition: React.TransitionStartFunction;
   onSuccess: () => void;
 }) {
-  const preselectedLotId = holding.note?.startsWith("preselect_lot:")
-    ? holding.note.replace("preselect_lot:", "")
-    : null;
   const openLots = useMemo(
     () =>
       holding.lots.filter((l) => new Decimal(l.remainingQuantityChi).gt(0)),
@@ -2308,6 +2302,31 @@ function SellGoldSheet({
     return new Decimal(holding.valuation.totalQuantityChi);
   }, [costMode, openLots, purchaseLotId, holding.valuation.totalQuantityChi]);
 
+  const handleChangeCostMode = (nextMode: "average_cost" | "specific_lot") => {
+    setCostMode(nextMode);
+    if (nextMode === "specific_lot") {
+      const targetId = purchaseLotId || openLots[0]?.id || "";
+      if (targetId && targetId !== purchaseLotId) {
+        setPurchaseLotId(targetId);
+      }
+      const lot = openLots.find((l) => l.id === targetId);
+      if (lot) {
+        const remChi = new Decimal(lot.remainingQuantityChi);
+        const currentChi = convertGoldWeightToChi(
+          quantityInput || "0",
+          weightUnit,
+        );
+        if (currentChi.lte(0) || currentChi.gt(remChi)) {
+          setQuantityInput(
+            weightUnit === "luong"
+              ? remChi.div(TEN).toNumber().toString()
+              : remChi.toNumber().toString(),
+          );
+        }
+      }
+    }
+  };
+
   const handleToggleWeightUnit = (nextUnit: GoldWeightUnit) => {
     if (nextUnit === weightUnit) return;
     const currentPrice = new Decimal(sellPriceInput || "0");
@@ -2335,9 +2354,9 @@ function SellGoldSheet({
     weightUnit,
   );
 
-  const preview = useMemo(() => {
+  const previewResult = useMemo(() => {
     try {
-      return allocateGoldSaleCostBasis({
+      const data = allocateGoldSaleCostBasis({
         costMode,
         sellQuantityChi: sellChi,
         sellPricePerChi,
@@ -2351,8 +2370,15 @@ function SellGoldSheet({
         })),
         targetLotId: costMode === "specific_lot" ? purchaseLotId : null,
       });
-    } catch {
-      return null;
+      return { data, error: null as string | null };
+    } catch (err) {
+      return {
+        data: null,
+        error:
+          err instanceof Error
+            ? err.message
+            : "Vui lòng kiểm tra lại số lượng và giá bán.",
+      };
     }
   }, [
     costMode,
@@ -2364,6 +2390,7 @@ function SellGoldSheet({
     openLots,
     purchaseLotId,
   ]);
+  const preview = previewResult.data;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -2380,7 +2407,7 @@ function SellGoldSheet({
         note,
       });
       if (!res.ok) {
-        toast.error(res.error ?? "Không thể ghi nhận lệnh bán vàng.");
+        toast.error(res.error ?? "Không thể ghi nhận giao dịch bán vàng.");
         return;
       }
       toast.success(res.message ?? "Đã bán vàng và cộng tiền vào ví.");
@@ -2392,8 +2419,8 @@ function SellGoldSheet({
     <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
       <SheetHeader
         icon={ArrowUpRight}
-        title={`Bán vàng chốt lời — ${holding.name}`}
-        description="Hỗ trợ bán một phần hoặc toàn bộ. Tiền thu về sẽ tự động cộng vào ví tài sản được chọn."
+        title={`Bán vàng — ${holding.name}`}
+        description="Tiền bán vàng sẽ tự động cộng vào ví bạn chọn."
       />
       <form
         onSubmit={handleSubmit}
@@ -2403,28 +2430,29 @@ function SellGoldSheet({
           <Tabs
             value={costMode}
             onValueChange={(val) =>
-              setCostMode(val as "average_cost" | "specific_lot")
+              handleChangeCostMode(val as "average_cost" | "specific_lot")
             }
             className="gap-0"
           >
             <TabsList
               variant="navigation"
               className="grid w-full grid-cols-2"
-              aria-label="Phương pháp tính giá vốn"
+              aria-label="Cách tính giá mua"
             >
               <TabsTrigger value="average_cost" className="px-2 text-xs">
-                Giá vốn bình quân
+                Tính theo giá trung bình
               </TabsTrigger>
               <TabsTrigger value="specific_lot" className="px-2 text-xs">
-                Bán đích danh theo Lô
+                Chọn đợt mua cụ thể
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
           {costMode === "specific_lot" && (
             <Select
-              label="Chọn lô vàng cụ thể muốn bán"
+              label="Chọn đợt mua muốn bán"
               value={purchaseLotId}
+              className="text-sm whitespace-nowrap"
               onValueChange={(val) => {
                 if (!val) return;
                 setPurchaseLotId(val);
@@ -2441,16 +2469,15 @@ function SellGoldSheet({
               options={openLots.map((lot) => ({
                 value: lot.id,
                 label: `Ngày ${formatShortViDate(lot.purchaseDate)} · Còn ${lot.remainingFormatted.primary}`,
-                selectedContent: `Lô ngày ${formatShortViDate(lot.purchaseDate)} (Còn ${lot.remainingFormatted.primary})`,
+                selectedContent: `Đợt ${formatShortViDate(lot.purchaseDate)} (Còn ${lot.remainingFormatted.primary})`,
               }))}
             />
           )}
 
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 space-y-3">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 sm:p-3.5 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-[var(--foreground)]">
-                Khối lượng & Giá bán (Tối đa:{" "}
-                {formatGoldWeightVi(maxSellableChi).primary})
+              <span className="text-xs font-semibold text-[var(--foreground)] whitespace-nowrap">
+                Tối đa: {formatGoldWeightVi(maxSellableChi).primary}
               </span>
               <div className="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
                 <button
@@ -2480,29 +2507,32 @@ function SellGoldSheet({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-[92px_1fr] gap-2.5 sm:grid-cols-[124px_1fr] sm:gap-3">
               <Input
-                label={`Số lượng bán (${weightUnit === "luong" ? "Lượng" : "Chỉ"})`}
+                label={`Số lượng (${weightUnit === "luong" ? "Lượng" : "Chỉ"})`}
                 type="number"
                 step="0.01"
                 min="0.01"
                 value={quantityInput}
                 onChange={(e) => setQuantityInput(e.target.value)}
+                className="text-sm font-semibold tabular-nums"
                 required
               />
               <MoneyInput
-                label={`Giá tiệm mua vào (${weightUnit === "luong" ? "đ/lượng" : "đ/chỉ"})`}
+                label={`Giá bán (${weightUnit === "luong" ? "đ/lượng" : "đ/chỉ"})`}
                 value={sellPriceInput}
                 onValueChange={setSellPriceInput}
+                className="pr-11 text-sm font-semibold"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <Select
-              label="Ví tài sản nhận tiền"
+              label="Ví nhận tiền"
               value={destinationWalletId}
               onValueChange={(val) => val && setDestinationWalletId(val)}
+              className="text-sm whitespace-nowrap"
               options={wallets.map((w) => ({
                 value: w.id,
                 label: w.name,
@@ -2523,25 +2553,28 @@ function SellGoldSheet({
               label="Ngày bán"
               value={saleDate}
               onValueChange={(val: string) => val && setSaleDate(val)}
+              className="text-sm whitespace-nowrap"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <MoneyInput
               label="Phí trừ hao / Kiểm định"
               value={feeOrDeduction}
               onValueChange={setFeeOrDeduction}
+              className="pr-11 text-sm"
             />
             <Input
               label="Ghi chú (Tùy chọn)"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="VD: Chốt lời 2 chỉ..."
+              placeholder="VD: Bán 2 chỉ..."
+              className="text-sm"
             />
           </div>
 
-          {preview && (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3.5 space-y-1.5 text-xs">
+          {preview ? (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3 space-y-1.5 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-[var(--text-secondary)]">
                   Số tiền thực nhận về ví:
@@ -2552,7 +2585,7 @@ function SellGoldSheet({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[var(--text-secondary)]">
-                  Giá vốn của phần vàng bán:
+                  Tiền vốn lúc mua:
                 </span>
                 <span className="font-semibold text-[var(--text-secondary)] tabular-nums">
                   {formatAmount(
@@ -2563,7 +2596,7 @@ function SellGoldSheet({
               </div>
               <div className="flex items-center justify-between border-t border-[var(--border)]/60 pt-1.5">
                 <span className="font-semibold text-[var(--foreground)]">
-                  Lãi / Lỗ chốt thực tế:
+                  Lời / Lỗ thực tế:
                 </span>
                 <strong
                   className={cn(
@@ -2582,6 +2615,10 @@ function SellGoldSheet({
                   )}
                 </strong>
               </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-[var(--expense)]/35 bg-[var(--expense)]/8 px-3.5 py-2.5 text-xs font-medium text-[var(--expense)]">
+              {previewResult.error}
             </div>
           )}
         </SheetBody>
@@ -2625,10 +2662,10 @@ function GoldHoldingDetailSheet({
     startTransition(async () => {
       const res = await deleteGoldPurchaseLotAction(lotId);
       if (!res.ok) {
-        toast.error(res.error ?? "Không thể xóa lô vàng.");
+        toast.error(res.error ?? "Không thể xóa đợt mua vàng.");
         return;
       }
-      toast.success(res.message ?? "Đã xóa lô vàng.");
+      toast.success(res.message ?? "Đã xóa đợt mua vàng.");
       onRefresh();
     });
   }
@@ -2637,10 +2674,10 @@ function GoldHoldingDetailSheet({
     startTransition(async () => {
       const res = await deleteGoldHoldingAction(holding.id);
       if (!res.ok) {
-        toast.error(res.error ?? "Không thể xóa vị thế vàng.");
+        toast.error(res.error ?? "Không thể xóa khoản vàng.");
         return;
       }
-      toast.success(res.message ?? "Đã xóa vị thế vàng.");
+      toast.success(res.message ?? "Đã xóa khoản vàng.");
       onOpenChange(false);
       onRefresh();
     });
@@ -2650,15 +2687,15 @@ function GoldHoldingDetailSheet({
     <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
       <SheetHeader
         icon={Layers}
-        title="Sổ các đợt Mua (DCA) & Lịch sử Bán"
+        title="Lịch sử Mua & Bán vàng"
         description={`${holding.name} · Đang giữ: ${holding.weightFormatted.fullText}`}
       />
       <SheetBody>
-        {/* Danh sách các lô mua */}
+        {/* Danh sách các đợt mua */}
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-semibold text-[var(--text-secondary)]">
-              Các lô đã mua ({holding.lots.length})
+              Các đợt đã mua ({holding.lots.length})
             </h4>
             <Button
               type="button"
@@ -2701,7 +2738,7 @@ function GoldHoldingDetailSheet({
                       Giá mua: {formatAmount(lot.unitPricePerChi, currency)}/chỉ
                     </span>
                     <span className="text-right font-semibold text-[var(--foreground)] tabular-nums">
-                      Tổng vốn: {formatAmount(lot.totalCostAmount, currency)}
+                      Thành tiền: {formatAmount(lot.totalCostAmount, currency)}
                     </span>
                     {Number(lot.craftingFeeAmount) > 0 && (
                       <span>
@@ -2730,7 +2767,7 @@ function GoldHoldingDetailSheet({
                         onClick={() => onSellLot(lot.id)}
                         className="text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
                       >
-                        Bán đích danh lô này
+                        Bán từ đợt này
                       </button>
                     )}
                     {lot.canDelete && (
@@ -2741,7 +2778,7 @@ function GoldHoldingDetailSheet({
                         className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--expense)] hover:underline cursor-pointer"
                       >
                         <Trash2 className="size-3" />
-                        <span>Xóa lô</span>
+                        <span>Xóa đợt mua</span>
                       </button>
                     )}
                   </div>
@@ -2755,7 +2792,7 @@ function GoldHoldingDetailSheet({
         {holding.sales.length > 0 && (
           <div className="space-y-2 border-t border-[var(--border)] pt-3">
             <h4 className="text-xs font-semibold text-[var(--text-secondary)]">
-              Lịch sử bán chốt lời ({holding.sales.length})
+              Lịch sử bán vàng ({holding.sales.length})
             </h4>
             <div className="space-y-2">
               {holding.sales.map((sale) => {
@@ -2780,7 +2817,7 @@ function GoldHoldingDetailSheet({
                               : "text-[var(--foreground)]",
                         )}
                       >
-                        Lãi/Lỗ: {profit.gt(0) ? "+" : ""}
+                        Lời/Lỗ: {profit.gt(0) ? "+" : ""}
                         {formatAmount(sale.realizedProfitAmount, currency)}
                       </strong>
                     </div>
@@ -2790,7 +2827,7 @@ function GoldHoldingDetailSheet({
                         /chỉ · Về ví: {sale.destinationWalletName}
                       </span>
                       <span className="font-semibold text-[var(--foreground)] tabular-nums">
-                        Thực thu:{" "}
+                        Thực nhận:{" "}
                         {formatAmount(sale.netProceedsAmount, currency)}
                       </span>
                     </div>
@@ -2801,7 +2838,7 @@ function GoldHoldingDetailSheet({
           </div>
         )}
 
-        {/* Xóa vị thế */}
+        {/* Xóa khoản vàng */}
         <div className="border-t border-[var(--border)] pt-3">
           {!confirmDeleteHolding ? (
             <button
@@ -2810,13 +2847,13 @@ function GoldHoldingDetailSheet({
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--expense)] hover:underline cursor-pointer"
             >
               <Trash2 className="size-3.5" />
-              <span>Xóa vị thế vàng này</span>
+              <span>Xóa khoản vàng này</span>
             </button>
           ) : (
             <div className="rounded-xl border border-[var(--expense)]/35 bg-[var(--expense)]/8 p-3 space-y-2">
               <p className="text-xs font-medium text-[var(--foreground)]">
-                Bạn chắc chắn muốn xóa vị thế vàng này? Nếu chưa có giao dịch
-                bán nào, các khoản tiền trích từ ví sẽ được hoàn lại.
+                Bạn chắc chắn muốn xóa khoản vàng này? Nếu chưa có giao dịch
+                bán nào, số tiền đã trích từ ví sẽ được hoàn lại.
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -2865,7 +2902,6 @@ function GoldHoldingSettingsSheet({
   startTransition: React.TransitionStartFunction;
   onSuccess: () => void;
 }) {
-  const [name, setName] = useState(holding.name);
   const [brandName, setBrandName] = useState(holding.brandName);
   const [priceSourceMode, setPriceSourceMode] = useState<
     "auto_brand" | "pegged_brand" | "manual"
@@ -2899,12 +2935,20 @@ function GoldHoldingSettingsSheet({
     effBenchmarkBuy,
   );
 
+  const generatedHoldingName =
+    priceSourceMode === "auto_brand"
+      ? (GOLD_BRAND_QUOTES.find((q) => q.providerCode === quoteProviderCode)
+          ?.shortLabel ?? holding.name)
+      : brandName.trim()
+        ? `${GOLD_PRODUCT_TYPE_LABELS[holding.productType]} — ${brandName.trim()}`
+        : holding.name;
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
       const res = await updateGoldHoldingSettingsAction({
         holdingId: holding.id,
-        name,
+        name: generatedHoldingName,
         brandName,
         priceSourceMode,
         quoteProviderCode:
@@ -2919,10 +2963,10 @@ function GoldHoldingSettingsSheet({
         note,
       });
       if (!res.ok) {
-        toast.error(res.error ?? "Không thể cập nhật cấu hình.");
+        toast.error(res.error ?? "Không thể cập nhật cài đặt.");
         return;
       }
-      toast.success(res.message ?? "Đã lưu cấu hình vị thế vàng.");
+      toast.success(res.message ?? "Đã lưu cài đặt khoản vàng.");
       onSuccess();
     });
   }
@@ -2931,8 +2975,8 @@ function GoldHoldingSettingsSheet({
     <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
       <SheetHeader
         icon={Settings2}
-        title="Cài đặt nguồn giá & Khớp giá tiệm"
-        description="Chọn chế độ cập nhật giá hoặc nhập giá tại tiệm hôm nay để tự động khớp độ lệch."
+        title="Cài đặt giá & Thông tin vàng"
+        description="Chọn cách cập nhật giá để tính đúng giá trị vàng của bạn."
       />
       <form
         onSubmit={handleSubmit}
@@ -2953,29 +2997,23 @@ function GoldHoldingSettingsSheet({
               className="grid w-full grid-cols-3"
               aria-label="Chế độ cập nhật giá"
             >
-              <TabsTrigger value="auto_brand" className="px-2 text-xs">
+              <TabsTrigger value="auto_brand" className="px-1.5 text-xs">
                 Thương hiệu lớn
               </TabsTrigger>
-              <TabsTrigger value="pegged_brand" className="px-2 text-xs">
+              <TabsTrigger value="pegged_brand" className="px-1.5 text-xs">
                 Tiệm địa phương
               </TabsTrigger>
-              <TabsTrigger value="manual" className="px-2 text-xs">
+              <TabsTrigger value="manual" className="px-1.5 text-xs">
                 Tự nhập giá
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
-          <Input
-            label="Tên vị thế vàng"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-
           {priceSourceMode === "auto_brand" ? (
             <Select
-              label="Thương hiệu tham chiếu tự động"
+              label="Thương hiệu & Loại vàng"
               value={quoteProviderCode}
+              className="text-sm whitespace-nowrap"
               onValueChange={(val) => {
                 if (!val) return;
                 setQuoteProviderCode(val);
@@ -2989,20 +3027,29 @@ function GoldHoldingSettingsSheet({
               }))}
             />
           ) : (
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 sm:p-3.5 space-y-2.5 sm:space-y-3">
+              <div
+                className={cn(
+                  "grid gap-2.5 sm:gap-3",
+                  priceSourceMode === "pegged_brand"
+                    ? "grid-cols-2"
+                    : "grid-cols-1",
+                )}
+              >
                 <Input
                   label="Tên tiệm vàng"
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
+                  className="text-sm"
                   required
                 />
 
                 {priceSourceMode === "pegged_brand" && (
                   <Select
-                    label="Neo theo chuẩn thị trường"
+                    label="Theo giá vàng chuẩn"
                     value={quoteProviderCode}
                     onValueChange={(val) => val && setQuoteProviderCode(val)}
+                    className="text-sm whitespace-nowrap"
                     options={GOLD_BRAND_QUOTES.map((q) => {
                       const meta = formatCompactQuoteMeta(
                         q.providerCode,
@@ -3018,44 +3065,48 @@ function GoldHoldingSettingsSheet({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                 <MoneyInput
                   label="Giá tiệm mua vào (đ/chỉ)"
                   value={manualBuybackPrice}
                   onValueChange={setManualBuybackPrice}
+                  className="pr-11 text-sm"
                 />
                 <MoneyInput
                   label="Giá tiệm bán ra (đ/chỉ)"
                   value={manualSellPrice}
                   onValueChange={setManualSellPrice}
+                  className="pr-11 text-sm"
                 />
               </div>
 
               {priceSourceMode === "pegged_brand" && (
-                <div className="flex items-center justify-between border-t border-[var(--border)] pt-2.5 text-xs">
-                  <span className="text-[var(--text-secondary)]">
-                    Độ lệch tự động ghi nhận so với {refQuote?.shortLabel ?? "giá chuẩn"}:
+                <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 text-xs">
+                  <span className="text-[var(--text-secondary)] whitespace-nowrap">
+                    Chênh lệch so với giá chuẩn:
                   </span>
-                  <strong className="font-bold text-[var(--primary)] tabular-nums">
+                  <strong className="font-bold text-[var(--primary)] tabular-nums whitespace-nowrap">
                     {computedOffset.gte(0) ? "+" : ""}
-                    {formatAmount(computedOffset.toFixed(0), "VND")}/chỉ
+                    {rawFormatAmount(computedOffset.toFixed(0))} đ/chỉ
                   </strong>
                 </div>
               )}
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <Input
               label="Nơi cất giữ / Bảo quản"
               value={storageLocation}
               onChange={(e) => setStorageLocation(e.target.value)}
               placeholder="VD: Két sắt gia đình..."
+              className="text-sm"
             />
             <Input
               label="Ghi chú"
               value={note}
               onChange={(e) => setNote(e.target.value)}
+              className="text-sm"
             />
           </div>
         </SheetBody>
@@ -3091,7 +3142,6 @@ function CreateSavingsDepositSheet({
   onSuccess: () => void;
 }) {
   const [bankName, setBankName] = useState("Vietcombank");
-  const [name, setName] = useState("Tiết kiệm tích lũy kỳ hạn 6 tháng");
   const [accountOrPassbookNumber, setAccountOrPassbookNumber] = useState("");
   const [principalAmount, setPrincipalAmount] = useState("50000000");
   const [annualInterestRate, setAnnualInterestRate] = useState("5.2");
@@ -3146,11 +3196,13 @@ function CreateSavingsDepositSheet({
     ? SAVINGS_TERM_MONTH_OPTIONS
     : PRIMARY_TERM_MONTHS;
 
+  const generatedSavingsName = `Tiết kiệm ${bankName} kỳ hạn ${termMonths} tháng`;
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
       const res = await createSavingsDepositAction({
-        name,
+        name: generatedSavingsName,
         bankName,
         accountOrPassbookNumber,
         fundingMode,
@@ -3179,7 +3231,7 @@ function CreateSavingsDepositSheet({
       <SheetHeader
         icon={Landmark}
         title="Mở Sổ Tiết Kiệm Ngân Hàng"
-        description="Tự động tính ngày đáo hạn, lãi tích lũy hàng ngày theo chuẩn 365 ngày/năm."
+        description="Theo dõi ngày đáo hạn và lãi tích lũy tự động."
       />
       <form
         onSubmit={handleSubmit}
@@ -3187,47 +3239,54 @@ function CreateSavingsDepositSheet({
       >
         <SheetBody>
           {/* 1. Balanced Luxury Hero Card for Principal & Expected Interest */}
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-3.5">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-3 sm:px-4 sm:py-3.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-[var(--text-secondary)]">
-                Số tiền gốc gửi tiết kiệm
+                Số tiền gửi tiết kiệm
               </span>
-              <Badge variant="income">
-                Lãi cuối kỳ: +
-                {formatAmount(previewMetrics.expectedMaturityInterest, currency)}
-              </Badge>
+              <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] tabular-nums whitespace-nowrap">
+                Đáo hạn {formatShortViDate(maturityDate)} · {previewMetrics.totalDays} ngày
+              </span>
             </div>
 
             <div className="mt-1">
               <MoneyInput
-                wrapperClassName="w-full"
-                className="h-10 rounded-none border-0! bg-transparent! pl-0 pr-12 text-left text-2xl font-bold tracking-tight text-[var(--foreground)] ring-0! focus-visible:border-0! focus-visible:ring-0!"
+                wrapperClassName="w-full [&_[data-slot=money-input-currency]]:right-0 [&_[data-slot=money-input-currency]]:font-semibold"
+                className="h-9 rounded-none border-0! bg-transparent! pl-0 pr-11 text-left text-2xl font-bold tracking-tight text-[var(--foreground)] ring-0! focus-visible:border-0! focus-visible:ring-0!"
                 value={principalAmount}
                 onValueChange={setPrincipalAmount}
                 placeholder="0"
-                aria-label="Số tiền gốc gửi tiết kiệm"
+                aria-label="Số tiền gửi tiết kiệm"
               />
             </div>
 
-            <div className="mt-2 flex items-center justify-between border-t border-[var(--border)] pt-2 text-xs">
-              <span className="text-[var(--text-muted)]">
-                Đáo hạn {formatShortViDate(maturityDate)} ({previewMetrics.totalDays} ngày)
-              </span>
-              <span className="font-semibold text-[var(--foreground)] tabular-nums">
-                Gốc + lãi:{" "}
-                <strong className="text-[var(--primary)]">
+            <div className="mt-2 grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-2.5">
+              <div>
+                <span className="block text-[11px] text-[var(--text-muted)]">
+                  Tiền lãi cuối kỳ
+                </span>
+                <strong className="mt-0.5 block text-xs sm:text-sm font-bold text-[var(--income)] tabular-nums whitespace-nowrap">
+                  +{formatAmount(previewMetrics.expectedMaturityInterest, currency)}
+                </strong>
+              </div>
+              <div className="border-l border-[var(--border)] pl-3 text-right">
+                <span className="block text-[11px] text-[var(--text-muted)]">
+                  Tổng nhận đáo hạn
+                </span>
+                <strong className="mt-0.5 block text-xs sm:text-sm font-bold text-[var(--primary)] tabular-nums whitespace-nowrap">
                   {formatAmount(previewMetrics.expectedTotalAtMaturity, currency)}
                 </strong>
-              </span>
+              </div>
             </div>
           </div>
 
           {/* 2. Symmetrical 2-Column Bank & Interest Rate */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <Select
               label="Ngân hàng gửi"
               value={bankName}
               onValueChange={(val) => val && setBankName(val)}
+              className="text-sm whitespace-nowrap"
               options={POPULAR_VIETNAM_BANKS.map((bank) => ({
                 value: bank,
                 label: bank,
@@ -3239,9 +3298,9 @@ function CreateSavingsDepositSheet({
               step="0.05"
               min="0.1"
               max="30"
+              className="text-sm font-semibold"
               value={annualInterestRate}
               onChange={(e) => setAnnualInterestRate(e.target.value)}
-              required
             />
           </div>
 
@@ -3266,12 +3325,7 @@ function CreateSavingsDepositSheet({
                   <button
                     key={m}
                     type="button"
-                    onClick={() => {
-                      setTermMonths(m);
-                      if (name.startsWith("Tiết kiệm tích lũy kỳ hạn ")) {
-                        setName(`Tiết kiệm tích lũy kỳ hạn ${m} tháng`);
-                      }
-                    }}
+                    onClick={() => setTermMonths(m)}
                     className={cn(
                       "h-9 rounded-lg border text-center text-xs font-semibold transition-colors cursor-pointer select-none",
                       active
@@ -3286,26 +3340,19 @@ function CreateSavingsDepositSheet({
             </div>
           </div>
 
-          {/* 4. Full-Width Passbook Name */}
-          <Input
-            label="Tên sổ / Mục đích tiết kiệm"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="VD: Tiết kiệm dự phòng 6 tháng"
-            required
-          />
-
           {/* 5. Symmetrical 2-Column Start Date & Funding Source */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <DatePicker
-              label="Ngày mở sổ"
+              label="Ngày gửi"
               value={startDate}
               onValueChange={(val: string) => val && setStartDate(val)}
+              className="text-sm whitespace-nowrap"
             />
             <Select
-              label="Nguồn tiền mở sổ"
+              label="Nguồn tiền gửi"
               value={fundingSelection}
               onValueChange={(val) => val && setFundingSelection(val)}
+              className="text-sm whitespace-nowrap"
               options={buildFundingSourceOptions(
                 wallets,
                 currency,
@@ -3315,51 +3362,68 @@ function CreateSavingsDepositSheet({
           </div>
 
           {/* 6. Collapsible Advanced Passbook Settings */}
-          <div className="pt-0.5">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/45">
             <button
               type="button"
               onClick={() => setShowAdvancedOptions((prev) => !prev)}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--foreground)] cursor-pointer"
+              className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-xs cursor-pointer"
             >
-              <SlidersHorizontal className="size-3.5 text-[var(--primary)]" />
-              <span>
-                {showAdvancedOptions
-                  ? "Ẩn tùy chỉnh trả lãi, đáo hạn & mã sổ"
-                  : `${SAVINGS_PAYOUT_MODE_LABELS[interestPayoutMode]} · ${SAVINGS_MATURITY_ACTION_LABELS[maturityAction]} (Tùy chỉnh)`}
+              <span className="flex items-center gap-1.5 font-medium text-[var(--text-secondary)]">
+                <SlidersHorizontal className="size-3.5 shrink-0 text-[var(--primary)]" />
+                <span>
+                  {
+                    SAVINGS_PAYOUT_OPTIONS.find(
+                      (o) => o.value === interestPayoutMode,
+                    )?.selectedContent
+                  }
+                  {" · "}
+                  {
+                    SAVINGS_MATURITY_OPTIONS.find(
+                      (o) => o.value === maturityAction,
+                    )?.selectedContent
+                  }
+                </span>
+              </span>
+              <span className="shrink-0 font-semibold text-[var(--primary)]">
+                {showAdvancedOptions ? "Thu gọn" : "Tùy chỉnh"}
               </span>
             </button>
 
             {showAdvancedOptions && (
-              <div className="mt-3 grid grid-cols-2 gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3.5">
+              <div className="grid grid-cols-2 gap-2.5 border-t border-[var(--border)] p-3 sm:gap-3">
                 <Select
-                  label="Hình thức trả lãi"
+                  label="Cách nhận lãi"
                   value={interestPayoutMode}
                   onValueChange={(val) =>
                     val &&
                     setInterestPayoutMode(val as typeof interestPayoutMode)
                   }
+                  className="text-sm whitespace-nowrap"
                   options={SAVINGS_PAYOUT_OPTIONS}
                 />
                 <Select
-                  label="Phương thức đáo hạn"
+                  label="Khi đến hạn"
                   value={maturityAction}
                   onValueChange={(val) =>
                     val && setMaturityAction(val as typeof maturityAction)
                   }
+                  className="text-sm whitespace-nowrap"
                   options={SAVINGS_MATURITY_OPTIONS}
                 />
                 <Input
-                  label="Mã sổ / Số TK (Tùy chọn)"
+                  label="Mã sổ / Số TK"
+                  className="text-sm"
                   value={accountOrPassbookNumber}
                   onChange={(e) => setAccountOrPassbookNumber(e.target.value)}
-                  placeholder="VD: 0123456789"
+                  placeholder="Không bắt buộc"
                 />
                 <Input
-                  label="Lãi không kỳ hạn (%/năm)"
+                  label="Lãi không kỳ hạn (%)"
                   type="number"
                   step="0.05"
                   min="0"
                   max="5"
+                  className="text-sm"
                   value={nonTermInterestRate}
                   onChange={(e) => setNonTermInterestRate(e.target.value)}
                 />
@@ -3431,7 +3495,13 @@ function SettleSavingsDepositSheet({
       setInterestReceived(deposit.metrics.expectedMaturityInterest);
     } else if (nextMode === "early_full") {
       setPrincipalWithdrawn(deposit.currentPrincipalAmount);
-      setInterestReceived(deposit.metrics.earlyLiquidationInterestToDate);
+      const earlyInt = calculateEarlyWithdrawalInterest({
+        withdrawnPrincipalAmount: deposit.currentPrincipalAmount,
+        nonTermInterestRate: deposit.nonTermInterestRate,
+        startDate: deposit.startDate,
+        withdrawalDate: settlementDate,
+      });
+      setInterestReceived(earlyInt.toFixed(0));
     } else if (nextMode === "early_partial") {
       const half = new Decimal(deposit.currentPrincipalAmount)
         .div(2)
@@ -3442,6 +3512,27 @@ function SettleSavingsDepositSheet({
         nonTermInterestRate: deposit.nonTermInterestRate,
         startDate: deposit.startDate,
         withdrawalDate: settlementDate,
+      });
+      setInterestReceived(earlyInt.toFixed(0));
+    }
+  };
+
+  const handleChangeSettlementDate = (nextDate: string) => {
+    setSettlementDate(nextDate);
+    if (settlementType === "early_partial") {
+      const earlyInt = calculateEarlyWithdrawalInterest({
+        withdrawnPrincipalAmount: principalWithdrawn || "0",
+        nonTermInterestRate: deposit.nonTermInterestRate,
+        startDate: deposit.startDate,
+        withdrawalDate: nextDate,
+      });
+      setInterestReceived(earlyInt.toFixed(0));
+    } else if (settlementType === "early_full") {
+      const earlyInt = calculateEarlyWithdrawalInterest({
+        withdrawnPrincipalAmount: deposit.currentPrincipalAmount,
+        nonTermInterestRate: deposit.nonTermInterestRate,
+        startDate: deposit.startDate,
+        withdrawalDate: nextDate,
       });
       setInterestReceived(earlyInt.toFixed(0));
     }
@@ -3481,11 +3572,15 @@ function SettleSavingsDepositSheet({
           : new Decimal(deposit.currentPrincipalAmount)
         ).plus(new Decimal(interestReceived || "0"));
 
+  const nextRolloverPrincipal = new Decimal(
+    deposit.currentPrincipalAmount,
+  ).plus(new Decimal(interestReceived || "0"));
+
   return (
     <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
       <SheetHeader
         icon={Check}
-        title={`Tất toán / Rút gốc / Tái tục — ${deposit.bankName}`}
+        title={`Tất toán / Rút tiền / Tái tục — ${deposit.bankName}`}
         description={`${deposit.name} · Gốc đang gửi: ${formatAmount(deposit.currentPrincipalAmount, currency)}`}
       />
       <form
@@ -3503,17 +3598,17 @@ function SettleSavingsDepositSheet({
               {
                 mode: "rollover" as const,
                 title: "Tái tục kỳ hạn mới",
-                sub: "Chuyển sang kỳ mới",
+                sub: "Gửi tiếp kỳ hạn mới",
               },
               {
                 mode: "early_partial" as const,
                 title: "Rút gốc một phần",
-                sub: "Phần còn lại giữ lãi",
+                sub: "Phần còn lại giữ nguyên lãi",
               },
               {
                 mode: "early_full" as const,
-                title: "Tất toán trước hạn",
-                sub: `Lãi KKH ${deposit.nonTermInterestRate}%/năm`,
+                title: "Rút toàn bộ trước hạn",
+                sub: `Lãi không kỳ hạn ${deposit.nonTermInterestRate}%/năm`,
               },
             ].map((item) => {
               const active = settlementType === item.mode;
@@ -3523,7 +3618,7 @@ function SettleSavingsDepositSheet({
                   type="button"
                   onClick={() => handleSelectMode(item.mode)}
                   className={cn(
-                    "rounded-xl border p-3 text-left text-xs transition-colors cursor-pointer",
+                    "rounded-xl border p-2.5 sm:p-3 text-left text-xs transition-colors cursor-pointer",
                     active
                       ? "border-[var(--primary)] bg-[var(--primary-soft)] font-semibold text-[var(--foreground)]"
                       : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--foreground)]",
@@ -3544,6 +3639,7 @@ function SettleSavingsDepositSheet({
             <div className="space-y-1.5">
               <MoneyInput
                 label="Số tiền gốc muốn rút trước hạn"
+                className="pr-11 text-sm"
                 value={principalWithdrawn}
                 onValueChange={(val) => {
                   setPrincipalWithdrawn(val);
@@ -3575,13 +3671,14 @@ function SettleSavingsDepositSheet({
           )}
 
           {settlementType === "rollover" && (
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 space-y-3">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 sm:p-3.5 space-y-2.5 sm:space-y-3">
               <Select
                 label="Hình thức tái tục"
                 value={rolloverMode}
                 onValueChange={(val) =>
                   val && setRolloverMode(val as typeof rolloverMode)
                 }
+                className="text-sm whitespace-nowrap"
                 options={[
                   {
                     value: "renew_principal_and_interest",
@@ -3593,19 +3690,21 @@ function SettleSavingsDepositSheet({
                   },
                 ]}
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                 <Input
                   label="Kỳ hạn mới (Tháng)"
                   type="number"
                   min="1"
                   max="120"
+                  className="text-sm"
                   value={newTermMonths}
                   onChange={(e) => setNewTermMonths(Number(e.target.value))}
                 />
                 <Input
-                  label="Lãi suất kỳ mới (%/năm)"
+                  label="Lãi suất mới (%/năm)"
                   type="number"
                   step="0.05"
+                  className="text-sm"
                   value={newAnnualRate}
                   onChange={(e) => setNewAnnualRate(e.target.value)}
                 />
@@ -3613,16 +3712,20 @@ function SettleSavingsDepositSheet({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <MoneyInput
-              label="Tiền lãi thực nhận kỳ này"
+              label="Tiền lãi thực nhận"
+              className="pr-11 text-sm"
               value={interestReceived}
               onValueChange={setInterestReceived}
             />
             <DatePicker
               label="Ngày thực hiện"
               value={settlementDate}
-              onValueChange={(val: string) => val && setSettlementDate(val)}
+              className="text-sm whitespace-nowrap"
+              onValueChange={(val: string) =>
+                val && handleChangeSettlementDate(val)
+              }
             />
           </div>
 
@@ -3632,6 +3735,7 @@ function SettleSavingsDepositSheet({
               label="Ví tài sản nhận tiền"
               value={destinationWalletId}
               onValueChange={(val) => val && setDestinationWalletId(val)}
+              className="text-sm whitespace-nowrap"
               options={wallets.map((w) => ({
                 value: w.id,
                 label: w.name,
@@ -3650,15 +3754,27 @@ function SettleSavingsDepositSheet({
             />
           )}
 
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3.5 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-[var(--text-secondary)]">
-                Tổng tiền chuyển về ví:
-              </span>
-              <strong className="text-sm font-bold text-[var(--income)] tabular-nums">
-                +{formatAmount(totalToWallet.toFixed(0), currency)}
-              </strong>
-            </div>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3 sm:p-3.5 text-xs">
+            {settlementType === "rollover" &&
+            rolloverMode === "renew_principal_and_interest" ? (
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-[var(--text-secondary)]">
+                  Gốc mới sau khi nhập lãi tái tục:
+                </span>
+                <strong className="text-sm font-bold text-[var(--primary)] tabular-nums whitespace-nowrap">
+                  {formatAmount(nextRolloverPrincipal.toFixed(0), currency)}
+                </strong>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-[var(--text-secondary)]">
+                  Tổng tiền chuyển về ví:
+                </span>
+                <strong className="text-sm font-bold text-[var(--income)] tabular-nums whitespace-nowrap">
+                  +{formatAmount(totalToWallet.toFixed(0), currency)}
+                </strong>
+              </div>
+            )}
           </div>
         </SheetBody>
         <SheetFooter
@@ -3770,7 +3886,10 @@ function SavingsDepositDetailSheet({
                     ({formatShortViDate(s.settlementDate)})
                   </span>
                   <span className="text-[var(--income)] tabular-nums">
-                    +{formatAmount(s.totalReceivedAmount, currency)}
+                    {s.settlementType === "rollover" &&
+                    Number(s.totalReceivedAmount) === 0
+                      ? `Nhập lãi +${formatAmount(s.interestReceivedAmount, currency)}`
+                      : `+${formatAmount(s.totalReceivedAmount, currency)}`}
                   </span>
                 </div>
                 <div className="text-[11px] text-[var(--text-secondary)]">
@@ -3778,7 +3897,7 @@ function SavingsDepositDetailSheet({
                   · Lãi: {formatAmount(s.interestReceivedAmount, currency)}
                   {s.destinationWalletName
                     ? ` · Về ví: ${s.destinationWalletName}`
-                    : ""}
+                    : " · Nhập lãi vào gốc"}
                 </div>
               </div>
             ))}

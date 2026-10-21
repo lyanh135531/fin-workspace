@@ -632,6 +632,15 @@ async function softDelete(tx: TransactionClient, workspaceId: string, record: Tr
   if (current.installmentPlan?.status === "pending") {
     await tx.creditCardInstallmentPlan.delete({ where: { id: current.installmentPlan.id } });
   }
+  if (
+    current.purpose === "investment_contribution" ||
+    current.purpose === "investment_settlement"
+  ) {
+    throw new AppError(
+      "CONFLICT",
+      "Giao dịch vàng/tiết kiệm được quản lý tại mục Sổ tiết kiệm & Đầu tư.",
+    );
+  }
   if (current.purpose && current.purpose !== "standard" && current.purpose !== "credit_card_refund") {
     throw new AppError("CONFLICT", "Giao dịch thẻ chuyên biệt không thể xóa trực tiếp; hãy tạo điều chỉnh.");
   }
