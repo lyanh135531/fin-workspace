@@ -253,7 +253,8 @@ export async function activateFinancialPlan(
     }
     await activateFinancialPlanGoals(tx, workspaceId, plan.id, month);
     plan = await managedPlan(tx, workspaceId, planId);
-    const balance = await getWorkspaceBalance(tx, workspaceId);
+    // Wallets retain four decimal places; the activation snapshot requires whole VND.
+    const balance = (await getWorkspaceBalance(tx, workspaceId)).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
     const draftPercentages = allocationForMonth(plan.allocations, DRAFT_ALLOCATION_MONTH);
     await tx.planJarAllocation.deleteMany({ where: { financialPlanId: plan.id } });
     await tx.planJarAllocation.createMany({ data: allocationRows(plan.id, month, draftPercentages) });

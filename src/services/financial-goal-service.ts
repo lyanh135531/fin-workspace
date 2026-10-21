@@ -81,13 +81,15 @@ async function goalProgress(tx: TransactionClient, goal: {
   if (goal.trackingMode === "linked_wallet") {
     if (!goal.linkedWalletId) return ZERO;
     const wallet = await tx.wallet.findFirst({ where: { id: goal.linkedWalletId, deletedAt: null }, select: { currentBalance: true } });
-    return Decimal.max(wallet?.currentBalance.toString() ?? 0, ZERO);
+    // Plan aggregates and month snapshots require whole VND. Never count more
+    // progress than the linked wallet actually holds; keep its balance untouched.
+    return Decimal.max(wallet?.currentBalance.toString() ?? 0, ZERO).toDecimalPlaces(0, Decimal.ROUND_FLOOR);
   }
   const total = await tx.financialGoalFundingEntry.aggregate({
     where: { goalId: goal.id, status: "approved" },
     _sum: { amount: true },
   });
-  return Decimal.max(total._sum.amount?.toString() ?? 0, ZERO);
+  return Decimal.max(total._sum.amount?.toString() ?? 0, ZERO).toDecimalPlaces(0, Decimal.ROUND_FLOOR);
 }
 
 export function getFinancialGoalProgress(

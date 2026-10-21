@@ -64,6 +64,30 @@ describe("financial goal service", () => {
     mocks.tx.financialGoalFundingEntry.create.mockImplementation(async ({ data }) => ({ id: "entry-1", ...data }));
   });
 
+  it.each([
+    ["1500000.9999", "1500000"],
+    ["1999999.9999", "1999999"],
+    ["2500000.1234", "2000000"],
+    ["-0.5000", "0"],
+  ])("syncs linked-wallet balance %s as whole-VND progress %s", async (balance, expected) => {
+    mocks.tx.financialPlan.findFirst.mockResolvedValue({ status: "draft" });
+    mocks.tx.financialPlanGoal.findMany.mockResolvedValue([
+      {
+        id: "goal-wallet", status: "draft", trackingMode: "linked_wallet",
+        linkedWalletId: "wallet-1", targetAmount: new Decimal("2000000"),
+        targetMonth: new Date("2027-12-01T00:00:00.000Z"),
+      },
+    ]);
+    mocks.tx.wallet.findFirst.mockResolvedValue({ currentBalance: new Decimal(balance) });
+
+    await syncPlanAggregate(mocks.tx as never, "plan-1");
+
+    const data = mocks.tx.financialPlan.update.mock.calls[0][0].data;
+    expect(data.existingGoalAmount.toString()).toBe(expected);
+    expect(data.existingGoalAmount.isInteger()).toBe(true);
+    expect(data.targetAmount.toString()).toBe("2000000");
+  });
+
   it("keeps a member contribution pending and does not count it into the aggregate yet", async () => {
     const entry = await createFinancialGoalFunding("user-1", workspaceId, {
       goalId,
