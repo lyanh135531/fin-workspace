@@ -2779,7 +2779,7 @@ function TransactionDetailSheetBody({
           item.purpose === "investment_settlement") && (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 text-xs text-[var(--text-secondary)]">
             <p className="font-semibold text-[var(--foreground)]">
-              Giao dịch thuộc mục Sổ tiết kiệm & Đầu tư
+              Giao dịch thuộc mục Đầu tư
             </p>
             <p className="mt-0.5 leading-relaxed">
               Để bán vàng, tất toán sổ tiết kiệm hoặc xóa khoản đầu tư này, vui
@@ -2788,7 +2788,7 @@ function TransactionDetailSheetBody({
                 href="/investments"
                 className="font-semibold text-[var(--primary)] hover:underline"
               >
-                Sổ tiết kiệm & Đầu tư
+                Đầu tư
               </a>
               .
             </p>

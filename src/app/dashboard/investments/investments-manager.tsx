@@ -435,7 +435,7 @@ export function InvestmentsManager({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-start">
               <h1 className="text-base font-semibold text-[var(--foreground)] md:text-lg">
-                Sổ tiết kiệm & Đầu tư
+                Đầu tư
               </h1>
               {data.summary.savings.dueSoonCount > 0 && (
                 <Badge variant="warning">

@@ -65,7 +65,7 @@ export function workspaceNavigationItems(
     {
       key: "investments",
       href: "/investments",
-      label: "Sổ tiết kiệm & Đầu tư",
+      label: "Đầu tư",
       description: "Đầu tư vàng tích sản và sổ tiết kiệm ngân hàng",
       requiresWorkspace: true,
     },

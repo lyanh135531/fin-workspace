@@ -638,7 +638,7 @@ async function softDelete(tx: TransactionClient, workspaceId: string, record: Tr
   ) {
     throw new AppError(
       "CONFLICT",
-      "Giao dịch vàng/tiết kiệm được quản lý tại mục Sổ tiết kiệm & Đầu tư.",
+      "Giao dịch vàng/tiết kiệm được quản lý tại mục Đầu tư.",
     );
   }
   if (current.purpose && current.purpose !== "standard" && current.purpose !== "credit_card_refund") {
