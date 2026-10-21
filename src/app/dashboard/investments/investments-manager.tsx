@@ -110,16 +110,24 @@ function formatCompactQuoteMeta(
       return { brand: "BTMC", badge: "Nhẫn 9999" };
     case "BTSJC":
       return { brand: "BTMC", badge: "Vàng miếng" };
-    case "DOHNL":
+    case "DOJINHTV":
       return { brand: "DOJI", badge: "Nhẫn 9999" };
-    case "PQHNVM":
+    case "DOHNL":
+      return { brand: "DOJI HN", badge: "Vàng miếng" };
+    case "DOHCML":
+      return { brand: "DOJI HCM", badge: "Vàng miếng" };
+    case "PQHN24NTT":
       return { brand: "Phú Quý", badge: "Nhẫn 9999" };
+    case "PQHNVM":
+      return { brand: "Phú Quý", badge: "Vàng miếng" };
+    case "VIETTINMSJC":
+      return { brand: "VietinBank", badge: "Vàng miếng" };
     case "PNJN":
       return { brand: "PNJ", badge: "Nhẫn 9999" };
     case "MIHONG999":
       return { brand: "Mi Hồng", badge: "Nhẫn 9999" };
     default:
-      return { brand: fallbackBrand, badge: "9999" };
+      return { brand: fallbackBrand, badge: "Nhẫn 9999" };
   }
 }
 
@@ -415,17 +423,17 @@ export function InvestmentsManager({
     : data.quotes.slice(0, 4);
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-3.5 md:space-y-5">
       {/* 1. UNIFIED HEADER + TOP SUMMARY STRIP */}
       <Card
         as="section"
-        className="p-4 md:p-5"
+        className="p-3.5 sm:p-4 md:p-5"
         aria-label="Tổng quan sổ tiết kiệm và đầu tư"
       >
-        {/* Top Row: Page Title + Subtitle + Primary Actions */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[var(--border)] pb-3.5 md:pb-4">
+        {/* Top Row: Page Title + Primary Actions */}
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between xl:border-b xl:border-[var(--border)] xl:pb-4">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-start">
               <h1 className="text-base font-semibold text-[var(--foreground)] md:text-lg">
                 Sổ tiết kiệm & Đầu tư
               </h1>
@@ -436,13 +444,13 @@ export function InvestmentsManager({
                 </Badge>
               )}
             </div>
-            <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+            <p className="mt-0.5 hidden text-xs text-[var(--text-secondary)] sm:block">
               Theo dõi vàng tích sản, sổ tiết kiệm ngân hàng và lời/lỗ thực tế
               theo giá thị trường hôm nay.
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center">
             <Button
               type="button"
               variant="outline"
@@ -451,10 +459,10 @@ export function InvestmentsManager({
                 setActiveTab("gold");
                 setCreateGoldOpen(true);
               }}
-              className="flex-1 sm:flex-none md:h-9 md:px-3.5"
+              className="h-9 px-3 text-xs sm:flex-none md:px-3.5"
             >
               <Coins size={15} className="text-[var(--warning)]" />
-              <span>Mua / Thêm Vàng</span>
+              <span>Mua vàng</span>
             </Button>
             <Button
               type="button"
@@ -463,7 +471,7 @@ export function InvestmentsManager({
                 setActiveTab("savings");
                 setCreateSavingsOpen(true);
               }}
-              className="flex-1 sm:flex-none md:h-9 md:px-3.5"
+              className="h-9 px-3 text-xs sm:flex-none md:px-3.5"
             >
               <Landmark size={15} />
               <span>Mở sổ tiết kiệm</span>
@@ -471,8 +479,93 @@ export function InvestmentsManager({
           </div>
         </div>
 
-        {/* Bottom Symmetrical 2x2 (Mobile/Tablet) & 4-Column (Desktop) KPI Strip */}
-        <div className="mt-3.5 grid grid-cols-2 gap-3.5 md:mt-4 xl:grid-cols-4 xl:gap-5 xl:divide-x xl:divide-[var(--border)]">
+        {/* Mobile & Tablet (< xl): Cohesive Luxury Portfolio Summary Box */}
+        <div className="mt-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 xl:hidden">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="min-w-0">
+              <span className="block text-[11px] font-medium text-[var(--text-muted)]">
+                Tổng giá trị danh mục
+              </span>
+              <p className="mt-0.5 text-lg font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-xl">
+                {displayMoney(data.summary.totalPortfolioMarketValue)}
+              </p>
+              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                Vốn gốc:{" "}
+                <span className="font-semibold text-[var(--text-secondary)] tabular-nums">
+                  {displayMoney(data.summary.totalPortfolioCostBasis)}
+                </span>
+              </p>
+            </div>
+
+            <div className="min-w-0 border-l border-[var(--border)] pl-3 text-right">
+              <span className="block text-[11px] font-medium text-[var(--text-muted)]">
+                Lời / Lỗ tạm tính
+              </span>
+              <p
+                className={cn(
+                  "mt-0.5 text-lg font-bold tracking-tight tabular-nums sm:text-xl",
+                  unrealizedPortfolioDecimal.gt(0)
+                    ? "text-[var(--income)]"
+                    : unrealizedPortfolioDecimal.lt(0)
+                      ? "text-[var(--expense)]"
+                      : "text-[var(--foreground)]",
+                )}
+              >
+                {formatSignedMoney(data.summary.totalPortfolioUnrealizedGain)}
+              </p>
+              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                Đã chốt:{" "}
+                <span
+                  className={cn(
+                    "font-semibold tabular-nums",
+                    realizedPortfolioDecimal.gt(0)
+                      ? "text-[var(--income)]"
+                      : realizedPortfolioDecimal.lt(0)
+                        ? "text-[var(--expense)]"
+                        : "text-[var(--text-secondary)]",
+                  )}
+                >
+                  {formatSignedMoney(data.summary.totalPortfolioRealizedGain)}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-2.5 grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-2.5">
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-1 text-[11px] text-[var(--text-muted)]">
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <Coins className="size-3 text-[var(--warning)]" />
+                  <span>Vàng đang giữ</span>
+                </span>
+                <span className="font-semibold text-[var(--text-secondary)] whitespace-nowrap">
+                  {data.summary.gold.totalWeightFormatted.primary}
+                </span>
+              </div>
+              <strong className="mt-0.5 block text-sm font-bold text-[var(--foreground)] tabular-nums sm:text-base">
+                {displayMoney(data.summary.gold.totalMarketValue)}
+              </strong>
+            </div>
+
+            <div className="min-w-0 border-l border-[var(--border)] pl-3 text-right">
+              <div className="flex items-center justify-between gap-1 text-[11px] text-[var(--text-muted)]">
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <Landmark className="size-3 text-[var(--primary)]" />
+                  <span>Tiết kiệm</span>
+                </span>
+                <span className="font-semibold text-[var(--income)] tabular-nums whitespace-nowrap">
+                  +{displayMoney(data.summary.savings.totalAccruedInterest)}
+                </span>
+              </div>
+              <strong className="mt-0.5 block text-sm font-bold text-[var(--foreground)] tabular-nums sm:text-base">
+                {displayMoney(data.summary.savings.totalPrincipal)}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop (>= xl): 4-Column KPI Strip */}
+        <div className="mt-4 hidden xl:grid xl:grid-cols-4 xl:gap-5 xl:divide-x xl:divide-[var(--border)]">
           {/* Metric 1: Tổng giá trị danh mục */}
           <div className="min-w-0 space-y-1">
             <div className="flex items-center justify-between gap-2">
@@ -480,13 +573,13 @@ export function InvestmentsManager({
                 Tổng giá trị danh mục
               </span>
               <span
-                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)] sm:grid"
+                className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]"
                 aria-hidden="true"
               >
                 <Scale size={14} />
               </span>
             </div>
-            <p className="text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-lg xl:text-2xl">
+            <p className="text-2xl font-bold tracking-tight text-[var(--foreground)] tabular-nums">
               {displayMoney(data.summary.totalPortfolioMarketValue)}
             </p>
             <p className="text-xs leading-snug text-[var(--text-muted)]">
@@ -498,19 +591,19 @@ export function InvestmentsManager({
           </div>
 
           {/* Metric 2: Vàng tích sản */}
-          <div className="min-w-0 space-y-1 border-l border-[var(--border)] pl-3.5 xl:pl-5">
+          <div className="min-w-0 space-y-1 pl-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-[var(--text-secondary)]">
                 Vàng đang giữ
               </span>
               <span
-                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--warning)] sm:grid"
+                className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--warning)]"
                 aria-hidden="true"
               >
                 <Coins size={14} />
               </span>
             </div>
-            <p className="text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-lg xl:text-2xl">
+            <p className="text-2xl font-bold tracking-tight text-[var(--foreground)] tabular-nums">
               {displayMoney(data.summary.gold.totalMarketValue)}
             </p>
             <p className="text-xs leading-snug text-[var(--text-muted)]">
@@ -522,19 +615,19 @@ export function InvestmentsManager({
           </div>
 
           {/* Metric 3: Sổ tiết kiệm đang gửi */}
-          <div className="min-w-0 space-y-1 border-t border-[var(--border)] pt-3 xl:border-t-0 xl:pt-0 xl:pl-5">
+          <div className="min-w-0 space-y-1 pl-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-[var(--text-secondary)]">
                 Sổ tiết kiệm đang gửi
               </span>
               <span
-                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)] sm:grid"
+                className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)]"
                 aria-hidden="true"
               >
                 <Landmark size={14} />
               </span>
             </div>
-            <p className="text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums sm:text-lg xl:text-2xl">
+            <p className="text-2xl font-bold tracking-tight text-[var(--foreground)] tabular-nums">
               {displayMoney(data.summary.savings.totalPrincipal)}
             </p>
             <p className="text-xs leading-snug text-[var(--text-muted)]">
@@ -546,13 +639,13 @@ export function InvestmentsManager({
           </div>
 
           {/* Metric 4: Lãi/Lỗ & Chốt lời */}
-          <div className="min-w-0 space-y-1 border-l border-t border-[var(--border)] pl-3.5 pt-3 xl:border-t-0 xl:pl-5 xl:pt-0">
+          <div className="min-w-0 space-y-1 pl-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-[var(--text-secondary)]">
                 Lời / Lỗ tạm tính
               </span>
               <span
-                className="hidden size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--income)] sm:grid"
+                className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-secondary)] text-[var(--income)]"
                 aria-hidden="true"
               >
                 <TrendingUp size={14} />
@@ -560,7 +653,7 @@ export function InvestmentsManager({
             </div>
             <p
               className={cn(
-                "text-base font-bold tracking-tight tabular-nums sm:text-lg xl:text-2xl",
+                "text-2xl font-bold tracking-tight tabular-nums",
                 unrealizedPortfolioDecimal.gt(0)
                   ? "text-[var(--income)]"
                   : unrealizedPortfolioDecimal.lt(0)
@@ -614,51 +707,7 @@ export function InvestmentsManager({
             </TabsTrigger>
           </TabsList>
 
-          {activeTab === "gold" ? (
-            <div className="flex items-center justify-between gap-2 sm:justify-end">
-              <Tabs
-                value={priceDisplayUnit}
-                onValueChange={(val) =>
-                  setPriceDisplayUnit(val as GoldWeightUnit)
-                }
-                className="w-auto"
-              >
-                <TabsList variant="segmented" className="w-auto">
-                  <TabsTrigger
-                    variant="segmented"
-                    value="chi"
-                    className="px-2.5 text-xs"
-                  >
-                    Theo Chỉ
-                  </TabsTrigger>
-                  <TabsTrigger
-                    variant="segmented"
-                    value="luong"
-                    className="px-2.5 text-xs"
-                  >
-                    Theo Lượng
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isRefreshingQuotes}
-                onClick={handleRefreshGoldQuotes}
-                className="h-9 gap-1.5 text-xs"
-              >
-                <RefreshCw
-                  className={cn(
-                    "size-3.5",
-                    isRefreshingQuotes && "animate-spin",
-                  )}
-                />
-                <span>Làm mới giá</span>
-              </Button>
-            </div>
-          ) : (
+          {activeTab === "savings" && (
             <div className="flex items-center justify-between gap-2 sm:justify-end">
               <Tabs
                 value={savingsFilter}
@@ -694,16 +743,16 @@ export function InvestmentsManager({
         </div>
 
         {/* ==================== TAB 1: ĐẦU TƯ VÀNG TÍCH SẢN ==================== */}
-        <TabsContent value="gold" className="space-y-4">
-          {/* UNIFORM GOLD MARKET TICKER STRIP */}
+        <TabsContent value="gold" className="space-y-3.5">
+          {/* UNIFORM GOLD MARKET TICKER STRIP WITH INTEGRATED CONTROLS */}
           <Card size="sm" className="p-3.5 md:p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--foreground)]">
-                  <Sparkles className="size-3.5 text-[var(--warning)]" />
-                  Bảng giá vàng hôm nay
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--foreground)] whitespace-nowrap">
+                  <Sparkles className="size-3.5 shrink-0 text-[var(--warning)]" />
+                  <span>Bảng giá vàng hôm nay</span>
                 </span>
-                <span className="hidden text-xs text-[var(--text-muted)] sm:inline">
+                <span className="hidden text-xs text-[var(--text-muted)] md:inline">
                   · Tạm tính lời/lỗ theo{" "}
                   <strong className="font-medium text-[var(--text-secondary)]">
                     giá tiệm thu mua
@@ -712,27 +761,62 @@ export function InvestmentsManager({
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowAllBrandQuotes((prev) => !prev)}
-                className="inline-flex items-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline cursor-pointer"
-              >
-                <span>
-                  {showAllBrandQuotes
-                    ? "Thu gọn"
-                    : `Xem tất cả (${data.quotes.length})`}
-                </span>
-                {showAllBrandQuotes ? (
-                  <ChevronUp className="size-3.5" />
-                ) : (
-                  <ChevronDown className="size-3.5" />
-                )}
-              </button>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <div
+                  className="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] p-0.5"
+                  role="group"
+                  aria-label="Đơn vị hiển thị giá vàng"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setPriceDisplayUnit("chi")}
+                    className={cn(
+                      "rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap",
+                      priceDisplayUnit === "chi"
+                        ? "bg-[var(--surface)] text-[var(--foreground)]"
+                        : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    Theo Chỉ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPriceDisplayUnit("luong")}
+                    className={cn(
+                      "rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap",
+                      priceDisplayUnit === "luong"
+                        ? "bg-[var(--surface)] text-[var(--foreground)]"
+                        : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    Theo Lượng
+                  </button>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isRefreshingQuotes}
+                  onClick={handleRefreshGoldQuotes}
+                  className="h-7 gap-1 px-2 text-[11px]"
+                  title="Làm mới bảng giá vàng"
+                  aria-label="Làm mới bảng giá vàng"
+                >
+                  <RefreshCw
+                    className={cn(
+                      "size-3",
+                      isRefreshingQuotes && "animate-spin",
+                    )}
+                  />
+                  <span className="hidden sm:inline">Làm mới</span>
+                </Button>
+              </div>
             </div>
 
             <div
               className={cn(
-                "grid grid-cols-2 gap-2.5",
+                "grid grid-cols-2 gap-2",
                 showAllBrandQuotes ? "xl:grid-cols-5" : "xl:grid-cols-4",
               )}
             >
@@ -765,7 +849,7 @@ export function InvestmentsManager({
                     </div>
 
                     {/* Mobile (< sm): 2 clean horizontal lines so 8-9 digit prices never wrap inside a 2-col card */}
-                    <div className="mt-2 space-y-1 border-t border-[var(--border)]/60 pt-2 sm:hidden">
+                    <div className="mt-1.5 space-y-1 border-t border-[var(--border)]/60 pt-1.5 sm:hidden">
                       <div className="flex items-center justify-between gap-1 text-[11px]">
                         <span className="text-[var(--text-muted)]">Mua vào</span>
                         <strong className="font-bold text-[var(--income)] tabular-nums">
@@ -803,6 +887,25 @@ export function InvestmentsManager({
                 );
               })}
             </div>
+
+            {data.quotes.length > 4 && (
+              <button
+                type="button"
+                onClick={() => setShowAllBrandQuotes((prev) => !prev)}
+                className="flex w-full items-center justify-center gap-1 border-t border-[var(--border)]/60 pt-2 text-xs font-medium text-[var(--primary)] hover:underline cursor-pointer"
+              >
+                <span>
+                  {showAllBrandQuotes
+                    ? "Thu gọn bảng giá"
+                    : `Xem tất cả ${data.quotes.length} thương hiệu`}
+                </span>
+                {showAllBrandQuotes ? (
+                  <ChevronUp className="size-3.5" />
+                ) : (
+                  <ChevronDown className="size-3.5" />
+                )}
+              </button>
+            )}
           </Card>
 
           {/* GOLD HOLDINGS PORTFOLIO */}
