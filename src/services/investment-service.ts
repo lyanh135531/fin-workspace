@@ -750,6 +750,9 @@ export async function createGoldHoldingWithInitialLot(
   const resolvedProductType = brandDef
     ? brandDef.productType
     : input.productType;
+  const resolvedBrandName = (
+    brandDef ? brandDef.brandName : input.brandName
+  ).trim();
   const resolvedProviderCode =
     input.priceSourceMode === "auto_brand" ||
     input.priceSourceMode === "pegged_brand"
@@ -776,25 +779,67 @@ export async function createGoldHoldingWithInitialLot(
       : { peggedBuyOffsetPerChi: ZERO, peggedSellOffsetPerChi: ZERO };
 
   return prisma.$transaction(async (tx) => {
-    const holding = await tx.goldHolding.create({
-      data: {
+    // Nếu trong nhóm đã có khoản vàng cùng loại, cùng thương hiệu & chế độ giá thì tự động gộp lô mua mới (DCA)
+    const existingCandidates = await tx.goldHolding.findMany({
+      where: {
         workspaceId,
-        createdByMemberId: member.id,
-        name: input.name,
-        brandName: brandDef ? brandDef.brandName : input.brandName,
-        productType: resolvedProductType,
+        deletedAt: null,
         priceSourceMode: input.priceSourceMode,
-        quoteProviderCode: resolvedProviderCode,
-        peggedBuyOffsetPerChi: peggedOffsets.peggedBuyOffsetPerChi,
-        peggedSellOffsetPerChi: peggedOffsets.peggedSellOffsetPerChi,
-        manualBuybackPricePerChi:
-          input.priceSourceMode !== "auto_brand" ? initialBuybackPrice : null,
-        manualSellPricePerChi:
-          input.priceSourceMode !== "auto_brand" ? initialSellPrice : null,
-        storageLocation: input.storageLocation?.trim() || null,
-        note: input.note?.trim() || null,
+        productType: resolvedProductType,
       },
+      orderBy: [{ createdAt: "asc" }],
     });
+
+    const matchedExisting = existingCandidates.find((candidate) => {
+      if (input.priceSourceMode === "auto_brand") {
+        return candidate.quoteProviderCode === resolvedProviderCode;
+      }
+      return (
+        candidate.brandName.trim().toLowerCase() ===
+        resolvedBrandName.toLowerCase()
+      );
+    });
+
+    const holding = matchedExisting
+      ? await tx.goldHolding.update({
+          where: { id: matchedExisting.id },
+          data: {
+            quoteProviderCode: resolvedProviderCode,
+            peggedBuyOffsetPerChi: peggedOffsets.peggedBuyOffsetPerChi,
+            peggedSellOffsetPerChi: peggedOffsets.peggedSellOffsetPerChi,
+            manualBuybackPricePerChi:
+              input.priceSourceMode !== "auto_brand"
+                ? initialBuybackPrice
+                : null,
+            manualSellPricePerChi:
+              input.priceSourceMode !== "auto_brand" ? initialSellPrice : null,
+            ...(input.storageLocation?.trim()
+              ? { storageLocation: input.storageLocation.trim() }
+              : {}),
+            ...(input.note?.trim() ? { note: input.note.trim() } : {}),
+          },
+        })
+      : await tx.goldHolding.create({
+          data: {
+            workspaceId,
+            createdByMemberId: member.id,
+            name: input.name,
+            brandName: resolvedBrandName,
+            productType: resolvedProductType,
+            priceSourceMode: input.priceSourceMode,
+            quoteProviderCode: resolvedProviderCode,
+            peggedBuyOffsetPerChi: peggedOffsets.peggedBuyOffsetPerChi,
+            peggedSellOffsetPerChi: peggedOffsets.peggedSellOffsetPerChi,
+            manualBuybackPricePerChi:
+              input.priceSourceMode !== "auto_brand"
+                ? initialBuybackPrice
+                : null,
+            manualSellPricePerChi:
+              input.priceSourceMode !== "auto_brand" ? initialSellPrice : null,
+            storageLocation: input.storageLocation?.trim() || null,
+            note: input.note?.trim() || null,
+          },
+        });
 
     if (input.initialLot) {
       await createGoldPurchaseLotInTx(tx, {
@@ -818,7 +863,9 @@ export async function createGoldHoldingWithInitialLot(
       data: {
         workspaceId,
         actorUserId: userId,
-        action: "investment.gold_holding_created",
+        action: matchedExisting
+          ? "investment.gold_lot_purchased"
+          : "investment.gold_holding_created",
         entityType: "GoldHolding",
         entityId: holding.id,
         metadata: { name: holding.name, brandName: holding.brandName },
@@ -1127,7 +1174,7 @@ export async function deleteGoldPurchaseLot(
 
     if (lot.fundingMode === "from_wallet" && lot.sourceWalletId) {
       const wallet = await tx.wallet.findFirst({
-        where: { id: lot.sourceWalletId, deletedAt: null, status: "active" },
+        where: { id: lot.sourceWalletId, deletedAt: null },
       });
       if (wallet) {
         await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
@@ -1195,51 +1242,48 @@ export async function deleteGoldHolding(
       throw new AppError("NOT_FOUND", "Không tìm thấy khoản vàng.");
     }
 
-    const currentQty = new Decimal(holding.totalQuantityChi.toString());
     const now = new Date();
 
-    if (holding.saleRecords.length > 0 && currentQty.gt(0)) {
+    if (holding.saleRecords.length > 0) {
       throw new AppError(
         "CONFLICT",
-        "Khoản vàng này đã có giao dịch bán một phần và vẫn còn vàng đang giữ. Vui lòng bán hết số vàng còn lại trước khi xóa.",
+        "Khoản vàng này đã có lịch sử bán thực tế nên không thể xóa để bảo toàn đối soát sổ cái và lợi nhuận đã chốt.",
       );
     }
 
-    // Nếu chưa có giao dịch bán nào, hoàn lại tiền vào ví cho các lô `from_wallet`
-    if (holding.saleRecords.length === 0) {
-      for (const lot of holding.purchaseLots) {
-        if (lot.fundingMode === "from_wallet" && lot.sourceWalletId) {
-          const wallet = await tx.wallet.findFirst({
-            where: { id: lot.sourceWalletId, deletedAt: null, status: "active" },
+    // Chưa có giao dịch bán nào, hoàn lại tiền vào ví cho các lô `from_wallet`
+    for (const lot of holding.purchaseLots) {
+      if (lot.fundingMode === "from_wallet" && lot.sourceWalletId) {
+        const wallet = await tx.wallet.findFirst({
+          where: { id: lot.sourceWalletId, deletedAt: null },
+        });
+        if (wallet) {
+          await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
+          const freshWallet = await tx.wallet.findUnique({
+            where: { id: wallet.id },
           });
-          if (wallet) {
-            await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
-            const freshWallet = await tx.wallet.findUnique({
+          if (freshWallet) {
+            await tx.wallet.update({
               where: { id: wallet.id },
-            });
-            if (freshWallet) {
-              await tx.wallet.update({
-                where: { id: wallet.id },
-                data: {
-                  currentBalance: new Decimal(
-                    freshWallet.currentBalance.toString(),
-                  ).plus(lot.totalCostAmount.toString()),
-                },
-              });
-            }
-          }
-          if (lot.ledgerTransactionId) {
-            await tx.transaction.updateMany({
-              where: { id: lot.ledgerTransactionId, deletedAt: null },
-              data: { deletedAt: now },
+              data: {
+                currentBalance: new Decimal(
+                  freshWallet.currentBalance.toString(),
+                ).plus(lot.totalCostAmount.toString()),
+              },
             });
           }
         }
-        await tx.goldPurchaseLot.update({
-          where: { id: lot.id },
-          data: { deletedAt: now },
-        });
+        if (lot.ledgerTransactionId) {
+          await tx.transaction.updateMany({
+            where: { id: lot.ledgerTransactionId, deletedAt: null },
+            data: { deletedAt: now },
+          });
+        }
       }
+      await tx.goldPurchaseLot.update({
+        where: { id: lot.id },
+        data: { deletedAt: now },
+      });
     }
 
     await tx.goldHolding.update({
@@ -1485,7 +1529,7 @@ export async function settleSavingsDeposit(
         },
       });
 
-      return tx.savingsDeposit.update({
+      const updatedRollover = await tx.savingsDeposit.update({
         where: { id: deposit.id },
         data: {
           currentPrincipalAmount: nextPrincipal,
@@ -1499,6 +1543,24 @@ export async function settleSavingsDeposit(
           totalInterestReceived: { increment: interestReceived },
         },
       });
+
+      await tx.auditLog.create({
+        data: {
+          workspaceId,
+          actorUserId: userId,
+          action: "investment.savings_settled",
+          entityType: "SavingsDeposit",
+          entityId: deposit.id,
+          metadata: {
+            settlementType: "rollover",
+            rolloverMode,
+            interestReceived: interestReceived.toFixed(0),
+            nextPrincipal: nextPrincipal.toFixed(0),
+          },
+        },
+      });
+
+      return updatedRollover;
     }
 
     if (!input.destinationWalletId) {
@@ -1646,18 +1708,18 @@ export async function deleteSavingsDeposit(
       throw new AppError("NOT_FOUND", "Không tìm thấy sổ tiết kiệm.");
     }
 
+    if (deposit.settlements.length > 0) {
+      throw new AppError(
+        "CONFLICT",
+        "Sổ tiết kiệm này đã có lịch sử tất toán hoặc tái tục nên không thể xóa để bảo toàn đối soát sổ cái và lợi nhuận đã chốt.",
+      );
+    }
+
     const now = new Date();
     if (deposit.status === "active") {
-      if (deposit.settlements.length > 0) {
-        throw new AppError(
-          "CONFLICT",
-          "Sổ tiết kiệm này đã có giao dịch rút gốc một phần hoặc tái tục. Vui lòng tất toán phần gốc còn lại trước khi xóa.",
-        );
-      }
-
       if (deposit.fundingMode === "from_wallet" && deposit.sourceWalletId) {
         const wallet = await tx.wallet.findFirst({
-          where: { id: deposit.sourceWalletId, deletedAt: null, status: "active" },
+          where: { id: deposit.sourceWalletId, deletedAt: null },
         });
         if (wallet) {
           await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;

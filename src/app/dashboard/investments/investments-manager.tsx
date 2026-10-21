@@ -603,7 +603,9 @@ export function InvestmentsManager({
             <TabsTrigger variant="segmented" value="gold" className="px-3.5">
               <Coins className="size-3.5 text-[var(--warning)]" />
               <span>Đầu tư Vàng</span>
-              <TabsCount>{data.goldHoldings.length}</TabsCount>
+              <TabsCount>
+                {data.summary.gold.holdingCount || data.goldHoldings.length}
+              </TabsCount>
             </TabsTrigger>
             <TabsTrigger variant="segmented" value="savings" className="px-3.5">
               <Landmark className="size-3.5 text-[var(--primary)]" />
@@ -905,122 +907,164 @@ export function InvestmentsManager({
 
                           <div className="shrink-0 text-right">
                             <span className="block text-[11px] text-[var(--text-muted)]">
-                              Đang giữ
+                              {qtyDecimal.gt(0) ? "Đang giữ" : "Trạng thái"}
                             </span>
-                            <strong className="text-sm font-bold text-[var(--foreground)] md:text-base">
-                              {holding.weightFormatted.primary}
-                            </strong>
-                            {holding.weightFormatted.primary !==
-                              holding.weightFormatted.chiText && (
-                              <span className="block text-[11px] text-[var(--text-muted)] tabular-nums">
-                                ({holding.weightFormatted.chiText})
-                              </span>
+                            {qtyDecimal.gt(0) ? (
+                              <>
+                                <strong className="text-sm font-bold text-[var(--foreground)] md:text-base">
+                                  {holding.weightFormatted.primary}
+                                </strong>
+                                {holding.weightFormatted.primary !==
+                                  holding.weightFormatted.chiText && (
+                                  <span className="block text-[11px] text-[var(--text-muted)] tabular-nums">
+                                    ({holding.weightFormatted.chiText})
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <Badge variant="secondary" className="mt-0.5">
+                                Đã bán hết
+                              </Badge>
                             )}
                           </div>
                         </div>
 
                         {/* Key Valuation Box */}
                         <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/40 p-3.5 space-y-2.5">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <span className="block text-[11px] text-[var(--text-muted)]">
-                                Giá trị nếu bán hôm nay
-                              </span>
-                              <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums md:text-base">
-                                {displayMoney(
-                                  holding.valuation.marketLiquidationValue,
-                                )}
-                              </strong>
-                            </div>
-                            <div className="text-right">
-                              <span className="block text-[11px] text-[var(--text-muted)]">
-                                Tổng tiền đã mua
-                              </span>
-                              <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums md:text-base">
-                                {displayMoney(
-                                  holding.valuation.totalCostBasisAmount,
-                                )}
-                              </strong>
-                            </div>
-                          </div>
+                          {qtyDecimal.gt(0) ? (
+                            <>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <span className="block text-[11px] text-[var(--text-muted)]">
+                                    Giá trị nếu bán hôm nay
+                                  </span>
+                                  <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums md:text-base">
+                                    {displayMoney(
+                                      holding.valuation.marketLiquidationValue,
+                                    )}
+                                  </strong>
+                                </div>
+                                <div className="text-right">
+                                  <span className="block text-[11px] text-[var(--text-muted)]">
+                                    Tổng tiền đã mua
+                                  </span>
+                                  <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums md:text-base">
+                                    {displayMoney(
+                                      holding.valuation.totalCostBasisAmount,
+                                    )}
+                                  </strong>
+                                </div>
+                              </div>
 
-                          <div className="grid grid-cols-2 gap-3 border-t border-[var(--border)]/60 pt-2 text-xs">
-                            <div>
-                              <span className="block text-[11px] text-[var(--text-muted)]">
-                                Giá mua trung bình
-                              </span>
-                              <strong className="font-semibold text-[var(--foreground)] tabular-nums">
-                                {qtyDecimal.gt(0)
-                                  ? formatGoldUnitPrice(
+                              <div className="grid grid-cols-2 gap-3 border-t border-[var(--border)]/60 pt-2 text-xs">
+                                <div>
+                                  <span className="block text-[11px] text-[var(--text-muted)]">
+                                    Giá mua trung bình
+                                  </span>
+                                  <strong className="font-semibold text-[var(--foreground)] tabular-nums">
+                                    {formatGoldUnitPrice(
                                       holding.valuation.averageCostPerChi,
-                                    )
-                                  : "—"}
-                              </strong>
-                            </div>
-                            <div className="text-right">
-                              <span className="block text-[11px] text-[var(--text-muted)]">
-                                Giá tiệm thu mua
-                              </span>
-                              <strong className="font-semibold text-[var(--income)] tabular-nums">
-                                {formatGoldUnitPrice(
-                                  holding.valuation.marketBuybackPricePerChi,
-                                )}
-                              </strong>
-                            </div>
-                          </div>
+                                    )}
+                                  </strong>
+                                </div>
+                                <div className="text-right">
+                                  <span className="block text-[11px] text-[var(--text-muted)]">
+                                    Giá tiệm thu mua
+                                  </span>
+                                  <strong className="font-semibold text-[var(--income)] tabular-nums">
+                                    {formatGoldUnitPrice(
+                                      holding.valuation.marketBuybackPricePerChi,
+                                    )}
+                                  </strong>
+                                </div>
+                              </div>
 
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)]/60 pt-2 text-xs">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[11px] text-[var(--text-muted)]">
-                                Lời / Lỗ tạm tính:
-                              </span>
-                              <strong
-                                className={cn(
-                                  "font-bold tabular-nums",
-                                  unrealizedDecimal.gt(0)
-                                    ? "text-[var(--income)]"
-                                    : unrealizedDecimal.lt(0)
-                                      ? "text-[var(--expense)]"
-                                      : "text-[var(--foreground)]",
-                                )}
-                              >
-                                {formatSignedMoney(
-                                  holding.valuation.unrealizedProfitAmount,
-                                )}{" "}
-                                ({unrealizedDecimal.gt(0) ? "+" : ""}
-                                {holding.valuation.unrealizedProfitPct}%)
-                              </strong>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2.5">
-                              {!realizedDecimal.isZero() && (
-                                <span className="text-[11px] text-[var(--text-muted)]">
-                                  Đã chốt:{" "}
+                              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)]/60 pt-2 text-xs">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[11px] text-[var(--text-muted)]">
+                                    Lời / Lỗ tạm tính:
+                                  </span>
                                   <strong
                                     className={cn(
-                                      "font-semibold tabular-nums",
-                                      realizedDecimal.gt(0)
+                                      "font-bold tabular-nums",
+                                      unrealizedDecimal.gt(0)
                                         ? "text-[var(--income)]"
-                                        : "text-[var(--expense)]",
+                                        : unrealizedDecimal.lt(0)
+                                          ? "text-[var(--expense)]"
+                                          : "text-[var(--foreground)]",
                                     )}
                                   >
                                     {formatSignedMoney(
-                                      holding.valuation.realizedProfitAmount,
-                                    )}
+                                      holding.valuation.unrealizedProfitAmount,
+                                    )}{" "}
+                                    ({unrealizedDecimal.gt(0) ? "+" : ""}
+                                    {holding.valuation.unrealizedProfitPct}%)
                                   </strong>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2.5">
+                                  {!realizedDecimal.isZero() && (
+                                    <span className="text-[11px] text-[var(--text-muted)]">
+                                      Đã chốt:{" "}
+                                      <strong
+                                        className={cn(
+                                          "font-semibold tabular-nums",
+                                          realizedDecimal.gt(0)
+                                            ? "text-[var(--income)]"
+                                            : "text-[var(--expense)]",
+                                        )}
+                                      >
+                                        {formatSignedMoney(
+                                          holding.valuation.realizedProfitAmount,
+                                        )}
+                                      </strong>
+                                    </span>
+                                  )}
+                                  {holding.priceSourceMode !== "auto_brand" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setSettingsHolding(holding)}
+                                      className="text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
+                                    >
+                                      Cập nhật giá tiệm
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                              <div>
+                                <span className="block text-[11px] text-[var(--text-muted)]">
+                                  Tổng lời/lỗ đã chốt ({holding.sales.length} lần bán)
                                 </span>
-                              )}
-                              {holding.priceSourceMode !== "auto_brand" && (
-                                <button
-                                  type="button"
-                                  onClick={() => setSettingsHolding(holding)}
-                                  className="text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
+                                <strong
+                                  className={cn(
+                                    "mt-0.5 block text-sm font-bold tabular-nums md:text-base",
+                                    realizedDecimal.gt(0)
+                                      ? "text-[var(--income)]"
+                                      : realizedDecimal.lt(0)
+                                        ? "text-[var(--expense)]"
+                                        : "text-[var(--foreground)]",
+                                  )}
                                 >
-                                  Cập nhật giá tiệm
-                                </button>
-                              )}
+                                  {formatSignedMoney(
+                                    holding.valuation.realizedProfitAmount,
+                                  )}
+                                </strong>
+                              </div>
+                              <div className="text-right">
+                                <span className="block text-[11px] text-[var(--text-muted)]">
+                                  Giá tiệm thu mua hôm nay
+                                </span>
+                                <strong className="mt-0.5 block font-semibold text-[var(--income)] tabular-nums">
+                                  {formatGoldUnitPrice(
+                                    holding.valuation.marketBuybackPricePerChi,
+                                  )}
+                                </strong>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
 
@@ -1606,7 +1650,20 @@ function CreateGoldHoldingSheet({
     .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
     .plus(new Decimal(craftingFee || "0"));
 
-  const peggedShopSellPerChi = computedPricePerChi;
+  const refQuoteForPegged =
+    quotes.find((q) => q.providerCode === quoteProviderCode) ?? quotes[0];
+  const benchmarkRatioForPegged =
+    productType === "jewelry_18k" ? new Decimal("0.75") : new Decimal(1);
+  const effBenchmarkSell = refQuoteForPegged
+    ? new Decimal(refQuoteForPegged.sellPricePerChi)
+        .mul(benchmarkRatioForPegged)
+        .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    : new Decimal("17300000");
+
+  const peggedShopSellPerChi =
+    purchaseDate < businessDate || computedPricePerChi.lte(0)
+      ? effBenchmarkSell
+      : computedPricePerChi;
   const parsedLocalSpreadPerChi = new Decimal(localShopSpreadPerChi || "0");
   const peggedShopBuyPerChi = Decimal.max(
     peggedShopSellPerChi.minus(parsedLocalSpreadPerChi),
@@ -2838,47 +2895,49 @@ function GoldHoldingDetailSheet({
           </div>
         )}
 
-        {/* Xóa khoản vàng */}
-        <div className="border-t border-[var(--border)] pt-3">
-          {!confirmDeleteHolding ? (
-            <button
-              type="button"
-              onClick={() => setConfirmDeleteHolding(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--expense)] hover:underline cursor-pointer"
-            >
-              <Trash2 className="size-3.5" />
-              <span>Xóa khoản vàng này</span>
-            </button>
-          ) : (
-            <div className="rounded-xl border border-[var(--expense)]/35 bg-[var(--expense)]/8 p-3 space-y-2">
-              <p className="text-xs font-medium text-[var(--foreground)]">
-                Bạn chắc chắn muốn xóa khoản vàng này? Nếu chưa có giao dịch
-                bán nào, số tiền đã trích từ ví sẽ được hoàn lại.
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  disabled={isPending}
-                  onClick={handleDeleteHolding}
-                  className="h-8 text-xs"
-                >
-                  Xác nhận xóa
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setConfirmDeleteHolding(false)}
-                  className="h-8 text-xs"
-                >
-                  Giữ lại
-                </Button>
+        {/* Xóa khoản vàng (chỉ cho phép khi chưa có giao dịch bán để bảo toàn lịch sử lời/lỗ đã chốt) */}
+        {holding.sales.length === 0 && (
+          <div className="border-t border-[var(--border)] pt-3">
+            {!confirmDeleteHolding ? (
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteHolding(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--expense)] hover:underline cursor-pointer"
+              >
+                <Trash2 className="size-3.5" />
+                <span>Xóa khoản vàng này</span>
+              </button>
+            ) : (
+              <div className="rounded-xl border border-[var(--expense)]/35 bg-[var(--expense)]/8 p-3 space-y-2">
+                <p className="text-xs font-medium text-[var(--foreground)]">
+                  Bạn chắc chắn muốn xóa khoản vàng này? Số tiền đã trích từ ví
+                  (nếu có) sẽ được hoàn lại đầy đủ.
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    disabled={isPending}
+                    onClick={handleDeleteHolding}
+                    className="h-8 text-xs"
+                  >
+                    Xác nhận xóa
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setConfirmDeleteHolding(false)}
+                    className="h-8 text-xs"
+                  >
+                    Giữ lại
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </SheetBody>
       <SheetFooter onCancel={() => onOpenChange(false)} cancelLabel="Đóng" />
     </ResponsiveSheet>
@@ -2907,7 +2966,7 @@ function GoldHoldingSettingsSheet({
     "auto_brand" | "pegged_brand" | "manual"
   >(holding.priceSourceMode);
   const [quoteProviderCode, setQuoteProviderCode] = useState(
-    holding.quoteProviderCode ?? "SJ9999",
+    holding.quoteProviderCode ?? "BT9999NTT",
   );
   const [manualBuybackPrice, setManualBuybackPrice] = useState(
     holding.valuation.marketBuybackPricePerChi,
@@ -2920,19 +2979,11 @@ function GoldHoldingSettingsSheet({
   );
   const [note, setNote] = useState(holding.note ?? "");
 
-  const refQuote =
-    quotes.find((q) => q.providerCode === quoteProviderCode) ?? quotes[0];
-  const benchmarkRatio =
-    holding.productType === "jewelry_18k"
-      ? new Decimal("0.75")
-      : new Decimal(1);
-  const effBenchmarkBuy = refQuote
-    ? new Decimal(refQuote.buyPricePerChi)
-        .mul(benchmarkRatio)
-        .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
-    : new Decimal("16950000");
-  const computedOffset = new Decimal(manualBuybackPrice || "0").minus(
-    effBenchmarkBuy,
+  const shopBuySellSpread = Decimal.max(
+    new Decimal(manualSellPrice || "0").minus(
+      new Decimal(manualBuybackPrice || "0"),
+    ),
+    ZERO,
   );
 
   const generatedHoldingName =
@@ -2985,11 +3036,18 @@ function GoldHoldingSettingsSheet({
         <SheetBody>
           <Tabs
             value={priceSourceMode}
-            onValueChange={(val) =>
-              setPriceSourceMode(
-                val as "auto_brand" | "pegged_brand" | "manual",
-              )
-            }
+            onValueChange={(val) => {
+              const nextMode = val as "auto_brand" | "pegged_brand" | "manual";
+              setPriceSourceMode(nextMode);
+              if (nextMode === "auto_brand") {
+                const found =
+                  quotes.find((q) => q.providerCode === quoteProviderCode) ??
+                  GOLD_BRAND_QUOTES.find(
+                    (q) => q.providerCode === quoteProviderCode,
+                  );
+                if (found) setBrandName(found.brandName);
+              }
+            }}
             className="gap-0"
           >
             <TabsList
@@ -3083,11 +3141,10 @@ function GoldHoldingSettingsSheet({
               {priceSourceMode === "pegged_brand" && (
                 <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 text-xs">
                   <span className="text-[var(--text-secondary)] whitespace-nowrap">
-                    Chênh lệch so với giá chuẩn:
+                    Chênh lệch mua - bán tại tiệm:
                   </span>
                   <strong className="font-bold text-[var(--primary)] tabular-nums whitespace-nowrap">
-                    {computedOffset.gte(0) ? "+" : ""}
-                    {rawFormatAmount(computedOffset.toFixed(0))} đ/chỉ
+                    -{rawFormatAmount(shopBuySellSpread.toFixed(0))} đ/chỉ
                   </strong>
                 </div>
               )}
@@ -3464,12 +3521,22 @@ function SettleSavingsDepositSheet({
   startTransition: React.TransitionStartFunction;
   onSuccess: () => void;
 }) {
+  const initialMode: "maturity" | "early_partial" | "early_full" | "rollover" =
+    deposit.metrics.isMatured &&
+    (deposit.maturityAction === "renew_principal_and_interest" ||
+      deposit.maturityAction === "renew_principal")
+      ? "rollover"
+      : "maturity";
+
   const [settlementType, setSettlementType] = useState<
     "maturity" | "early_partial" | "early_full" | "rollover"
-  >("maturity");
+  >(initialMode);
   const [settlementDate, setSettlementDate] = useState(businessDate);
   const [destinationWalletId, setDestinationWalletId] = useState(
-    deposit.sourceWalletId ?? wallets[0]?.id ?? "",
+    () =>
+      wallets.find((w) => w.id === deposit.sourceWalletId)?.id ??
+      wallets[0]?.id ??
+      "",
   );
   const [principalWithdrawn, setPrincipalWithdrawn] = useState(
     deposit.currentPrincipalAmount,
@@ -3479,7 +3546,11 @@ function SettleSavingsDepositSheet({
   );
   const [rolloverMode, setRolloverMode] = useState<
     "renew_principal_and_interest" | "renew_principal"
-  >("renew_principal_and_interest");
+  >(
+    deposit.maturityAction === "renew_principal"
+      ? "renew_principal"
+      : "renew_principal_and_interest",
+  );
   const [newTermMonths, setNewTermMonths] = useState(deposit.termMonths);
   const [newAnnualRate, setNewAnnualRate] = useState(
     deposit.annualInterestRate,
@@ -3634,6 +3705,25 @@ function SettleSavingsDepositSheet({
               );
             })}
           </div>
+
+          {(settlementType === "maturity" || settlementType === "rollover") &&
+            settlementDate < deposit.maturityDate && (
+              <div className="rounded-xl border border-[var(--warning)]/40 bg-[var(--warning)]/10 px-3 py-2 text-[11px] text-[var(--text-secondary)]">
+                Sổ tiết kiệm này đáo hạn vào ngày{" "}
+                <strong className="font-semibold text-[var(--foreground)]">
+                  {formatShortViDate(deposit.maturityDate)}
+                </strong>
+                . Nếu bạn rút trước hạn hôm nay, hãy chọn{" "}
+                <strong className="font-semibold text-[var(--foreground)]">
+                  Rút gốc một phần
+                </strong>{" "}
+                hoặc{" "}
+                <strong className="font-semibold text-[var(--foreground)]">
+                  Rút toàn bộ trước hạn
+                </strong>
+                .
+              </div>
+            )}
 
           {settlementType === "early_partial" && (
             <div className="space-y-1.5">
@@ -3904,46 +3994,48 @@ function SavingsDepositDetailSheet({
           </div>
         )}
 
-        <div className="border-t border-[var(--border)] pt-3">
-          {!confirmDelete ? (
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--expense)] hover:underline cursor-pointer"
-            >
-              <Trash2 className="size-3.5" />
-              <span>Xóa sổ tiết kiệm này</span>
-            </button>
-          ) : (
-            <div className="rounded-xl border border-[var(--expense)]/35 bg-[var(--expense)]/8 p-3 space-y-2">
-              <p className="text-xs font-medium text-[var(--foreground)]">
-                Bạn chắc chắn muốn xóa sổ tiết kiệm này? Nếu sổ đang gửi và mở
-                từ ví, tiền gốc sẽ được hoàn lại vào ví.
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  disabled={isPending}
-                  onClick={handleDelete}
-                  className="h-8 text-xs"
-                >
-                  Xác nhận xóa
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setConfirmDelete(false)}
-                  className="h-8 text-xs"
-                >
-                  Giữ lại
-                </Button>
+        {deposit.settlements.length === 0 && (
+          <div className="border-t border-[var(--border)] pt-3">
+            {!confirmDelete ? (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--expense)] hover:underline cursor-pointer"
+              >
+                <Trash2 className="size-3.5" />
+                <span>Xóa sổ tiết kiệm này</span>
+              </button>
+            ) : (
+              <div className="rounded-xl border border-[var(--expense)]/35 bg-[var(--expense)]/8 p-3 space-y-2">
+                <p className="text-xs font-medium text-[var(--foreground)]">
+                  Bạn chắc chắn muốn xóa sổ tiết kiệm này? Nếu sổ mở từ ví, tiền
+                  gốc sẽ được hoàn lại đầy đủ vào ví.
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    disabled={isPending}
+                    onClick={handleDelete}
+                    className="h-8 text-xs"
+                  >
+                    Xác nhận xóa
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setConfirmDelete(false)}
+                    className="h-8 text-xs"
+                  >
+                    Giữ lại
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </SheetBody>
       <SheetFooter
         onCancel={() => onOpenChange(false)}
