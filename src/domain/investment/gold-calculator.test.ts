@@ -120,4 +120,57 @@ describe("gold-calculator", () => {
       "12800000",
     );
   });
+
+  it("clamps specific_lot costAllocated to holdingCost when selling final remaining gold or after prior average_cost sale", () => {
+    // Giả sử trước đó mua Lot 1 (1 chỉ @ 10tr) và Lot 2 (1 chỉ @ 20tr) -> tổng vốn 30tr.
+    // Đã bán 1 chỉ theo average_cost (vốn phân bổ 15tr, trừ FIFO hết Lot 1).
+    // Còn lại 1 chỉ ở Lot 2 (lotRemCost = 20tr) nhưng holdingCostBasisAmount = 15tr.
+    const partialRes = allocateGoldSaleCostBasis({
+      costMode: "specific_lot",
+      targetLotId: "lot-2",
+      sellQuantityChi: "0.9",
+      sellPricePerChi: "22000000",
+      feeOrDeductionAmount: "0",
+      holdingQuantityChi: "1",
+      holdingCostBasisAmount: "15000000",
+      openLots: [
+        {
+          id: "lot-2",
+          remainingQuantityChi: "1",
+          remainingCostAmount: "20000000",
+        },
+      ],
+    });
+
+    // rawCostAllocated = 18tr > holdingCost (15tr) -> clamp về 15tr
+    expect(partialRes.costBasisAllocatedAmount.toFixed(0)).toBe("15000000");
+    expect(partialRes.nextHoldingCostBasisAmount.toFixed(0)).toBe("0");
+
+    // Nếu bán hết 1 chỉ còn lại khi holdingCost (20tr) > lotRemCost (15tr)
+    const fullRemainingRes = allocateGoldSaleCostBasis({
+      costMode: "specific_lot",
+      targetLotId: "lot-2",
+      sellQuantityChi: "1",
+      sellPricePerChi: "22000000",
+      feeOrDeductionAmount: "0",
+      holdingQuantityChi: "1",
+      holdingCostBasisAmount: "20000000",
+      openLots: [
+        {
+          id: "lot-2",
+          remainingQuantityChi: "1",
+          remainingCostAmount: "15000000",
+        },
+      ],
+    });
+
+    expect(fullRemainingRes.costBasisAllocatedAmount.toFixed(0)).toBe(
+      "20000000",
+    );
+    expect(fullRemainingRes.nextHoldingQuantityChi.toFixed(4)).toBe("0.0000");
+    expect(fullRemainingRes.nextHoldingCostBasisAmount.toFixed(0)).toBe("0");
+    expect(
+      fullRemainingRes.lotUpdates[0]?.nextRemainingCostAmount.toFixed(0),
+    ).toBe("0");
+  });
 });

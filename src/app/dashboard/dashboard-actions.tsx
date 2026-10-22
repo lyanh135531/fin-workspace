@@ -307,6 +307,12 @@ function getLedgerDateTotals(items: LedgerItem[]): LedgerDateTotals {
   const raw = items.reduce<LedgerDateTotals>(
     (totals, item) => {
       if (item.status !== "approved") return totals;
+      if (
+        item.purpose === "investment_contribution" ||
+        item.purpose === "investment_settlement"
+      ) {
+        return totals;
+      }
       if (item.purpose === "credit_card_refund") {
         return {
           income: totals.income,
@@ -461,18 +467,32 @@ function TouchTransactionRow({
               {primaryTitle}
             </strong>
 
-            {item.description && item.category && (
-              <span
-                className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.65rem] font-medium"
-                style={{
-                  backgroundColor: `${item.category.color}16`,
-                  color: item.category.color,
-                }}
-              >
+            {item.purpose === "investment_contribution" ||
+            item.purpose === "investment_settlement" ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[0.65rem] font-medium text-[var(--primary)]">
+                <span
+                  className="size-1.5 shrink-0 rounded-full bg-[var(--primary)]"
+                  aria-hidden="true"
+                />
                 <span className="break-words leading-snug">
-                  {item.category.name}
+                  Đầu tư & Tiết kiệm
                 </span>
               </span>
+            ) : (
+              item.description &&
+              item.category && (
+                <span
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.65rem] font-medium"
+                  style={{
+                    backgroundColor: `${item.category.color}16`,
+                    color: item.category.color,
+                  }}
+                >
+                  <span className="break-words leading-snug">
+                    {item.category.name}
+                  </span>
+                </span>
+              )
             )}
 
             {hasReviewRequest && (

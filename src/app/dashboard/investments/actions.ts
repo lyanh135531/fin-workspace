@@ -11,11 +11,14 @@ import {
   createSavingsDeposit,
   deleteGoldHolding,
   deleteGoldPurchaseLot,
+  deleteGoldSaleRecord,
   deleteSavingsDeposit,
+  deleteSavingsSettlement,
   recordGoldSale,
   settleSavingsDeposit,
   syncVietnameseGoldMarketQuotes,
   updateGoldHoldingSettings,
+  updateGoldPurchaseLot,
 } from "@/services/investment-service";
 
 export type InvestmentActionState = {
@@ -29,7 +32,10 @@ function revalidateInvestmentPaths() {
   revalidatePath("/dashboard/investments");
   revalidatePath("/wallets");
   revalidatePath("/dashboard/wallets");
+  revalidatePath("/financial-plans");
+  revalidatePath("/dashboard/financial-plans");
   revalidatePath("/overview");
+  revalidatePath("/dashboard/overview");
   revalidatePath("/dashboard");
 }
 
@@ -111,6 +117,22 @@ export async function addGoldPurchaseLotAction(
   }
 }
 
+export async function updateGoldPurchaseLotAction(
+  rawInput: unknown,
+): Promise<InvestmentActionState> {
+  try {
+    const { userId, workspaceId } = await requireSessionAndWorkspace();
+    await updateGoldPurchaseLot(userId, workspaceId, rawInput);
+    revalidateInvestmentPaths();
+    return {
+      ok: true,
+      message: "Đã cập nhật thông tin đợt mua vàng thành công.",
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
 export async function recordGoldSaleAction(
   rawInput: unknown,
 ): Promise<InvestmentActionState> {
@@ -121,6 +143,22 @@ export async function recordGoldSaleAction(
     return {
       ok: true,
       message: "Đã bán vàng và cộng tiền vào ví thành công.",
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+export async function deleteGoldSaleRecordAction(
+  saleId: string,
+): Promise<InvestmentActionState> {
+  try {
+    const { userId, workspaceId } = await requireSessionAndWorkspace();
+    await deleteGoldSaleRecord(userId, workspaceId, saleId);
+    revalidateInvestmentPaths();
+    return {
+      ok: true,
+      message: "Đã hoàn tác giao dịch bán vàng và khôi phục số lượng vàng về hũ.",
     };
   } catch (error) {
     return handleActionError(error);
@@ -201,6 +239,22 @@ export async function settleSavingsDepositAction(
     return {
       ok: true,
       message: "Đã xử lý sổ tiết kiệm và cập nhật số dư ví thành công.",
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+export async function deleteSavingsSettlementAction(
+  settlementId: string,
+): Promise<InvestmentActionState> {
+  try {
+    const { userId, workspaceId } = await requireSessionAndWorkspace();
+    await deleteSavingsSettlement(userId, workspaceId, settlementId);
+    revalidateInvestmentPaths();
+    return {
+      ok: true,
+      message: "Đã hoàn tác lần tất toán / tái tục và khôi phục trạng thái sổ tiết kiệm.",
     };
   } catch (error) {
     return handleActionError(error);

@@ -162,7 +162,10 @@ export type FinancialPlanMonthLedger = {
   forecastExpenseByJar: JarDecimalMap;
   pendingIncome: Decimal;
   pendingExpense: Decimal;
+  netInvestmentOutflow: Decimal;
 };
+
+export type MonthLedgerResult = FinancialPlanMonthLedger;
 
 function addExpense(target: JarDecimalMap, jarCode: JarCode | null, amount: Decimal.Value) {
   if (!jarCode || !FINANCIAL_JAR_CODES.includes(jarCode as FinancialJarCode)) return;
@@ -193,8 +196,17 @@ export async function getFinancialPlanMonthLedger(
     approvedIncome: new Decimal(0), forecastIncome: new Decimal(0),
     approvedExpenseByJar: decimalMap(), forecastExpenseByJar: decimalMap(),
     pendingIncome: new Decimal(0), pendingExpense: new Decimal(0),
+    netInvestmentOutflow: ZERO,
   };
   for (const record of records) {
+    const amount = new Decimal(record.amount.toString());
+    if (record.workflowStatus === "approved") {
+      if (record.purpose === "investment_contribution") {
+        result.netInvestmentOutflow = result.netInvestmentOutflow.plus(amount);
+      } else if (record.purpose === "investment_settlement") {
+        result.netInvestmentOutflow = result.netInvestmentOutflow.minus(amount);
+      }
+    }
     if (
       record.purpose === "credit_card_payment" ||
       record.purpose === "investment_contribution" ||
@@ -212,7 +224,6 @@ export async function getFinancialPlanMonthLedger(
     ) {
       continue;
     }
-    const amount = new Decimal(record.amount.toString());
     const refundJar = record.jarCode ?? record.category?.jarCode ?? null;
     if (record.workflowStatus === "approved") {
       if (record.purpose === "credit_card_refund") addExpense(result.approvedExpenseByJar, refundJar, amount.negated());

@@ -329,7 +329,7 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
       const { end } = monthDateRange(month);
       const balanceAtEnd = await getWorkspaceBalance(tx, plan.workspaceId, end);
       rawGrossBudget = firstMonthRawGrossBudget({
-        currentWorkspaceBalance: balanceAtEnd,
+        currentWorkspaceBalance: balanceAtEnd.plus(ledger.netInvestmentOutflow ?? ZERO),
         existingGoalAmount: goalProgress.hasGoals ? goalProgress.workspaceReserved : plan.existingGoalAmount.toString(),
         approvedExpenseFromMonthStart: sumJarMap(ledger.approvedExpenseByJar),
         remainingForecastIncome: 0,
@@ -615,7 +615,7 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
       });
       const rawGrossBudget = month === startMonth
         ? firstMonthRawGrossBudget({
-            currentWorkspaceBalance: currentBalance, existingGoalAmount: goalProgress.hasGoals ? goalProgress.workspaceReserved : plan.existingGoalAmount.toString(),
+            currentWorkspaceBalance: currentBalance.plus(ledger.netInvestmentOutflow ?? ZERO), existingGoalAmount: goalProgress.hasGoals ? goalProgress.workspaceReserved : plan.existingGoalAmount.toString(),
             approvedExpenseFromMonthStart: sumJarMap(ledger.approvedExpenseByJar),
             remainingForecastIncome: includeForecast ? ledger.forecastIncome : 0, requiredGoalAmount: required,
           })

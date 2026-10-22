@@ -92,11 +92,14 @@ const ACTION_LABELS: Record<string, string> = {
   "wallet.deactivated": "Vô hiệu hóa ví",
 
   // Investment & Savings
-  "investment.gold_holding_created": "Tạo vị thế vàng tích sản",
+  "investment.gold_holding_created": "Tạo khoản vàng tích sản",
   "investment.gold_lot_purchased": "Mua thêm vàng tích sản",
+  "investment.gold_lot_updated": "Cập nhật đợt mua vàng",
   "investment.gold_sold": "Bán vàng tích sản",
+  "investment.gold_sale_reverted": "Hoàn tác lần bán vàng",
   "investment.savings_created": "Mở sổ tiết kiệm ngân hàng",
   "investment.savings_settled": "Tất toán / Tái tục sổ tiết kiệm",
+  "investment.savings_settlement_reverted": "Hoàn tác tất toán / tái tục sổ tiết kiệm",
 };
 
 /**

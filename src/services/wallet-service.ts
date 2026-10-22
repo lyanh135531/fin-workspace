@@ -292,7 +292,13 @@ export async function assertWalletHasNoOpenDependencies(
     );
   };
 
-  const [openTransactions, recurringTransactions, creditCardDependencies, linkedGoals] = await Promise.all([
+  const [
+    openTransactions,
+    recurringTransactions,
+    creditCardDependencies,
+    linkedGoals,
+    activeSavingsCount,
+  ] = await Promise.all([
     tx.transaction.count({
       where: {
         deletedAt: null,
@@ -334,6 +340,14 @@ export async function assertWalletHasNoOpenDependencies(
         financialPlan: { workspaceId, deletedAt: null },
       },
     }) ?? 0,
+    tx.savingsDeposit?.count?.({
+      where: {
+        workspaceId,
+        sourceWalletId: walletId,
+        status: "active",
+        deletedAt: null,
+      },
+    }) ?? 0,
   ]);
 
   if (openTransactions > 0) {
@@ -353,6 +367,12 @@ export async function assertWalletHasNoOpenDependencies(
   }
   if (linkedGoals > 0) {
     throw new AppError("CONFLICT", "Ví đang được dùng để xác nhận tiến độ mục tiêu tài chính. Hãy kết thúc mục tiêu trước.");
+  }
+  if (activeSavingsCount > 0) {
+    throw new AppError(
+      "CONFLICT",
+      "Ví này đang liên kết với sổ tiết kiệm đang hoạt động. Vui lòng tất toán hoặc đổi ví nguồn sổ tiết kiệm trước khi ngừng sử dụng hoặc xóa ví.",
+    );
   }
 }
 

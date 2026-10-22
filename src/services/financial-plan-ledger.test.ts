@@ -225,5 +225,56 @@ describe("financial plan ledger projection", () => {
     const balance = await getWorkspaceBalance(tx, "workspace");
     expect(balance.toFixed(0)).toBe("1600");
   });
+
+  it("tracks netInvestmentOutflow for approved investment_contribution and investment_settlement without counting them as income or jar expenses", async () => {
+    const tx = {
+      transaction: {
+        findMany: vi.fn().mockResolvedValueOnce([
+          {
+            type: "expense",
+            purpose: "investment_contribution",
+            workflowStatus: "approved",
+            amount: new Decimal(50_000_000),
+            jarCode: "INVESTMENT",
+            category: null,
+          },
+          {
+            type: "income",
+            purpose: "investment_settlement",
+            workflowStatus: "approved",
+            amount: new Decimal(20_000_000),
+            jarCode: null,
+            category: null,
+          },
+          {
+            type: "expense",
+            purpose: "investment_contribution",
+            workflowStatus: "pending",
+            amount: new Decimal(10_000_000),
+            jarCode: "INVESTMENT",
+            category: null,
+          },
+          {
+            type: "expense",
+            purpose: "standard",
+            workflowStatus: "approved",
+            amount: new Decimal(1_500_000),
+            jarCode: "ESSENTIAL",
+            category: null,
+          },
+        ]),
+      },
+      recurringTransaction: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    const ledger = await getFinancialPlanMonthLedger(tx, "workspace", "2026-08", false);
+    expect(ledger.netInvestmentOutflow.toFixed(0)).toBe("30000000");
+    expect(ledger.approvedIncome.toFixed(0)).toBe("0");
+    expect(ledger.approvedExpenseByJar.INVESTMENT.toFixed(0)).toBe("0");
+    expect(ledger.approvedExpenseByJar.ESSENTIAL.toFixed(0)).toBe("1500000");
+  });
 });
+
 

@@ -377,7 +377,7 @@ export function allocateGoldSaleCostBasis(params: {
     }
 
     const isFullLot = sellQty.eq(lotRemQty);
-    const costAllocated = isFullLot
+    const rawCostAllocated = isFullLot
       ? lotRemCost
       : lotRemCost
           .mul(sellQty)
@@ -385,8 +385,13 @@ export function allocateGoldSaleCostBasis(params: {
           .toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
 
     const nextLotQty = Decimal.max(lotRemQty.minus(sellQty), ZERO);
-    const nextLotCost = Decimal.max(lotRemCost.minus(costAllocated), ZERO);
     const nextHoldingQty = Decimal.max(holdingQty.minus(sellQty), ZERO);
+    const costAllocated = nextHoldingQty.eq(ZERO)
+      ? holdingCost
+      : Decimal.min(rawCostAllocated, holdingCost);
+    const nextLotCost = nextLotQty.eq(ZERO)
+      ? ZERO
+      : Decimal.max(lotRemCost.minus(costAllocated), ZERO);
     const nextHoldingCost = nextHoldingQty.isZero()
       ? ZERO
       : Decimal.max(holdingCost.minus(costAllocated), ZERO);

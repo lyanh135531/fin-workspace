@@ -183,6 +183,62 @@ export type OverviewFinancialPlanSnapshot = {
   } | null;
 };
 
+export type OverviewInvestmentsSnapshot = {
+  totalPortfolioMarketValue: string;
+  totalPortfolioCostBasis: string;
+  totalPortfolioUnrealizedGain: string;
+  totalPortfolioRealizedGain: string;
+  gold: {
+    totalQuantityChi: string;
+    totalWeightFormatted: string;
+    totalMarketValue: string;
+    totalCostBasis: string;
+    totalUnrealizedProfit: string;
+    holdingCount: number;
+    topHoldings: {
+      id: string;
+      name: string;
+      brandName: string;
+      productTypeLabel: string;
+      weightFormatted: string;
+      marketValue: string;
+      unrealizedProfit: string;
+      unrealizedReturnPct: string;
+    }[];
+  };
+  savings: {
+    totalPrincipal: string;
+    totalAccruedInterest: string;
+    totalExpectedMaturityInterest: string;
+    activeCount: number;
+    dueSoonCount: number;
+    activeItems: {
+      id: string;
+      name: string;
+      bankName: string;
+      termMonths: number;
+      annualInterestRate: string;
+      currentPrincipalAmount: string;
+      accruedInterest: string;
+      maturityDate: string;
+      daysUntilMaturity: number;
+      isDueSoon: boolean;
+      isMatured: boolean;
+    }[];
+    dueItems: {
+      id: string;
+      name: string;
+      bankName: string;
+      maturityDate: string;
+      currentPrincipalAmount: string;
+      accruedInterest: string;
+      expectedTotalAtMaturity: string;
+      daysUntilMaturity: number;
+      isMatured: boolean;
+    }[];
+  };
+};
+
 type Props = {
   workspace: { id: string; name: string; currency: string };
   reportPeriod: string;
@@ -193,6 +249,7 @@ type Props = {
   userRole?: string;
   canApprove?: boolean;
   financialPlanSnapshot?: OverviewFinancialPlanSnapshot | null;
+  investmentsSnapshot?: OverviewInvestmentsSnapshot | null;
   upcomingRecurring?: UpcomingRecurring[];
   categories?: TransactionCategoryOption[];
   businessDate?: string;
@@ -425,6 +482,7 @@ export function OverviewDashboard({
   transactions,
   canApprove = false,
   financialPlanSnapshot = null,
+  investmentsSnapshot = null,
   upcomingRecurring = [],
   businessDate,
 }: Props) {
@@ -586,8 +644,28 @@ export function OverviewDashboard({
       ),
     [creditCardWallets],
   );
-  const netWorthDecimal = totalAssetBalanceDecimal.minus(
+  const totalInvestmentValueDecimal = useMemo(
+    () => new Decimal(investmentsSnapshot?.totalPortfolioMarketValue ?? 0),
+    [investmentsSnapshot],
+  );
+  const totalInvestmentCostDecimal = useMemo(
+    () => new Decimal(investmentsSnapshot?.totalPortfolioCostBasis ?? 0),
+    [investmentsSnapshot],
+  );
+  const totalInvestmentUnrealizedDecimal = useMemo(
+    () => new Decimal(investmentsSnapshot?.totalPortfolioUnrealizedGain ?? 0),
+    [investmentsSnapshot],
+  );
+  const hasActiveInvestments = Boolean(
+    investmentsSnapshot &&
+      (investmentsSnapshot.gold.holdingCount > 0 ||
+        investmentsSnapshot.savings.activeCount > 0),
+  );
+  const liquidNetWorthDecimal = totalAssetBalanceDecimal.minus(
     totalCreditDebtDecimal,
+  );
+  const netWorthDecimal = liquidNetWorthDecimal.plus(
+    totalInvestmentValueDecimal,
   );
 
   const savingsRate = activeTotals.income.gt(0)
@@ -655,11 +733,17 @@ export function OverviewDashboard({
     [creditCardWallets, todayStr],
   );
 
-  // Combined upcoming obligations (credit card statements + recurring transactions)
+  // Maturing savings deposits (within 7 days or already matured)
+  const dueSavingsDeposits = useMemo(
+    () => investmentsSnapshot?.savings.dueItems ?? [],
+    [investmentsSnapshot],
+  );
+
+  // Combined upcoming obligations (credit card statements + maturing savings + recurring transactions)
   const upcomingObligations = useMemo(() => {
     const items: Array<{
       id: string;
-      kind: "statement" | "recurring";
+      kind: "statement" | "recurring" | "savings_maturity";
       title: string;
       subtitle: string;
       dateStr: string;
@@ -685,6 +769,22 @@ export function OverviewDashboard({
       });
     }
 
+    for (const dep of dueSavingsDeposits) {
+      items.push({
+        id: `sav-${dep.id}`,
+        kind: "savings_maturity",
+        title: `Đáo hạn sổ ${dep.bankName} — ${dep.name}`,
+        subtitle: dep.isMatured
+          ? `Đã đến hạn tất toán (${formatShortDate(dep.maturityDate)})`
+          : `Ngày đáo hạn ${formatShortDate(dep.maturityDate)}`,
+        dateStr: dep.maturityDate,
+        daysLeft: daysBetweenDates(todayStr, dep.maturityDate),
+        amount: dep.expectedTotalAtMaturity,
+        type: "income",
+        href: "/investments",
+      });
+    }
+
     for (const rec of upcomingRecurring) {
       const dateStr = rec.nextExecutionDate.slice(0, 10);
       items.push({
@@ -705,7 +805,7 @@ export function OverviewDashboard({
     }
 
     return items.sort((a, b) => a.dateStr.localeCompare(b.dateStr)).slice(0, 6);
-  }, [dueCreditCardStatements, upcomingRecurring, todayStr]);
+  }, [dueCreditCardStatements, dueSavingsDeposits, upcomingRecurring, todayStr]);
 
   // Structure breakdowns (Expense Categories, Income Categories, Members)
   const buildCategoryBreakdown = (targetType: "expense" | "income") => {
@@ -1219,6 +1319,37 @@ export function OverviewDashboard({
                     {displayAmount(totalAvailableDecimal)}
                   </strong>
                 </span>
+
+                {totalInvestmentValueDecimal.gt(0) && (
+                  <button
+                    type="button"
+                    onClick={() => beginNavigation("/investments")}
+                    className="inline-flex cursor-pointer items-center gap-1.5 underline-offset-4 hover:underline"
+                    title="Xem danh mục Tích sản & Đầu tư (Vàng & Sổ tiết kiệm)"
+                  >
+                    <span className="size-2 rounded-full bg-amber-500" />
+                    <span>Tích sản & Đầu tư:</span>
+                    <strong className="font-semibold text-[var(--foreground)]">
+                      {displayAmount(totalInvestmentValueDecimal)}
+                    </strong>
+                    {!totalInvestmentUnrealizedDecimal.isZero() && (
+                      <span
+                        className={cn(
+                          "text-[0.68rem] font-semibold",
+                          totalInvestmentUnrealizedDecimal.gt(0)
+                            ? "text-[var(--income)]"
+                            : "text-[var(--expense)]",
+                        )}
+                      >
+                        (
+                        {privacyMasked
+                          ? "••••"
+                          : `${totalInvestmentUnrealizedDecimal.gt(0) ? "+" : "−"}${formatAmount(totalInvestmentUnrealizedDecimal.abs())}`}
+                        )
+                      </span>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1437,8 +1568,9 @@ export function OverviewDashboard({
         </div>
       </Card>
 
-      {/* 2. CONTEXTUAL CREDIT CARD STATEMENT BANNER (Only shown when an issued statement is unpaid) */}
-      {dueCreditCardStatements.length > 0 && (
+      {/* 2. CONTEXTUAL ALERTS: UNPAID STATEMENTS & MATURING SAVINGS DEPOSITS */}
+      {(dueCreditCardStatements.length > 0 ||
+        dueSavingsDeposits.length > 0) && (
         <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
           {dueCreditCardStatements.slice(0, 2).map((stmt) => (
             <Link
@@ -1499,6 +1631,72 @@ export function OverviewDashboard({
               <div className="flex shrink-0 items-center gap-2">
                 <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums">
                   {displayAmount(stmt.remainingAmount)}
+                </strong>
+                <ChevronRight className="size-4 text-[var(--text-muted)]" />
+              </div>
+            </Link>
+          ))}
+
+          {dueSavingsDeposits.slice(0, 2).map((dep) => (
+            <Link
+              key={dep.id}
+              href="/investments"
+              onClick={(event) => {
+                if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                  event.preventDefault();
+                  beginNavigation("/investments");
+                }
+              }}
+              className={cn(
+                "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition-colors",
+                dep.isMatured
+                  ? "border-[var(--warning)]/35 bg-[color-mix(in_srgb,var(--warning)_8%,var(--surface))] hover:bg-[color-mix(in_srgb,var(--warning)_12%,var(--surface))]"
+                  : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-secondary)]/60",
+              )}
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <div
+                  className={cn(
+                    "flex size-9 shrink-0 items-center justify-center rounded-xl",
+                    dep.isMatured
+                      ? "bg-[color-mix(in_srgb,var(--warning)_16%,var(--surface))] text-[var(--warning)]"
+                      : "bg-[var(--income)]/12 text-[var(--income)]",
+                  )}
+                >
+                  <PiggyBank className="size-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs font-semibold text-[var(--foreground)]">
+                      Sổ {dep.bankName} — {dep.name}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-1.5 py-0.5 text-[0.62rem] font-semibold",
+                        dep.isMatured
+                          ? "bg-[color-mix(in_srgb,var(--warning)_16%,var(--surface))] text-[var(--warning)]"
+                          : "bg-[var(--income)]/12 text-[var(--income)]",
+                      )}
+                    >
+                      {dep.isMatured
+                        ? "Đã đến hạn tất toán"
+                        : dep.daysUntilMaturity === 0
+                          ? "Đáo hạn hôm nay"
+                          : `Đáo hạn sau ${dep.daysUntilMaturity} ngày`}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[0.7rem] text-[var(--text-muted)] tabular-nums">
+                    Ngày đáo hạn: {formatShortDate(dep.maturityDate)} · Lãi tích lũy:{" "}
+                    {privacyMasked
+                      ? "••••"
+                      : `+${formatAmount(dep.accruedInterest)} ${workspace.currency}`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums">
+                  {displayAmount(dep.expectedTotalAtMaturity)}
                 </strong>
                 <ChevronRight className="size-4 text-[var(--text-muted)]" />
               </div>
@@ -1570,6 +1768,9 @@ export function OverviewDashboard({
                 reportPeriod={activeReportPeriod}
                 periodOverride={globalPeriod}
                 isMobile={isMobile}
+                investmentMarketValue={
+                  investmentsSnapshot?.totalPortfolioMarketValue ?? "0"
+                }
               />
             )}
 
@@ -1989,6 +2190,358 @@ export function OverviewDashboard({
         </Card>
       </section>
 
+      {/* 3.5. INVESTMENTS & WEALTH ACCUMULATION SNAPSHOT (GOLD & SAVINGS DEPOSITS) */}
+      {investmentsSnapshot && (
+        <Card
+          as="section"
+          className="flex min-w-0 flex-col gap-0 overflow-hidden p-0"
+          aria-label="Danh mục Tích sản và Đầu tư"
+        >
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3.5 md:px-5 md:py-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                  Tích sản & Đầu tư
+                </h2>
+                {hasActiveInvestments && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold tabular-nums",
+                      totalInvestmentUnrealizedDecimal.gt(0)
+                        ? "bg-[var(--income)]/12 text-[var(--income)]"
+                        : totalInvestmentUnrealizedDecimal.isNegative()
+                          ? "bg-[var(--expense)]/12 text-[var(--expense)]"
+                          : "bg-[var(--surface-secondary)] text-[var(--text-secondary)]",
+                    )}
+                  >
+                    {totalInvestmentUnrealizedDecimal.gt(0) ? (
+                      <TrendingUp className="size-3" />
+                    ) : totalInvestmentUnrealizedDecimal.isNegative() ? (
+                      <TrendingDown className="size-3" />
+                    ) : null}
+                    <span>
+                      {privacyMasked
+                        ? "••••"
+                        : `${totalInvestmentUnrealizedDecimal.gt(0) ? "+" : totalInvestmentUnrealizedDecimal.isNegative() ? "−" : ""}${formatAmount(totalInvestmentUnrealizedDecimal.abs())} ${workspace.currency}`}
+                    </span>
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 break-words text-[0.7rem] leading-snug text-[var(--text-muted)] tabular-nums">
+                {hasActiveInvestments
+                  ? `Giá trị thị trường: ${privacyMasked ? "••••" : money(totalInvestmentValueDecimal, workspace.currency)} · Vốn gốc: ${privacyMasked ? "••••" : money(totalInvestmentCostDecimal, workspace.currency)}`
+                  : "Theo dõi vàng tích sản theo giá thị trường hôm nay và sổ tiết kiệm ngân hàng"}
+              </p>
+            </div>
+
+            <Link
+              href="/investments"
+              onClick={(event) => {
+                if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                  event.preventDefault();
+                  beginNavigation("/investments");
+                }
+              }}
+              className="inline-flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/10"
+            >
+              <span>Quản lý danh mục</span>
+              <ChevronRight className="size-3.5" />
+            </Link>
+          </header>
+
+          {hasActiveInvestments ? (
+            <div className="grid grid-cols-1 divide-y divide-[var(--border)] md:grid-cols-2 md:divide-x md:divide-y-0">
+              {/* Left Column: Vàng tích sản */}
+              <div className="flex flex-col justify-between p-4 md:p-5">
+                <div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/12 text-amber-600 dark:text-amber-400">
+                        <Sparkles className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <h3 className="break-words text-sm font-semibold text-[var(--foreground)]">
+                            Vàng tích sản ({investmentsSnapshot.gold.holdingCount})
+                          </h3>
+                          {investmentsSnapshot.gold.holdingCount > 0 && (
+                            <span className="rounded-full bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[0.62rem] font-semibold text-[var(--text-secondary)] tabular-nums">
+                              {investmentsSnapshot.gold.totalWeightFormatted}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-[var(--text-muted)] tabular-nums">
+                          {investmentsSnapshot.gold.holdingCount > 0
+                            ? `Giá vốn: ${privacyMasked ? "••••" : money(investmentsSnapshot.gold.totalCostBasis, workspace.currency)}`
+                            : "Chưa nắm giữ vàng tích sản"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 text-right tabular-nums">
+                      <strong className="block text-sm font-bold text-[var(--foreground)]">
+                        {displayAmount(investmentsSnapshot.gold.totalMarketValue)}
+                      </strong>
+                      {investmentsSnapshot.gold.holdingCount > 0 && (
+                        <span
+                          className={cn(
+                            "block text-[0.68rem] font-semibold",
+                            new Decimal(
+                              investmentsSnapshot.gold.totalUnrealizedProfit,
+                            ).gt(0)
+                              ? "text-[var(--income)]"
+                              : new Decimal(
+                                    investmentsSnapshot.gold
+                                      .totalUnrealizedProfit,
+                                  ).isNegative()
+                                ? "text-[var(--expense)]"
+                                : "text-[var(--text-muted)]",
+                          )}
+                        >
+                          {privacyMasked
+                            ? "••••"
+                            : (() => {
+                                const profitDec = new Decimal(
+                                  investmentsSnapshot.gold.totalUnrealizedProfit,
+                                );
+                                return `${profitDec.gt(0) ? "+" : profitDec.isNegative() ? "−" : ""}${formatAmount(profitDec.abs())} ${workspace.currency}`;
+                              })()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {investmentsSnapshot.gold.topHoldings.length > 0 ? (
+                    <div className="mt-3.5 divide-y divide-[var(--border)]/60 border-t border-[var(--border)] pt-1">
+                      {investmentsSnapshot.gold.topHoldings.map((holding) => {
+                        const profitDec = new Decimal(holding.unrealizedProfit);
+                        const pctDec = new Decimal(holding.unrealizedReturnPct);
+                        return (
+                          <Link
+                            key={holding.id}
+                            href="/investments"
+                            onClick={(event) => {
+                              if (
+                                !event.ctrlKey &&
+                                !event.metaKey &&
+                                event.button === 0
+                              ) {
+                                event.preventDefault();
+                                beginNavigation("/investments");
+                              }
+                            }}
+                            className="flex items-center justify-between gap-3 py-2.5 transition-colors hover:opacity-85"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <span className="block break-words text-xs font-semibold text-[var(--foreground)]">
+                                {holding.name}
+                              </span>
+                              <span className="block text-[0.68rem] text-[var(--text-muted)]">
+                                {holding.brandName} · {holding.weightFormatted}
+                              </span>
+                            </div>
+                            <div className="shrink-0 text-right tabular-nums">
+                              <strong className="block text-xs font-bold text-[var(--foreground)]">
+                                {displayAmount(holding.marketValue)}
+                              </strong>
+                              <span
+                                className={cn(
+                                  "block text-[0.65rem] font-semibold",
+                                  profitDec.gt(0)
+                                    ? "text-[var(--income)]"
+                                    : profitDec.isNegative()
+                                      ? "text-[var(--expense)]"
+                                      : "text-[var(--text-muted)]",
+                                )}
+                              >
+                                {privacyMasked
+                                  ? "••••"
+                                  : `${profitDec.gt(0) ? "+" : profitDec.isNegative() ? "−" : ""}${formatAmount(profitDec.abs())} (${pctDec.gt(0) ? "+" : ""}${pctDec.toFixed(1)}%)`}
+                              </span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-3.5 border-t border-[var(--border)] pt-3">
+                      <Link
+                        href="/investments"
+                        onClick={(event) => {
+                          if (
+                            !event.ctrlKey &&
+                            !event.metaKey &&
+                            event.button === 0
+                          ) {
+                            event.preventDefault();
+                            beginNavigation("/investments");
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--primary)]"
+                      >
+                        <Plus className="size-3.5" />
+                        <span>Ghi nhận vàng SJC, nhẫn tròn trơn 9999 hoặc trang sức</span>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Sổ tiết kiệm */}
+              <div className="flex flex-col justify-between p-4 md:p-5">
+                <div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--primary)]/12 text-[var(--primary)]">
+                        <PiggyBank className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <h3 className="break-words text-sm font-semibold text-[var(--foreground)]">
+                            Sổ tiết kiệm ({investmentsSnapshot.savings.activeCount})
+                          </h3>
+                          {investmentsSnapshot.savings.dueSoonCount > 0 && (
+                            <span className="rounded-full bg-[color-mix(in_srgb,var(--warning)_16%,var(--surface))] px-1.5 py-0.5 text-[0.62rem] font-semibold text-[var(--warning)] tabular-nums">
+                              {investmentsSnapshot.savings.dueSoonCount} sổ sắp/đến hạn
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-[var(--text-muted)] tabular-nums">
+                          {investmentsSnapshot.savings.activeCount > 0
+                            ? `Lãi kỳ vọng cuối kỳ: ${privacyMasked ? "••••" : `+${money(investmentsSnapshot.savings.totalExpectedMaturityInterest, workspace.currency)}`}`
+                            : "Chưa có sổ tiết kiệm đang gửi"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 text-right tabular-nums">
+                      <strong className="block text-sm font-bold text-[var(--foreground)]">
+                        {displayAmount(investmentsSnapshot.savings.totalPrincipal)}
+                      </strong>
+                      {investmentsSnapshot.savings.activeCount > 0 && (
+                        <span className="block text-[0.68rem] font-semibold text-[var(--income)]">
+                          Lãi tích lũy:{" "}
+                          {privacyMasked
+                            ? "••••"
+                            : `+${formatAmount(investmentsSnapshot.savings.totalAccruedInterest)} ${workspace.currency}`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {investmentsSnapshot.savings.activeItems.length > 0 ? (
+                    <div className="mt-3.5 divide-y divide-[var(--border)]/60 border-t border-[var(--border)] pt-1">
+                      {investmentsSnapshot.savings.activeItems.map((dep) => (
+                        <Link
+                          key={dep.id}
+                          href="/investments"
+                          onClick={(event) => {
+                            if (
+                              !event.ctrlKey &&
+                              !event.metaKey &&
+                              event.button === 0
+                            ) {
+                              event.preventDefault();
+                              beginNavigation("/investments");
+                            }
+                          }}
+                          className="flex items-center justify-between gap-3 py-2.5 transition-colors hover:opacity-85"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="break-words text-xs font-semibold text-[var(--foreground)]">
+                                {dep.bankName} — {dep.name}
+                              </span>
+                              {(dep.isMatured || dep.isDueSoon) && (
+                                <span
+                                  className={cn(
+                                    "rounded-full px-1.5 py-0.5 text-[0.6rem] font-semibold tabular-nums",
+                                    dep.isMatured
+                                      ? "bg-[color-mix(in_srgb,var(--warning)_16%,var(--surface))] text-[var(--warning)]"
+                                      : "bg-[var(--income)]/12 text-[var(--income)]",
+                                  )}
+                                >
+                                  {dep.isMatured
+                                    ? "Đến hạn"
+                                    : dep.daysUntilMaturity === 0
+                                      ? "Hôm nay"
+                                      : `Còn ${dep.daysUntilMaturity} ngày`}
+                                </span>
+                              )}
+                            </div>
+                            <span className="block text-[0.68rem] text-[var(--text-muted)] tabular-nums">
+                              Kỳ hạn {dep.termMonths}T ({dep.annualInterestRate}%/năm) · Đáo hạn{" "}
+                              {formatShortDate(dep.maturityDate)}
+                            </span>
+                          </div>
+                          <div className="shrink-0 text-right tabular-nums">
+                            <strong className="block text-xs font-bold text-[var(--foreground)]">
+                              {displayAmount(dep.currentPrincipalAmount)}
+                            </strong>
+                            <span className="block text-[0.65rem] font-semibold text-[var(--income)]">
+                              {privacyMasked
+                                ? "••••"
+                                : `+${formatAmount(dep.accruedInterest)} lãi`}
+                            </span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-3.5 border-t border-[var(--border)] pt-3">
+                      <Link
+                        href="/investments"
+                        onClick={(event) => {
+                          if (
+                            !event.ctrlKey &&
+                            !event.metaKey &&
+                            event.button === 0
+                          ) {
+                            event.preventDefault();
+                            beginNavigation("/investments");
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--primary)]"
+                      >
+                        <Plus className="size-3.5" />
+                        <span>Mở sổ tiết kiệm ngân hàng để theo dõi lãi tích lũy mỗi ngày</span>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col justify-between gap-3 px-4 py-3.5 sm:flex-row sm:items-center md:px-5 md:py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/12 text-amber-600 dark:text-amber-400">
+                  <Sparkles className="size-4" />
+                </div>
+                <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
+                  Ghi nhận <strong className="font-semibold text-[var(--foreground)]">Vàng tích sản</strong> (tự động cập nhật theo giá SJC, BTMC, DOJI, PNJ hôm nay) và <strong className="font-semibold text-[var(--foreground)]">Sổ tiết kiệm</strong> để nắm trọn vẹn tổng tài sản ròng.
+                </p>
+              </div>
+              <Link
+                href="/investments"
+                onClick={(event) => {
+                  if (!event.ctrlKey && !event.metaKey && event.button === 0) {
+                    event.preventDefault();
+                    beginNavigation("/investments");
+                  }
+                }}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "shrink-0 self-start sm:self-auto",
+                )}
+              >
+                <Plus className="mr-1.5 size-3.5" />
+                Thêm tích sản đầu tiên
+              </Link>
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* 4. BOTTOM BENTO GRID: 6 JARS FINANCIAL PLAN SNAPSHOT (6 cols) & UNIFIED ACTIVITY FEED (6 cols) */}
       <section className="grid grid-cols-1 gap-3.5 md:gap-4 lg:grid-cols-12">
         {/* Left 6 Cols: 6 Jars & Active Financial Plan Snapshot */}
@@ -2337,11 +2890,15 @@ export function OverviewDashboard({
                                   ? "Hoàn tiền thẻ"
                                   : tx.purpose === "credit_card_payment"
                                     ? "Thanh toán thẻ tín dụng"
-                                    : isIncome
-                                      ? "Khoản thu"
-                                      : isExpense
-                                        ? "Khoản chi"
-                                        : "Chuyển khoản")}
+                                    : tx.purpose === "investment_contribution"
+                                      ? "Đầu tư & Gửi tiết kiệm"
+                                      : tx.purpose === "investment_settlement"
+                                        ? "Bán vàng & Tất toán tiết kiệm"
+                                        : isIncome
+                                          ? "Khoản thu"
+                                          : isExpense
+                                            ? "Khoản chi"
+                                            : "Chuyển khoản")}
                             </p>
                             {tx.status !== "approved" && (
                               <span
@@ -2461,7 +3018,9 @@ export function OverviewDashboard({
                               )}
                             >
                               {item.daysLeft < 0
-                                ? "Quá hạn"
+                                ? item.kind === "savings_maturity"
+                                  ? "Đến hạn tất toán"
+                                  : "Quá hạn"
                                 : item.daysLeft === 0
                                   ? "Hôm nay"
                                   : item.daysLeft === 1
@@ -2505,7 +3064,7 @@ export function OverviewDashboard({
                     variant="compact"
                     icon={CalendarClock}
                     title="Không có lịch sắp tới"
-                    description="Chưa có sao kê thẻ hay giao dịch định kỳ nào sắp đến hạn."
+                    description="Chưa có sao kê thẻ, sổ tiết kiệm đáo hạn hay giao dịch định kỳ nào sắp tới."
                   />
                 </div>
               ))}
@@ -2532,7 +3091,11 @@ export function OverviewDashboard({
                               ? "Hoàn tiền thẻ"
                               : tx.purpose === "credit_card_payment"
                                 ? "Thanh toán thẻ tín dụng"
-                                : "Giao dịch chờ duyệt")}
+                                : tx.purpose === "investment_contribution"
+                                  ? "Đầu tư & Gửi tiết kiệm"
+                                  : tx.purpose === "investment_settlement"
+                                    ? "Bán vàng & Tất toán tiết kiệm"
+                                    : "Giao dịch chờ duyệt")}
                         </p>
                         <p className="mt-0.5 break-words text-xs text-[var(--text-muted)] tabular-nums">
                           {tx.member} · Ví {tx.wallet} ·{" "}
@@ -2977,28 +3540,47 @@ function BalanceHistoryChart({
   reportPeriod,
   isMobile,
   periodOverride,
+  investmentMarketValue = "0",
 }: {
-  wallets: { id: string; name: string; balance: string }[];
+  wallets: {
+    id: string;
+    name: string;
+    balance: string;
+    kind?: "asset" | "credit_card";
+  }[];
   transactions: Transaction[];
   currency: string;
   reportPeriod: string;
   isMobile: boolean;
   periodOverride?: DashboardPeriod;
+  investmentMarketValue?: string;
 }) {
   const period = periodOverride ?? "month";
   const dateRange = getDashboardPeriodDateRange(reportPeriod, period);
   const isDaily = period === "month";
   const balances = isDaily
-    ? buildDailyBalances(wallets, transactions, {
-        walletId: "all",
-        dateRange,
-      })
-    : buildMonthlyBalances(wallets, transactions, {
-        endPeriod: reportPeriod,
-        range: 12,
-        walletId: "all",
-        dateRange,
-      });
+    ? buildDailyBalances(
+        wallets,
+        transactions,
+        {
+          walletId: "all",
+          dateRange,
+          investmentMarketValue,
+        },
+        investmentMarketValue,
+      )
+    : buildMonthlyBalances(
+        wallets,
+        transactions,
+        {
+          endPeriod: reportPeriod,
+          range: 12,
+          walletId: "all",
+          dateRange,
+          investmentMarketValue,
+        },
+        investmentMarketValue,
+      );
 
   const rows = balances.map((row) => {
     const parts = row.period.split("-");

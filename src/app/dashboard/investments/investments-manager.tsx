@@ -12,8 +12,10 @@ import {
   History,
   Landmark,
   Layers,
+  Pencil,
   Plus,
   RefreshCw,
+  RotateCcw,
   Scale,
   Settings2,
   SlidersHorizontal,
@@ -31,11 +33,14 @@ import {
   createSavingsDepositAction,
   deleteGoldHoldingAction,
   deleteGoldPurchaseLotAction,
+  deleteGoldSaleRecordAction,
   deleteSavingsDepositAction,
+  deleteSavingsSettlementAction,
   recordGoldSaleAction,
   refreshGoldMarketPricesAction,
   settleSavingsDepositAction,
   updateGoldHoldingSettingsAction,
+  updateGoldPurchaseLotAction,
 } from "@/app/dashboard/investments/actions";
 import {
   Button,
@@ -340,27 +345,73 @@ export function InvestmentsManager({
 
   // Sheet states
   const [createGoldOpen, setCreateGoldOpen] = useState(false);
-  const [buyMoreHolding, setBuyMoreHolding] = useState<GoldHoldingItem | null>(
+  const [buyMoreHoldingState, setBuyMoreHolding] =
+    useState<GoldHoldingItem | null>(null);
+  const [sellHoldingState, setSellHolding] = useState<GoldHoldingItem | null>(
     null,
   );
-  const [sellHolding, setSellHolding] = useState<GoldHoldingItem | null>(null);
   const [sellPreselectedLotId, setSellPreselectedLotId] = useState<
     string | null
   >(null);
   const [detailHoldingId, setDetailHoldingId] = useState<string | null>(null);
-  const [settingsHolding, setSettingsHolding] =
+  const [editingLotState, setEditingLotState] = useState<{
+    holdingId: string;
+    lotId: string;
+  } | null>(null);
+  const [settingsHoldingState, setSettingsHolding] =
     useState<GoldHoldingItem | null>(null);
 
   const [createSavingsOpen, setCreateSavingsOpen] = useState(false);
-  const [settleDeposit, setSettleDeposit] = useState<SavingsDepositItem | null>(
-    null,
-  );
+  const [settleDepositState, setSettleDeposit] =
+    useState<SavingsDepositItem | null>(null);
   const [detailDepositId, setDetailDepositId] = useState<string | null>(null);
 
+  const buyMoreHolding = useMemo(
+    () =>
+      buyMoreHoldingState
+        ? (data.goldHoldings.find((h) => h.id === buyMoreHoldingState.id) ??
+          buyMoreHoldingState)
+        : null,
+    [data.goldHoldings, buyMoreHoldingState],
+  );
+  const sellHolding = useMemo(
+    () =>
+      sellHoldingState
+        ? (data.goldHoldings.find((h) => h.id === sellHoldingState.id) ??
+          sellHoldingState)
+        : null,
+    [data.goldHoldings, sellHoldingState],
+  );
+  const settingsHolding = useMemo(
+    () =>
+      settingsHoldingState
+        ? (data.goldHoldings.find((h) => h.id === settingsHoldingState.id) ??
+          settingsHoldingState)
+        : null,
+    [data.goldHoldings, settingsHoldingState],
+  );
+  const settleDeposit = useMemo(
+    () =>
+      settleDepositState
+        ? (data.savingsDeposits.find((d) => d.id === settleDepositState.id) ??
+          settleDepositState)
+        : null,
+    [data.savingsDeposits, settleDepositState],
+  );
   const detailHolding = useMemo(
     () => data.goldHoldings.find((h) => h.id === detailHoldingId) ?? null,
     [data.goldHoldings, detailHoldingId],
   );
+  const editingLotResolved = useMemo(() => {
+    if (!editingLotState) return null;
+    const holding = data.goldHoldings.find(
+      (h) => h.id === editingLotState.holdingId,
+    );
+    if (!holding) return null;
+    const lot = holding.lots.find((l) => l.id === editingLotState.lotId);
+    if (!lot) return null;
+    return { holding, lot };
+  }, [data.goldHoldings, editingLotState]);
   const detailDeposit = useMemo(
     () => data.savingsDeposits.find((d) => d.id === detailDepositId) ?? null,
     [data.savingsDeposits, detailDepositId],
@@ -1452,6 +1503,7 @@ export function InvestmentsManager({
         <CreateGoldHoldingSheet
           open={createGoldOpen}
           onOpenChange={setCreateGoldOpen}
+          holdings={data.goldHoldings}
           wallets={data.wallets}
           quotes={data.quotes}
           businessDate={data.workspace.businessDate}
@@ -1526,7 +1578,38 @@ export function InvestmentsManager({
             setSellPreselectedLotId(lotId);
             setSellHolding(detailHolding);
           }}
+          onEditLot={(lotId) => {
+            const currentHoldingId = detailHolding.id;
+            setDetailHoldingId(null);
+            setEditingLotState({ holdingId: currentHoldingId, lotId });
+          }}
           onRefresh={() => router.refresh()}
+        />
+      )}
+
+      {/* ==================== SHEET 4B: CHỈNH SỬA ĐỢT MUA VÀNG ==================== */}
+      {editingLotResolved && (
+        <EditGoldLotSheet
+          open={Boolean(editingLotResolved)}
+          onOpenChange={(open) => {
+            if (!open) {
+              const reopenHoldingId = editingLotResolved.holding.id;
+              setEditingLotState(null);
+              setDetailHoldingId(reopenHoldingId);
+            }
+          }}
+          holding={editingLotResolved.holding}
+          lot={editingLotResolved.lot}
+          wallets={data.wallets}
+          currency={currency}
+          isPending={isPending}
+          startTransition={startTransition}
+          onSuccess={() => {
+            const reopenHoldingId = editingLotResolved.holding.id;
+            setEditingLotState(null);
+            setDetailHoldingId(reopenHoldingId);
+            router.refresh();
+          }}
         />
       )}
 
@@ -1594,6 +1677,7 @@ export function InvestmentsManager({
             setDetailDepositId(null);
             setSettleDeposit(detailDeposit);
           }}
+          onRefresh={() => router.refresh()}
           onDeleted={() => {
             setDetailDepositId(null);
             router.refresh();
@@ -1611,6 +1695,7 @@ export function InvestmentsManager({
 function CreateGoldHoldingSheet({
   open,
   onOpenChange,
+  holdings,
   wallets,
   quotes,
   businessDate,
@@ -1621,6 +1706,7 @@ function CreateGoldHoldingSheet({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  holdings: InvestmentsOverviewData["goldHoldings"];
   wallets: InvestmentsOverviewData["wallets"];
   quotes: InvestmentsOverviewData["quotes"];
   businessDate: string;
@@ -1641,6 +1727,10 @@ function CreateGoldHoldingSheet({
   const [manualBuybackPrice, setManualBuybackPrice] = useState("13860000");
   const [manualSellPrice, setManualSellPrice] = useState("14260000");
   const [storageLocation, setStorageLocation] = useState("");
+  const [mergeMode, setMergeMode] = useState<"auto_merge" | "create_separate">(
+    "auto_merge",
+  );
+  const [customName, setCustomName] = useState("");
   const [showOptionalDetails, setShowOptionalDetails] = useState(false);
 
   // Đợt mua đầu tiên
@@ -1740,6 +1830,14 @@ function CreateGoldHoldingSheet({
           : currentPrice.div(TEN).toFixed(0),
       );
     }
+    const currentQty = new Decimal(quantityInput || "0");
+    if (currentQty.gt(0)) {
+      setQuantityInput(
+        nextUnit === "luong"
+          ? currentQty.div(TEN).toNumber().toString()
+          : currentQty.mul(TEN).toNumber().toString(),
+      );
+    }
     setWeightUnit(nextUnit);
   };
 
@@ -1781,14 +1879,34 @@ function CreateGoldHoldingSheet({
         ? `${GOLD_PRODUCT_TYPE_LABELS[productType]} — ${brandName.trim()}`
         : GOLD_PRODUCT_TYPE_LABELS[productType];
 
+  const matchedExistingHolding = useMemo(() => {
+    return (
+      holdings.find((candidate) => {
+        if (candidate.priceSourceMode !== priceSourceMode) return false;
+        if (priceSourceMode === "auto_brand") {
+          return candidate.quoteProviderCode === quoteProviderCode;
+        }
+        return (
+          candidate.productType === productType &&
+          candidate.brandName.trim().toLowerCase() ===
+            brandName.trim().toLowerCase()
+        );
+      }) ?? null
+    );
+  }, [holdings, priceSourceMode, quoteProviderCode, productType, brandName]);
+
+  const finalHoldingName =
+    customName.trim() || generatedHoldingName;
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
       const res = await createGoldHoldingAction({
-        name: generatedHoldingName,
+        name: finalHoldingName,
         brandName,
         productType,
         priceSourceMode,
+        mergeMode: matchedExistingHolding ? mergeMode : "create_separate",
         quoteProviderCode:
           priceSourceMode === "auto_brand" || priceSourceMode === "pegged_brand"
             ? quoteProviderCode
@@ -2057,6 +2175,64 @@ function CreateGoldHoldingSheet({
             </div>
           )}
 
+          {/* 3B. Merge vs Separate Holding Choice when a matching holding already exists */}
+          {matchedExistingHolding && (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 p-3 space-y-2.5">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-xs font-semibold text-[var(--foreground)]">
+                  Cách lưu khoản vàng này
+                </span>
+                <span className="text-[11px] text-[var(--text-secondary)]">
+                  Đã có hũ: <strong>{matchedExistingHolding.name}</strong>
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMergeMode("auto_merge")}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-2 text-left text-xs transition-colors cursor-pointer",
+                    mergeMode === "auto_merge"
+                      ? "border-[var(--primary)] bg-[var(--primary-soft)] font-semibold text-[var(--primary)]"
+                      : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--foreground)]",
+                  )}
+                >
+                  <span className="block">Gộp vào hũ đang có</span>
+                  <span className="mt-0.5 block text-[10px] font-normal opacity-80">
+                    Tự động tính trung bình giá
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMergeMode("create_separate")}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-2 text-left text-xs transition-colors cursor-pointer",
+                    mergeMode === "create_separate"
+                      ? "border-[var(--primary)] bg-[var(--primary-soft)] font-semibold text-[var(--primary)]"
+                      : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--foreground)]",
+                  )}
+                >
+                  <span className="block">Tách khoản vàng riêng</span>
+                  <span className="mt-0.5 block text-[10px] font-normal opacity-80">
+                    Theo dõi mục đích riêng
+                  </span>
+                </button>
+              </div>
+
+              {mergeMode === "create_separate" && (
+                <Input
+                  label="Tên gợi nhớ cho khoản vàng riêng"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  placeholder={`VD: ${generatedHoldingName} (Quà cưới / Cho con)...`}
+                  className="text-sm"
+                />
+              )}
+            </div>
+          )}
+
           {/* 4. Symmetrical 2-Column Date & Funding Source */}
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <DatePicker
@@ -2095,6 +2271,16 @@ function CreateGoldHoldingSheet({
 
             {showOptionalDetails && (
               <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3">
+                {!matchedExistingHolding && (
+                  <Input
+                    wrapperClassName="col-span-2"
+                    label="Tên gợi nhớ khoản vàng (tùy chọn)"
+                    value={customName}
+                    onChange={(e) => setCustomName(e.target.value)}
+                    placeholder={`Mặc định: ${generatedHoldingName}`}
+                    className="text-sm"
+                  />
+                )}
                 <MoneyInput
                   label="Tiền công / Phí"
                   value={craftingFee}
@@ -2182,6 +2368,14 @@ function AddGoldLotSheet({
         nextUnit === "luong"
           ? currentPrice.mul(TEN).toFixed(0)
           : currentPrice.div(TEN).toFixed(0),
+      );
+    }
+    const currentQty = new Decimal(quantityInput || "0");
+    if (currentQty.gt(0)) {
+      setQuantityInput(
+        nextUnit === "luong"
+          ? currentQty.div(TEN).toNumber().toString()
+          : currentQty.mul(TEN).toNumber().toString(),
       );
     }
     setWeightUnit(nextUnit);
@@ -2804,6 +2998,7 @@ function GoldHoldingDetailSheet({
   startTransition,
   onBuyMore,
   onSellLot,
+  onEditLot,
   onRefresh,
 }: {
   open: boolean;
@@ -2814,9 +3009,16 @@ function GoldHoldingDetailSheet({
   startTransition: React.TransitionStartFunction;
   onBuyMore: () => void;
   onSellLot: (lotId: string) => void;
+  onEditLot: (lotId: string) => void;
   onRefresh: () => void;
 }) {
   const [confirmDeleteHolding, setConfirmDeleteHolding] = useState(false);
+  const [confirmDeleteLotId, setConfirmDeleteLotId] = useState<string | null>(
+    null,
+  );
+  const [confirmUndoSaleId, setConfirmUndoSaleId] = useState<string | null>(
+    null,
+  );
 
   function handleDeleteLot(lotId: string) {
     startTransition(async () => {
@@ -2825,7 +3027,24 @@ function GoldHoldingDetailSheet({
         toast.error(res.error ?? "Không thể xóa đợt mua vàng.");
         return;
       }
+      setConfirmDeleteLotId(null);
       toast.success(res.message ?? "Đã xóa đợt mua vàng.");
+      onRefresh();
+    });
+  }
+
+  function handleUndoSale(saleId: string) {
+    startTransition(async () => {
+      const res = await deleteGoldSaleRecordAction(saleId);
+      if (!res.ok) {
+        toast.error(res.error ?? "Không thể hoàn tác giao dịch bán vàng.");
+        return;
+      }
+      setConfirmUndoSaleId(null);
+      toast.success(
+        res.message ??
+          "Đã hoàn tác giao dịch bán vàng và khôi phục số lượng vàng về hũ.",
+      );
       onRefresh();
     });
   }
@@ -2872,6 +3091,7 @@ function GoldHoldingDetailSheet({
           <div className="space-y-2">
             {holding.lots.map((lot) => {
               const remChi = new Decimal(lot.remainingQuantityChi);
+              const isConfirmingLotDelete = confirmDeleteLotId === lot.id;
               return (
                 <div
                   key={lot.id}
@@ -2919,29 +3139,77 @@ function GoldHoldingDetailSheet({
                       Seri / Hóa đơn: {lot.invoiceOrSerial}
                     </p>
                   )}
+                  {lot.note && (
+                    <p className="text-[11px] text-[var(--text-muted)]">
+                      Ghi chú: {lot.note}
+                    </p>
+                  )}
 
-                  <div className="flex items-center justify-end gap-3 pt-1">
-                    {remChi.gt(0) && (
-                      <button
-                        type="button"
-                        onClick={() => onSellLot(lot.id)}
-                        className="text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
-                      >
-                        Bán từ đợt này
-                      </button>
-                    )}
-                    {lot.canDelete && (
+                  {!isConfirmingLotDelete ? (
+                    <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
+                      {remChi.gt(0) && (
+                        <button
+                          type="button"
+                          onClick={() => onSellLot(lot.id)}
+                          className="text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
+                        >
+                          Bán từ đợt này
+                        </button>
+                      )}
                       <button
                         type="button"
                         disabled={isPending}
-                        onClick={() => handleDeleteLot(lot.id)}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--expense)] hover:underline cursor-pointer"
+                        onClick={() => onEditLot(lot.id)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)] hover:underline cursor-pointer"
                       >
-                        <Trash2 className="size-3" />
-                        <span>Xóa đợt mua</span>
+                        <Pencil className="size-3" />
+                        <span>Sửa</span>
                       </button>
-                    )}
-                  </div>
+                      {lot.canDelete && (
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => setConfirmDeleteLotId(lot.id)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--expense)] hover:underline cursor-pointer"
+                        >
+                          <Trash2 className="size-3" />
+                          <span>Xóa đợt mua</span>
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-1.5 border-t border-[var(--border)] pt-2 space-y-2">
+                      <p className="text-[11px] text-[var(--foreground)]">
+                        Xóa đợt mua {lot.quantityFormatted.primary} ngày{" "}
+                        {formatShortViDate(lot.purchaseDate)}?
+                        {lot.fundingMode === "from_wallet" &&
+                        lot.sourceWalletName
+                          ? ` Tiền mua ${formatAmount(lot.totalCostAmount, currency)} sẽ được hoàn lại vào ví ${lot.sourceWalletName}.`
+                          : ""}
+                      </p>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setConfirmDeleteLotId(null)}
+                          className="h-7 px-2.5 text-[11px]"
+                        >
+                          Giữ lại
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          disabled={isPending}
+                          onClick={() => handleDeleteLot(lot.id)}
+                          className="h-7 px-2.5 text-[11px]"
+                        >
+                          Xác nhận xóa
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -2957,10 +3225,11 @@ function GoldHoldingDetailSheet({
             <div className="space-y-2">
               {holding.sales.map((sale) => {
                 const profit = new Decimal(sale.realizedProfitAmount);
+                const isConfirmingUndo = confirmUndoSaleId === sale.id;
                 return (
                   <div
                     key={sale.id}
-                    className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 space-y-1 text-xs"
+                    className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 space-y-1.5 text-xs"
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-[var(--foreground)]">
@@ -2991,6 +3260,56 @@ function GoldHoldingDetailSheet({
                         {formatAmount(sale.netProceedsAmount, currency)}
                       </span>
                     </div>
+                    {sale.note && (
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        Ghi chú: {sale.note}
+                      </p>
+                    )}
+
+                    {!isConfirmingUndo ? (
+                      <div className="flex items-center justify-end pt-0.5">
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => setConfirmUndoSaleId(sale.id)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--expense)] hover:underline cursor-pointer"
+                        >
+                          <RotateCcw className="size-3" />
+                          <span>Hoàn tác lần bán</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-1.5 border-t border-[var(--border)] pt-2 space-y-2">
+                        <p className="text-[11px] text-[var(--foreground)]">
+                          Hoàn tác lần bán {sale.quantityFormatted.primary} ngày{" "}
+                          {formatShortViDate(sale.saleDate)}? Hệ thống sẽ thu
+                          hồi {formatAmount(sale.netProceedsAmount, currency)}{" "}
+                          từ ví <strong>{sale.destinationWalletName}</strong> và
+                          cộng trả {sale.quantityFormatted.primary} vàng về hũ.
+                        </p>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setConfirmUndoSaleId(null)}
+                            className="h-7 px-2.5 text-[11px]"
+                          >
+                            Giữ lại
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            disabled={isPending}
+                            onClick={() => handleUndoSale(sale.id)}
+                            className="h-7 px-2.5 text-[11px]"
+                          >
+                            Xác nhận hoàn tác
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -3047,6 +3366,258 @@ function GoldHoldingDetailSheet({
   );
 }
 
+function EditGoldLotSheet({
+  open,
+  onOpenChange,
+  holding,
+  lot,
+  wallets,
+  currency,
+  isPending,
+  startTransition,
+  onSuccess,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  holding: GoldHoldingItem;
+  lot: GoldHoldingItem["lots"][number];
+  wallets: InvestmentsOverviewData["wallets"];
+  currency: string;
+  isPending: boolean;
+  startTransition: React.TransitionStartFunction;
+  onSuccess: () => void;
+}) {
+  const canEditFinancials = lot.canEditFinancials;
+  const [weightUnit, setWeightUnit] = useState<GoldWeightUnit>("chi");
+  const [quantityInput, setQuantityInput] = useState(() =>
+    new Decimal(lot.quantityChi).toNumber().toString(),
+  );
+  const [unitPriceInput, setUnitPriceInput] = useState(lot.unitPricePerChi);
+  const [craftingFee, setCraftingFee] = useState(lot.craftingFeeAmount);
+  const [fundingSelection, setFundingSelection] = useState<string>(
+    lot.fundingMode === "from_wallet" && lot.sourceWalletId
+      ? lot.sourceWalletId
+      : EXISTING_ASSET_VALUE,
+  );
+  const [purchaseDate, setPurchaseDate] = useState(lot.purchaseDate);
+  const [invoiceOrSerial, setInvoiceOrSerial] = useState(
+    lot.invoiceOrSerial ?? "",
+  );
+  const [note, setNote] = useState(lot.note ?? "");
+
+  const fundingMode =
+    fundingSelection === EXISTING_ASSET_VALUE
+      ? "existing_asset"
+      : "from_wallet";
+  const sourceWalletId =
+    fundingSelection === EXISTING_ASSET_VALUE ? null : fundingSelection;
+
+  const handleToggleWeightUnit = (nextUnit: GoldWeightUnit) => {
+    if (nextUnit === weightUnit) return;
+    const currentPrice = new Decimal(unitPriceInput || "0");
+    if (currentPrice.gt(0)) {
+      setUnitPriceInput(
+        nextUnit === "luong"
+          ? currentPrice.mul(TEN).toFixed(0)
+          : currentPrice.div(TEN).toFixed(0),
+      );
+    }
+    const currentQty = new Decimal(quantityInput || "0");
+    if (currentQty.gt(0)) {
+      setQuantityInput(
+        nextUnit === "luong"
+          ? currentQty.div(TEN).toNumber().toString()
+          : currentQty.mul(TEN).toNumber().toString(),
+      );
+    }
+    setWeightUnit(nextUnit);
+  };
+
+  const computedChi = convertGoldWeightToChi(quantityInput || "0", weightUnit);
+  const computedPricePerChi = convertGoldPriceToPerChi(
+    unitPriceInput || "0",
+    weightUnit,
+  );
+  const computedTotalCost = computedChi
+    .mul(computedPricePerChi)
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    .plus(new Decimal(craftingFee || "0"));
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(async () => {
+      const res = await updateGoldPurchaseLotAction({
+        lotId: lot.id,
+        fundingMode,
+        sourceWalletId,
+        purchaseDate,
+        quantityChi: computedChi.toFixed(4),
+        unitPricePerChi: computedPricePerChi.toFixed(0),
+        craftingFeeAmount: craftingFee || "0",
+        shopName: lot.shopName ?? holding.brandName,
+        invoiceOrSerial,
+        note,
+      });
+      if (!res.ok) {
+        toast.error(res.error ?? "Không thể cập nhật đợt mua vàng.");
+        return;
+      }
+      toast.success(res.message ?? "Đã cập nhật đợt mua vàng.");
+      onSuccess();
+    });
+  }
+
+  return (
+    <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
+      <SheetHeader
+        icon={Pencil}
+        title={`Sửa đợt mua vàng — ${holding.name}`}
+        description="Điều chỉnh thông tin đợt mua và tự động đồng bộ lại giá vốn & số dư ví."
+      />
+      <form
+        onSubmit={handleSubmit}
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
+        <SheetBody>
+          {!canEditFinancials && (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 text-xs text-[var(--text-secondary)]">
+              Khoản vàng này đã phát sinh giao dịch bán nên số lượng, đơn giá và
+              nguồn ví tạm khóa để bảo toàn lịch sử lời/lỗ đã chốt. Bạn vẫn có
+              thể sửa ngày mua, số seri và ghi chú (hoặc hoàn tác lần bán trước
+              nếu muốn sửa số lượng/giá mua).
+            </div>
+          )}
+
+          {canEditFinancials && (
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3 sm:p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-[var(--foreground)] whitespace-nowrap">
+                  Số lượng & Giá mua
+                </span>
+                <div className="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleWeightUnit("chi")}
+                    className={cn(
+                      "rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap",
+                      weightUnit === "chi"
+                        ? "bg-[var(--primary-soft)] text-[var(--primary)]"
+                        : "text-[var(--text-secondary)] hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    Theo Chỉ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleWeightUnit("luong")}
+                    className={cn(
+                      "rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap",
+                      weightUnit === "luong"
+                        ? "bg-[var(--primary-soft)] text-[var(--primary)]"
+                        : "text-[var(--text-secondary)] hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    Lượng (Cây)
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-[92px_1fr] gap-2.5 sm:grid-cols-[124px_1fr] sm:gap-3">
+                <Input
+                  label={`Số lượng (${weightUnit === "luong" ? "Lượng" : "Chỉ"})`}
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={quantityInput}
+                  onChange={(e) => setQuantityInput(e.target.value)}
+                  className="text-sm font-semibold tabular-nums"
+                  required
+                />
+                <MoneyInput
+                  label={`Giá mua (${weightUnit === "luong" ? "đ/lượng" : "đ/chỉ"})`}
+                  value={unitPriceInput}
+                  onValueChange={setUnitPriceInput}
+                  className="pr-11 text-sm font-semibold"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 text-xs">
+                <span className="text-[var(--text-secondary)] whitespace-nowrap">
+                  Thành tiền ({formatGoldWeightVi(computedChi).fullText}):
+                </span>
+                <strong className="text-sm font-bold text-[var(--primary)] tabular-nums whitespace-nowrap">
+                  {formatAmount(computedTotalCost.toFixed(0), currency)}
+                </strong>
+              </div>
+            </div>
+          )}
+
+          <div
+            className={cn(
+              "grid gap-2.5 sm:gap-3",
+              canEditFinancials ? "grid-cols-2" : "grid-cols-1",
+            )}
+          >
+            <DatePicker
+              label="Ngày mua"
+              value={purchaseDate}
+              onValueChange={(val: string) => val && setPurchaseDate(val)}
+              className="text-sm whitespace-nowrap"
+            />
+            {canEditFinancials && (
+              <Select
+                label="Nguồn tiền thanh toán"
+                value={fundingSelection}
+                onValueChange={(val) => val && setFundingSelection(val)}
+                className="text-sm whitespace-nowrap"
+                options={buildFundingSourceOptions(
+                  wallets,
+                  currency,
+                  "Vàng đã có sẵn",
+                )}
+              />
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+            {canEditFinancials && (
+              <MoneyInput
+                label="Tiền công / Phí"
+                value={craftingFee}
+                onValueChange={setCraftingFee}
+                className="pr-11 text-sm"
+              />
+            )}
+            <Input
+              wrapperClassName={canEditFinancials ? undefined : "col-span-2"}
+              label="Số seri / Hóa đơn"
+              value={invoiceOrSerial}
+              onChange={(e) => setInvoiceOrSerial(e.target.value)}
+              placeholder="VD: Seri miếng / Mã vỉ..."
+              className="text-sm"
+            />
+            <Input
+              wrapperClassName="col-span-2"
+              label="Ghi chú"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="VD: Mua tích sản..."
+              className="text-sm"
+            />
+          </div>
+        </SheetBody>
+        <SheetFooter
+          onCancel={() => onOpenChange(false)}
+          cancelLabel="Quay lại"
+          submitLabel="Lưu thay đổi"
+          isSubmitting={isPending}
+          submittingLabel="Đang lưu..."
+        />
+      </form>
+    </ResponsiveSheet>
+  );
+}
+
 function GoldHoldingSettingsSheet({
   open,
   onOpenChange,
@@ -3064,6 +3635,7 @@ function GoldHoldingSettingsSheet({
   startTransition: React.TransitionStartFunction;
   onSuccess: () => void;
 }) {
+  const [customName, setCustomName] = useState(holding.name);
   const [brandName, setBrandName] = useState(holding.brandName);
   const [priceSourceMode, setPriceSourceMode] = useState<
     "auto_brand" | "pegged_brand" | "manual"
@@ -3102,7 +3674,7 @@ function GoldHoldingSettingsSheet({
     startTransition(async () => {
       const res = await updateGoldHoldingSettingsAction({
         holdingId: holding.id,
-        name: generatedHoldingName,
+        name: customName.trim() || generatedHoldingName,
         brandName,
         priceSourceMode,
         quoteProviderCode:
@@ -3130,13 +3702,22 @@ function GoldHoldingSettingsSheet({
       <SheetHeader
         icon={Settings2}
         title="Cài đặt giá & Thông tin vàng"
-        description="Chọn cách cập nhật giá để tính đúng giá trị vàng của bạn."
+        description="Chọn cách cập nhật giá và đặt tên gợi nhớ cho khoản vàng của bạn."
       />
       <form
         onSubmit={handleSubmit}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <SheetBody>
+          <Input
+            label="Tên gợi nhớ khoản vàng"
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+            placeholder={`VD: ${generatedHoldingName} (Quà cưới / Tích sản)...`}
+            className="text-sm"
+            required
+          />
+
           <Tabs
             value={priceSourceMode}
             onValueChange={(val) => {
@@ -3990,6 +4571,7 @@ function SavingsDepositDetailSheet({
   isPending,
   startTransition,
   onSettle,
+  onRefresh,
   onDeleted,
 }: {
   open: boolean;
@@ -3999,9 +4581,29 @@ function SavingsDepositDetailSheet({
   isPending: boolean;
   startTransition: React.TransitionStartFunction;
   onSettle: () => void;
+  onRefresh: () => void;
   onDeleted: () => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmUndoSettlementId, setConfirmUndoSettlementId] = useState<
+    string | null
+  >(null);
+
+  function handleUndoSettlement(settlementId: string) {
+    startTransition(async () => {
+      const res = await deleteSavingsSettlementAction(settlementId);
+      if (!res.ok) {
+        toast.error(res.error ?? "Không thể hoàn tác giao dịch tất toán.");
+        return;
+      }
+      setConfirmUndoSettlementId(null);
+      toast.success(
+        res.message ??
+          "Đã hoàn tác lần tất toán / tái tục và khôi phục sổ tiết kiệm.",
+      );
+      onRefresh();
+    });
+  }
 
   function handleDelete() {
     startTransition(async () => {
@@ -4062,38 +4664,93 @@ function SavingsDepositDetailSheet({
               Lịch sử Tất toán / Rút gốc / Tái tục ({deposit.settlements.length}
               )
             </h4>
-            {deposit.settlements.map((s) => (
-              <div
-                key={s.id}
-                className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 space-y-1 text-xs"
-              >
-                <div className="flex justify-between font-semibold">
-                  <span>
-                    {s.settlementType === "rollover"
-                      ? "Tái tục kỳ hạn mới"
-                      : s.settlementType === "early_partial"
-                        ? "Rút gốc một phần trước hạn"
-                        : s.settlementType === "early_full"
-                          ? "Tất toán trước hạn"
-                          : "Tất toán đúng hạn"}{" "}
-                    ({formatShortViDate(s.settlementDate)})
-                  </span>
-                  <span className="text-[var(--income)] tabular-nums">
-                    {s.settlementType === "rollover" &&
-                    Number(s.totalReceivedAmount) === 0
-                      ? `Nhập lãi +${formatAmount(s.interestReceivedAmount, currency)}`
-                      : `+${formatAmount(s.totalReceivedAmount, currency)}`}
-                  </span>
+            {deposit.settlements.map((s, index) => {
+              const isLatest = index === 0;
+              const isConfirmingUndo = confirmUndoSettlementId === s.id;
+              return (
+                <div
+                  key={s.id}
+                  className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 space-y-1.5 text-xs"
+                >
+                  <div className="flex justify-between font-semibold">
+                    <span>
+                      {s.settlementType === "rollover"
+                        ? "Tái tục kỳ hạn mới"
+                        : s.settlementType === "early_partial"
+                          ? "Rút gốc một phần trước hạn"
+                          : s.settlementType === "early_full"
+                            ? "Tất toán trước hạn"
+                            : "Tất toán đúng hạn"}{" "}
+                      ({formatShortViDate(s.settlementDate)})
+                    </span>
+                    <span className="text-[var(--income)] tabular-nums">
+                      {s.settlementType === "rollover" &&
+                      Number(s.totalReceivedAmount) === 0
+                        ? `Nhập lãi +${formatAmount(s.interestReceivedAmount, currency)}`
+                        : `+${formatAmount(s.totalReceivedAmount, currency)}`}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-[var(--text-secondary)]">
+                    Gốc rút:{" "}
+                    {formatAmount(s.principalWithdrawnAmount, currency)} · Lãi:{" "}
+                    {formatAmount(s.interestReceivedAmount, currency)}
+                    {s.destinationWalletName
+                      ? ` · Về ví: ${s.destinationWalletName}`
+                      : " · Nhập lãi vào gốc"}
+                  </div>
+
+                  {isLatest && !isConfirmingUndo && (
+                    <div className="flex items-center justify-end pt-0.5">
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => setConfirmUndoSettlementId(s.id)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--expense)] hover:underline cursor-pointer"
+                      >
+                        <RotateCcw className="size-3" />
+                        <span>
+                          Hoàn tác lần{" "}
+                          {s.settlementType === "rollover"
+                            ? "tái tục"
+                            : "tất toán"}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+
+                  {isLatest && isConfirmingUndo && (
+                    <div className="mt-1.5 border-t border-[var(--border)] pt-2 space-y-2">
+                      <p className="text-[11px] text-[var(--foreground)]">
+                        {Number(s.totalReceivedAmount) > 0
+                          ? `Hoàn tác giao dịch này? Hệ thống sẽ thu hồi ${formatAmount(s.totalReceivedAmount, currency)} từ ví ${s.destinationWalletName ?? ""} và khôi phục trạng thái sổ tiết kiệm.`
+                          : "Hoàn tác lần tái tục này? Hệ thống sẽ khôi phục kỳ hạn và số tiền gốc trước khi tái tục của sổ tiết kiệm."}
+                      </p>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setConfirmUndoSettlementId(null)}
+                          className="h-7 px-2.5 text-[11px]"
+                        >
+                          Giữ lại
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          disabled={isPending}
+                          onClick={() => handleUndoSettlement(s.id)}
+                          className="h-7 px-2.5 text-[11px]"
+                        >
+                          Xác nhận hoàn tác
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="text-[11px] text-[var(--text-secondary)]">
-                  Gốc rút: {formatAmount(s.principalWithdrawnAmount, currency)}{" "}
-                  · Lãi: {formatAmount(s.interestReceivedAmount, currency)}
-                  {s.destinationWalletName
-                    ? ` · Về ví: ${s.destinationWalletName}`
-                    : " · Nhập lãi vào gốc"}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

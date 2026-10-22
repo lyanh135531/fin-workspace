@@ -4,6 +4,7 @@ import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import {
   OverviewDashboard,
   type OverviewFinancialPlanSnapshot,
+  type OverviewInvestmentsSnapshot,
 } from "@/app/dashboard/overview/overview-dashboard";
 import { FINANCIAL_JAR_LABELS, type FinancialJarCode } from "@/domain/financial-jar/jars";
 import { workspaceCapabilities } from "@/domain/role-policy";
@@ -21,6 +22,7 @@ import {
   getFinancialPlanView,
   getWorkspaceFinancialPlans,
 } from "@/services/financial-plan-service";
+import { getWorkspaceInvestmentsOverview } from "@/services/investment-service";
 import { PageContainer } from "@/components/base";
 
 const ZERO = new Decimal(0);
@@ -55,6 +57,7 @@ export default async function OverviewPage() {
     categories,
     commitments,
     plans,
+    investmentsData,
   ] = await Promise.all([
     prisma.workspaceWallet.findMany({
       where: {
@@ -134,6 +137,9 @@ export default async function OverviewPage() {
     }),
     getWorkspaceCreditCardCommitments(workspaceId),
     getWorkspaceFinancialPlans(session.user.id, workspaceId).catch(() => []),
+    getWorkspaceInvestmentsOverview(session.user.id, workspaceId, {
+      syncQuotesOnlyWhenHoldingGold: true,
+    }).catch(() => null),
   ]);
 
   // Resolve active financial plan & 6-jars snapshot for the overview command center
@@ -220,6 +226,84 @@ export default async function OverviewPage() {
     }
   }
 
+  const investmentsSnapshot: OverviewInvestmentsSnapshot | null = investmentsData
+    ? {
+        totalPortfolioMarketValue:
+          investmentsData.summary.totalPortfolioMarketValue,
+        totalPortfolioCostBasis:
+          investmentsData.summary.totalPortfolioCostBasis,
+        totalPortfolioUnrealizedGain:
+          investmentsData.summary.totalPortfolioUnrealizedGain,
+        totalPortfolioRealizedGain:
+          investmentsData.summary.totalPortfolioRealizedGain,
+        gold: {
+          totalQuantityChi: investmentsData.summary.gold.totalQuantityChi,
+          totalWeightFormatted:
+            investmentsData.summary.gold.totalWeightFormatted.primary,
+          totalMarketValue: investmentsData.summary.gold.totalMarketValue,
+          totalCostBasis: investmentsData.summary.gold.totalCostBasis,
+          totalUnrealizedProfit:
+            investmentsData.summary.gold.totalUnrealizedProfit,
+          holdingCount: investmentsData.summary.gold.holdingCount,
+          topHoldings: investmentsData.goldHoldings
+            .filter((g) => new Decimal(g.valuation.totalQuantityChi).gt(0))
+            .slice(0, 3)
+            .map((g) => ({
+              id: g.id,
+              name: g.name,
+              brandName: g.brandName,
+              productTypeLabel: g.productTypeLabel,
+              weightFormatted: g.weightFormatted.primary,
+              marketValue: g.valuation.marketLiquidationValue,
+              unrealizedProfit: g.valuation.unrealizedProfitAmount,
+              unrealizedReturnPct: g.valuation.unrealizedProfitPct,
+            })),
+        },
+        savings: {
+          totalPrincipal: investmentsData.summary.savings.totalPrincipal,
+          totalAccruedInterest:
+            investmentsData.summary.savings.totalAccruedInterest,
+          totalExpectedMaturityInterest:
+            investmentsData.summary.savings.totalExpectedMaturityInterest,
+          activeCount: investmentsData.summary.savings.activeCount,
+          dueSoonCount: investmentsData.summary.savings.dueSoonCount,
+          activeItems: investmentsData.savingsDeposits
+            .filter((s) => s.status === "active")
+            .slice(0, 3)
+            .map((s) => ({
+              id: s.id,
+              name: s.name,
+              bankName: s.bankName,
+              termMonths: s.termMonths,
+              annualInterestRate: s.annualInterestRate,
+              currentPrincipalAmount: s.currentPrincipalAmount,
+              accruedInterest: s.metrics.accruedTermInterestToDate,
+              maturityDate: s.maturityDate,
+              daysUntilMaturity: s.metrics.remainingDays,
+              isDueSoon: s.metrics.isDueSoon,
+              isMatured: s.metrics.isMatured,
+            })),
+          dueItems: investmentsData.savingsDeposits
+            .filter(
+              (s) =>
+                s.status === "active" &&
+                (s.metrics.isDueSoon || s.metrics.isMatured),
+            )
+            .map((s) => ({
+              id: s.id,
+              name: s.name,
+              bankName: s.bankName,
+              maturityDate: s.maturityDate,
+              currentPrincipalAmount: s.currentPrincipalAmount,
+              accruedInterest: s.metrics.accruedTermInterestToDate,
+              expectedTotalAtMaturity: s.metrics.expectedTotalAtMaturity,
+              daysUntilMaturity: s.metrics.remainingDays,
+              isMatured: s.metrics.isMatured,
+            })),
+        },
+      }
+    : null;
+
   const totalByCurrency = walletLinks.reduce<Record<string, string>>(
     (totals, { wallet }) => {
       const current = new Decimal(
@@ -237,6 +321,14 @@ export default async function OverviewPage() {
     {},
   );
 
+  if (investmentsSnapshot) {
+    const baseCurr = membership.workspace.baseCurrency;
+    const currentNet = new Decimal(totalByCurrency[baseCurr] ?? 0);
+    totalByCurrency[baseCurr] = currentNet
+      .plus(new Decimal(investmentsSnapshot.totalPortfolioMarketValue || "0"))
+      .toString();
+  }
+
   return (
     <PageContainer>
       <OverviewDashboard
@@ -251,6 +343,7 @@ export default async function OverviewPage() {
           workspaceCapabilities(membership.role.code).canApproveTransactions
         }
         financialPlanSnapshot={financialPlanSnapshot}
+        investmentsSnapshot={investmentsSnapshot}
         wallets={walletLinks.map(({ wallet }) => {
           const committed = commitments.get(wallet.id) ?? ZERO;
           const profile = wallet.creditCardProfile;

@@ -44,6 +44,10 @@ export const createGoldHoldingWithInitialLotSchema = z
     manualSellPricePerChi: nonNegativeDecimalString.optional().nullable(),
     storageLocation: z.string().trim().max(160).optional().nullable(),
     note: z.string().trim().max(400).optional().nullable(),
+    mergeMode: z
+      .enum(["auto_merge", "create_separate"])
+      .optional()
+      .default("auto_merge"),
     // Đợt mua đầu tiên (tùy chọn hoặc mặc định tạo cùng khoản vàng)
     initialLot: z
       .object({
@@ -79,6 +83,29 @@ export const createGoldHoldingWithInitialLotSchema = z
 export const addGoldPurchaseLotSchema = z
   .object({
     holdingId: z.string().uuid("Mã khoản vàng không hợp lệ."),
+    fundingMode: z.enum(["from_wallet", "existing_asset"]),
+    sourceWalletId: z.string().uuid().optional().nullable(),
+    purchaseDate: z.string().regex(isoDateRegex, "Ngày mua không hợp lệ."),
+    quantityChi: positiveDecimalString,
+    unitPricePerChi: positiveDecimalString,
+    craftingFeeAmount: nonNegativeDecimalString.optional().default("0"),
+    shopName: z.string().trim().max(120).optional().nullable(),
+    invoiceOrSerial: z.string().trim().max(120).optional().nullable(),
+    note: z.string().trim().max(300).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.fundingMode === "from_wallet" && !data.sourceWalletId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["sourceWalletId"],
+        message: "Vui lòng chọn ví để trích tiền mua vàng.",
+      });
+    }
+  });
+
+export const updateGoldPurchaseLotSchema = z
+  .object({
+    lotId: z.string().uuid("Mã đợt mua vàng không hợp lệ."),
     fundingMode: z.enum(["from_wallet", "existing_asset"]),
     sourceWalletId: z.string().uuid().optional().nullable(),
     purchaseDate: z.string().regex(isoDateRegex, "Ngày mua không hợp lệ."),

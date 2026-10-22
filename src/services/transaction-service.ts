@@ -414,6 +414,15 @@ async function applyUpdate(
   if (current.installmentPlan || current.creditCardStatement) {
     throw new AppError("CONFLICT", "Giao dịch đã vào kế hoạch trả góp hoặc sao kê và không thể sửa.");
   }
+  if (
+    current.purpose === "investment_contribution" ||
+    current.purpose === "investment_settlement"
+  ) {
+    throw new AppError(
+      "CONFLICT",
+      "Giao dịch vàng/tiết kiệm được quản lý tại mục Đầu tư.",
+    );
+  }
   if (current.purpose && current.purpose !== "standard") {
     throw new AppError("CONFLICT", "Giao dịch thẻ chuyên biệt không thể sửa bằng biểu mẫu giao dịch thường.");
   }
@@ -983,6 +992,15 @@ export async function updateTransaction(
     if (record.workflowStatus === "rejected") {
       throw new AppError("CONFLICT", "Không thể chỉnh sửa giao dịch đã bị từ chối.");
     }
+    if (
+      record.purpose === "investment_contribution" ||
+      record.purpose === "investment_settlement"
+    ) {
+      throw new AppError(
+        "CONFLICT",
+        "Giao dịch vàng/tiết kiệm được quản lý tại mục Đầu tư.",
+      );
+    }
     if (record.purpose && record.purpose !== "standard") {
       throw new AppError("CONFLICT", "Giao dịch thẻ chuyên biệt không thể sửa trực tiếp.");
     }
@@ -1074,6 +1092,15 @@ export async function deleteOrRequestTransaction(userId: string, workspaceId: st
       await softDelete(tx, workspaceId, record);
       await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.deleted", entityType: "transaction", entityId: record.id, metadata: { workflowStatus: record.workflowStatus, balanceReversed: record.workflowStatus === "approved" } } });
       return { kind: "deleted" as const, id: record.id };
+    }
+    if (
+      record.purpose === "investment_contribution" ||
+      record.purpose === "investment_settlement"
+    ) {
+      throw new AppError(
+        "CONFLICT",
+        "Giao dịch vàng/tiết kiệm được quản lý tại mục Đầu tư.",
+      );
     }
     if (
       record.purpose &&
