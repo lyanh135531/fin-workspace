@@ -1,11 +1,15 @@
 "use client";
 
 import { AlertCircle, ArrowRight, User } from "lucide-react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useId, useState } from "react";
 
 import { completeGoogleProfileAction } from "@/app/setup/google/actions";
+import { ThemeToggle } from "@/app/theme-toggle";
+import { AuthShowcase } from "@/components/auth-showcase";
 import { Button, Card, Input, Loading } from "@/components/base";
+import { FinLogo } from "@/components/fin-logo";
 
 export function GoogleSetupClient({ email }: { email: string }) {
   const id = useId();
@@ -16,7 +20,9 @@ export function GoogleSetupClient({ email }: { email: string }) {
     event.preventDefault();
     setPending(true);
     setError(null);
-    const username = String(new FormData(event.currentTarget).get("username") ?? "");
+    const username = String(
+      new FormData(event.currentTarget).get("username") ?? "",
+    );
     const result = await completeGoogleProfileAction({ username });
     if (!result.ok) {
       setError(result.message);
@@ -28,7 +34,9 @@ export function GoogleSetupClient({ email }: { email: string }) {
       redirect: false,
     });
     if (!authenticated?.ok || authenticated.error) {
-      setError("Đã lưu tên đăng nhập. Vui lòng đăng nhập lại bằng Google để tiếp tục.");
+      setError(
+        "Đã lưu tên đăng nhập. Vui lòng đăng nhập lại bằng Google để tiếp tục.",
+      );
       setPending(false);
       return;
     }
@@ -36,44 +44,108 @@ export function GoogleSetupClient({ email }: { email: string }) {
   }
 
   return (
-    <main id="main-content" className="grid min-h-dvh place-items-center bg-[var(--surface-secondary)] px-4 py-10">
-      <Card as="section" className="w-full max-w-md gap-6" aria-labelledby="google-setup-title">
-        <header>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--primary)]">Bước cuối</p>
-          <h1 id="google-setup-title" className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-            Chọn tên đăng nhập Felix
-          </h1>
-          <p className="mt-2 leading-6 text-[var(--text-secondary)]">
-            Google đã xác minh <strong className="break-words font-semibold leading-snug text-[var(--foreground)]">{email}</strong>. Tên đăng nhập dùng để hiển thị trong các nhóm tài chính.
-          </p>
-        </header>
+    <main
+      id="main-content"
+      className="auth-split-shell auth-mobile-polished-shell"
+    >
+      <AuthShowcase mode="register" />
 
-        <form onSubmit={submit} className="space-y-5" aria-busy={pending}>
-          <Input
-            id={`${id}-username`}
-            name="username"
-            label="Tên đăng nhập"
-            required
-            minLength={3}
-            maxLength={80}
-            autoComplete="username"
-            autoFocus
-            placeholder="Ví dụ: anhly"
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? `${id}-error` : undefined}
-            startAdornment={<User size={16} aria-hidden="true" />}
-          />
-          {error && (
-            <div id={`${id}-error`} role="alert" className="flex items-start gap-2 text-sm leading-6 text-[var(--destructive)]">
-              <AlertCircle className="mt-1 shrink-0" size={16} aria-hidden="true" />
-              <span>{error}</span>
+      <section
+        className="auth-form-panel"
+        aria-labelledby="google-setup-title"
+      >
+        <div className="auth-form-toolbar">
+          <Link
+            href="/"
+            className="auth-mobile-brand"
+            aria-label="Felix — Trang chủ"
+          >
+            <FinLogo size={26} />
+            <span>Felix</span>
+          </Link>
+          <ThemeToggle />
+        </div>
+
+        <Card className="auth-form-card gap-0 py-0">
+          <div className="auth-form-inner">
+            <div className="auth-form-header">
+              <span className="auth-form-eyebrow">Hoàn tất đăng ký</span>
+              <h1 id="google-setup-title" className="auth-form-title">
+                Đặt tên đăng nhập của bạn
+              </h1>
+              <p className="auth-form-subtitle">
+                Đã liên kết với tài khoản Google{" "}
+                <strong className="break-words font-semibold text-[var(--foreground)]">
+                  {email}
+                </strong>
+                . Hãy chọn tên đăng nhập để hiển thị trong các nhóm tài chính.
+              </p>
             </div>
-          )}
-          <Button type="submit" size="lg" className="w-full" disabled={pending}>
-            {pending ? <Loading label="Đang hoàn tất..." /> : <><span>Tiếp tục</span><ArrowRight size={16} aria-hidden="true" /></>}
-          </Button>
-        </form>
-      </Card>
+
+            <form onSubmit={submit} aria-busy={pending}>
+              <div className="auth-fields">
+                <div className="auth-floating-field">
+                  <Input
+                    id={`${id}-username`}
+                    name="username"
+                    label="Tên đăng nhập"
+                    required
+                    minLength={3}
+                    maxLength={80}
+                    autoComplete="username"
+                    autoFocus
+                    placeholder="Ví dụ: minhanh (tối thiểu 3 ký tự)"
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? `${id}-error` : undefined}
+                    className="auth-field-input pl-10"
+                    controlClassName="auth-field-wrap has-left-icon"
+                    startAdornment={
+                      <span className="auth-field-left-icon" aria-hidden="true">
+                        <User size={16} strokeWidth={2} />
+                      </span>
+                    }
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div
+                  id={`${id}-error`}
+                  role="alert"
+                  className="auth-global-error"
+                >
+                  <AlertCircle size={15} strokeWidth={2} aria-hidden="true" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="auth-form-actions">
+                <Button
+                  type="submit"
+                  size="lg"
+                  className={`auth-submit-btn ${pending ? "is-loading" : ""}`}
+                  disabled={pending}
+                >
+                  {pending ? (
+                    <Loading label="Đang hoàn tất..." />
+                  ) : (
+                    <>
+                      <span>Hoàn tất đăng ký</span>
+                      <span className="auth-submit-icon" aria-hidden="true">
+                        <ArrowRight size={16} />
+                      </span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </Card>
+
+        <p className="auth-legal">
+          Chỉ còn một bước nữa để bắt đầu quản lý tài chính của bạn.
+        </p>
+      </section>
     </main>
   );
 }

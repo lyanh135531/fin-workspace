@@ -38,7 +38,7 @@ export function GooglePasswordClient() {
         <header>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--primary)]">Đã xác minh Google</p>
           <h1 id="password-title" className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">Tạo mật khẩu Felix</h1>
-          <p className="mt-2 leading-6 text-[var(--text-secondary)]">Sau bước này, bạn có thể đăng nhập bằng username hoặc Google.</p>
+          <p className="mt-2 leading-6 text-[var(--text-secondary)]">Sau bước này, bạn có thể đăng nhập bằng cả tên đăng nhập lẫn tài khoản Google.</p>
         </header>
         <form onSubmit={submit} className="space-y-4" aria-busy={pending}>
           <Input
@@ -49,14 +49,42 @@ export function GooglePasswordClient() {
             maxLength={128}
             required
             autoComplete="new-password"
-            startAdornment={<Lock size={16} aria-hidden="true" />}
+            className="auth-field-input has-icon pl-10 pr-10"
+            controlClassName="auth-field-wrap has-left-icon"
+            startAdornment={
+              <span className="auth-field-left-icon" aria-hidden="true">
+                <Lock size={16} strokeWidth={2} />
+              </span>
+            }
             endAdornment={
-              <Button type="button" variant="icon" size="icon" aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"} onClick={() => setShow((value) => !value)}>
+              <Button
+                type="button"
+                variant="unstyled"
+                size="auto"
+                className="auth-password-toggle"
+                aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                onClick={() => setShow((value) => !value)}
+              >
                 {show ? <EyeOff size={16} /> : <Eye size={16} />}
               </Button>
             }
           />
-          <Input label="Xác nhận mật khẩu" name="confirmation" type={show ? "text" : "password"} minLength={8} maxLength={128} required autoComplete="new-password" />
+          <Input
+            label="Xác nhận mật khẩu"
+            name="confirmation"
+            type={show ? "text" : "password"}
+            minLength={8}
+            maxLength={128}
+            required
+            autoComplete="new-password"
+            className="auth-field-input pl-10"
+            controlClassName="auth-field-wrap has-left-icon"
+            startAdornment={
+              <span className="auth-field-left-icon" aria-hidden="true">
+                <Lock size={16} strokeWidth={2} />
+              </span>
+            }
+          />
           {error && <div role="alert" className="flex items-start gap-2 text-sm leading-6 text-[var(--destructive)]"><AlertCircle className="mt-1 shrink-0" size={16} aria-hidden="true" /><span>{error}</span></div>}
           <Button type="submit" size="lg" className="w-full" disabled={pending}>
             {pending ? <Loading label="Đang tạo mật khẩu..." /> : "Tạo mật khẩu"}

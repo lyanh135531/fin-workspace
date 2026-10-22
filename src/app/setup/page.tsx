@@ -53,9 +53,9 @@ function getStrength(pw: string): Strength {
   const capped = Math.min(4, score) as 0 | 1 | 2 | 3 | 4;
   const labels: Record<0 | 1 | 2 | 3 | 4, string> = {
     0: "",
-    1: "Cơ bản",
-    2: "Khá",
-    3: "Tốt",
+    1: "Yếu",
+    2: "Trung bình",
+    3: "Mạnh",
     4: "Rất mạnh",
   };
 
@@ -110,21 +110,21 @@ export default function SetupPage() {
           }
         } catch {
           setMessage(
-            "Đã tạo tài khoản. Vui lòng đăng nhập để tiếp tục.",
+            "Đã tạo tài khoản thành công. Vui lòng đăng nhập để tiếp tục.",
           );
         }
 
         setCompletionState("manual-sign-in");
       } else {
         setErrorKey((k) => k + 1);
-        setMessage(res.message || "Không thể tạo tài khoản. Vui lòng thử lại.");
+        setMessage(res.message || "Chưa thể tạo tài khoản lúc này. Vui lòng thử lại.");
         if (res.fieldErrors) {
           setFieldErrors(res.fieldErrors);
         }
       }
     } catch {
       setErrorKey((k) => k + 1);
-      setMessage("Không kết nối được với máy chủ. Thử lại sau ít phút.");
+      setMessage("Không thể kết nối đến máy chủ. Vui lòng thử lại sau ít phút.");
     } finally {
       setLoading(false);
     }
@@ -139,8 +139,12 @@ export default function SetupPage() {
 
       <section className="auth-form-panel" aria-labelledby="register-title">
         <div className="auth-form-toolbar">
-          <Link href="/" className="auth-mobile-brand" aria-label="Felix — Trang chủ">
-            <FinLogo size={28} />
+          <Link
+            href="/"
+            className="auth-mobile-brand"
+            aria-label="Felix — Trang chủ"
+          >
+            <FinLogo size={26} />
             <span>Felix</span>
           </Link>
           <ThemeToggle />
@@ -149,16 +153,21 @@ export default function SetupPage() {
         <Card className="auth-form-card gap-0 py-0">
           <div className="auth-form-inner">
             <div className="auth-form-header">
-              <span className="auth-form-eyebrow">Đăng ký</span>
-              <h2 id="register-title" className="auth-form-title">Tạo tài khoản Felix</h2>
+              <span className="auth-form-eyebrow">Tạo tài khoản mới</span>
+              <h2 id="register-title" className="auth-form-title">
+                Tạo tài khoản Felix
+              </h2>
               <p className="auth-form-subtitle">
-                Chọn tên đăng nhập và mật khẩu để bắt đầu.
+                Tạo tài khoản trong vài giây để bắt đầu quản lý thu chi và tích sản.
               </p>
             </div>
 
             {completionState === "idle" && (
-              <div className="mb-5">
-                <GoogleAuthButton label="Đăng ký bằng Google" dividerLabel="hoặc tạo bằng mật khẩu" />
+              <div className="mb-4">
+                <GoogleAuthButton
+                  label="Đăng ký nhanh với Google"
+                  dividerLabel="hoặc tạo bằng mật khẩu"
+                />
               </div>
             )}
 
@@ -168,14 +177,15 @@ export default function SetupPage() {
                 role="status"
                 aria-live="polite"
               >
-                <span><CheckCircle2 size={18} aria-hidden /></span>
+                <span>
+                  <CheckCircle2 size={18} aria-hidden />
+                </span>
                 <p>
-                  <strong>Đã tạo tài khoản.</strong>
+                  <strong>Tạo tài khoản thành công!</strong>
                   <small>
                     {completionState === "authenticating"
-                      ? "Đang chuyển bạn đến bước tạo nhóm tài chính…"
-                      : message ??
-                        "Đăng nhập lại để tiếp tục thiết lập."}
+                      ? "Đang đưa bạn đến bước thiết lập đầu tiên…"
+                      : message ?? "Vui lòng đăng nhập lại để tiếp tục thiết lập."}
                   </small>
                 </p>
               </div>
@@ -189,7 +199,7 @@ export default function SetupPage() {
                   render={<Link href="/sign-in" />}
                   className="auth-submit-btn"
                 >
-                  Đăng nhập
+                  <span>Đăng nhập</span>
                   <span className="auth-submit-icon" aria-hidden="true">
                     <ArrowRight size={16} />
                   </span>
@@ -211,17 +221,25 @@ export default function SetupPage() {
                       maxLength={80}
                       autoComplete="username"
                       autoFocus
-                      placeholder="Tên đăng nhập"
+                      placeholder="Ví dụ: minhanh (tối thiểu 3 ký tự)"
                       aria-invalid={fieldErrors.username ? true : undefined}
-                      aria-describedby={fieldErrors.username ? `${id}-username-error` : undefined}
-                      className="auth-field-input"
+                      aria-describedby={
+                        fieldErrors.username ? `${id}-username-error` : undefined
+                      }
+                      className="auth-field-input pl-10"
                       controlClassName="auth-field-wrap has-left-icon"
-                      startAdornment={<span className="auth-field-left-icon" aria-hidden>
-                        <User size={16} strokeWidth={2} />
-                      </span>}
+                      startAdornment={
+                        <span className="auth-field-left-icon" aria-hidden>
+                          <User size={16} strokeWidth={2} />
+                        </span>
+                      }
                     />
                     {fieldErrors.username && (
-                      <p id={`${id}-username-error`} className="auth-field-error" role="alert">
+                      <p
+                        id={`${id}-username-error`}
+                        className="auth-field-error"
+                        role="alert"
+                      >
                         {fieldErrors.username}
                       </p>
                     )}
@@ -237,36 +255,58 @@ export default function SetupPage() {
                       minLength={8}
                       maxLength={128}
                       autoComplete="new-password"
-                      placeholder="Tối thiểu 8 ký tự"
+                      placeholder="Ít nhất 8 ký tự, gồm cả chữ và số"
                       aria-invalid={fieldErrors.password ? true : undefined}
-                      aria-describedby={fieldErrors.password ? `${id}-password-error` : undefined}
-                      className="auth-field-input has-icon"
+                      aria-describedby={
+                        fieldErrors.password ? `${id}-password-error` : undefined
+                      }
+                      className="auth-field-input has-icon pl-10 pr-10"
                       value={password}
                       onChange={handlePasswordChange}
                       controlClassName="auth-field-wrap has-left-icon"
-                      startAdornment={<span className="auth-field-left-icon" aria-hidden>
-                        <Lock size={16} strokeWidth={2} />
-                      </span>}
-                      endAdornment={<Button variant="unstyled" size="auto"
-                        type="button"
-                        className="auth-password-toggle"
-                        aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                        onClick={() => setShowPassword((v) => !v)}
-                      >
-                        {showPassword
-                          ? <EyeOff size={16} strokeWidth={2} />
-                          : <Eye size={16} strokeWidth={2} />}
-                      </Button>}
+                      startAdornment={
+                        <span className="auth-field-left-icon" aria-hidden>
+                          <Lock size={16} strokeWidth={2} />
+                        </span>
+                      }
+                      endAdornment={
+                        <Button
+                          variant="unstyled"
+                          size="auto"
+                          type="button"
+                          className="auth-password-toggle"
+                          aria-label={
+                            showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"
+                          }
+                          onClick={() => setShowPassword((v) => !v)}
+                        >
+                          {showPassword ? (
+                            <EyeOff size={16} strokeWidth={2} />
+                          ) : (
+                            <Eye size={16} strokeWidth={2} />
+                          )}
+                        </Button>
+                      }
                     />
                     {fieldErrors.password && (
-                      <p id={`${id}-password-error`} className="auth-field-error" role="alert">
+                      <p
+                        id={`${id}-password-error`}
+                        className="auth-field-error"
+                        role="alert"
+                      >
                         {fieldErrors.password}
                       </p>
                     )}
 
                     {password.length > 0 && (
                       <div className="auth-minimal-strength">
-                        <div className="auth-minimal-bars" role="progressbar" aria-valuenow={strength.score} aria-valuemax={4} aria-label={`Độ mạnh mật khẩu: ${strength.label}`}>
+                        <div
+                          className="auth-minimal-bars"
+                          role="progressbar"
+                          aria-valuenow={strength.score}
+                          aria-valuemax={4}
+                          aria-label={`Độ mạnh mật khẩu: ${strength.label}`}
+                        >
                           {[1, 2, 3, 4].map((barLevel) => (
                             <div
                               key={barLevel}
@@ -279,16 +319,32 @@ export default function SetupPage() {
 
                         <div className="auth-minimal-row">
                           <div className="auth-minimal-rules">
-                            <span className={`auth-minimal-rule ${isMinLength ? "is-valid" : ""}`}>
-                              {isMinLength ? <Check size={11} aria-hidden /> : <i aria-hidden />} 8+ ký tự
+                            <span
+                              className={`auth-minimal-rule ${isMinLength ? "is-valid" : ""}`}
+                            >
+                              {isMinLength ? (
+                                <Check size={11} aria-hidden />
+                              ) : (
+                                <i aria-hidden />
+                              )}{" "}
+                              Ít nhất 8 ký tự
                             </span>
-                            <span className={`auth-minimal-rule ${hasLettersAndNumbers ? "is-valid" : ""}`}>
-                              {hasLettersAndNumbers ? <Check size={11} aria-hidden /> : <i aria-hidden />} Có chữ và số
+                            <span
+                              className={`auth-minimal-rule ${hasLettersAndNumbers ? "is-valid" : ""}`}
+                            >
+                              {hasLettersAndNumbers ? (
+                                <Check size={11} aria-hidden />
+                              ) : (
+                                <i aria-hidden />
+                              )}{" "}
+                              Có chữ & số
                             </span>
                           </div>
 
                           {strength.label && (
-                            <span className={`auth-minimal-label score-${strength.score}`}>
+                            <span
+                              className={`auth-minimal-label score-${strength.score}`}
+                            >
                               {strength.label}
                             </span>
                           )}
@@ -305,7 +361,7 @@ export default function SetupPage() {
                     role="alert"
                   >
                     <AlertCircle size={15} aria-hidden />
-                    {message}
+                    <span>{message}</span>
                   </div>
                 )}
 
@@ -320,11 +376,11 @@ export default function SetupPage() {
                     {loading ? (
                       <>
                         <span className="btn-spinner" aria-hidden />
-                        Đang tạo tài khoản…
+                        <span>Đang tạo tài khoản…</span>
                       </>
                     ) : (
                       <>
-                        Tạo tài khoản
+                        <span>Tạo tài khoản</span>
                         <span className="auth-submit-icon" aria-hidden="true">
                           <ArrowRight size={16} />
                         </span>
@@ -333,7 +389,7 @@ export default function SetupPage() {
                   </Button>
 
                   <p className="auth-form-link-row">
-                    Đã có tài khoản?{" "}
+                    Đã có tài khoản Felix?{" "}
                     <Link href="/sign-in" className="auth-form-link">
                       Đăng nhập
                     </Link>
@@ -344,7 +400,9 @@ export default function SetupPage() {
           </div>
         </Card>
         <p className="auth-legal">
-          Sau khi đăng ký, bạn sẽ tạo nhóm tài chính đầu tiên.
+          Dữ liệu tài chính của bạn luôn được bảo mật riêng tư.{" "}
+          <Link href="/privacy">Chính sách bảo mật</Link>{" · "}
+          <Link href="/terms">Điều khoản sử dụng</Link>
         </p>
       </section>
     </main>

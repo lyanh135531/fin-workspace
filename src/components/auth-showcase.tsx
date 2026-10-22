@@ -18,10 +18,22 @@ type AuthShowcaseProps = {
   mode: AuthShowcaseMode;
 };
 
-const REGISTER_STEPS: readonly string[] = [
-  "Tạo tài khoản",
-  "Tạo nhóm tài chính",
-  "Thêm ví và giao dịch",
+const REGISTER_STEPS: ReadonlyArray<{
+  title: string;
+  desc: string;
+}> = [
+  {
+    title: "Tạo tài khoản cá nhân",
+    desc: "Đăng ký nhanh bằng Google hoặc tên đăng nhập và mật khẩu",
+  },
+  {
+    title: "Tạo không gian tài chính",
+    desc: "Dùng cho cá nhân, gia đình hoặc nhóm quản lý chung",
+  },
+  {
+    title: "Ghi chép & theo dõi tài sản",
+    desc: "Quản lý ví, thẻ tín dụng, sổ tiết kiệm và vàng tích sản",
+  },
 ];
 
 function SignInSnapshot() {
@@ -34,7 +46,7 @@ function SignInSnapshot() {
         </div>
         <span className="auth-ledger-change">
           <ArrowUpRight size={13} aria-hidden />
-          8,4%
+          +8,4%
         </span>
       </div>
 
@@ -54,17 +66,17 @@ function SignInSnapshot() {
           </span>
           <p>
             <strong>Thu nhập tháng này</strong>
-            <small>12 giao dịch</small>
+            <small>Đã ghi nhận 12 khoản thu</small>
           </p>
-          <b>+42.850.000 ₫</b>
+          <b className="text-[var(--income)]">+42.850.000 ₫</b>
         </div>
         <div>
           <span className="auth-ledger-icon">
             <WalletCards size={15} aria-hidden />
           </span>
           <p>
-            <strong>Ngân sách còn lại</strong>
-            <small>Cập nhật vài giây trước</small>
+            <strong>Ngân sách tháng còn lại</strong>
+            <small>Chi tiêu trong hạn mức</small>
           </p>
           <b>18.270.000 ₫</b>
         </div>
@@ -75,22 +87,34 @@ function SignInSnapshot() {
 
 function RegisterSteps() {
   return (
-    <ol className="auth-register-steps">
-      {REGISTER_STEPS.map((step, index) => (
-        <li key={step}>
-          <span>{index + 1}</span>
-          <p>
-            <strong>{step}</strong>
-            <small>
-              {index === 0
-                ? "Bạn đang ở bước này"
-                : "Thực hiện sau khi đăng ký"}
-            </small>
-          </p>
-          {index === 0 && <Check size={16} aria-hidden />}
-        </li>
-      ))}
-    </ol>
+    <div className="auth-ledger" aria-label="Các bước bắt đầu sử dụng">
+      <div className="auth-ledger-header auth-ledger-header-compact">
+        <div>
+          <span>Các bước bắt đầu</span>
+          <strong className="!text-sm !tracking-tight">
+            Thiết lập nhanh trong 3 bước
+          </strong>
+        </div>
+        <span className="auth-ledger-badge">Chỉ 1 phút</span>
+      </div>
+      <ol className="auth-register-steps">
+        {REGISTER_STEPS.map((step, index) => (
+          <li key={step.title} data-active={index === 0}>
+            <span>{index + 1}</span>
+            <p>
+              <strong>{step.title}</strong>
+              <small>{step.desc}</small>
+            </p>
+            {index === 0 ? (
+              <em className="auth-step-pill">
+                <Check size={12} aria-hidden />
+                Bước 1
+              </em>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -101,24 +125,27 @@ export function AuthShowcase({ mode }: AuthShowcaseProps) {
     <aside className="auth-visual-panel">
       <div className="auth-grid-pattern" aria-hidden />
 
-      <Link
-        className="auth-visual-brand"
-        href="/"
-        aria-label="Felix — Trang chủ"
-      >
-        <span className="auth-brand-mark">
-          <FinLogo size={30} />
-        </span>
-        <span>
-          <strong>Felix</strong>
-          <small>Quản lý tài chính tập trung</small>
-        </span>
-      </Link>
+      <div className="auth-visual-top">
+        <Link
+          className="auth-visual-brand"
+          href="/"
+          aria-label="Felix — Trang chủ"
+        >
+          <span className="auth-brand-mark">
+            <FinLogo size={28} />
+          </span>
+          <span>
+            <strong>Felix</strong>
+            <small>Tài chính cá nhân & gia đình</small>
+          </span>
+        </Link>
+        <span className="auth-visual-badge">Tài chính thông minh</span>
+      </div>
 
       <div className="auth-visual-body">
         <p className="auth-visual-tagline">
-          <Sparkles size={14} aria-hidden />
-          {isSignIn ? "Giải pháp tài chính" : "Chỉ mất 30 giây"}
+          <Sparkles size={13} aria-hidden />
+          {isSignIn ? "Quản lý tài chính thông minh" : "Bắt đầu thật đơn giản"}
         </p>
         <h1 className="auth-visual-headline">
           {isSignIn ? (
@@ -129,16 +156,16 @@ export function AuthShowcase({ mode }: AuthShowcaseProps) {
             </>
           ) : (
             <>
-              Tạo tài khoản,
+              Quản lý dòng tiền,
               <br />
-              bắt đầu <em>ngay.</em>
+              an tâm <em>tích sản.</em>
             </>
           )}
         </h1>
         <p className="auth-visual-desc">
           {isSignIn
-            ? "Theo dõi số dư, giao dịch thu chi và ngân sách của từng nhóm tài chính được cập nhật real-time tại một nơi."
-            : "Thiết lập không gian tài chính chung, thêm ví và ghi nhận giao dịch đầu tiên chỉ trong vài thao tác."}
+            ? "Ghi chép thu chi, theo dõi thẻ tín dụng, sổ tiết kiệm và vàng tích sản rõ ràng từng ngày tại một nơi duy nhất."
+            : "Tạo không gian tài chính cho riêng bạn hoặc cùng gia đình, theo dõi thu chi và mục tiêu tiết kiệm mỗi ngày."}
         </p>
 
         {isSignIn ? <SignInSnapshot /> : <RegisterSteps />}
@@ -147,11 +174,11 @@ export function AuthShowcase({ mode }: AuthShowcaseProps) {
       <div className="auth-visual-footer">
         <span>
           <ShieldCheck size={14} aria-hidden />
-          Bảo mật & Tách biệt dữ liệu tuyệt đối
+          Dữ liệu được bảo mật và tách biệt an toàn
         </span>
         <span>
           <Landmark size={14} aria-hidden />
-          Felix
+          An toàn & Riêng tư
         </span>
       </div>
     </aside>

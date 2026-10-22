@@ -136,7 +136,7 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
       if (result?.error) {
         setErrorKey((key) => key + 1);
         setError(
-          "Tên đăng nhập hoặc mật khẩu không đúng.",
+          "Tên đăng nhập hoặc mật khẩu chưa chính xác.",
         );
         setLoading(false);
         return;
@@ -163,7 +163,7 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
       );
     } catch {
       setErrorKey((key) => key + 1);
-      setError("Không kết nối được với máy chủ. Thử lại sau ít phút.");
+      setError("Không thể kết nối đến máy chủ. Vui lòng thử lại sau ít phút.");
       setLoading(false);
     }
   }
@@ -179,7 +179,7 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
             className="auth-mobile-brand"
             aria-label="Felix — Trang chủ"
           >
-            <FinLogo size={28} />
+            <FinLogo size={26} />
             <span>Felix</span>
           </Link>
           <ThemeToggle />
@@ -188,23 +188,29 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
         <Card className="auth-form-card gap-0 py-0">
           <div className="auth-form-inner">
             <div className="auth-form-header">
-              <span className="auth-form-eyebrow">Chào mừng quay lại</span>
+              <span className="auth-form-eyebrow">
+                {portalMode ? "Quản trị hệ thống" : "Chào mừng bạn quay lại"}
+              </span>
               <h2 id="sign-in-title" className="auth-form-title">
-                {portalMode ? "Đăng nhập Portal" : "Đăng nhập để tiếp tục"}
+                {portalMode ? "Đăng nhập Quản trị" : "Đăng nhập vào Felix"}
               </h2>
               <p className="auth-form-subtitle">
                 {portalMode
-                  ? "Chỉ tài khoản quản trị hệ thống được phép truy cập"
-                  : "Quản lý thu chi, ngân sách và kế hoạch tài chính của bạn."}
+                  ? "Khu vực dành riêng cho quản trị viên hệ thống."
+                  : "Đăng nhập để tiếp tục theo dõi thu chi và tài sản của bạn."}
               </p>
             </div>
 
             {googleEnabled && (
-              <div className="mb-5">
+              <div className="mb-4">
                 <GoogleAuthButton
                   enabled
-                  label={portalMode ? "Đăng nhập Portal bằng Google" : "Tiếp tục với Google"}
-                  dividerLabel="hoặc dùng mật khẩu"
+                  label={
+                    portalMode
+                      ? "Đăng nhập Quản trị bằng Google"
+                      : "Tiếp tục với Google"
+                  }
+                  dividerLabel="hoặc đăng nhập bằng mật khẩu"
                 />
               </div>
             )}
@@ -220,12 +226,12 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
                     required
                     autoComplete="username"
                     autoFocus
-                    placeholder="Tên đăng nhập"
+                    placeholder="Nhập tên đăng nhập của bạn"
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
                     aria-invalid={error ? true : undefined}
                     aria-describedby={error ? `${id}-auth-error` : undefined}
-                    className="auth-field-input"
+                    className="auth-field-input pl-10"
                     controlClassName="auth-field-wrap has-left-icon"
                     startAdornment={
                       <span className="auth-field-left-icon" aria-hidden>
@@ -243,12 +249,12 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
                     type={showPassword ? "text" : "password"}
                     required
                     autoComplete="current-password"
-                    placeholder="Mật khẩu"
+                    placeholder="Nhập mật khẩu"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     aria-invalid={error ? true : undefined}
                     aria-describedby={error ? `${id}-auth-error` : undefined}
-                    className="auth-field-input has-icon"
+                    className="auth-field-input has-icon pl-10 pr-10"
                     controlClassName="auth-field-wrap has-left-icon"
                     startAdornment={
                       <span className="auth-field-left-icon" aria-hidden>
@@ -285,18 +291,18 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
                   role="alert"
                 >
                   <AlertCircle size={15} strokeWidth={2} />
-                  {error}
+                  <span>{error}</span>
                 </div>
               )}
 
-              <Label className="mt-4 min-h-11 cursor-pointer gap-2.5 text-sm">
+              <Label className="mt-3.5 flex min-h-8 cursor-pointer items-center gap-2.5 text-[13px] font-medium text-[var(--text-secondary)]">
                 <Checkbox
                   checked={rememberMe}
                   disabled={loading}
                   onCheckedChange={(checked) => setRememberMe(checked === true)}
-                  aria-label="Ghi nhớ tôi trên thiết bị này"
+                  aria-label="Duy trì đăng nhập trên thiết bị này"
                 />
-                <span>Ghi nhớ tôi trên thiết bị này</span>
+                <span>Duy trì đăng nhập trên thiết bị này</span>
               </Label>
 
               <div className="auth-form-actions">
@@ -311,7 +317,7 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
                     <Loading label="Đang đăng nhập..." />
                   ) : (
                     <>
-                      Đăng nhập
+                      <span>Đăng nhập</span>
                       <span className="auth-submit-icon" aria-hidden="true">
                         <ArrowRight size={16} />
                       </span>
@@ -321,9 +327,9 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
 
                 {!portalMode && (
                   <p className="auth-form-link-row">
-                    Chưa dùng Felix?{" "}
+                    Chưa có tài khoản Felix?{" "}
                     <Link href="/setup" className="auth-form-link">
-                      Đăng ký
+                      Đăng ký ngay
                     </Link>
                   </p>
                 )}
@@ -333,8 +339,8 @@ export function SignInClient({ callbackUrl, portalMode, googleEnabled, googleErr
         </Card>
         <p className="auth-legal">
           {portalMode
-            ? "Phiên Portal được tách biệt với phiên đăng nhập ứng dụng."
-            : "Dữ liệu của mỗi nhóm tài chính được lưu tách biệt."}{" "}
+            ? "Phiên quản trị được bảo mật và tách biệt với ứng dụng."
+            : "Dữ liệu tài chính của bạn luôn được bảo mật riêng tư."}{" "}
           <Link href="/privacy">Chính sách bảo mật</Link>{" · "}
           <Link href="/terms">Điều khoản sử dụng</Link>
         </p>

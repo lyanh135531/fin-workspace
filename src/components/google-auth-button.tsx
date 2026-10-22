@@ -44,24 +44,34 @@ export function GoogleAuthButton({
   if (available !== true) return null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       <Button
         type="button"
         variant="outline"
         size="lg"
-        className="w-full"
+        className="h-11 w-full gap-2.5 rounded-xl border-[var(--border)] bg-[var(--surface-secondary)]/55 text-sm font-semibold text-[var(--foreground)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
         disabled={pending}
         onClick={() => {
           setPending(true);
           void signIn("google", { callbackUrl }).catch(() => setPending(false));
         }}
       >
-        {pending ? <Loading label="Đang chuyển đến Google..." /> : <><GoogleMark /><span>{label}</span></>}
+        {pending ? (
+          <Loading label="Đang chuyển đến Google..." />
+        ) : (
+          <>
+            <GoogleMark />
+            <span>{label}</span>
+          </>
+        )}
       </Button>
       {dividerLabel && (
-        <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]" aria-hidden="true">
+        <div
+          className="flex items-center gap-3 text-[11px] font-medium text-[var(--text-muted)]"
+          aria-hidden="true"
+        >
           <span className="h-px flex-1 bg-[var(--border)]" />
-          <span>{dividerLabel}</span>
+          <span className="whitespace-nowrap">{dividerLabel}</span>
           <span className="h-px flex-1 bg-[var(--border)]" />
         </div>
       )}

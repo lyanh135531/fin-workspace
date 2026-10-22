@@ -46,7 +46,7 @@ export async function registerAccountAction(input: unknown): Promise<RegisterAct
       const seconds = Math.ceil(rate.retryAfterMs / 1000);
       return {
         ok: false,
-        message: `Bạn đã thử quá nhiều lần. Đợi ${seconds} giây rồi thử lại.`,
+        message: `Thao tác quá nhanh. Vui lòng đợi ${seconds} giây rồi thử lại.`,
       };
     }
 
@@ -55,7 +55,7 @@ export async function registerAccountAction(input: unknown): Promise<RegisterAct
       const formatted = parsed.error.format();
       return {
         ok: false,
-        message: "Thông tin chưa đúng. Kiểm tra các mục bên dưới.",
+        message: "Vui lòng kiểm tra lại các thông tin bên dưới.",
         fieldErrors: {
           username: formatted.username?._errors[0],
           password: formatted.password?._errors[0],
@@ -67,7 +67,7 @@ export async function registerAccountAction(input: unknown): Promise<RegisterAct
     await registerAccount(username, password);
     return { ok: true, message: null };
   } catch (error) {
-    return toActionFailure(error, "Chưa tạo được tài khoản. Thử lại sau.", {
+    return toActionFailure(error, "Chưa thể tạo tài khoản lúc này. Vui lòng thử lại sau.", {
       event: "account.register_failed",
     });
   }

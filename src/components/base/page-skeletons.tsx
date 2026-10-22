@@ -1569,15 +1569,15 @@ function AuthPageSkeleton({
           <div className="auth-form-inner">
             <div className="auth-form-header">
               <span className="auth-form-eyebrow">
-                {isSignIn ? "Đăng nhập" : "Đăng ký"}
+                {isSignIn ? "Chào mừng bạn quay lại" : "Tạo tài khoản mới"}
               </span>
               <h2 id="auth-loading-title" className="auth-form-title">
                 {isSignIn ? "Đăng nhập vào Felix" : "Tạo tài khoản Felix"}
               </h2>
               <p className="auth-form-subtitle">
                 {isSignIn
-                  ? "Xem lại ví, giao dịch và ngân sách của bạn."
-                  : "Chọn tên đăng nhập và mật khẩu để bắt đầu."}
+                  ? "Đăng nhập để tiếp tục theo dõi thu chi và tài sản của bạn."
+                  : "Tạo tài khoản trong vài giây để bắt đầu quản lý thu chi và tích sản."}
               </p>
             </div>
 
@@ -1587,8 +1587,8 @@ function AuthPageSkeleton({
                   label="Tên đăng nhập"
                   type="text"
                   disabled
-                  placeholder="Tên đăng nhập"
-                  className="auth-field-input"
+                  placeholder={isSignIn ? "Nhập tên đăng nhập của bạn" : "Ví dụ: minhanh (tối thiểu 3 ký tự)"}
+                  className="auth-field-input pl-10"
                   controlClassName="auth-field-wrap has-left-icon"
                   startAdornment={
                     <span className="auth-field-left-icon">
@@ -1603,8 +1603,8 @@ function AuthPageSkeleton({
                   label="Mật khẩu"
                   type="password"
                   disabled
-                  placeholder={isSignIn ? "Mật khẩu" : "Tối thiểu 8 ký tự"}
-                  className="auth-field-input has-icon"
+                  placeholder={isSignIn ? "Nhập mật khẩu" : "Ít nhất 8 ký tự, gồm cả chữ và số"}
+                  className="auth-field-input has-icon pl-10 pr-10"
                   controlClassName="auth-field-wrap has-left-icon"
                   startAdornment={
                     <span className="auth-field-left-icon">
@@ -1631,11 +1631,11 @@ function AuthPageSkeleton({
               <p className="auth-form-link-row">
                 {isSignIn ? (
                   <>
-                    Chưa dùng Felix? <span>Đăng ký</span>
+                    Chưa có tài khoản Felix? <span>Đăng ký ngay</span>
                   </>
                 ) : (
                   <>
-                    Đã có tài khoản? <span>Đăng nhập</span>
+                    Đã có tài khoản Felix? <span>Đăng nhập</span>
                   </>
                 )}
               </p>
@@ -1644,9 +1644,7 @@ function AuthPageSkeleton({
         </Card>
 
         <p className="auth-legal">
-          {isSignIn
-            ? "Dữ liệu của mỗi nhóm tài chính được lưu tách biệt."
-            : "Sau khi đăng ký, bạn sẽ tạo nhóm tài chính đầu tiên."}
+          Dữ liệu tài chính của bạn luôn được bảo mật riêng tư.
         </p>
       </section>
     </main>

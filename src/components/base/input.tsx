@@ -32,6 +32,8 @@ function Input({
       type={type}
       className={cn(
         "h-10 w-full min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-base text-[var(--foreground)] transition-colors outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-[var(--foreground)] placeholder:text-[var(--text-muted)] focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-[var(--surface-secondary)] disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20 md:h-9 md:py-1.5 md:text-sm md:rounded-lg",
+        Boolean(startAdornment) && "pl-10",
+        Boolean(endAdornment) && "pr-10",
         className,
       )}
       {...props}
