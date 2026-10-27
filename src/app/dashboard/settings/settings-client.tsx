@@ -61,10 +61,12 @@ export function SettingsClient({
   roles,
   members,
   isAdmin,
+  workspaceId,
 }: {
   roles: Role[];
   members: Member[];
   isAdmin: boolean;
+  workspaceId?: string;
 }) {
   const [pending, start] = useTransition();
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -91,7 +93,10 @@ export function SettingsClient({
 
   function changeRole(id: string, roleCode: string) {
     start(async () => {
-      const result = await changeMemberRoleAction({ memberId: id, roleCode });
+      const result = await changeMemberRoleAction(
+        { workspaceId, memberId: id, roleCode },
+        workspaceId,
+      );
       if (result.ok) {
         toast.success("Đã cập nhật vai trò thành viên.");
         setSelectedMemberId(null);
@@ -104,7 +109,7 @@ export function SettingsClient({
   async function remove(id: string): Promise<boolean> {
     setRemovingId(id);
     try {
-      const result = await removeMemberAction(id);
+      const result = await removeMemberAction(id, workspaceId);
       if (result.ok) {
         toast.success("Đã gỡ thành viên khỏi nhóm.");
         setSelectedMemberId(null);

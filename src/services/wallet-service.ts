@@ -354,6 +354,7 @@ export async function assertWalletHasNoOpenDependencies(
         workspaceId,
         sourceWalletId: walletId,
         fundingMode: "from_wallet",
+        remainingQuantityChi: { gt: 0 },
         deletedAt: null,
         holding: { deletedAt: null },
       },

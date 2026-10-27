@@ -199,6 +199,7 @@ export async function normalizeApprovedRefundAllocations(
       purpose: true,
       workflowStatus: true,
       originalTransactionId: true,
+      member: { select: { workspaceId: true } },
     },
   });
   if (refund?.purpose !== "credit_card_refund" || refund.workflowStatus !== "approved") return;
@@ -280,6 +281,33 @@ export async function normalizeApprovedRefundAllocations(
       profile.defaultFundingWalletId,
       new Decimal(refund.amount.toString()),
     );
+  }
+
+  if (typeof tx.workspaceWallet?.findMany === "function" && refund.member?.workspaceId) {
+    const activeAssetLinks = await tx.workspaceWallet.findMany({
+      where: {
+        workspaceId: refund.member.workspaceId,
+        wallet: { kind: "asset", status: "active", deletedAt: null },
+      },
+      orderBy: [{ wallet: { createdAt: "asc" } }, { walletId: "asc" }],
+      select: { walletId: true },
+    });
+    const activeAssetIds = new Set(activeAssetLinks.map((link) => link.walletId));
+    const hasInactiveTarget = [...allocationByWallet.keys()].some((walletId) => !activeAssetIds.has(walletId));
+    if (hasInactiveTarget) {
+      const fallbackWalletId = activeAssetIds.has(profile.defaultFundingWalletId)
+        ? profile.defaultFundingWalletId
+        : activeAssetLinks[0]?.walletId ?? null;
+      if (!fallbackWalletId) {
+        throw new AppError("CONFLICT", "Không tìm thấy ví tài sản đang hoạt động để phân bổ hoàn tiền thẻ.");
+      }
+      const remapped = new Map<string, Decimal>();
+      for (const [walletId, amount] of allocationByWallet) {
+        const targetId = activeAssetIds.has(walletId) ? walletId : fallbackWalletId;
+        remapped.set(targetId, (remapped.get(targetId) ?? ZERO).plus(amount));
+      }
+      allocationByWallet = remapped;
+    }
   }
 
   await tx.creditCardObligationEntry.deleteMany({

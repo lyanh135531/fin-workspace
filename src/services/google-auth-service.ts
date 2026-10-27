@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import argon2 from "argon2";
+import { isPlatformAdminUsername } from "@/domain/platform-user/schemas";
 import type { OAuthIntentKind } from "@/generated/prisma/enums";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
@@ -202,6 +203,13 @@ async function consumeGoogleIntent(
 }
 
 export async function completeGoogleProfile(userId: string, username: string) {
+  if (isPlatformAdminUsername(username)) {
+    throw new AppError(
+      "CONFLICT",
+      "Tên đăng nhập này đã được hệ thống bảo lưu. Vui lòng chọn tên đăng nhập khác.",
+    );
+  }
+
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + OAUTH_INTENT_MAX_AGE_MS);
 

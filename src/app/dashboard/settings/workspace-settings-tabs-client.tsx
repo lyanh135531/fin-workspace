@@ -16,6 +16,7 @@ import { JoinRequestsClient } from "@/app/dashboard/join-requests/requests-clien
 import type { FinancialJarCode } from "@/domain";
 
 type Workspace = {
+  id?: string;
   name: string;
   description: string | null;
   baseCurrency: string;
@@ -49,6 +50,7 @@ type Category = CategoryBase & {
 
 interface Props {
   workspace: Workspace;
+  workspaceId?: string;
   isAdmin: boolean;
   categories: Category[];
   members: Member[];
@@ -61,6 +63,7 @@ type TabKey = "general" | "categories" | "members";
 
 export function WorkspaceSettingsTabsClient({
   workspace,
+  workspaceId,
   isAdmin,
   categories,
   members,
@@ -68,6 +71,7 @@ export function WorkspaceSettingsTabsClient({
   joinRequests,
   initialTab = "general",
 }: Props) {
+  const resolvedWorkspaceId = workspaceId ?? workspace.id;
   const [tabState, setTabState] = useState<{
     baseTab: TabKey;
     activeTab: TabKey;
@@ -157,7 +161,11 @@ export function WorkspaceSettingsTabsClient({
       <TabsContent value="general" className="workspace-settings-tab-content">
         <div className="grid items-start gap-3 md:grid-cols-12 md:gap-5">
           <div className="workspace-general-main md:col-span-12">
-            <WorkspaceSettings workspace={workspace} isAdmin={isAdmin} />
+            <WorkspaceSettings
+              workspace={workspace}
+              isAdmin={isAdmin}
+              workspaceId={resolvedWorkspaceId}
+            />
           </div>
         </div>
       </TabsContent>
@@ -169,7 +177,10 @@ export function WorkspaceSettingsTabsClient({
       >
         <div className="grid items-start gap-3 md:gap-5">
           <div className="workspace-category-manager min-w-0 md:order-1">
-            <CategoryManagement categories={categories} />
+            <CategoryManagement
+              categories={categories}
+              workspaceId={resolvedWorkspaceId}
+            />
           </div>
         </div>
       </TabsContent>
@@ -177,8 +188,17 @@ export function WorkspaceSettingsTabsClient({
       {/* Members */}
       <TabsContent value="members" className="workspace-settings-tab-content">
         <div className="workspace-members-stack space-y-3.5 md:space-y-5">
-          <SettingsClient roles={roles} members={members} isAdmin={isAdmin} />
-          <JoinRequestsClient roles={roles} requests={joinRequests} />
+          <SettingsClient
+            roles={roles}
+            members={members}
+            isAdmin={isAdmin}
+            workspaceId={resolvedWorkspaceId}
+          />
+          <JoinRequestsClient
+            roles={roles}
+            requests={joinRequests}
+            workspaceId={resolvedWorkspaceId}
+          />
         </div>
       </TabsContent>
     </Tabs>

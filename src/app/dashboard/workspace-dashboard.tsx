@@ -75,7 +75,7 @@ export async function WorkspaceDashboard({
         member: { include: { user: { select: { username: true } } } },
         installmentPlan: { select: { id: true } },
         refundTransactions: {
-          where: { deletedAt: null },
+          where: { deletedAt: null, workflowStatus: { not: "rejected" } },
           select: { id: true },
         },
         creditCardStatement: {
@@ -95,6 +95,12 @@ export async function WorkspaceDashboard({
         creditCardAllocations: {
           select: {
             fundingWalletId: true,
+            amount: true,
+          },
+        },
+        creditCardPaymentSources: {
+          select: {
+            sourceWalletId: true,
             amount: true,
           },
         },
@@ -210,10 +216,15 @@ export async function WorkspaceDashboard({
         walletId: alloc.fundingWalletId,
         amount: alloc.amount.toString(),
       })),
+      paymentSources: item.creditCardPaymentSources.map((src) => ({
+        walletId: src.sourceWalletId,
+        amount: src.amount.toString(),
+      })),
     };
   });
   return (
     <DashboardLedgerWorkspace
+      key={membership.workspaceId}
       initialMonth={currentPeriod}
       summaries={summaries}
       ledgerProps={{

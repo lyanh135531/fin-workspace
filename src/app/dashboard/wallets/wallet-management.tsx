@@ -114,6 +114,7 @@ function WalletDeactivateSheet({
   onConfirm: () => void;
   onOpenRecurringTransactions: () => void;
 }) {
+  usePrivacyMask();
   const hasRecurringDependencies = wallet.recurringTransactionCount > 0;
 
   return (
@@ -396,7 +397,6 @@ function getWalletVisual(wallet: WalletItem, index: number) {
 export function WalletManagement({
   workspace,
   wallets,
-  totalBalance,
   isAdmin,
   commitmentDetails = [],
   initialReservedWalletId,
@@ -496,7 +496,8 @@ export function WalletManagement({
     assetWallets,
     creditWallets,
     totalAssetBalance,
-    totalCreditDebt,
+    totalReservedBalance,
+    totalAvailableBalance,
   } = useMemo(() => {
     const assets = wallets.filter(
       (w) => w.kind !== "credit_card" && w.status === "active",
@@ -509,9 +510,8 @@ export function WalletManagement({
       (acc, w) => acc.plus(new Decimal(w.currentBalance)),
       new Decimal(0),
     );
-    const debtSum = credits.reduce(
-      (acc, w) =>
-        acc.plus(Decimal.max(new Decimal(w.currentBalance), new Decimal(0))),
+    const reservedSum = assets.reduce(
+      (acc, w) => acc.plus(new Decimal(w.reservedBalance ?? 0)),
       new Decimal(0),
     );
 
@@ -519,7 +519,8 @@ export function WalletManagement({
       assetWallets: assets,
       creditWallets: credits,
       totalAssetBalance: assetSum,
-      totalCreditDebt: debtSum,
+      totalReservedBalance: reservedSum,
+      totalAvailableBalance: assetSum.minus(reservedSum),
     };
   }, [wallets]);
 
@@ -1353,13 +1354,13 @@ export function WalletManagement({
               <strong
                 className={cn(
                   "text-sm font-bold tracking-tight tabular-nums underline-offset-4 group-hover/kpi-reserved:underline md:text-2xl",
-                  totalCreditDebt.gt(0)
+                  totalReservedBalance.gt(0)
                     ? "text-[var(--warning)]"
                     : "text-[var(--foreground)]",
                 )}
               >
                 {showBalance
-                  ? `${totalCreditDebt.gt(0) ? "-" : ""}${formatAmount(totalCreditDebt)}`
+                  ? `${totalReservedBalance.gt(0) ? "-" : ""}${formatAmount(totalReservedBalance)}`
                   : "••••••••"}
               </strong>
               <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)] md:text-xs">
@@ -1367,8 +1368,10 @@ export function WalletManagement({
               </span>
             </div>
             <p className="hidden text-xs leading-snug text-[var(--text-muted)] md:block">
-              {creditWallets.length > 0
-                ? `Khoản chờ trả của ${creditWallets.length} thẻ tín dụng`
+              {totalReservedBalance.gt(0)
+                ? creditWallets.length > 0
+                  ? `Khoản chờ trả của ${creditWallets.length} thẻ tín dụng`
+                  : "Khoản tiền đang giữ chờ thanh toán thẻ"
                 : "Chưa có khoản chờ trả thẻ"}
             </p>
           </div>
@@ -1386,7 +1389,7 @@ export function WalletManagement({
             </div>
             <div className="flex flex-wrap items-baseline gap-1 md:gap-1.5">
               <strong className="text-sm font-bold tracking-tight tabular-nums text-[var(--foreground)] md:text-2xl">
-                {showBalance ? formatAmount(totalBalance) : "••••••••"}
+                {showBalance ? formatAmount(totalAvailableBalance) : "••••••••"}
               </strong>
               <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)] md:text-xs">
                 {workspace.currency}
@@ -2205,8 +2208,13 @@ export function WalletManagement({
                   ) ?? null
                 : null;
 
+            const activeAssetWalletIds = new Set(
+              assetWallets.map((w) => w.id),
+            );
             const filteredCommitments = commitmentDetails.filter((item) =>
-              selectedWallet ? item.fundingWalletId === selectedWallet.id : true,
+              selectedWallet
+                ? item.fundingWalletId === selectedWallet.id
+                : activeAssetWalletIds.has(item.fundingWalletId),
             );
             const activeItems = filteredCommitments.filter(
               (item) => !item.cardDeleted && item.cardStatus === "active",
@@ -2399,7 +2407,7 @@ export function WalletManagement({
                         </span>
                         <div className="mt-0.5 flex flex-wrap items-baseline gap-1">
                           <strong className="text-lg font-bold tracking-tight tabular-nums text-[var(--warning)]">
-                            {summaryReservedBalance.gt(0) ? "-" : ""}
+                            {showBalance && summaryReservedBalance.gt(0) ? "-" : ""}
                             {formatAmount(summaryReservedBalance)}
                           </strong>
                           <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)]">

@@ -126,6 +126,7 @@ type LedgerItem = {
   }[];
   isRecurring: boolean;
   allocations?: { walletId: string; amount: string }[];
+  paymentSources?: { walletId: string; amount: string }[];
 };
 
 type TransactionDraft = {
@@ -137,6 +138,7 @@ type TransactionDraft = {
   date: string;
   amount: string;
   allocations: { walletId: string; amount: string }[];
+  initialAllocations?: { walletId: string; amount: string }[];
 };
 
 type LedgerDateTotals = {
@@ -190,6 +192,10 @@ function newTransactionDraft(
     defaultWallet?.defaultFundingWalletId ??
     wallets.find((wallet) => wallet.kind !== "credit_card")?.id ??
     "";
+  const initialAllocations =
+    defaultWallet?.kind === "credit_card" && defaultFundingId
+      ? [{ walletId: defaultFundingId, amount: "" }]
+      : [];
   return {
     description: "",
     type: "expense",
@@ -199,10 +205,8 @@ function newTransactionDraft(
     toWalletId: defaultDestination(wallets, walletId),
     date: businessDate,
     amount: "",
-    allocations:
-      defaultWallet?.kind === "credit_card" && defaultFundingId
-        ? [{ walletId: defaultFundingId, amount: "" }]
-        : [],
+    allocations: initialAllocations,
+    initialAllocations,
   };
 }
 
@@ -218,6 +222,12 @@ function draftFromTransaction(
     selectedWallet?.defaultFundingWalletId ??
     wallets.find((w) => w.kind === "asset")?.id ??
     "";
+  const baseAllocations =
+    item.allocations && item.allocations.length > 0
+      ? item.allocations.map((alloc) => ({ ...alloc }))
+      : isCreditCard
+        ? [{ walletId: defaultFundingId, amount: item.amount }]
+        : [];
   return {
     description: item.description ?? "",
     type: item.type,
@@ -226,16 +236,19 @@ function draftFromTransaction(
     toWalletId: item.toWalletId ?? defaultDestination(wallets, item.walletId),
     date: item.date.slice(0, 10),
     amount: item.amount,
-    allocations:
-      item.allocations && item.allocations.length > 0
-        ? item.allocations
-        : isCreditCard
-          ? [{ walletId: defaultFundingId, amount: item.amount }]
-          : [],
+    allocations: baseAllocations,
+    initialAllocations: baseAllocations.map((alloc) => ({ ...alloc })),
   };
 }
 
 function transactionInput(draft: TransactionDraft) {
+  const positiveAllocations = draft.allocations.filter((alloc) => {
+    try {
+      return new Decimal(alloc.amount || "0").gt(0);
+    } catch {
+      return false;
+    }
+  });
   return {
     walletId: draft.walletId,
     toWalletId: draft.type === "transfer" ? draft.toWalletId : undefined,
@@ -244,7 +257,7 @@ function transactionInput(draft: TransactionDraft) {
     amount: draft.amount,
     description: draft.description || undefined,
     date: draft.date,
-    allocations: draft.allocations.length ? draft.allocations : undefined,
+    allocations: positiveAllocations.length ? positiveAllocations : undefined,
   };
 }
 
@@ -869,16 +882,21 @@ export function Ledger({
     [categories, filterCategory],
   );
 
-  const filteredRows = useMemo(
+  const nonDateFilteredRows = useMemo(
     () =>
       transactions.filter((item) => {
-        const itemDate = item.date?.slice(0, 10) || "";
+        const effectiveType =
+          item.purpose === "credit_card_refund" ? "expense" : item.type;
         return (
-          isDateInRange(itemDate, dateRange) &&
-          (filterType === "" || item.type === filterType) &&
+          (filterType === "" || effectiveType === filterType) &&
           (filterWallet === "" ||
             item.walletId === filterWallet ||
-            item.toWalletId === filterWallet) &&
+            item.toWalletId === filterWallet ||
+            Boolean(
+              item.paymentSources?.some(
+                (source) => source.walletId === filterWallet,
+              ),
+            )) &&
           (!filterReviewOnly || requiresReview(item)) &&
           (filterCategory === "" ||
             (item.categoryId !== null &&
@@ -890,7 +908,6 @@ export function Ledger({
       }),
     [
       transactions,
-      dateRange,
       filterType,
       filterWallet,
       filterReviewOnly,
@@ -900,8 +917,18 @@ export function Ledger({
     ],
   );
 
-  const scheduledRows = filteredRows.filter(
-    (item) => item.status === "scheduled",
+  const filteredRows = useMemo(
+    () =>
+      nonDateFilteredRows.filter((item) => {
+        const itemDate = item.date?.slice(0, 10) || "";
+        return isDateInRange(itemDate, dateRange);
+      }),
+    [nonDateFilteredRows, dateRange],
+  );
+
+  const scheduledRows = useMemo(
+    () => nonDateFilteredRows.filter((item) => item.status === "scheduled"),
+    [nonDateFilteredRows],
   );
   const orderedScheduledRows = [...scheduledRows].sort((left, right) =>
     left.date.localeCompare(right.date),
@@ -2306,6 +2333,11 @@ function TransactionEditorForm({
     return prev;
   }
 
+  const baseSplitAllocations =
+    draft.initialAllocations && draft.initialAllocations.length > 1
+      ? draft.initialAllocations
+      : draft.allocations;
+
   function changeType(type: TransactionType): void {
     const nextWalletId =
       type === "income" && selectedWallet?.kind === "credit_card"
@@ -2324,17 +2356,23 @@ function TransactionEditorForm({
     const isCard = nextWallet?.kind === "credit_card";
     const defaultFundingId =
       nextWallet?.defaultFundingWalletId ?? assetWallets[0]?.id ?? "";
+    const shouldAllocate = (type === "expense" || type === "transfer") && isCard;
+    const singleFallback = [{ walletId: defaultFundingId, amount: draft.amount }];
     onChange({
       type,
       walletId: nextWalletId,
       categoryId:
         categoriesForTransactionType(categories, type)[0]?.id ?? "none",
-      allocations:
-        (type === "expense" || type === "transfer") && isCard
-          ? draft.allocations.length > 0
-            ? draft.allocations
-            : [{ walletId: defaultFundingId, amount: draft.amount }]
-          : [],
+      allocations: shouldAllocate
+        ? draft.allocations.length > 0
+          ? draft.allocations
+          : singleFallback
+        : [],
+      initialAllocations: shouldAllocate
+        ? baseSplitAllocations.length > 0
+          ? baseSplitAllocations
+          : singleFallback
+        : [],
       toWalletId:
         type === "transfer"
           ? draft.toWalletId && draft.toWalletId !== nextWalletId
@@ -2368,18 +2406,27 @@ function TransactionEditorForm({
         const isCard = wallet?.kind === "credit_card";
         const defaultFundingId =
           wallet?.defaultFundingWalletId || assetWallets[0]?.id || "";
+        const shouldAllocate =
+          (draft.type === "expense" || draft.type === "transfer") && isCard;
+        const singleFallback = [
+          { walletId: defaultFundingId, amount: draft.amount },
+        ];
         onChange({
           walletId,
           toWalletId:
             draft.toWalletId === walletId
               ? defaultDestination(wallets, walletId)
               : draft.toWalletId,
-          allocations:
-            (draft.type === "expense" || draft.type === "transfer") && isCard
-              ? draft.allocations.length > 1
-                ? scaleAllocations(draft.allocations, draft.amount)
-                : [{ walletId: defaultFundingId, amount: draft.amount }]
-              : [],
+          allocations: shouldAllocate
+            ? baseSplitAllocations.length > 1
+              ? scaleAllocations(baseSplitAllocations, draft.amount)
+              : singleFallback
+            : [],
+          initialAllocations: shouldAllocate
+            ? baseSplitAllocations.length > 1
+              ? baseSplitAllocations
+              : singleFallback
+            : [],
         });
       }}
       label={
@@ -2469,16 +2516,13 @@ function TransactionEditorForm({
         assetWallets[0]?.id ||
         ""
       }
-      onValueChange={(walletId) =>
+      onValueChange={(walletId) => {
+        const single = [{ walletId, amount: draft.amount }];
         onChange({
-          allocations:
-            draft.allocations.length > 1
-              ? draft.allocations.map((alloc, idx) =>
-                  idx === 0 ? { ...alloc, walletId } : alloc,
-                )
-              : [{ walletId, amount: draft.amount }],
-        })
-      }
+          allocations: single,
+          initialAllocations: single,
+        });
+      }}
       options={assetWallets.map((wallet) => ({
         value: wallet.id,
         label: wallet.name,
@@ -2571,8 +2615,8 @@ function TransactionEditorForm({
               onChange({
                 amount,
                 allocations: isCreditCardExpense
-                  ? draft.allocations.length > 1
-                    ? scaleAllocations(draft.allocations, amount)
+                  ? baseSplitAllocations.length > 1
+                    ? scaleAllocations(baseSplitAllocations, amount)
                     : [
                         {
                           walletId:

@@ -230,7 +230,6 @@ function SheetContent({
   }
 
   function handleDragStart(event: React.PointerEvent<HTMLDivElement>): void {
-    dismissKeyboard();
     const target = event.target as HTMLElement;
     const dragSurface = target.closest(
       '[data-slot="mobile-sheet-drag-handle"], [data-slot="sheet-header"]',
@@ -248,6 +247,8 @@ function SheetContent({
     ) {
       return;
     }
+
+    dismissKeyboard();
 
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -442,14 +443,29 @@ function SheetHeader({
   title,
   description,
   children,
+  onClick,
   ...props
 }: SheetHeaderProps) {
   const isStructured = Boolean(title !== undefined || Icon !== undefined);
 
+  function handleHeaderClick(event: React.MouseEvent<HTMLDivElement>): void {
+    onClick?.(event);
+    if (event.defaultPrevented) return;
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.closest(
+        "button, a, input, select, textarea, [role='button'], [role='tab'], [role='switch'], label",
+      )
+    ) {
+      return;
+    }
+    dismissKeyboard();
+  }
+
   return (
     <div
       data-slot="sheet-header"
-      onClick={dismissKeyboard}
+      onClick={handleHeaderClick}
       className={cn(
         "shrink-0 px-4 pt-2.5 pb-3.5 pr-12 sm:px-6 sm:py-4 sm:pr-14 border-b border-[var(--border)] select-none",
         className,

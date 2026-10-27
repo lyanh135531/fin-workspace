@@ -4,12 +4,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Button, Card, PageContainer } from "@/components/base";
-import { formatAmount } from "@/lib/format";
 import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { generateWorkspaceCreditCardStatements } from "@/services/credit-card-statement-service";
+import { StatementAmount } from "./statement-masked-amount";
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("vi-VN", {
@@ -277,7 +277,7 @@ export default async function CreditCardStatementPage({
                 remainingDebt.gt(0) ? "text-[var(--warning)]" : "text-[var(--success)]",
               )}
             >
-              {formatAmount(remainingDebt)}{" "}
+              <StatementAmount value={remainingDebt.toString()} />{" "}
               <span className="text-xs font-semibold text-[var(--text-secondary)]">{currency}</span>
             </p>
           </div>
@@ -289,7 +289,7 @@ export default async function CreditCardStatementPage({
                 Tổng sao kê kỳ này
               </span>
               <p className="mt-0.5 text-sm font-bold tabular-nums tracking-tight text-[var(--foreground)] md:mt-1 md:text-2xl">
-                {formatAmount(statement.totalAmount)}{" "}
+                <StatementAmount value={statement.totalAmount.toString()} />{" "}
                 <span className="text-[11px] font-semibold text-[var(--text-secondary)] md:text-xs">{currency}</span>
               </p>
               <span className="mt-1 hidden text-[11px] text-[var(--text-muted)] md:block">
@@ -302,7 +302,7 @@ export default async function CreditCardStatementPage({
                 Đã thanh toán
               </span>
               <p className="mt-0.5 text-sm font-bold tabular-nums tracking-tight text-[var(--success)] md:mt-1 md:text-2xl">
-                {formatAmount(totalPaid)}{" "}
+                <StatementAmount value={totalPaid.toString()} />{" "}
                 <span className="text-[11px] font-semibold text-[var(--text-secondary)] md:text-xs">{currency}</span>
               </p>
               <span className="mt-1 hidden text-[11px] text-[var(--text-muted)] md:block">
@@ -322,7 +322,7 @@ export default async function CreditCardStatementPage({
                   remainingDebt.gt(0) ? "text-[var(--warning)]" : "text-[var(--success)]",
                 )}
               >
-                {formatAmount(remainingDebt)}{" "}
+                <StatementAmount value={remainingDebt.toString()} />{" "}
                 <span className="text-xs font-semibold text-[var(--text-secondary)]">{currency}</span>
               </p>
               <span className="mt-1 text-[11px] text-[var(--text-muted)]">
@@ -347,7 +347,7 @@ export default async function CreditCardStatementPage({
                       <span className="break-words font-medium leading-snug text-[var(--foreground)]">{name}</span>
                     </div>
                     <span className="shrink-0 font-bold tabular-nums text-[var(--foreground)]">
-                      {formatAmount(Decimal.max(amount, 0))} {currency}
+                      <StatementAmount value={Decimal.max(amount, 0).toString()} /> {currency}
                     </span>
                   </div>
                 ))}
@@ -403,8 +403,11 @@ export default async function CreditCardStatementPage({
                       item.amount.isNegative() ? "text-[var(--success)]" : "text-[var(--foreground)]",
                     )}
                   >
-                    {item.amount.isNegative() ? "−" : "+"}
-                    {formatAmount(item.amount.abs())} {currency}
+                    <StatementAmount
+                      value={item.amount.abs().toString()}
+                      prefix={item.amount.isNegative() ? "−" : "+"}
+                    />{" "}
+                    {currency}
                   </span>
                 </div>
               );
@@ -459,8 +462,11 @@ export default async function CreditCardStatementPage({
                           item.amount.isNegative() ? "text-[var(--success)]" : "text-[var(--foreground)]",
                         )}
                       >
-                        {item.amount.isNegative() ? "−" : "+"}
-                        {formatAmount(item.amount.abs())} {currency}
+                        <StatementAmount
+                          value={item.amount.abs().toString()}
+                          prefix={item.amount.isNegative() ? "−" : "+"}
+                        />{" "}
+                        {currency}
                       </td>
                     </tr>
                   );
@@ -494,7 +500,7 @@ export default async function CreditCardStatementPage({
                     </p>
                   </div>
                   <span className="shrink-0 font-bold tabular-nums text-[var(--success)]">
-                    {formatAmount(payment.amount)} {currency}
+                    <StatementAmount value={payment.amount.toString()} /> {currency}
                   </span>
                 </div>
               ))}

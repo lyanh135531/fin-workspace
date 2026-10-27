@@ -120,6 +120,7 @@ type Transaction = {
     | "credit_card_installment_fee"
     | "investment_contribution"
     | "investment_settlement";
+  investmentPrincipalDelta?: string;
   paymentSources?: { walletId: string; amount: string }[];
 };
 
@@ -243,6 +244,12 @@ type Props = {
   workspace: { id: string; name: string; currency: string };
   reportPeriod: string;
   wallets: OverviewWalletItem[];
+  balanceHistoryWallets?: {
+    id: string;
+    name: string;
+    balance: string;
+    kind?: "asset" | "credit_card";
+  }[];
   totalByCurrency: Record<string, string>;
   members: { id: string; name: string }[];
   transactions: Transaction[];
@@ -478,6 +485,7 @@ export function OverviewDashboard({
   workspace,
   reportPeriod,
   wallets,
+  balanceHistoryWallets,
   members,
   transactions,
   canApprove = false,
@@ -661,9 +669,36 @@ export function OverviewDashboard({
       (investmentsSnapshot.gold.holdingCount > 0 ||
         investmentsSnapshot.savings.activeCount > 0),
   );
-  const liquidNetWorthDecimal = totalAssetBalanceDecimal.minus(
-    totalCreditDebtDecimal,
+  const activeWalletIdSet = useMemo(
+    () => new Set(wallets.map((w) => w.id)),
+    [wallets],
   );
+  const inactiveAssetBalanceDecimal = useMemo(
+    () =>
+      (balanceHistoryWallets ?? [])
+        .filter(
+          (w) => (w.kind ?? "asset") === "asset" && !activeWalletIdSet.has(w.id),
+        )
+        .reduce((sum, w) => sum.plus(new Decimal(w.balance)), new Decimal(0)),
+    [balanceHistoryWallets, activeWalletIdSet],
+  );
+  const inactiveCardDebtDecimal = useMemo(
+    () =>
+      (balanceHistoryWallets ?? [])
+        .filter(
+          (w) => w.kind === "credit_card" && !activeWalletIdSet.has(w.id),
+        )
+        .reduce(
+          (sum, w) =>
+            sum.plus(Decimal.max(new Decimal(w.balance), new Decimal(0))),
+          new Decimal(0),
+        ),
+    [balanceHistoryWallets, activeWalletIdSet],
+  );
+  const liquidNetWorthDecimal = totalAssetBalanceDecimal
+    .plus(inactiveAssetBalanceDecimal)
+    .minus(totalCreditDebtDecimal)
+    .minus(inactiveCardDebtDecimal);
   const netWorthDecimal = liquidNetWorthDecimal.plus(
     totalInvestmentValueDecimal,
   );
@@ -849,24 +884,26 @@ export function OverviewDashboard({
           count: (prior?.count ?? 0) + 1,
         });
       });
-    const total =
-      targetType === "income" ? activeTotals.income : activeTotals.expense;
-    return [...rows.values()]
+    const positiveRows = [...rows.values()]
       .filter((row) => row.amount.gt(0))
-      .sort((a, b) => b.amount.comparedTo(a.amount))
-      .map((row, idx) => ({
-        ...row,
-        color: row.color || memberSeriesColor(idx),
-        percent: total.isZero()
-          ? 0
-          : row.amount.div(total).times(100).toNumber(),
-      }));
+      .sort((a, b) => b.amount.comparedTo(a.amount));
+    const positiveTotal = positiveRows.reduce(
+      (sum, row) => sum.plus(row.amount),
+      new Decimal(0),
+    );
+    return positiveRows.map((row, idx) => ({
+      ...row,
+      color: row.color || memberSeriesColor(idx),
+      percent: positiveTotal.isZero()
+        ? 0
+        : row.amount.div(positiveTotal).times(100).toNumber(),
+    }));
   };
 
   const expenseByCategory = buildCategoryBreakdown("expense");
   const incomeByCategory = buildCategoryBreakdown("income");
 
-  const memberExpenses = members
+  const rawMemberExpenses = members
     .map((m, idx) => {
       const matched = transactions.filter(
         (t) =>
@@ -887,9 +924,6 @@ export function OverviewDashboard({
           new Decimal(0),
         ),
       );
-      const percent = activeTotals.expense.isZero()
-        ? 0
-        : memberSpent.div(activeTotals.expense).times(100).toNumber();
       return {
         id: m.id,
         name: m.name,
@@ -897,11 +931,21 @@ export function OverviewDashboard({
         icon: null as string | null,
         amount: memberSpent,
         count: matched.length,
-        percent,
       };
     })
     .filter((m) => m.amount.gt(0))
     .sort((a, b) => b.amount.comparedTo(a.amount));
+
+  const memberPositiveTotal = rawMemberExpenses.reduce(
+    (sum, m) => sum.plus(m.amount),
+    new Decimal(0),
+  );
+  const memberExpenses = rawMemberExpenses.map((m) => ({
+    ...m,
+    percent: memberPositiveTotal.isZero()
+      ? 0
+      : m.amount.div(memberPositiveTotal).times(100).toNumber(),
+  }));
 
   const activeStructureItems =
     structureMode === "income"
@@ -932,7 +976,7 @@ export function OverviewDashboard({
           transactionType: "all",
           dateRange: activeDateRange,
         })
-    ).flatMap((row) => [row.income, row.expense]),
+      ).flatMap((row) => [row.income, row.expense]),
   );
 
   const periodLabel = formatPeriodLabel(activeReportPeriod, globalPeriod);
@@ -945,8 +989,14 @@ export function OverviewDashboard({
   }, [wallets, assetWallets, creditCardWallets, walletFilter]);
 
   const walletNameById = useMemo(
-    () => new Map(wallets.map((w) => [w.id, w.name])),
-    [wallets],
+    () =>
+      new Map([
+        ...(balanceHistoryWallets ?? []).map(
+          (w) => [w.id, w.name] as const,
+        ),
+        ...wallets.map((w) => [w.id, w.name] as const),
+      ]),
+    [balanceHistoryWallets, wallets],
   );
 
   // Privacy-aware amount renderer
@@ -1762,7 +1812,7 @@ export function OverviewDashboard({
 
             {chartTab === "balance" && (
               <BalanceHistoryChart
-                wallets={wallets}
+                wallets={balanceHistoryWallets ?? wallets}
                 transactions={transactions}
                 currency={workspace.currency}
                 reportPeriod={activeReportPeriod}
@@ -3209,15 +3259,14 @@ export function OverviewDashboard({
                       "text-[var(--foreground)]",
                   )}
                 >
-                  {selectedTransaction.type === "income"
-                    ? "+"
-                    : selectedTransaction.type === "expense"
-                      ? "−"
-                      : "↔"}
-                  {formatAmount(selectedTransaction.amount)}{" "}
-                  <span className="text-sm font-semibold opacity-75">
-                    {workspace.currency}
-                  </span>
+                  {displayAmount(selectedTransaction.amount, {
+                    prefix:
+                      selectedTransaction.type === "income"
+                        ? "+"
+                        : selectedTransaction.type === "expense"
+                          ? "−"
+                          : "↔",
+                  })}
                 </strong>
                 {selectedTransaction.description && (
                   <p className="mt-1.5 break-words text-sm text-[var(--foreground)]">
@@ -3560,6 +3609,7 @@ function BalanceHistoryChart({
   investmentMarketValue?: string;
   investmentCostBasis?: string;
 }) {
+  const privacyMasked = usePrivacyMask();
   const period = periodOverride ?? "month";
   const dateRange = getDashboardPeriodDateRange(reportPeriod, period);
   const isDaily = period === "month";
@@ -3675,7 +3725,9 @@ function BalanceHistoryChart({
           axisLine={false}
           tickCount={isMobile ? 4 : 5}
           allowDecimals={false}
-          tickFormatter={(value) => formatScaledAmount(value, axisScale)}
+          tickFormatter={(value) =>
+            privacyMasked ? "•••" : formatScaledAmount(value, axisScale)
+          }
           tick={{ fontSize: isMobile ? 10 : 12 }}
         />
         {negativeMonthCount > 0 && (
@@ -3699,7 +3751,7 @@ function BalanceHistoryChart({
                 <div className="flex min-w-48 items-center justify-between gap-4">
                   <span className="text-muted-foreground">Tổng số dư</span>
                   <strong className="text-foreground tabular-nums">
-                    {money(String(value), currency)}
+                    {privacyMasked ? "••••••••" : money(String(value), currency)}
                   </strong>
                 </div>
               )}
@@ -3756,6 +3808,7 @@ function MonthlyFinancialChart({
   isMobile: boolean;
   period?: DashboardPeriod;
 }) {
+  const privacyMasked = usePrivacyMask();
   const visibleTypes = getVisibleCashflowTypes(transactionType, categoryType);
   const isDaily = period === "month";
   const cashflow = isDaily
@@ -3866,7 +3919,9 @@ function MonthlyFinancialChart({
               axisLine={false}
               tickCount={isMobile ? 4 : 5}
               allowDecimals={false}
-              tickFormatter={(value) => formatScaledAmount(value, axisScale)}
+              tickFormatter={(value) =>
+                privacyMasked ? "•••" : formatScaledAmount(value, axisScale)
+              }
               tick={{ fontSize: isMobile ? 10 : 12 }}
             />
             <ChartTooltip
@@ -3884,7 +3939,9 @@ function MonthlyFinancialChart({
                         {name === "income" ? "Thu nhập" : "Chi tiêu"}
                       </span>
                       <strong className="text-foreground tabular-nums">
-                        {money(String(value), currency)}
+                        {privacyMasked
+                          ? "••••••••"
+                          : money(String(value), currency)}
                       </strong>
                     </div>
                   )}

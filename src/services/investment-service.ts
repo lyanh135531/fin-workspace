@@ -24,6 +24,7 @@ import {
   updateGoldHoldingPriceSettingsSchema,
   updateGoldPurchaseLotSchema,
 } from "@/domain/investment/schemas";
+import { isAdminRole } from "@/domain/role-policy";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
@@ -43,6 +44,15 @@ function formatIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+function assertNotFutureBusinessDate(isoDate: string, businessDate: string) {
+  if (isoDate.slice(0, 10) > businessDate) {
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "Ngày thực hiện không được lớn hơn ngày hiện tại.",
+    );
+  }
+}
+
 async function requireActiveMember(userId: string, workspaceId: string) {
   const member = await prisma.workspaceMember.findFirst({
     where: accessibleWorkspaceMemberWhere(userId, workspaceId),
@@ -52,6 +62,33 @@ async function requireActiveMember(userId: string, workspaceId: string) {
     throw new AppError("FORBIDDEN", "Bạn không có quyền truy cập nhóm tài chính này.");
   }
   return member;
+}
+
+async function requireInvestmentManager(userId: string, workspaceId: string) {
+  const member = await requireActiveMember(userId, workspaceId);
+  if (!isAdminRole(member.role.code)) {
+    throw new AppError(
+      "FORBIDDEN",
+      "Chỉ quản trị viên mới có quyền thêm, sửa, bán hoặc tất toán danh mục đầu tư.",
+    );
+  }
+  return member;
+}
+
+async function lockGoldHolding(
+  tx: TransactionClient,
+  workspaceId: string,
+  holdingId: string,
+) {
+  await tx.$queryRaw`SELECT id FROM "GOLD_HOLDING" WHERE id = ${holdingId}::uuid AND workspace_id = ${workspaceId}::uuid AND deleted_at IS NULL FOR UPDATE`;
+}
+
+async function lockSavingsDeposit(
+  tx: TransactionClient,
+  workspaceId: string,
+  depositId: string,
+) {
+  await tx.$queryRaw`SELECT id FROM "SAVINGS_DEPOSIT" WHERE id = ${depositId}::uuid AND workspace_id = ${workspaceId}::uuid AND deleted_at IS NULL FOR UPDATE`;
 }
 
 async function lockAndVerifyAssetWallet(
@@ -416,14 +453,11 @@ export async function getWorkspaceInvestmentsOverview(
         shopName: lot.shopName,
         invoiceOrSerial: lot.invoiceOrSerial,
         note: lot.note,
-        canDelete: new Decimal(lot.remainingQuantityChi.toString()).eq(
-          new Decimal(lot.quantityChi.toString()),
-        ),
-        canEditFinancials:
-          holding.saleRecords.length === 0 &&
+        canDelete:
           new Decimal(lot.remainingQuantityChi.toString()).eq(
             new Decimal(lot.quantityChi.toString()),
-          ),
+          ) && !holding.saleRecords.some((s) => s.purchaseLotId === lot.id),
+        canEditFinancials: true,
       })),
       sales: holding.saleRecords.map((sale) => ({
         id: sale.id,
@@ -477,6 +511,7 @@ export async function getWorkspaceInvestmentsOverview(
       currentPrincipalAmount: currentPrincipal,
       annualInterestRate: deposit.annualInterestRate.toString(),
       nonTermInterestRate: deposit.nonTermInterestRate.toString(),
+      interestPayoutMode: deposit.interestPayoutMode,
       startDate,
       maturityDate,
       businessDate,
@@ -560,6 +595,7 @@ export async function getWorkspaceInvestmentsOverview(
   );
 
   return {
+    canManage: isAdminRole(member.role.code),
     workspace: {
       id: workspaceId,
       name: member.workspace.name,
@@ -715,13 +751,17 @@ async function createGoldPurchaseLotInTx(
   return lot;
 }
 
-async function resolvePeggedShopOffsets(params: {
-  quoteProviderCode: string;
-  productType: string;
-  shopBuyPerChi: Decimal;
-  shopSellPerChi: Decimal;
-}) {
-  const row = await prisma.goldPriceQuote.findUnique({
+async function resolvePeggedShopOffsets(
+  params: {
+    quoteProviderCode: string;
+    productType: string;
+    shopBuyPerChi: Decimal;
+    shopSellPerChi: Decimal;
+  },
+  db: Pick< typeof prisma, "goldPriceQuote" > = prisma,
+) {
+  const quoteDelegate = db.goldPriceQuote ?? prisma.goldPriceQuote;
+  const row = await quoteDelegate.findUnique({
     where: { providerCode: params.quoteProviderCode },
   });
   const def = findGoldBrandQuoteDefinition(params.quoteProviderCode);
@@ -744,14 +784,186 @@ async function resolvePeggedShopOffsets(params: {
   };
 }
 
+async function replayGoldHoldingLedger(
+  tx: TransactionClient,
+  holdingId: string,
+) {
+  const allLots = await tx.goldPurchaseLot.findMany({
+    where: { holdingId, deletedAt: null },
+    orderBy: [{ purchaseDate: "asc" }, { createdAt: "asc" }],
+  });
+  const remainingSales = await tx.goldSaleRecord.findMany({
+    where: { holdingId, deletedAt: null },
+    orderBy: [{ saleDate: "asc" }, { createdAt: "asc" }],
+  });
+
+  type ReplayLotState = {
+    id: string;
+    purchaseDateIso: string;
+    initialQuantityChi: Decimal;
+    initialCostAmount: Decimal;
+    remainingQuantityChi: string;
+    remainingCostAmount: string;
+    unitPricePerChi: string;
+    included: boolean;
+  };
+
+  const lotStates: ReplayLotState[] = allLots.map((lot) => {
+    const initQty = new Decimal(lot.quantityChi.toString());
+    const initCost = new Decimal(lot.totalCostAmount.toString());
+    return {
+      id: lot.id,
+      purchaseDateIso: formatIsoDate(lot.purchaseDate),
+      initialQuantityChi: initQty,
+      initialCostAmount: initCost,
+      remainingQuantityChi: initQty.toFixed(4),
+      remainingCostAmount: initCost.toFixed(0),
+      unitPricePerChi: new Decimal(lot.unitPricePerChi.toString()).toFixed(0),
+      included: false,
+    };
+  });
+  const lotStateById = new Map(lotStates.map((s) => [s.id, s]));
+
+  let lotIdx = 0;
+  let holdingQty = ZERO;
+  let holdingCost = ZERO;
+  let totalRealizedProfit = ZERO;
+
+  const includeLotState = (state: ReplayLotState) => {
+    if (state.included) return;
+    state.included = true;
+    holdingQty = holdingQty.plus(state.initialQuantityChi);
+    holdingCost = holdingCost.plus(state.initialCostAmount);
+  };
+
+  for (const remSale of remainingSales) {
+    const saleDateIso = formatIsoDate(remSale.saleDate);
+    const sellQty = new Decimal(remSale.quantityChi.toString());
+
+    while (lotIdx < lotStates.length) {
+      const candidate = lotStates[lotIdx]!;
+      if (candidate.purchaseDateIso <= saleDateIso) {
+        includeLotState(candidate);
+        lotIdx += 1;
+      } else {
+        break;
+      }
+    }
+
+    if (remSale.costMode === "specific_lot") {
+      const referencedLot = remSale.purchaseLotId
+        ? lotStateById.get(remSale.purchaseLotId)
+        : undefined;
+      if (!referencedLot) {
+        throw new AppError(
+          "CONFLICT",
+          "Đợt mua vàng gắn với giao dịch bán lịch sử không còn tồn tại.",
+        );
+      }
+      if (!referencedLot.included) {
+        throw new AppError(
+          "CONFLICT",
+          "Ngày bán vàng trong lịch sử không thể trước ngày mua của đợt vàng tương ứng.",
+        );
+      }
+      if (new Decimal(referencedLot.remainingQuantityChi).lt(sellQty)) {
+        throw new AppError(
+          "CONFLICT",
+          "Số lượng của đợt mua vàng không đủ để đáp ứng giao dịch bán lịch sử.",
+        );
+      }
+    } else if (holdingQty.lt(sellQty)) {
+      throw new AppError(
+        "CONFLICT",
+        "Tổng số lượng vàng nắm giữ tính đến ngày bán lịch sử không đủ để đáp ứng giao dịch bán đã ghi nhận.",
+      );
+    }
+
+    let allocation;
+    try {
+      allocation = allocateGoldSaleCostBasis({
+        costMode: remSale.costMode,
+        sellQuantityChi: remSale.quantityChi.toString(),
+        sellPricePerChi: remSale.sellPricePerChi.toString(),
+        feeOrDeductionAmount: remSale.feeOrDeductionAmount.toString(),
+        holdingQuantityChi: holdingQty.toFixed(4),
+        holdingCostBasisAmount: holdingCost.toFixed(0),
+        openLots: lotStates.filter(
+          (l) => l.included && new Decimal(l.remainingQuantityChi).gt(0),
+        ),
+        targetLotId: remSale.purchaseLotId,
+      });
+    } catch (error) {
+      throw new AppError(
+        "CONFLICT",
+        error instanceof Error
+          ? error.message
+          : "Không thể tính lại giá vốn lịch sử của khoản vàng.",
+      );
+    }
+
+    for (const update of allocation.lotUpdates) {
+      const target = lotStateById.get(update.lotId);
+      if (target) {
+        target.remainingQuantityChi =
+          update.nextRemainingQuantityChi.toFixed(4);
+        target.remainingCostAmount = update.nextRemainingCostAmount.toFixed(0);
+      }
+    }
+
+    holdingQty = new Decimal(allocation.nextHoldingQuantityChi);
+    holdingCost = new Decimal(allocation.nextHoldingCostBasisAmount);
+    totalRealizedProfit = totalRealizedProfit.plus(
+      allocation.realizedProfitAmount,
+    );
+
+    await tx.goldSaleRecord.update({
+      where: { id: remSale.id },
+      data: {
+        costBasisAllocatedAmount: new Decimal(
+          allocation.costBasisAllocatedAmount,
+        ),
+        realizedProfitAmount: new Decimal(allocation.realizedProfitAmount),
+      },
+    });
+  }
+
+  while (lotIdx < lotStates.length) {
+    includeLotState(lotStates[lotIdx]!);
+    lotIdx += 1;
+  }
+
+  for (const state of lotStates) {
+    await tx.goldPurchaseLot.update({
+      where: { id: state.id },
+      data: {
+        remainingQuantityChi: new Decimal(state.remainingQuantityChi),
+        remainingCostAmount: new Decimal(state.remainingCostAmount),
+      },
+    });
+  }
+
+  await tx.goldHolding.update({
+    where: { id: holdingId },
+    data: {
+      totalQuantityChi: holdingQty,
+      totalCostBasisAmount: holdingCost,
+      realizedProfitAmount: totalRealizedProfit,
+    },
+  });
+}
+
 export async function createGoldHoldingWithInitialLot(
   userId: string,
   workspaceId: string,
   rawInput: unknown,
 ) {
-  const member = await requireActiveMember(userId, workspaceId);
+  const member = await requireInvestmentManager(userId, workspaceId);
   const input = createGoldHoldingWithInitialLotSchema.parse(rawInput);
   const businessDate = getBusinessDateInTimeZone(member.workspace.timeZone);
+  if (input.initialLot) {
+    assertNotFutureBusinessDate(input.initialLot.purchaseDate, businessDate);
+  }
 
   const brandDef =
     input.priceSourceMode === "auto_brand"
@@ -804,6 +1016,9 @@ export async function createGoldHoldingWithInitialLot(
               priceSourceMode: input.priceSourceMode,
               productType: resolvedProductType,
             },
+            include: {
+              saleRecords: { where: { deletedAt: null }, select: { id: true } },
+            },
             orderBy: [{ createdAt: "asc" }],
           });
 
@@ -816,6 +1031,10 @@ export async function createGoldHoldingWithInitialLot(
         resolvedBrandName.toLowerCase()
       );
     });
+
+    if (matchedExisting) {
+      await lockGoldHolding(tx, workspaceId, matchedExisting.id);
+    }
 
     const holding = matchedExisting
       ? await tx.goldHolding.update({
@@ -880,6 +1099,10 @@ export async function createGoldHoldingWithInitialLot(
         invoiceOrSerial: input.initialLot.invoiceOrSerial,
         note: input.initialLot.note,
       });
+
+      if ((matchedExisting?.saleRecords?.length ?? 0) > 0) {
+        await replayGoldHoldingLedger(tx, holding.id);
+      }
     }
 
     await tx.auditLog.create({
@@ -904,12 +1127,19 @@ export async function addGoldPurchaseLot(
   workspaceId: string,
   rawInput: unknown,
 ) {
-  const member = await requireActiveMember(userId, workspaceId);
+  const member = await requireInvestmentManager(userId, workspaceId);
   const input = addGoldPurchaseLotSchema.parse(rawInput);
+  const businessDate = getBusinessDateInTimeZone(member.workspace.timeZone);
+  assertNotFutureBusinessDate(input.purchaseDate, businessDate);
 
   return prisma.$transaction(async (tx) => {
+    await lockGoldHolding(tx, workspaceId, input.holdingId);
+
     const holding = await tx.goldHolding.findFirst({
       where: { id: input.holdingId, workspaceId, deletedAt: null },
+      include: {
+        saleRecords: { where: { deletedAt: null }, select: { id: true } },
+      },
     });
     if (!holding) {
       throw new AppError("NOT_FOUND", "Không tìm thấy khoản vàng đã chọn.");
@@ -930,6 +1160,10 @@ export async function addGoldPurchaseLot(
       invoiceOrSerial: input.invoiceOrSerial,
       note: input.note,
     });
+
+    if ((holding.saleRecords?.length ?? 0) > 0) {
+      await replayGoldHoldingLedger(tx, holding.id);
+    }
 
     await tx.auditLog.create({
       data: {
@@ -955,22 +1189,69 @@ export async function recordGoldSale(
   workspaceId: string,
   rawInput: unknown,
 ) {
-  const member = await requireActiveMember(userId, workspaceId);
+  const member = await requireInvestmentManager(userId, workspaceId);
   const input = recordGoldSaleSchema.parse(rawInput);
+  const businessDate = getBusinessDateInTimeZone(member.workspace.timeZone);
+  assertNotFutureBusinessDate(input.saleDate, businessDate);
 
   return prisma.$transaction(async (tx) => {
+    await lockGoldHolding(tx, workspaceId, input.holdingId);
+
     const holding = await tx.goldHolding.findFirst({
       where: { id: input.holdingId, workspaceId, deletedAt: null },
       include: {
         purchaseLots: {
-          where: { deletedAt: null, remainingQuantityChi: { gt: 0 } },
+          where: { deletedAt: null },
           orderBy: [{ purchaseDate: "asc" }, { createdAt: "asc" }],
+        },
+        saleRecords: {
+          where: { deletedAt: null },
+          select: { id: true, saleDate: true },
         },
       },
     });
     if (!holding) {
       throw new AppError("NOT_FOUND", "Không tìm thấy khoản vàng cần bán.");
     }
+
+    const saleDateIso = input.saleDate.slice(0, 10);
+    if (input.costMode === "specific_lot" && input.purchaseLotId) {
+      const targetLot = holding.purchaseLots.find(
+        (lot) => lot.id === input.purchaseLotId,
+      );
+      if (targetLot && saleDateIso < formatIsoDate(targetLot.purchaseDate)) {
+        throw new AppError(
+          "VALIDATION_ERROR",
+          "Ngày bán vàng không được trước ngày mua của đợt vàng đã chọn.",
+        );
+      }
+    }
+
+    const eligibleOpenLots = holding.purchaseLots.filter(
+      (lot) =>
+        formatIsoDate(lot.purchaseDate) <= saleDateIso &&
+        new Decimal(lot.remainingQuantityChi.toString()).gt(0),
+    );
+    const hasLaterLotsOrSales =
+      holding.purchaseLots.some(
+        (lot) => formatIsoDate(lot.purchaseDate) > saleDateIso,
+      ) ||
+      (holding.saleRecords ?? []).some(
+        (sale) => formatIsoDate(sale.saleDate) > saleDateIso,
+      );
+
+    const effectiveHoldingQty = hasLaterLotsOrSales
+      ? eligibleOpenLots.reduce(
+          (sum, lot) => sum.plus(lot.remainingQuantityChi.toString()),
+          ZERO,
+        )
+      : new Decimal(holding.totalQuantityChi.toString());
+    const effectiveHoldingCost = hasLaterLotsOrSales
+      ? eligibleOpenLots.reduce(
+          (sum, lot) => sum.plus(lot.remainingCostAmount.toString()),
+          ZERO,
+        )
+      : new Decimal(holding.totalCostBasisAmount.toString());
 
     const destinationWallet = await lockAndVerifyAssetWallet(
       tx,
@@ -985,9 +1266,9 @@ export async function recordGoldSale(
         sellQuantityChi: input.quantityChi,
         sellPricePerChi: input.sellPricePerChi,
         feeOrDeductionAmount: input.feeOrDeductionAmount,
-        holdingQuantityChi: holding.totalQuantityChi.toString(),
-        holdingCostBasisAmount: holding.totalCostBasisAmount.toString(),
-        openLots: holding.purchaseLots.map((lot) => ({
+        holdingQuantityChi: effectiveHoldingQty.toFixed(4),
+        holdingCostBasisAmount: effectiveHoldingCost.toFixed(0),
+        openLots: eligibleOpenLots.map((lot) => ({
           id: lot.id,
           remainingQuantityChi: lot.remainingQuantityChi.toString(),
           remainingCostAmount: lot.remainingCostAmount.toString(),
@@ -1061,14 +1342,18 @@ export async function recordGoldSale(
       },
     });
 
-    await tx.goldHolding.update({
-      where: { id: holding.id },
-      data: {
-        totalQuantityChi: allocation.nextHoldingQuantityChi,
-        totalCostBasisAmount: allocation.nextHoldingCostBasisAmount,
-        realizedProfitAmount: { increment: allocation.realizedProfitAmount },
-      },
-    });
+    if (hasLaterLotsOrSales) {
+      await replayGoldHoldingLedger(tx, holding.id);
+    } else {
+      await tx.goldHolding.update({
+        where: { id: holding.id },
+        data: {
+          totalQuantityChi: allocation.nextHoldingQuantityChi,
+          totalCostBasisAmount: allocation.nextHoldingCostBasisAmount,
+          realizedProfitAmount: { increment: allocation.realizedProfitAmount },
+        },
+      });
+    }
 
     await tx.auditLog.create({
       data: {
@@ -1095,75 +1380,82 @@ export async function updateGoldHoldingSettings(
   workspaceId: string,
   rawInput: unknown,
 ) {
-  await requireActiveMember(userId, workspaceId);
+  await requireInvestmentManager(userId, workspaceId);
   const input = updateGoldHoldingPriceSettingsSchema.parse(rawInput);
 
-  const existing = await prisma.goldHolding.findFirst({
-    where: { id: input.holdingId, workspaceId, deletedAt: null },
-  });
-  if (!existing) {
-    throw new AppError("NOT_FOUND", "Không tìm thấy khoản vàng.");
-  }
+  return prisma.$transaction(async (tx) => {
+    await lockGoldHolding(tx, workspaceId, input.holdingId);
 
-  const brandDef =
-    input.priceSourceMode === "auto_brand"
-      ? findGoldBrandQuoteDefinition(input.quoteProviderCode)
-      : null;
+    const existing = await tx.goldHolding.findFirst({
+      where: { id: input.holdingId, workspaceId, deletedAt: null },
+    });
+    if (!existing) {
+      throw new AppError("NOT_FOUND", "Không tìm thấy khoản vàng.");
+    }
 
-  const resolvedProductType = brandDef
-    ? brandDef.productType
-    : existing.productType;
-  const resolvedProviderCode =
-    input.priceSourceMode === "auto_brand" ||
-    input.priceSourceMode === "pegged_brand"
-      ? (input.quoteProviderCode ?? "SJ9999")
-      : null;
+    const brandDef =
+      input.priceSourceMode === "auto_brand"
+        ? findGoldBrandQuoteDefinition(input.quoteProviderCode)
+        : null;
 
-  const nextBuybackPrice = input.manualBuybackPricePerChi
-    ? new Decimal(input.manualBuybackPricePerChi)
-    : existing.manualBuybackPricePerChi
-      ? new Decimal(existing.manualBuybackPricePerChi.toString())
-      : new Decimal("16950000");
-  const nextSellPrice = input.manualSellPricePerChi
-    ? new Decimal(input.manualSellPricePerChi)
-    : existing.manualSellPricePerChi
-      ? new Decimal(existing.manualSellPricePerChi.toString())
-      : nextBuybackPrice.plus(150000);
+    const resolvedProductType = brandDef
+      ? brandDef.productType
+      : existing.productType;
+    const resolvedProviderCode =
+      input.priceSourceMode === "auto_brand" ||
+      input.priceSourceMode === "pegged_brand"
+        ? (input.quoteProviderCode ?? "SJ9999")
+        : null;
 
-  const peggedOffsets =
-    input.priceSourceMode === "pegged_brand" && resolvedProviderCode
-      ? await resolvePeggedShopOffsets({
-          quoteProviderCode: resolvedProviderCode,
-          productType: resolvedProductType,
-          shopBuyPerChi: nextBuybackPrice,
-          shopSellPerChi: nextSellPrice,
-        })
-      : {
-          peggedBuyOffsetPerChi: new Decimal(
-            existing.peggedBuyOffsetPerChi.toString(),
-          ),
-          peggedSellOffsetPerChi: new Decimal(
-            existing.peggedSellOffsetPerChi.toString(),
-          ),
-        };
+    const nextBuybackPrice = input.manualBuybackPricePerChi
+      ? new Decimal(input.manualBuybackPricePerChi)
+      : existing.manualBuybackPricePerChi
+        ? new Decimal(existing.manualBuybackPricePerChi.toString())
+        : new Decimal("16950000");
+    const nextSellPrice = input.manualSellPricePerChi
+      ? new Decimal(input.manualSellPricePerChi)
+      : existing.manualSellPricePerChi
+        ? new Decimal(existing.manualSellPricePerChi.toString())
+        : nextBuybackPrice.plus(150000);
 
-  return prisma.goldHolding.update({
-    where: { id: existing.id },
-    data: {
-      name: input.name,
-      brandName: brandDef ? brandDef.brandName : input.brandName,
-      productType: resolvedProductType,
-      priceSourceMode: input.priceSourceMode,
-      quoteProviderCode: resolvedProviderCode,
-      peggedBuyOffsetPerChi: peggedOffsets.peggedBuyOffsetPerChi,
-      peggedSellOffsetPerChi: peggedOffsets.peggedSellOffsetPerChi,
-      manualBuybackPricePerChi:
-        input.priceSourceMode !== "auto_brand" ? nextBuybackPrice : null,
-      manualSellPricePerChi:
-        input.priceSourceMode !== "auto_brand" ? nextSellPrice : null,
-      storageLocation: input.storageLocation?.trim() || null,
-      note: input.note?.trim() || null,
-    },
+    const peggedOffsets =
+      input.priceSourceMode === "pegged_brand" && resolvedProviderCode
+        ? await resolvePeggedShopOffsets(
+            {
+              quoteProviderCode: resolvedProviderCode,
+              productType: resolvedProductType,
+              shopBuyPerChi: nextBuybackPrice,
+              shopSellPerChi: nextSellPrice,
+            },
+            tx as unknown as Pick<typeof prisma, "goldPriceQuote">,
+          )
+        : {
+            peggedBuyOffsetPerChi: new Decimal(
+              existing.peggedBuyOffsetPerChi.toString(),
+            ),
+            peggedSellOffsetPerChi: new Decimal(
+              existing.peggedSellOffsetPerChi.toString(),
+            ),
+          };
+
+    return tx.goldHolding.update({
+      where: { id: existing.id },
+      data: {
+        name: input.name,
+        brandName: brandDef ? brandDef.brandName : input.brandName,
+        productType: resolvedProductType,
+        priceSourceMode: input.priceSourceMode,
+        quoteProviderCode: resolvedProviderCode,
+        peggedBuyOffsetPerChi: peggedOffsets.peggedBuyOffsetPerChi,
+        peggedSellOffsetPerChi: peggedOffsets.peggedSellOffsetPerChi,
+        manualBuybackPricePerChi:
+          input.priceSourceMode !== "auto_brand" ? nextBuybackPrice : null,
+        manualSellPricePerChi:
+          input.priceSourceMode !== "auto_brand" ? nextSellPrice : null,
+        storageLocation: input.storageLocation?.trim() || null,
+        note: input.note?.trim() || null,
+      },
+    });
   });
 }
 
@@ -1172,20 +1464,36 @@ export async function deleteGoldPurchaseLot(
   workspaceId: string,
   lotId: string,
 ) {
-  await requireActiveMember(userId, workspaceId);
+  await requireInvestmentManager(userId, workspaceId);
 
   return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT h.id FROM "GOLD_HOLDING" h INNER JOIN "GOLD_PURCHASE_LOT" l ON l.holding_id = h.id WHERE l.id = ${lotId}::uuid AND l.workspace_id = ${workspaceId}::uuid AND l.deleted_at IS NULL AND h.deleted_at IS NULL FOR UPDATE OF h`;
+
     const lot = await tx.goldPurchaseLot.findFirst({
       where: { id: lotId, workspaceId, deletedAt: null },
-      include: { holding: true },
+      include: {
+        holding: {
+          include: {
+            saleRecords: {
+              where: { deletedAt: null },
+              select: { id: true, purchaseLotId: true },
+            },
+          },
+        },
+      },
     });
-    if (!lot) {
+    if (!lot || lot.holding.deletedAt) {
       throw new AppError("NOT_FOUND", "Không tìm thấy đợt mua vàng.");
     }
 
+    await lockGoldHolding(tx, workspaceId, lot.holdingId ?? lot.holding.id);
+
     const initialQty = new Decimal(lot.quantityChi.toString());
     const remQty = new Decimal(lot.remainingQuantityChi.toString());
-    if (!initialQty.eq(remQty)) {
+    const hasSpecificSaleRef = (lot.holding.saleRecords ?? []).some(
+      (s) => s.purchaseLotId === lot.id,
+    );
+    if (!initialQty.eq(remQty) || hasSpecificSaleRef) {
       throw new AppError(
         "CONFLICT",
         "Đợt mua vàng này đã được bán một phần hoặc toàn bộ nên không thể xóa.",
@@ -1248,26 +1556,30 @@ export async function deleteGoldPurchaseLot(
       data: { deletedAt: now },
     });
 
-    const nextQty = Decimal.max(
-      new Decimal(lot.holding.totalQuantityChi.toString()).minus(initialQty),
-      ZERO,
-    );
-    const nextCost = nextQty.isZero()
-      ? ZERO
-      : Decimal.max(
-          new Decimal(lot.holding.totalCostBasisAmount.toString()).minus(
-            totalCost,
-          ),
-          ZERO,
-        );
+    if ((lot.holding.saleRecords?.length ?? 0) > 0) {
+      await replayGoldHoldingLedger(tx, lot.holdingId ?? lot.holding.id);
+    } else {
+      const nextQty = Decimal.max(
+        new Decimal(lot.holding.totalQuantityChi.toString()).minus(initialQty),
+        ZERO,
+      );
+      const nextCost = nextQty.isZero()
+        ? ZERO
+        : Decimal.max(
+            new Decimal(lot.holding.totalCostBasisAmount.toString()).minus(
+              totalCost,
+            ),
+            ZERO,
+          );
 
-    await tx.goldHolding.update({
-      where: { id: lot.holdingId },
-      data: {
-        totalQuantityChi: nextQty,
-        totalCostBasisAmount: nextCost,
-      },
-    });
+      await tx.goldHolding.update({
+        where: { id: lot.holdingId },
+        data: {
+          totalQuantityChi: nextQty,
+          totalCostBasisAmount: nextCost,
+        },
+      });
+    }
   });
 }
 
@@ -1276,10 +1588,14 @@ export async function updateGoldPurchaseLot(
   workspaceId: string,
   rawInput: unknown,
 ) {
-  const member = await requireActiveMember(userId, workspaceId);
+  const member = await requireInvestmentManager(userId, workspaceId);
   const input = updateGoldPurchaseLotSchema.parse(rawInput);
+  const businessDate = getBusinessDateInTimeZone(member.workspace.timeZone);
+  assertNotFutureBusinessDate(input.purchaseDate, businessDate);
 
   return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT h.id FROM "GOLD_HOLDING" h INNER JOIN "GOLD_PURCHASE_LOT" l ON l.holding_id = h.id WHERE l.id = ${input.lotId}::uuid AND l.workspace_id = ${workspaceId}::uuid AND l.deleted_at IS NULL AND h.deleted_at IS NULL FOR UPDATE OF h`;
+
     const lot = await tx.goldPurchaseLot.findFirst({
       where: { id: input.lotId, workspaceId, deletedAt: null },
       include: {
@@ -1293,6 +1609,8 @@ export async function updateGoldPurchaseLot(
     if (!lot || lot.holding.deletedAt) {
       throw new AppError("NOT_FOUND", "Không tìm thấy đợt mua vàng.");
     }
+
+    await lockGoldHolding(tx, workspaceId, lot.holdingId ?? lot.holding.id);
 
     const oldQty = new Decimal(lot.quantityChi.toString()).toDecimalPlaces(4);
     const oldUnitPrice = new Decimal(
@@ -1328,16 +1646,7 @@ export async function updateGoldPurchaseLot(
       lot.fundingMode !== input.fundingMode ||
       (lot.sourceWalletId ?? null) !== resolvedNewSourceWalletId;
 
-    const canEditFinancials =
-      lot.holding.saleRecords.length === 0 &&
-      new Decimal(lot.remainingQuantityChi.toString()).eq(oldQty);
-
-    if (financialsChanged && !canEditFinancials) {
-      throw new AppError(
-        "CONFLICT",
-        "Khoản vàng này đã phát sinh giao dịch bán nên chỉ có thể sửa ngày mua, nơi mua, mã hóa đơn / số seri hoặc ghi chú của đợt mua (hoặc hoàn tác giao dịch bán trước).",
-      );
-    }
+    const hasExistingSales = (lot.holding.saleRecords?.length ?? 0) > 0;
 
     const now = new Date();
     let nextLedgerTransactionId = lot.ledgerTransactionId;
@@ -1482,23 +1791,21 @@ export async function updateGoldPurchaseLot(
         sourceWalletId: resolvedNewSourceWalletId,
         ledgerTransactionId: nextLedgerTransactionId,
         purchaseDate: parseDateOnly(input.purchaseDate),
-        ...(canEditFinancials
-          ? {
-              quantityChi: newQty,
-              remainingQuantityChi: newQty,
-              unitPricePerChi: newUnitPrice,
-              craftingFeeAmount: newCraftingFee,
-              totalCostAmount: newTotalCost,
-              remainingCostAmount: newTotalCost,
-            }
-          : {}),
+        quantityChi: newQty,
+        remainingQuantityChi: newQty,
+        unitPricePerChi: newUnitPrice,
+        craftingFeeAmount: newCraftingFee,
+        totalCostAmount: newTotalCost,
+        remainingCostAmount: newTotalCost,
         shopName: input.shopName?.trim() || null,
         invoiceOrSerial: input.invoiceOrSerial?.trim() || null,
         note: input.note?.trim() || null,
       },
     });
 
-    if (financialsChanged && canEditFinancials) {
+    if (hasExistingSales) {
+      await replayGoldHoldingLedger(tx, lot.holdingId ?? lot.holding.id);
+    } else if (financialsChanged) {
       const allActiveLots = await tx.goldPurchaseLot.findMany({
         where: { holdingId: lot.holdingId, deletedAt: null },
       });
@@ -1543,9 +1850,11 @@ export async function deleteGoldSaleRecord(
   workspaceId: string,
   saleId: string,
 ) {
-  await requireActiveMember(userId, workspaceId);
+  await requireInvestmentManager(userId, workspaceId);
 
   return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT h.id FROM "GOLD_HOLDING" h INNER JOIN "GOLD_SALE_RECORD" s ON s.holding_id = h.id WHERE s.id = ${saleId}::uuid AND s.workspace_id = ${workspaceId}::uuid AND s.deleted_at IS NULL AND h.deleted_at IS NULL FOR UPDATE OF h`;
+
     const sale = await tx.goldSaleRecord.findFirst({
       where: { id: saleId, workspaceId, deletedAt: null },
       include: { holding: true },
@@ -1553,6 +1862,8 @@ export async function deleteGoldSaleRecord(
     if (!sale || sale.holding.deletedAt) {
       throw new AppError("NOT_FOUND", "Không tìm thấy giao dịch bán vàng.");
     }
+
+    await lockGoldHolding(tx, workspaceId, sale.holdingId ?? sale.holding.id);
 
     const now = new Date();
     const netProceeds = new Decimal(sale.netProceedsAmount.toString());
@@ -1617,144 +1928,7 @@ export async function deleteGoldSaleRecord(
       data: { deletedAt: now },
     });
 
-    // Tính lại chính xác số lượng còn lại, giá vốn từng lô và lãi đã chốt theo đúng trình tự thời gian (chronological replay)
-    const allLots = await tx.goldPurchaseLot.findMany({
-      where: { holdingId: sale.holdingId, deletedAt: null },
-      orderBy: [{ purchaseDate: "asc" }, { createdAt: "asc" }],
-    });
-    const remainingSales = await tx.goldSaleRecord.findMany({
-      where: { holdingId: sale.holdingId, deletedAt: null },
-      orderBy: [{ saleDate: "asc" }, { createdAt: "asc" }],
-    });
-
-    type ReplayLotState = {
-      id: string;
-      purchaseDateIso: string;
-      initialQuantityChi: Decimal;
-      initialCostAmount: Decimal;
-      remainingQuantityChi: string;
-      remainingCostAmount: string;
-      unitPricePerChi: string;
-      included: boolean;
-    };
-
-    const lotStates: ReplayLotState[] = allLots.map((lot) => {
-      const initQty = new Decimal(lot.quantityChi.toString());
-      const initCost = new Decimal(lot.totalCostAmount.toString());
-      return {
-        id: lot.id,
-        purchaseDateIso: formatIsoDate(lot.purchaseDate),
-        initialQuantityChi: initQty,
-        initialCostAmount: initCost,
-        remainingQuantityChi: initQty.toFixed(4),
-        remainingCostAmount: initCost.toFixed(0),
-        unitPricePerChi: new Decimal(lot.unitPricePerChi.toString()).toFixed(0),
-        included: false,
-      };
-    });
-    const lotStateById = new Map(lotStates.map((s) => [s.id, s]));
-
-    let lotIdx = 0;
-    let holdingQty = ZERO;
-    let holdingCost = ZERO;
-    let totalRealizedProfit = ZERO;
-
-    const includeLotState = (state: ReplayLotState) => {
-      if (state.included) return;
-      state.included = true;
-      holdingQty = holdingQty.plus(state.initialQuantityChi);
-      holdingCost = holdingCost.plus(state.initialCostAmount);
-    };
-
-    for (const remSale of remainingSales) {
-      const saleDateIso = formatIsoDate(remSale.saleDate);
-      const sellQty = new Decimal(remSale.quantityChi.toString());
-
-      while (lotIdx < lotStates.length) {
-        const candidate = lotStates[lotIdx]!;
-        if (candidate.purchaseDateIso <= saleDateIso) {
-          includeLotState(candidate);
-          lotIdx += 1;
-        } else {
-          break;
-        }
-      }
-
-      if (remSale.costMode === "specific_lot" && remSale.purchaseLotId) {
-        const referencedLot = lotStateById.get(remSale.purchaseLotId);
-        if (referencedLot && !referencedLot.included) {
-          includeLotState(referencedLot);
-        }
-      }
-
-      while (holdingQty.lt(sellQty) && lotIdx < lotStates.length) {
-        includeLotState(lotStates[lotIdx]!);
-        lotIdx += 1;
-      }
-
-      const allocation = allocateGoldSaleCostBasis({
-        costMode: remSale.costMode,
-        sellQuantityChi: remSale.quantityChi.toString(),
-        sellPricePerChi: remSale.sellPricePerChi.toString(),
-        feeOrDeductionAmount: remSale.feeOrDeductionAmount.toString(),
-        holdingQuantityChi: holdingQty.toFixed(4),
-        holdingCostBasisAmount: holdingCost.toFixed(0),
-        openLots: lotStates.filter(
-          (l) => l.included && new Decimal(l.remainingQuantityChi).gt(0),
-        ),
-        targetLotId: remSale.purchaseLotId,
-      });
-
-      for (const update of allocation.lotUpdates) {
-        const target = lotStateById.get(update.lotId);
-        if (target) {
-          target.remainingQuantityChi =
-            update.nextRemainingQuantityChi.toFixed(4);
-          target.remainingCostAmount =
-            update.nextRemainingCostAmount.toFixed(0);
-        }
-      }
-
-      holdingQty = new Decimal(allocation.nextHoldingQuantityChi);
-      holdingCost = new Decimal(allocation.nextHoldingCostBasisAmount);
-      totalRealizedProfit = totalRealizedProfit.plus(
-        allocation.realizedProfitAmount,
-      );
-
-      await tx.goldSaleRecord.update({
-        where: { id: remSale.id },
-        data: {
-          costBasisAllocatedAmount: new Decimal(
-            allocation.costBasisAllocatedAmount,
-          ),
-          realizedProfitAmount: new Decimal(allocation.realizedProfitAmount),
-        },
-      });
-    }
-
-    while (lotIdx < lotStates.length) {
-      includeLotState(lotStates[lotIdx]!);
-      lotIdx += 1;
-    }
-
-    for (const state of lotStates) {
-      await tx.goldPurchaseLot.update({
-        where: { id: state.id },
-        data: {
-          remainingQuantityChi: new Decimal(state.remainingQuantityChi),
-          remainingCostAmount: new Decimal(state.remainingCostAmount),
-        },
-      });
-    }
-
-    await tx.goldHolding.update({
-      where: { id: sale.holdingId },
-      data: {
-        totalQuantityChi: holdingQty,
-        totalCostBasisAmount: holdingCost,
-        realizedProfitAmount: totalRealizedProfit,
-      },
-    });
+    await replayGoldHoldingLedger(tx, sale.holdingId ?? sale.holding.id);
 
     await tx.auditLog.create({
       data: {
@@ -1778,9 +1952,11 @@ export async function deleteGoldHolding(
   workspaceId: string,
   holdingId: string,
 ) {
-  await requireActiveMember(userId, workspaceId);
+  await requireInvestmentManager(userId, workspaceId);
 
   return prisma.$transaction(async (tx) => {
+    await lockGoldHolding(tx, workspaceId, holdingId);
+
     const holding = await tx.goldHolding.findFirst({
       where: { id: holdingId, workspaceId, deletedAt: null },
       include: {
@@ -1869,9 +2045,10 @@ export async function createSavingsDeposit(
   workspaceId: string,
   rawInput: unknown,
 ) {
-  const member = await requireActiveMember(userId, workspaceId);
+  const member = await requireInvestmentManager(userId, workspaceId);
   const input = createSavingsDepositSchema.parse(rawInput);
   const businessDate = getBusinessDateInTimeZone(member.workspace.timeZone);
+  assertNotFutureBusinessDate(input.startDate, businessDate);
 
   const principalAmount = new Decimal(input.principalAmount).toDecimalPlaces(0);
   const annualRate = new Decimal(input.annualInterestRate).toDecimalPlaces(4);
@@ -1893,6 +2070,7 @@ export async function createSavingsDeposit(
     currentPrincipalAmount: principalAmount,
     annualInterestRate: annualRate,
     nonTermInterestRate: nonTermRate,
+    interestPayoutMode: input.interestPayoutMode,
     startDate: input.startDate,
     maturityDate,
     businessDate,
@@ -1993,11 +2171,14 @@ export async function settleSavingsDeposit(
   workspaceId: string,
   rawInput: unknown,
 ) {
-  const member = await requireActiveMember(userId, workspaceId);
+  const member = await requireInvestmentManager(userId, workspaceId);
   const input = settleSavingsDepositSchema.parse(rawInput);
   const businessDate = getBusinessDateInTimeZone(member.workspace.timeZone);
+  assertNotFutureBusinessDate(input.settlementDate, businessDate);
 
   return prisma.$transaction(async (tx) => {
+    await lockSavingsDeposit(tx, workspaceId, input.depositId);
+
     const deposit = await tx.savingsDeposit.findFirst({
       where: { id: input.depositId, workspaceId, deletedAt: null },
     });
@@ -2008,15 +2189,22 @@ export async function settleSavingsDeposit(
       throw new AppError("CONFLICT", "Sổ tiết kiệm này đã được tất toán trước đó.");
     }
 
+    if (input.settlementDate.slice(0, 10) < formatIsoDate(deposit.startDate)) {
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Ngày tất toán không được trước ngày mở sổ tiết kiệm.",
+      );
+    }
+
     const existingSettlements =
       (deposit as { settlements?: Array<{ settlementDate: Date }> })
         .settlements ??
-      (await tx.savingsDepositSettlement?.findMany?.({
-        where: { depositId: deposit.id },
-        orderBy: [{ settlementDate: "desc" }, { createdAt: "desc" }],
-        take: 1,
-      })) ??
-      [];
+        (await tx.savingsDepositSettlement?.findMany?.({
+          where: { depositId: deposit.id },
+          orderBy: [{ settlementDate: "desc" }, { createdAt: "desc" }],
+          take: 1,
+        })) ??
+        [];
     const latestExistingSettlement = existingSettlements[0];
     if (
       latestExistingSettlement &&
@@ -2094,6 +2282,7 @@ export async function settleSavingsDeposit(
         currentPrincipalAmount: nextPrincipal,
         annualInterestRate: newAnnualRate,
         nonTermInterestRate: deposit.nonTermInterestRate.toString(),
+        interestPayoutMode: deposit.interestPayoutMode,
         startDate: input.settlementDate,
         maturityDate: nextMaturityDate,
         businessDate,
@@ -2251,6 +2440,7 @@ export async function settleSavingsDeposit(
           currentPrincipalAmount: nextPrincipal,
           annualInterestRate: deposit.annualInterestRate.toString(),
           nonTermInterestRate: deposit.nonTermInterestRate.toString(),
+          interestPayoutMode: deposit.interestPayoutMode,
           startDate: formatIsoDate(deposit.startDate),
           maturityDate: formatIsoDate(deposit.maturityDate),
           businessDate,
@@ -2298,10 +2488,12 @@ export async function deleteSavingsSettlement(
   workspaceId: string,
   settlementId: string,
 ) {
-  const member = await requireActiveMember(userId, workspaceId);
+  const member = await requireInvestmentManager(userId, workspaceId);
   const businessDate = getBusinessDateInTimeZone(member.workspace.timeZone);
 
   return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT d.id FROM "SAVINGS_DEPOSIT" d INNER JOIN "SAVINGS_DEPOSIT_SETTLEMENT" s ON s.deposit_id = d.id WHERE s.id = ${settlementId}::uuid AND s.workspace_id = ${workspaceId}::uuid AND d.deleted_at IS NULL FOR UPDATE OF d`;
+
     const settlement = await tx.savingsDepositSettlement.findFirst({
       where: { id: settlementId, workspaceId },
       include: {
@@ -2320,6 +2512,12 @@ export async function deleteSavingsSettlement(
         "Không tìm thấy giao dịch tất toán / tái tục.",
       );
     }
+
+    await lockSavingsDeposit(
+      tx,
+      workspaceId,
+      settlement.depositId ?? settlement.deposit.id,
+    );
 
     const latestSettlement = settlement.deposit.settlements[0];
     if (latestSettlement && latestSettlement.id !== settlement.id) {
@@ -2474,6 +2672,7 @@ export async function deleteSavingsSettlement(
       currentPrincipalAmount: nextPrincipal,
       annualInterestRate: nextAnnualRate,
       nonTermInterestRate: deposit.nonTermInterestRate.toString(),
+      interestPayoutMode: deposit.interestPayoutMode,
       startDate: nextStartDate,
       maturityDate: nextMaturityDate,
       businessDate,
@@ -2524,9 +2723,11 @@ export async function deleteSavingsDeposit(
   workspaceId: string,
   depositId: string,
 ) {
-  await requireActiveMember(userId, workspaceId);
+  await requireInvestmentManager(userId, workspaceId);
 
   return prisma.$transaction(async (tx) => {
+    await lockSavingsDeposit(tx, workspaceId, depositId);
+
     const deposit = await tx.savingsDeposit.findFirst({
       where: { id: depositId, workspaceId, deletedAt: null },
       include: { settlements: true },

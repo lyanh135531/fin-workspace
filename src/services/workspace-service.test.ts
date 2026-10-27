@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
-import { createInitialWorkspaceForUser } from "@/services/workspace-service";
+import {
+  createInitialWorkspaceForUser,
+  generateUniqueInviteCode,
+} from "@/services/workspace-service";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -15,6 +19,37 @@ const input = {
   baseCurrency: "VND",
   timeZone: "Asia/Ho_Chi_Minh",
 };
+
+describe("generateUniqueInviteCode", () => {
+  it("generates a formatted 6-digit invite code and retries collisions", async () => {
+    const tx = {
+      workspace: {
+        findFirst: vi
+          .fn()
+          .mockResolvedValueOnce({ id: "collision-1" })
+          .mockResolvedValueOnce(null),
+      },
+    };
+
+    const code = await generateUniqueInviteCode(tx as never);
+
+    expect(code).toMatch(/^\d{3}-\d{3}$/);
+    expect(tx.workspace.findFirst).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws AppError CONFLICT when all invite code retries collide", async () => {
+    const tx = {
+      workspace: {
+        findFirst: vi.fn().mockResolvedValue({ id: "collision" }),
+      },
+    };
+
+    await expect(generateUniqueInviteCode(tx as never)).rejects.toMatchObject({
+      code: "CONFLICT",
+    } satisfies Partial<AppError>);
+    expect(tx.workspace.findFirst).toHaveBeenCalledTimes(10);
+  });
+});
 
 describe("createInitialWorkspaceForUser", () => {
   beforeEach(() => {

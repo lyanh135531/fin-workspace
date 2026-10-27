@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   getUserReminderStateAction,
+  removePushSubscriptionOnLogoutAction,
   removeUserPushSubscriptionAction,
   saveUserPushSubscriptionAction,
   sendTestReminderNotificationAction,
@@ -84,6 +85,28 @@ async function ensureServiceWorkerRegistration(): Promise<ServiceWorkerRegistrat
   });
 }
 
+export async function cleanupBrowserPushBeforeLogout(): Promise<void> {
+  if (
+    typeof window === "undefined" ||
+    typeof navigator === "undefined" ||
+    !("serviceWorker" in navigator)
+  ) {
+    return;
+  }
+  try {
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    const sub = await registration?.pushManager.getSubscription();
+    if (!sub) return;
+    const endpoint = sub.endpoint;
+    await sub.unsubscribe().catch(() => null);
+    if (endpoint) {
+      await removePushSubscriptionOnLogoutAction(endpoint).catch(() => null);
+    }
+  } catch {
+    // Do not block sign-out if browser push cleanup fails.
+  }
+}
+
 export async function requestPushPermissionFromGesture(): Promise<{
   granted: boolean;
   support: PushSupportState;
@@ -118,7 +141,7 @@ export async function requestPushPermissionFromGesture(): Promise<{
 
 export async function subscribeBrowserToPush(
   vapidPublicKey: string,
-): Promise<{ ok: boolean; subscriptionCount?: number }> {
+): Promise<{ ok: boolean; subscriptionCount?: number; endpoints?: string[] }> {
   try {
     const registration = await ensureServiceWorkerRegistration();
     await navigator.serviceWorker.ready;
@@ -170,13 +193,17 @@ export async function subscribeBrowserToPush(
 
     window.dispatchEvent(
       new CustomEvent("felix-reminder-device-subscribed", {
-        detail: { subscriptionCount: saveResult.data.subscriptionCount },
+        detail: {
+          subscriptionCount: saveResult.data.subscriptionCount,
+          endpoints: saveResult.data.endpoints,
+        },
       }),
     );
 
     return {
       ok: true,
       subscriptionCount: saveResult.data.subscriptionCount,
+      endpoints: saveResult.data.endpoints,
     };
   } catch {
     toast.error("Không thể đăng ký nhận thông báo đẩy trên thiết bị này.");
@@ -217,16 +244,42 @@ export function DailyReminderControls({
   const [deviceSubscribed, setDeviceSubscribed] = useState(false);
 
   useEffect(() => {
+    if (initialState) return;
+    let active = true;
+    void getUserReminderStateAction().then((res) => {
+      if (!active) return;
+      if (res.ok) setOverrideState(res.data);
+    });
+    return () => {
+      active = false;
+    };
+  }, [initialState]);
+
+  useEffect(() => {
     let active = true;
 
     function handleExternalSubscribe(event: Event) {
-      const custom = event as CustomEvent<{ subscriptionCount?: number }>;
+      const custom = event as CustomEvent<{
+        subscriptionCount?: number;
+        endpoints?: string[];
+      }>;
       setDeviceSubscribed(true);
       setSupport("supported");
       const nextCount = custom.detail?.subscriptionCount;
-      if (typeof nextCount === "number") {
+      const nextEndpoints = custom.detail?.endpoints;
+      if (typeof nextCount === "number" || Array.isArray(nextEndpoints)) {
         setState((prev) =>
-          prev ? { ...prev, subscriptionCount: nextCount } : prev,
+          prev
+            ? {
+                ...prev,
+                ...(typeof nextCount === "number"
+                  ? { subscriptionCount: nextCount }
+                  : {}),
+                ...(Array.isArray(nextEndpoints)
+                  ? { endpoints: nextEndpoints }
+                  : {}),
+              }
+            : prev,
         );
       }
     }
@@ -258,44 +311,12 @@ export function DailyReminderControls({
           setDeviceSubscribed(false);
           return;
         }
-        const json = sub.toJSON();
-        if (
-          json.endpoint &&
-          json.keys?.p256dh &&
-          json.keys?.auth &&
-          (initialState?.subscriptionCount ?? 0) === 0
-        ) {
-          const saveRes = await saveUserPushSubscriptionAction({
-            endpoint: json.endpoint,
-            keys: {
-              p256dh: json.keys.p256dh,
-              auth: json.keys.auth,
-            },
-            userAgent: navigator.userAgent,
-          });
-          if (!active) return;
-          if (saveRes.ok) {
-            setDeviceSubscribed(true);
-            setState((prev) =>
-              prev
-                ? { ...prev, subscriptionCount: saveRes.data.subscriptionCount }
-                : prev,
-            );
-            return;
-          }
-        }
-        setDeviceSubscribed(Boolean(sub));
+        const registeredEndpoints = state?.endpoints ?? [];
+        setDeviceSubscribed(registeredEndpoints.includes(sub.endpoint));
       } catch {
         if (active) setDeviceSubscribed(false);
       }
     });
-
-    if (!initialState) {
-      void getUserReminderStateAction().then((res) => {
-        if (!active) return;
-        if (res.ok) setOverrideState(res.data);
-      });
-    }
 
     return () => {
       active = false;
@@ -304,7 +325,7 @@ export function DailyReminderControls({
         handleExternalSubscribe,
       );
     };
-  }, [initialState, setState]);
+  }, [state?.endpoints, setState]);
 
   async function requestNotificationPermissionFromGesture(): Promise<boolean> {
     const res = await requestPushPermissionFromGesture();
@@ -316,10 +337,17 @@ export function DailyReminderControls({
     const res = await subscribeBrowserToPush(vapidPublicKey);
     if (!res.ok) return false;
     setDeviceSubscribed(true);
-    if (typeof res.subscriptionCount === "number") {
+    if (typeof res.subscriptionCount === "number" || Array.isArray(res.endpoints)) {
       const count = res.subscriptionCount;
+      const nextEndpoints = res.endpoints;
       setState((prev) =>
-        prev ? { ...prev, subscriptionCount: count } : prev,
+        prev
+          ? {
+              ...prev,
+              ...(typeof count === "number" ? { subscriptionCount: count } : {}),
+              ...(Array.isArray(nextEndpoints) ? { endpoints: nextEndpoints } : {}),
+            }
+          : prev,
       );
     }
     return true;
@@ -408,7 +436,11 @@ export function DailyReminderControls({
           if (res.ok) {
             setState((prev) =>
               prev
-                ? { ...prev, subscriptionCount: res.data.subscriptionCount }
+                ? {
+                    ...prev,
+                    subscriptionCount: res.data.subscriptionCount,
+                    endpoints: res.data.endpoints,
+                  }
                 : prev,
             );
           }

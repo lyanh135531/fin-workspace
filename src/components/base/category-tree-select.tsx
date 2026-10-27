@@ -1,7 +1,31 @@
 "use client"
 
 import * as React from "react"
-import { BriefcaseBusiness, Car, Coffee, Fuel, Heart, House, ShoppingBag, Tag, Utensils, WalletCards } from "lucide-react"
+import {
+  BookOpen,
+  BriefcaseBusiness,
+  Car,
+  CircleDollarSign,
+  Coffee,
+  CreditCard,
+  Dumbbell,
+  Film,
+  Fuel,
+  Gift,
+  GraduationCap,
+  Heart,
+  House,
+  Landmark,
+  Plane,
+  Shield,
+  ShoppingBag,
+  Smartphone,
+  Sparkles,
+  Tag,
+  Utensils,
+  WalletCards,
+  Wrench,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SelectContent, SelectGroup, SelectItem, SelectRoot, SelectSeparator, SelectTrigger, SelectValue } from "./select"
 import { Label } from "./label"
@@ -16,7 +40,31 @@ export type CategoryTreeSelectProps = {
 }
 
 type TreeNode = CategoryTreeOption & { children: TreeNode[] }
-const CATEGORY_ICON_MAP = { tag: Tag, utensils: Utensils, coffee: Coffee, house: House, car: Car, fuel: Fuel, shopping: ShoppingBag, heart: Heart, work: BriefcaseBusiness, money: WalletCards, card: WalletCards } as const
+const CATEGORY_ICON_MAP = {
+  tag: Tag,
+  utensils: Utensils,
+  coffee: Coffee,
+  house: House,
+  car: Car,
+  fuel: Fuel,
+  shopping: ShoppingBag,
+  heart: Heart,
+  work: BriefcaseBusiness,
+  money: CircleDollarSign,
+  landmark: Landmark,
+  card: CreditCard,
+  wallet: WalletCards,
+  education: GraduationCap,
+  travel: Plane,
+  utilities: Sparkles,
+  gift: Gift,
+  shield: Shield,
+  tech: Smartphone,
+  entertainment: Film,
+  sport: Dumbbell,
+  service: Wrench,
+  book: BookOpen,
+} as const
 
 function CategoryIcon({ category, size, className }: { category: Pick<CategoryTreeOption, "color" | "icon">; size: number; className?: string }) {
   const Icon = CATEGORY_ICON_MAP[category.icon as keyof typeof CATEGORY_ICON_MAP] ?? Tag
@@ -123,7 +171,7 @@ function CategoryTreeSelect({ id, value, defaultValue, onValueChange, name, labe
     </SelectTrigger>
   )
   const select = (
-    <SelectRoot id={selectId} value={value} defaultValue={defaultValue} onValueChange={(nextValue) => { if (nextValue !== null) onValueChange?.(String(nextValue)) }} items={items} name={name} required={required} disabled={disabled} open={spotlight ? open : undefined} onOpenChange={spotlight ? (nextOpen) => setOpen(nextOpen) : undefined}>
+    <SelectRoot value={value} defaultValue={defaultValue} onValueChange={(nextValue) => { if (nextValue !== null) onValueChange?.(String(nextValue)) }} items={items} name={name} required={required} disabled={disabled} open={spotlight ? open : undefined} onOpenChange={spotlight ? (nextOpen) => setOpen(nextOpen) : undefined}>
       {spotlight ? (
         <SpotlightTrigger
           open={open}
@@ -146,7 +194,7 @@ function CategoryTreeSelect({ id, value, defaultValue, onValueChange, name, labe
   if (!label) return select
   return (
     <div className="grid content-start gap-1.5">
-      <Label required={required}>{label}</Label>
+      <Label htmlFor={selectId} required={required}>{label}</Label>
       {select}
     </div>
   )

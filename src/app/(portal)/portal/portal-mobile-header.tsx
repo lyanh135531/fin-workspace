@@ -16,6 +16,7 @@ import {
 } from "@/components/base";
 import { FinLogo } from "@/components/fin-logo";
 import { PortalSidebarNav } from "./portal-sidebar-nav";
+import { PortalSignOutButton } from "./portal-sign-out-button";
 
 type PortalMobileHeaderProps = {
   username: string;
@@ -65,11 +66,14 @@ function PortalMobileHeaderInner({ username }: PortalMobileHeaderProps) {
             <PortalSidebarNav />
           </div>
 
-          <div className="border-t border-[var(--border)] px-5 py-3">
-            <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
-              {username}
-            </p>
-            <p className="text-xs text-[var(--text-muted)]">Quản trị hệ thống</p>
+          <div className="flex flex-col gap-2 border-t border-[var(--border)] px-3 py-3">
+            <div className="px-2">
+              <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                {username}
+              </p>
+              <p className="text-xs text-[var(--text-muted)]">Quản trị hệ thống</p>
+            </div>
+            <PortalSignOutButton />
           </div>
         </SheetContent>
       </Sheet>

@@ -20,7 +20,19 @@ function formatVndAmount(value: string) {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
 }
 
-function MoneyInput({ className, id, label, placeholder = "0", wrapperClassName, value, onValueChange, "aria-describedby": ariaDescribedBy, "aria-invalid": ariaInvalid, ...props }: MoneyInputProps) {
+function MoneyInput({
+  className,
+  id,
+  name,
+  label,
+  placeholder = "0",
+  wrapperClassName,
+  value,
+  onValueChange,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+  ...props
+}: MoneyInputProps) {
   const generatedId = React.useId()
   const inputId = id ?? (label ? generatedId : undefined)
   const limitErrorId = `${inputId ?? generatedId}-limit-error`
@@ -28,35 +40,34 @@ function MoneyInput({ className, id, label, placeholder = "0", wrapperClassName,
   const describedBy = [ariaDescribedBy, exceedsMaximum ? limitErrorId : undefined]
     .filter(Boolean)
     .join(" ") || undefined
-  const input = (
-    <div className="relative" data-slot="money-input-control">
-      <Input
-        id={inputId}
-        inputMode="numeric"
-        placeholder={placeholder}
-        value={formatVndAmount(value)}
-        onChange={(event) => onValueChange(event.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, ""))}
-        aria-describedby={describedBy}
-        aria-invalid={exceedsMaximum || ariaInvalid}
-        className={cn("pr-14 text-right font-medium tabular-nums", className)}
-        {...props}
-      />
-      <span
-        data-slot="money-input-currency"
-        className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted-foreground"
-        aria-hidden
-      >
-        VND
-      </span>
-    </div>
-  )
-
-  if (!label && !wrapperClassName && !exceedsMaximum) return input
 
   return (
-    <div data-slot="money-input" className={cn(label ? "grid gap-1" : undefined, wrapperClassName)}>
+    <div
+      data-slot="money-input"
+      className={cn(label || exceedsMaximum ? "grid gap-1" : undefined, wrapperClassName)}
+    >
       {label && <Label htmlFor={inputId} required={props.required}>{label}</Label>}
-      {input}
+      <div className="relative" data-slot="money-input-control">
+        <Input
+          id={inputId}
+          inputMode="numeric"
+          placeholder={placeholder}
+          value={formatVndAmount(value)}
+          onChange={(event) => onValueChange(event.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, ""))}
+          aria-describedby={describedBy}
+          aria-invalid={exceedsMaximum || ariaInvalid}
+          className={cn("pr-14 text-right font-medium tabular-nums", className)}
+          {...props}
+        />
+        {name ? <input type="hidden" name={name} value={value} /> : null}
+        <span
+          data-slot="money-input-currency"
+          className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted-foreground"
+          aria-hidden
+        >
+          VND
+        </span>
+      </div>
       {exceedsMaximum && (
         <p id={limitErrorId} className="text-xs text-destructive" role="alert">
           {MONEY_INPUT_LIMIT_ERROR_MESSAGE}

@@ -45,6 +45,7 @@ export default async function CategoriesSettingsPage() {
       />
 
       <CategoryManagement
+        workspaceId={workspaceId}
         categories={categories.map((category) => ({
           id: category.id,
           name: category.name,

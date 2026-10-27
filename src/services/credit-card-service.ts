@@ -109,7 +109,12 @@ export async function createCreditCardPayment(
         throw new AppError("CONFLICT", "Sao kê không còn khả dụng để thanh toán.");
       }
       const pendingPayment = await tx.transaction.findFirst({
-        where: { creditCardStatementId: statement.id, workflowStatus: { in: ["pending", "scheduled"] }, deletedAt: null },
+        where: {
+          walletId: input.cardWalletId,
+          purpose: "credit_card_payment",
+          workflowStatus: { in: ["pending", "scheduled"] },
+          deletedAt: null,
+        },
         select: { id: true },
       });
       if (pendingPayment) throw new AppError("CONFLICT", "Sao kê đang có giao dịch thanh toán chờ duyệt.");
@@ -566,26 +571,56 @@ function netObligationsByCard<
 }
 
 export async function getWorkspaceCreditCardCommitments(workspaceId: string) {
-  const obligations = await prisma.creditCardObligationEntry.findMany({
-    where: {
-      workspaceId,
-      card: { wallet: { deletedAt: null, status: "active" } },
-    },
-    select: {
-      cardWalletId: true,
-      fundingWalletId: true,
-      amount: true,
-      paymentAllocations: { select: { amount: true } },
-    },
-    orderBy: [{ effectiveDate: "asc" }, { createdAt: "asc" }],
-  });
+  const [obligations, reservations] = await Promise.all([
+    prisma.creditCardObligationEntry.findMany({
+      where: {
+        workspaceId,
+        card: { wallet: { deletedAt: null, status: "active" } },
+      },
+      select: {
+        cardWalletId: true,
+        fundingWalletId: true,
+        amount: true,
+        paymentAllocations: { select: { amount: true } },
+      },
+      orderBy: [{ effectiveDate: "asc" }, { createdAt: "asc" }],
+    }),
+    prisma.creditCardPaymentReservation?.findMany?.({
+      where: {
+        releasedAt: null,
+        paymentTransaction: {
+          deletedAt: null,
+          workflowStatus: { in: ["pending", "scheduled"] },
+          member: { workspaceId },
+          wallet: { deletedAt: null, status: "active" },
+        },
+      },
+      select: {
+        sourceWalletId: true,
+        amount: true,
+        paymentTransaction: { select: { walletId: true } },
+      },
+    }) ?? Promise.resolve([]),
+  ]);
   const netted = netObligationsByCard(obligations);
-  const totals = new Map<string, Decimal>();
+  const obligationByPair = new Map<string, Decimal>();
   for (const item of netted) {
-    totals.set(
-      item.entry.fundingWalletId,
-      (totals.get(item.entry.fundingWalletId) ?? ZERO).plus(item.remaining),
-    );
+    const key = `${item.entry.cardWalletId}:${item.entry.fundingWalletId}`;
+    obligationByPair.set(key, (obligationByPair.get(key) ?? ZERO).plus(item.remaining));
+  }
+  const reservationByPair = new Map<string, Decimal>();
+  for (const reservation of reservations) {
+    const key = `${reservation.paymentTransaction.walletId}:${reservation.sourceWalletId}`;
+    reservationByPair.set(key, (reservationByPair.get(key) ?? ZERO).plus(reservation.amount.toString()));
+  }
+  const allPairKeys = new Set([...obligationByPair.keys(), ...reservationByPair.keys()]);
+  const totals = new Map<string, Decimal>();
+  for (const key of allPairKeys) {
+    const fundingWalletId = key.slice(key.indexOf(":") + 1);
+    const effective = Decimal.max(obligationByPair.get(key) ?? ZERO, reservationByPair.get(key) ?? ZERO);
+    if (effective.gt(0)) {
+      totals.set(fundingWalletId, (totals.get(fundingWalletId) ?? ZERO).plus(effective));
+    }
   }
   return new Map([...totals.entries()].map(([walletId, amount]) => [walletId, Decimal.max(amount, ZERO)]));
 }
@@ -637,92 +672,146 @@ export type CreditCardCommitmentDetailItem = {
 export async function getWorkspaceCreditCardCommitmentDetails(
   workspaceId: string,
 ): Promise<CreditCardCommitmentDetailItem[]> {
-  const obligations = await prisma.creditCardObligationEntry.findMany({
-    where: {
-      workspaceId,
-      card: { wallet: { deletedAt: null, status: "active" } },
-    },
-    select: {
-      id: true,
-      cardWalletId: true,
-      fundingWalletId: true,
-      kind: true,
-      source: true,
-      effectiveDate: true,
-      postedDate: true,
-      amount: true,
-      createdAt: true,
-      card: {
-        select: {
-          wallet: {
-            select: {
-              name: true,
-              status: true,
-              deletedAt: true,
+  const [obligations, reservations] = await Promise.all([
+    prisma.creditCardObligationEntry.findMany({
+      where: {
+        workspaceId,
+        card: { wallet: { deletedAt: null, status: "active" } },
+      },
+      select: {
+        id: true,
+        cardWalletId: true,
+        fundingWalletId: true,
+        kind: true,
+        source: true,
+        effectiveDate: true,
+        postedDate: true,
+        amount: true,
+        createdAt: true,
+        card: {
+          select: {
+            wallet: {
+              select: {
+                name: true,
+                status: true,
+                deletedAt: true,
+              },
+            },
+          },
+        },
+        fundingWallet: {
+          select: {
+            name: true,
+          },
+        },
+        paymentAllocations: {
+          select: {
+            amount: true,
+          },
+        },
+        transaction: {
+          select: {
+            id: true,
+            description: true,
+            type: true,
+            purpose: true,
+            category: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        installmentPlan: {
+          select: {
+            id: true,
+            description: true,
+            origin: true,
+            termCount: true,
+            paidTermCount: true,
+            status: true,
+          },
+        },
+        statementItems: {
+          select: {
+            statement: {
+              select: {
+                id: true,
+                cycleEndDate: true,
+                dueDate: true,
+                status: true,
+                paidAt: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+      orderBy: [{ effectiveDate: "asc" }, { createdAt: "asc" }],
+    }),
+    prisma.creditCardPaymentReservation?.findMany?.({
+      where: {
+        releasedAt: null,
+        paymentTransaction: {
+          deletedAt: null,
+          workflowStatus: { in: ["pending", "scheduled"] },
+          member: { workspaceId },
+          wallet: { deletedAt: null, status: "active" },
+        },
+      },
+      select: {
+        id: true,
+        sourceWalletId: true,
+        amount: true,
+        sourceWallet: { select: { name: true } },
+        paymentTransaction: {
+          select: {
+            id: true,
+            walletId: true,
+            description: true,
+            type: true,
+            purpose: true,
+            date: true,
+            postedDate: true,
+            createdAt: true,
+            wallet: {
+              select: {
+                name: true,
+                status: true,
+                deletedAt: true,
+              },
+            },
+            creditCardStatement: {
+              select: {
+                id: true,
+                cycleEndDate: true,
+                dueDate: true,
+                status: true,
+                paidAt: true,
+              },
             },
           },
         },
       },
-      fundingWallet: {
-        select: {
-          name: true,
-        },
-      },
-      paymentAllocations: {
-        select: {
-          amount: true,
-        },
-      },
-      transaction: {
-        select: {
-          id: true,
-          description: true,
-          type: true,
-          purpose: true,
-          category: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      },
-      installmentPlan: {
-        select: {
-          id: true,
-          description: true,
-          origin: true,
-          termCount: true,
-          paidTermCount: true,
-          status: true,
-        },
-      },
-      statementItems: {
-        select: {
-          statement: {
-            select: {
-              id: true,
-              cycleEndDate: true,
-              dueDate: true,
-              status: true,
-              paidAt: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-      },
-    },
-    orderBy: [{ effectiveDate: "asc" }, { createdAt: "asc" }],
-  });
+      orderBy: [{ createdAt: "asc" }],
+    }) ?? Promise.resolve([]),
+  ]);
 
   const netted = netObligationsByCard(obligations);
+  const obligationByPair = new Map<string, Decimal>();
+  for (const item of netted) {
+    const key = `${item.entry.cardWalletId}:${item.entry.fundingWalletId}`;
+    obligationByPair.set(key, (obligationByPair.get(key) ?? ZERO).plus(item.remaining));
+  }
+
   netted.sort((a, b) => {
     const effDiff = b.entry.effectiveDate.getTime() - a.entry.effectiveDate.getTime();
     if (effDiff !== 0) return effDiff;
     return b.entry.createdAt.getTime() - a.entry.createdAt.getTime();
   });
 
-  return netted.map(({ entry, original, paid, remaining }) => {
+  const detailItems: CreditCardCommitmentDetailItem[] = netted.map(({ entry, original, paid, remaining }) => {
     const latestStatement = entry.statementItems[0]?.statement ?? null;
     return {
       id: entry.id,
@@ -765,6 +854,65 @@ export async function getWorkspaceCreditCardCommitmentDetails(
         : null,
     };
   });
+
+  const reservationsByPair = new Map<string, typeof reservations>();
+  for (const reservation of reservations) {
+    const key = `${reservation.paymentTransaction.walletId}:${reservation.sourceWalletId}`;
+    const list = reservationsByPair.get(key) ?? [];
+    list.push(reservation);
+    reservationsByPair.set(key, list);
+  }
+  for (const [key, pairReservations] of reservationsByPair) {
+    const obligationNet = obligationByPair.get(key) ?? ZERO;
+    const reservationTotal = pairReservations.reduce(
+      (sum, item) => sum.plus(item.amount.toString()),
+      ZERO,
+    );
+    let excess = reservationTotal.minus(obligationNet);
+    if (!excess.gt(0)) continue;
+    for (const reservation of pairReservations) {
+      if (!excess.gt(0)) break;
+      const share = Decimal.min(new Decimal(reservation.amount.toString()), excess);
+      excess = excess.minus(share);
+      const tx = reservation.paymentTransaction;
+      const stmt = tx.creditCardStatement;
+      const effDate = tx.date.toISOString().slice(0, 10);
+      const postDate = (tx.postedDate ?? tx.date).toISOString().slice(0, 10);
+      detailItems.push({
+        id: `reservation:${reservation.id}`,
+        cardWalletId: tx.walletId,
+        cardName: tx.wallet.name,
+        cardStatus: tx.wallet.status,
+        cardDeleted: Boolean(tx.wallet.deletedAt),
+        fundingWalletId: reservation.sourceWalletId,
+        fundingWalletName: reservation.sourceWallet.name,
+        kind: "adjustment",
+        source: "transaction",
+        effectiveDate: effDate,
+        postedDate: postDate,
+        originalAmount: share.toString(),
+        paidAmount: "0",
+        remainingAmount: share.toString(),
+        transactionId: tx.id,
+        transactionDescription: tx.description ?? "Giữ chỗ thanh toán thẻ chờ duyệt",
+        transactionType: tx.type,
+        transactionPurpose: tx.purpose,
+        categoryName: null,
+        installmentPlan: null,
+        statement: stmt
+          ? {
+              id: stmt.id,
+              cycleEndDate: stmt.cycleEndDate.toISOString().slice(0, 10),
+              dueDate: stmt.dueDate.toISOString().slice(0, 10),
+              status: stmt.status,
+              paidAt: stmt.paidAt ? stmt.paidAt.toISOString() : null,
+            }
+          : null,
+      });
+    }
+  }
+
+  return detailItems;
 }
 
 export async function getCreditCardSummary(workspaceId: string, cardWalletId: string) {
@@ -850,11 +998,15 @@ export async function deleteCreditCard(
     });
     const balance = new Decimal(link.wallet.currentBalance.toString());
 
-    if (!isVoidingAll && resolution?.action !== "migrate_transactions") {
+    if (!isVoidingAll) {
+      const blockedPlanStatuses: Array<"pending" | "active" | "completed"> =
+        resolution?.action === "migrate_transactions"
+          ? ["pending", "active"]
+          : ["pending", "active", "completed"];
       const activeInstallmentPlans = await tx.creditCardInstallmentPlan.count({
         where: {
           cardWalletId,
-          status: { in: ["active", "completed"] },
+          status: { in: blockedPlanStatuses },
         },
       });
       if (activeInstallmentPlans > 0) {
@@ -864,6 +1016,25 @@ export async function deleteCreditCard(
         );
       }
 
+      const recurringCount =
+        (await tx.recurringTransaction?.count?.({
+          where: {
+            workspaceId,
+            deletedAt: null,
+            OR: [{ walletId: cardWalletId }, { toWalletId: cardWalletId }],
+          },
+        })) ?? 0;
+      if (recurringCount > 0) {
+        throw new AppError(
+          "CONFLICT",
+          `Thẻ còn ${recurringCount} giao dịch định kỳ liên kết. Vui lòng hủy giao dịch định kỳ trước khi xóa thẻ.`,
+        );
+      }
+
+      await assertWalletHasNoOpenDependencies(tx, workspaceId, cardWalletId);
+    }
+
+    if (!isVoidingAll && resolution?.action !== "migrate_transactions") {
       const paidStatements = await tx.creditCardStatement.count({
         where: {
           cardWalletId,
@@ -879,21 +1050,6 @@ export async function deleteCreditCard(
         );
       }
 
-      const recurringCount = await tx.recurringTransaction.count({
-        where: {
-          workspaceId,
-          deletedAt: null,
-          OR: [{ walletId: cardWalletId }, { toWalletId: cardWalletId }],
-        },
-      });
-      if (recurringCount > 0) {
-        throw new AppError(
-          "CONFLICT",
-          `Thẻ còn ${recurringCount} giao dịch định kỳ liên kết. Vui lòng hủy giao dịch định kỳ trước khi xóa thẻ.`,
-        );
-      }
-
-      await assertWalletHasNoOpenDependencies(tx, workspaceId, cardWalletId);
       if (approvedTransactionCount > 0 && !balance.isZero()) {
         if (balance.gt(0)) {
           throw new AppError(
@@ -1135,20 +1291,6 @@ export async function deleteCreditCard(
       if (resolution.targetWalletId === cardWalletId) {
         throw new AppError("VALIDATION_ERROR", "Ví đích phải khác thẻ đang xóa.");
       }
-      const recurringCount =
-        (await tx.recurringTransaction?.count?.({
-          where: {
-            workspaceId,
-            deletedAt: null,
-            OR: [{ walletId: cardWalletId }, { toWalletId: cardWalletId }],
-          },
-        })) ?? 0;
-      if (recurringCount > 0) {
-        throw new AppError(
-          "CONFLICT",
-          `Thẻ còn ${recurringCount} giao dịch định kỳ liên kết. Vui lòng hủy giao dịch định kỳ trước khi xóa thẻ.`,
-        );
-      }
       await lockWallets(tx, [resolution.targetWalletId]);
       const targetLink = await tx.workspaceWallet.findFirst({
         where: {
@@ -1173,19 +1315,62 @@ export async function deleteCreditCard(
         },
         include: {
           installmentPlan: true,
+          creditCardPaymentSources: true,
         },
       });
 
-      for (const t of cardTransactions) {
+      const paymentTransactions = cardTransactions.filter(
+        (t) => t.walletId === cardWalletId && t.purpose === "credit_card_payment",
+      );
+      const regularTransactions = cardTransactions.filter(
+        (t) => !(t.walletId === cardWalletId && t.purpose === "credit_card_payment"),
+      );
+
+      const reversedPaymentByWallet = new Map<string, Decimal>();
+      for (const paymentTx of paymentTransactions) {
+        if (paymentTx.workflowStatus === "approved") {
+          for (const source of paymentTx.creditCardPaymentSources ?? []) {
+            const sourceAmount = new Decimal(source.amount.toString());
+            if (!sourceAmount.gt(0)) continue;
+            reversedPaymentByWallet.set(
+              source.sourceWalletId,
+              (reversedPaymentByWallet.get(source.sourceWalletId) ?? ZERO).plus(sourceAmount),
+            );
+          }
+        }
+      }
+
+      for (const [sourceWalletId, refundAmount] of reversedPaymentByWallet) {
+        if (!refundAmount.gt(0)) continue;
+        await lockWallets(tx, [sourceWalletId]);
+        await tx.wallet.update({
+          where: { id: sourceWalletId },
+          data: { currentBalance: { increment: refundAmount } },
+        });
+      }
+
+      for (const paymentTx of paymentTransactions) {
+        await tx.transaction.update({
+          where: { id: paymentTx.id },
+          data: { deletedAt: new Date() },
+        });
+      }
+
+      let netMigratedDelta = ZERO;
+      for (const t of regularTransactions) {
+        if (t.workflowStatus === "approved") {
+          const txAmount = new Decimal(t.amount.toString());
+          if (t.walletId === cardWalletId && t.purpose === "credit_card_refund") {
+            netMigratedDelta = netMigratedDelta.minus(txAmount);
+          } else if (t.walletId === cardWalletId && (t.type === "expense" || t.type === "transfer")) {
+            netMigratedDelta = netMigratedDelta.plus(txAmount);
+          } else if (t.toWalletId === cardWalletId && t.type === "transfer") {
+            netMigratedDelta = netMigratedDelta.minus(txAmount);
+          }
+        }
+
         if (t.installmentPlan?.status === "pending") {
           await tx.creditCardInstallmentPlan.delete({ where: { id: t.installmentPlan.id } });
-        }
-        if (targetLink.wallet.kind === "asset" && t.walletId === cardWalletId && t.purpose === "credit_card_payment") {
-          await tx.transaction.update({
-            where: { id: t.id },
-            data: { deletedAt: new Date() },
-          });
-          continue;
         }
         if (
           targetLink.wallet.kind === "asset" &&
@@ -1207,10 +1392,21 @@ export async function deleteCreditCard(
           t.walletId === cardWalletId &&
           (t.type === "expense" || t.type === "transfer" || t.purpose === "credit_card_refund")
         ) {
-          await tx.transaction.update({
-            where: { id: t.id },
-            data: { walletId: resolution.targetWalletId },
-          });
+          if (targetLink.wallet.kind === "asset" && t.purpose === "credit_card_refund") {
+            await tx.transaction.update({
+              where: { id: t.id },
+              data: {
+                walletId: resolution.targetWalletId,
+                purpose: "standard",
+                originalTransactionId: null,
+              },
+            });
+          } else {
+            await tx.transaction.update({
+              where: { id: t.id },
+              data: { walletId: resolution.targetWalletId },
+            });
+          }
           if (targetLink.wallet.kind === "asset") {
             await tx.creditCardObligationEntry.deleteMany({ where: { transactionId: t.id } });
             await tx.creditCardAllocation.deleteMany({ where: { transactionId: t.id } });
@@ -1224,12 +1420,23 @@ export async function deleteCreditCard(
       }
 
       const cardTransactionIds = cardTransactions.map((t) => t.id);
+      const paymentTransactionIds = paymentTransactions.map((t) => t.id);
       if (cardTransactionIds.length > 0) {
         await tx.creditCardPaymentReservation.updateMany({
           where: { paymentTransactionId: { in: cardTransactionIds }, releasedAt: null },
           data: { releasedAt: new Date() },
         });
       }
+      await tx.creditCardPaymentAllocation?.deleteMany?.({
+        where: {
+          OR: [
+            { obligationEntry: { cardWalletId } },
+            ...(paymentTransactionIds.length > 0
+              ? [{ paymentTransactionId: { in: paymentTransactionIds } }]
+              : []),
+          ],
+        },
+      });
       await tx.transaction.updateMany({
         where: { creditCardStatement: { cardWalletId } },
         data: { creditCardStatementId: null },
@@ -1241,17 +1448,20 @@ export async function deleteCreditCard(
         where: { cardWalletId },
       });
 
+      const targetCreditedFromReversedPayments =
+        reversedPaymentByWallet.get(resolution.targetWalletId) ?? ZERO;
+      const baseTargetBalance = new Decimal(targetLink.wallet.currentBalance.toString()).plus(
+        targetCreditedFromReversedPayments,
+      );
+
       if (targetLink.wallet.kind === "asset") {
-        if (!balance.isZero()) {
-          const newTargetBalance = new Decimal(targetLink.wallet.currentBalance.toString()).minus(balance);
+        if (!netMigratedDelta.isZero()) {
+          const newTargetBalance = baseTargetBalance.minus(netMigratedDelta);
           await tx.wallet.update({
             where: { id: resolution.targetWalletId },
             data: { currentBalance: newTargetBalance },
           });
         }
-        await tx.creditCardPaymentAllocation?.deleteMany?.({
-          where: { obligationEntry: { cardWalletId } },
-        });
         await tx.creditCardObligationEntry?.deleteMany?.({
           where: { cardWalletId },
         });
@@ -1265,8 +1475,17 @@ export async function deleteCreditCard(
           where: { cardWalletId },
         });
       } else if (targetLink.wallet.kind === "credit_card") {
-        if (!balance.isZero()) {
-          const newTargetBalance = new Decimal(targetLink.wallet.currentBalance.toString()).plus(balance);
+        const openingAllocations =
+          (await tx.creditCardOpeningAllocation?.findMany?.({
+            where: { cardWalletId },
+          })) ?? [];
+        const openingDebtTotal = openingAllocations.reduce(
+          (sum, row) => sum.plus(row.amount.toString()),
+          ZERO,
+        );
+        const totalCardDelta = netMigratedDelta.plus(openingDebtTotal);
+        if (!totalCardDelta.isZero()) {
+          const newTargetBalance = baseTargetBalance.plus(totalCardDelta);
           await tx.wallet.update({
             where: { id: resolution.targetWalletId },
             data: { currentBalance: newTargetBalance },
@@ -1276,10 +1495,6 @@ export async function deleteCreditCard(
           where: { cardWalletId },
           data: { cardWalletId: resolution.targetWalletId },
         });
-        const openingAllocations =
-          (await tx.creditCardOpeningAllocation?.findMany?.({
-            where: { cardWalletId },
-          })) ?? [];
         for (const row of openingAllocations) {
           await tx.creditCardOpeningAllocation.upsert({
             where: {

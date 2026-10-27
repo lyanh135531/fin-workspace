@@ -21,6 +21,7 @@ import {
   Sparkles,
   Tag,
   Utensils,
+  WalletCards,
   Wrench,
 } from "lucide-react";
 
@@ -52,6 +53,7 @@ export const ICON_MAP: Record<
   money: CircleDollarSign,
   landmark: Landmark,
   card: CreditCard,
+  wallet: WalletCards,
   education: GraduationCap,
   travel: Plane,
   utilities: Sparkles,

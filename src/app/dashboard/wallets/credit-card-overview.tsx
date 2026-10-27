@@ -375,6 +375,7 @@ export function CreditCardVirtualCard({
   isInteractive?: boolean;
   className?: string;
 }) {
+  usePrivacyMask();
   const [menuOpen, setMenuOpen] = useState(false);
   const brand = detectCardBrand(card.name);
   const debtDecimal = new Decimal(card.debt || 0);
@@ -818,6 +819,7 @@ function CreditCardPanel({
   onSelectCard?: (id: string) => void;
   onBack?: () => void;
 }) {
+  usePrivacyMask();
   const isDesktop = useSyncExternalStore(
     subscribeDesktop,
     desktopSnapshot,
@@ -901,6 +903,9 @@ function CreditCardPanel({
   const [editToWalletId, setEditToWalletId] = useState<string>("");
   const [editAmount, setEditAmount] = useState<string>("");
   const [editAllocations, setEditAllocations] = useState<
+    Array<{ walletId: string; amount: string }>
+  >([]);
+  const [editInitialAllocations, setEditInitialAllocations] = useState<
     Array<{ walletId: string; amount: string }>
   >([]);
   const [editDate, setEditDate] = useState<string>("");
@@ -1018,6 +1023,10 @@ function CreditCardPanel({
     const nextWalletId = activity.walletId || card.id;
     const defaultToWalletId =
       fundingWallets.find((w) => w.id !== nextWalletId)?.id ?? "";
+    const initialAllocs = (activity.allocations ?? []).map((item) => ({
+      walletId: item.walletId,
+      amount: item.amount,
+    }));
     setEditingActivity(activity);
     setEditWalletId(nextWalletId);
     setEditToWalletId(
@@ -1026,7 +1035,8 @@ function CreditCardPanel({
         : defaultToWalletId,
     );
     setEditAmount(activity.amount);
-    setEditAllocations(activity.allocations ?? []);
+    setEditAllocations(initialAllocs);
+    setEditInitialAllocations(initialAllocs);
     setEditDate(activity.date);
     setEditCategoryId(activity.categoryId || (expenseCategories[0]?.id ?? ""));
     setEditActivityDescription(activity.description ?? "");
@@ -1041,15 +1051,20 @@ function CreditCardPanel({
     const buildAllocations = () => {
       if (!isCreditCard || txType === "income") return undefined;
       const originalWalletId = editingActivity.walletId || card.id;
-      const existingAllocations =
-        editAllocations.length > 0
-          ? editAllocations
-          : (editingActivity.allocations ?? []);
+      const baseAllocations =
+        editInitialAllocations.length > 0
+          ? editInitialAllocations
+          : editAllocations.length > 0
+            ? editAllocations
+            : (editingActivity.allocations ?? []);
       if (
-        (editWalletId === originalWalletId || existingAllocations.length > 1) &&
-        existingAllocations.length > 0
+        (editWalletId === originalWalletId || baseAllocations.length > 1) &&
+        baseAllocations.length > 0
       ) {
-        return scaleEditAllocations(existingAllocations, editAmount);
+        const scaled = scaleEditAllocations(baseAllocations, editAmount).filter(
+          (item) => new Decimal(item.amount || "0").gt(0),
+        );
+        if (scaled.length > 0) return scaled;
       }
       const targetCard = allCards?.find((c) => c.id === editWalletId);
       const fallbackFundingWalletId =
@@ -1098,6 +1113,8 @@ function CreditCardPanel({
             : "Đã cập nhật giao dịch thành công.",
         );
         setEditingActivity(null);
+        setEditAllocations([]);
+        setEditInitialAllocations([]);
         setShowEditDetails(false);
       } else {
         toast.error(res.message ?? "Không thể cập nhật giao dịch.");
@@ -1436,14 +1453,17 @@ function CreditCardPanel({
     const isFull =
       (target === "statement" && effectivePaymentAmount.gte(statementRemaining)) ||
       (target === "current_debt" && effectivePaymentAmount.gte(debtDecimal));
+    const unmaskedPaymentAmount = new Intl.NumberFormat("vi-VN", {
+      maximumFractionDigits: 4,
+    }).format(effectivePaymentAmount.toNumber());
     const description =
       target === "statement"
         ? isFull
           ? "Thanh toán toàn bộ sao kê kỳ này"
-          : `Thanh toán một phần sao kê (${formatAmount(effectivePaymentAmount)} ${currency})`
+          : `Thanh toán một phần sao kê (${unmaskedPaymentAmount} ${currency})`
         : isFull
           ? "Thanh toán toàn bộ dư nợ hiện tại"
-          : `Thanh toán một phần dư nợ thẻ (${formatAmount(effectivePaymentAmount)} ${currency})`;
+          : `Thanh toán một phần dư nợ thẻ (${unmaskedPaymentAmount} ${currency})`;
 
     startTransition(async () => {
       const result = await payCreditCardAction(workspaceId, {
@@ -3698,6 +3718,8 @@ function CreditCardPanel({
         onOpenChange={(open) => {
           if (!pending && !open) {
             setEditingActivity(null);
+            setEditAllocations([]);
+            setEditInitialAllocations([]);
             setShowEditDetails(false);
           }
         }}
@@ -3730,7 +3752,14 @@ function CreditCardPanel({
                   value={editAmount}
                   onValueChange={(val) => {
                     setEditAmount(val);
-                    setEditAllocations((prev) => scaleEditAllocations(prev, val));
+                    setEditAllocations((prev) =>
+                      scaleEditAllocations(
+                        editInitialAllocations.length > 0
+                          ? editInitialAllocations
+                          : prev,
+                        val,
+                      ),
+                    );
                   }}
                   placeholder="0"
                   aria-label="Số tiền giao dịch"
@@ -3742,6 +3771,35 @@ function CreditCardPanel({
                     label="Ví"
                     value={editWalletId}
                     onValueChange={(nextWalletId) => {
+                      if (nextWalletId !== editWalletId) {
+                        const nextSelectedWallet = wallets?.find(
+                          (w) => w.id === nextWalletId,
+                        );
+                        if (nextSelectedWallet?.kind === "credit_card") {
+                          const targetCard = allCards?.find(
+                            (c) => c.id === nextWalletId,
+                          );
+                          const fallbackFundingWalletId =
+                            targetCard?.defaultFundingWalletId ??
+                            card.defaultFundingWalletId ??
+                            fundingWallets[0]?.id ??
+                            wallets?.find((w) => w.kind === "asset")?.id ??
+                            "";
+                          const collapsed = fallbackFundingWalletId
+                            ? [
+                                {
+                                  walletId: fallbackFundingWalletId,
+                                  amount: editAmount || "0",
+                                },
+                              ]
+                            : [];
+                          setEditAllocations(collapsed);
+                          setEditInitialAllocations(collapsed);
+                        } else {
+                          setEditAllocations([]);
+                          setEditInitialAllocations([]);
+                        }
+                      }
                       setEditWalletId(nextWalletId);
                       if (
                         (editingActivity?.type ?? "expense") === "transfer" &&
@@ -3829,6 +3887,8 @@ function CreditCardPanel({
                 className="border-t border-[var(--border)] p-4 md:px-5"
                 onCancel={() => {
                   setEditingActivity(null);
+                  setEditAllocations([]);
+                  setEditInitialAllocations([]);
                   setShowEditDetails(false);
                 }}
                 cancelLabel="Hủy"

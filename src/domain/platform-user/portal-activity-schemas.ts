@@ -30,12 +30,18 @@ const queryPageSchema = z.preprocess(
   z.coerce.number().int().min(1).catch(1),
 );
 
-export const portalActivitySearchSchema = z.object({
-  q: queryTextSchema,
-  dateFrom: queryDateSchema,
-  dateTo: queryDateSchema,
-  page: queryPageSchema,
-});
+export const portalActivitySearchSchema = z
+  .object({
+    q: queryTextSchema,
+    dateFrom: queryDateSchema,
+    dateTo: queryDateSchema,
+    page: queryPageSchema,
+  })
+  .transform((value) =>
+    value.dateFrom && value.dateTo && value.dateFrom > value.dateTo
+      ? { ...value, dateFrom: value.dateTo, dateTo: value.dateFrom }
+      : value,
+  );
 
 export type PortalActivitySearch = z.infer<typeof portalActivitySearchSchema>;
 

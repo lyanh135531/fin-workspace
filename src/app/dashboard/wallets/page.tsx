@@ -66,14 +66,11 @@ export default async function WalletsPage({
   ]);
 
   const totalBalance = links
-    .filter(({ wallet }) => wallet.status === "active")
-    .reduce(
-      (total, { wallet }) =>
-        wallet.kind === "credit_card"
-          ? total.minus(Decimal.max(new Decimal(wallet.currentBalance.toString()), ZERO))
-          : total.plus(wallet.currentBalance.toString()),
-      ZERO,
-    );
+    .filter(({ wallet }) => wallet.status === "active" && wallet.kind !== "credit_card")
+    .reduce((total, { wallet }) => {
+      const committed = commitments.get(wallet.id) ?? ZERO;
+      return total.plus(wallet.currentBalance.toString()).minus(committed);
+    }, ZERO);
 
   return (
     <PageContainer className="wallets-page-container">

@@ -1,4 +1,5 @@
 import argon2 from "argon2";
+import { isPlatformAdminUsername } from "@/domain/platform-user/schemas";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 
@@ -6,6 +7,16 @@ export async function registerAccount(username: string, password: string) {
   const existingUser = await prisma.user.findUnique({ where: { username } });
   if (existingUser) {
     throw new AppError("CONFLICT", "Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên đăng nhập khác.");
+  }
+
+  if (isPlatformAdminUsername(username)) {
+    const userCount = (await prisma.user.count?.()) ?? 0;
+    if (userCount > 0) {
+      throw new AppError(
+        "CONFLICT",
+        "Tên đăng nhập này đã được hệ thống bảo lưu. Vui lòng chọn tên đăng nhập khác.",
+      );
+    }
   }
 
   const passwordHash = await argon2.hash(password);

@@ -270,7 +270,6 @@ function Select({
   );
   const select = (
     <SelectRoot
-      id={selectId}
       value={value}
       defaultValue={defaultValue}
       onValueChange={(nextValue) => {
@@ -313,7 +312,7 @@ function Select({
 
   return (
     <div className="grid content-start gap-1.5">
-      <Label required={required}>{label}</Label>
+      <Label htmlFor={selectId} required={required}>{label}</Label>
       {select}
     </div>
   );

@@ -69,12 +69,17 @@ export function DashboardLedgerWorkspace({
         const itemDate = item.date?.slice(0, 10) || "";
         const needsReview =
           item.status === "pending" || item.pendingChangeRequestId !== null;
+        const effectiveType =
+          item.purpose === "credit_card_refund" ? "expense" : item.type;
         return (
           isDateInRange(itemDate, dateRange) &&
-          (filterType === "" || item.type === filterType) &&
+          (filterType === "" || effectiveType === filterType) &&
           (filterWallet === "" ||
             item.walletId === filterWallet ||
-            item.toWalletId === filterWallet) &&
+            item.toWalletId === filterWallet ||
+            Boolean(
+              item.paymentSources?.some((s) => s.walletId === filterWallet),
+            )) &&
           (!filterReviewOnly || needsReview) &&
           (filterCategory === "" ||
             (item.categoryId !== null &&
@@ -129,8 +134,8 @@ export function DashboardLedgerWorkspace({
         pending += 1;
       }
     }
-    const netCashflow = income.minus(expense);
     expense = Decimal.max(new Decimal(0), expense);
+    const netCashflow = income.minus(expense);
 
     return {
       income: income.toString(),

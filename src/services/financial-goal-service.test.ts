@@ -492,5 +492,86 @@ describe("financial goal service", () => {
     expect(portfolio[0]?.projectedAtDeadline).toBe("10000000");
     expect(portfolio[0]?.health).toBe("on_track");
   });
+
+  it("separates in-month contributions from pre-month/opening progress when monthStart is passed to getPlanGoalProgressSummary", async () => {
+    mocks.tx.financialPlan.findFirst.mockResolvedValue({
+      status: "active",
+      activatedAt: new Date("2026-08-15T05:00:00.000Z"),
+    });
+    mocks.tx.financialPlanGoal.findMany.mockResolvedValue([
+      {
+        id: "goal-manual",
+        status: "active",
+        trackingMode: "manual",
+        linkedWalletId: null,
+        targetAmount: new Decimal(30_000_000),
+      },
+    ]);
+    // 1) live totalProgress = 15M (5M opening + 10M in-month contribution)
+    // 2) openingAgg = 5M
+    // 3) beforeMonth (opening + < monthStart) = 5M
+    mocks.tx.financialGoalFundingEntry.aggregate
+      .mockResolvedValueOnce({ _sum: { amount: new Decimal(15_000_000) } })
+      .mockResolvedValueOnce({ _sum: { amount: new Decimal(5_000_000) } })
+      .mockResolvedValueOnce({ _sum: { amount: new Decimal(5_000_000) } });
+
+    const summary = await getPlanGoalProgressSummary(mocks.tx as never, "plan-1", {
+      monthStart: new Date("2026-08-01T00:00:00.000Z"),
+    });
+
+    expect(summary.totalProgress.toFixed(0)).toBe("15000000");
+    expect(summary.workspaceReserved.toFixed(0)).toBe("15000000");
+    expect(summary.progressBeforeMonth.toFixed(0)).toBe("5000000");
+    expect(summary.workspaceReservedBeforeMonth.toFixed(0)).toBe("5000000");
+  });
+
+  it("exposes totalFundingEntriesCount and reversedBy in getFinancialPlanGoalPortfolio even when entries exceed take: 30", async () => {
+    mocks.tx.financialPlanGoal.findMany.mockResolvedValue([
+      {
+        id: goalId,
+        name: "Mục tiêu dài hạn",
+        status: "active",
+        trackingMode: "manual",
+        linkedWalletId: null,
+        linkedWallet: null,
+        targetAmount: new Decimal(10_000_000),
+        targetMonth: new Date("2026-12-01T00:00:00.000Z"),
+        sortOrder: 0,
+        createdAt: new Date("2026-10-01T00:00:00.000Z"),
+        financialPlan: { startMonth: new Date("2026-10-01T00:00:00.000Z") },
+        _count: { fundingEntries: 42 },
+        fundingEntries: [
+          {
+            id: "entry-old-reversed",
+            amount: new Decimal(500_000),
+            kind: "contribution",
+            status: "approved",
+            effectiveDate: new Date("2026-10-02T00:00:00.000Z"),
+            note: null,
+            requester: { user: { username: "member_a" } },
+            reviewer: { user: { username: "admin_a" } },
+            reversesEntryId: null,
+            reversedBy: [{ id: "reversal-31" }],
+          },
+        ],
+      },
+    ]);
+    mocks.tx.financialGoalFundingEntry.aggregate.mockResolvedValue({
+      _sum: { amount: new Decimal(0) },
+    });
+
+    const portfolio = await getFinancialPlanGoalPortfolio(
+      "user-1",
+      workspaceId,
+      "plan-1",
+      new Decimal(3_333_333),
+      new Date("2026-10-10T00:00:00.000Z"),
+    );
+
+    expect(portfolio[0]?.totalFundingEntriesCount).toBe(42);
+    expect(portfolio[0]?.fundingEntries[0]?.reversedBy).toEqual({
+      id: "reversal-31",
+    });
+  });
 });
 

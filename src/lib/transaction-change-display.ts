@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import { formatAmount } from "@/lib/format";
 
 export type ComparableTransaction = {
@@ -33,6 +34,39 @@ function jsonRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function parseDecimalAmount(value: unknown): Decimal | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? new Decimal(value) : null;
+  }
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!/^-?\d+(\.\d+)?$/.test(trimmed)) return null;
+  try {
+    const parsed = new Decimal(trimmed);
+    return parsed.isFinite() ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatReviewAmount(value: string): string {
+  const parsed = parseDecimalAmount(value);
+  if (!parsed) return value;
+
+  const sample = formatAmount("100");
+  if (!/\d/.test(sample)) {
+    return formatAmount(parsed.toFixed());
+  }
+
+  const sign = parsed.isNegative() && !parsed.isZero() ? "-" : "";
+  const [integerPart, fractionPart] = parsed.abs().toFixed().split(".");
+  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const trimmedFraction = fractionPart ? fractionPart.replace(/0+$/, "") : "";
+  return trimmedFraction
+    ? `${sign}${groupedInteger},${trimmedFraction}`
+    : `${sign}${groupedInteger}`;
+}
+
 function formatChangeDate(value: string): string {
   const [year, month, day] = value.slice(0, 10).split("-");
   return year && month && day ? `${day}/${month}/${year}` : value;
@@ -44,10 +78,13 @@ function formatChangeValue(
   lookups: TransactionChangeLookups,
 ): string {
   if (value === null || value === undefined || value === "") return "—";
+  if (key === "amount" && typeof value === "number" && Number.isFinite(value)) {
+    return formatReviewAmount(String(value));
+  }
   if (typeof value !== "string") return "Dữ liệu không hợp lệ";
 
   if (key === "amount") {
-    return /^\d+(\.\d+)?$/.test(value) ? formatAmount(value) : value;
+    return formatReviewAmount(value);
   }
   if (key === "walletId" || key === "toWalletId") {
     return lookups.wallets.get(value) ?? "Ví không còn khả dụng";
@@ -84,6 +121,34 @@ function normalizeAllocations(
     .filter((item) => item.walletId && item.amount);
 }
 
+function areSameAllocations(
+  left: Array<{ walletId: string; amount: string }>,
+  right: Array<{ walletId: string; amount: string }>,
+): boolean {
+  if (left.length !== right.length) return false;
+  const compareItems = (
+    a: { walletId: string; amount: string },
+    b: { walletId: string; amount: string },
+  ) => {
+    const walletDiff = a.walletId.localeCompare(b.walletId);
+    if (walletDiff !== 0) return walletDiff;
+    const aDec = parseDecimalAmount(a.amount);
+    const bDec = parseDecimalAmount(b.amount);
+    if (aDec && bDec) return aDec.cmp(bDec);
+    return a.amount.localeCompare(b.amount);
+  };
+  const sortedLeft = [...left].sort(compareItems);
+  const sortedRight = [...right].sort(compareItems);
+  return sortedLeft.every((item, index) => {
+    const other = sortedRight[index];
+    if (!other || item.walletId !== other.walletId) return false;
+    const leftDec = parseDecimalAmount(item.amount);
+    const rightDec = parseDecimalAmount(other.amount);
+    if (leftDec && rightDec) return leftDec.eq(rightDec);
+    return item.amount === other.amount;
+  });
+}
+
 function formatAllocationsValue(
   allocations: Array<{ walletId: string; amount: string }>,
   lookups: TransactionChangeLookups,
@@ -92,9 +157,7 @@ function formatAllocationsValue(
   return allocations
     .map(({ walletId, amount }) => {
       const walletName = lookups.wallets.get(walletId) ?? "Ví không còn khả dụng";
-      const formattedAmount = /^\d+(\.\d+)?$/.test(amount)
-        ? formatAmount(amount)
-        : amount;
+      const formattedAmount = formatReviewAmount(amount);
       return `${walletName}: ${formattedAmount}`;
     })
     .join(", ");
@@ -135,7 +198,16 @@ export function getTransactionChangeDetails(
   ];
 
   const details: TransactionChangeDetail[] = fields
-    .filter(({ key }) => proposed[key] !== current[key])
+    .filter(({ key }) => {
+      if (key === "amount") {
+        const currentDec = parseDecimalAmount(current[key]);
+        const proposedDec = parseDecimalAmount(proposed[key]);
+        if (currentDec && proposedDec) {
+          return !currentDec.eq(proposedDec);
+        }
+      }
+      return proposed[key] !== current[key];
+    })
     .map(({ key, label }) => ({
       label,
       previous: formatChangeValue(key, current[key], lookups),
@@ -145,15 +217,7 @@ export function getTransactionChangeDetails(
   if (proposed.allocations !== undefined) {
     const currentAllocs = normalizeAllocations(current.allocations);
     const proposedAllocs = normalizeAllocations(proposed.allocations);
-    const canonical = (items: Array<{ walletId: string; amount: string }>) =>
-      items
-        .map(
-          ({ walletId, amount }) =>
-            `${walletId}:${/^\d+(\.\d+)?$/.test(amount) ? formatAmount(amount) : amount}`,
-        )
-        .sort()
-        .join("|");
-    if (canonical(currentAllocs) !== canonical(proposedAllocs)) {
+    if (!areSameAllocations(currentAllocs, proposedAllocs)) {
       details.push({
         label: "Nguồn trả thẻ",
         previous: formatAllocationsValue(currentAllocs, lookups),

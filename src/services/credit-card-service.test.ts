@@ -8,6 +8,7 @@ vi.hoisted(() => {
 const deleteMocks = vi.hoisted(() => ({
   transaction: vi.fn(),
   findManyObligations: vi.fn(),
+  findManyReservations: vi.fn(),
   requireWorkspaceMember: vi.fn(),
   assertWalletHasNoOpenDependencies: vi.fn(),
   ensureWalletNameAvailable: vi.fn(),
@@ -19,6 +20,9 @@ vi.mock("@/lib/prisma", () => ({
     creditCardObligationEntry: {
       findMany: deleteMocks.findManyObligations,
     },
+    creditCardPaymentReservation: {
+      findMany: deleteMocks.findManyReservations,
+    },
   },
 }));
 vi.mock("@/services/workspace-access", () => ({
@@ -29,7 +33,12 @@ vi.mock("@/services/wallet-service", () => ({
   ensureWalletNameAvailable: deleteMocks.ensureWalletNameAvailable,
 }));
 
-import { allocateLinkedRefundByFundingWallet, allocateOldestObligations, allocateRefundByFundingWallet } from "@/services/credit-card-ledger";
+import {
+  allocateLinkedRefundByFundingWallet,
+  allocateOldestObligations,
+  allocateRefundByFundingWallet,
+  normalizeApprovedRefundAllocations,
+} from "@/services/credit-card-ledger";
 import {
   deleteCreditCard,
   getWorkspaceCreditCardCommitmentDetails,
@@ -344,7 +353,25 @@ describe("deleteCreditCard checks", () => {
         wallet: { id: "cash-id", kind: "asset", status: "active", currentBalance: new Decimal(1_000_000) },
       });
     tx.transaction.findMany.mockResolvedValue([
-      { id: "tx-1", walletId: "card-id", type: "expense", purpose: "normal", amount: new Decimal(500_000), workflowStatus: "approved" },
+      {
+        id: "tx-1",
+        walletId: "card-id",
+        type: "expense",
+        purpose: "standard",
+        amount: new Decimal(500_000),
+        workflowStatus: "approved",
+      },
+      {
+        id: "pay-1",
+        walletId: "card-id",
+        type: "expense",
+        purpose: "credit_card_payment",
+        amount: new Decimal(300_000),
+        workflowStatus: "approved",
+        creditCardPaymentSources: [
+          { sourceWalletId: "cash-id", amount: new Decimal(300_000) },
+        ],
+      },
     ]);
 
     await expect(
@@ -354,11 +381,125 @@ describe("deleteCreditCard checks", () => {
       }),
     ).resolves.toEqual({ ok: true });
 
-    // Destination asset wallet balance should be 1,000,000 - 200,000 = 800,000 (not 500,000)
+    // Destination asset wallet balance should be 1,000,000 + 300,000 - 500,000 = 800,000 (not 500,000)
     expect(tx.wallet.update).toHaveBeenCalledWith({
       where: { id: "cash-id" },
       data: { currentBalance: new Decimal(800_000) },
     });
+  });
+
+  it("reverses prior card payment back to its original funding wallet while deducting migrated spend from a different destination asset wallet", async () => {
+    tx.workspaceWallet.findFirst
+      .mockResolvedValueOnce({
+        wallet: { id: "card-id", kind: "credit_card", currentBalance: new Decimal(200_000) },
+      })
+      .mockResolvedValueOnce({
+        wallet: { id: "cash-id", kind: "asset", status: "active", currentBalance: new Decimal(1_000_000) },
+      });
+    tx.transaction.findMany.mockResolvedValue([
+      {
+        id: "tx-spend",
+        walletId: "card-id",
+        type: "expense",
+        purpose: "standard",
+        amount: new Decimal(500_000),
+        workflowStatus: "approved",
+      },
+      {
+        id: "pay-bank",
+        walletId: "card-id",
+        type: "expense",
+        purpose: "credit_card_payment",
+        amount: new Decimal(300_000),
+        workflowStatus: "approved",
+        creditCardPaymentSources: [
+          { sourceWalletId: "bank-id", amount: new Decimal(300_000) },
+        ],
+      },
+    ]);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id", {
+        action: "migrate_transactions",
+        targetWalletId: "cash-id",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "bank-id" },
+      data: { currentBalance: { increment: new Decimal(300_000) } },
+    });
+    expect(tx.transaction.update).toHaveBeenCalledWith({
+      where: { id: "pay-bank" },
+      data: { deletedAt: expect.any(Date) },
+    });
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "cash-id" },
+      data: { currentBalance: new Decimal(500_000) },
+    });
+  });
+
+  it("normalizes migrated credit_card_refund on an asset wallet to standard income with originalTransactionId null", async () => {
+    tx.workspaceWallet.findFirst
+      .mockResolvedValueOnce({
+        wallet: { id: "card-id", kind: "credit_card", currentBalance: new Decimal(300_000) },
+      })
+      .mockResolvedValueOnce({
+        wallet: { id: "cash-id", kind: "asset", status: "active", currentBalance: new Decimal(1_000_000) },
+      });
+    tx.transaction.findMany.mockResolvedValue([
+      {
+        id: "tx-purchase",
+        walletId: "card-id",
+        type: "expense",
+        purpose: "standard",
+        amount: new Decimal(500_000),
+        workflowStatus: "approved",
+      },
+      {
+        id: "tx-refund",
+        walletId: "card-id",
+        type: "income",
+        purpose: "credit_card_refund",
+        originalTransactionId: "tx-purchase",
+        amount: new Decimal(200_000),
+        workflowStatus: "approved",
+      },
+    ]);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id", {
+        action: "migrate_transactions",
+        targetWalletId: "cash-id",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(tx.transaction.update).toHaveBeenCalledWith({
+      where: { id: "tx-refund" },
+      data: {
+        walletId: "cash-id",
+        purpose: "standard",
+        originalTransactionId: null,
+      },
+    });
+    expect(tx.wallet.update).toHaveBeenCalledWith({
+      where: { id: "cash-id" },
+      data: { currentBalance: new Decimal(700_000) },
+    });
+  });
+
+  it("blocks migrate_transactions when card still has active or pending installment plans", async () => {
+    tx.workspaceWallet.findFirst.mockResolvedValue({
+      wallet: { id: "card-id", kind: "credit_card", currentBalance: new Decimal(200_000) },
+    });
+    tx.creditCardInstallmentPlan.count.mockResolvedValue(1);
+
+    await expect(
+      deleteCreditCard("user-id", "workspace-id", "card-id", {
+        action: "migrate_transactions",
+        targetWalletId: "cash-id",
+      }),
+    ).rejects.toThrow("gói trả góp");
   });
 
   it("cleans up obligations and statements when deleting a zero-balance or no-transaction card", async () => {
@@ -550,6 +691,7 @@ describe("updateCreditCard checks", () => {
 describe("getWorkspaceCreditCardCommitments & getWorkspaceCreditCardCommitmentDetails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    deleteMocks.findManyReservations.mockResolvedValue([]);
   });
 
   it("leaves 0 items in getWorkspaceCreditCardCommitmentDetails and 0 in getWorkspaceCreditCardCommitments after purchase + refund + full payment", async () => {
@@ -687,6 +829,105 @@ describe("getWorkspaceCreditCardCommitments & getWorkspaceCreditCardCommitmentDe
     expect(details[0]?.paidAmount).toBe("150000");
     expect(commitments.get("wallet-1")?.toString()).toBe("250000");
   });
+
+  it("includes unreleased CreditCardPaymentReservations when pending payment exceeds current card obligation", async () => {
+    deleteMocks.findManyObligations.mockResolvedValue([]);
+    deleteMocks.findManyReservations.mockResolvedValue([
+      {
+        id: "res-1",
+        sourceWalletId: "wallet-a",
+        amount: new Decimal(200_000),
+        sourceWallet: { name: "Techcombank" },
+        paymentTransaction: {
+          id: "pay-pending-1",
+          walletId: "card-1",
+          description: "Thanh toán sao kê chờ duyệt",
+          type: "expense",
+          purpose: "credit_card_payment",
+          date: new Date("2026-08-10T00:00:00.000Z"),
+          postedDate: new Date("2026-08-10T00:00:00.000Z"),
+          createdAt: new Date("2026-08-10T01:00:00.000Z"),
+          wallet: { name: "Visa", status: "active", deletedAt: null },
+          creditCardStatement: null,
+        },
+      },
+    ]);
+
+    const commitments = await getWorkspaceCreditCardCommitments("workspace-id");
+    const details = await getWorkspaceCreditCardCommitmentDetails("workspace-id");
+
+    expect(commitments.get("wallet-a")?.toString()).toBe("200000");
+    expect(details).toHaveLength(1);
+    expect(details[0]).toEqual(
+      expect.objectContaining({
+        id: "reservation:res-1",
+        fundingWalletId: "wallet-a",
+        remainingAmount: "200000",
+        transactionPurpose: "credit_card_payment",
+      }),
+    );
+  });
 });
+
+describe("normalizeApprovedRefundAllocations", () => {
+  it("remaps refund allocations away from a deactivated funding wallet to the active defaultFundingWalletId", async () => {
+    const createdAllocations: unknown[] = [];
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      transaction: {
+        findUnique: vi.fn().mockResolvedValue({
+          walletId: "card-1",
+          amount: new Decimal(150_000),
+          purpose: "credit_card_refund",
+          workflowStatus: "approved",
+          originalTransactionId: "orig-tx-1",
+          member: { workspaceId: "workspace-1" },
+        }),
+        findFirst: vi.fn().mockResolvedValue({
+          id: "orig-tx-1",
+          creditCardAllocations: [
+            { fundingWalletId: "wallet-deactivated", amount: new Decimal(150_000) },
+          ],
+          refundTransactions: [],
+        }),
+      },
+      creditCardProfile: {
+        findUnique: vi.fn().mockResolvedValue({
+          defaultFundingWalletId: "wallet-active-default",
+        }),
+      },
+      creditCardObligationEntry: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      workspaceWallet: {
+        findMany: vi.fn().mockResolvedValue([
+          { walletId: "wallet-active-default" },
+        ]),
+      },
+      creditCardAllocation: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn().mockImplementation(({ data }) => {
+          createdAllocations.push(...data);
+          return Promise.resolve({ count: data.length });
+        }),
+      },
+    };
+
+    await normalizeApprovedRefundAllocations(
+      tx as unknown as Parameters<typeof normalizeApprovedRefundAllocations>[0],
+      "refund-tx-1",
+    );
+
+    expect(createdAllocations).toEqual([
+      {
+        transactionId: "refund-tx-1",
+        fundingWalletId: "wallet-active-default",
+        amount: new Decimal(150_000),
+      },
+    ]);
+  });
+});
+
 
 

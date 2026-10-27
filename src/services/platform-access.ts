@@ -11,18 +11,28 @@ export async function requirePlatformAdminSession() {
     redirect("/sign-in");
   }
 
-  const currentUser = await prisma.user?.findUnique?.({
-    where: { id: session.user.id },
-    select: { username: true, status: true, deletedAt: true },
-  });
-  if (
-    currentUser &&
-    ((currentUser.status !== undefined && currentUser.status !== "active") ||
-      (currentUser.deletedAt !== undefined && currentUser.deletedAt !== null))
-  ) {
-    redirect("/sign-in");
+  if (typeof prisma.user?.findUnique === "function") {
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { username: true, status: true, deletedAt: true },
+    });
+    if (
+      !currentUser ||
+      (currentUser.status !== undefined && currentUser.status !== "active") ||
+      (currentUser.deletedAt !== undefined && currentUser.deletedAt !== null) ||
+      !currentUser.username
+    ) {
+      redirect("/sign-in");
+    }
+
+    if (!isPlatformAdminUsername(currentUser.username)) {
+      notFound();
+    }
+
+    return { ...session.user, username: currentUser.username };
   }
-  const username = currentUser?.username ?? session.user.username;
+
+  const username = session.user.username;
 
   if (!username) {
     redirect("/sign-in");

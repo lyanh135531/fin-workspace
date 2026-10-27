@@ -72,6 +72,7 @@ export type UserReminderState = {
   eveningEnabled: boolean;
   timeZone: string;
   subscriptionCount: number;
+  endpoints: string[];
   vapidPublicKey: string;
   hasLoggedToday: boolean;
   isDismissedToday: boolean;
@@ -79,6 +80,17 @@ export type UserReminderState = {
 };
 
 let cachedVapidKeys: VapidKeyPair | null = null;
+
+async function listUserPushEndpoints(userId: string): Promise<string[]> {
+  if (typeof prisma.userPushSubscription?.findMany !== "function") {
+    return [];
+  }
+  const rows = await prisma.userPushSubscription.findMany({
+    where: { userId },
+    select: { endpoint: true },
+  });
+  return Array.isArray(rows) ? rows.map((row) => row.endpoint) : [];
+}
 
 export async function getOrCreateVapidKeyPair(): Promise<VapidKeyPair> {
   if (cachedVapidKeys) {
@@ -211,11 +223,13 @@ export async function getUserReminderState(
 ): Promise<UserReminderState> {
   ensureReminderSchedulerRunning();
 
-  const [existingSetting, subscriptionCount, vapid] = await Promise.all([
-    prisma.userReminderSetting.findUnique({ where: { userId } }),
-    prisma.userPushSubscription.count({ where: { userId } }),
-    getOrCreateVapidKeyPair(),
-  ]);
+  const [existingSetting, subscriptionCount, endpoints, vapid] =
+    await Promise.all([
+      prisma.userReminderSetting.findUnique({ where: { userId } }),
+      prisma.userPushSubscription.count({ where: { userId } }),
+      listUserPushEndpoints(userId),
+      getOrCreateVapidKeyPair(),
+    ]);
 
   const timeZone = resolveSafeTimeZone(
     existingSetting?.timeZone ?? defaultTimeZone,
@@ -257,6 +271,7 @@ export async function getUserReminderState(
     eveningEnabled,
     timeZone,
     subscriptionCount,
+    endpoints,
     vapidPublicKey: vapid.publicKey,
     hasLoggedToday,
     isDismissedToday,
@@ -267,7 +282,7 @@ export async function getUserReminderState(
 export async function saveUserPushSubscription(
   userId: string,
   input: unknown,
-): Promise<{ subscriptionCount: number }> {
+): Promise<{ subscriptionCount: number; endpoints: string[] }> {
   ensureReminderSchedulerRunning();
 
   const parsed = pushSubscriptionSchema.safeParse(input);
@@ -319,17 +334,20 @@ export async function saveUserPushSubscription(
       .catch(() => null);
   }
 
-  const subscriptionCount = await prisma.userPushSubscription.count({
-    where: { userId },
-  });
+  const [subscriptionCount, endpoints] = await Promise.all([
+    prisma.userPushSubscription.count({
+      where: { userId },
+    }),
+    listUserPushEndpoints(userId),
+  ]);
 
-  return { subscriptionCount };
+  return { subscriptionCount, endpoints };
 }
 
 export async function removeUserPushSubscription(
   userId: string,
   endpoint: string,
-): Promise<{ subscriptionCount: number }> {
+): Promise<{ subscriptionCount: number; endpoints: string[] }> {
   const trimmed = endpoint.trim();
   if (trimmed) {
     await prisma.userPushSubscription.deleteMany({
@@ -337,11 +355,14 @@ export async function removeUserPushSubscription(
     });
   }
 
-  const subscriptionCount = await prisma.userPushSubscription.count({
-    where: { userId },
-  });
+  const [subscriptionCount, endpoints] = await Promise.all([
+    prisma.userPushSubscription.count({
+      where: { userId },
+    }),
+    listUserPushEndpoints(userId),
+  ]);
 
-  return { subscriptionCount };
+  return { subscriptionCount, endpoints };
 }
 
 export async function updateUserReminderSettings(
@@ -670,6 +691,7 @@ export async function getWorkspaceDueBillAlerts(params: {
 export function buildBillAlertPushPayload(params: {
   today: string;
   currency: string;
+  workspaceId?: string;
   statementAlerts: StatementDueAlertItem[];
   recurringAlerts: RecurringDueAlertItem[];
 }): {
@@ -678,7 +700,11 @@ export function buildBillAlertPushPayload(params: {
   url: string;
   tag: string;
 } | null {
-  const { today, currency, statementAlerts, recurringAlerts } = params;
+  const { today, currency, workspaceId, statementAlerts, recurringAlerts } =
+    params;
+  const encodedWorkspaceId = workspaceId
+    ? encodeURIComponent(workspaceId)
+    : null;
 
   if (statementAlerts.length > 0) {
     const first = statementAlerts[0]!;
@@ -703,7 +729,9 @@ export function buildBillAlertPushPayload(params: {
     return {
       title,
       body,
-      url: `/credit-cards/${first.cardWalletId}?action=pay`,
+      url: encodedWorkspaceId
+        ? `/credit-cards/${first.cardWalletId}?action=pay&workspaceId=${encodedWorkspaceId}`
+        : `/credit-cards/${first.cardWalletId}?action=pay`,
       tag: `felix-bill-alert-${today}`,
     };
   }
@@ -711,12 +739,15 @@ export function buildBillAlertPushPayload(params: {
   if (recurringAlerts.length > 0) {
     const first = recurringAlerts[0]!;
     const amountText = formatMoneyPush(first.amount, currency);
+    const recurringUrl = encodedWorkspaceId
+      ? `/recurring-transactions?workspaceId=${encodedWorkspaceId}`
+      : "/recurring-transactions";
 
     if (first.alertState === "failed") {
       return {
         title: "Lịch giao dịch định kỳ tạm dừng",
         body: `Khoản định kỳ "${first.title}" (${amountText}) chưa thể tự động thực hiện. Chạm để kiểm tra ví ${first.walletName}.`,
-        url: "/recurring-transactions",
+        url: recurringUrl,
         tag: `felix-bill-alert-${today}`,
       };
     }
@@ -737,7 +768,7 @@ export function buildBillAlertPushPayload(params: {
     return {
       title: "Nhắc lịch giao dịch định kỳ",
       body,
-      url: "/recurring-transactions",
+      url: recurringUrl,
       tag: `felix-bill-alert-${today}`,
     };
   }
@@ -766,7 +797,7 @@ async function collectUserBillAlertPayload(
       role: { select: { code: true } },
       workspace: { select: { id: true, baseCurrency: true, timeZone: true } },
     },
-    take: 5,
+    orderBy: { createdAt: "asc" },
   });
 
   for (const membership of memberships) {
@@ -781,6 +812,7 @@ async function collectUserBillAlertPayload(
     const payload = buildBillAlertPushPayload({
       today,
       currency: membership.workspace.baseCurrency,
+      workspaceId: membership.workspace.id,
       statementAlerts: alerts.statementAlerts,
       recurringAlerts: alerts.recurringAlerts,
     });
@@ -798,7 +830,6 @@ export async function dispatchDueDailyReminders(
 ): Promise<{ checkedUsers: number; sentNotifications: number }> {
   const settings = await prisma.userReminderSetting.findMany({
     where: {
-      OR: [{ noonEnabled: true }, { eveningEnabled: true }],
       user: {
         status: "active",
         deletedAt: null,

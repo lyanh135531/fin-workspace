@@ -26,6 +26,18 @@ export const installmentInputSchema = z.object({
   feeAmount: moneySchema.refine((amount) => amount.gte(0), { message: "Phí trả góp không được âm." }),
 });
 
+export const createCreditCardInstallmentPlanSchema = installmentInputSchema.extend({
+  principal: positiveMoneySchema,
+}).superRefine((value, ctx) => {
+  if (value.principal.lt(value.termCount)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["principal"],
+      message: "Số tiền gốc giao dịch trả góp phải lớn hơn hoặc bằng số kỳ trả góp.",
+    });
+  }
+});
+
 export const registerCreditCardInstallmentSchema = installmentInputSchema.extend({
   transactionId: idSchema,
 });
@@ -50,6 +62,14 @@ export const importCreditCardInstallmentSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["paidTermCount"],
       message: "Số kỳ đã trả phải nhỏ hơn tổng số kỳ.",
+    });
+  }
+  const remainingTerms = value.termCount - value.paidTermCount;
+  if (remainingTerms > 0 && value.remainingAmount.lt(remainingTerms)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["remainingAmount"],
+      message: "Dư nợ trả góp còn lại phải lớn hơn hoặc bằng số kỳ còn lại.",
     });
   }
   if (new Set(value.allocations.map((item) => item.walletId)).size !== value.allocations.length) {

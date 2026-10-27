@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/popover";
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { AccountSettingsModal } from "@/app/dashboard/account-settings-modal";
+import { cleanupBrowserPushBeforeLogout } from "@/app/dashboard/daily-reminder-controls";
 import { useOptionalSidebar } from "@/components/ui/sidebar";
 import { usePwaInstall } from "@/app/pwa-install";
 
@@ -61,6 +62,7 @@ export function SidebarUserMenu({
 
   function handleSignOut() {
     start(async () => {
+      await cleanupBrowserPushBeforeLogout();
       await signOut({ callbackUrl: "/sign-in" });
     });
   }

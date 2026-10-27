@@ -98,7 +98,16 @@ export default async function FinancialPlansPage({
             workflowStatus: { in: ["approved", "scheduled", "pending"] },
             date: { gte: planRangeStart, lt: planRangeEnd },
             OR: [
-              { type: "expense", purpose: { not: "credit_card_payment" } },
+              {
+                type: "expense",
+                purpose: {
+                  notIn: [
+                    "credit_card_payment",
+                    "investment_contribution",
+                    "investment_settlement",
+                  ],
+                },
+              },
               { purpose: "credit_card_refund" },
             ],
             AND: [

@@ -136,4 +136,125 @@ describe("workspace category jar enforcement", () => {
 
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
+
+  it("disambiguates category code when Vietnamese diacritics differ on slugified code", async () => {
+    const tx = {
+      category: {
+        create: vi.fn().mockImplementation(({ data }) => ({ id: "category-ca-2", ...data })),
+      },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+    };
+    (prisma.category.findFirst as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        id: "category-ca-1",
+        name: "Cá",
+        type: "expense",
+        parentId: null,
+        deletedAt: null,
+      })
+      .mockResolvedValueOnce(null);
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
+
+    const created = await createWorkspaceCategory("user-1", "workspace-1", {
+      ...baseInput,
+      name: "Cà",
+      code: "CA",
+      jarCode: "ESSENTIAL",
+    });
+
+    expect(created.code).toBe("CA_EXP");
+  });
+
+  it("retains an unchanged deactivated parent when editing a deactivated child category", async () => {
+    const parentId = "00000000-0000-4000-8000-000000000010";
+    const childId = "00000000-0000-4000-8000-000000000011";
+    const tx = {
+      category: {
+        update: vi.fn().mockImplementation(({ data }) => ({ id: childId, ...data })),
+        updateMany: vi.fn(),
+      },
+      transaction: { updateMany: vi.fn() },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+    };
+    (prisma.category.findFirst as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        id: childId,
+        workspaceId: "workspace-1",
+        type: "expense",
+        status: "deactive",
+        parentId,
+        jarCode: "ESSENTIAL",
+        deletedAt: null,
+      })
+      .mockResolvedValueOnce({
+        id: parentId,
+        workspaceId: "workspace-1",
+        type: "expense",
+        status: "deactive",
+        parentId: null,
+        jarCode: "ESSENTIAL",
+        deletedAt: null,
+      })
+      .mockResolvedValueOnce(null);
+    (prisma.category.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
+
+    await updateWorkspaceCategory("user-1", "workspace-1", {
+      ...baseInput,
+      categoryId: childId,
+      parentId,
+      jarCode: "ESSENTIAL",
+    });
+
+    expect(prisma.category.findFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: { id: parentId, workspaceId: "workspace-1", deletedAt: null },
+      }),
+    );
+    expect(tx.category.update).toHaveBeenCalled();
+  });
+
+  it("generates distinct deleted codes for parent and long-coded children on delete", async () => {
+    const parent = {
+      id: "11111111-1111-4111-8111-111111111111",
+      code: "VERY_LONG_SHARED_CATEGORY_CODE_PREFIX_ROOT",
+      name: "Root",
+    };
+    const childA = {
+      id: "22222222-2222-4222-8222-222222222222",
+      code: "VERY_LONG_SHARED_CATEGORY_CODE_PREFIX_CHILD_A",
+      name: "Child A",
+    };
+    const childB = {
+      id: "33333333-3333-4333-8333-333333333333",
+      code: "VERY_LONG_SHARED_CATEGORY_CODE_PREFIX_CHILD_B",
+      name: "Child B",
+    };
+    const updatedCodes: string[] = [];
+    const tx = {
+      category: {
+        update: vi.fn().mockImplementation(({ data }) => {
+          updatedCodes.push(data.code);
+          return { ...parent, ...data };
+        }),
+      },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+    };
+    (prisma.category.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(parent);
+    (prisma.category.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([childA, childB]);
+    (prisma.transaction.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+    (prisma.recurringTransaction.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
+
+    await deleteWorkspaceCategory("user-1", "workspace-1", parent.id);
+
+    expect(new Set(updatedCodes).size).toBe(3);
+  });
 });

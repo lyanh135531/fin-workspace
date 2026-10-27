@@ -65,6 +65,10 @@ export async function activateInstallmentPlanInTransaction(tx: Tx, workspaceId: 
     throw new AppError("CONFLICT", "Giao dịch đã được thanh toán hoặc đã vào sao kê.");
   }
 
+  if (new Decimal(original.amount.toString()).lt(plan.termCount)) {
+    throw new AppError("VALIDATION_ERROR", "Số tiền gốc giao dịch trả góp phải lớn hơn hoặc bằng số kỳ trả góp.");
+  }
+
   let feeTransactionId: string | null = null;
   if (new Decimal(plan.feeAmount.toString()).gt(0)) {
     const feeCategory = await tx.category.findFirst({
@@ -87,10 +91,12 @@ export async function activateInstallmentPlanInTransaction(tx: Tx, workspaceId: 
         postedDate: plan.effectiveDate,
         jarCode: feeCategory.jarCode,
         creditCardAllocations: {
-          create: original.creditCardAllocations.map((allocation, index) => ({
-            fundingWalletId: allocation.fundingWalletId,
-            amount: feeShares[index],
-          })),
+          create: original.creditCardAllocations
+            .map((allocation, index) => ({
+              fundingWalletId: allocation.fundingWalletId,
+              amount: feeShares[index],
+            }))
+            .filter((item) => item.amount.gt(0)),
         },
       },
     });
@@ -136,9 +142,12 @@ export async function createInstallmentPlanInTransaction(
 ) {
   const transaction = await tx.transaction.findFirst({
     where: { id: transactionId, member: { workspaceId }, wallet: { kind: "credit_card", workspaceLinks: { some: { workspaceId } } } },
-    select: { walletId: true, workflowStatus: true, type: true, description: true },
+    select: { walletId: true, workflowStatus: true, type: true, description: true, amount: true },
   });
   if (!transaction) throw new AppError("VALIDATION_ERROR", "Trả góp chỉ áp dụng cho giao dịch thẻ tín dụng.");
+  if (transaction.amount !== undefined && new Decimal(transaction.amount.toString()).lt(input.termCount)) {
+    throw new AppError("VALIDATION_ERROR", "Số tiền gốc giao dịch trả góp phải lớn hơn hoặc bằng số kỳ trả góp.");
+  }
   const fallbackDescription =
     transaction.description ||
     (transaction.type === "transfer" ? "Chuyển tiền từ thẻ" : undefined);

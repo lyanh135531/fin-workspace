@@ -23,6 +23,7 @@ import {
   getWorkspaceFinancialPlans,
 } from "@/services/financial-plan-service";
 import { getWorkspaceInvestmentsOverview } from "@/services/investment-service";
+import { processDueRecurringTransactions } from "@/services/recurring-transaction-service";
 import { PageContainer } from "@/components/base";
 
 const ZERO = new Decimal(0);
@@ -44,6 +45,7 @@ export default async function OverviewPage() {
       workspaceId,
       membership.workspace.timeZone,
     ).catch(() => undefined),
+    processDueRecurringTransactions({ workspaceId }).catch(() => null),
   ]);
 
   const businessDate = getBusinessDateInTimeZone(membership.workspace.timeZone);
@@ -51,6 +53,7 @@ export default async function OverviewPage() {
 
   const [
     walletLinks,
+    allWorkspaceWallets,
     members,
     transactions,
     recurringRows,
@@ -89,6 +92,22 @@ export default async function OverviewPage() {
       },
       orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
     }),
+    prisma.workspaceWallet.findMany({
+      where: { workspaceId },
+      select: {
+        wallet: {
+          select: {
+            id: true,
+            name: true,
+            kind: true,
+            status: true,
+            deletedAt: true,
+            currentBalance: true,
+          },
+        },
+      },
+      orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
+    }),
     prisma.workspaceMember.findMany({
       where: { workspaceId, status: "active", deletedAt: null },
       select: { id: true, user: { select: { username: true } } },
@@ -104,6 +123,12 @@ export default async function OverviewPage() {
         creditCardPaymentSources: {
           select: { sourceWalletId: true, amount: true },
         },
+        goldSaleRecord: {
+          select: { costBasisAllocatedAmount: true, deletedAt: true },
+        },
+        savingsDepositSettlement: {
+          select: { principalWithdrawnAmount: true },
+        },
       },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     }),
@@ -113,7 +138,6 @@ export default async function OverviewPage() {
         status: "active",
         deletedAt: null,
         approvalStatus: "approved",
-        nextExecutionDate: { gte: new Date(businessDate) },
       },
       include: {
         wallet: { select: { name: true } },
@@ -304,17 +328,22 @@ export default async function OverviewPage() {
       }
     : null;
 
-  const totalByCurrency = walletLinks.reduce<Record<string, string>>(
-    (totals, { wallet }) => {
+  const balanceHistoryWallets = allWorkspaceWallets.map(({ wallet }) => ({
+    id: wallet.id,
+    name: wallet.name,
+    kind: wallet.kind,
+    balance: wallet.deletedAt ? "0" : wallet.currentBalance.toString(),
+  }));
+
+  const totalByCurrency = balanceHistoryWallets.reduce<Record<string, string>>(
+    (totals, wallet) => {
       const current = new Decimal(
         totals[membership.workspace.baseCurrency] ?? 0,
       );
       totals[membership.workspace.baseCurrency] = (
         wallet.kind === "credit_card"
-          ? current.minus(
-              Decimal.max(new Decimal(wallet.currentBalance.toString()), 0),
-            )
-          : current.plus(wallet.currentBalance.toString())
+          ? current.minus(Decimal.max(new Decimal(wallet.balance), 0))
+          : current.plus(wallet.balance)
       ).toString();
       return totals;
     },
@@ -332,6 +361,7 @@ export default async function OverviewPage() {
   return (
     <PageContainer>
       <OverviewDashboard
+        key={workspaceId}
         workspace={{
           id: workspaceId,
           name: membership.workspace.name,
@@ -344,6 +374,7 @@ export default async function OverviewPage() {
         }
         financialPlanSnapshot={financialPlanSnapshot}
         investmentsSnapshot={investmentsSnapshot}
+        balanceHistoryWallets={balanceHistoryWallets}
         wallets={walletLinks.map(({ wallet }) => {
           const committed = commitments.get(wallet.id) ?? ZERO;
           const profile = wallet.creditCardProfile;
@@ -413,29 +444,41 @@ export default async function OverviewPage() {
           parentId: cat.parentId,
           type: cat.type as "income" | "expense",
         }))}
-        transactions={transactions.map((transaction) => ({
-          id: transaction.id,
-          amount: transaction.amount.toString(),
-          type: transaction.type,
-          purpose: transaction.purpose,
-          status: transaction.workflowStatus,
-          description: transaction.description,
-          date: transaction.date.toISOString(),
-          walletId: transaction.walletId,
-          toWalletId: transaction.toWalletId,
-          wallet: transaction.wallet.name,
-          toWallet: transaction.toWallet?.name ?? null,
-          categoryId: transaction.categoryId,
-          category: transaction.category,
-          memberId: transaction.memberId,
-          member: transaction.member.user.username ?? "Người dùng",
-          paymentSources: transaction.creditCardPaymentSources.map(
-            (source) => ({
-              walletId: source.sourceWalletId,
-              amount: source.amount.toString(),
-            }),
-          ),
-        }))}
+        transactions={transactions.map((transaction) => {
+          const investmentPrincipalDelta =
+            transaction.purpose === "investment_settlement"
+              ? transaction.goldSaleRecord && !transaction.goldSaleRecord.deletedAt
+                ? transaction.goldSaleRecord.costBasisAllocatedAmount.toString()
+                : transaction.savingsDepositSettlement
+                  ? transaction.savingsDepositSettlement.principalWithdrawnAmount.toString()
+                  : undefined
+              : undefined;
+
+          return {
+            id: transaction.id,
+            amount: transaction.amount.toString(),
+            type: transaction.type,
+            purpose: transaction.purpose,
+            status: transaction.workflowStatus,
+            description: transaction.description,
+            date: transaction.date.toISOString(),
+            walletId: transaction.walletId,
+            toWalletId: transaction.toWalletId,
+            wallet: transaction.wallet.name,
+            toWallet: transaction.toWallet?.name ?? null,
+            categoryId: transaction.categoryId,
+            category: transaction.category,
+            memberId: transaction.memberId,
+            member: transaction.member.user.username ?? "Người dùng",
+            investmentPrincipalDelta,
+            paymentSources: transaction.creditCardPaymentSources.map(
+              (source) => ({
+                walletId: source.sourceWalletId,
+                amount: source.amount.toString(),
+              }),
+            ),
+          };
+        })}
         userRole={membership.role.name}
         upcomingRecurring={recurringRows.map((item) => ({
           id: item.id,

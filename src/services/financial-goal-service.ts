@@ -99,10 +99,112 @@ export function getFinancialGoalProgress(
   return goalProgress(tx, goal);
 }
 
-export async function getPlanGoalProgressSummary(tx: TransactionClient, planId: string) {
+async function goalProgressBeforeBoundary(
+  tx: TransactionClient,
+  goal: {
+    id: string;
+    trackingMode: "manual" | "linked_wallet";
+    linkedWalletId: string | null;
+  },
+  boundaryDate: Date,
+  options?: {
+    includeOpeningAndAdjustment?: boolean;
+    asOfEnd?: Date;
+    activatedAt?: Date | null;
+  },
+) {
+  if (goal.trackingMode === "linked_wallet") {
+    if (!goal.linkedWalletId) return ZERO;
+    const wallet = await tx.wallet.findFirst({
+      where: { id: goal.linkedWalletId, deletedAt: null },
+      select: { currentBalance: true },
+    });
+    let balance = new Decimal(wallet?.currentBalance.toString() ?? 0);
+    const laterTransactions =
+      (await tx.transaction?.findMany?.({
+        where: {
+          deletedAt: null,
+          workflowStatus: "approved",
+          date: { gte: boundaryDate },
+          ...(options?.activatedAt && options.activatedAt > boundaryDate
+            ? { createdAt: { gte: options.activatedAt } }
+            : {}),
+          OR: [
+            { walletId: goal.linkedWalletId },
+            { toWalletId: goal.linkedWalletId },
+          ],
+        },
+        select: {
+          type: true,
+          purpose: true,
+          amount: true,
+          walletId: true,
+          toWalletId: true,
+        },
+      })) ?? [];
+    for (const record of laterTransactions) {
+      const amount = new Decimal(record.amount.toString());
+      if (record.type === "income" && record.walletId === goal.linkedWalletId) {
+        balance = balance.minus(amount);
+      } else if (
+        record.type === "expense" &&
+        record.walletId === goal.linkedWalletId
+      ) {
+        balance = balance.plus(amount);
+      } else if (record.type === "transfer") {
+        if (record.walletId === goal.linkedWalletId) {
+          balance = balance.plus(amount);
+        }
+        if (record.toWalletId === goal.linkedWalletId) {
+          balance = balance.minus(amount);
+        }
+      }
+    }
+    return Decimal.max(balance, ZERO).toDecimalPlaces(0, Decimal.ROUND_FLOOR);
+  }
+  const total = await tx.financialGoalFundingEntry.aggregate({
+    where: options?.includeOpeningAndAdjustment
+      ? {
+          goalId: goal.id,
+          status: "approved",
+          OR: [
+            { effectiveDate: { lt: boundaryDate } },
+            {
+              effectiveDate: {
+                gte: boundaryDate,
+                ...(options.asOfEnd ? { lt: options.asOfEnd } : {}),
+              },
+              kind: { in: ["opening", "adjustment"] },
+              reversedBy: { none: {} },
+            },
+          ],
+        }
+      : {
+          goalId: goal.id,
+          status: "approved",
+          effectiveDate: { lt: boundaryDate },
+        },
+    _sum: { amount: true },
+  });
+  return Decimal.max(total._sum.amount?.toString() ?? 0, ZERO).toDecimalPlaces(
+    0,
+    Decimal.ROUND_FLOOR,
+  );
+}
+
+export async function getPlanGoalProgressSummary(
+  tx: TransactionClient,
+  planId: string,
+  options?: { monthStart?: Date; asOfEnd?: Date },
+) {
   const plan = await tx.financialPlan?.findFirst?.({
     where: { id: planId, deletedAt: null },
-    select: { status: true, cancelledAt: true, existingGoalAmount: true },
+    select: {
+      status: true,
+      cancelledAt: true,
+      activatedAt: true,
+      existingGoalAmount: true,
+    },
   });
   let goals = await tx.financialPlanGoal.findMany({
     where: {
@@ -133,13 +235,20 @@ export async function getPlanGoalProgressSummary(tx: TransactionClient, planId: 
   let totalProgress = ZERO;
   let workspaceReserved = ZERO;
   const progressByGoal = new Map<string, Decimal>();
+  const liveReservedByGoal = new Map<string, Decimal>();
   for (const goal of goals) {
-    const liveProgress = Decimal.min(await goalProgress(tx, goal), goal.targetAmount.toString());
-    const effectiveProgress =
-      goal.status === "completed"
-        ? new Decimal(goal.targetAmount.toString())
-        : liveProgress;
+    const rawProgress = options?.asOfEnd
+      ? await goalProgressBeforeBoundary(tx, goal, options.asOfEnd)
+      : await goalProgress(tx, goal);
+    const liveProgress = Decimal.min(rawProgress, goal.targetAmount.toString());
+    const completedAsOf =
+      goal.status === "completed" &&
+      (!options?.asOfEnd || !goal.completedAt || goal.completedAt < options.asOfEnd);
+    const effectiveProgress = completedAsOf
+      ? new Decimal(goal.targetAmount.toString())
+      : liveProgress;
     progressByGoal.set(goal.id, effectiveProgress);
+    liveReservedByGoal.set(goal.id, liveProgress);
     totalProgress = totalProgress.plus(effectiveProgress);
     workspaceReserved = workspaceReserved.plus(liveProgress);
   }
@@ -173,10 +282,46 @@ export async function getPlanGoalProgressSummary(tx: TransactionClient, planId: 
       totalProgress,
     );
   }
+
+  let progressBeforeMonth = openingProgress;
+  let workspaceReservedBeforeMonth = openingProgress;
+  if (options?.monthStart) {
+    progressBeforeMonth = ZERO;
+    workspaceReservedBeforeMonth = ZERO;
+    for (const goal of goals) {
+      const rawBefore = await goalProgressBeforeBoundary(
+        tx,
+        goal,
+        options.monthStart,
+        {
+          includeOpeningAndAdjustment: true,
+          asOfEnd: options.asOfEnd,
+          activatedAt: plan?.activatedAt ?? null,
+        },
+      );
+      const liveReserved = liveReservedByGoal.get(goal.id) ?? ZERO;
+      const clampedReservedBefore = Decimal.min(
+        Decimal.min(rawBefore, goal.targetAmount.toString()),
+        liveReserved,
+      );
+      const completedBeforeMonth =
+        goal.status === "completed" &&
+        Boolean(goal.completedAt && goal.completedAt < options.monthStart);
+      const effectiveBefore = completedBeforeMonth
+        ? new Decimal(goal.targetAmount.toString())
+        : clampedReservedBefore;
+      progressBeforeMonth = progressBeforeMonth.plus(effectiveBefore);
+      workspaceReservedBeforeMonth =
+        workspaceReservedBeforeMonth.plus(clampedReservedBefore);
+    }
+  }
+
   return {
     totalProgress,
     workspaceReserved,
     openingProgress: openingProgress.toFixed(0),
+    progressBeforeMonth,
+    workspaceReservedBeforeMonth,
     hasGoals: goals.length > 0,
   };
 }
@@ -562,12 +707,17 @@ export async function getFinancialPlanGoalPortfolio(
     const goals = await tx.financialPlanGoal.findMany({
       where: { financialPlanId: planId, deletedAt: null, financialPlan: { workspaceId, deletedAt: null } },
       include: {
+        _count: { select: { fundingEntries: true } },
         financialPlan: { select: { startMonth: true } },
         linkedWallet: { select: { id: true, name: true, currentBalance: true } },
         fundingEntries: {
           orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
           take: 30,
-          include: { requester: { include: { user: { select: { username: true } } } }, reviewer: { include: { user: { select: { username: true } } } } },
+          include: {
+            requester: { include: { user: { select: { username: true } } } },
+            reviewer: { include: { user: { select: { username: true } } } },
+            reversedBy: { select: { id: true } },
+          },
         },
       },
       orderBy: [{ sortOrder: "asc" }, { targetMonth: "asc" }, { createdAt: "asc" }],
@@ -632,6 +782,7 @@ export async function getFinancialPlanGoalPortfolio(
         shortfallThisMonth: monthly?.shortfall.toFixed(0) ?? "0",
         projectedAtDeadline: projected.toFixed(0),
         health: deriveGoalHealth({ currentMonth: businessMonth, targetMonth: goal.targetMonth.toISOString().slice(0, 7), targetAmount: target, actualProgress: actual, projectedAtDeadline: projected, expectedProgressNow: expected }),
+        totalFundingEntriesCount: goal._count?.fundingEntries ?? goal.fundingEntries.length,
         fundingEntries: goal.fundingEntries.map((entry) => ({
           id: entry.id,
           amount: entry.amount.toString(),
@@ -642,6 +793,7 @@ export async function getFinancialPlanGoalPortfolio(
           requester: entry.requester.user.username ?? "Người dùng",
           reviewer: entry.reviewer?.user.username ?? null,
           reversesEntryId: entry.reversesEntryId,
+          reversedBy: entry.reversedBy?.[0] ?? null,
         })),
         canManage: isAdminRole(member.role.code),
       };

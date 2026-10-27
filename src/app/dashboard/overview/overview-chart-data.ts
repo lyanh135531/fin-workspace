@@ -23,6 +23,7 @@ export type ChartTransaction = {
   toWalletId: string | null;
   categoryId: string | null;
   memberId: string;
+  investmentPrincipalDelta?: string;
   paymentSources?: Array<{ walletId: string; amount: string }>;
 };
 
@@ -142,6 +143,10 @@ export function buildMonthlyCashflow(
 
   for (const transaction of transactions) {
     const period = transaction.date.slice(0, 7);
+    const effectiveType =
+      transaction.purpose === "credit_card_refund"
+        ? "expense"
+        : transaction.type;
     if (
       transaction.status !== "approved"
       || transaction.type === "transfer"
@@ -156,7 +161,7 @@ export function buildMonthlyCashflow(
         && transaction.toWalletId !== filters.walletId)
       || (filters.categoryId !== "all" && transaction.categoryId !== filters.categoryId)
       || (filters.memberId !== "all" && transaction.memberId !== filters.memberId)
-      || (filters.transactionType !== "all" && transaction.type !== filters.transactionType)
+      || (filters.transactionType !== "all" && effectiveType !== filters.transactionType)
     ) {
       continue;
     }
@@ -258,6 +263,12 @@ export function buildMonthlyBalances(
   investmentCostBasis?: string,
 ): MonthlyBalance[] {
   const periods = reportPeriods(filters.endPeriod, filters.range, filters.dateRange);
+  const lastPeriod = periods[periods.length - 1] ?? filters.endPeriod;
+  const [endYear, endMonth] = lastPeriod.split("-").map(Number);
+  const lastDayOfEndPeriod = new Date(Date.UTC(endYear, endMonth, 0)).getUTCDate();
+  const cutoffDate =
+    filters.dateRange?.to ??
+    `${lastPeriod}-${String(lastDayOfEndPeriod).padStart(2, "0")}`;
   const visibleWallets = filters.walletId === "all"
     ? wallets
     : wallets.filter((wallet) => wallet.id === filters.walletId);
@@ -275,21 +286,19 @@ export function buildMonthlyBalances(
           walletKinds,
           (tx, period) =>
             tx.date.slice(0, 7) <= period &&
-            (filters.dateRange === undefined || tx.date.slice(0, 10) <= filters.dateRange.to),
+            tx.date.slice(0, 10) <= cutoffDate,
           rawMarketValue,
           rawCostBasis,
         )
       : null;
   const rows = new Map<string, MonthlyBalance>();
 
-  if (filters.dateRange) {
-    for (const transaction of transactions) {
-      if (
-        transaction.status === "approved"
-        && transaction.date.slice(0, 10) > filters.dateRange.to
-      ) {
-        reverseBalanceTransaction(balances, transaction, walletKinds);
-      }
+  for (const transaction of transactions) {
+    if (
+      transaction.status === "approved"
+      && transaction.date.slice(0, 10) > cutoffDate
+    ) {
+      reverseBalanceTransaction(balances, transaction, walletKinds);
     }
   }
 
@@ -325,7 +334,7 @@ export function buildMonthlyBalances(
       if (
         transaction.status !== "approved"
         || transaction.date.slice(0, 7) !== period
-        || (filters.dateRange !== undefined && transaction.date.slice(0, 10) > filters.dateRange.to)
+        || transaction.date.slice(0, 10) > cutoffDate
       ) {
         continue;
       }
@@ -376,6 +385,10 @@ export function buildDailyCashflow(
 
   for (const transaction of transactions) {
     const txDay = transaction.date.slice(0, 10);
+    const effectiveType =
+      transaction.purpose === "credit_card_refund"
+        ? "expense"
+        : transaction.type;
     if (
       transaction.status !== "approved"
       || transaction.type === "transfer"
@@ -387,7 +400,7 @@ export function buildDailyCashflow(
         && transaction.toWalletId !== filters.walletId)
       || (filters.categoryId !== "all" && transaction.categoryId !== filters.categoryId)
       || (filters.memberId !== "all" && transaction.memberId !== filters.memberId)
-      || (filters.transactionType !== "all" && transaction.type !== filters.transactionType)
+      || (filters.transactionType !== "all" && effectiveType !== filters.transactionType)
     ) {
       continue;
     }
@@ -562,8 +575,7 @@ function buildHistoricalInvestmentBalances(
         tx.status === "approved" &&
         walletKinds.get(tx.walletId) !== "credit_card" &&
         (tx.purpose === "investment_contribution" ||
-          tx.purpose === "investment_settlement") &&
-        isOnOrBeforePeriod(tx, endPeriod),
+          tx.purpose === "investment_settlement"),
     )
     .slice()
     .sort((a, b) => {
@@ -585,12 +597,16 @@ function buildHistoricalInvestmentBalances(
       isOnOrBeforePeriod(sortedInvestmentTxs[txIdx]!, period)
     ) {
       const tx = sortedInvestmentTxs[txIdx]!;
-      const amount = new Decimal(tx.amount || 0);
       if (tx.purpose === "investment_contribution") {
-        openWalletPrincipal = openWalletPrincipal.plus(amount);
+        openWalletPrincipal = openWalletPrincipal.plus(
+          new Decimal(tx.amount || 0),
+        );
       } else if (tx.purpose === "investment_settlement") {
+        const principalDelta = new Decimal(
+          tx.investmentPrincipalDelta ?? tx.amount ?? 0,
+        );
         openWalletPrincipal = Decimal.max(
-          openWalletPrincipal.minus(amount),
+          openWalletPrincipal.minus(principalDelta),
           ZERO,
         );
       }
@@ -599,29 +615,47 @@ function buildHistoricalInvestmentBalances(
     openPrincipalByPeriod.set(period, openWalletPrincipal);
   }
 
-  const finalOpenWalletPrincipal = openWalletPrincipal;
+  const hasPostEndInvestmentTx = txIdx < sortedInvestmentTxs.length;
+  let currentOpenWalletPrincipal = openWalletPrincipal;
+  while (txIdx < sortedInvestmentTxs.length) {
+    const tx = sortedInvestmentTxs[txIdx]!;
+    if (tx.purpose === "investment_contribution") {
+      currentOpenWalletPrincipal = currentOpenWalletPrincipal.plus(
+        new Decimal(tx.amount || 0),
+      );
+    } else if (tx.purpose === "investment_settlement") {
+      const principalDelta = new Decimal(
+        tx.investmentPrincipalDelta ?? tx.amount ?? 0,
+      );
+      currentOpenWalletPrincipal = Decimal.max(
+        currentOpenWalletPrincipal.minus(principalDelta),
+        ZERO,
+      );
+    }
+    txIdx += 1;
+  }
 
   for (const period of periods) {
-    const isFinalPoint = period === endPeriod;
+    const isLiveFinalPoint = period === endPeriod && !hasPostEndInvestmentTx;
     const principalAtPeriod = openPrincipalByPeriod.get(period) ?? ZERO;
 
     if (targetCostBasis !== undefined) {
       const existingAssetCost = Decimal.max(
-        targetCostBasis.minus(finalOpenWalletPrincipal),
+        targetCostBasis.minus(currentOpenWalletPrincipal),
         ZERO,
       );
-      if (isFinalPoint) {
+      if (isLiveFinalPoint) {
         result.set(period, targetMarketValue);
       } else {
         result.set(period, principalAtPeriod.plus(existingAssetCost));
       }
     } else {
       const baselineOffset = Decimal.max(
-        targetMarketValue.minus(finalOpenWalletPrincipal),
+        targetMarketValue.minus(currentOpenWalletPrincipal),
         ZERO,
       );
-      if (targetMarketValue.lt(finalOpenWalletPrincipal)) {
-        if (isFinalPoint) {
+      if (targetMarketValue.lt(currentOpenWalletPrincipal)) {
+        if (isLiveFinalPoint) {
           result.set(period, targetMarketValue);
         } else if (principalAtPeriod.eq(ZERO)) {
           result.set(period, ZERO);

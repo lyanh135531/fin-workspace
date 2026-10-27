@@ -88,6 +88,7 @@ export type SavingsMetricsInput = {
   currentPrincipalAmount: Decimal.Value;
   annualInterestRate: Decimal.Value;
   nonTermInterestRate?: Decimal.Value;
+  interestPayoutMode?: "maturity" | "upfront" | "monthly";
   startDate: string;
   maturityDate: string;
   businessDate: string;
@@ -104,6 +105,7 @@ export type SavingsMetricsResult = {
   expectedTotalAtMaturity: string;
   accruedTermInterestToDate: string;
   earlyLiquidationInterestToDate: string;
+  upfrontInterestAmount: string;
 };
 
 /**
@@ -144,19 +146,24 @@ export function calculateSavingsMetrics(
     Math.max(0, Math.round((elapsedDays / rawTotalDays) * 100)),
   );
 
-  const expectedMaturityInterest = principal
+  const fullTermInterest = principal
     .mul(annualRate)
     .div(HUNDRED)
     .mul(rawTotalDays)
     .div(DAYS_IN_YEAR)
     .toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
 
-  const accruedTermInterestToDate = principal
-    .mul(annualRate)
-    .div(HUNDRED)
-    .mul(elapsedDays)
-    .div(DAYS_IN_YEAR)
-    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+  const isUpfront = input.interestPayoutMode === "upfront";
+  const expectedMaturityInterest = isUpfront ? ZERO : fullTermInterest;
+
+  const accruedTermInterestToDate = isUpfront
+    ? ZERO
+    : principal
+        .mul(annualRate)
+        .div(HUNDRED)
+        .mul(elapsedDays)
+        .div(DAYS_IN_YEAR)
+        .toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
 
   const actualDaysHeld = Math.max(0, rawElapsedDays);
   const earlyLiquidationInterestToDate = principal
@@ -180,6 +187,7 @@ export function calculateSavingsMetrics(
     expectedTotalAtMaturity: principal.plus(expectedMaturityInterest).toFixed(0),
     accruedTermInterestToDate: accruedTermInterestToDate.toFixed(0),
     earlyLiquidationInterestToDate: earlyLiquidationInterestToDate.toFixed(0),
+    upfrontInterestAmount: isUpfront ? fullTermInterest.toFixed(0) : "0",
   };
 }
 

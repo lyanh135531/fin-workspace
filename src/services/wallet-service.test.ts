@@ -447,4 +447,63 @@ describe("wallet-service lifecycle", () => {
       data: { status: "deactive" },
     });
   });
+
+  it("queries only gold lots with remainingQuantityChi > 0 so fully sold gold lots do not block wallet deactivation", async () => {
+    const soldOutLots = [
+      {
+        workspaceId: "workspace-1",
+        sourceWalletId: "wallet-1",
+        fundingMode: "from_wallet",
+        remainingQuantityChi: new Decimal(0),
+        deletedAt: null,
+      },
+    ];
+    const tx = {
+      ...transactionClient("active"),
+      goldPurchaseLot: {
+        count: vi.fn().mockImplementation(({ where }) => {
+          const matches = soldOutLots.filter(
+            (lot) =>
+              where?.remainingQuantityChi?.gt !== undefined
+                ? lot.remainingQuantityChi.gt(where.remainingQuantityChi.gt)
+                : true,
+          );
+          return Promise.resolve(matches.length);
+        }),
+      },
+    };
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
+
+    await expect(
+      setWalletStatusForWorkspace(
+        "admin-1",
+        "workspace-1",
+        "wallet-1",
+        "deactive",
+      ),
+    ).resolves.toBeDefined();
+
+    expect(tx.goldPurchaseLot.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        workspaceId: "workspace-1",
+        sourceWalletId: "wallet-1",
+        fundingMode: "from_wallet",
+        remainingQuantityChi: { gt: 0 },
+      }),
+    });
+
+    // When an open gold lot still holds remainingQuantityChi > 0, deactivation is blocked
+    tx.goldPurchaseLot.count.mockResolvedValueOnce(1);
+    await expect(
+      setWalletStatusForWorkspace(
+        "admin-1",
+        "workspace-1",
+        "wallet-1",
+        "deactive",
+      ),
+    ).rejects.toThrow("lô vàng");
+  });
 });
+

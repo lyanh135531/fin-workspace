@@ -14,6 +14,7 @@ import {
 import { requirePlatformAdminSession } from "@/services/platform-access";
 import { PortalSidebarNav } from "./portal-sidebar-nav";
 import { PortalHeader } from "./portal-header";
+import { PortalSignOutButton } from "./portal-sign-out-button";
 
 export const metadata: Metadata = {
   title: "Portal người dùng",
@@ -45,7 +46,7 @@ export default async function PortalLayout({
           <PortalSidebarNav />
         </SidebarContent>
 
-        <SidebarFooter className="md:pt-3">
+        <SidebarFooter className="gap-1 md:pt-3">
           <div className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2 text-sm transition-[width,height,padding,gap] duration-300 ease-in-out group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0">
             <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-[color-mix(in_srgb,var(--primary)_14%,var(--surface))] text-xs font-bold text-[var(--primary)]">
               {admin.username.slice(0, 2).toUpperCase()}
@@ -57,6 +58,7 @@ export default async function PortalLayout({
               <p className="text-[0.68rem] text-[var(--text-muted)]">Quản trị hệ thống</p>
             </div>
           </div>
+          <PortalSignOutButton collapsibleSidebar />
         </SidebarFooter>
 
         <SidebarRail />

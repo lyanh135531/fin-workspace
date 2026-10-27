@@ -131,7 +131,6 @@ const WORKSPACE_PREFIXES = [
   "/financial-plans",
   "/settings",
   "/members",
-  "/account",
 ];
 
 function isWorkspaceClientPath(pathname) {

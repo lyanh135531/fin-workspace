@@ -422,39 +422,91 @@ export function allocateGoldSaleCostBasis(params: {
         .div(holdingQty)
         .toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
 
+  const nextHoldingQty = Decimal.max(holdingQty.minus(sellQty), ZERO);
+  const nextHoldingCost = nextHoldingQty.isZero()
+    ? ZERO
+    : Decimal.max(holdingCost.minus(costAllocated), ZERO);
+
   let remainingToDeductQty = sellQty;
+  const lotDrafts: Array<{
+    lotId: string;
+    prevQty: Decimal;
+    prevCost: Decimal;
+    nextRemainingQuantityChi: Decimal;
+  }> = [];
+
+  for (const lot of params.openLots) {
+    const lotRemQty = new Decimal(lot.remainingQuantityChi);
+    const lotRemCost = new Decimal(lot.remainingCostAmount);
+    if (lotRemQty.lte(0)) continue;
+
+    const deductQty = remainingToDeductQty.gt(0)
+      ? Decimal.min(lotRemQty, remainingToDeductQty)
+      : ZERO;
+    const nextQty = Decimal.max(lotRemQty.minus(deductQty), ZERO);
+    remainingToDeductQty = remainingToDeductQty.minus(deductQty);
+
+    lotDrafts.push({
+      lotId: lot.id,
+      prevQty: lotRemQty,
+      prevCost: lotRemCost,
+      nextRemainingQuantityChi: nextQty,
+    });
+  }
+
+  const survivingDrafts = lotDrafts.filter((draft) =>
+    draft.nextRemainingQuantityChi.gt(0),
+  );
+  const survivingTotalQty = survivingDrafts.reduce(
+    (sum, draft) => sum.plus(draft.nextRemainingQuantityChi),
+    ZERO,
+  );
+
+  const rebalancedCostByLotId = new Map<string, Decimal>();
+  if (survivingDrafts.length > 0 && survivingTotalQty.gt(0) && nextHoldingCost.gt(0)) {
+    let allocatedOpenCost = ZERO;
+    for (let i = 0; i < survivingDrafts.length; i += 1) {
+      const draft = survivingDrafts[i];
+      const isLastOpenLot = i === survivingDrafts.length - 1;
+      const remainingPool = Decimal.max(
+        nextHoldingCost.minus(allocatedOpenCost),
+        ZERO,
+      );
+      const nextLotCost = isLastOpenLot
+        ? remainingPool
+        : Decimal.min(
+            nextHoldingCost
+              .mul(draft.nextRemainingQuantityChi)
+              .div(survivingTotalQty)
+              .toDecimalPlaces(0, Decimal.ROUND_HALF_UP),
+            remainingPool,
+          );
+      rebalancedCostByLotId.set(draft.lotId, nextLotCost);
+      allocatedOpenCost = allocatedOpenCost.plus(nextLotCost);
+    }
+  }
+
   const lotUpdates: Array<{
     lotId: string;
     nextRemainingQuantityChi: Decimal;
     nextRemainingCostAmount: Decimal;
   }> = [];
 
-  for (const lot of params.openLots) {
-    if (remainingToDeductQty.lte(0)) break;
-    const lotRemQty = new Decimal(lot.remainingQuantityChi);
-    const lotRemCost = new Decimal(lot.remainingCostAmount);
-    if (lotRemQty.lte(0)) continue;
-
-    const deductQty = Decimal.min(lotRemQty, remainingToDeductQty);
-    const deductCost = deductQty.eq(lotRemQty)
-      ? lotRemCost
-      : lotRemCost
-          .mul(deductQty)
-          .div(lotRemQty)
-          .toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
-
-    lotUpdates.push({
-      lotId: lot.id,
-      nextRemainingQuantityChi: Decimal.max(lotRemQty.minus(deductQty), ZERO),
-      nextRemainingCostAmount: Decimal.max(lotRemCost.minus(deductCost), ZERO),
-    });
-    remainingToDeductQty = remainingToDeductQty.minus(deductQty);
+  for (const draft of lotDrafts) {
+    const nextRemainingCostAmount = draft.nextRemainingQuantityChi.gt(0)
+      ? (rebalancedCostByLotId.get(draft.lotId) ?? ZERO)
+      : ZERO;
+    if (
+      !draft.nextRemainingQuantityChi.eq(draft.prevQty) ||
+      !nextRemainingCostAmount.eq(draft.prevCost)
+    ) {
+      lotUpdates.push({
+        lotId: draft.lotId,
+        nextRemainingQuantityChi: draft.nextRemainingQuantityChi,
+        nextRemainingCostAmount,
+      });
+    }
   }
-
-  const nextHoldingQty = Decimal.max(holdingQty.minus(sellQty), ZERO);
-  const nextHoldingCost = nextHoldingQty.isZero()
-    ? ZERO
-    : Decimal.max(holdingCost.minus(costAllocated), ZERO);
 
   return {
     grossProceedsAmount: grossProceeds,

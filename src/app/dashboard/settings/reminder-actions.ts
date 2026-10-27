@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
 import { requireAcceptedLegalSession } from "@/lib/legal-access";
 import { toActionFailure } from "@/lib/server-error";
 import {
@@ -88,6 +90,19 @@ export async function removeUserPushSubscriptionAction(endpoint: string) {
       "Không thể tắt thông báo trên thiết bị này.",
       "reminder.unsubscribe_failed",
     );
+  }
+}
+
+export async function removePushSubscriptionOnLogoutAction(endpoint: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id || !endpoint?.trim()) {
+      return { ok: true as const };
+    }
+    await removeUserPushSubscription(session.user.id, endpoint);
+    return { ok: true as const };
+  } catch {
+    return { ok: false as const };
   }
 }
 

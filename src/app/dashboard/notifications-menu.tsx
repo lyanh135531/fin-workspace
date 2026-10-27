@@ -1121,7 +1121,11 @@ export function NotificationsMenu({
         try {
           const registration = await navigator.serviceWorker.getRegistration("/");
           const sub = await registration?.pushManager.getSubscription();
-          hasSub = Boolean(sub);
+          hasSub = Boolean(
+            sub &&
+              (!reminderState?.endpoints ||
+                reminderState.endpoints.includes(sub.endpoint)),
+          );
         } catch {
           hasSub = false;
         }
@@ -1159,7 +1163,7 @@ export function NotificationsMenu({
         handleExternalSubscribe,
       );
     };
-  }, []);
+  }, [reminderState?.endpoints]);
 
   function markIntroSeen(): void {
     setIntroOpen(false);
@@ -1279,11 +1283,15 @@ export function NotificationsMenu({
   function reviewJoin(id: string, approve: boolean): void {
     if (!canReview) return;
     start(async () => {
-      const result = await reviewJoinAction({
-        requestId: id,
-        approve,
-        roleCode: approve ? (joinRoles[id] ?? defaultRoleCode) : undefined,
-      });
+      const result = await reviewJoinAction(
+        {
+          workspaceId,
+          requestId: id,
+          approve,
+          roleCode: approve ? (joinRoles[id] ?? defaultRoleCode) : undefined,
+        },
+        workspaceId,
+      );
       if (result.ok) {
         toast.success(
           approve

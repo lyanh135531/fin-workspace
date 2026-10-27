@@ -33,4 +33,18 @@ describe("portal activity schemas", () => {
       page: 1,
     });
   });
+
+  it("swaps dateFrom and dateTo when dateFrom is after dateTo", () => {
+    expect(
+      parsePortalActivitySearchParams({
+        dateFrom: "2026-08-25",
+        dateTo: "2026-08-05",
+      }),
+    ).toEqual({
+      q: "",
+      dateFrom: "2026-08-05",
+      dateTo: "2026-08-25",
+      page: 1,
+    });
+  });
 });

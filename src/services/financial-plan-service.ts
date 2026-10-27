@@ -304,13 +304,50 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
     const firstUnclosed = closeOrder.find((candidate) => !plan.months.some((item) => databaseDateToMonth(item.month) === candidate));
     if (firstUnclosed !== month) throw new AppError("CONFLICT", "Phải đóng các tháng kế hoạch theo đúng thứ tự.");
 
-    const goalProgress = await getPlanGoalProgressSummary(tx, plan.id);
+    const { start: monthStart, end: monthEnd } = monthDateRange(month);
+    const goalProgress = await getPlanGoalProgressSummary(
+      tx,
+      plan.id,
+      month === startMonth ? { monthStart, asOfEnd: monthEnd } : undefined,
+    );
     let realized = goalProgress.hasGoals ? goalProgress.totalProgress : new Decimal(plan.existingGoalAmount.toString());
     if (!goalProgress.hasGoals) {
       for (const closed of plan.months) realized = realized.plus(await adjustedClosedActual(tx, plan.workspaceId, closed));
     }
     const remainingMonths = monthsInclusive(month, targetMonth);
-    const adjustedRequired = splitVndAcrossMonths(Decimal.max(new Decimal(plan.targetAmount.toString()).minus(realized), ZERO), remainingMonths.length)[0];
+    const progressBeforeMonth =
+      goalProgress.progressBeforeMonth ??
+      new Decimal(goalProgress.openingProgress ?? 0);
+    const workspaceReservedBeforeMonth =
+      goalProgress.workspaceReservedBeforeMonth ??
+      new Decimal(goalProgress.openingProgress ?? 0);
+    const inMonthReservedDelta =
+      month === startMonth && goalProgress.hasGoals
+        ? Decimal.max(
+            goalProgress.workspaceReserved.minus(workspaceReservedBeforeMonth),
+            ZERO,
+          )
+        : ZERO;
+    const adjustedRequired =
+      month === startMonth && goalProgress.hasGoals
+        ? splitVndAcrossMonths(
+            Decimal.max(
+              new Decimal(plan.targetAmount.toString()).minus(progressBeforeMonth),
+              ZERO,
+            ),
+            remainingMonths.length,
+          )[0] ?? ZERO
+        : splitVndAcrossMonths(
+            Decimal.max(
+              new Decimal(plan.targetAmount.toString()).minus(realized),
+              ZERO,
+            ),
+            remainingMonths.length,
+          )[0];
+    const effectiveRequiredForBudget =
+      month === startMonth && goalProgress.hasGoals
+        ? Decimal.max(adjustedRequired.minus(inMonthReservedDelta), ZERO)
+        : adjustedRequired;
     const allMonths = monthsInclusive(startMonth, targetMonth);
     const baseAmounts = splitVndAcrossMonths(
       Decimal.max(
@@ -326,25 +363,33 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
     const expenseByJar = ledger.approvedExpenseByJar;
     let rawGrossBudget: Decimal;
     if (month === startMonth) {
-      const { end } = monthDateRange(month);
-      const balanceAtEnd = await getWorkspaceBalance(tx, plan.workspaceId, end);
+      const balanceAtEnd = await getWorkspaceBalance(tx, plan.workspaceId, monthEnd);
       rawGrossBudget = firstMonthRawGrossBudget({
         currentWorkspaceBalance: balanceAtEnd.plus(ledger.netInvestmentOutflow ?? ZERO),
         existingGoalAmount: goalProgress.hasGoals ? goalProgress.workspaceReserved : plan.existingGoalAmount.toString(),
         approvedExpenseFromMonthStart: sumJarMap(ledger.approvedExpenseByJar),
         remainingForecastIncome: 0,
-        requiredGoalAmount: adjustedRequired,
+        requiredGoalAmount: effectiveRequiredForBudget,
       });
     } else {
       rawGrossBudget = laterMonthRawGrossBudget({ forecastIncome: ledger.approvedIncome, requiredGoalAmount: adjustedRequired });
     }
     const percentages = allocationForMonth(plan.allocations, month);
-    const result = calculateMonthlyPlanBudget({ rawGrossBudget, requiredGoalAmount: adjustedRequired, eligibleExpensesByJar: expenseByJar, percentages });
+    const result = calculateMonthlyPlanBudget({
+      rawGrossBudget,
+      requiredGoalAmount: effectiveRequiredForBudget,
+      eligibleExpensesByJar: expenseByJar,
+      percentages,
+    });
+    const closedActualGoalAmount =
+      month === startMonth && goalProgress.hasGoals
+        ? inMonthReservedDelta.plus(result.actualGoalAmountForMonth)
+        : result.actualGoalAmountForMonth;
     const snapshot = await tx.financialPlanMonth.create({ data: {
       financialPlanId: plan.id, month: monthToDatabaseDate(month), baseRequiredAmount: baseRequired,
       adjustedRequiredAmount: adjustedRequired, rawGrossBudget: result.rawGrossBudget,
       allocatableGrossBudget: result.allocatableGrossBudget, resourceShortfall: result.resourceShortfall,
-      closedEligibleExpense: result.eligibleExpense, closedActualGoalAmount: result.actualGoalAmountForMonth,
+      closedEligibleExpense: result.eligibleExpense, closedActualGoalAmount,
       closedAt: now, calculatorVersion: FINANCIAL_PLAN_CALCULATOR_VERSION,
     } });
     await tx.financialPlanMonthJar.createMany({ data: FINANCIAL_JAR_CODES.map((jarCode) => ({
@@ -383,7 +428,7 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
       }
     }
     await tx.auditLog.create({ data: { workspaceId: plan.workspaceId, action: "financial_plan.month_closed", entityType: "financial_plan", entityId: plan.id,
-      metadata: { month, adjustedRequiredAmount: adjustedRequired.toFixed(0), actualGoalAmount: result.actualGoalAmountForMonth.toFixed(0), calculatorVersion: FINANCIAL_PLAN_CALCULATOR_VERSION } } });
+      metadata: { month, adjustedRequiredAmount: adjustedRequired.toFixed(0), actualGoalAmount: closedActualGoalAmount.toFixed(0), calculatorVersion: FINANCIAL_PLAN_CALCULATOR_VERSION } } });
 
     const totalAfterClose = goalProgress.hasGoals
       ? realized
@@ -418,10 +463,22 @@ export async function catchUpFinancialPlan(planId: string, now = new Date()) {
   const targetMonth = rawTargetMonth < startMonth ? startMonth : rawTargetMonth;
   const openMonth = currentMonth(plan.workspace.timeZone, now);
   const lastCloseable = [addMonths(openMonth, -1), targetMonth].sort()[0];
+  const monthsToClose = monthsInclusive(startMonth, targetMonth).filter(
+    (month) =>
+      month <= lastCloseable &&
+      !plan.months.some((item) => databaseDateToMonth(item.month) === month),
+  );
+  if (monthsToClose.length > 0) {
+    await import("@/services/transaction-service")
+      .then((mod) => mod.activateDueScheduledTransactionsForRequest?.(plan.workspaceId, now))
+      .catch(() => null);
+    await import("@/services/recurring-transaction-service")
+      .then((mod) => mod.processDueRecurringTransactions?.({ workspaceId: plan.workspaceId, now }))
+      .catch(() => null);
+  }
   let closed = 0;
   let completed = false;
-  for (const month of monthsInclusive(startMonth, targetMonth)) {
-    if (month > lastCloseable || plan.months.some((item) => databaseDateToMonth(item.month) === month)) continue;
+  for (const month of monthsToClose) {
     const result = await closeOneFinancialPlanMonth(plan.id, month, now);
     if (result.kind === "closed") {
       closed += 1;
@@ -555,7 +612,18 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
     const rawTargetMonth = databaseDateToMonth(plan.targetMonth);
     const targetMonth = rawTargetMonth < startMonth ? startMonth : rawTargetMonth;
     const businessMonth = currentMonth(member.workspace.timeZone, now);
-    const goalProgress = await getPlanGoalProgressSummary(tx, plan.id);
+    const allPlanMonths = monthsInclusive(startMonth, targetMonth);
+    const closedSet = new Set(plan.months.map((month) => databaseDateToMonth(month.month)));
+    const openMonths = plan.status === "active"
+      ? allPlanMonths.filter((month) => !closedSet.has(month))
+      : [];
+    const goalProgress = await getPlanGoalProgressSummary(
+      tx,
+      plan.id,
+      openMonths.includes(startMonth)
+        ? { monthStart: monthDateRange(startMonth).start }
+        : undefined,
+    );
     const baselineProgress = new Decimal(
       goalProgress.hasGoals ? goalProgress.openingProgress : plan.existingGoalAmount.toString(),
     );
@@ -596,11 +664,6 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
     const realizedProgress = goalProgress.hasGoals
       ? goalProgress.totalProgress
       : plan.status === "active" ? adjustedActualProgress : closedSnapshotProgress;
-    const allPlanMonths = monthsInclusive(startMonth, targetMonth);
-    const closedSet = new Set(plan.months.map((month) => databaseDateToMonth(month.month)));
-    const openMonths = plan.status === "active"
-      ? allPlanMonths.filter((month) => !closedSet.has(month))
-      : [];
     const baseSchedule = splitVndAcrossMonths(
       Decimal.max(
         new Decimal(plan.targetAmount.toString()).minus(
@@ -619,22 +682,56 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
       const includeForecast = plan.status === "active" && month >= businessMonth;
       const ledger = await getFinancialPlanMonthLedger(tx, workspaceId, month, includeForecast);
       const expenseByJar = combinedExpenseByJar(ledger, includeForecast);
-      const required = calculateLiveRequiredAmount({
-        targetAmount: plan.targetAmount.toString(),
-        projectedProgress,
-        remainingOpenMonths: openMonths.length - index,
-      });
+      const isStartMonthWithGoals = month === startMonth && goalProgress.hasGoals;
+      const progressBeforeStartMonth =
+        goalProgress.progressBeforeMonth ??
+        new Decimal(goalProgress.openingProgress ?? 0);
+      const reservedBeforeStartMonth =
+        goalProgress.workspaceReservedBeforeMonth ??
+        new Decimal(goalProgress.openingProgress ?? 0);
+      const inMonthReservedDelta = isStartMonthWithGoals
+        ? Decimal.max(
+            goalProgress.workspaceReserved.minus(reservedBeforeStartMonth),
+            ZERO,
+          )
+        : ZERO;
+      const required = isStartMonthWithGoals
+        ? splitVndAcrossMonths(
+            Decimal.max(
+              new Decimal(plan.targetAmount.toString()).minus(
+                progressBeforeStartMonth,
+              ),
+              ZERO,
+            ),
+            openMonths.length - index,
+          )[0] ?? ZERO
+        : calculateLiveRequiredAmount({
+            targetAmount: plan.targetAmount.toString(),
+            projectedProgress,
+            remainingOpenMonths: openMonths.length - index,
+          });
+      const effectiveRequiredForBudget = isStartMonthWithGoals
+        ? Decimal.max(required.minus(inMonthReservedDelta), ZERO)
+        : required;
       const approvedExpenseFromMonthStart = sumJarMap(ledger.approvedExpenseByJar);
       const remainingForecastIncome = includeForecast ? ledger.forecastIncome : ZERO;
       const rawGrossBudget = month === startMonth
         ? firstMonthRawGrossBudget({
             currentWorkspaceBalance: currentBalance.plus(ledger.netInvestmentOutflow ?? ZERO), existingGoalAmount: goalProgress.hasGoals ? goalProgress.workspaceReserved : plan.existingGoalAmount.toString(),
             approvedExpenseFromMonthStart,
-            remainingForecastIncome, requiredGoalAmount: required,
+            remainingForecastIncome, requiredGoalAmount: effectiveRequiredForBudget,
           })
         : laterMonthRawGrossBudget({ forecastIncome: ledger.approvedIncome.plus(remainingForecastIncome), requiredGoalAmount: required });
       const percentages = allocationForMonth(plan.allocations, month);
-      const result = calculateMonthlyPlanBudget({ rawGrossBudget, requiredGoalAmount: required, eligibleExpensesByJar: expenseByJar, percentages });
+      const result = calculateMonthlyPlanBudget({
+        rawGrossBudget,
+        requiredGoalAmount: effectiveRequiredForBudget,
+        eligibleExpensesByJar: expenseByJar,
+        percentages,
+      });
+      const projectedActualForMonth = isStartMonthWithGoals
+        ? inMonthReservedDelta.plus(result.actualGoalAmountForMonth)
+        : result.actualGoalAmountForMonth;
       projectedProgress = projectedProgress.plus(result.actualGoalAmountForMonth);
       if (month === businessMonth) projectedEndOfCurrentMonthProgress = realizedProgress.plus(result.actualGoalAmountForMonth);
       projectedMonths.push({
@@ -645,7 +742,7 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
         remainingForecastIncome: remainingForecastIncome.toFixed(0),
         approvedExpenseFromMonthStart: approvedExpenseFromMonthStart.toFixed(0),
         totalRemaining: result.totalRemaining.toFixed(0), totalOverspend: result.totalOverspend.toFixed(0),
-        projectedActualGoalAmount: result.actualGoalAmountForMonth.toFixed(0), pendingIncome: ledger.pendingIncome.toFixed(0), pendingExpense: ledger.pendingExpense.toFixed(0),
+        projectedActualGoalAmount: projectedActualForMonth.toFixed(0), pendingIncome: ledger.pendingIncome.toFixed(0), pendingExpense: ledger.pendingExpense.toFixed(0),
         jars: FINANCIAL_JAR_CODES.map((jarCode) => ({ jarCode, percentage: percentages[jarCode].toString(), allocatedAmount: result.allocatedByJar[jarCode].toFixed(0),
           expenseAmount: result.expenseByJar[jarCode].toFixed(0), remainingAmount: result.remainingByJar[jarCode].toFixed(0), overspendAmount: result.overspendByJar[jarCode].toFixed(0) })),
       });

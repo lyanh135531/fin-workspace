@@ -243,5 +243,35 @@ describe("Felix service worker", () => {
       "https://app.felixwise.io.vn/overview?action=new-transaction",
     );
     expect(landingFocus).toHaveBeenCalledOnce();
+
+    const accountNavigate = vi.fn().mockResolvedValue(undefined);
+    const accountFocus = vi.fn().mockResolvedValue(undefined);
+    const accountPostMessage = vi.fn();
+    worker.matchAll.mockResolvedValueOnce([
+      {
+        url: "https://app.felixwise.io.vn/account",
+        navigate: accountNavigate,
+        focus: accountFocus,
+        postMessage: accountPostMessage,
+      },
+    ]);
+
+    let accountClickCompletion = Promise.resolve();
+    worker.listeners.get("notificationclick")?.({
+      notification: {
+        close: vi.fn(),
+        data: { url: "/overview?action=new-transaction" },
+      },
+      waitUntil: (promise: Promise<unknown>) => {
+        accountClickCompletion = promise.then(() => undefined);
+      },
+    } as unknown as ServiceWorkerEvent);
+    await accountClickCompletion;
+
+    expect(accountPostMessage).not.toHaveBeenCalled();
+    expect(accountNavigate).toHaveBeenCalledWith(
+      "https://app.felixwise.io.vn/overview?action=new-transaction",
+    );
+    expect(accountFocus).toHaveBeenCalledOnce();
   });
 });

@@ -325,4 +325,120 @@ describe("financial plan ledger projection", () => {
     const balance = await getWorkspaceBalance(tx, "workspace", before);
     expect(balance.toFixed(0)).toBe("1600");
   });
+
+  it("credits positive savings interest and gold realized profit to approvedIncome while only subtracting intra-month wallet-funded principal from netInvestmentOutflow", async () => {
+    const tx = {
+      transaction: {
+        findMany: vi.fn().mockResolvedValueOnce([
+          // Pre-plan passbook matured in 2026-08: 50M principal + 1.5M interest
+          {
+            type: "income",
+            purpose: "investment_settlement",
+            workflowStatus: "approved",
+            amount: new Decimal(51_500_000),
+            jarCode: "INVESTMENT",
+            category: null,
+            goldSaleRecord: null,
+            savingsDepositSettlement: {
+              principalWithdrawnAmount: new Decimal(50_000_000),
+              interestReceivedAmount: new Decimal(1_500_000),
+              deposit: {
+                startDate: new Date("2026-02-10T00:00:00.000Z"),
+                fundingMode: "from_wallet",
+                openTransaction: {
+                  date: new Date("2026-02-10T00:00:00.000Z"),
+                  deletedAt: null,
+                },
+              },
+            },
+          },
+          // Intra-month passbook opened & early-settled in 2026-08: 10M principal + 20k interest
+          {
+            type: "expense",
+            purpose: "investment_contribution",
+            workflowStatus: "approved",
+            amount: new Decimal(10_000_000),
+            jarCode: "INVESTMENT",
+            category: null,
+            goldSaleRecord: null,
+            savingsDepositSettlement: null,
+          },
+          {
+            type: "income",
+            purpose: "investment_settlement",
+            workflowStatus: "approved",
+            amount: new Decimal(10_020_000),
+            jarCode: "INVESTMENT",
+            category: null,
+            goldSaleRecord: null,
+            savingsDepositSettlement: {
+              principalWithdrawnAmount: new Decimal(10_000_000),
+              interestReceivedAmount: new Decimal(20_000),
+              deposit: {
+                startDate: new Date("2026-08-05T00:00:00.000Z"),
+                fundingMode: "from_wallet",
+                openTransaction: {
+                  date: new Date("2026-08-05T00:00:00.000Z"),
+                  deletedAt: null,
+                },
+              },
+            },
+          },
+          // Pre-plan gold lot sold at +2M profit and another at -500k loss
+          {
+            type: "income",
+            purpose: "investment_settlement",
+            workflowStatus: "approved",
+            amount: new Decimal(16_000_000),
+            jarCode: "INVESTMENT",
+            category: null,
+            savingsDepositSettlement: null,
+            goldSaleRecord: {
+              deletedAt: null,
+              costMode: "specific_lot",
+              costBasisAllocatedAmount: new Decimal(14_000_000),
+              realizedProfitAmount: new Decimal(2_000_000),
+              saleDate: new Date("2026-08-18T00:00:00.000Z"),
+              purchaseLot: {
+                purchaseDate: new Date("2026-05-01T00:00:00.000Z"),
+                fundingMode: "from_wallet",
+              },
+              holding: { purchaseLots: [] },
+            },
+          },
+          {
+            type: "income",
+            purpose: "investment_settlement",
+            workflowStatus: "approved",
+            amount: new Decimal(13_500_000),
+            jarCode: "INVESTMENT",
+            category: null,
+            savingsDepositSettlement: null,
+            goldSaleRecord: {
+              deletedAt: null,
+              costMode: "specific_lot",
+              costBasisAllocatedAmount: new Decimal(14_000_000),
+              realizedProfitAmount: new Decimal(-500_000),
+              saleDate: new Date("2026-08-19T00:00:00.000Z"),
+              purchaseLot: {
+                purchaseDate: new Date("2026-05-01T00:00:00.000Z"),
+                fundingMode: "existing_asset",
+              },
+              holding: { purchaseLots: [] },
+            },
+          },
+        ]),
+      },
+      recurringTransaction: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    const ledger = await getFinancialPlanMonthLedger(tx, "workspace", "2026-08", false);
+    // Intra-month 10M contribution - 10M intra-month principal = 0; pre-plan 50M + 14M + 14M NOT subtracted!
+    expect(ledger.netInvestmentOutflow.toFixed(0)).toBe("0");
+    // Approved income = 1,500,000 + 20,000 + 2,000,000 + max(-500,000, 0) = 3,520,000
+    expect(ledger.approvedIncome.toFixed(0)).toBe("3520000");
+    expect(ledger.approvedExpenseByJar.INVESTMENT.toFixed(0)).toBe("0");
+  });
 });

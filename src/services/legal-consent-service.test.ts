@@ -7,6 +7,7 @@ const mockPrisma = vi.hoisted(() => ({
   },
   user: {
     findFirst: vi.fn(),
+    findUnique: vi.fn(),
   },
 }));
 
@@ -21,6 +22,11 @@ import {
 describe("legal consent service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue({
+      status: "active",
+      deletedAt: null,
+      profileCompletedAt: new Date(),
+    });
   });
 
   it("recognizes the exact current version pair", async () => {
@@ -40,6 +46,42 @@ describe("legal consent service", () => {
       satisfied: false,
       acceptedPrivacyVersion: null,
       acceptedTermsVersion: null,
+    });
+  });
+
+  it("throws AUTHENTICATION_REQUIRED when user is missing, inactive, or deleted", async () => {
+    mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+    await expect(getLegalConsentStatus("user-missing")).rejects.toMatchObject({
+      code: "AUTHENTICATION_REQUIRED",
+    });
+
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      status: "inactive",
+      deletedAt: null,
+      profileCompletedAt: new Date(),
+    });
+    await expect(getLegalConsentStatus("user-inactive")).rejects.toMatchObject({
+      code: "AUTHENTICATION_REQUIRED",
+    });
+
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      status: "active",
+      deletedAt: new Date(),
+      profileCompletedAt: new Date(),
+    });
+    await expect(getLegalConsentStatus("user-deleted")).rejects.toMatchObject({
+      code: "AUTHENTICATION_REQUIRED",
+    });
+  });
+
+  it("throws FORBIDDEN only when Google profile setup is incomplete", async () => {
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      status: "active",
+      deletedAt: null,
+      profileCompletedAt: null,
+    });
+    await expect(getLegalConsentStatus("user-incomplete")).rejects.toMatchObject({
+      code: "FORBIDDEN",
     });
   });
 

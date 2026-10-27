@@ -217,6 +217,41 @@ export async function getFinancialPlanMonthLedger(
       category: { select: { jarCode: true } },
       installmentPlan: { select: { id: true, status: true } },
       installmentFeePlan: { select: { id: true, status: true } },
+      goldSaleRecord: {
+        select: {
+          deletedAt: true,
+          costMode: true,
+          costBasisAllocatedAmount: true,
+          realizedProfitAmount: true,
+          saleDate: true,
+          purchaseLot: { select: { purchaseDate: true, fundingMode: true } },
+          holding: {
+            select: {
+              purchaseLots: {
+                where: { deletedAt: null },
+                select: {
+                  purchaseDate: true,
+                  fundingMode: true,
+                  totalCostAmount: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      savingsDepositSettlement: {
+        select: {
+          principalWithdrawnAmount: true,
+          interestReceivedAmount: true,
+          deposit: {
+            select: {
+              startDate: true,
+              fundingMode: true,
+              openTransaction: { select: { date: true, deletedAt: true } },
+            },
+          },
+        },
+      },
     },
   });
   const result: FinancialPlanMonthLedger = {
@@ -231,7 +266,86 @@ export async function getFinancialPlanMonthLedger(
       if (record.purpose === "investment_contribution") {
         result.netInvestmentOutflow = result.netInvestmentOutflow.plus(amount);
       } else if (record.purpose === "investment_settlement") {
-        result.netInvestmentOutflow = result.netInvestmentOutflow.minus(amount);
+        if (record.savingsDepositSettlement) {
+          const settlement = record.savingsDepositSettlement;
+          const interest = Decimal.max(
+            new Decimal(settlement.interestReceivedAmount.toString()),
+            ZERO,
+          );
+          result.approvedIncome = result.approvedIncome.plus(interest);
+          const principalSettled = Decimal.max(
+            new Decimal(settlement.principalWithdrawnAmount.toString()),
+            ZERO,
+          );
+          const fundedDate =
+            settlement.deposit.openTransaction &&
+            !settlement.deposit.openTransaction.deletedAt
+              ? settlement.deposit.openTransaction.date
+              : settlement.deposit.startDate;
+          if (
+            settlement.deposit.fundingMode === "from_wallet" &&
+            fundedDate >= start &&
+            fundedDate < end
+          ) {
+            result.netInvestmentOutflow =
+              result.netInvestmentOutflow.minus(principalSettled);
+          }
+        } else if (
+          record.goldSaleRecord &&
+          record.goldSaleRecord.deletedAt === null
+        ) {
+          const sale = record.goldSaleRecord;
+          const realizedYield = Decimal.max(
+            new Decimal(sale.realizedProfitAmount.toString()),
+            ZERO,
+          );
+          result.approvedIncome = result.approvedIncome.plus(realizedYield);
+          const costBasis = Decimal.max(
+            new Decimal(sale.costBasisAllocatedAmount.toString()),
+            ZERO,
+          );
+          if (sale.costMode === "specific_lot" && sale.purchaseLot) {
+            if (
+              sale.purchaseLot.fundingMode === "from_wallet" &&
+              sale.purchaseLot.purchaseDate >= start &&
+              sale.purchaseLot.purchaseDate < end
+            ) {
+              result.netInvestmentOutflow =
+                result.netInvestmentOutflow.minus(costBasis);
+            }
+          } else {
+            const eligibleLots = (sale.holding?.purchaseLots ?? []).filter(
+              (lot) => lot.purchaseDate <= sale.saleDate,
+            );
+            const totalEligibleCost = eligibleLots.reduce(
+              (sum, lot) => sum.plus(lot.totalCostAmount.toString()),
+              ZERO,
+            );
+            if (totalEligibleCost.gt(ZERO)) {
+              const inMonthWalletCost = eligibleLots
+                .filter(
+                  (lot) =>
+                    lot.fundingMode === "from_wallet" &&
+                    lot.purchaseDate >= start &&
+                    lot.purchaseDate < end,
+                )
+                .reduce(
+                  (sum, lot) => sum.plus(lot.totalCostAmount.toString()),
+                  ZERO,
+                );
+              const settledInMonthPrincipal = costBasis
+                .mul(inMonthWalletCost)
+                .div(totalEligibleCost)
+                .toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+              result.netInvestmentOutflow = result.netInvestmentOutflow.minus(
+                settledInMonthPrincipal,
+              );
+            }
+          }
+        } else {
+          result.netInvestmentOutflow =
+            result.netInvestmentOutflow.minus(amount);
+        }
       }
     }
     if (

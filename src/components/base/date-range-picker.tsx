@@ -48,9 +48,7 @@ function toCalendarRange(value: DateRangeValue): CompleteDateRange {
   }
 
   if (from > to) {
-    throw new RangeError(
-      `Invalid date range "${value.from}"–"${value.to}". The from date must not be after the to date.`,
-    );
+    return { from: to, to: from };
   }
 
   return { from, to };

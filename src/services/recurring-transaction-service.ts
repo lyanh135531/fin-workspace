@@ -211,7 +211,7 @@ export async function updateRecurringTransaction(
       if (current.createdByMemberId !== member.id) {
         throw new AppError("FORBIDDEN", "Bạn chỉ có thể chỉnh sửa lịch do mình tạo.");
       }
-      if (current.completedAt) {
+      if (current.completedAt && current.approvalStatus === "approved") {
         throw new AppError("CONFLICT", "Lịch đã kết thúc và không thể chỉnh sửa.");
       }
       if (current.approvalStatus === "approved" && current.status === "active") {
@@ -266,6 +266,12 @@ export async function updateRecurringTransaction(
     const completedByEndDate = Boolean(
       input.endDate && asBusinessDate(nextExecutionDate) > input.endDate,
     );
+    if (!isAdmin && completedByEndDate) {
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Không còn kỳ thực thi hợp lệ trước ngày kết thúc. Vui lòng gia hạn ngày kết thúc.",
+      );
+    }
     const record = await tx.recurringTransaction.update({
       where: { id: current.id },
       data: {
@@ -281,7 +287,7 @@ export async function updateRecurringTransaction(
         nextExecutionDate,
         completedAt: completedByEndDate
           ? now
-          : timingChanged
+          : timingChanged || !isAdmin || current.approvalStatus !== "approved"
             ? null
             : current.completedAt,
         lastError: null,
@@ -768,6 +774,7 @@ export async function processDueRecurringTransactions(
     where: {
       workspaceId,
       status: "deactive",
+      approvalStatus: "approved",
       deletedAt: null,
       completedAt: null,
       lastError: null,

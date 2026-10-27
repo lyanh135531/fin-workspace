@@ -42,9 +42,11 @@ function avatarGradient(name: string): string {
 export function JoinRequestsClient({
   requests,
   roles,
+  workspaceId,
 }: {
   requests: Request[];
   roles: Role[];
+  workspaceId?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -71,7 +73,10 @@ export function JoinRequestsClient({
 
   function review(id: string, approve: boolean, roleCode?: string) {
     start(async () => {
-      const r = await reviewJoinAction({ requestId: id, approve, roleCode });
+      const r = await reviewJoinAction(
+        { workspaceId, requestId: id, approve, roleCode },
+        workspaceId,
+      );
       if (r.ok) {
         toast.success("Đã xử lý yêu cầu tham gia.");
         setSelectedRequestId(null);

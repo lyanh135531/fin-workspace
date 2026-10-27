@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import Decimal from "decimal.js";
 import { Prisma } from "@/generated/prisma/client";
 import { DEFAULT_WORKSPACE_CATEGORIES } from "@/domain";
@@ -7,13 +8,15 @@ import { requireWorkspaceMember } from "@/services/workspace-access";
 
 export async function generateUniqueInviteCode(tx: Prisma.TransactionClient): Promise<string> {
   for (let i = 0; i < 10; i++) {
-    const num = Math.floor(100000 + Math.random() * 900000);
+    const num = randomInt(100000, 1000000);
     const code = `${num.toString().slice(0, 3)}-${num.toString().slice(3)}`;
     const existing = await tx.workspace.findFirst({ where: { inviteCode: code } });
     if (!existing) return code;
   }
-  const num = Math.floor(100000 + Math.random() * 900000);
-  return `${num.toString().slice(0, 3)}-${num.toString().slice(3)}`;
+  throw new AppError(
+    "CONFLICT",
+    "Không thể tạo mã mời duy nhất lúc này. Vui lòng thử lại.",
+  );
 }
 
 type CreateWorkspaceInput = {

@@ -501,33 +501,35 @@ export function InvestmentsManager({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setActiveTab("gold");
-                setCreateGoldOpen(true);
-              }}
-              className="h-9 px-3 text-xs sm:flex-none md:px-3.5"
-            >
-              <Coins size={15} className="text-[var(--warning)]" />
-              <span>Mua vàng</span>
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                setActiveTab("savings");
-                setCreateSavingsOpen(true);
-              }}
-              className="h-9 px-3 text-xs sm:flex-none md:px-3.5"
-            >
-              <Landmark size={15} />
-              <span>Mở sổ tiết kiệm</span>
-            </Button>
-          </div>
+          {data.canManage && (
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setActiveTab("gold");
+                  setCreateGoldOpen(true);
+                }}
+                className="h-9 px-3 text-xs sm:flex-none md:px-3.5"
+              >
+                <Coins size={15} className="text-[var(--warning)]" />
+                <span>Mua vàng</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  setActiveTab("savings");
+                  setCreateSavingsOpen(true);
+                }}
+                className="h-9 px-3 text-xs sm:flex-none md:px-3.5"
+              >
+                <Landmark size={15} />
+                <span>Mở sổ tiết kiệm</span>
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Mobile & Tablet (< xl): Cohesive Luxury Portfolio Summary Box */}
@@ -967,13 +969,15 @@ export function InvestmentsManager({
                 title="Chưa có khoản vàng nào đang giữ"
                 description="Ghi lại vàng miếng SJC, nhẫn tròn trơn 9999 hoặc vàng mua tại tiệm quen để theo dõi giá mua trung bình và lời/lỗ nếu bán ra hôm nay."
                 action={
-                  <Button
-                    type="button"
-                    onClick={() => setCreateGoldOpen(true)}
-                  >
-                    <Plus className="size-4" />
-                    <span>Thêm khoản vàng đầu tiên</span>
-                  </Button>
+                  data.canManage ? (
+                    <Button
+                      type="button"
+                      onClick={() => setCreateGoldOpen(true)}
+                    >
+                      <Plus className="size-4" />
+                      <span>Thêm khoản vàng đầu tiên</span>
+                    </Button>
+                  ) : undefined
                 }
               />
             </Card>
@@ -999,16 +1003,18 @@ export function InvestmentsManager({
                     {formatSignedMoney(data.summary.gold.totalUnrealizedProfit)}
                   </strong>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCreateGoldOpen(true)}
-                  className="h-8 gap-1.5 text-xs"
-                >
-                  <Plus className="size-3.5" />
-                  <span>Thêm loại vàng mới</span>
-                </Button>
+                {data.canManage && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCreateGoldOpen(true)}
+                    className="h-8 gap-1.5 text-xs"
+                  >
+                    <Plus className="size-3.5" />
+                    <span>Thêm loại vàng mới</span>
+                  </Button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
@@ -1174,15 +1180,16 @@ export function InvestmentsManager({
                                       </strong>
                                     </span>
                                   )}
-                                  {holding.priceSourceMode !== "auto_brand" && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setSettingsHolding(holding)}
-                                      className="text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
-                                    >
-                                      Cập nhật giá tiệm
-                                    </button>
-                                  )}
+                                  {data.canManage &&
+                                    holding.priceSourceMode !== "auto_brand" && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setSettingsHolding(holding)}
+                                        className="text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
+                                      >
+                                        Cập nhật giá tiệm
+                                      </button>
+                                    )}
                                 </div>
                               </div>
                             </>
@@ -1224,45 +1231,51 @@ export function InvestmentsManager({
 
                       {/* Card Footer Actions */}
                       <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3">
-                        <div className="flex items-center gap-1.5">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => setBuyMoreHolding(holding)}
-                            className="h-8 gap-1 text-xs"
-                          >
-                            <Plus className="size-3.5" />
-                            <span>Mua thêm</span>
-                          </Button>
-                          {qtyDecimal.gt(0) && (
+                        {data.canManage ? (
+                          <div className="flex items-center gap-1.5">
                             <Button
                               type="button"
-                              variant="outline"
                               size="sm"
-                              onClick={() => {
-                                setSellPreselectedLotId(null);
-                                setSellHolding(holding);
-                              }}
+                              onClick={() => setBuyMoreHolding(holding)}
                               className="h-8 gap-1 text-xs"
                             >
-                              <ArrowUpRight className="size-3.5 text-[var(--income)]" />
-                              <span>Bán vàng</span>
+                              <Plus className="size-3.5" />
+                              <span>Mua thêm</span>
                             </Button>
-                          )}
-                        </div>
+                            {qtyDecimal.gt(0) && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSellPreselectedLotId(null);
+                                  setSellHolding(holding);
+                                }}
+                                className="h-8 gap-1 text-xs"
+                              >
+                                <ArrowUpRight className="size-3.5 text-[var(--income)]" />
+                                <span>Bán vàng</span>
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <div />
+                        )}
 
                         <div className="flex items-center gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setSettingsHolding(holding)}
-                            className="size-8 text-[var(--text-secondary)]"
-                            title="Cài đặt giá & thông tin"
-                            aria-label="Cài đặt giá & thông tin"
-                          >
-                            <Settings2 className="size-3.5" />
-                          </Button>
+                          {data.canManage && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setSettingsHolding(holding)}
+                              className="size-8 text-[var(--text-secondary)]"
+                              title="Cài đặt giá & thông tin"
+                              aria-label="Cài đặt giá & thông tin"
+                            >
+                              <Settings2 className="size-3.5" />
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             variant="ghost"
@@ -1296,7 +1309,7 @@ export function InvestmentsManager({
                 }
                 description="Theo dõi tiền gửi có kỳ hạn tại ngân hàng, tự động tính lãi tích lũy từng ngày theo chuẩn 365 ngày/năm, cảnh báo đáo hạn và hỗ trợ rút gốc một phần hoặc tái tục."
                 action={
-                  savingsFilter === "active" ? (
+                  data.canManage && savingsFilter === "active" ? (
                     <Button
                       type="button"
                       onClick={() => setCreateSavingsOpen(true)}
@@ -1408,12 +1421,16 @@ export function InvestmentsManager({
                               </div>
                               <div className="text-right">
                                 <span className="block text-[11px] text-[var(--text-muted)]">
-                                  Lãi dự kiến cuối kỳ
+                                  {deposit.interestPayoutMode === "upfront"
+                                    ? "Lãi đã nhận đầu kỳ"
+                                    : "Lãi dự kiến cuối kỳ"}
                                 </span>
                                 <strong className="text-sm font-bold text-[var(--foreground)] tabular-nums">
                                   +
                                   {displayMoney(
-                                    deposit.metrics.expectedMaturityInterest,
+                                    deposit.interestPayoutMode === "upfront"
+                                      ? deposit.metrics.upfrontInterestAmount
+                                      : deposit.metrics.expectedMaturityInterest,
                                   )}
                                 </strong>
                               </div>
@@ -1466,15 +1483,19 @@ export function InvestmentsManager({
                     {/* Footer Actions */}
                     <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3">
                       {isActive ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => setSettleDeposit(deposit)}
-                          className="h-8 gap-1.5 text-xs"
-                        >
-                          <Check className="size-3.5" />
-                          <span>Tất toán / Rút · Tái tục</span>
-                        </Button>
+                        data.canManage ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => setSettleDeposit(deposit)}
+                            className="h-8 gap-1.5 text-xs"
+                          >
+                            <Check className="size-3.5" />
+                            <span>Tất toán / Rút · Tái tục</span>
+                          </Button>
+                        ) : (
+                          <Badge variant="default">Đang gửi</Badge>
+                        )
                       ) : (
                         <Badge variant="secondary">Đã tất toán</Badge>
                       )}
@@ -1499,7 +1520,7 @@ export function InvestmentsManager({
       </Tabs>
 
       {/* ==================== SHEET 1: TẠO VỊ THẾ VÀNG & MUA LÔ ĐẦU TIÊN ==================== */}
-      {createGoldOpen && (
+      {data.canManage && createGoldOpen && (
         <CreateGoldHoldingSheet
           open={createGoldOpen}
           onOpenChange={setCreateGoldOpen}
@@ -1518,7 +1539,7 @@ export function InvestmentsManager({
       )}
 
       {/* ==================== SHEET 2: MUA THÊM VÀNG TÍCH LŨY (DCA) ==================== */}
-      {buyMoreHolding && (
+      {data.canManage && buyMoreHolding && (
         <AddGoldLotSheet
           open={Boolean(buyMoreHolding)}
           onOpenChange={(open) => !open && setBuyMoreHolding(null)}
@@ -1536,7 +1557,7 @@ export function InvestmentsManager({
       )}
 
       {/* ==================== SHEET 3: BÁN VÀNG (MỘT PHẦN / TOÀN BỘ) ==================== */}
-      {sellHolding && (
+      {data.canManage && sellHolding && (
         <SellGoldSheet
           open={Boolean(sellHolding)}
           onOpenChange={(open) => {
@@ -1566,6 +1587,7 @@ export function InvestmentsManager({
           open={Boolean(detailHolding)}
           onOpenChange={(open) => !open && setDetailHoldingId(null)}
           holding={detailHolding}
+          canManage={data.canManage}
           currency={currency}
           isPending={isPending}
           startTransition={startTransition}
@@ -1588,7 +1610,7 @@ export function InvestmentsManager({
       )}
 
       {/* ==================== SHEET 4B: CHỈNH SỬA ĐỢT MUA VÀNG ==================== */}
-      {editingLotResolved && (
+      {data.canManage && editingLotResolved && (
         <EditGoldLotSheet
           open={Boolean(editingLotResolved)}
           onOpenChange={(open) => {
@@ -1614,7 +1636,7 @@ export function InvestmentsManager({
       )}
 
       {/* ==================== SHEET 5: CÀI ĐẶT NGUỒN GIÁ & THÔNG TIN VỊ THẾ VÀNG ==================== */}
-      {settingsHolding && (
+      {data.canManage && settingsHolding && (
         <GoldHoldingSettingsSheet
           open={Boolean(settingsHolding)}
           onOpenChange={(open) => !open && setSettingsHolding(null)}
@@ -1630,7 +1652,7 @@ export function InvestmentsManager({
       )}
 
       {/* ==================== SHEET 6: MỞ SỔ TIẾT KIỆM NGÂN HÀNG ==================== */}
-      {createSavingsOpen && (
+      {data.canManage && createSavingsOpen && (
         <CreateSavingsDepositSheet
           open={createSavingsOpen}
           onOpenChange={setCreateSavingsOpen}
@@ -1647,7 +1669,7 @@ export function InvestmentsManager({
       )}
 
       {/* ==================== SHEET 7: TẤT TOÁN / RÚT GỐC MỘT PHẦN / TÁI TỤC SỔ TIẾT KIỆM ==================== */}
-      {settleDeposit && (
+      {data.canManage && settleDeposit && (
         <SettleSavingsDepositSheet
           open={Boolean(settleDeposit)}
           onOpenChange={(open) => !open && setSettleDeposit(null)}
@@ -1670,6 +1692,7 @@ export function InvestmentsManager({
           open={Boolean(detailDeposit)}
           onOpenChange={(open) => !open && setDetailDepositId(null)}
           deposit={detailDeposit}
+          canManage={data.canManage}
           currency={currency}
           isPending={isPending}
           startTransition={startTransition}
@@ -2993,6 +3016,7 @@ function GoldHoldingDetailSheet({
   open,
   onOpenChange,
   holding,
+  canManage,
   currency,
   isPending,
   startTransition,
@@ -3004,6 +3028,7 @@ function GoldHoldingDetailSheet({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   holding: GoldHoldingItem;
+  canManage: boolean;
   currency: string;
   isPending: boolean;
   startTransition: React.TransitionStartFunction;
@@ -3076,16 +3101,18 @@ function GoldHoldingDetailSheet({
             <h4 className="text-xs font-semibold text-[var(--text-secondary)]">
               Các đợt đã mua ({holding.lots.length})
             </h4>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onBuyMore}
-              className="h-7 gap-1 px-2.5 text-xs"
-            >
-              <Plus className="size-3" />
-              <span>Mua thêm đợt mới</span>
-            </Button>
+            {canManage && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onBuyMore}
+                className="h-7 gap-1 px-2.5 text-xs"
+              >
+                <Plus className="size-3" />
+                <span>Mua thêm đợt mới</span>
+              </Button>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -3145,71 +3172,72 @@ function GoldHoldingDetailSheet({
                     </p>
                   )}
 
-                  {!isConfirmingLotDelete ? (
-                    <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
-                      {remChi.gt(0) && (
-                        <button
-                          type="button"
-                          onClick={() => onSellLot(lot.id)}
-                          className="text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
-                        >
-                          Bán từ đợt này
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        disabled={isPending}
-                        onClick={() => onEditLot(lot.id)}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)] hover:underline cursor-pointer"
-                      >
-                        <Pencil className="size-3" />
-                        <span>Sửa</span>
-                      </button>
-                      {lot.canDelete && (
+                  {canManage &&
+                    (!isConfirmingLotDelete ? (
+                      <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
+                        {remChi.gt(0) && (
+                          <button
+                            type="button"
+                            onClick={() => onSellLot(lot.id)}
+                            className="text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
+                          >
+                            Bán từ đợt này
+                          </button>
+                        )}
                         <button
                           type="button"
                           disabled={isPending}
-                          onClick={() => setConfirmDeleteLotId(lot.id)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--expense)] hover:underline cursor-pointer"
+                          onClick={() => onEditLot(lot.id)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)] hover:underline cursor-pointer"
                         >
-                          <Trash2 className="size-3" />
-                          <span>Xóa đợt mua</span>
+                          <Pencil className="size-3" />
+                          <span>Sửa</span>
                         </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="mt-1.5 border-t border-[var(--border)] pt-2 space-y-2">
-                      <p className="text-[11px] text-[var(--foreground)]">
-                        Xóa đợt mua {lot.quantityFormatted.primary} ngày{" "}
-                        {formatShortViDate(lot.purchaseDate)}?
-                        {lot.fundingMode === "from_wallet" &&
-                        lot.sourceWalletName
-                          ? ` Tiền mua ${formatAmount(lot.totalCostAmount, currency)} sẽ được hoàn lại vào ví ${lot.sourceWalletName}.`
-                          : ""}
-                      </p>
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setConfirmDeleteLotId(null)}
-                          className="h-7 px-2.5 text-[11px]"
-                        >
-                          Giữ lại
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          disabled={isPending}
-                          onClick={() => handleDeleteLot(lot.id)}
-                          className="h-7 px-2.5 text-[11px]"
-                        >
-                          Xác nhận xóa
-                        </Button>
+                        {lot.canDelete && (
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => setConfirmDeleteLotId(lot.id)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--expense)] hover:underline cursor-pointer"
+                          >
+                            <Trash2 className="size-3" />
+                            <span>Xóa đợt mua</span>
+                          </button>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="mt-1.5 border-t border-[var(--border)] pt-2 space-y-2">
+                        <p className="text-[11px] text-[var(--foreground)]">
+                          Xóa đợt mua {lot.quantityFormatted.primary} ngày{" "}
+                          {formatShortViDate(lot.purchaseDate)}?
+                          {lot.fundingMode === "from_wallet" &&
+                          lot.sourceWalletName
+                            ? ` Tiền mua ${formatAmount(lot.totalCostAmount, currency)} sẽ được hoàn lại vào ví ${lot.sourceWalletName}.`
+                            : ""}
+                        </p>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setConfirmDeleteLotId(null)}
+                            className="h-7 px-2.5 text-[11px]"
+                          >
+                            Giữ lại
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            disabled={isPending}
+                            onClick={() => handleDeleteLot(lot.id)}
+                            className="h-7 px-2.5 text-[11px]"
+                          >
+                            Xác nhận xóa
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                 </div>
               );
             })}
@@ -3266,50 +3294,51 @@ function GoldHoldingDetailSheet({
                       </p>
                     )}
 
-                    {!isConfirmingUndo ? (
-                      <div className="flex items-center justify-end pt-0.5">
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => setConfirmUndoSaleId(sale.id)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--expense)] hover:underline cursor-pointer"
-                        >
-                          <RotateCcw className="size-3" />
-                          <span>Hoàn tác lần bán</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="mt-1.5 border-t border-[var(--border)] pt-2 space-y-2">
-                        <p className="text-[11px] text-[var(--foreground)]">
-                          Hoàn tác lần bán {sale.quantityFormatted.primary} ngày{" "}
-                          {formatShortViDate(sale.saleDate)}? Hệ thống sẽ thu
-                          hồi {formatAmount(sale.netProceedsAmount, currency)}{" "}
-                          từ ví <strong>{sale.destinationWalletName}</strong> và
-                          cộng trả {sale.quantityFormatted.primary} vàng về hũ.
-                        </p>
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
+                    {canManage &&
+                      (!isConfirmingUndo ? (
+                        <div className="flex items-center justify-end pt-0.5">
+                          <button
                             type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setConfirmUndoSaleId(null)}
-                            className="h-7 px-2.5 text-[11px]"
-                          >
-                            Giữ lại
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
                             disabled={isPending}
-                            onClick={() => handleUndoSale(sale.id)}
-                            className="h-7 px-2.5 text-[11px]"
+                            onClick={() => setConfirmUndoSaleId(sale.id)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--expense)] hover:underline cursor-pointer"
                           >
-                            Xác nhận hoàn tác
-                          </Button>
+                            <RotateCcw className="size-3" />
+                            <span>Hoàn tác lần bán</span>
+                          </button>
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="mt-1.5 border-t border-[var(--border)] pt-2 space-y-2">
+                          <p className="text-[11px] text-[var(--foreground)]">
+                            Hoàn tác lần bán {sale.quantityFormatted.primary} ngày{" "}
+                            {formatShortViDate(sale.saleDate)}? Hệ thống sẽ thu
+                            hồi {formatAmount(sale.netProceedsAmount, currency)}{" "}
+                            từ ví <strong>{sale.destinationWalletName}</strong> và
+                            cộng trả {sale.quantityFormatted.primary} vàng về hũ.
+                          </p>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setConfirmUndoSaleId(null)}
+                              className="h-7 px-2.5 text-[11px]"
+                            >
+                              Giữ lại
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              disabled={isPending}
+                              onClick={() => handleUndoSale(sale.id)}
+                              className="h-7 px-2.5 text-[11px]"
+                            >
+                              Xác nhận hoàn tác
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 );
               })}
@@ -3318,7 +3347,7 @@ function GoldHoldingDetailSheet({
         )}
 
         {/* Xóa khoản vàng (chỉ cho phép khi chưa có giao dịch bán để bảo toàn lịch sử lời/lỗ đã chốt) */}
-        {holding.sales.length === 0 && (
+        {canManage && holding.sales.length === 0 && (
           <div className="border-t border-[var(--border)] pt-3">
             {!confirmDeleteHolding ? (
               <button
@@ -3929,6 +3958,7 @@ function CreateSavingsDepositSheet({
         startDate,
         maturityDate,
         businessDate,
+        interestPayoutMode,
       }),
     [
       principalAmount,
@@ -3937,6 +3967,7 @@ function CreateSavingsDepositSheet({
       startDate,
       maturityDate,
       businessDate,
+      interestPayoutMode,
     ],
   );
 
@@ -4012,10 +4043,18 @@ function CreateSavingsDepositSheet({
             <div className="mt-2 grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-2.5">
               <div>
                 <span className="block text-[11px] text-[var(--text-muted)]">
-                  Tiền lãi cuối kỳ
+                  {interestPayoutMode === "upfront"
+                    ? "Tiền lãi nhận đầu kỳ"
+                    : "Tiền lãi cuối kỳ"}
                 </span>
                 <strong className="mt-0.5 block text-xs sm:text-sm font-bold text-[var(--income)] tabular-nums whitespace-nowrap">
-                  +{formatAmount(previewMetrics.expectedMaturityInterest, currency)}
+                  +
+                  {formatAmount(
+                    interestPayoutMode === "upfront"
+                      ? previewMetrics.upfrontInterestAmount
+                      : previewMetrics.expectedMaturityInterest,
+                    currency,
+                  )}
                 </strong>
               </div>
               <div className="border-l border-[var(--border)] pl-3 text-right">
@@ -4229,6 +4268,16 @@ function SettleSavingsDepositSheet({
       ? "rollover"
       : "maturity";
 
+  const defaultMaturityInterest =
+    deposit.interestPayoutMode === "upfront"
+      ? "0"
+      : deposit.interestPayoutMode === "monthly"
+        ? new Decimal(deposit.metrics.expectedMaturityInterest || "0")
+            .div(Math.max(1, deposit.termMonths))
+            .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+            .toFixed(0)
+        : deposit.metrics.expectedMaturityInterest;
+
   const [settlementType, setSettlementType] = useState<
     "maturity" | "early_partial" | "early_full" | "rollover"
   >(initialMode);
@@ -4243,7 +4292,7 @@ function SettleSavingsDepositSheet({
     deposit.currentPrincipalAmount,
   );
   const [interestReceived, setInterestReceived] = useState(
-    deposit.metrics.expectedMaturityInterest,
+    defaultMaturityInterest,
   );
   const [rolloverMode, setRolloverMode] = useState<
     "renew_principal_and_interest" | "renew_principal"
@@ -4271,7 +4320,7 @@ function SettleSavingsDepositSheet({
     setSettlementType(nextMode);
     if (nextMode === "maturity" || nextMode === "rollover") {
       setPrincipalWithdrawn(deposit.currentPrincipalAmount);
-      setInterestReceived(deposit.metrics.expectedMaturityInterest);
+      setInterestReceived(defaultMaturityInterest);
     } else if (nextMode === "early_full") {
       setPrincipalWithdrawn(deposit.currentPrincipalAmount);
       const earlyInt = calculateEarlyWithdrawalInterest({
@@ -4600,6 +4649,7 @@ function SavingsDepositDetailSheet({
   open,
   onOpenChange,
   deposit,
+  canManage,
   currency,
   isPending,
   startTransition,
@@ -4610,6 +4660,7 @@ function SavingsDepositDetailSheet({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   deposit: SavingsDepositItem;
+  canManage: boolean;
   currency: string;
   isPending: boolean;
   startTransition: React.TransitionStartFunction;
@@ -4732,7 +4783,7 @@ function SavingsDepositDetailSheet({
                       : " · Nhập lãi vào gốc"}
                   </div>
 
-                  {isLatest && !isConfirmingUndo && (
+                  {canManage && isLatest && !isConfirmingUndo && (
                     <div className="flex items-center justify-end pt-0.5">
                       <button
                         type="button"
@@ -4751,7 +4802,7 @@ function SavingsDepositDetailSheet({
                     </div>
                   )}
 
-                  {isLatest && isConfirmingUndo && (
+                  {canManage && isLatest && isConfirmingUndo && (
                     <div className="mt-1.5 border-t border-[var(--border)] pt-2 space-y-2">
                       <p className="text-[11px] text-[var(--foreground)]">
                         {Number(s.totalReceivedAmount) > 0
@@ -4787,7 +4838,7 @@ function SavingsDepositDetailSheet({
           </div>
         )}
 
-        {deposit.settlements.length === 0 && (
+        {canManage && deposit.settlements.length === 0 && (
           <div className="border-t border-[var(--border)] pt-3">
             {!confirmDelete ? (
               <button
@@ -4834,12 +4885,12 @@ function SavingsDepositDetailSheet({
         onCancel={() => onOpenChange(false)}
         cancelLabel="Đóng"
         submitLabel={
-          deposit.status === "active"
+          canManage && deposit.status === "active"
             ? "Tất toán / Rút gốc / Tái tục"
             : undefined
         }
         submitType="button"
-        onSubmit={deposit.status === "active" ? onSettle : undefined}
+        onSubmit={canManage && deposit.status === "active" ? onSettle : undefined}
       />
     </ResponsiveSheet>
   );

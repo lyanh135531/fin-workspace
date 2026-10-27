@@ -119,6 +119,19 @@ describe("google auth service", () => {
     expect(mockPrisma.user.updateMany).not.toHaveBeenCalled();
   });
 
+  it("rejects reserved platform admin usernames in completeGoogleProfile", async () => {
+    vi.stubEnv("PLATFORM_ADMIN_USERNAMES", "admin,operator");
+    try {
+      await expect(completeGoogleProfile("user-new", "Admin")).rejects.toThrow(
+        "Tên đăng nhập này đã được hệ thống bảo lưu. Vui lòng chọn tên đăng nhập khác.",
+      );
+      expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.user.updateMany).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("completes the provisional profile and issues its login grant atomically", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
     mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });

@@ -1,4 +1,5 @@
 import argon2 from "argon2";
+import { isPlatformAdminUsername } from "@/domain/platform-user/schemas";
 import { isWorkspaceRoleCode } from "@/domain/role-policy";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
@@ -7,6 +8,9 @@ import { requireWorkspaceMember } from "@/services/workspace-access";
 export async function createWorkspaceUser(actorUserId: string, workspaceId: string, input: { username: string; password: string; roleCode: string }) {
   await requireWorkspaceMember(actorUserId, workspaceId, true);
   if (!isWorkspaceRoleCode(input.roleCode)) throw new AppError("VALIDATION_ERROR", "Vai trò chỉ có thể là ADMIN hoặc MEMBER.");
+  if (isPlatformAdminUsername(input.username)) {
+    throw new AppError("CONFLICT", "Tên đăng nhập này đã được hệ thống bảo lưu. Vui lòng chọn tên đăng nhập khác.");
+  }
   const passwordHash = await argon2.hash(input.password);
   return prisma.$transaction(async (tx) => {
     const role = await tx.role.findUnique({ where: { code: input.roleCode } });
@@ -21,6 +25,9 @@ export async function createWorkspaceUser(actorUserId: string, workspaceId: stri
 export async function createMemberAccount(actorUserId: string, workspaceIds: string[], input: { username: string; password: string }) {
   if (workspaceIds.length === 0) throw new AppError("VALIDATION_ERROR", "Chọn ít nhất một nhóm tài chính.");
   await Promise.all(workspaceIds.map((workspaceId) => requireWorkspaceMember(actorUserId, workspaceId, true)));
+  if (isPlatformAdminUsername(input.username)) {
+    throw new AppError("CONFLICT", "Tên đăng nhập này đã được hệ thống bảo lưu. Vui lòng chọn tên đăng nhập khác.");
+  }
   const passwordHash = await argon2.hash(input.password);
   return prisma.$transaction(async (tx) => {
     if (await tx.user.findUnique({ where: { username: input.username } })) throw new AppError("CONFLICT", "Tên đăng nhập này đã được sử dụng.");
@@ -67,6 +74,27 @@ export async function deactivateWorkspaceMember(actorUserId: string, workspaceId
     await tx.financialGoalFundingEntry.updateMany({
       where: { requesterMemberId: member.id, status: "pending", goal: { financialPlan: { workspaceId } } },
       data: { status: "rejected", reviewedAt: now },
+    });
+    const pendingTransactions =
+      (await tx.transaction.findMany?.({
+        where: { memberId: member.id, workflowStatus: "pending", deletedAt: null },
+        select: { id: true },
+      })) ?? [];
+    const pendingTxIds = pendingTransactions.map((item) => item.id);
+    if (pendingTxIds.length > 0) {
+      await tx.creditCardPaymentReservation?.updateMany?.({
+        where: { paymentTransactionId: { in: pendingTxIds }, releasedAt: null },
+        data: { releasedAt: now },
+      });
+    }
+    await tx.creditCardInstallmentPlan?.deleteMany?.({
+      where: {
+        status: "pending",
+        OR: [
+          ...(pendingTxIds.length > 0 ? [{ transactionId: { in: pendingTxIds } }] : []),
+          { createdByMemberId: member.id, workspaceId },
+        ],
+      },
     });
     await tx.transaction.updateMany({
       where: { memberId: member.id, workflowStatus: "pending", deletedAt: null },

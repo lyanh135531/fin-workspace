@@ -2,9 +2,12 @@ import Decimal from "decimal.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import {
+  addGoldPurchaseLot,
+  createSavingsDeposit,
   deleteGoldPurchaseLot,
   deleteGoldSaleRecord,
   deleteSavingsSettlement,
+  recordGoldSale,
   settleSavingsDeposit,
   updateGoldPurchaseLot,
 } from "@/services/investment-service";
@@ -36,7 +39,7 @@ describe("investment-service", () => {
         baseCurrency: "VND",
         timeZone: "Asia/Ho_Chi_Minh",
       },
-      role: { id: "role-1", name: "Admin" },
+      role: { id: "role-1", code: "ADMIN", name: "Admin" },
     });
   });
 
@@ -484,6 +487,7 @@ describe("investment-service", () => {
 
   it("rejects backdated savings settlements earlier than the latest existing settlement", async () => {
     const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       savingsDeposit: {
         findFirst: vi.fn().mockResolvedValue({
           id: "00000000-0000-4000-8000-000000000002",
@@ -523,6 +527,222 @@ describe("investment-service", () => {
       }),
     ).rejects.toThrow(
       "Ngày tất toán hoặc tái tục mới không được trước lần thực hiện gần nhất.",
+    );
+  });
+
+  it("throws FORBIDDEN when a non-admin MEMBER attempts an investment mutation", async () => {
+    (
+      prisma.workspaceMember.findFirst as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce({
+      id: "member-2",
+      workspaceId: "workspace-1",
+      workspace: {
+        id: "workspace-1",
+        name: "Gia đình",
+        baseCurrency: "VND",
+        timeZone: "Asia/Ho_Chi_Minh",
+      },
+      role: { id: "role-2", code: "MEMBER", name: "Member" },
+    });
+
+    await expect(
+      deleteGoldPurchaseLot("user-2", "workspace-1", "lot-1"),
+    ).rejects.toThrow(
+      "Chỉ quản trị viên mới có quyền thêm, sửa, bán hoặc tất toán danh mục đầu tư.",
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects future business dates and chronologically invalid settlement/sale dates", async () => {
+    // Business date mocked at 2026-04-20
+    await expect(
+      createSavingsDeposit("user-1", "workspace-1", {
+        name: "Sổ tương lai",
+        bankName: "Vietcombank",
+        fundingMode: "existing_asset",
+        principalAmount: "50000000",
+        annualInterestRate: "5.5",
+        nonTermInterestRate: "0.1",
+        termMonths: 6,
+        startDate: "2026-04-21",
+        interestPayoutMode: "maturity",
+        maturityAction: "settle_to_wallet",
+      }),
+    ).rejects.toThrow("Ngày thực hiện không được lớn hơn ngày hiện tại.");
+
+    const savingsTx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      savingsDeposit: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "00000000-0000-4000-8000-000000000002",
+          workspaceId: "workspace-1",
+          status: "active",
+          deletedAt: null,
+          currentPrincipalAmount: new Decimal("100000000"),
+          annualInterestRate: new Decimal("6.0"),
+          nonTermInterestRate: new Decimal("0.1"),
+          termMonths: 6,
+          startDate: new Date("2026-03-15T00:00:00.000Z"),
+          maturityDate: new Date("2026-09-15T00:00:00.000Z"),
+        }),
+      },
+    };
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      async (cb: (client: typeof savingsTx) => unknown) => cb(savingsTx),
+    );
+
+    await expect(
+      settleSavingsDeposit("user-1", "workspace-1", {
+        depositId: "00000000-0000-4000-8000-000000000002",
+        settlementType: "early_full",
+        settlementDate: "2026-03-10",
+        destinationWalletId: "00000000-0000-4000-8000-000000000010",
+        interestReceivedAmount: "0",
+      }),
+    ).rejects.toThrow("Ngày tất toán không được trước ngày mở sổ tiết kiệm.");
+
+    const goldSaleTx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      goldHolding: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "00000000-0000-4000-8000-000000000005",
+          workspaceId: "workspace-1",
+          name: "Vàng SJC",
+          deletedAt: null,
+          totalQuantityChi: new Decimal("2.0000"),
+          totalCostBasisAmount: new Decimal("30000000"),
+          purchaseLots: [
+            {
+              id: "00000000-0000-4000-8000-000000000006",
+              purchaseDate: new Date("2026-04-10T00:00:00.000Z"),
+              createdAt: new Date("2026-04-10T00:00:00.000Z"),
+              remainingQuantityChi: new Decimal("2.0000"),
+              remainingCostAmount: new Decimal("30000000"),
+            },
+          ],
+          saleRecords: [],
+        }),
+      },
+    };
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      async (cb: (client: typeof goldSaleTx) => unknown) => cb(goldSaleTx),
+    );
+
+    await expect(
+      recordGoldSale("user-1", "workspace-1", {
+        holdingId: "00000000-0000-4000-8000-000000000005",
+        costMode: "specific_lot",
+        purchaseLotId: "00000000-0000-4000-8000-000000000006",
+        destinationWalletId: "00000000-0000-4000-8000-000000000010",
+        saleDate: "2026-04-05",
+        quantityChi: "1",
+        sellPricePerChi: "16000000",
+        feeOrDeductionAmount: "0",
+      }),
+    ).rejects.toThrow(
+      "Ngày bán vàng không được trước ngày mua của đợt vàng đã chọn.",
+    );
+  });
+
+  it("replays historical sales and rebalances open lots when adding a backdated lot", async () => {
+    // Existing: Lot 1 on 2026-02-01 (1 chỉ @ 12M), Sale 1 on 2026-03-01 (1 chỉ @ 15M, average_cost)
+    // Add backdated Lot 0 on 2026-01-15 (1 chỉ @ 10M):
+    // -> Pool on 2026-03-01 becomes 2 chỉ, total cost 22M (avg 11M/chỉ)
+    // -> Sale 1 costBasisAllocatedAmount updates to 11M, realizedProfit updates to 4M
+    // -> Lot 0 consumed by FIFO (remQty = 0, remCost = 0); Lot 1 survives with remQty = 1, remCost = 11M!
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      goldHolding: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "00000000-0000-4000-8000-000000000005",
+          workspaceId: "workspace-1",
+          name: "Vàng nhẫn 9999",
+          deletedAt: null,
+          saleRecords: [{ id: "sale-1" }],
+        }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      goldPurchaseLot: {
+        create: vi.fn().mockResolvedValue({
+          id: "lot-0",
+          holdingId: "00000000-0000-4000-8000-000000000005",
+        }),
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "lot-0",
+            holdingId: "00000000-0000-4000-8000-000000000005",
+            purchaseDate: new Date("2026-01-15T00:00:00.000Z"),
+            createdAt: new Date("2026-04-20T09:00:00.000Z"),
+            quantityChi: new Decimal("1.0000"),
+            remainingQuantityChi: new Decimal("1.0000"),
+            unitPricePerChi: new Decimal("10000000"),
+            totalCostAmount: new Decimal("10000000"),
+            remainingCostAmount: new Decimal("10000000"),
+          },
+          {
+            id: "lot-1",
+            holdingId: "00000000-0000-4000-8000-000000000005",
+            purchaseDate: new Date("2026-02-01T00:00:00.000Z"),
+            createdAt: new Date("2026-02-01T09:00:00.000Z"),
+            quantityChi: new Decimal("1.0000"),
+            remainingQuantityChi: new Decimal("0.0000"),
+            unitPricePerChi: new Decimal("12000000"),
+            totalCostAmount: new Decimal("12000000"),
+            remainingCostAmount: new Decimal("0"),
+          },
+        ]),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      goldSaleRecord: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "sale-1",
+            holdingId: "00000000-0000-4000-8000-000000000005",
+            costMode: "average_cost",
+            purchaseLotId: null,
+            saleDate: new Date("2026-03-01T00:00:00.000Z"),
+            createdAt: new Date("2026-03-01T10:00:00.000Z"),
+            quantityChi: new Decimal("1.0000"),
+            sellPricePerChi: new Decimal("15000000"),
+            feeOrDeductionAmount: new Decimal("0"),
+          },
+        ]),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      auditLog: {
+        create: vi.fn().mockResolvedValue({}),
+      },
+    };
+
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      async (cb: (client: typeof tx) => unknown) => cb(tx),
+    );
+
+    await addGoldPurchaseLot("user-1", "workspace-1", {
+      holdingId: "00000000-0000-4000-8000-000000000005",
+      fundingMode: "existing_asset",
+      purchaseDate: "2026-01-15",
+      quantityChi: "1",
+      unitPricePerChi: "10000000",
+      craftingFeeAmount: "0",
+    });
+
+    expect(tx.goldSaleRecord.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "sale-1" },
+        data: {
+          costBasisAllocatedAmount: new Decimal("11000000"),
+          realizedProfitAmount: new Decimal("4000000"),
+        },
+      }),
+    );
+
+    const lot1Update = tx.goldPurchaseLot.update.mock.calls.find(
+      (call) => call[0].where.id === "lot-1",
+    );
+    expect(lot1Update?.[0].data.remainingQuantityChi.toFixed(4)).toBe("1.0000");
+    expect(lot1Update?.[0].data.remainingCostAmount.toFixed(0)).toBe(
+      "11000000",
     );
   });
 });

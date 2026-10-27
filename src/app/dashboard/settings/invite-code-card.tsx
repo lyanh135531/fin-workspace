@@ -9,11 +9,13 @@ import { toast } from "sonner";
 type InviteCodeCardProps = {
   code: string;
   compact?: boolean;
+  workspaceId?: string;
 };
 
 export function InviteCodeCard({
   code: initialCode,
   compact = false,
+  workspaceId,
 }: InviteCodeCardProps) {
   const [regenerated, setRegenerated] = useState<{
     baseCode: string;
@@ -37,7 +39,7 @@ export function InviteCodeCard({
 
   function handleRegenerate() {
     startTransition(async () => {
-      const result = await regenerateInviteCodeAction();
+      const result = await regenerateInviteCodeAction(workspaceId);
       if (result.ok && "inviteCode" in result && result.inviteCode) {
         setRegenerated({ baseCode: initialCode, code: result.inviteCode });
         toast.success("Đã tạo mã mời mới.");

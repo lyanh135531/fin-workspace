@@ -606,6 +606,171 @@ describe("credit card statement payments", () => {
       }),
     ]);
   });
+
+  it("produces identical Statement 2 totals in createStatementForCycle and refreshHistoricalCardStatements when a statement-linked current_debt payment spills into Cycle 2", async () => {
+    // Cycle 1 statement had 1,000,000 debt; user paid 1,300,000 via current_debt (linked to stmt-1),
+    // spilling 300,000 onto Cycle 2's 500,000 obligation. Statement 2 due should be 200,000 (not 0).
+    const createTx = {
+      creditCardObligationEntry: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "obl-cycle-2",
+            fundingWalletId: "wallet-1",
+            amount: new Decimal("500000"),
+            postedDate: new Date("2026-09-25T00:00:00.000Z"),
+            paymentAllocations: [
+              {
+                amount: new Decimal("300000"),
+                paymentTransaction: {
+                  workflowStatus: "approved",
+                  deletedAt: null,
+                  creditCardStatementId: "stmt-1",
+                },
+              },
+            ],
+          },
+        ]),
+        findFirst: vi.fn().mockResolvedValue({ id: "obl-cycle-2" }),
+      },
+      creditCardInstallment: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      creditCardStatementItem: {
+        findMany: vi.fn().mockResolvedValue([
+          { fundingWalletId: "wallet-1", amount: new Decimal("1000000") },
+        ]),
+      },
+      transaction: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            creditCardPaymentSources: [
+              { sourceWalletId: "wallet-1", amount: new Decimal("1300000") },
+            ],
+          },
+        ]),
+      },
+      creditCardStatement: {
+        create: vi.fn().mockImplementation(({ data }) =>
+          Promise.resolve({ id: "stmt-2", ...data }),
+        ),
+        findMany: vi.fn().mockResolvedValue([]),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    const createdCycle2 = await createStatementForCycle(
+      createTx,
+      "workspace-1",
+      "card-wallet-1",
+      "2026-09-21",
+      "2026-10-20",
+      5,
+    );
+    expect(createdCycle2.totalAmount.toString()).toBe("200000");
+
+    // Verify refreshHistoricalCardStatements computes the exact same 200,000 total for Statement 2
+    const updatedStatements = new Map<string, Decimal>();
+    const refreshTx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      creditCardProfile: {
+        findFirst: vi.fn().mockResolvedValue({
+          walletId: "card-wallet-1",
+          statementClosingDay: 20,
+          paymentDueDay: 5,
+          statements: [{ cycleEndDate: new Date("2026-10-20T00:00:00.000Z") }],
+          obligations: [{ postedDate: new Date("2026-09-10T00:00:00.000Z") }],
+          installmentPlans: [],
+        }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          walletId: "card-wallet-1",
+          statementClosingDay: 20,
+          paymentDueDay: 5,
+        }),
+      },
+      creditCardObligationEntry: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "obl-cycle-1",
+            fundingWalletId: "wallet-1",
+            amount: new Decimal("1000000"),
+            postedDate: new Date("2026-09-10T00:00:00.000Z"),
+            paymentAllocations: [],
+          },
+          {
+            id: "obl-cycle-2",
+            fundingWalletId: "wallet-1",
+            amount: new Decimal("500000"),
+            postedDate: new Date("2026-09-25T00:00:00.000Z"),
+            paymentAllocations: [
+              {
+                amount: new Decimal("300000"),
+                paymentTransaction: {
+                  workflowStatus: "approved",
+                  deletedAt: null,
+                  creditCardStatementId: "stmt-1",
+                },
+              },
+            ],
+          },
+        ]),
+        findFirst: vi.fn().mockResolvedValue({ id: "obl-cycle-1" }),
+      },
+      creditCardInstallment: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      creditCardStatement: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "stmt-1",
+          cycleStartDate: new Date("2026-08-21T00:00:00.000Z"),
+          cycleEndDate: new Date("2026-09-20T00:00:00.000Z"),
+        }),
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "stmt-1",
+            status: "paid",
+            paidAt: new Date("2026-09-26T00:00:00.000Z"),
+            cycleStartDate: new Date("2026-08-21T00:00:00.000Z"),
+            cycleEndDate: new Date("2026-09-20T00:00:00.000Z"),
+            items: [{ obligationEntryId: "obl-cycle-1", fundingWalletId: "wallet-1", amount: new Decimal("1000000"), isCarry: false }],
+            payments: [
+              {
+                creditCardPaymentSources: [
+                  { sourceWalletId: "wallet-1", amount: new Decimal("1300000") },
+                ],
+              },
+            ],
+          },
+          {
+            id: "stmt-2",
+            status: "issued",
+            paidAt: null,
+            cycleStartDate: new Date("2026-09-21T00:00:00.000Z"),
+            cycleEndDate: new Date("2026-10-20T00:00:00.000Z"),
+            items: [],
+            payments: [],
+          },
+        ]),
+        update: vi.fn().mockImplementation(({ where, data }: { where: { id: string }; data: { totalAmount: Decimal } }) => {
+          updatedStatements.set(where.id, data.totalAmount);
+          return Promise.resolve({});
+        }),
+      },
+      creditCardStatementItem: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        create: vi.fn().mockImplementation(({ data }) => Promise.resolve({ id: "item-new", ...data })),
+      },
+      creditCardInstallmentPlan: {
+        findMany: vi.fn().mockResolvedValue([]),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    await refreshHistoricalCardStatements(refreshTx, "workspace-1", "card-wallet-1", "2026-10-20");
+
+    expect(updatedStatements.get("stmt-2")?.toString()).toBe("200000");
+  });
 });
+
 
 

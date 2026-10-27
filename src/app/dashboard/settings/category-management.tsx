@@ -140,8 +140,10 @@ const ICON_LIST = [
   { id: "money", label: "Tiền bạc" },
   { id: "landmark", label: "Ngân hàng" },
   { id: "card", label: "Thẻ" },
+  { id: "wallet", label: "Ví tiền" },
   { id: "education", label: "Học tập" },
   { id: "travel", label: "Du lịch" },
+  { id: "utilities", label: "Tiện ích" },
   { id: "gift", label: "Quà tặng" },
   { id: "shield", label: "Bảo hiểm" },
   { id: "tech", label: "Thiết bị" },
@@ -151,7 +153,13 @@ const ICON_LIST = [
   { id: "book", label: "Sách vở" },
 ];
 
-export function CategoryManagement({ categories }: { categories: Category[] }) {
+export function CategoryManagement({
+  categories,
+  workspaceId,
+}: {
+  categories: Category[];
+  workspaceId?: string;
+}) {
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [filterType, setFilterType] = useState<"expense" | "income">("expense");
@@ -193,8 +201,11 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
     };
     start(async () => {
       const result = id
-        ? await updateCategoryAction({ ...category, categoryId: id })
-        : await createCategoryAction(category);
+        ? await updateCategoryAction(
+            { ...category, categoryId: id },
+            workspaceId,
+          )
+        : await createCategoryAction(category, workspaceId);
       if (result.ok) {
         toast.success(id ? "Đã cập nhật danh mục." : "Đã tạo danh mục mới.");
         setEditing(null);
@@ -207,7 +218,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
 
   function setStatus(id: string, status: "active" | "deactive") {
     start(async () => {
-      const result = await setCategoryStatusAction(id, status);
+      const result = await setCategoryStatusAction(id, status, workspaceId);
       if (result.ok) {
         toast.success(
           status === "active"
@@ -222,7 +233,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
 
   function deleteCategory(id: string) {
     start(async () => {
-      const result = await deleteCategoryAction(id);
+      const result = await deleteCategoryAction(id, workspaceId);
       if (result.ok) {
         toast.success("Đã xóa danh mục.");
       } else {
@@ -234,7 +245,7 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
   function handleReorder(items: Category[]) {
     const orderedIds = items.map((c) => c.id);
     start(async () => {
-      const result = await reorderCategoriesAction(orderedIds);
+      const result = await reorderCategoriesAction(orderedIds, workspaceId);
       if (result.ok) {
         toast.success("Đã cập nhật thứ tự danh mục.");
       } else {
@@ -1226,7 +1237,8 @@ function CategoryForm({
               emptyOption={{ value: "none", label: "Không chọn (Danh mục cha)" }}
               categories={categories.filter(
                 (item) =>
-                  item.status === "active" &&
+                  (item.status === "active" ||
+                    (Boolean(category) && item.id === category?.parentId)) &&
                   item.type === (category?.type ?? defaultType) &&
                   (!category || item.id !== category.id) &&
                   !item.parentId,

@@ -343,4 +343,132 @@ describe("recurring transaction approval workflow", () => {
       }),
     });
   });
+
+  it("only auto-completes approved paused schedules past endDate so pending schedules are never stamped completedAt", async () => {
+    vi.mocked(prisma.workspace.findFirst).mockResolvedValue({ timeZone: "Asia/Ho_Chi_Minh" } as never);
+    vi.mocked(prisma.recurringTransaction.updateMany).mockResolvedValue({ count: 0 });
+    vi.mocked(prisma.recurringTransaction.findFirst).mockResolvedValue(null);
+
+    await processDueRecurringTransactions("workspace-1", new Date("2026-09-20T00:00:00.000Z"));
+
+    expect(prisma.recurringTransaction.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workspaceId: "workspace-1",
+          status: "deactive",
+          approvalStatus: "approved",
+          completedAt: null,
+        }),
+      }),
+    );
+  });
+
+  it("allows a member to edit their own pending schedule even if completedAt was set and clears completedAt", async () => {
+    const existing = {
+      id: "recurring-1",
+      workspaceId: "workspace-1",
+      createdByMemberId: "member-1",
+      walletId: "wallet-1",
+      toWalletId: null,
+      categoryId: null,
+      type: "income" as const,
+      amount: new Decimal("1000000"),
+      description: "Lương",
+      dayOfMonth: 5,
+      startDate: new Date("2026-07-05T00:00:00.000Z"),
+      endDate: new Date("2026-08-05T00:00:00.000Z"),
+      nextExecutionDate: null,
+      status: "deactive" as const,
+      approvalStatus: "pending" as const,
+      reviewedByMemberId: null,
+      reviewedAt: null,
+      approvedAt: null,
+      completedAt: new Date("2026-09-01T00:00:00.000Z"),
+      lastError: null,
+      deletedAt: null,
+    };
+    const tx = {
+      ...transactionClient(existing),
+      transaction: { findFirst: vi.fn().mockResolvedValue(null) },
+    };
+    vi.mocked(requireWorkspaceMember).mockResolvedValue({
+      id: "member-1",
+      role: { code: "MEMBER" },
+      workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+    } as never);
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback) => callback(tx as never));
+
+    await updateRecurringTransaction(
+      "user-1",
+      "workspace-1",
+      "recurring-1",
+      {
+        ...input,
+        startDate: "2026-09-25",
+        endDate: "2026-12-25",
+      },
+      new Date("2026-09-20T00:00:00.000Z"),
+    );
+
+    expect(tx.recurringTransaction.update).toHaveBeenCalledWith({
+      where: { id: "recurring-1" },
+      data: expect.objectContaining({
+        approvalStatus: "pending",
+        status: "deactive",
+        completedAt: null,
+        nextExecutionDate: new Date("2026-09-25T00:00:00.000Z"),
+      }),
+    });
+  });
+
+  it("rejects a member edit when endDate leaves no valid execution occurrence instead of saving a deadlocked pending+completed row", async () => {
+    const existing = {
+      id: "recurring-1",
+      workspaceId: "workspace-1",
+      createdByMemberId: "member-1",
+      walletId: "wallet-1",
+      toWalletId: null,
+      categoryId: null,
+      type: "income" as const,
+      amount: new Decimal("1000000"),
+      description: "Lương",
+      dayOfMonth: 25,
+      startDate: new Date("2026-07-25T00:00:00.000Z"),
+      endDate: null,
+      nextExecutionDate: new Date("2026-09-25T00:00:00.000Z"),
+      status: "deactive" as const,
+      approvalStatus: "pending" as const,
+      reviewedByMemberId: null,
+      reviewedAt: null,
+      approvedAt: null,
+      completedAt: null,
+      lastError: null,
+      deletedAt: null,
+    };
+    const tx = {
+      ...transactionClient(existing),
+      transaction: { findFirst: vi.fn().mockResolvedValue(null) },
+    };
+    vi.mocked(requireWorkspaceMember).mockResolvedValue({
+      id: "member-1",
+      role: { code: "MEMBER" },
+      workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+    } as never);
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback) => callback(tx as never));
+
+    await expect(
+      updateRecurringTransaction(
+        "user-1",
+        "workspace-1",
+        "recurring-1",
+        {
+          ...input,
+          startDate: "2026-07-25",
+          endDate: "2026-08-25",
+        },
+        new Date("2026-09-20T00:00:00.000Z"),
+      ),
+    ).rejects.toThrow("Không còn kỳ thực thi hợp lệ trước ngày kết thúc. Vui lòng gia hạn ngày kết thúc.");
+    expect(tx.recurringTransaction.update).not.toHaveBeenCalled();
+  });
 });

@@ -78,9 +78,37 @@ describe("gold-calculator", () => {
     expect(res.lotUpdates[0]?.nextRemainingQuantityChi.toFixed(4)).toBe(
       "0.0000",
     );
+    expect(res.lotUpdates[0]?.nextRemainingCostAmount.toFixed(0)).toBe("0");
     expect(res.lotUpdates[1]?.nextRemainingQuantityChi.toFixed(4)).toBe(
       "2.0000",
     );
+    expect(res.lotUpdates[1]?.nextRemainingCostAmount.toFixed(0)).toBe(
+      "16800000",
+    );
+  });
+
+  it("rebalances surviving open lots pro-rata with exact VND remainder on the last open lot", () => {
+    const res = allocateGoldSaleCostBasis({
+      costMode: "average_cost",
+      sellQuantityChi: "1",
+      sellPricePerChi: "20000000",
+      feeOrDeductionAmount: "0",
+      holdingQuantityChi: "3",
+      holdingCostBasisAmount: "55000000",
+      openLots: [
+        { id: "lot-1", remainingQuantityChi: "1", remainingCostAmount: "10000000" },
+        { id: "lot-2", remainingQuantityChi: "1", remainingCostAmount: "20000000" },
+        { id: "lot-3", remainingQuantityChi: "1", remainingCostAmount: "25000000" },
+      ],
+    });
+
+    // costAllocated = round(55,000,000 * 1 / 3) = 18,333,333 -> nextHoldingCost = 36,666,667
+    expect(res.costBasisAllocatedAmount.toFixed(0)).toBe("18333333");
+    expect(res.nextHoldingCostBasisAmount.toFixed(0)).toBe("36666667");
+    expect(res.lotUpdates).toHaveLength(3);
+    expect(res.lotUpdates[0]?.nextRemainingCostAmount.toFixed(0)).toBe("0");
+    expect(res.lotUpdates[1]?.nextRemainingCostAmount.toFixed(0)).toBe("18333334");
+    expect(res.lotUpdates[2]?.nextRemainingCostAmount.toFixed(0)).toBe("18333333");
   });
 
   it("allocates cost basis using Specific Lot (specific_lot)", () => {

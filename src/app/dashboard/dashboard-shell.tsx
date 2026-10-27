@@ -50,7 +50,6 @@ import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { getPendingJoinRequestCount } from "@/services/join-request-query";
 import { processDueRecurringTransactions } from "@/services/recurring-transaction-service";
-import { dispatchDueDailyReminders } from "@/services/reminder-service";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
 
 type DashboardShellProps = {
@@ -110,7 +109,6 @@ async function loadDashboardShellData() {
     await Promise.all([
       activateDueScheduledTransactionsForRequest(activeWorkspaceId),
       processDueRecurringTransactions({ workspaceId: activeWorkspaceId }).catch(() => null),
-      dispatchDueDailyReminders().catch(() => null),
     ]);
   }
 
@@ -331,6 +329,7 @@ async function DashboardQuickTransaction({
 
   return (
     <QuickTransactionSheet
+      key={membership?.workspaceId ?? "none"}
       initialWorkspaceId={
         membership?.workspaceId ?? workspaces[0]?.workspaceId ?? ""
       }

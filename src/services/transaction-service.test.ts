@@ -1262,6 +1262,241 @@ describe("transaction deletion approval", () => {
       });
     });
   });
+
+  describe("approval & change-request lifecycle hardening", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      vi.mocked(requireWorkspaceMember).mockResolvedValue({
+        id: "admin-member",
+        role: { code: "ADMIN" },
+        workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+      } as Awaited<ReturnType<typeof requireWorkspaceMember>>);
+    });
+
+    it("rejects approveTransaction when a pending credit_card_payment funding wallet has insufficient balance", async () => {
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockResolvedValue({
+            ...transaction,
+            id: "pay-pending-1",
+            walletId: "card-1",
+            purpose: "credit_card_payment",
+            type: "expense",
+            workflowStatus: "pending",
+            amount: new Decimal("500000"),
+            creditCardAllocations: [],
+            installmentPlan: null,
+          }),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        workspaceWallet: {
+          findMany: vi.fn().mockImplementation(({ where }: { where: { walletId: { in: string[] } } }) => {
+            if (where.walletId.in.includes("card-1")) {
+              return Promise.resolve([{ walletId: "card-1" }]);
+            }
+            return Promise.resolve([
+              {
+                walletId: "source-1",
+                wallet: {
+                  currentBalance: new Decimal("100000"),
+                  status: "active",
+                  deletedAt: null,
+                },
+              },
+            ]);
+          }),
+        },
+        creditCardPaymentSource: {
+          findMany: vi.fn().mockResolvedValue([
+            { sourceWalletId: "source-1", amount: new Decimal("500000") },
+          ]),
+        },
+      };
+      vi.mocked(prisma.$transaction).mockImplementation(
+        async (callback: (client: never) => unknown) => callback(tx as never),
+      );
+
+      await expect(
+        approveTransaction("admin-user", "workspace-1", "pay-pending-1"),
+      ).rejects.toThrow("Số dư ví nguồn không đủ để thực hiện thanh toán thẻ.");
+    });
+
+    it("rejects approveTransaction when card debt has decreased below pending credit_card_payment amount", async () => {
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockResolvedValue({
+            ...transaction,
+            id: "pay-pending-2",
+            walletId: "card-1",
+            purpose: "credit_card_payment",
+            type: "expense",
+            workflowStatus: "pending",
+            amount: new Decimal("500000"),
+            creditCardStatementId: null,
+            creditCardAllocations: [],
+            installmentPlan: null,
+          }),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        workspaceWallet: {
+          findMany: vi.fn().mockImplementation(({ where }: { where: { walletId: { in: string[] } } }) => {
+            if (where.walletId.in.includes("card-1")) {
+              return Promise.resolve([{ walletId: "card-1" }]);
+            }
+            return Promise.resolve([
+              {
+                walletId: "source-1",
+                wallet: {
+                  currentBalance: new Decimal("1000000"),
+                  status: "active",
+                  deletedAt: null,
+                },
+              },
+            ]);
+          }),
+        },
+        wallet: {
+          findUniqueOrThrow: vi.fn().mockResolvedValue({
+            currentBalance: new Decimal("200000"),
+          }),
+        },
+        creditCardPaymentSource: {
+          findMany: vi.fn().mockResolvedValue([
+            { sourceWalletId: "source-1", amount: new Decimal("500000") },
+          ]),
+        },
+      };
+      vi.mocked(prisma.$transaction).mockImplementation(
+        async (callback: (client: never) => unknown) => callback(tx as never),
+      );
+
+      await expect(
+        approveTransaction("admin-user", "workspace-1", "pay-pending-2"),
+      ).rejects.toThrow("Dư nợ thẻ hiện tại đã giảm thấp hơn số tiền thanh toán chờ duyệt");
+    });
+
+    it("rejects approveTransaction when the target wallet has been deactivated", async () => {
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockResolvedValue({
+            ...transaction,
+            id: "tx-pending-inactive",
+            walletId: "wallet-deactivated",
+            purpose: "standard",
+            type: "expense",
+            categoryId: "cat-1",
+            workflowStatus: "pending",
+            amount: new Decimal("100000"),
+            creditCardAllocations: [],
+            installmentPlan: null,
+          }),
+        },
+        workspaceWallet: {
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+      };
+      vi.mocked(prisma.$transaction).mockImplementation(
+        async (callback: (client: never) => unknown) => callback(tx as never),
+      );
+
+      await expect(
+        approveTransaction("admin-user", "workspace-1", "tx-pending-inactive"),
+      ).rejects.toThrow("Ví không thuộc nhóm này hoặc không còn hoạt động.");
+    });
+
+    it("excludes rejected credit_card_refund rows in softDelete and auto-rejects open pending change requests", async () => {
+      const findFirstCalls: unknown[] = [];
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockImplementation((args) => {
+            findFirstCalls.push(args);
+            return Promise.resolve({
+              ...transaction,
+              purpose: "standard",
+              wallet: { kind: "credit_card" },
+              installmentPlan: null,
+              creditCardStatement: null,
+              refundTransactions: [],
+              creditCardObligationEntries: [],
+            });
+          }),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        wallet: {
+          findUniqueOrThrow: vi.fn().mockResolvedValue({
+            kind: "credit_card",
+            currentBalance: new Decimal(0),
+          }),
+          update: vi.fn().mockResolvedValue({}),
+        },
+        creditCardStatementItem: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+        creditCardObligationEntry: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        creditCardAllocation: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+        transactionChangeRequest: {
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        auditLog: { create: vi.fn().mockResolvedValue({}) },
+      };
+      vi.mocked(prisma.$transaction).mockImplementation(
+        async (callback: (client: never) => unknown) => callback(tx as never),
+      );
+
+      const res = await deleteOrRequestTransaction(
+        "admin-user",
+        "workspace-1",
+        "transaction-1",
+        "Xóa",
+      );
+      expect(res).toEqual({ kind: "deleted", id: "transaction-1" });
+      expect(findFirstCalls[0]).toEqual(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            refundTransactions: expect.objectContaining({
+              where: { deletedAt: null, workflowStatus: { not: "rejected" } },
+            }),
+          }),
+        }),
+      );
+      expect(tx.transactionChangeRequest.updateMany).toHaveBeenCalledWith({
+        where: { transactionId: "transaction-1", status: "pending" },
+        data: { status: "rejected", reviewedAt: expect.any(Date) },
+      });
+    });
+
+    it("rejects approveTransactionChange with NOT_FOUND when the underlying transaction is already soft-deleted", async () => {
+      const tx = {
+        transactionChangeRequest: {
+          findFirst: vi.fn().mockResolvedValue({
+            id: "change-deleted",
+            transactionId: "transaction-1",
+            status: "pending",
+            proposedData: { action: "delete", reason: "Xóa" },
+            transaction: {
+              ...transaction,
+              deletedAt: new Date("2026-07-25T00:00:00.000Z"),
+            },
+          }),
+          updateMany: vi.fn(),
+        },
+      };
+      vi.mocked(prisma.$transaction).mockImplementation(
+        async (callback: (client: never) => unknown) => callback(tx as never),
+      );
+
+      await expect(
+        approveTransactionChange("admin-user", "workspace-1", "change-deleted"),
+      ).rejects.toThrow("Giao dịch đã bị xóa.");
+      expect(tx.transactionChangeRequest.updateMany).not.toHaveBeenCalled();
+    });
+  });
 });
+
 
 

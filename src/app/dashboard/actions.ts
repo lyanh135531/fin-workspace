@@ -343,8 +343,37 @@ export async function reviewTransactionChangeAction(workspaceId: string, changeR
   }
 }
 
+function revalidateFinancePaths(workspaceId: string) {
+  revalidatePath("/dashboard");
+  revalidatePath(`/workspace/${workspaceId}`);
+  revalidatePath("/overview");
+  revalidatePath("/dashboard/overview");
+  revalidatePath("/wallets");
+  revalidatePath("/dashboard/wallets");
+  revalidateCreditCardViews();
+  revalidateFinancialPlanViews();
+}
+
 export async function deleteTransactionsAction(workspaceId: string, transactionIds: unknown) {
   const requestId = crypto.randomUUID();
-  try { const user = await workspaceActor(workspaceId); const ids = Array.from(new Set(idSchema.array().min(1).max(100).parse(transactionIds))); for (const id of ids) await deleteTransaction(user.userId, user.workspaceId, id); debug("transactions.deleted", { requestId, transactionCount: ids.length, workspaceId: user.workspaceId }); revalidatePath("/dashboard"); revalidatePath(`/workspace/${user.workspaceId}`); revalidatePath("/overview"); revalidatePath("/dashboard/overview"); revalidatePath("/wallets"); revalidatePath("/dashboard/wallets"); revalidateCreditCardViews(); revalidateFinancialPlanViews(); return { ok: true as const, count: ids.length }; }
-  catch (error) { debug("transactions.delete_failed", { requestId, message: error instanceof Error ? error.message : "unknown" }); return toActionFailure(error, "Không thể xóa các giao dịch.", { event: "transactions.delete_failed", requestId }); }
+  let deletedCount = 0;
+  let resolvedWorkspaceId = workspaceId;
+  try {
+    const user = await workspaceActor(workspaceId);
+    resolvedWorkspaceId = user.workspaceId;
+    const ids = Array.from(new Set(idSchema.array().min(1).max(100).parse(transactionIds)));
+    for (const id of ids) {
+      await deleteTransaction(user.userId, user.workspaceId, id);
+      deletedCount += 1;
+    }
+    debug("transactions.deleted", { requestId, transactionCount: deletedCount, workspaceId: user.workspaceId });
+    return { ok: true as const, count: deletedCount };
+  } catch (error) {
+    debug("transactions.delete_failed", { requestId, deletedCount, message: error instanceof Error ? error.message : "unknown" });
+    return toActionFailure(error, "Không thể xóa các giao dịch.", { event: "transactions.delete_failed", requestId });
+  } finally {
+    if (deletedCount > 0) {
+      revalidateFinancePaths(resolvedWorkspaceId);
+    }
+  }
 }

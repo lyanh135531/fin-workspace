@@ -61,7 +61,7 @@ function InlineJoinForm({ onSuccess }: { onSuccess?: () => void }) {
         <KeyRound size={14} className="shrink-0 text-[var(--text-muted)]" aria-hidden />
         <Input
           ref={inputRef}
-          className="h-7 min-h-0 flex-1 border-0 bg-transparent px-1 py-0 text-xs focus-visible:ring-0"
+          className="h-7 min-h-0 flex-1 border-0 bg-transparent px-1 py-0 text-xs focus-visible:ring-0 md:h-7 md:min-h-0 md:py-0 md:text-xs"
           placeholder="Dán mã mời của nhóm…"
           value={value}
           onChange={(e) => {

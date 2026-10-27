@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 type Workspace = {
+  id?: string;
   name: string;
   description: string | null;
   baseCurrency: string;
@@ -33,10 +34,13 @@ type Workspace = {
 export function WorkspaceSettings({
   workspace,
   isAdmin,
+  workspaceId,
 }: {
   workspace: Workspace;
   isAdmin: boolean;
+  workspaceId?: string;
 }) {
+  const resolvedWorkspaceId = workspaceId ?? workspace.id;
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -55,17 +59,21 @@ export function WorkspaceSettings({
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     start(async () => {
-      const result = await updateWorkspaceSettingsAction({
-        name: form.get("name"),
-        description: form.get("description") || undefined,
-        baseCurrency: String(
-          form.get("baseCurrency") || workspace.baseCurrency || "VND",
-        ),
-        timeZone: String(
-          form.get("timeZone") || workspace.timeZone || "Asia/Ho_Chi_Minh",
-        ),
-        status: String(form.get("status") || workspace.status),
-      });
+      const result = await updateWorkspaceSettingsAction(
+        {
+          workspaceId: resolvedWorkspaceId,
+          name: form.get("name"),
+          description: form.get("description") || undefined,
+          baseCurrency: String(
+            form.get("baseCurrency") || workspace.baseCurrency || "VND",
+          ),
+          timeZone: String(
+            form.get("timeZone") || workspace.timeZone || "Asia/Ho_Chi_Minh",
+          ),
+          status: String(form.get("status") || workspace.status),
+        },
+        resolvedWorkspaceId,
+      );
       if (result.ok) {
         toast.success("Đã lưu cài đặt nhóm.");
       } else {
@@ -81,7 +89,10 @@ export function WorkspaceSettings({
     }
     setDeleting(true);
     try {
-      const result = await deleteWorkspaceAction(confirmPassword);
+      const result = await deleteWorkspaceAction(
+        confirmPassword,
+        resolvedWorkspaceId,
+      );
       if (!result.ok) {
         toast.error(result.message ?? "Không thể xóa nhóm tài chính.");
         return false;

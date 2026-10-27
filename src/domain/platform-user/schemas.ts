@@ -48,7 +48,7 @@ export function parsePlatformAdminUsernames(value: string | undefined) {
   return new Set(
     (value ?? "")
       .split(",")
-      .map((username) => username.trim())
+      .map((username) => username.trim().toLowerCase())
       .filter(Boolean),
   );
 }
@@ -57,5 +57,7 @@ export function isPlatformAdminUsername(
   username: string,
   configuredUsernames = process.env.PLATFORM_ADMIN_USERNAMES,
 ) {
-  return parsePlatformAdminUsernames(configuredUsernames).has(username);
+  return parsePlatformAdminUsernames(configuredUsernames).has(
+    username.trim().toLowerCase(),
+  );
 }

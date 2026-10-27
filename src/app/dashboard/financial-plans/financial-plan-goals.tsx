@@ -155,6 +155,7 @@ export type FinancialGoalView = {
     | "at_risk"
     | "goal_reached"
     | "overdue";
+  totalFundingEntriesCount: number;
   fundingEntries: Array<{
     id: string;
     amount: string;
@@ -170,6 +171,7 @@ export type FinancialGoalView = {
     requester: string;
     reviewer: string | null;
     reversesEntryId: string | null;
+    reversedBy: { id: string } | null;
   }>;
   canManage: boolean;
 };
@@ -396,7 +398,7 @@ export function FinancialPlanGoals({
             const hasAnyMenuActions =
               (goal.status === "active" && goal.trackingMode === "manual") ||
               (goal.trackingMode === "manual" &&
-                goal.fundingEntries.length > 0) ||
+                goal.totalFundingEntriesCount > 0) ||
               hasManageActions;
             const progressPct = Math.min(
               Math.max(Number(goal.progressPercentage) || 0, 0),
@@ -477,13 +479,13 @@ export function FinancialPlanGoals({
                           </Button>
                         )}
                       {goal.trackingMode === "manual" &&
-                        goal.fundingEntries.length > 0 && (
+                        goal.totalFundingEntriesCount > 0 && (
                           <Button
                             variant="icon"
                             size="icon"
                             onClick={() => setHistoryGoal(goal)}
                             aria-label={`Lịch sử đóng góp ${goal.name}`}
-                            title={`Lịch sử đóng góp (${goal.fundingEntries.length})`}
+                            title={`Lịch sử đóng góp (${goal.totalFundingEntriesCount})`}
                             className="size-7 sm:size-8"
                           >
                             <History className="size-3.5 sm:size-4" aria-hidden="true" />
@@ -723,7 +725,7 @@ export function FinancialPlanGoals({
                       </DropdownMenuItem>
                     )}
                   {goal.trackingMode === "manual" &&
-                    goal.fundingEntries.length > 0 && (
+                    goal.totalFundingEntriesCount > 0 && (
                       <DropdownMenuItem
                         onClick={() => {
                           setMenuGoalId(null);
@@ -735,7 +737,7 @@ export function FinancialPlanGoals({
                           aria-hidden="true"
                         />
                         <span>
-                          Lịch sử đóng góp ({goal.fundingEntries.length})
+                          Lịch sử đóng góp ({goal.totalFundingEntriesCount})
                         </span>
                       </DropdownMenuItem>
                     )}
@@ -1117,6 +1119,7 @@ function GoalFundingHistorySheet({
                     {canMutateGoalFunding &&
                       entry.status === "approved" &&
                       entry.kind !== "reversal" &&
+                      !entry.reversedBy &&
                       !goal.fundingEntries.some(
                         (e) => e.reversesEntryId === entry.id,
                       ) && (

@@ -41,4 +41,21 @@ describe("savings-calculator", () => {
     // 100 days * 40.000.000 * 0.2% / 365 = 21.918đ
     expect(interest.toFixed(0)).toBe("21918");
   });
+
+  it("returns zero unpaid maturity and accrued interest when interestPayoutMode is upfront", () => {
+    const metrics = calculateSavingsMetrics({
+      currentPrincipalAmount: "100000000",
+      annualInterestRate: "5.5",
+      nonTermInterestRate: "0.1",
+      interestPayoutMode: "upfront",
+      startDate: "2026-04-20",
+      maturityDate: "2026-10-20",
+      businessDate: "2026-07-20",
+    });
+
+    expect(metrics.expectedMaturityInterest).toBe("0");
+    expect(metrics.accruedTermInterestToDate).toBe("0");
+    expect(metrics.expectedTotalAtMaturity).toBe("100000000");
+    expect(metrics.upfrontInterestAmount).toBe("2757534");
+  });
 });

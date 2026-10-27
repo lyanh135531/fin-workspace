@@ -36,12 +36,14 @@ describe("portal user schemas", () => {
     ).toEqual({ activityPage: 3 });
   });
 
-  it("parses an exact, comma-separated platform admin allowlist", () => {
-    expect(parsePlatformAdminUsernames(" admin, operator ,, ")).toEqual(
+  it("parses a case-insensitive, comma-separated platform admin allowlist", () => {
+    expect(parsePlatformAdminUsernames(" Admin, operator ,, ")).toEqual(
       new Set(["admin", "operator"]),
     );
     expect(isPlatformAdminUsername("admin", "admin,operator")).toBe(true);
-    expect(isPlatformAdminUsername("Admin", "admin,operator")).toBe(false);
+    expect(isPlatformAdminUsername("Admin", "admin,operator")).toBe(true);
+    expect(isPlatformAdminUsername("  OPERATOR  ", "Admin,Operator")).toBe(true);
+    expect(isPlatformAdminUsername("member", "admin,operator")).toBe(false);
   });
 
   it("denies access when the allowlist is empty", () => {

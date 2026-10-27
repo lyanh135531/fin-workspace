@@ -471,4 +471,159 @@ describe("overview monthly cashflow", () => {
       { period: "2026-03-11", total: "105000000" },
     ]);
   });
+
+  it("reverses approved transactions dated after endPeriod in buildMonthlyBalances even without dateRange", () => {
+    const rows = buildMonthlyBalances(
+      [{ id: "wallet-a", name: "Ví chính", balance: "1500" }],
+      [
+        {
+          amount: "500",
+          type: "income",
+          status: "approved",
+          date: "2026-08-05T00:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: null,
+          categoryId: "cat-1",
+          memberId: "m-1",
+        },
+        {
+          amount: "200",
+          type: "income",
+          status: "approved",
+          date: "2026-07-10T00:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: null,
+          categoryId: "cat-1",
+          memberId: "m-1",
+        },
+      ],
+      { endPeriod: "2026-07", range: 3, walletId: "all" },
+    );
+
+    expect(rows).toEqual([
+      {
+        period: "2026-05",
+        total: "800",
+        wallets: { "wallet-a": "800" },
+        hasNegativeBalance: false,
+      },
+      {
+        period: "2026-06",
+        total: "800",
+        wallets: { "wallet-a": "800" },
+        hasNegativeBalance: false,
+      },
+      {
+        period: "2026-07",
+        total: "1000",
+        wallets: { "wallet-a": "1000" },
+        hasNegativeBalance: false,
+      },
+    ]);
+  });
+
+  it("treats credit_card_refund as expense offset when filtering cashflow by transactionType", () => {
+    const refundDataset = [
+      {
+        amount: "1000",
+        type: "expense" as const,
+        purpose: "standard" as const,
+        status: "approved" as const,
+        date: "2026-07-10T00:00:00.000Z",
+        walletId: "card-1",
+        toWalletId: null,
+        categoryId: "expense-category",
+        memberId: "member-a",
+      },
+      {
+        amount: "300",
+        type: "income" as const,
+        purpose: "credit_card_refund" as const,
+        status: "approved" as const,
+        date: "2026-07-10T12:00:00.000Z",
+        walletId: "card-1",
+        toWalletId: null,
+        categoryId: "expense-category",
+        memberId: "member-a",
+      },
+    ];
+
+    const expenseMonthly = buildMonthlyCashflow(refundDataset, {
+      ...filters,
+      range: 3,
+      transactionType: "expense",
+    });
+    expect(expenseMonthly[2]?.expense).toBe("700");
+    expect(expenseMonthly[2]?.income).toBe("0");
+
+    const incomeMonthly = buildMonthlyCashflow(refundDataset, {
+      ...filters,
+      range: 3,
+      transactionType: "income",
+    });
+    expect(incomeMonthly[2]?.income).toBe("0");
+    expect(incomeMonthly[2]?.expense).toBe("0");
+
+    const expenseDaily = buildDailyCashflow(refundDataset, {
+      ...filters,
+      transactionType: "expense",
+      dateRange: { from: "2026-07-10", to: "2026-07-11" },
+    });
+    expect(expenseDaily[0]?.expense).toBe("700");
+    expect(expenseDaily[0]?.income).toBe("0");
+  });
+
+  it("uses investmentPrincipalDelta instead of gross proceeds when rolling back a profitable partial settlement alongside open holdings", () => {
+    // Day 0 (2026-03-10): Wallet = 200M, Investments = 0 -> Total = 200M
+    // Day 1 (2026-03-11): Opened Lot A (100M) + Lot B (50M) -> Wallet = 50M, Investments = 150M -> Total = 200M
+    // Day 2 (2026-03-12): Settled Lot A for 112M (principal 100M, profit +12M); Lot B still open at cost=50M, market=50M
+    //   -> End of Day 2: Wallet = 162M, Investments = 50M -> Total = 212M
+    const dailyRows = buildDailyBalances(
+      [{ id: "wallet-a", name: "Ví chính", balance: "162000000" }],
+      [
+        {
+          amount: "150000000",
+          type: "expense",
+          purpose: "investment_contribution",
+          investmentPrincipalDelta: "150000000",
+          status: "approved",
+          date: "2026-03-11T09:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: null,
+          categoryId: null,
+          memberId: "m-1",
+        },
+        {
+          amount: "112000000",
+          type: "income",
+          purpose: "investment_settlement",
+          investmentPrincipalDelta: "-100000000",
+          status: "approved",
+          date: "2026-03-12T09:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: null,
+          categoryId: null,
+          memberId: "m-1",
+        },
+      ],
+      {
+        walletId: "all",
+        dateRange: {
+          from: "2026-03-10",
+          to: "2026-03-12",
+        },
+        investmentMarketValue: "50000000",
+        investmentCostBasis: "50000000",
+      },
+      "50000000",
+      "50000000",
+    );
+
+    expect(dailyRows.map((row) => ({ period: row.period, total: row.total }))).toEqual([
+      { period: "2026-03-10", total: "200000000" },
+      { period: "2026-03-11", total: "200000000" },
+      { period: "2026-03-12", total: "212000000" },
+    ]);
+  });
 });
+

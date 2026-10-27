@@ -147,5 +147,69 @@ describe("financial plan service database invariants", () => {
     expect(memberView.canManage).toBe(false);
     await expect(cancelFinancialPlan(readOnlyUserId, workspaceId, nextPlan.id, new Date("2026-10-01T00:00:00.000Z"))).rejects.toThrow("quyền truy cập");
     await expect(getFinancialPlanView(userId, randomUUID(), nextPlan.id, new Date("2026-10-01T00:00:00.000Z"))).rejects.toThrow("quyền truy cập");
+    await cancelFinancialPlan(userId, workspaceId, nextPlan.id, new Date("2026-10-01T00:00:00.000Z"));
+  });
+
+  it("keeps startMonth 6-jar rawGrossBudget invariant when setting aside goal contributions in startMonth", async () => {
+    await prisma.transaction.deleteMany({ where: { memberId } });
+    await prisma.wallet.update({
+      where: { id: walletId },
+      data: { status: "active", currentBalance: new Decimal(25_000_000) },
+    });
+
+    const draft = await createFinancialPlanDraft(userId, workspaceId, {
+      name: "Mục tiêu 30M không trừ kép",
+      targetAmount: new Decimal(30_000_000),
+      existingGoalAmount: new Decimal(0),
+      targetMonth: "2026-12",
+      percentages,
+    });
+    await activateFinancialPlan(userId, workspaceId, draft.id, new Date("2026-10-02T05:00:00.000Z"));
+
+    const beforeContribution = await getFinancialPlanView(
+      userId,
+      workspaceId,
+      draft.id,
+      new Date("2026-10-05T05:00:00.000Z"),
+    );
+    if (!("months" in beforeContribution) || !beforeContribution.months) {
+      throw new Error("Active plan view must include its month schedule.");
+    }
+    expect(beforeContribution.realizedProgress).toBe("0");
+    expect(beforeContribution.months[0]?.adjustedRequiredAmount).toBe("10000000");
+    expect(beforeContribution.months[0]?.rawGrossBudget).toBe("15000000");
+    expect(beforeContribution.months[0]?.projectedActualGoalAmount).toBe("25000000");
+
+    const goal = await prisma.financialPlanGoal.findFirstOrThrow({
+      where: { financialPlanId: draft.id, deletedAt: null },
+    });
+    await prisma.financialGoalFundingEntry.create({
+      data: {
+        goalId: goal.id,
+        amount: new Decimal(10_000_000),
+        kind: "contribution",
+        status: "approved",
+        effectiveDate: new Date("2026-10-10T00:00:00.000Z"),
+        requesterMemberId: memberId,
+        reviewerMemberId: memberId,
+        reviewedAt: new Date("2026-10-10T05:00:00.000Z"),
+      },
+    });
+
+    const afterContribution = await getFinancialPlanView(
+      userId,
+      workspaceId,
+      draft.id,
+      new Date("2026-10-12T05:00:00.000Z"),
+    );
+    if (!("months" in afterContribution) || !afterContribution.months) {
+      throw new Error("Active plan view must include its month schedule.");
+    }
+    expect(afterContribution.realizedProgress).toBe("10000000");
+    expect(afterContribution.months[0]?.adjustedRequiredAmount).toBe("10000000");
+    expect(afterContribution.months[0]?.rawGrossBudget).toBe("15000000");
+    expect(afterContribution.months[0]?.availableToSpend).toBe("15000000");
+    expect(afterContribution.months[0]?.projectedActualGoalAmount).toBe("25000000");
+    expect(afterContribution.projectedEndOfCurrentMonthProgress).toBe("25000000");
   });
 });

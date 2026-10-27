@@ -13,6 +13,7 @@ export type WorkspaceCapabilities = {
   canManageWorkspace: boolean;
   canManageWallets: boolean;
   canManagePlans: boolean;
+  canManageInvestments: boolean;
   canCreateRecurringTransactions: boolean;
   canApproveRecurringTransactions: boolean;
 };
@@ -24,6 +25,7 @@ export function workspaceCapabilities(roleCode: string): WorkspaceCapabilities {
     canManageWorkspace: isAdmin,
     canManageWallets: isAdmin,
     canManagePlans: isAdmin,
+    canManageInvestments: isAdmin,
     canCreateRecurringTransactions: true,
     canApproveRecurringTransactions: isAdmin,
   };

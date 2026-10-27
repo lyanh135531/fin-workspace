@@ -34,7 +34,9 @@ export default async function SettingsPage({
   if (!isAdmin) redirect("/overview");
   const inviteCode = /^\d{3}-\d{3}$/.test(membership.workspace.inviteCode)
     ? membership.workspace.inviteCode
-    : await regenerateWorkspaceInviteCode(session.user.id, workspaceId);
+    : await regenerateWorkspaceInviteCode(session.user.id, workspaceId).catch(
+        () => membership.workspace.inviteCode,
+      );
 
   const [members, categories, roles, joinRequests] =
     await Promise.all([
@@ -77,7 +79,7 @@ export default async function SettingsPage({
     <PageContainer className="workspace-settings-page">
       <div className="workspace-settings-container workspace-admin-settings-container flex flex-col gap-3.5 md:block md:space-y-0">
         <div className="md:hidden">
-          <InviteCodeCard code={inviteCode} compact />
+          <InviteCodeCard code={inviteCode} workspaceId={workspaceId} compact />
         </div>
 
         <PageHeader
@@ -87,11 +89,13 @@ export default async function SettingsPage({
           className="max-md:hidden md:mb-6 md:pb-0"
           border={false}
         >
-          <InviteCodeCard code={inviteCode} compact />
+          <InviteCodeCard code={inviteCode} workspaceId={workspaceId} compact />
         </PageHeader>
 
         <WorkspaceSettingsTabsClient
+          workspaceId={workspaceId}
           workspace={{
+            id: membership.workspace.id,
             name: membership.workspace.name,
             description: membership.workspace.description,
             baseCurrency: membership.workspace.baseCurrency,

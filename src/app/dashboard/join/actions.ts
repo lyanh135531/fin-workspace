@@ -10,4 +10,39 @@ import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import { requestWorkspaceJoin, reviewWorkspaceJoinRequest } from "@/services/join-request-service";
 function fail(e:unknown,event:string){return toActionFailure(e,"Không thể xử lý yêu cầu.",{event});}
 export async function requestJoinAction(input:unknown){try{const s=await requireAcceptedLegalSession();await requestWorkspaceJoin(s.user.id,z.object({inviteCode:z.string().trim().min(6).max(36)}).parse(input).inviteCode);revalidatePath("/dashboard/join");revalidatePath("/settings/join");revalidatePath("/onboarding");return {ok:true,message:null};}catch(e){return fail(e,"workspace.join_request_failed");}}
-export async function reviewJoinAction(input:unknown){try{const s=await requireAcceptedLegalSession();const d=z.object({requestId:idSchema,approve:z.boolean(),roleCode:workspaceRoleCodeSchema.optional()}).parse(input);const workspaceId=await resolveActiveWorkspaceId(s.user.id);if(!workspaceId)throw new AppError("FORBIDDEN","Không có nhóm tài chính đang hoạt động.");await reviewWorkspaceJoinRequest(s.user.id,workspaceId,d.requestId,d.approve,d.roleCode);revalidatePath("/dashboard/join-requests");revalidatePath("/dashboard/settings");revalidatePath("/settings/workspace");revalidatePath("/", "layout");return {ok:true,message:null};}catch(e){return fail(e,"workspace.join_review_failed");}}
+export async function reviewJoinAction(
+  input: unknown,
+  explicitWorkspaceId?: string,
+) {
+  try {
+    const s = await requireAcceptedLegalSession();
+    const d = z
+      .object({
+        workspaceId: idSchema.optional(),
+        requestId: idSchema,
+        approve: z.boolean(),
+        roleCode: workspaceRoleCodeSchema.optional(),
+      })
+      .parse(input);
+    const workspaceId = explicitWorkspaceId
+      ? idSchema.parse(explicitWorkspaceId)
+      : (d.workspaceId ?? (await resolveActiveWorkspaceId(s.user.id)));
+    if (!workspaceId) {
+      throw new AppError("FORBIDDEN", "Không có nhóm tài chính đang hoạt động.");
+    }
+    await reviewWorkspaceJoinRequest(
+      s.user.id,
+      workspaceId,
+      d.requestId,
+      d.approve,
+      d.roleCode,
+    );
+    revalidatePath("/dashboard/join-requests");
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/settings/workspace");
+    revalidatePath("/", "layout");
+    return { ok: true, message: null };
+  } catch (e) {
+    return fail(e, "workspace.join_review_failed");
+  }
+}

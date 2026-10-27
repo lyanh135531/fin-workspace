@@ -1,7 +1,5 @@
 import crypto from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/auth";
 import { dispatchDueDailyReminders } from "@/services/reminder-service";
 
 function verifyBearerSecret(authHeader: string | null, expectedSecret: string): boolean {
@@ -15,19 +13,15 @@ function verifyBearerSecret(authHeader: string | null, expectedSecret: string): 
 
 export async function POST(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET?.trim();
-  const authHeader = request.headers.get("authorization");
-
-  let authorized = false;
-  if (cronSecret && verifyBearerSecret(authHeader, cronSecret)) {
-    authorized = true;
-  } else {
-    const session = await getServerSession(authOptions);
-    if (session?.user?.id) {
-      authorized = true;
-    }
+  if (!cronSecret) {
+    return NextResponse.json(
+      { ok: false, message: "Chưa cấu hình CRON_SECRET." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
-  if (!authorized) {
+  const authHeader = request.headers.get("authorization");
+  if (!verifyBearerSecret(authHeader, cronSecret)) {
     return NextResponse.json(
       { ok: false, message: "Không có quyền thực hiện thao tác này." },
       { status: 401, headers: { "Cache-Control": "no-store" } },

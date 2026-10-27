@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
 import { AppError } from "@/lib/errors";
 import { requireAcceptedLegalSession } from "@/lib/legal-access";
+import { toActionFailure, type PublicErrorCode } from "@/lib/server-error";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import {
   addGoldPurchaseLot,
@@ -25,9 +26,11 @@ export type InvestmentActionState = {
   ok: boolean;
   message?: string;
   error?: string;
+  code?: PublicErrorCode;
+  requestId?: string;
 };
 
-function revalidateInvestmentPaths() {
+function revalidateInvestmentPaths(workspaceId?: string) {
   revalidatePath("/investments");
   revalidatePath("/dashboard/investments");
   revalidatePath("/wallets");
@@ -37,28 +40,25 @@ function revalidateInvestmentPaths() {
   revalidatePath("/overview");
   revalidatePath("/dashboard/overview");
   revalidatePath("/dashboard");
+  if (workspaceId) {
+    revalidatePath(`/workspace/${workspaceId}`);
+  }
 }
 
 function handleActionError(error: unknown): InvestmentActionState {
-  if (error instanceof ZodError) {
-    const firstIssue = error.issues[0];
-    return {
-      ok: false,
-      error: firstIssue?.message ?? "Dữ liệu đầu vào không hợp lệ.",
-    };
-  }
-  if (error instanceof AppError) {
-    return {
-      ok: false,
-      error: error.message,
-    };
-  }
+  const failure = toActionFailure(
+    error,
+    "Đã xảy ra lỗi khi xử lý yêu cầu.",
+    { event: "investments.action_failed" },
+  );
+  const message =
+    error instanceof ZodError
+      ? (error.issues[0]?.message ?? failure.message)
+      : failure.message;
   return {
-    ok: false,
-    error:
-      error instanceof Error
-        ? error.message
-        : "Đã xảy ra lỗi khi xử lý yêu cầu.",
+    ...failure,
+    message,
+    error: message,
   };
 }
 
@@ -73,9 +73,9 @@ async function requireSessionAndWorkspace() {
 
 export async function refreshGoldMarketPricesAction(): Promise<InvestmentActionState> {
   try {
-    await requireSessionAndWorkspace();
+    const { workspaceId } = await requireSessionAndWorkspace();
     await syncVietnameseGoldMarketQuotes(true);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã cập nhật bảng giá vàng mới nhất từ các thương hiệu.",
@@ -91,7 +91,7 @@ export async function createGoldHoldingAction(
   try {
     const { userId, workspaceId } = await requireSessionAndWorkspace();
     await createGoldHoldingWithInitialLot(userId, workspaceId, rawInput);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã lưu khoản vàng tích sản thành công.",
@@ -107,7 +107,7 @@ export async function addGoldPurchaseLotAction(
   try {
     const { userId, workspaceId } = await requireSessionAndWorkspace();
     await addGoldPurchaseLot(userId, workspaceId, rawInput);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã ghi nhận đợt mua thêm vàng thành công.",
@@ -123,7 +123,7 @@ export async function updateGoldPurchaseLotAction(
   try {
     const { userId, workspaceId } = await requireSessionAndWorkspace();
     await updateGoldPurchaseLot(userId, workspaceId, rawInput);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã cập nhật thông tin đợt mua vàng thành công.",
@@ -139,7 +139,7 @@ export async function recordGoldSaleAction(
   try {
     const { userId, workspaceId } = await requireSessionAndWorkspace();
     await recordGoldSale(userId, workspaceId, rawInput);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã bán vàng và cộng tiền vào ví thành công.",
@@ -155,7 +155,7 @@ export async function deleteGoldSaleRecordAction(
   try {
     const { userId, workspaceId } = await requireSessionAndWorkspace();
     await deleteGoldSaleRecord(userId, workspaceId, saleId);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã hoàn tác giao dịch bán vàng và khôi phục số lượng vàng về hũ.",
@@ -171,7 +171,7 @@ export async function updateGoldHoldingSettingsAction(
   try {
     const { userId, workspaceId } = await requireSessionAndWorkspace();
     await updateGoldHoldingSettings(userId, workspaceId, rawInput);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã lưu cài đặt khoản vàng.",
@@ -187,7 +187,7 @@ export async function deleteGoldPurchaseLotAction(
   try {
     const { userId, workspaceId } = await requireSessionAndWorkspace();
     await deleteGoldPurchaseLot(userId, workspaceId, lotId);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã xóa đợt mua vàng và hoàn lại số dư ví (nếu có).",
@@ -203,7 +203,7 @@ export async function deleteGoldHoldingAction(
   try {
     const { userId, workspaceId } = await requireSessionAndWorkspace();
     await deleteGoldHolding(userId, workspaceId, holdingId);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã xóa khoản vàng tích sản.",
@@ -219,7 +219,7 @@ export async function createSavingsDepositAction(
   try {
     const { userId, workspaceId } = await requireSessionAndWorkspace();
     await createSavingsDeposit(userId, workspaceId, rawInput);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã mở sổ tiết kiệm thành công.",
@@ -235,7 +235,7 @@ export async function settleSavingsDepositAction(
   try {
     const { userId, workspaceId } = await requireSessionAndWorkspace();
     await settleSavingsDeposit(userId, workspaceId, rawInput);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã xử lý sổ tiết kiệm và cập nhật số dư ví thành công.",
@@ -251,7 +251,7 @@ export async function deleteSavingsSettlementAction(
   try {
     const { userId, workspaceId } = await requireSessionAndWorkspace();
     await deleteSavingsSettlement(userId, workspaceId, settlementId);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã hoàn tác lần tất toán / tái tục và khôi phục trạng thái sổ tiết kiệm.",
@@ -267,7 +267,7 @@ export async function deleteSavingsDepositAction(
   try {
     const { userId, workspaceId } = await requireSessionAndWorkspace();
     await deleteSavingsDeposit(userId, workspaceId, depositId);
-    revalidateInvestmentPaths();
+    revalidateInvestmentPaths(workspaceId);
     return {
       ok: true,
       message: "Đã xóa sổ tiết kiệm.",

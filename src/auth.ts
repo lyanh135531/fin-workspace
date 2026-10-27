@@ -135,28 +135,79 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     jwt: async ({ token, user, trigger }) => {
+      const mutableToken = token as typeof token & { disabled?: boolean };
       if (user) {
-        token.username = user.username;
-        token.profileCompleted = user.profileCompleted;
+        mutableToken.disabled = false;
+        mutableToken.username = user.username;
+        mutableToken.profileCompleted = user.profileCompleted;
       }
-      if (token.sub && (user || trigger === "update")) {
-        const consent = await getLegalConsentStatus(token.sub);
-        token.acceptedPrivacyVersion = consent.acceptedPrivacyVersion;
-        token.acceptedTermsVersion = consent.acceptedTermsVersion;
+      if (mutableToken.sub && (user || trigger === "update")) {
+        try {
+          const consent = await getLegalConsentStatus(mutableToken.sub);
+          mutableToken.disabled = false;
+          mutableToken.acceptedPrivacyVersion = consent.acceptedPrivacyVersion;
+          mutableToken.acceptedTermsVersion = consent.acceptedTermsVersion;
+        } catch (error) {
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            (error as { code?: string }).code === "FORBIDDEN"
+          ) {
+            mutableToken.disabled = false;
+            mutableToken.profileCompleted = false;
+            mutableToken.acceptedPrivacyVersion = null;
+            mutableToken.acceptedTermsVersion = null;
+          } else {
+            mutableToken.disabled = true;
+          }
+        }
+      } else if (
+        mutableToken.sub &&
+        typeof prisma.user?.findUnique === "function"
+      ) {
+        try {
+          const activeUser = await prisma.user.findUnique({
+            where: { id: mutableToken.sub },
+            select: { status: true, deletedAt: true },
+          });
+          if (
+            activeUser === null ||
+            (activeUser &&
+              ((activeUser.status !== undefined &&
+                activeUser.status !== "active") ||
+                (activeUser.deletedAt !== undefined &&
+                  activeUser.deletedAt !== null)))
+          ) {
+            mutableToken.disabled = true;
+          }
+        } catch {
+          // Preserve token state if transient read error occurs
+        }
       }
-      return token;
+      return mutableToken;
     },
     session: ({ session, token }) => {
-      if (token.sub) {
+      const mutableToken = token as typeof token & { disabled?: boolean };
+      if (mutableToken.disabled) {
         session.user = {
-          id: token.sub,
-          username: token.username ?? null,
-          profileCompleted: token.profileCompleted === true,
+          id: "",
+          username: null,
+          profileCompleted: false,
+          legalConsentSatisfied: false,
+        };
+        return session;
+      }
+      if (mutableToken.sub) {
+        session.user = {
+          id: mutableToken.sub,
+          username: mutableToken.username ?? null,
+          profileCompleted: mutableToken.profileCompleted === true,
           legalConsentSatisfied:
             !isLegalConsentEnforced() ||
             hasCurrentLegalConsent(
-              token.acceptedPrivacyVersion,
-              token.acceptedTermsVersion,
+              mutableToken.acceptedPrivacyVersion,
+              mutableToken.acceptedTermsVersion,
             ),
         };
       }

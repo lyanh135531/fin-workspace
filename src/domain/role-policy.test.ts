@@ -21,6 +21,8 @@ describe("role policy", () => {
       canManageWorkspace: false,
       canManageWallets: false,
       canManagePlans: false,
+      canManageInvestments: false,
     });
+    expect(workspaceCapabilities("ADMIN").canManageInvestments).toBe(true);
   });
 });

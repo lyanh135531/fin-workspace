@@ -18,14 +18,24 @@ export async function getLegalConsentStatus(
   if (typeof prisma.user?.findUnique === "function") {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { status: true, deletedAt: true },
+      select: { status: true, deletedAt: true, profileCompletedAt: true },
     });
     if (
-      user &&
-      ((user.status !== undefined && user.status !== "active") ||
-        (user.deletedAt !== undefined && user.deletedAt !== null))
+      user === null ||
+      (user &&
+        ((user.status !== undefined && user.status !== "active") ||
+          (user.deletedAt !== undefined && user.deletedAt !== null)))
     ) {
-      throw new AppError("FORBIDDEN", "Tài khoản đã bị khóa hoặc ngừng hoạt động.");
+      throw new AppError(
+        "AUTHENTICATION_REQUIRED",
+        "Tài khoản đã bị khóa hoặc ngừng hoạt động.",
+      );
+    }
+    if (user && user.profileCompletedAt === null) {
+      throw new AppError(
+        "FORBIDDEN",
+        "Vui lòng hoàn tất thiết lập hồ sơ tài khoản trước khi tiếp tục.",
+      );
     }
   }
   const acceptance = await prisma.legalAcceptance.findUnique({

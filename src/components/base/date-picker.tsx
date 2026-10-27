@@ -240,7 +240,7 @@ export function DatePicker({
 
   return (
     <div className="grid content-start gap-1.5">
-      <Label required={required}>{label}</Label>
+      <Label htmlFor={datePickerId} required={required}>{label}</Label>
       {picker}
     </div>
   );

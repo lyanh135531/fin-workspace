@@ -484,11 +484,8 @@ export function RecurringTransactionsManager({
       canEdit:
         canApprove ||
         (isOwner &&
-          !schedule.completedAt &&
-          !(
-            schedule.approvalStatus === "approved" &&
-            schedule.status === "active"
-          )),
+          (schedule.approvalStatus !== "approved" ||
+            (!schedule.completedAt && schedule.status !== "active"))),
       canDelete:
         canApprove ||
         (isOwner &&

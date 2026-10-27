@@ -9,11 +9,13 @@ const mockFindManySettings = vi.fn();
 const mockUpdateManySettings = vi.fn();
 const mockCountTransactions = vi.fn();
 const mockCountSubs = vi.fn();
+const mockFindManySubs = vi.fn();
 const mockDeleteManySubs = vi.fn();
 const mockSendWebPush = vi.fn();
 
 const mockFindManyStatements = vi.fn();
 const mockFindManyRecurring = vi.fn();
+const mockFindManyMemberships = vi.fn();
 
 vi.mock("@/services/credit-card-statement-service", () => ({
   generateWorkspaceCreditCardStatements: vi.fn().mockResolvedValue(undefined),
@@ -42,7 +44,11 @@ vi.mock("@/lib/prisma", () => ({
     },
     userPushSubscription: {
       count: (...args: unknown[]) => mockCountSubs(...args),
+      findMany: (...args: unknown[]) => mockFindManySubs(...args),
       deleteMany: (...args: unknown[]) => mockDeleteManySubs(...args),
+    },
+    workspaceMember: {
+      findMany: (...args: unknown[]) => mockFindManyMemberships(...args),
     },
     creditCardStatement: {
       findMany: (...args: unknown[]) => mockFindManyStatements(...args),
@@ -83,6 +89,8 @@ describe("reminder-service smart daily expense reminders", () => {
       publicKey: sampleVapid.publicKey,
       privateKeyJwk: sampleVapid.privateKeyJwk,
     });
+    mockFindManySubs.mockResolvedValue([]);
+    mockFindManyMemberships.mockResolvedValue([]);
     mockFindManyStatements.mockResolvedValue([]);
     mockFindManyRecurring.mockResolvedValue([]);
   });
@@ -99,7 +107,10 @@ describe("reminder-service smart daily expense reminders", () => {
       lastEveningSentDate: null,
       dismissedDate: null,
     });
-    mockCountSubs.mockResolvedValue(0);
+    mockCountSubs.mockResolvedValue(1);
+    mockFindManySubs.mockResolvedValue([
+      { endpoint: "https://fcm.googleapis.com/fcm/send/user-1-endpoint" },
+    ]);
     mockCountTransactions.mockResolvedValue(0);
 
     const state = await getUserReminderState(
@@ -110,6 +121,9 @@ describe("reminder-service smart daily expense reminders", () => {
 
     expect(state.noonEnabled).toBe(true);
     expect(state.eveningEnabled).toBe(true);
+    expect(state.endpoints).toEqual([
+      "https://fcm.googleapis.com/fcm/send/user-1-endpoint",
+    ]);
     expect(state.activeReminderSlot).toBe("noon");
     expect(mockUpsertSetting).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -226,6 +240,90 @@ describe("reminder-service smart daily expense reminders", () => {
     });
   });
 
+  it("dispatches 09:00 bill alerts with workspaceId even when noonEnabled and eveningEnabled are false", async () => {
+    const morningUtc = new Date("2026-10-20T02:05:00.000Z"); // 09:05 ICT
+    mockFindManySettings.mockResolvedValue([
+      {
+        id: "setting-bill-only",
+        userId: "user-bill",
+        noonEnabled: false,
+        eveningEnabled: false,
+        timeZone: "Asia/Ho_Chi_Minh",
+        lastBillAlertSentDate: null,
+        lastNoonSentDate: null,
+        lastEveningSentDate: null,
+        dismissedDate: null,
+        user: {
+          pushSubscriptions: [
+            {
+              id: "sub-bill",
+              endpoint: "https://fcm.googleapis.com/fcm/send/token-bill",
+              p256dh: "p256dh-key",
+              auth: "auth-key",
+            },
+          ],
+        },
+      },
+    ]);
+    mockFindManyMemberships.mockResolvedValue([
+      {
+        id: "member-ws-2",
+        role: { code: "ADMIN" },
+        workspace: {
+          id: "ws-2",
+          baseCurrency: "VND",
+          timeZone: "Asia/Ho_Chi_Minh",
+        },
+      },
+    ]);
+    mockFindManyRecurring.mockResolvedValue([
+      {
+        id: "rec-due",
+        createdByMemberId: "member-ws-2",
+        type: "expense",
+        amount: "500000",
+        description: "Internet cáp quang",
+        status: "active",
+        nextExecutionDate: new Date("2026-10-21T00:00:00.000Z"),
+        endDate: null,
+        lastError: null,
+        wallet: {
+          id: "wallet-1",
+          name: "VCB",
+          currentBalance: "1000000",
+        },
+        toWallet: null,
+        category: { id: "cat-1", name: "Tiện ích" },
+        transactions: [],
+      },
+    ]);
+    mockUpdateManySettings.mockResolvedValue({ count: 1 });
+    mockSendWebPush.mockResolvedValue({ ok: true, status: 201, expired: false });
+
+    const result = await dispatchDueDailyReminders(morningUtc);
+    expect(mockFindManySettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          user: {
+            status: "active",
+            deletedAt: null,
+            pushSubscriptions: { some: {} },
+          },
+        },
+      }),
+    );
+    expect(mockFindManyMemberships).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: { createdAt: "asc" },
+      }),
+    );
+    expect(result).toEqual({ checkedUsers: 1, sentNotifications: 1 });
+    expect(mockSendWebPush.mock.calls[0]?.[1]).toMatchObject({
+      title: "Nhắc lịch giao dịch định kỳ",
+      url: "/recurring-transactions?workspaceId=ws-2",
+    });
+  });
+
   it("skips sending Web Push when user already logged a transaction today", async () => {
     const eveningUtc = new Date("2026-10-19T14:05:00.000Z"); // 21:05 ICT
     mockFindManySettings.mockResolvedValue([
@@ -316,7 +414,6 @@ describe("reminder-service smart daily expense reminders", () => {
       {
         id: "stmt-1",
         cardWalletId: "card-1",
-        cardName: "VIB Cash Back",
         cycleEndDate: "2026-10-05",
         dueDate: "2026-10-22",
         daysUntilDue: 2,
@@ -324,6 +421,7 @@ describe("reminder-service smart daily expense reminders", () => {
         totalAmount: "5000000",
         fundingWalletName: "Techcombank",
         fundingShortfall: true,
+        cardName: "VIB Cash Back",
       },
     ]);
 
@@ -347,13 +445,14 @@ describe("reminder-service smart daily expense reminders", () => {
     const pushPayload = buildBillAlertPushPayload({
       today: "2026-10-20",
       currency: "VND",
+      workspaceId: "ws-1",
       statementAlerts: alerts.statementAlerts,
       recurringAlerts: alerts.recurringAlerts,
     });
 
     expect(pushPayload).toMatchObject({
       title: "Nhắc lịch thanh toán sao kê thẻ",
-      url: "/credit-cards/card-1?action=pay",
+      url: "/credit-cards/card-1?action=pay&workspaceId=ws-1",
     });
     expect(pushPayload?.body).toContain("VIB Cash Back");
     expect(pushPayload?.body).toContain("4.000.000 ₫");

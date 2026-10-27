@@ -100,7 +100,20 @@ export async function createStatementForCycle(
       ],
       installmentPlanId: null,
     },
-    include: { paymentAllocations: { select: { amount: true } } },
+    include: {
+      paymentAllocations: {
+        select: {
+          amount: true,
+          paymentTransaction: {
+            select: {
+              workflowStatus: true,
+              deletedAt: true,
+              creditCardStatementId: true,
+            },
+          },
+        },
+      },
+    },
     orderBy: [{ postedDate: "asc" }, { id: "asc" }],
   });
   const installments = await tx.creditCardInstallment.findMany({
@@ -216,8 +229,18 @@ export async function createStatementForCycle(
     }
   }
   for (const entry of regular) {
-    const paid = entry.paymentAllocations.reduce((sum, allocation) => sum.plus(allocation.amount.toString()), ZERO);
-    const remaining = new Decimal(entry.amount.toString()).minus(paid);
+    const paid = entry.paymentAllocations
+      .filter(
+        (allocation) =>
+          !allocation.paymentTransaction ||
+          (allocation.paymentTransaction.workflowStatus === "approved" &&
+            allocation.paymentTransaction.deletedAt === null &&
+            allocation.paymentTransaction.creditCardStatementId === null),
+      )
+      .reduce((sum, allocation) => sum.plus(allocation.amount.toString()), ZERO);
+    const gross = new Decimal(entry.amount.toString());
+    const remaining = gross.gt(0) ? Decimal.max(gross.minus(paid), ZERO) : gross;
+    if (paid.gt(0) && remaining.isZero()) continue;
     if (!remaining.isZero()) items.push({ obligationEntryId: entry.id, fundingWalletId: entry.fundingWalletId, amount: remaining });
   }
   for (const installment of installments) {
