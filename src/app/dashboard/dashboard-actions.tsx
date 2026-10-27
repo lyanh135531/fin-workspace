@@ -53,6 +53,7 @@ import {
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { Textarea } from "@/components/ui/textarea";
 import { formatAmount } from "@/lib/format";
+import { usePrivacyMask } from "@/lib/privacy-mask";
 import { cn } from "@/lib/utils";
 import Decimal from "decimal.js";
 import {
@@ -1569,11 +1570,13 @@ export function Ledger({
                   ? "Bán vàng / Tất toán"
                   : isCreditRefund
                     ? "Hoàn tiền thẻ"
-                    : isIncome
-                      ? "Khoản thu"
-                      : isExpense
-                        ? "Khoản chi"
-                        : "Chuyển ví"}
+                    : isBalanceReconciliation
+                      ? "Đối soát số dư"
+                      : isIncome
+                        ? "Khoản thu"
+                        : isExpense
+                          ? "Khoản chi"
+                          : "Chuyển ví"}
             </span>
           </div>
 
@@ -2165,56 +2168,66 @@ export function Ledger({
       </Sheet>
 
       {/* Unified Detail / Edit / Approval Sheet */}
-      <Sheet
-        open={Boolean(activeTarget && activeDraft)}
-        onOpenChange={(open) => {
-          if (!open) closeTransactionSheet();
-        }}
-      >
-        <SheetContent
-          side={isDesktop ? "right" : "bottom"}
-          placement={isDesktop ? "inset" : "edge"}
-          size={isDesktop ? "md" : "default"}
-          spacing="flush"
-          elevation="flat"
-          aria-label="Chỉnh sửa giao dịch"
-        >
-          {activeTarget && activeDraft && (
-            <TransactionDetailSheetBody
-              item={activeTarget}
-              draft={activeDraft}
-              wallets={wallets}
-              categories={categories}
-              currency={currency}
-              busy={busy}
-              canApprove={canApprove}
-              canEdit={
-                canEditTransactions &&
-                activeTarget.canRequestEdit &&
-                !activeTarget.hasPendingChange &&
-                activeTarget.status !== "rejected"
-              }
-              canDelete={!readonly && activeTarget.canRequestDelete}
-              isAdmin={isAdmin}
-              deleteReason={deleteReason}
-              onDeleteReasonChange={setDeleteReason}
-              showDeleteConfirm={showDeleteConfirmInSheet}
-              onShowDeleteConfirmChange={setShowDeleteConfirmInSheet}
-              onChange={(patch) =>
-                setActiveDraft((current) =>
-                  current ? { ...current, ...patch } : current,
-                )
-              }
-              onSave={saveActiveEdit}
-              onApprove={() => approveOne(activeTarget)}
-              onReject={() => rejectOne(activeTarget)}
-              onReviewChange={(approve) => reviewChange(activeTarget, approve)}
-              onDelete={() => removeOne(activeTarget, deleteReason)}
-              onClose={closeTransactionSheet}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
+      {(() => {
+        const canEdit = Boolean(
+          activeTarget &&
+            canEditTransactions &&
+            activeTarget.canRequestEdit &&
+            !activeTarget.hasPendingChange &&
+            activeTarget.status !== "rejected" &&
+            activeTarget.purpose !== "balance_reconciliation",
+        );
+
+        return (
+          <Sheet
+            open={Boolean(activeTarget && activeDraft)}
+            onOpenChange={(open) => {
+              if (!open) closeTransactionSheet();
+            }}
+          >
+            <SheetContent
+              side={isDesktop ? "right" : "bottom"}
+              placement={isDesktop ? "inset" : "edge"}
+              size={isDesktop ? "md" : "default"}
+              spacing="flush"
+              elevation="flat"
+              aria-label={canEdit ? "Chỉnh sửa giao dịch" : "Chi tiết giao dịch"}
+            >
+              {activeTarget && activeDraft && (
+                <TransactionDetailSheetBody
+                  item={activeTarget}
+                  draft={activeDraft}
+                  wallets={wallets}
+                  categories={categories}
+                  currency={currency}
+                  busy={busy}
+                  canApprove={canApprove}
+                  canEdit={canEdit}
+                  canDelete={!readonly && activeTarget.canRequestDelete}
+                  isAdmin={isAdmin}
+                  deleteReason={deleteReason}
+                  onDeleteReasonChange={setDeleteReason}
+                  showDeleteConfirm={showDeleteConfirmInSheet}
+                  onShowDeleteConfirmChange={setShowDeleteConfirmInSheet}
+                  onChange={(patch) =>
+                    setActiveDraft((current) =>
+                      current ? { ...current, ...patch } : current,
+                    )
+                  }
+                  onSave={saveActiveEdit}
+                  onApprove={() => approveOne(activeTarget)}
+                  onReject={() => rejectOne(activeTarget)}
+                  onReviewChange={(approve) =>
+                    reviewChange(activeTarget, approve)
+                  }
+                  onDelete={() => removeOne(activeTarget, deleteReason)}
+                  onClose={closeTransactionSheet}
+                />
+              )}
+            </SheetContent>
+          </Sheet>
+        );
+      })()}
 
       {/* Scheduled Transactions Sheet */}
       <Sheet open={scheduledSheetOpen} onOpenChange={setScheduledSheetOpen}>
@@ -2757,6 +2770,7 @@ function TransactionDetailSheetBody({
   onDelete: () => void;
   onClose: () => void;
 }) {
+  const privacyMasked = usePrivacyMask();
   const hasChanges = isChanged(item, draft);
   const isChangeReview = Boolean(
     canApprove &&
@@ -2945,30 +2959,83 @@ function TransactionDetailSheetBody({
           </div>
         )}
 
-        {item.purpose === "balance_reconciliation" && (
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 text-xs text-[var(--text-secondary)]">
-            <p className="font-semibold text-[var(--foreground)]">
-              Bút toán đối soát số dư ví
-            </p>
-            <p className="mt-0.5 leading-relaxed">
-              Khoản điều chỉnh này giúp khớp số dư thực tế trong ví, không tính
-              vào báo cáo Thu/Chi tháng hay ngân sách 6 hũ.{" "}
-              {isAdmin
-                ? "Nếu cần hoàn tác, bạn có thể xóa bút toán này bên dưới."
-                : "Chỉ Quản trị viên mới có thể hoàn tác bút toán đối soát."}
-            </p>
-          </div>
-        )}
+        {item.purpose === "balance_reconciliation" ? (
+          <>
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/60 p-4">
+              <span className="block text-[11px] font-bold tracking-wider uppercase text-[var(--text-muted)]">
+                Chênh lệch đối soát
+              </span>
+              <strong
+                className={cn(
+                  "mt-1 block text-2xl font-bold tracking-tight tabular-nums",
+                  item.type === "income"
+                    ? "text-[var(--income)]"
+                    : "text-[var(--expense)]",
+                )}
+              >
+                {privacyMasked
+                  ? "••••••"
+                  : `${item.type === "income" ? "+" : "−"}${formatAmount(item.amount)} ${currency}`}
+              </strong>
+            </div>
 
-        {/* Editable Form */}
-        <TransactionEditorForm
-          draft={draft}
-          wallets={wallets}
-          categories={categories}
-          busy={busy}
-          disabled={!canEdit}
-          onChange={onChange}
-        />
+            <div className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-xs">
+              <div className="flex items-center justify-between gap-3 py-3">
+                <span className="text-[var(--text-secondary)]">Ví đối soát</span>
+                <strong className="font-semibold text-[var(--foreground)]">
+                  {item.wallet}
+                </strong>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-3">
+                <span className="text-[var(--text-secondary)]">
+                  Ngày ghi nhận
+                </span>
+                <strong className="font-semibold tabular-nums text-[var(--foreground)]">
+                  {formatLedgerDate(item.date)}
+                </strong>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-3">
+                <span className="text-[var(--text-secondary)]">
+                  Người thực hiện
+                </span>
+                <strong className="font-semibold text-[var(--foreground)]">
+                  {item.member}
+                </strong>
+              </div>
+              <div className="flex items-start justify-between gap-3 py-3">
+                <span className="shrink-0 text-[var(--text-secondary)]">
+                  Nội dung
+                </span>
+                <strong className="min-w-0 break-words text-right font-semibold text-[var(--foreground)]">
+                  {item.description || "Đối soát số dư ví"}
+                </strong>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 text-xs text-[var(--text-secondary)]">
+              <p className="font-semibold text-[var(--foreground)]">
+                Bút toán đối soát số dư ví
+              </p>
+              <p className="mt-0.5 leading-relaxed">
+                Khoản điều chỉnh này giúp khớp số dư thực tế trong ví, không
+                tính vào báo cáo Thu/Chi tháng hay chi tiêu 6 hũ.{" "}
+                {isAdmin
+                  ? "Nếu cần hoàn tác, bạn có thể xóa bút toán này bên dưới."
+                  : "Chỉ Quản trị viên mới có thể hoàn tác bút toán đối soát."}
+              </p>
+            </div>
+          </>
+        ) : (
+          /* Editable Form */
+          <TransactionEditorForm
+            draft={draft}
+            wallets={wallets}
+            categories={categories}
+            busy={busy}
+            disabled={!canEdit}
+            onChange={onChange}
+          />
+        )}
       </div>
 
       {canDelete && !item.pendingChangeRequestId && showDeleteConfirm ? (

@@ -8,6 +8,7 @@ import {
   Banknote,
   CheckCircle2,
   CreditCard,
+  Eye,
   GripVertical,
   Info,
   Landmark,
@@ -84,6 +85,29 @@ function formatDateVi(iso: string): string {
   return `${day}/${month}/${year}`;
 }
 
+const PLAIN_BILLION = new Decimal("1000000000");
+
+function formatPlainDecimal(amount: Decimal, maximumFractionDigits = 0): string {
+  const fixed = amount.toFixed(maximumFractionDigits);
+  const [rawInteger, rawFraction] = fixed.replace("-", "").split(".");
+  const sign = amount.isNegative() ? "-" : "";
+  const groupedInteger = rawInteger.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const trimmedFraction = (rawFraction ?? "").replace(/0+$/, "");
+
+  return trimmedFraction
+    ? `${sign}${groupedInteger},${trimmedFraction}`
+    : `${sign}${groupedInteger}`;
+}
+
+function formatPlainAmount(value: Decimal.Value): string {
+  const amount = new Decimal(value);
+  if (amount.abs().greaterThanOrEqualTo(PLAIN_BILLION)) {
+    return `${formatPlainDecimal(amount.dividedBy(PLAIN_BILLION), 2)} tỷ`;
+  }
+
+  return formatPlainDecimal(amount, 0);
+}
+
 type WalletItem = {
   id: string;
   name: string;
@@ -113,21 +137,30 @@ function ReconcileWalletSheetBody({
   wallet,
   currency,
   categories,
+  isDesktop,
+  onSubmittingChange,
   onClose,
   onReconciled,
 }: {
   wallet: WalletItem;
   currency: string;
   categories: ReconcileCategoryOption[];
+  isDesktop: boolean;
+  onSubmittingChange?: (submitting: boolean) => void;
   onClose: () => void;
   onReconciled: () => void;
 }) {
-  usePrivacyMask();
+  const privacyMasked = usePrivacyMask();
+  const [revealedInSession, setRevealedInSession] = useState(false);
+  const isMasked = privacyMasked && !revealedInSession;
+
   const systemBalanceDec = new Decimal(wallet.currentBalance || 0);
+  const systemBalanceRounded = systemBalanceDec.toDecimalPlaces(
+    0,
+    Decimal.ROUND_HALF_UP,
+  );
   const reservedBalanceDec = new Decimal(wallet.reservedBalance || 0);
-  const initialDigits = Decimal.max(systemBalanceDec, 0)
-    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
-    .toFixed(0);
+  const initialDigits = Decimal.max(systemBalanceRounded, 0).toFixed(0);
 
   const [actualBalanceInput, setActualBalanceInput] = useState(initialDigits);
   const [mode, setMode] = useState<"balance_only" | "record_cashflow">(
@@ -145,7 +178,7 @@ function ReconcileWalletSheetBody({
       : null;
 
   const delta = parsedActualBalance
-    ? parsedActualBalance.minus(systemBalanceDec)
+    ? parsedActualBalance.minus(systemBalanceRounded)
     : new Decimal(0);
   const isPositive = parsedActualBalance !== null && delta.gt(0);
   const isNegative = parsedActualBalance !== null && delta.lt(0);
@@ -166,6 +199,7 @@ function ReconcileWalletSheetBody({
   const missingRequiredCategory =
     mode === "record_cashflow" && isNegative && effectiveCategoryId === "none";
   const canSubmit =
+    !isMasked &&
     !submitting &&
     parsedActualBalance !== null &&
     !delta.isZero() &&
@@ -173,6 +207,9 @@ function ReconcileWalletSheetBody({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isMasked) {
+      return;
+    }
     if (!parsedActualBalance) {
       toast.error("Vui lòng nhập số tiền thực tế hợp lệ.");
       return;
@@ -186,25 +223,34 @@ function ReconcileWalletSheetBody({
       return;
     }
 
+    onSubmittingChange?.(true);
     startSubmitTransition(async () => {
-      const result = await reconcileManagedWalletBalanceAction({
-        walletId: wallet.id,
-        actualBalance: parsedActualBalance.toFixed(0),
-        mode,
-        categoryId:
-          mode === "record_cashflow" && effectiveCategoryId !== "none"
-            ? effectiveCategoryId
-            : undefined,
-        note: note.trim() || undefined,
-      });
+      try {
+        const result = await reconcileManagedWalletBalanceAction({
+          walletId: wallet.id,
+          actualBalance: parsedActualBalance.toFixed(0),
+          mode,
+          categoryId:
+            mode === "record_cashflow" && effectiveCategoryId !== "none"
+              ? effectiveCategoryId
+              : undefined,
+          note: note.trim() || undefined,
+        });
 
-      if (result.ok) {
-        toast.success(
-          `Đã đối soát ví “${wallet.name}” (${delta.gt(0) ? "+" : "−"}${formatAmount(delta.abs())} ${currency}).`,
-        );
-        onReconciled();
-      } else {
-        toast.error(result.message ?? "Không thể đối soát số dư ví.");
+        if (result.ok) {
+          if (privacyMasked) {
+            toast.success(`Đã đối soát số dư ví “${wallet.name}”.`);
+          } else {
+            toast.success(
+              `Đã đối soát ví “${wallet.name}” (${delta.gt(0) ? "+" : "−"}${formatPlainAmount(delta.abs())} ${currency}).`,
+            );
+          }
+          onReconciled();
+        } else {
+          toast.error(result.message ?? "Không thể đối soát số dư ví.");
+        }
+      } finally {
+        onSubmittingChange?.(false);
       }
     });
   }
@@ -229,14 +275,18 @@ function ReconcileWalletSheetBody({
               Số dư trên hệ thống
             </span>
             <strong className="text-sm font-semibold tabular-nums text-[var(--foreground)]">
-              {formatAmount(systemBalanceDec)} {currency}
+              {isMasked
+                ? "••••••"
+                : `${formatPlainAmount(systemBalanceRounded)} ${currency}`}
             </strong>
           </div>
           {reservedBalanceDec.gt(0) && (
             <div className="mt-1 flex items-baseline justify-between gap-3 text-[11px] text-[var(--text-muted)]">
               <span>Trong đó chờ trả thẻ</span>
               <span className="font-medium tabular-nums text-[var(--warning)]">
-                {formatAmount(reservedBalanceDec)} {currency}
+                {isMasked
+                  ? "••••••"
+                  : `${formatPlainAmount(reservedBalanceDec)} ${currency}`}
               </span>
             </div>
           )}
@@ -247,7 +297,11 @@ function ReconcileWalletSheetBody({
             <span className="text-[var(--text-secondary)]">
               Chênh lệch đối soát
             </span>
-            {parsedActualBalance === null ? (
+            {isMasked ? (
+              <strong className="text-sm font-semibold tabular-nums text-[var(--foreground)]">
+                ••••••
+              </strong>
+            ) : parsedActualBalance === null ? (
               <span className="text-[var(--text-muted)]">
                 Nhập số dư thực tế bên dưới
               </span>
@@ -257,60 +311,79 @@ function ReconcileWalletSheetBody({
               </span>
             ) : isPositive ? (
               <strong className="text-sm font-bold tabular-nums text-[var(--income)]">
-                +{formatAmount(delta)} {currency}
+                +{formatPlainAmount(delta)} {currency}
               </strong>
             ) : (
               <strong className="text-sm font-bold tabular-nums text-[var(--expense)]">
-                −{formatAmount(delta.abs())} {currency}
+                −{formatPlainAmount(delta.abs())} {currency}
               </strong>
             )}
           </div>
         </div>
 
-        {/* Single-Bordered Executive Hero Amount Input */}
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)]">
-              Số tiền thực tế trong ví
-            </span>
-            <div className="flex items-center gap-1.5">
-              {actualBalanceInput !== initialDigits && (
-                <button
-                  type="button"
-                  onClick={() => setActualBalanceInput(initialDigits)}
-                  className="inline-flex cursor-pointer items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]"
-                >
-                  Đặt lại
-                </button>
-              )}
-              {actualBalanceInput !== "" && (
-                <button
-                  type="button"
-                  onClick={() => setActualBalanceInput("")}
-                  aria-label="Xóa số tiền thực tế"
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]"
-                >
-                  <X className="size-3" aria-hidden="true" />
-                  <span>Xóa</span>
-                </button>
-              )}
+        {/* Single-Bordered Executive Hero Amount Input or Privacy Session Reveal */}
+        {isMasked ? (
+          <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+            <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
+              Đang bật chế độ ẩn số dư. Bấm hiện số tiền trong phiên này để kiểm
+              tra và đối soát chính xác.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setRevealedInSession(true)}
+            >
+              <Eye size={14} />
+              <span>Hiện số dư để đối soát</span>
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)]">
+                Số tiền thực tế trong ví
+              </span>
+              <div className="flex items-center gap-1.5">
+                {actualBalanceInput !== initialDigits && (
+                  <button
+                    type="button"
+                    onClick={() => setActualBalanceInput(initialDigits)}
+                    className="inline-flex cursor-pointer items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]"
+                  >
+                    Đặt lại
+                  </button>
+                )}
+                {actualBalanceInput !== "" && (
+                  <button
+                    type="button"
+                    onClick={() => setActualBalanceInput("")}
+                    aria-label="Xóa số tiền thực tế"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]"
+                  >
+                    <X className="size-3" aria-hidden="true" />
+                    <span>Xóa</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-1">
+              <MoneyInput
+                wrapperClassName="w-full"
+                className="h-11 rounded-none border-0! bg-transparent! py-0 pl-0 pr-12 text-left text-3xl font-bold tracking-tight text-[var(--foreground)] ring-0! focus-visible:border-0! focus-visible:ring-0! md:h-11 md:py-0 md:text-3xl"
+                autoFocus={isDesktop}
+                value={actualBalanceInput}
+                onValueChange={setActualBalanceInput}
+                placeholder="0"
+                aria-label="Số tiền thực tế trong ví"
+              />
             </div>
           </div>
+        )}
 
-          <div className="mt-1">
-            <MoneyInput
-              wrapperClassName="w-full"
-              className="h-11 rounded-none border-0! bg-transparent! py-0 pl-0 pr-12 text-left text-3xl font-bold tracking-tight text-[var(--foreground)] ring-0! focus-visible:border-0! focus-visible:ring-0! md:h-11 md:py-0 md:text-3xl"
-              autoFocus
-              value={actualBalanceInput}
-              onValueChange={setActualBalanceInput}
-              placeholder="0"
-              aria-label="Số tiền thực tế trong ví"
-            />
-          </div>
-        </div>
-
-        {reservedBalanceDec.gt(0) &&
+        {!isMasked &&
+          reservedBalanceDec.gt(0) &&
           parsedActualBalance !== null &&
           parsedActualBalance.lt(reservedBalanceDec) && (
             <div className="flex items-start gap-2.5 rounded-xl border border-[var(--warning)]/30 bg-[color-mix(in_srgb,var(--warning)_10%,var(--surface))] px-3.5 py-2.5 text-xs text-[var(--text-secondary)]">
@@ -321,8 +394,8 @@ function ReconcileWalletSheetBody({
               />
               <span className="leading-relaxed">
                 Số dư thực tế thấp hơn khoản đang chờ trả thẻ (
-                {formatAmount(reservedBalanceDec)} {currency}). Số dư khả dụng
-                của ví sẽ âm sau khi đối soát.
+                {formatPlainAmount(reservedBalanceDec)} {currency}). Số dư khả
+                dụng của ví sẽ âm sau khi đối soát.
               </span>
             </div>
           )}
@@ -353,32 +426,33 @@ function ReconcileWalletSheetBody({
 
           <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5 text-xs leading-relaxed text-[var(--text-secondary)]">
             {mode === "balance_only"
-              ? "Cập nhật số dư ví và lưu bút toán đối soát riêng. Không tính vào báo cáo Thu/Chi tháng hay ngân sách 6 hũ."
+              ? "Cập nhật số dư ví và lưu bút toán đối soát riêng. Không tính vào báo cáo Thu/Chi tháng hay chi tiêu 6 hũ."
               : isPositive
                 ? "Tạo giao dịch Thu nhập thông thường và tính vào báo cáo Thu/Chi tháng."
-                : "Tạo giao dịch Chi tiêu thông thường, tính vào báo cáo Thu/Chi tháng và ngân sách 6 hũ."}
+                : "Tạo giao dịch Chi tiêu thông thường, tính vào báo cáo Thu/Chi tháng và chi tiêu 6 hũ."}
           </p>
         </div>
 
-        {mode === "record_cashflow" && (isPositive || isNegative) && (
-          <CategoryTreeSelect
-            className="h-10 rounded-xl md:h-10 md:rounded-xl"
-            label={isPositive ? "Danh mục thu nhập" : "Danh mục chi tiêu"}
-            required={isNegative}
-            value={effectiveCategoryId}
-            onValueChange={setCategoryId}
-            placeholder={
-              isNegative
-                ? "Chọn danh mục chi tiêu"
-                : "Chọn danh mục (không bắt buộc)"
-            }
-            categories={filteredCategories}
-            emptyOption={
-              isNegative ? undefined : { value: "none", label: "Không chọn" }
-            }
-            spotlight
-          />
-        )}
+        {!isMasked &&
+          mode === "record_cashflow" &&
+          (isPositive || isNegative) && (
+            <CategoryTreeSelect
+              className="h-10 rounded-xl md:h-10 md:rounded-xl"
+              label={isPositive ? "Danh mục thu nhập" : "Danh mục chi tiêu"}
+              required={isNegative}
+              value={effectiveCategoryId}
+              onValueChange={setCategoryId}
+              placeholder={
+                isNegative
+                  ? "Chọn danh mục chi tiêu"
+                  : "Chọn danh mục (không bắt buộc)"
+              }
+              categories={filteredCategories}
+              emptyOption={
+                isNegative ? undefined : { value: "none", label: "Không chọn" }
+              }
+            />
+          )}
 
         <Input
           label={
@@ -749,10 +823,31 @@ export function WalletManagement({
   >("income");
   const [createFundingAmount, setCreateFundingAmount] = useState("");
   const [createFundingWalletId, setCreateFundingWalletId] = useState("");
-  const [editingWallet, setEditingWallet] = useState<WalletItem | null>(null);
-  const [detailWallet, setDetailWallet] = useState<WalletItem | null>(null);
+  const [editingWalletState, setEditingWallet] = useState<WalletItem | null>(
+    null,
+  );
+  const editingWallet = useMemo(
+    () =>
+      editingWalletState
+        ? (wallets.find((w) => w.id === editingWalletState.id) ??
+          editingWalletState)
+        : null,
+    [editingWalletState, wallets],
+  );
+  const [detailWalletState, setDetailWallet] = useState<WalletItem | null>(
+    null,
+  );
+  const detailWallet = useMemo(
+    () =>
+      detailWalletState
+        ? (wallets.find((w) => w.id === detailWalletState.id) ??
+          detailWalletState)
+        : null,
+    [detailWalletState, wallets],
+  );
   const [reconcilingWallet, setReconcilingWallet] =
     useState<WalletItem | null>(null);
+  const [reconcileSubmitting, setReconcileSubmitting] = useState(false);
   const activeReconcilingWallet = useMemo(
     () =>
       reconcilingWallet
@@ -805,6 +900,13 @@ export function WalletManagement({
   const [blockedOperation, setBlockedOperation] =
     useState<DestructiveWalletOperation | null>(null);
   const [customOrderIds, setCustomOrderIds] = useState<string[] | null>(null);
+  const walletsOrderKey = wallets.map((w) => w.id).join("|");
+  const [prevWalletsOrderKey, setPrevWalletsOrderKey] =
+    useState(walletsOrderKey);
+  if (walletsOrderKey !== prevWalletsOrderKey) {
+    setPrevWalletsOrderKey(walletsOrderKey);
+    setCustomOrderIds(null);
+  }
   const orderedWallets = useMemo(() => {
     if (!customOrderIds) return wallets;
     const byId = new Map(wallets.map((w) => [w.id, w]));
@@ -2100,6 +2202,7 @@ export function WalletManagement({
 
           {editingWallet && (
             <form
+              key={editingWallet.id}
               onSubmit={handleUpdate}
               className="flex min-h-0 flex-1 flex-col overflow-hidden"
               aria-busy={pending}
@@ -2131,28 +2234,34 @@ export function WalletManagement({
                               <strong
                                 className={cn(
                                   "text-lg font-bold tracking-tight tabular-nums",
-                                  isCreditEdit
-                                    ? editBalDec.lt(0)
-                                      ? "text-[var(--success)]"
-                                      : editBalDec.gt(0)
-                                        ? "text-rose-600 dark:text-rose-400"
-                                        : "text-[var(--foreground)]"
-                                    : editBalDec.lt(0)
-                                      ? "text-[var(--destructive)]"
-                                      : "text-[var(--foreground)]",
+                                  !showBalance
+                                    ? "text-[var(--foreground)]"
+                                    : isCreditEdit
+                                      ? editBalDec.lt(0)
+                                        ? "text-[var(--success)]"
+                                        : editBalDec.gt(0)
+                                          ? "text-rose-600 dark:text-rose-400"
+                                          : "text-[var(--foreground)]"
+                                      : editBalDec.lt(0)
+                                        ? "text-[var(--destructive)]"
+                                        : "text-[var(--foreground)]",
                                 )}
                               >
-                                {isCreditEdit
-                                  ? editBalDec.lt(0)
-                                    ? `+${formatAmount(editBalDec.abs())}`
-                                    : formatAmount(
-                                        Decimal.max(editBalDec, new Decimal(0)),
-                                      )
-                                  : formatAmount(editBalDec)}
+                                {showBalance
+                                  ? isCreditEdit
+                                    ? editBalDec.lt(0)
+                                      ? `+${formatAmount(editBalDec.abs())}`
+                                      : formatAmount(
+                                          Decimal.max(editBalDec, new Decimal(0)),
+                                        )
+                                    : formatAmount(editBalDec)
+                                  : "••••••"}
                               </strong>
-                              <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)]">
-                                {workspace.currency}
-                              </span>
+                              {showBalance && (
+                                <span className="shrink-0 text-[11px] font-semibold uppercase text-[var(--text-muted)]">
+                                  {workspace.currency}
+                                </span>
+                              )}
                             </div>
                           </>
                         );
@@ -2190,8 +2299,9 @@ export function WalletManagement({
                           : "Số dư ban đầu"}
                       </span>
                       <strong className="mt-0.5 block font-semibold tabular-nums text-[var(--foreground)]">
-                        {formatAmount(editingWallet.openingBalance)}{" "}
-                        {workspace.currency}
+                        {showBalance
+                          ? `${formatAmount(editingWallet.openingBalance)} ${workspace.currency}`
+                          : "••••••"}
                       </strong>
                     </div>
 
@@ -2199,7 +2309,7 @@ export function WalletManagement({
                       <span className="block text-[11px] text-[var(--text-muted)]">
                         {editingWallet.kind === "credit_card"
                           ? "Biến động dư nợ"
-                          : "Chênh lệch thu chi"}
+                          : "Biến động số dư"}
                       </span>
                       {(() => {
                         const netDiff = new Decimal(
@@ -2211,20 +2321,24 @@ export function WalletManagement({
                           <strong
                             className={cn(
                               "mt-0.5 block font-semibold tabular-nums",
-                              isCreditEdit
-                                ? netDiff.gt(0)
-                                  ? "text-[var(--destructive)]"
-                                  : netDiff.lt(0)
-                                    ? "text-[var(--success)]"
-                                    : "text-[var(--foreground)]"
-                                : netDiff.gt(0)
-                                  ? "text-[var(--success)]"
-                                  : netDiff.lt(0)
+                              !showBalance
+                                ? "text-[var(--foreground)]"
+                                : isCreditEdit
+                                  ? netDiff.gt(0)
                                     ? "text-[var(--destructive)]"
-                                    : "text-[var(--foreground)]",
+                                    : netDiff.lt(0)
+                                      ? "text-[var(--success)]"
+                                      : "text-[var(--foreground)]"
+                                  : netDiff.gt(0)
+                                    ? "text-[var(--success)]"
+                                    : netDiff.lt(0)
+                                      ? "text-[var(--destructive)]"
+                                      : "text-[var(--foreground)]",
                             )}
                           >
-                            {`${netDiff.gt(0) ? "+" : netDiff.lt(0) ? "-" : ""}${formatAmount(netDiff.abs())} ${workspace.currency}`}
+                            {showBalance
+                              ? `${netDiff.gt(0) ? "+" : netDiff.lt(0) ? "-" : ""}${formatAmount(netDiff.abs())} ${workspace.currency}`
+                              : "••••••"}
                           </strong>
                         );
                       })()}
@@ -2434,28 +2548,34 @@ export function WalletManagement({
                           <strong
                             className={cn(
                               "text-2xl font-bold tabular-nums",
-                              isCreditDetail
-                                ? detailBalDec.lt(0)
-                                  ? "text-[var(--success)]"
-                                  : detailBalDec.gt(0)
-                                    ? "text-rose-600 dark:text-rose-400"
-                                    : "text-[var(--foreground)]"
-                                : detailBalDec.lt(0)
-                                  ? "text-[var(--destructive)]"
-                                  : "text-[var(--foreground)]",
+                              !showBalance
+                                ? "text-[var(--foreground)]"
+                                : isCreditDetail
+                                  ? detailBalDec.lt(0)
+                                    ? "text-[var(--success)]"
+                                    : detailBalDec.gt(0)
+                                      ? "text-rose-600 dark:text-rose-400"
+                                      : "text-[var(--foreground)]"
+                                  : detailBalDec.lt(0)
+                                    ? "text-[var(--destructive)]"
+                                    : "text-[var(--foreground)]",
                             )}
                           >
-                            {isCreditDetail
-                              ? detailBalDec.lt(0)
-                                ? `+${formatAmount(detailBalDec.abs())}`
-                                : formatAmount(
-                                    Decimal.max(detailBalDec, new Decimal(0)),
-                                  )
-                              : formatAmount(detailBalDec)}
+                            {showBalance
+                              ? isCreditDetail
+                                ? detailBalDec.lt(0)
+                                  ? `+${formatAmount(detailBalDec.abs())}`
+                                  : formatAmount(
+                                      Decimal.max(detailBalDec, new Decimal(0)),
+                                    )
+                                : formatAmount(detailBalDec)
+                              : "••••••"}
                           </strong>
-                          <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
-                            {workspace.currency}
-                          </span>
+                          {showBalance && (
+                            <span className="shrink-0 text-xs font-semibold uppercase text-[var(--text-muted)]">
+                              {workspace.currency}
+                            </span>
+                          )}
                         </div>
                       </>
                     );
@@ -2481,11 +2601,42 @@ export function WalletManagement({
                         </span>
                       </span>
                       <strong className="font-semibold tabular-nums text-[var(--warning)] underline-offset-2 group-hover/detail-reserved:underline">
-                        {formatAmount(detailWallet.reservedBalance ?? "0")}{" "}
-                        {workspace.currency}
+                        {showBalance
+                          ? `${formatAmount(detailWallet.reservedBalance ?? "0")} ${workspace.currency}`
+                          : "••••••"}
                       </strong>
                     </button>
                   )}
+                  {detailWallet.kind !== "credit_card" &&
+                    new Decimal(detailWallet.reservedBalance ?? 0).gt(0) && (
+                      <div className="flex items-center justify-between gap-3 py-3">
+                        <span className="text-[var(--text-secondary)]">
+                          Số dư khả dụng
+                        </span>
+                        {(() => {
+                          const availDec = new Decimal(
+                            detailWallet.availableBalance ??
+                              new Decimal(detailWallet.currentBalance).minus(
+                                detailWallet.reservedBalance ?? 0,
+                              ),
+                          );
+                          return (
+                            <strong
+                              className={cn(
+                                "font-semibold tabular-nums",
+                                showBalance && availDec.lt(0)
+                                  ? "text-[var(--destructive)]"
+                                  : "text-[var(--foreground)]",
+                              )}
+                            >
+                              {showBalance
+                                ? `${formatAmount(availDec)} ${workspace.currency}`
+                                : "••••••"}
+                            </strong>
+                          );
+                        })()}
+                      </div>
+                    )}
                   <div className="flex items-center justify-between gap-3 py-3">
                     <span className="text-[var(--text-secondary)]">
                       {detailWallet.kind === "credit_card"
@@ -2493,15 +2644,16 @@ export function WalletManagement({
                         : "Số dư ban đầu"}
                     </span>
                     <strong className="font-semibold tabular-nums text-[var(--foreground)]">
-                      {formatAmount(detailWallet.openingBalance)}{" "}
-                      {workspace.currency}
+                      {showBalance
+                        ? `${formatAmount(detailWallet.openingBalance)} ${workspace.currency}`
+                        : "••••••"}
                     </strong>
                   </div>
                   <div className="flex items-center justify-between gap-3 py-3">
                     <span className="text-[var(--text-secondary)]">
                       {detailWallet.kind === "credit_card"
                         ? "Biến động dư nợ"
-                        : "Chênh lệch thu chi"}
+                        : "Biến động số dư"}
                     </span>
                     {(() => {
                       const netDiff = new Decimal(
@@ -2513,20 +2665,24 @@ export function WalletManagement({
                         <strong
                           className={cn(
                             "font-semibold tabular-nums",
-                            isCreditDetail
-                              ? netDiff.gt(0)
-                                ? "text-[var(--destructive)]"
-                                : netDiff.lt(0)
-                                  ? "text-[var(--success)]"
-                                  : "text-[var(--foreground)]"
-                              : netDiff.gt(0)
-                                ? "text-[var(--success)]"
-                                : netDiff.lt(0)
+                            !showBalance
+                              ? "text-[var(--foreground)]"
+                              : isCreditDetail
+                                ? netDiff.gt(0)
                                   ? "text-[var(--destructive)]"
-                                  : "text-[var(--foreground)]",
+                                  : netDiff.lt(0)
+                                    ? "text-[var(--success)]"
+                                    : "text-[var(--foreground)]"
+                                : netDiff.gt(0)
+                                  ? "text-[var(--success)]"
+                                  : netDiff.lt(0)
+                                    ? "text-[var(--destructive)]"
+                                    : "text-[var(--foreground)]",
                           )}
                         >
-                          {`${netDiff.gt(0) ? "+" : netDiff.lt(0) ? "-" : ""}${formatAmount(netDiff.abs())} ${workspace.currency}`}
+                          {showBalance
+                            ? `${netDiff.gt(0) ? "+" : netDiff.lt(0) ? "-" : ""}${formatAmount(netDiff.abs())} ${workspace.currency}`
+                            : "••••••"}
                         </strong>
                       );
                     })()}
@@ -3195,7 +3351,6 @@ export function WalletManagement({
                                 : "Ví chuyển tiền"
                             }
                             placeholder="Chọn ví tất toán"
-                            spotlight
                             className="w-full"
                             options={settlementWallets.map((wallet) => ({
                               value: wallet.id,
@@ -3265,7 +3420,7 @@ export function WalletManagement({
       <Sheet
         open={activeReconcilingWallet !== null}
         onOpenChange={(open) => {
-          if (!open && !pending) {
+          if (!open && !pending && !reconcileSubmitting) {
             setReconcilingWallet(null);
           }
         }}
@@ -3283,6 +3438,8 @@ export function WalletManagement({
               wallet={activeReconcilingWallet}
               currency={workspace.currency}
               categories={categories}
+              isDesktop={isDesktop}
+              onSubmittingChange={setReconcileSubmitting}
               onClose={() => setReconcilingWallet(null)}
               onReconciled={() => {
                 setReconcilingWallet(null);

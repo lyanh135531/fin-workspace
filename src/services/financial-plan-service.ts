@@ -600,10 +600,14 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
       throw new AppError("NOT_FOUND", "Không tìm thấy kế hoạch trong nhóm này.");
     }
     if (plan.status === "draft" || !plan.startMonth) {
+      const draftGoalProgress = await getPlanGoalProgressSummary(tx, plan.id);
       const percentages = allocationForMonth(plan.allocations, DRAFT_ALLOCATION_MONTH);
       return {
         id: plan.id, name: plan.name, status: "draft" as const, targetAmount: plan.targetAmount.toString(),
-        existingGoalAmount: plan.existingGoalAmount.toString(), startMonth: null,
+        existingGoalAmount: draftGoalProgress.hasGoals
+          ? draftGoalProgress.totalProgress.toFixed(0)
+          : plan.existingGoalAmount.toString(),
+        startMonth: null,
         targetMonth: databaseDateToMonth(plan.targetMonth), percentages: moneyMapToStrings(percentages),
         canManage: isAdminRole(member.role.code),
       };

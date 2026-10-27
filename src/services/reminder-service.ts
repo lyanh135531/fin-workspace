@@ -175,6 +175,7 @@ export async function hasUserLoggedTransactionToday(
     where: {
       deletedAt: null,
       workflowStatus: { not: "rejected" },
+      purpose: { not: "balance_reconciliation" },
       recurringTransactionId: null,
       member: {
         userId,

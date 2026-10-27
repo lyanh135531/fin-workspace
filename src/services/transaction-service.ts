@@ -846,24 +846,12 @@ async function softDelete(tx: TransactionClient, workspaceId: string, record: Tr
     );
     const targetWallet = await tx.wallet.findFirst({
       where: { id: current.walletId, deletedAt: null },
-      select: { status: true, currentBalance: true },
+      select: { status: true },
     });
     if (!targetWallet || targetWallet.status !== "active") {
       throw new AppError(
         "CONFLICT",
         "Hãy kích hoạt lại ví trước khi hoàn tác giao dịch đối soát số dư.",
-      );
-    }
-    if (
-      current.workflowStatus === "approved" &&
-      current.type === "income" &&
-      new Decimal(targetWallet.currentBalance.toString()).lt(
-        new Decimal(current.amount.toString()),
-      )
-    ) {
-      throw new AppError(
-        "CONFLICT",
-        "Số dư ví hiện tại không đủ để hoàn tác khoản đối soát tăng số dư này.",
       );
     }
   }
@@ -1315,17 +1303,45 @@ export async function updateTransaction(
   });
 }
 
+type WorkspaceActorMember = Awaited<ReturnType<typeof requireWorkspaceMember>>;
+
+async function softDeleteInTransaction(
+  tx: TransactionClient,
+  userId: string,
+  workspaceId: string,
+  member: Pick<WorkspaceActorMember, "id" | "role">,
+  transactionId: string,
+) {
+  if (!isAdminRole(member.role.code)) {
+    throw new AppError("FORBIDDEN", "Bạn không có quyền truy cập nhóm tài chính này.");
+  }
+  const record = await findWorkspaceTransaction(tx, workspaceId, transactionId);
+  await softDelete(tx, workspaceId, record);
+  await tx.auditLog.create({
+    data: {
+      workspaceId,
+      actorUserId: userId,
+      action: "transaction.deleted",
+      entityType: "transaction",
+      entityId: record.id,
+      metadata: {
+        workflowStatus: record.workflowStatus,
+        balanceReversed: record.workflowStatus === "approved",
+      },
+    },
+  });
+  return { kind: "deleted" as const, id: record.id };
+}
+
 export async function deleteOrRequestTransaction(userId: string, workspaceId: string, transactionId: string, reason: string) {
   const member = await requireWorkspaceMember(userId, workspaceId);
   return prisma.$transaction(async (tx) => {
-    const record = await findWorkspaceTransaction(tx, workspaceId, transactionId);
-    if (!isAdminRole(member.role.code) && record.memberId !== member.id) {
-      throw new AppError("FORBIDDEN", "Bạn chỉ có thể gửi yêu cầu xóa giao dịch do mình tạo.");
-    }
     if (isAdminRole(member.role.code)) {
-      await softDelete(tx, workspaceId, record);
-      await tx.auditLog.create({ data: { workspaceId, actorUserId: userId, action: "transaction.deleted", entityType: "transaction", entityId: record.id, metadata: { workflowStatus: record.workflowStatus, balanceReversed: record.workflowStatus === "approved" } } });
-      return { kind: "deleted" as const, id: record.id };
+      return softDeleteInTransaction(tx, userId, workspaceId, member, transactionId);
+    }
+    const record = await findWorkspaceTransaction(tx, workspaceId, transactionId);
+    if (record.memberId !== member.id) {
+      throw new AppError("FORBIDDEN", "Bạn chỉ có thể gửi yêu cầu xóa giao dịch do mình tạo.");
     }
     if (
       record.purpose === "investment_contribution" ||
@@ -1403,10 +1419,31 @@ export async function deleteOrRequestTransaction(userId: string, workspaceId: st
   });
 }
 
-/** Admin-only bulk delete used by the ledger selection toolbar. */
+/** Admin-only single delete entry point. */
 export async function deleteTransaction(userId: string, workspaceId: string, transactionId: string) {
-  await requireWorkspaceMember(userId, workspaceId, true);
-  return deleteOrRequestTransaction(userId, workspaceId, transactionId, "Đã thông báo");
+  const member = await requireWorkspaceMember(userId, workspaceId, true);
+  return prisma.$transaction((tx) =>
+    softDeleteInTransaction(tx, userId, workspaceId, member, transactionId),
+  );
+}
+
+/** Admin-only atomic bulk delete used by the ledger selection toolbar. */
+export async function deleteTransactions(
+  userId: string,
+  workspaceId: string,
+  transactionIds: string[],
+) {
+  const uniqueIds = Array.from(new Set(transactionIds));
+  if (uniqueIds.length === 0) {
+    return { count: 0 };
+  }
+  const member = await requireWorkspaceMember(userId, workspaceId, true);
+  return prisma.$transaction(async (tx) => {
+    for (const id of uniqueIds) {
+      await softDeleteInTransaction(tx, userId, workspaceId, member, id);
+    }
+    return { count: uniqueIds.length };
+  });
 }
 
 function readProposedData(value: Prisma.JsonValue) {

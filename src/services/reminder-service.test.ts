@@ -76,6 +76,7 @@ import {
   getLocalMinutesInTimeZone,
   getUserReminderState,
   getWorkspaceDueBillAlerts,
+  hasUserLoggedTransactionToday,
   NOON_REMINDER_MINUTES,
 } from "./reminder-service";
 
@@ -354,6 +355,27 @@ describe("reminder-service smart daily expense reminders", () => {
     const result = await dispatchDueDailyReminders(eveningUtc);
     expect(result).toEqual({ checkedUsers: 1, sentNotifications: 0 });
     expect(mockSendWebPush).not.toHaveBeenCalled();
+  });
+
+  it("excludes balance_reconciliation when checking if user logged a transaction today", async () => {
+    mockCountTransactions.mockResolvedValueOnce(0);
+    const nowUtc = new Date("2026-10-19T05:35:00.000Z"); // 12:35 ICT
+
+    const logged = await hasUserLoggedTransactionToday(
+      "user-1",
+      "Asia/Ho_Chi_Minh",
+      nowUtc,
+    );
+
+    expect(logged).toBe(false);
+    expect(mockCountTransactions).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        deletedAt: null,
+        workflowStatus: { not: "rejected" },
+        purpose: { not: "balance_reconciliation" },
+        recurringTransactionId: null,
+      }),
+    });
   });
 
   it("computes due credit card statements and upcoming/failed recurring bills with shortfall detection", async () => {

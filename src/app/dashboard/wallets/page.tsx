@@ -88,12 +88,7 @@ export default async function WalletsPage({
   return (
     <PageContainer className="wallets-page-container">
       <WalletManagement
-        key={links
-          .map(
-            ({ wallet, sortOrder }) =>
-              `${wallet.id}:${wallet.updatedAt.toISOString()}:${sortOrder}`,
-          )
-          .join("|")}
+        key={workspaceId}
         workspace={{
           name: membership.workspace.name,
           currency: membership.workspace.baseCurrency,

@@ -140,16 +140,23 @@ function ResponsiveSheet({
   open,
   onOpenChange,
   size = "md",
+  className,
   children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   size?: "default" | "md" | "lg" | "wide";
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent size={size} spacing="flush" elevation="flat">
+      <SheetContent
+        size={size}
+        spacing="flush"
+        elevation="flat"
+        className={className}
+      >
         {children}
       </SheetContent>
     </Sheet>
@@ -325,13 +332,19 @@ function formatShortViDate(isoDate: string): string {
   return `${d}/${m}/${y}`;
 }
 
+function formatWalletSourceLabel(walletName: string | null | undefined): string {
+  const trimmed = walletName?.trim();
+  if (!trimmed) return "Ví thanh toán";
+  return /^ví\b/i.test(trimmed) ? trimmed : `Ví ${trimmed}`;
+}
+
 export function InvestmentsManager({
   data,
 }: {
   data: InvestmentsOverviewData;
 }) {
   const router = useRouter();
-  usePrivacyMask();
+  const isPrivacyMasked = usePrivacyMask();
   const [isPending, startTransition] = useTransition();
   const [isRefreshingQuotes, startRefreshTransition] = useTransition();
 
@@ -422,6 +435,7 @@ export function InvestmentsManager({
     formatAmount(amount.toString(), currency);
 
   const formatSignedMoney = (amountStr: string) => {
+    if (isPrivacyMasked) return "••••••";
     const d = new Decimal(amountStr || "0");
     if (d.isZero()) return displayMoney("0");
     const prefix = d.gt(0) ? "+" : "-";
@@ -429,6 +443,7 @@ export function InvestmentsManager({
   };
 
   const formatGoldUnitPrice = (pricePerChiStr: string) => {
+    if (isPrivacyMasked) return "••••••";
     const perChi = new Decimal(pricePerChiStr || "0");
     if (priceDisplayUnit === "luong") {
       return `${rawFormatAmount(perChi.mul(TEN).toFixed(0))} đ/lượng`;
@@ -3037,6 +3052,8 @@ function GoldHoldingDetailSheet({
   onEditLot: (lotId: string) => void;
   onRefresh: () => void;
 }) {
+  const isMasked = usePrivacyMask();
+  const [historyTab, setHistoryTab] = useState<"lots" | "sales">("lots");
   const [confirmDeleteHolding, setConfirmDeleteHolding] = useState(false);
   const [confirmDeleteLotId, setConfirmDeleteLotId] = useState<string | null>(
     null,
@@ -3044,6 +3061,46 @@ function GoldHoldingDetailSheet({
   const [confirmUndoSaleId, setConfirmUndoSaleId] = useState<string | null>(
     null,
   );
+
+  const qtyDecimal = new Decimal(holding.valuation.totalQuantityChi || "0");
+  const unrealizedDecimal = new Decimal(
+    holding.valuation.unrealizedProfitAmount || "0",
+  );
+  const realizedDecimal = new Decimal(
+    holding.valuation.realizedProfitAmount || "0",
+  );
+  const hasSales = holding.sales.length > 0;
+  const effectiveTab = hasSales ? historyTab : "lots";
+
+  const priceSourceLabel =
+    holding.priceSourceMode === "auto_brand"
+      ? "Giá tự động"
+      : holding.priceSourceMode === "pegged_brand"
+        ? "Theo giá chuẩn"
+        : "Giá tự nhập";
+
+  const formatPerChi = (value: Decimal.Value) => {
+    if (isMasked) return "••••••";
+    const formatted = rawFormatAmount(value);
+    return `${formatted} ${currency === "VND" ? "đ/chỉ" : `${currency}/chỉ`}`;
+  };
+
+  const formatSignedCurrency = (amountStr: string) => {
+    if (isMasked) return "••••••";
+    const d = new Decimal(amountStr || "0");
+    if (d.isZero()) return formatAmount("0", currency);
+    const prefix = d.gt(0) ? "+" : "-";
+    return `${prefix}${formatAmount(d.abs().toFixed(0), currency)}`;
+  };
+
+  function handleSheetOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
+      setConfirmDeleteHolding(false);
+      setConfirmDeleteLotId(null);
+      setConfirmUndoSaleId(null);
+    }
+    onOpenChange(nextOpen);
+  }
 
   function handleDeleteLot(lotId: string) {
     startTransition(async () => {
@@ -3082,315 +3139,639 @@ function GoldHoldingDetailSheet({
         return;
       }
       toast.success(res.message ?? "Đã xóa khoản vàng.");
-      onOpenChange(false);
+      handleSheetOpenChange(false);
       onRefresh();
     });
   }
 
-  return (
-    <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
-      <SheetHeader
-        icon={Layers}
-        title="Lịch sử Mua & Bán vàng"
-        description={`${holding.name} · Đang giữ: ${holding.weightFormatted.fullText}`}
-      />
-      <SheetBody>
-        {/* Danh sách các đợt mua */}
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-semibold text-[var(--text-secondary)]">
-              Các đợt đã mua ({holding.lots.length})
-            </h4>
-            {canManage && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onBuyMore}
-                className="h-7 gap-1 px-2.5 text-xs"
-              >
-                <Plus className="size-3" />
-                <span>Mua thêm đợt mới</span>
-              </Button>
+  const lotsListContent = (
+    <div className="space-y-2.5">
+      {holding.lots.map((lot) => {
+        const totalLotChi = new Decimal(lot.quantityChi || "0");
+        const remChi = new Decimal(lot.remainingQuantityChi || "0");
+        const isConfirmingLotDelete = confirmDeleteLotId === lot.id;
+        const hasCraftingFee = Number(lot.craftingFeeAmount) > 0;
+        const hasExtraMeta = Boolean(
+          hasCraftingFee || lot.invoiceOrSerial || lot.note,
+        );
+        const fundingLabel =
+          lot.fundingMode === "from_wallet"
+            ? formatWalletSourceLabel(lot.sourceWalletName)
+            : "Vàng có sẵn";
+
+        return (
+          <div
+            key={lot.id}
+            className={cn(
+              "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 sm:p-4 transition-colors",
+              remChi.lte(0) && "bg-[var(--surface-secondary)]/30",
             )}
-          </div>
-
-          <div className="space-y-2">
-            {holding.lots.map((lot) => {
-              const remChi = new Decimal(lot.remainingQuantityChi);
-              const isConfirmingLotDelete = confirmDeleteLotId === lot.id;
-              return (
-                <div
-                  key={lot.id}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/35 p-3 space-y-1.5 text-xs"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="font-semibold text-[var(--foreground)]">
-                        Mua {lot.quantityFormatted.primary}
-                      </span>
-                      <span className="ml-1.5 text-[11px] text-[var(--text-muted)]">
-                        ({formatShortViDate(lot.purchaseDate)})
-                      </span>
-                    </div>
-                    <Badge variant={remChi.gt(0) ? "default" : "secondary"}>
-                      {remChi.gt(0)
-                        ? `Còn giữ: ${lot.remainingFormatted.primary}`
-                        : "Đã bán hết"}
-                    </Badge>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-1 text-[11px] text-[var(--text-secondary)]">
-                    <span>
-                      Giá mua: {formatAmount(lot.unitPricePerChi, currency)}/chỉ
-                    </span>
-                    <span className="text-right font-semibold text-[var(--foreground)] tabular-nums">
-                      Thành tiền: {formatAmount(lot.totalCostAmount, currency)}
-                    </span>
-                    {Number(lot.craftingFeeAmount) > 0 && (
-                      <span>
-                        Tiền công:{" "}
-                        {formatAmount(lot.craftingFeeAmount, currency)}
-                      </span>
-                    )}
-                    <span>
-                      Nguồn:{" "}
-                      {lot.fundingMode === "from_wallet"
-                        ? `Ví ${lot.sourceWalletName ?? ""}`
-                        : "Vàng có sẵn"}
-                    </span>
-                  </div>
-
-                  {lot.invoiceOrSerial && (
-                    <p className="text-[11px] text-[var(--text-muted)]">
-                      Seri / Hóa đơn: {lot.invoiceOrSerial}
-                    </p>
-                  )}
-                  {lot.note && (
-                    <p className="text-[11px] text-[var(--text-muted)]">
-                      Ghi chú: {lot.note}
-                    </p>
-                  )}
-
-                  {canManage &&
-                    (!isConfirmingLotDelete ? (
-                      <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
-                        {remChi.gt(0) && (
-                          <button
-                            type="button"
-                            onClick={() => onSellLot(lot.id)}
-                            className="text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
-                          >
-                            Bán từ đợt này
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => onEditLot(lot.id)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--foreground)] hover:underline cursor-pointer"
-                        >
-                          <Pencil className="size-3" />
-                          <span>Sửa</span>
-                        </button>
-                        {lot.canDelete && (
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => setConfirmDeleteLotId(lot.id)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--expense)] hover:underline cursor-pointer"
-                          >
-                            <Trash2 className="size-3" />
-                            <span>Xóa đợt mua</span>
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="mt-1.5 border-t border-[var(--border)] pt-2 space-y-2">
-                        <p className="text-[11px] text-[var(--foreground)]">
-                          Xóa đợt mua {lot.quantityFormatted.primary} ngày{" "}
-                          {formatShortViDate(lot.purchaseDate)}?
-                          {lot.fundingMode === "from_wallet" &&
-                          lot.sourceWalletName
-                            ? ` Tiền mua ${formatAmount(lot.totalCostAmount, currency)} sẽ được hoàn lại vào ví ${lot.sourceWalletName}.`
-                            : ""}
-                        </p>
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setConfirmDeleteLotId(null)}
-                            className="h-7 px-2.5 text-[11px]"
-                          >
-                            Giữ lại
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            disabled={isPending}
-                            onClick={() => handleDeleteLot(lot.id)}
-                            className="h-7 px-2.5 text-[11px]"
-                          >
-                            Xác nhận xóa
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Lịch sử các lần bán */}
-        {holding.sales.length > 0 && (
-          <div className="space-y-2 border-t border-[var(--border)] pt-3">
-            <h4 className="text-xs font-semibold text-[var(--text-secondary)]">
-              Lịch sử bán vàng ({holding.sales.length})
-            </h4>
-            <div className="space-y-2">
-              {holding.sales.map((sale) => {
-                const profit = new Decimal(sale.realizedProfitAmount);
-                const isConfirmingUndo = confirmUndoSaleId === sale.id;
-                return (
-                  <div
-                    key={sale.id}
-                    className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/30 p-3 space-y-1.5 text-xs"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-[var(--foreground)]">
-                        Bán {sale.quantityFormatted.primary} (
-                        {formatShortViDate(sale.saleDate)})
-                      </span>
-                      <strong
-                        className={cn(
-                          "font-bold tabular-nums",
-                          profit.gt(0)
-                            ? "text-[var(--income)]"
-                            : profit.lt(0)
-                              ? "text-[var(--expense)]"
-                              : "text-[var(--foreground)]",
-                        )}
-                      >
-                        Lời/Lỗ: {profit.gt(0) ? "+" : ""}
-                        {formatAmount(sale.realizedProfitAmount, currency)}
-                      </strong>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--text-secondary)]">
-                      <span>
-                        Giá bán: {formatAmount(sale.sellPricePerChi, currency)}
-                        /chỉ · Về ví: {sale.destinationWalletName}
-                      </span>
-                      <span className="font-semibold text-[var(--foreground)] tabular-nums">
-                        Thực nhận:{" "}
-                        {formatAmount(sale.netProceedsAmount, currency)}
-                      </span>
-                    </div>
-                    {sale.note && (
-                      <p className="text-[11px] text-[var(--text-muted)]">
-                        Ghi chú: {sale.note}
-                      </p>
-                    )}
-
-                    {canManage &&
-                      (!isConfirmingUndo ? (
-                        <div className="flex items-center justify-end pt-0.5">
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => setConfirmUndoSaleId(sale.id)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--expense)] hover:underline cursor-pointer"
-                          >
-                            <RotateCcw className="size-3" />
-                            <span>Hoàn tác lần bán</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="mt-1.5 border-t border-[var(--border)] pt-2 space-y-2">
-                          <p className="text-[11px] text-[var(--foreground)]">
-                            Hoàn tác lần bán {sale.quantityFormatted.primary} ngày{" "}
-                            {formatShortViDate(sale.saleDate)}? Hệ thống sẽ thu
-                            hồi {formatAmount(sale.netProceedsAmount, currency)}{" "}
-                            từ ví <strong>{sale.destinationWalletName}</strong> và
-                            cộng trả {sale.quantityFormatted.primary} vàng về hũ.
-                          </p>
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setConfirmUndoSaleId(null)}
-                              className="h-7 px-2.5 text-[11px]"
-                            >
-                              Giữ lại
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="destructive"
-                              disabled={isPending}
-                              onClick={() => handleUndoSale(sale.id)}
-                              className="h-7 px-2.5 text-[11px]"
-                            >
-                              Xác nhận hoàn tác
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Xóa khoản vàng (chỉ cho phép khi chưa có giao dịch bán để bảo toàn lịch sử lời/lỗ đã chốt) */}
-        {canManage && holding.sales.length === 0 && (
-          <div className="border-t border-[var(--border)] pt-3">
-            {!confirmDeleteHolding ? (
-              <button
-                type="button"
-                onClick={() => setConfirmDeleteHolding(true)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--expense)] hover:underline cursor-pointer"
-              >
-                <Trash2 className="size-3.5" />
-                <span>Xóa khoản vàng này</span>
-              </button>
-            ) : (
-              <div className="rounded-xl border border-[var(--expense)]/35 bg-[var(--expense)]/8 p-3 space-y-2">
-                <p className="text-xs font-medium text-[var(--foreground)]">
-                  Bạn chắc chắn muốn xóa khoản vàng này? Số tiền đã trích từ ví
-                  (nếu có) sẽ được hoàn lại đầy đủ.
+          >
+            {/* Lot Header */}
+            <div className="flex items-start justify-between gap-2.5">
+              <div className="min-w-0">
+                <span className="block text-sm font-semibold text-[var(--foreground)]">
+                  Mua {lot.quantityFormatted.primary}
+                </span>
+                <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
+                  {formatShortViDate(lot.purchaseDate)} · {fundingLabel}
+                  {lot.shopName && lot.shopName !== holding.brandName
+                    ? ` · ${lot.shopName}`
+                    : ""}
                 </p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    disabled={isPending}
-                    onClick={handleDeleteHolding}
-                    className="h-8 text-xs"
-                  >
-                    Xác nhận xóa
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setConfirmDeleteHolding(false)}
-                    className="h-8 text-xs"
-                  >
-                    Giữ lại
-                  </Button>
-                </div>
+              </div>
+              {remChi.lte(0) ? (
+                <Badge variant="secondary">Đã bán hết</Badge>
+              ) : remChi.lt(totalLotChi) ? (
+                <Badge variant="warning">
+                  Còn {lot.remainingFormatted.primary}
+                </Badge>
+              ) : (
+                <Badge variant="default">
+                  Đang giữ {lot.remainingFormatted.primary}
+                </Badge>
+              )}
+            </div>
+
+            {/* Lot Financial Strip (Single-border safe: pure surface tint) */}
+            <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-[var(--surface-secondary)]/55 px-3 py-2.5">
+              <div>
+                <span className="block text-[11px] text-[var(--text-muted)]">
+                  Đơn giá mua
+                </span>
+                <strong className="mt-0.5 block text-xs sm:text-[13px] font-semibold text-[var(--foreground)] tabular-nums">
+                  {formatPerChi(lot.unitPricePerChi)}
+                </strong>
+              </div>
+              <div className="text-right">
+                <span className="block text-[11px] text-[var(--text-muted)]">
+                  Thành tiền
+                </span>
+                <strong className="mt-0.5 block text-xs sm:text-[13px] font-bold text-[var(--foreground)] tabular-nums">
+                  {formatAmount(lot.totalCostAmount, currency)}
+                </strong>
+              </div>
+            </div>
+
+            {hasExtraMeta && (
+              <div className="mt-2.5 space-y-1 text-[11px] text-[var(--text-secondary)]">
+                {hasCraftingFee && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[var(--text-muted)]">
+                      Tiền công chế tác
+                    </span>
+                    <span className="font-medium text-[var(--foreground)] tabular-nums">
+                      {formatAmount(lot.craftingFeeAmount, currency)}
+                    </span>
+                  </div>
+                )}
+                {lot.invoiceOrSerial && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[var(--text-muted)]">
+                      Seri / Hóa đơn
+                    </span>
+                    <span className="font-medium text-[var(--foreground)] text-right break-all">
+                      {lot.invoiceOrSerial}
+                    </span>
+                  </div>
+                )}
+                {lot.note && (
+                  <p className="leading-relaxed text-[var(--text-muted)] break-words">
+                    Ghi chú: {lot.note}
+                  </p>
+                )}
               </div>
             )}
+
+            {/* Lot Actions */}
+            {canManage &&
+              (!isConfirmingLotDelete ? (
+                <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--border)]/65 pt-2.5">
+                  <div>
+                    {remChi.gt(0) && (
+                      <Button
+                        type="button"
+                        variant="selected"
+                        size="sm"
+                        onClick={() => onSellLot(lot.id)}
+                        className="h-8 gap-1.5 px-3 text-xs font-semibold"
+                      >
+                        <ArrowUpRight className="size-3.5" />
+                        <span>Bán đợt này</span>
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => onEditLot(lot.id)}
+                      className="h-8 gap-1.5 px-2.5 text-xs text-[var(--text-secondary)] hover:text-[var(--foreground)]"
+                    >
+                      <Pencil className="size-3.5" />
+                      <span>Sửa</span>
+                    </Button>
+                    {lot.canDelete && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => setConfirmDeleteLotId(lot.id)}
+                        aria-label="Xóa đợt mua"
+                        className="h-8 gap-1.5 px-2.5 text-xs text-[var(--text-muted)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] hover:text-[var(--danger)]"
+                      >
+                        <Trash2 className="size-3.5" />
+                        <span className="hidden min-[380px]:inline">Xóa</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 rounded-xl bg-[color-mix(in_srgb,var(--danger)_8%,var(--surface-secondary))] p-3 space-y-2.5">
+                  <p className="text-xs leading-relaxed text-[var(--foreground)]">
+                    Xóa đợt mua{" "}
+                    <strong className="font-semibold">
+                      {lot.quantityFormatted.primary}
+                    </strong>{" "}
+                    ngày {formatShortViDate(lot.purchaseDate)}?
+                    {lot.fundingMode === "from_wallet" && lot.sourceWalletName
+                      ? ` Khoản chi ${formatAmount(lot.totalCostAmount, currency)} sẽ được hoàn lại vào ${formatWalletSourceLabel(lot.sourceWalletName)}.`
+                      : ""}
+                  </p>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isPending}
+                      onClick={() => setConfirmDeleteLotId(null)}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Giữ lại
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={isPending}
+                      onClick={() => handleDeleteLot(lot.id)}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Xác nhận xóa
+                    </Button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const salesListContent = (
+    <div className="space-y-2.5">
+      {holding.sales.map((sale) => {
+        const profit = new Decimal(sale.realizedProfitAmount || "0");
+        const hasDeduction = Number(sale.feeOrDeductionAmount) > 0;
+        const isConfirmingUndo = confirmUndoSaleId === sale.id;
+        const walletLabel = formatWalletSourceLabel(sale.destinationWalletName);
+
+        return (
+          <div
+            key={sale.id}
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 sm:p-4"
+          >
+            {/* Sale Header */}
+            <div className="flex items-start justify-between gap-2.5">
+              <div className="min-w-0">
+                <span className="block text-sm font-semibold text-[var(--foreground)]">
+                  Bán {sale.quantityFormatted.primary}
+                </span>
+                <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
+                  {formatShortViDate(sale.saleDate)} · Về {walletLabel}
+                  {sale.costMode === "specific_lot" && sale.purchaseLotDate
+                    ? ` · Đợt ${formatShortViDate(sale.purchaseLotDate)}`
+                    : " · Giá vốn TB"}
+                </p>
+              </div>
+              {isMasked ? (
+                <Badge variant="secondary">••••••</Badge>
+              ) : profit.gt(0) ? (
+                <Badge variant="income" className="tabular-nums">
+                  {formatSignedCurrency(sale.realizedProfitAmount)}
+                </Badge>
+              ) : profit.lt(0) ? (
+                <span className="inline-flex shrink-0 items-center rounded-md bg-[color-mix(in_srgb,var(--expense)_12%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold leading-tight text-[var(--expense)] tabular-nums whitespace-nowrap">
+                  {formatSignedCurrency(sale.realizedProfitAmount)}
+                </span>
+              ) : (
+                <Badge variant="secondary">Hòa vốn</Badge>
+              )}
+            </div>
+
+            {/* Sale Financial Strip */}
+            <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-[var(--surface-secondary)]/55 px-3 py-2.5">
+              <div>
+                <span className="block text-[11px] text-[var(--text-muted)]">
+                  Đơn giá bán
+                </span>
+                <strong className="mt-0.5 block text-xs sm:text-[13px] font-semibold text-[var(--foreground)] tabular-nums">
+                  {formatPerChi(sale.sellPricePerChi)}
+                </strong>
+              </div>
+              <div className="text-right">
+                <span className="block text-[11px] text-[var(--text-muted)]">
+                  Thực nhận về ví
+                </span>
+                <strong className="mt-0.5 block text-xs sm:text-[13px] font-bold text-[var(--foreground)] tabular-nums">
+                  {formatAmount(sale.netProceedsAmount, currency)}
+                </strong>
+              </div>
+            </div>
+
+            {(hasDeduction || sale.note) && (
+              <div className="mt-2.5 space-y-1 text-[11px] text-[var(--text-secondary)]">
+                {hasDeduction && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[var(--text-muted)]">
+                      Phí / Khấu trừ tiệm
+                    </span>
+                    <span className="font-medium text-[var(--foreground)] tabular-nums">
+                      {formatAmount(sale.feeOrDeductionAmount, currency)}
+                    </span>
+                  </div>
+                )}
+                {sale.note && (
+                  <p className="leading-relaxed text-[var(--text-muted)] break-words">
+                    Ghi chú: {sale.note}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Sale Actions */}
+            {canManage &&
+              (!isConfirmingUndo ? (
+                <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--border)]/65 pt-2.5">
+                  <span className="text-[11px] text-[var(--text-muted)] tabular-nums">
+                    Giá vốn:{" "}
+                    {formatAmount(sale.costBasisAllocatedAmount, currency)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={isPending}
+                    onClick={() => setConfirmUndoSaleId(sale.id)}
+                    className="h-8 gap-1.5 px-2.5 text-xs text-[var(--text-muted)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] hover:text-[var(--danger)]"
+                  >
+                    <RotateCcw className="size-3.5" />
+                    <span>Hoàn tác</span>
+                  </Button>
+                </div>
+              ) : (
+                <div className="mt-3 rounded-xl bg-[color-mix(in_srgb,var(--danger)_8%,var(--surface-secondary))] p-3 space-y-2.5">
+                  <p className="text-xs leading-relaxed text-[var(--foreground)]">
+                    Hoàn tác lần bán{" "}
+                    <strong className="font-semibold">
+                      {sale.quantityFormatted.primary}
+                    </strong>{" "}
+                    ngày {formatShortViDate(sale.saleDate)}? Hệ thống sẽ thu hồi{" "}
+                    {formatAmount(sale.netProceedsAmount, currency)} từ{" "}
+                    <strong className="font-semibold">{walletLabel}</strong> và
+                    khôi phục vàng về vị thế.
+                  </p>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isPending}
+                      onClick={() => setConfirmUndoSaleId(null)}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Giữ lại
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={isPending}
+                      onClick={() => handleUndoSale(sale.id)}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Xác nhận hoàn tác
+                    </Button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <ResponsiveSheet
+      open={open}
+      onOpenChange={handleSheetOpenChange}
+      className="data-[side=bottom]:max-h-[86dvh] md:data-[side=right]:max-w-[28.5rem] lg:data-[side=right]:max-w-[31rem]"
+    >
+      <SheetHeader
+        icon={Coins}
+        title="Lịch sử Mua & Bán vàng"
+        description={
+          holding.storageLocation
+            ? `${holding.name} · ${holding.storageLocation}`
+            : holding.name
+        }
+      />
+
+      <SheetBody className="space-y-3.5 sm:space-y-4">
+        {/* Executive Position Summary Card */}
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3.5 sm:p-4">
+          {qtyDecimal.gt(0) ? (
+            <>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="block text-[11px] font-medium text-[var(--text-muted)]">
+                    Giá trị hiện tại
+                  </span>
+                  <strong className="mt-0.5 block text-lg sm:text-xl font-bold tracking-tight text-[var(--foreground)] tabular-nums">
+                    {formatAmount(
+                      holding.valuation.marketLiquidationValue,
+                      currency,
+                    )}
+                  </strong>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {isMasked ? (
+                      <Badge variant="secondary">••••••</Badge>
+                    ) : unrealizedDecimal.gt(0) ? (
+                      <Badge variant="income" className="tabular-nums">
+                        {formatSignedCurrency(
+                          holding.valuation.unrealizedProfitAmount,
+                        )}{" "}
+                        (+{holding.valuation.unrealizedProfitPct}%)
+                      </Badge>
+                    ) : unrealizedDecimal.lt(0) ? (
+                      <span className="inline-flex shrink-0 items-center rounded-md bg-[color-mix(in_srgb,var(--expense)_12%,var(--surface))] px-2 py-0.5 text-[11px] font-semibold leading-tight text-[var(--expense)] tabular-nums whitespace-nowrap">
+                        {formatSignedCurrency(
+                          holding.valuation.unrealizedProfitAmount,
+                        )}{" "}
+                        ({holding.valuation.unrealizedProfitPct}%)
+                      </span>
+                    ) : (
+                      <Badge variant="secondary">Tạm tính hòa vốn (0%)</Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="shrink-0 text-right">
+                  <span className="block text-[11px] font-medium text-[var(--text-muted)]">
+                    Đang nắm giữ
+                  </span>
+                  <strong className="mt-0.5 block text-base sm:text-lg font-bold tracking-tight text-[var(--foreground)] tabular-nums">
+                    {holding.weightFormatted.primary}
+                  </strong>
+                  <span className="mt-1 block text-[11px] text-[var(--text-muted)] tabular-nums">
+                    {holding.weightFormatted.primary !==
+                    holding.weightFormatted.chiText
+                      ? `Quy đổi ${holding.weightFormatted.chiText}`
+                      : priceSourceLabel}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2.5 border-t border-[var(--border)]/70 pt-3 sm:grid-cols-3">
+                <div>
+                  <span className="block text-[11px] text-[var(--text-muted)]">
+                    Tổng vốn giữ
+                  </span>
+                  <strong className="mt-0.5 block text-xs sm:text-[13px] font-semibold text-[var(--foreground)] tabular-nums">
+                    {formatAmount(
+                      holding.valuation.totalCostBasisAmount,
+                      currency,
+                    )}
+                  </strong>
+                </div>
+
+                <div className="text-right sm:text-left">
+                  <span className="block text-[11px] text-[var(--text-muted)]">
+                    Giá vốn TB
+                  </span>
+                  <strong className="mt-0.5 block text-xs sm:text-[13px] font-semibold text-[var(--foreground)] tabular-nums">
+                    {formatPerChi(holding.valuation.averageCostPerChi)}
+                  </strong>
+                </div>
+
+                <div className="col-span-2 flex items-center justify-between border-t border-[var(--border)]/50 pt-2 sm:col-span-1 sm:block sm:border-t-0 sm:pt-0 sm:text-right">
+                  <span className="text-[11px] text-[var(--text-muted)] sm:block">
+                    Tiệm thu mua
+                  </span>
+                  <strong className="text-xs font-semibold text-[var(--income)] tabular-nums sm:mt-0.5 sm:block sm:text-[13px]">
+                    {formatPerChi(holding.valuation.marketBuybackPricePerChi)}
+                  </strong>
+                </div>
+              </div>
+
+              {hasSales && (
+                <div className="mt-2.5 flex items-center justify-between border-t border-[var(--border)]/50 pt-2 text-xs">
+                  <span className="text-[11px] text-[var(--text-muted)]">
+                    Lời / Lỗ đã chốt ({holding.sales.length} lần bán)
+                  </span>
+                  <strong
+                    className={cn(
+                      "font-semibold tabular-nums",
+                      !isMasked && realizedDecimal.gt(0)
+                        ? "text-[var(--income)]"
+                        : !isMasked && realizedDecimal.lt(0)
+                          ? "text-[var(--expense)]"
+                          : "text-[var(--foreground)]",
+                    )}
+                  >
+                    {formatSignedCurrency(
+                      holding.valuation.realizedProfitAmount,
+                    )}
+                  </strong>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="space-y-2.5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <span className="block text-[11px] font-medium text-[var(--text-muted)]">
+                    Tổng lời / lỗ đã chốt
+                  </span>
+                  <strong
+                    className={cn(
+                      "mt-0.5 block text-lg sm:text-xl font-bold tracking-tight tabular-nums",
+                      !isMasked && realizedDecimal.gt(0)
+                        ? "text-[var(--income)]"
+                        : !isMasked && realizedDecimal.lt(0)
+                          ? "text-[var(--expense)]"
+                          : "text-[var(--foreground)]",
+                    )}
+                  >
+                    {formatSignedCurrency(
+                      holding.valuation.realizedProfitAmount,
+                    )}
+                  </strong>
+                </div>
+                <div className="shrink-0 text-right">
+                  <Badge variant="secondary">Đã bán hết</Badge>
+                  <span className="mt-1 block text-[11px] text-[var(--text-muted)]">
+                    {holding.sales.length} lần bán · {holding.lots.length} đợt
+                    mua
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-[var(--border)]/70 pt-2.5 text-xs">
+                <span className="text-[11px] text-[var(--text-muted)]">
+                  Giá tiệm thu mua hôm nay
+                </span>
+                <strong className="font-semibold text-[var(--income)] tabular-nums">
+                  {formatPerChi(holding.valuation.marketBuybackPricePerChi)}
+                </strong>
+              </div>
+            </div>
+          )}
+
+          {holding.note && (
+            <p className="mt-2.5 border-t border-[var(--border)]/50 pt-2 text-[11px] leading-relaxed text-[var(--text-muted)] break-words">
+              {holding.note}
+            </p>
+          )}
+        </div>
+
+        {/* Purchase Lots & Sales History */}
+        {hasSales ? (
+          <Tabs
+            value={effectiveTab}
+            onValueChange={(val) =>
+              setHistoryTab((val as "lots" | "sales") ?? "lots")
+            }
+            className="gap-3"
+          >
+            <TabsList variant="segmented">
+              <TabsTrigger value="lots">
+                <span>Đợt đã mua</span>
+                <TabsCount className="bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)]">
+                  {holding.lots.length}
+                </TabsCount>
+              </TabsTrigger>
+              <TabsTrigger value="sales">
+                <span>Lịch sử bán</span>
+                <TabsCount className="bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)]">
+                  {holding.sales.length}
+                </TabsCount>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="lots">{lotsListContent}</TabsContent>
+            <TabsContent value="sales">{salesListContent}</TabsContent>
+          </Tabs>
+        ) : (
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between pt-0.5">
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-semibold tracking-tight text-[var(--text-secondary)]">
+                  Các đợt đã mua
+                </h4>
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--surface-secondary)] px-1.5 text-[11px] font-semibold text-[var(--text-secondary)] tabular-nums">
+                  {holding.lots.length}
+                </span>
+              </div>
+              {holding.lots.length > 1 && (
+                <span className="text-[11px] text-[var(--text-muted)]">
+                  Mới nhất trước
+                </span>
+              )}
+            </div>
+
+            {lotsListContent}
           </div>
         )}
       </SheetBody>
-      <SheetFooter onCancel={() => onOpenChange(false)} cancelLabel="Đóng" />
+
+      {/* Pinned Holding Delete Confirmation (only when no sales exist) */}
+      {canManage && !hasSales && confirmDeleteHolding && (
+        <div className="shrink-0 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--danger)_7%,var(--surface))] px-4 py-3 sm:px-6 space-y-2.5">
+          <p className="text-xs leading-relaxed text-[var(--foreground)]">
+            Xóa vị thế{" "}
+            <strong className="font-semibold">{holding.name}</strong>? Số tiền
+            đã trích từ ví (nếu có) sẽ được hoàn lại đầy đủ.
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => setConfirmDeleteHolding(false)}
+              className="h-8 px-3 text-xs"
+            >
+              Giữ lại
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={isPending}
+              onClick={handleDeleteHolding}
+              className="h-8 px-3 text-xs"
+            >
+              Xác nhận xóa
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Balanced Sticky Footer */}
+      <SheetFooter className="justify-between gap-2">
+        {canManage && !hasSales && !confirmDeleteHolding ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="auto"
+            disabled={isPending}
+            onClick={() => setConfirmDeleteHolding(true)}
+            aria-label="Xóa khoản vàng này"
+            title="Xóa khoản vàng này"
+            className="size-10 rounded-xl px-0 sm:h-10 sm:w-auto sm:px-3 md:h-9 md:rounded-lg md:px-2.5 gap-1.5 text-xs font-medium text-[var(--text-muted)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] hover:text-[var(--danger)]"
+          >
+            <Trash2 className="size-4 sm:size-3.5" />
+            <span className="hidden sm:inline">Xóa khoản vàng</span>
+          </Button>
+        ) : (
+          <div className="hidden sm:block" />
+        )}
+
+        <div className="flex flex-1 sm:flex-none items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleSheetOpenChange(false)}
+            className={cn(!canManage && "flex-1 sm:flex-none")}
+          >
+            Đóng
+          </Button>
+          {canManage && (
+            <Button
+              type="button"
+              onClick={onBuyMore}
+              className="flex-1 sm:flex-none gap-1.5"
+            >
+              <Plus className="size-4" />
+              <span>Mua đợt mới</span>
+            </Button>
+          )}
+        </div>
+      </SheetFooter>
     </ResponsiveSheet>
   );
 }

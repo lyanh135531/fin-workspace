@@ -6,6 +6,7 @@ import {
   approveTransaction,
   deleteOrRequestTransaction,
   deleteTransaction,
+  deleteTransactions,
   updateTransaction,
   applyBalance,
   createTransaction,
@@ -1496,7 +1497,276 @@ describe("transaction deletion approval", () => {
       expect(tx.transactionChangeRequest.updateMany).not.toHaveBeenCalled();
     });
   });
+
+  describe("balance_reconciliation undo & atomic bulk delete", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      vi.mocked(requireWorkspaceMember).mockResolvedValue({
+        id: "admin-member",
+        role: { code: "ADMIN" },
+        workspace: { timeZone: "Asia/Ho_Chi_Minh" },
+      } as Awaited<ReturnType<typeof requireWorkspaceMember>>);
+    });
+
+    it("undoes an upward balance_reconciliation on an active wallet whose prior balance was negative and restores -500000", async () => {
+      let currentBalance = new Decimal(0);
+      const reconciliationRecord = {
+        ...transaction,
+        id: "recon-up-1",
+        walletId: "wallet-neg-1",
+        purpose: "balance_reconciliation" as const,
+        type: "income" as const,
+        workflowStatus: "approved" as const,
+        amount: new Decimal("500000"),
+        wallet: { kind: "asset" as const },
+        installmentPlan: null,
+        creditCardStatement: null,
+        refundTransactions: [],
+        creditCardObligationEntries: [],
+      };
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockResolvedValue(reconciliationRecord),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        wallet: {
+          findFirst: vi.fn().mockResolvedValue({ status: "active" }),
+          findUniqueOrThrow: vi.fn().mockImplementation(async () => ({
+            kind: "asset" as const,
+            currentBalance,
+            creditCardProfile: null,
+          })),
+          update: vi.fn().mockImplementation(async ({ data }: { data: { currentBalance: { decrement?: Decimal.Value; increment?: Decimal.Value } } }) => {
+            if (data.currentBalance.decrement !== undefined) {
+              currentBalance = currentBalance.minus(data.currentBalance.decrement);
+            } else if (data.currentBalance.increment !== undefined) {
+              currentBalance = currentBalance.plus(data.currentBalance.increment);
+            }
+            return { currentBalance };
+          }),
+        },
+        transactionChangeRequest: {
+          updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        },
+        auditLog: { create: vi.fn().mockResolvedValue({}) },
+      };
+      vi.mocked(prisma.$transaction).mockImplementation(
+        async (callback: (client: never) => unknown) => callback(tx as never),
+      );
+
+      const res = await deleteOrRequestTransaction(
+        "admin-user",
+        "workspace-1",
+        "recon-up-1",
+        "Hoàn tác đối soát",
+      );
+
+      expect(res).toEqual({ kind: "deleted", id: "recon-up-1" });
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { id: "wallet-neg-1" },
+        data: { currentBalance: { decrement: new Decimal("500000") } },
+      });
+      expect(currentBalance.toFixed(0)).toBe("-500000");
+    });
+
+    it("still blocks undoing balance_reconciliation when target wallet is deactivated", async () => {
+      const reconciliationRecord = {
+        ...transaction,
+        id: "recon-inactive-1",
+        walletId: "wallet-deactive-1",
+        purpose: "balance_reconciliation" as const,
+        type: "income" as const,
+        workflowStatus: "approved" as const,
+        amount: new Decimal("500000"),
+        wallet: { kind: "asset" as const },
+        installmentPlan: null,
+        creditCardStatement: null,
+        refundTransactions: [],
+        creditCardObligationEntries: [],
+      };
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockResolvedValue(reconciliationRecord),
+          updateMany: vi.fn(),
+        },
+        wallet: {
+          findFirst: vi.fn().mockResolvedValue({ status: "deactive" }),
+          update: vi.fn(),
+        },
+        auditLog: { create: vi.fn() },
+      };
+      vi.mocked(prisma.$transaction).mockImplementation(
+        async (callback: (client: never) => unknown) => callback(tx as never),
+      );
+
+      await expect(
+        deleteTransaction("admin-user", "workspace-1", "recon-inactive-1"),
+      ).rejects.toThrow(
+        "Hãy kích hoạt lại ví trước khi hoàn tác giao dịch đối soát số dư.",
+      );
+      expect(tx.transaction.updateMany).not.toHaveBeenCalled();
+      expect(tx.wallet.update).not.toHaveBeenCalled();
+    });
+
+    it("runs deleteTransactions inside a single $transaction and rolls back all items if a later item throws", async () => {
+      let committedWalletBalance = new Decimal("1000000");
+      const committedDeletedIds = new Set<string>();
+      const committedAuditIds: string[] = [];
+
+      vi.mocked(prisma.$transaction).mockImplementation(async (callback) => {
+        let stagedBalance = committedWalletBalance;
+        const stagedDeletedIds = new Set(committedDeletedIds);
+        const stagedAuditIds = [...committedAuditIds];
+
+        const tx = {
+          $queryRaw: vi.fn().mockResolvedValue([]),
+          transaction: {
+            findFirst: vi.fn().mockImplementation(async ({ where }: { where: { id: string } }) => {
+              if (stagedDeletedIds.has(where.id)) return null;
+              if (where.id === "tx-ok-1") {
+                return {
+                  ...transaction,
+                  id: "tx-ok-1",
+                  walletId: "wallet-1",
+                  purpose: "standard" as const,
+                  type: "expense" as const,
+                  workflowStatus: "approved" as const,
+                  amount: new Decimal("200000"),
+                  wallet: { kind: "asset" as const },
+                  installmentPlan: null,
+                  creditCardStatement: null,
+                  refundTransactions: [],
+                  creditCardObligationEntries: [],
+                };
+              }
+              if (where.id === "tx-fail-2") {
+                return {
+                  ...transaction,
+                  id: "tx-fail-2",
+                  walletId: "wallet-deactive-2",
+                  purpose: "balance_reconciliation" as const,
+                  type: "income" as const,
+                  workflowStatus: "approved" as const,
+                  amount: new Decimal("300000"),
+                  wallet: { kind: "asset" as const },
+                  installmentPlan: null,
+                  creditCardStatement: null,
+                  refundTransactions: [],
+                  creditCardObligationEntries: [],
+                };
+              }
+              return null;
+            }),
+            updateMany: vi.fn().mockImplementation(async ({ where }: { where: { id: string } }) => {
+              if (stagedDeletedIds.has(where.id)) return { count: 0 };
+              stagedDeletedIds.add(where.id);
+              return { count: 1 };
+            }),
+          },
+          wallet: {
+            findFirst: vi.fn().mockImplementation(async ({ where }: { where: { id: string } }) => ({
+              status: where.id === "wallet-deactive-2" ? "deactive" : "active",
+            })),
+            findUniqueOrThrow: vi.fn().mockImplementation(async () => ({
+              kind: "asset" as const,
+              currentBalance: stagedBalance,
+              creditCardProfile: null,
+            })),
+            update: vi.fn().mockImplementation(async ({ data }: { data: { currentBalance: { increment?: Decimal.Value; decrement?: Decimal.Value } } }) => {
+              if (data.currentBalance.increment !== undefined) {
+                stagedBalance = stagedBalance.plus(data.currentBalance.increment);
+              } else if (data.currentBalance.decrement !== undefined) {
+                stagedBalance = stagedBalance.minus(data.currentBalance.decrement);
+              }
+              return { currentBalance: stagedBalance };
+            }),
+          },
+          transactionChangeRequest: {
+            updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+          },
+          auditLog: {
+            create: vi.fn().mockImplementation(async ({ data }: { data: { entityId: string } }) => {
+              stagedAuditIds.push(data.entityId);
+              return {};
+            }),
+          },
+        };
+
+        const result = await (callback as (client: unknown) => Promise<unknown>)(tx);
+        committedWalletBalance = stagedBalance;
+        stagedDeletedIds.forEach((id) => committedDeletedIds.add(id));
+        committedAuditIds.splice(0, committedAuditIds.length, ...stagedAuditIds);
+        return result;
+      });
+
+      await expect(
+        deleteTransactions("admin-user", "workspace-1", ["tx-ok-1", "tx-ok-1", "tx-fail-2"]),
+      ).rejects.toThrow("Hãy kích hoạt lại ví trước khi hoàn tác giao dịch đối soát số dư.");
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(committedDeletedIds.size).toBe(0);
+      expect(committedWalletBalance.toFixed(0)).toBe("1000000");
+      expect(committedAuditIds).toEqual([]);
+    });
+
+    it("deduplicates IDs and commits atomically when all items succeed, and returns count 0 on empty list", async () => {
+      await expect(deleteTransactions("admin-user", "workspace-1", [])).resolves.toEqual({
+        count: 0,
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+
+      const deletedIds = new Set<string>();
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        transaction: {
+          findFirst: vi.fn().mockImplementation(async ({ where }: { where: { id: string } }) => ({
+            ...transaction,
+            id: where.id,
+            walletId: "wallet-1",
+            purpose: "standard" as const,
+            type: "expense" as const,
+            workflowStatus: "approved" as const,
+            amount: new Decimal("100000"),
+            wallet: { kind: "asset" as const },
+            installmentPlan: null,
+            creditCardStatement: null,
+            refundTransactions: [],
+            creditCardObligationEntries: [],
+          })),
+          updateMany: vi.fn().mockImplementation(async ({ where }: { where: { id: string } }) => {
+            if (deletedIds.has(where.id)) return { count: 0 };
+            deletedIds.add(where.id);
+            return { count: 1 };
+          }),
+        },
+        wallet: {
+          findUniqueOrThrow: vi.fn().mockResolvedValue({
+            kind: "asset" as const,
+            currentBalance: new Decimal("500000"),
+            creditCardProfile: null,
+          }),
+          update: vi.fn().mockResolvedValue({}),
+        },
+        transactionChangeRequest: {
+          updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        },
+        auditLog: { create: vi.fn().mockResolvedValue({}) },
+      };
+      vi.mocked(prisma.$transaction).mockImplementation(
+        async (callback: (client: never) => unknown) => callback(tx as never),
+      );
+
+      await expect(
+        deleteTransactions("admin-user", "workspace-1", ["tx-1", "tx-2", "tx-1"]),
+      ).resolves.toEqual({ count: 2 });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect([...deletedIds]).toEqual(["tx-1", "tx-2"]);
+    });
+  });
 });
+
 
 
 

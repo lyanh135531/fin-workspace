@@ -41,6 +41,7 @@ import {
   Plus,
   ReceiptText,
   RotateCcw,
+  Scale,
   Sparkles,
   Target,
   TrendingDown,
@@ -2903,6 +2904,8 @@ export function OverviewDashboard({
                 recentTransactions.map((tx) => {
                   const isIncome = tx.type === "income";
                   const isExpense = tx.type === "expense";
+                  const isBalanceReconciliation =
+                    tx.purpose === "balance_reconciliation";
                   const dateStr = tx.date.slice(0, 10);
                   const [, m, d] = dateStr.split("-");
                   const formattedDate = `${d}/${m}`;
@@ -2918,16 +2921,22 @@ export function OverviewDashboard({
                         <div
                           className={cn(
                             "flex size-9 shrink-0 items-center justify-center rounded-xl",
-                            isIncome &&
-                              "bg-[var(--income)]/10 text-[var(--income)]",
-                            isExpense &&
-                              "bg-[var(--expense)]/10 text-[var(--expense)]",
-                            !isIncome &&
-                              !isExpense &&
-                              "bg-[var(--primary)]/10 text-[var(--primary)]",
+                            isBalanceReconciliation
+                              ? "bg-[var(--surface-secondary)] text-[var(--text-secondary)]"
+                              : [
+                                  isIncome &&
+                                    "bg-[var(--income)]/10 text-[var(--income)]",
+                                  isExpense &&
+                                    "bg-[var(--expense)]/10 text-[var(--expense)]",
+                                  !isIncome &&
+                                    !isExpense &&
+                                    "bg-[var(--primary)]/10 text-[var(--primary)]",
+                                ],
                           )}
                         >
-                          {tx.category ? (
+                          {isBalanceReconciliation ? (
+                            <Scale size={16} aria-hidden="true" />
+                          ) : tx.category ? (
                             <CategoryIcon category={tx.category} size={15} />
                           ) : isIncome ? (
                             <ArrowDownLeft className="size-4" />
@@ -2951,8 +2960,7 @@ export function OverviewDashboard({
                                       ? "Đầu tư & Gửi tiết kiệm"
                                       : tx.purpose === "investment_settlement"
                                         ? "Bán vàng & Tất toán tiết kiệm"
-                                        : tx.purpose ===
-                                            "balance_reconciliation"
+                                        : isBalanceReconciliation
                                           ? "Đối soát số dư"
                                           : isIncome
                                             ? "Khoản thu"
@@ -2960,6 +2968,17 @@ export function OverviewDashboard({
                                               ? "Khoản chi"
                                               : "Chuyển khoản")}
                             </p>
+                            {isBalanceReconciliation && (
+                              <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[0.65rem] font-medium text-[var(--text-secondary)]">
+                                <span
+                                  className="size-1.5 shrink-0 rounded-full bg-[var(--text-secondary)]"
+                                  aria-hidden="true"
+                                />
+                                <span className="break-words leading-snug">
+                                  Đối soát số dư
+                                </span>
+                              </span>
+                            )}
                             {tx.status !== "approved" && (
                               <span
                                 className={cn(
@@ -3271,14 +3290,16 @@ export function OverviewDashboard({
                       "text-[var(--foreground)]",
                   )}
                 >
-                  {displayAmount(selectedTransaction.amount, {
-                    prefix:
-                      selectedTransaction.type === "income"
-                        ? "+"
-                        : selectedTransaction.type === "expense"
-                          ? "−"
-                          : "↔",
-                  })}
+                  {privacyMasked
+                    ? "••••••"
+                    : displayAmount(selectedTransaction.amount, {
+                        prefix:
+                          selectedTransaction.type === "income"
+                            ? "+"
+                            : selectedTransaction.type === "expense"
+                              ? "−"
+                              : "↔",
+                      })}
                 </strong>
                 {selectedTransaction.description && (
                   <p className="mt-1.5 break-words text-sm text-[var(--foreground)]">
@@ -3340,6 +3361,13 @@ export function OverviewDashboard({
                   </strong>
                 </div>
               </div>
+
+              {selectedTransaction.purpose === "balance_reconciliation" && (
+                <p className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5 text-xs leading-relaxed text-[var(--text-secondary)]">
+                  Khoản điều chỉnh này giúp khớp số dư thực tế trong ví, không
+                  tính vào Thu/Chi kỳ hay chi tiêu 6 hũ.
+                </p>
+              )}
             </div>
           )}
 

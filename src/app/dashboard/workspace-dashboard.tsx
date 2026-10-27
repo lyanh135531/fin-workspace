@@ -69,7 +69,7 @@ export async function WorkspaceDashboard({
     prisma.transaction.findMany({
       where: { deletedAt: null, member: { workspaceId } },
       include: {
-        wallet: { select: { name: true } },
+        wallet: { select: { name: true, status: true, deletedAt: true } },
         toWallet: { select: { name: true } },
         category: { select: { name: true, color: true, icon: true } },
         member: { include: { user: { select: { username: true } } } },
@@ -175,16 +175,20 @@ export async function WorkspaceDashboard({
         item.workflowStatus !== "rejected" &&
         !isLockedForEdit,
       canRequestDelete:
-        item.purpose === "credit_card_payment" ||
         item.purpose === "balance_reconciliation"
-          ? isAdmin && item.workflowStatus !== "rejected"
-          : item.purpose === "credit_card_installment_fee" ||
-              item.purpose === "investment_contribution" ||
-              item.purpose === "investment_settlement"
-            ? false
-            : (isAdmin || item.memberId === membership.id) &&
-              item.workflowStatus !== "rejected" &&
-              !isLockedForDelete,
+          ? isAdmin &&
+            item.workflowStatus !== "rejected" &&
+            item.wallet.status === "active" &&
+            item.wallet.deletedAt === null
+          : item.purpose === "credit_card_payment"
+            ? isAdmin && item.workflowStatus !== "rejected"
+            : item.purpose === "credit_card_installment_fee" ||
+                item.purpose === "investment_contribution" ||
+                item.purpose === "investment_settlement"
+              ? false
+              : (isAdmin || item.memberId === membership.id) &&
+                item.workflowStatus !== "rejected" &&
+                !isLockedForDelete,
       hasPendingChange: item.changeRequests.length > 0,
       pendingChangeRequestId: item.changeRequests[0]?.id ?? null,
       pendingChangeAction: getTransactionChangeAction(
