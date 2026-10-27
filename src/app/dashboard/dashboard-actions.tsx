@@ -69,6 +69,7 @@ import {
   FilterX,
   Pencil,
   Plus,
+  ReceiptText,
   SlidersHorizontal,
   Trash2,
   Wallet,
@@ -2117,10 +2118,10 @@ export function Ledger({
         <SheetContent
           side={isDesktop ? "right" : "bottom"}
           placement={isDesktop ? "inset" : "edge"}
-          size={isDesktop ? "wide" : "default"}
+          size={isDesktop ? "md" : "default"}
           spacing="flush"
           elevation="flat"
-          aria-label="Chi tiết giao dịch"
+          aria-label="Chỉnh sửa giao dịch"
         >
           {activeTarget && activeDraft && (
             <TransactionDetailSheetBody
@@ -2343,8 +2344,178 @@ function TransactionEditorForm({
     });
   }
 
+  const amountToneLabel =
+    draft.type === "expense"
+      ? "Số tiền chi tiêu"
+      : draft.type === "income"
+        ? "Số tiền thu nhập"
+        : "Số tiền chuyển khoản";
+
+  const amountToneColor =
+    draft.type === "expense"
+      ? "text-[var(--expense)]"
+      : draft.type === "income"
+        ? "text-[var(--income)]"
+        : "text-[var(--primary)]";
+
+  const walletSelectField = (
+    <Select
+      required
+      disabled={locked || !wallets.length}
+      value={draft.walletId}
+      onValueChange={(walletId) => {
+        const wallet = wallets.find((item) => item.id === walletId);
+        const isCard = wallet?.kind === "credit_card";
+        const defaultFundingId =
+          wallet?.defaultFundingWalletId || assetWallets[0]?.id || "";
+        onChange({
+          walletId,
+          toWalletId:
+            draft.toWalletId === walletId
+              ? defaultDestination(wallets, walletId)
+              : draft.toWalletId,
+          allocations:
+            (draft.type === "expense" || draft.type === "transfer") && isCard
+              ? draft.allocations.length > 1
+                ? scaleAllocations(draft.allocations, draft.amount)
+                : [{ walletId: defaultFundingId, amount: draft.amount }]
+              : [],
+        });
+      }}
+      label={
+        draft.type === "transfer"
+          ? "Ví gửi"
+          : isCreditCardExpense
+            ? "Thẻ thanh toán"
+            : "Ví thanh toán"
+      }
+      options={wallets.map((wallet) => {
+        const isCard = wallet.kind === "credit_card";
+        return {
+          value: wallet.id,
+          label: wallet.name,
+          content: (
+            <div className="flex w-full min-w-0 items-center justify-between gap-2">
+              <span className="flex min-w-0 items-center gap-2">
+                {isCard ? (
+                  <CreditCard
+                    className="size-4 shrink-0 text-[var(--primary)]"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <Wallet
+                    className="size-4 shrink-0 text-[var(--text-muted)]"
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="break-words leading-snug">{wallet.name}</span>
+              </span>
+              <span
+                className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                  isCard
+                    ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                    : "bg-[var(--surface-secondary)] text-[var(--text-muted)]"
+                }`}
+              >
+                {isCard ? "Thẻ tín dụng" : "Ví thanh toán"}
+              </span>
+            </div>
+          ),
+          selectedContent: (
+            <span className="flex min-w-0 items-center gap-2">
+              {isCard ? (
+                <CreditCard
+                  className="size-4 shrink-0 text-[var(--primary)]"
+                  aria-hidden="true"
+                />
+              ) : (
+                <Wallet
+                  className="size-4 shrink-0 text-[var(--text-muted)]"
+                  aria-hidden="true"
+                />
+              )}
+              <span className="break-words leading-snug">{wallet.name}</span>
+            </span>
+          ),
+          disabled: isCard && draft.type === "income",
+        };
+      })}
+    />
+  );
+
+  const transferDestinationField = (
+    <Select
+      required
+      disabled={locked || !wallets.length}
+      value={draft.toWalletId}
+      onValueChange={(toWalletId) => onChange({ toWalletId })}
+      label="Ví nhận"
+      options={wallets.map((item) => ({
+        value: item.id,
+        label: item.name,
+        disabled: item.id === draft.walletId || item.kind === "credit_card",
+      }))}
+    />
+  );
+
+  const creditCardFundingField = (
+    <Select
+      required
+      disabled={locked}
+      label="Ví thanh toán thẻ"
+      value={
+        draft.allocations[0]?.walletId ||
+        selectedWallet?.defaultFundingWalletId ||
+        assetWallets[0]?.id ||
+        ""
+      }
+      onValueChange={(walletId) =>
+        onChange({
+          allocations:
+            draft.allocations.length > 1
+              ? draft.allocations.map((alloc, idx) =>
+                  idx === 0 ? { ...alloc, walletId } : alloc,
+                )
+              : [{ walletId, amount: draft.amount }],
+        })
+      }
+      options={assetWallets.map((wallet) => ({
+        value: wallet.id,
+        label: wallet.name,
+      }))}
+    />
+  );
+
+  const categorySelectField = (
+    <CategoryTreeSelect
+      disabled={
+        locked || !categoriesForTransactionType(categories, draft.type).length
+      }
+      value={draft.categoryId}
+      onValueChange={(categoryId) => onChange({ categoryId })}
+      label="Danh mục"
+      required={draft.type === "expense"}
+      categories={categoriesForTransactionType(categories, draft.type)}
+      emptyOption={
+        draft.type === "expense"
+          ? undefined
+          : { value: "none", label: "Không chọn" }
+      }
+    />
+  );
+
+  const datePickerField = (
+    <DatePicker
+      disabled={locked}
+      label="Ngày giao dịch"
+      value={draft.date}
+      onValueChange={(date) => onChange({ date })}
+      required
+    />
+  );
+
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-4">
       <Tabs
         value={draft.type}
         onValueChange={(value) => changeType(value as TransactionType)}
@@ -2352,7 +2523,7 @@ function TransactionEditorForm({
       >
         <TabsList
           variant="navigation"
-          className="w-full"
+          className="grid w-full grid-cols-3"
           aria-label="Loại giao dịch"
         >
           {transactionTypeTabs.map((tab) => {
@@ -2382,11 +2553,16 @@ function TransactionEditorForm({
       </Tabs>
 
       {/* Hero Amount Card */}
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-3">
-        <span className="block text-[0.68rem] font-semibold tracking-wider text-[var(--text-muted)] uppercase">
-          Số tiền giao dịch
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/65 px-4 py-3">
+        <span
+          className={cn(
+            "block text-[11px] font-semibold tracking-wider uppercase",
+            amountToneColor,
+          )}
+        >
+          {amountToneLabel}
         </span>
-        <div className="mt-0.5">
+        <div className="mt-1">
           <MoneyInput
             required
             disabled={locked}
@@ -2413,174 +2589,51 @@ function TransactionEditorForm({
             placeholder="0"
             aria-label="Số tiền"
             wrapperClassName="w-full"
-            className="h-10 rounded-none border-0 bg-transparent pl-0 pr-12 text-left text-2xl font-bold tracking-tight text-[var(--foreground)] focus-visible:border-transparent focus-visible:ring-0"
+            className="h-11 rounded-none border-0! bg-transparent! pl-0 pr-14 text-left text-2xl font-bold tracking-tight text-[var(--foreground)] ring-0! focus-visible:border-0! focus-visible:ring-0! md:h-11 md:py-0 md:text-3xl"
           />
         </div>
       </div>
 
-      {/* Grouped Details Card */}
-      <div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/40 p-3.5 sm:grid-cols-2">
-        <Select
-          disabled={locked || !wallets.length}
-          value={draft.walletId}
-          onValueChange={(walletId) => {
-            const wallet = wallets.find((item) => item.id === walletId);
-            const isCard = wallet?.kind === "credit_card";
-            const defaultFundingId =
-              wallet?.defaultFundingWalletId || assetWallets[0]?.id || "";
-            onChange({
-              walletId,
-              toWalletId:
-                draft.toWalletId === walletId
-                  ? defaultDestination(wallets, walletId)
-                  : draft.toWalletId,
-              allocations:
-                (draft.type === "expense" || draft.type === "transfer") &&
-                isCard
-                  ? draft.allocations.length > 1
-                    ? scaleAllocations(draft.allocations, draft.amount)
-                    : [{ walletId: defaultFundingId, amount: draft.amount }]
-                  : [],
-            });
-          }}
-          label={
-            draft.type === "transfer"
-              ? "Ví gửi"
-              : isCreditCardExpense
-                ? "Thẻ thanh toán"
-                : "Ví thanh toán"
-          }
-          options={wallets.map((wallet) => {
-            const isCard = wallet.kind === "credit_card";
-            return {
-              value: wallet.id,
-              label: wallet.name,
-              content: (
-                <div className="flex w-full min-w-0 items-center justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-2">
-                    {isCard ? (
-                      <CreditCard
-                        className="size-4 shrink-0 text-[var(--primary)]"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <Wallet
-                        className="size-4 shrink-0 text-[var(--text-muted)]"
-                        aria-hidden="true"
-                      />
-                    )}
-                    <span className="break-words leading-snug">{wallet.name}</span>
-                  </span>
-                  <span
-                    className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                      isCard
-                        ? "bg-[var(--primary)]/10 text-[var(--primary)]"
-                        : "bg-[var(--surface-secondary)] text-[var(--text-muted)]"
-                    }`}
-                  >
-                    {isCard ? "Thẻ tín dụng" : "Ví thanh toán"}
-                  </span>
-                </div>
-              ),
-              selectedContent: (
-                <span className="flex min-w-0 items-center gap-2">
-                  {isCard ? (
-                    <CreditCard
-                      className="size-4 shrink-0 text-[var(--primary)]"
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <Wallet
-                      className="size-4 shrink-0 text-[var(--text-muted)]"
-                      aria-hidden="true"
-                    />
-                  )}
-                  <span className="break-words leading-snug">{wallet.name}</span>
-                </span>
-              ),
-              disabled: isCard && draft.type === "income",
-            };
-          })}
-        />
-
-        {draft.type === "transfer" && (
-          <Select
-            disabled={locked || !wallets.length}
-            value={draft.toWalletId}
-            onValueChange={(toWalletId) => onChange({ toWalletId })}
-            label="Ví nhận"
-            options={wallets.map((item) => ({
-              value: item.id,
-              label: item.name,
-              disabled:
-                item.id === draft.walletId || item.kind === "credit_card",
-            }))}
-          />
+      {/* Single-border symmetric form fields (no outer box border, no empty grid cells) */}
+      <div className="space-y-3.5">
+        {isCreditCardExpense ? (
+          <>
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              {walletSelectField}
+              {creditCardFundingField}
+            </div>
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              {draft.type === "transfer"
+                ? transferDestinationField
+                : categorySelectField}
+              {datePickerField}
+            </div>
+          </>
+        ) : draft.type === "transfer" ? (
+          <>
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              {walletSelectField}
+              {transferDestinationField}
+            </div>
+            {datePickerField}
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              {walletSelectField}
+              {datePickerField}
+            </div>
+            {categorySelectField}
+          </>
         )}
 
-        {isCreditCardExpense && (
-          <Select
-            disabled={locked}
-            label="Ví thanh toán thẻ"
-            value={
-              draft.allocations[0]?.walletId ||
-              selectedWallet?.defaultFundingWalletId ||
-              assetWallets[0]?.id ||
-              ""
-            }
-            onValueChange={(walletId) =>
-              onChange({
-                allocations:
-                  draft.allocations.length > 1
-                    ? draft.allocations.map((alloc, idx) =>
-                        idx === 0 ? { ...alloc, walletId } : alloc,
-                      )
-                    : [{ walletId, amount: draft.amount }],
-              })
-            }
-            options={assetWallets.map((wallet) => ({
-              value: wallet.id,
-              label: wallet.name,
-            }))}
-          />
-        )}
-
-        {draft.type !== "transfer" && (
-          <CategoryTreeSelect
-            disabled={
-              locked ||
-              !categoriesForTransactionType(categories, draft.type).length
-            }
-            value={draft.categoryId}
-            onValueChange={(categoryId) => onChange({ categoryId })}
-            label="Danh mục"
-            required={draft.type === "expense"}
-            categories={categoriesForTransactionType(categories, draft.type)}
-            emptyOption={
-              draft.type === "expense"
-                ? undefined
-                : { value: "none", label: "Không chọn" }
-            }
-          />
-        )}
-
-        <DatePicker
+        <Input
           disabled={locked}
-          label="Ngày giao dịch"
-          value={draft.date}
-          onValueChange={(date) => onChange({ date })}
-          required
+          value={draft.description}
+          onChange={(event) => onChange({ description: event.target.value })}
+          placeholder="Ăn trưa, cà phê, nhận lương..."
+          label="Ghi chú"
         />
-
-        <div className="sm:col-span-2">
-          <Input
-            disabled={locked}
-            value={draft.description}
-            onChange={(event) => onChange({ description: event.target.value })}
-            placeholder="Ăn trưa, nhận lương..."
-            label="Nội dung"
-          />
-        </div>
       </div>
     </div>
   );
@@ -2639,29 +2692,26 @@ function TransactionDetailSheetBody({
         item.pendingChangeAction === "delete"),
   );
   const isDeleteReview = item.pendingChangeAction === "delete";
-  const isCreditWallet =
-    wallets.find((w) => w.id === item.walletId)?.kind === "credit_card";
-  const formattedWallet = /^(ví|thẻ)(\s|$)/i.test(item.wallet.trim())
-    ? item.wallet
-    : isCreditWallet
-      ? `Thẻ ${item.wallet}`
-      : `Ví ${item.wallet}`;
+  const showFooterDeleteTrigger =
+    canDelete && !item.pendingChangeRequestId && !showDeleteConfirm;
 
   return (
     <>
       <SheetHeader
-        icon={Pencil}
+        icon={isChangeReview || canEdit ? Pencil : ReceiptText}
         title={
           isChangeReview
             ? isDeleteReview
               ? "Duyệt yêu cầu xóa giao dịch"
               : "Duyệt yêu cầu sửa giao dịch"
-            : "Chi tiết giao dịch"
+            : canEdit
+              ? "Chỉnh sửa giao dịch"
+              : "Chi tiết giao dịch"
         }
-        description={`${item.member} · ${formattedWallet} · ${formatLedgerDate(item.date)}`}
+        description={`${formatLedgerDate(item.date)} · ${item.wallet} · ${item.member}`}
       />
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3.5 md:p-6">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 md:px-6 md:py-5">
         {/* Approval Section for Pending Change Request */}
         {isChangeReview && (
           <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5">
@@ -2831,96 +2881,90 @@ function TransactionDetailSheetBody({
           disabled={!canEdit}
           onChange={onChange}
         />
-
-        {/* Delete Confirmation Section */}
-        {canDelete && !item.pendingChangeRequestId && (
-          <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-4">
-            {!showDeleteConfirm ? (
-              <>
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-[var(--foreground)]">
-                    Xóa giao dịch
-                  </p>
-                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                    {isAdmin
-                      ? "Xóa giao dịch và cập nhật lại số dư ví."
-                      : "Gửi yêu cầu xóa cho Quản trị viên duyệt."}
-                  </p>
-                </div>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  type="button"
-                  disabled={busy || item.hasPendingChange}
-                  onClick={() => onShowDeleteConfirmChange(true)}
-                  aria-label="Xóa giao dịch"
-                  title="Xóa giao dịch"
-                >
-                  <Trash2 size={15} />
-                </Button>
-              </>
-            ) : (
-              <div className="w-full space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] p-4">
-                <div>
-                  <h4 className="text-xs font-semibold text-[var(--foreground)]">
-                    Xác nhận xóa giao dịch?
-                  </h4>
-                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                    {isAdmin
-                      ? "Số dư ví sẽ được cập nhật lại sau khi xóa."
-                      : "Yêu cầu xóa sẽ được gửi cho Quản trị viên duyệt."}
-                  </p>
-                </div>
-                {!isAdmin && (
-                  <Textarea
-                    value={deleteReason}
-                    onChange={(event) =>
-                      onDeleteReasonChange(event.target.value)
-                    }
-                    placeholder="Nhập lý do xóa (bắt buộc)"
-                    aria-label="Lý do xóa giao dịch"
-                    required
-                    maxLength={2000}
-                  />
-                )}
-                <div className="flex items-center justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => onShowDeleteConfirmChange(false)}
-                  >
-                    Hủy xóa
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    type="button"
-                    disabled={busy || (!isAdmin && !deleteReason.trim())}
-                    onClick={onDelete}
-                  >
-                    <Trash2 size={15} />
-                    <span>{isAdmin ? "Xác nhận xóa" : "Gửi yêu cầu xóa"}</span>
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      <SheetFooter
-        onCancel={onClose}
-        cancelLabel="Đóng"
-        cancelDisabled={busy}
-        submitLabel={canEdit ? "Lưu thay đổi" : undefined}
-        submittingLabel="Đang lưu..."
-        isSubmitting={busy}
-        submitDisabled={busy || !hasChanges}
-        onSubmit={canEdit ? onSave : undefined}
-        submitType="button"
-      />
+      {canDelete && !item.pendingChangeRequestId && showDeleteConfirm ? (
+        <div className="space-y-3 border-t border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-3.5 md:px-6">
+          <div>
+            <h4 className="text-xs font-semibold text-[var(--foreground)]">
+              Xác nhận xóa giao dịch?
+            </h4>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+              {isAdmin
+                ? "Số dư ví sẽ được cập nhật lại ngay sau khi xóa."
+                : "Yêu cầu xóa sẽ được gửi cho Quản trị viên duyệt."}
+            </p>
+          </div>
+          {!isAdmin && (
+            <Textarea
+              value={deleteReason}
+              onChange={(event) => onDeleteReasonChange(event.target.value)}
+              placeholder="Nhập lý do xóa (bắt buộc)"
+              aria-label="Lý do xóa giao dịch"
+              required
+              maxLength={2000}
+            />
+          )}
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              disabled={busy}
+              onClick={() => onShowDeleteConfirmChange(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              type="button"
+              disabled={busy || (!isAdmin && !deleteReason.trim())}
+              onClick={onDelete}
+            >
+              <Trash2 size={15} />
+              <span>{isAdmin ? "Xác nhận xóa" : "Gửi yêu cầu xóa"}</span>
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <SheetFooter className="justify-between">
+          {showFooterDeleteTrigger ? (
+            <Button
+              variant="ghost"
+              type="button"
+              disabled={busy || item.hasPendingChange}
+              onClick={() => onShowDeleteConfirmChange(true)}
+              className="px-2.5 text-[var(--destructive)] hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+            >
+              <Trash2 size={15} />
+              <span>Xóa</span>
+            </Button>
+          ) : (
+            <span />
+          )}
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={onClose}
+            >
+              Đóng
+            </Button>
+            {canEdit && (
+              <Button
+                type="button"
+                disabled={busy || !hasChanges}
+                onClick={onSave}
+              >
+                <span>{busy ? "Đang lưu..." : "Lưu thay đổi"}</span>
+              </Button>
+            )}
+          </div>
+        </SheetFooter>
+      )}
     </>
   );
 }

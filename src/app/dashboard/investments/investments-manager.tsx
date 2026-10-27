@@ -4001,7 +4001,7 @@ function CreateSavingsDepositSheet({
             <div className="mt-1">
               <MoneyInput
                 wrapperClassName="w-full [&_[data-slot=money-input-currency]]:right-0 [&_[data-slot=money-input-currency]]:font-semibold"
-                className="h-9 rounded-none border-0! bg-transparent! pl-0 pr-11 text-left text-2xl font-bold tracking-tight text-[var(--foreground)] ring-0! focus-visible:border-0! focus-visible:ring-0!"
+                className="h-10 rounded-none border-0! bg-transparent! py-0 pl-0 pr-11 text-left text-2xl font-bold tracking-tight text-[var(--foreground)] ring-0! focus-visible:border-0! focus-visible:ring-0! md:h-10 md:py-0 md:text-2xl"
                 value={principalAmount}
                 onValueChange={setPrincipalAmount}
                 placeholder="0"

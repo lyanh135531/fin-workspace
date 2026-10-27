@@ -647,7 +647,7 @@ export function QuickTransactionSheet({
           <div className="mt-1">
             <MoneyInput
               wrapperClassName="w-full"
-              className="h-11 rounded-none border-0! bg-transparent! pl-0 pr-12 text-left text-3xl font-bold tracking-tight text-[var(--foreground)] ring-0! focus-visible:border-0! focus-visible:ring-0!"
+              className="h-11 rounded-none border-0! bg-transparent! py-0 pl-0 pr-12 text-left text-3xl font-bold tracking-tight text-[var(--foreground)] ring-0! focus-visible:border-0! focus-visible:ring-0! md:h-11 md:py-0 md:text-3xl"
               autoFocus
               value={amount}
               onValueChange={setAmount}
@@ -657,9 +657,9 @@ export function QuickTransactionSheet({
           </div>
         </div>
 
-        {/* Symmetrical Grouped Details Card */}
+        {/* Symmetrical Details Grid */}
         {workspace.wallets.length ? (
-          <div className="grid grid-cols-2 gap-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)]/35 p-4">
+          <div className="grid grid-cols-2 gap-3.5">
             <div className="min-w-0">{walletSelectField}</div>
             <div className="min-w-0">{destinationOrCategoryField}</div>
 
