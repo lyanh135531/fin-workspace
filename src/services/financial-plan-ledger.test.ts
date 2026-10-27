@@ -275,6 +275,54 @@ describe("financial plan ledger projection", () => {
     expect(ledger.approvedExpenseByJar.INVESTMENT.toFixed(0)).toBe("0");
     expect(ledger.approvedExpenseByJar.ESSENTIAL.toFixed(0)).toBe("1500000");
   });
+
+  it("includes deferredPrincipal for active installment plans when reconstructing historical workspace balance with before", async () => {
+    const before = new Date("2026-09-01T00:00:00.000Z");
+    const tx = {
+      workspaceWallet: {
+        findMany: vi.fn().mockResolvedValue([
+          { walletId: "w-asset", wallet: { currentBalance: new Decimal(2000), kind: "asset", status: "active" } },
+          { walletId: "w-card", wallet: { currentBalance: new Decimal(1200), kind: "credit_card", status: "active" } },
+        ]),
+      },
+      creditCardInstallmentPlan: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            createdAt: new Date("2026-08-05T00:00:00.000Z"),
+            transaction: {
+              date: new Date("2026-08-05T00:00:00.000Z"),
+              creditCardObligationEntries: [
+                { amount: new Decimal(1200), paymentAllocations: [] },
+              ],
+            },
+            importedObligations: [],
+            installments: [
+              {
+                dueDate: new Date("2026-08-25T00:00:00.000Z"),
+                principalAmount: new Decimal(400),
+                statementItems: [{ id: "stmt-item-1", statement: { cycleEndDate: new Date("2026-08-15T00:00:00.000Z") } }],
+              },
+              {
+                dueDate: new Date("2026-09-25T00:00:00.000Z"),
+                principalAmount: new Decimal(400),
+                statementItems: [{ id: "stmt-item-2", statement: { cycleEndDate: new Date("2026-09-15T00:00:00.000Z") } }],
+              },
+              {
+                dueDate: new Date("2026-10-25T00:00:00.000Z"),
+                principalAmount: new Decimal(400),
+                statementItems: [],
+              },
+            ],
+          },
+        ]),
+      },
+      transaction: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    // 2000 - 1200 + 800 (terms #2 & #3 unbilled as of 2026-09-01) = 1600
+    const balance = await getWorkspaceBalance(tx, "workspace", before);
+    expect(balance.toFixed(0)).toBe("1600");
+  });
 });
-
-

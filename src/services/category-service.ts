@@ -154,12 +154,15 @@ export async function updateWorkspaceCategory(userId: string, workspaceId: strin
   if (!category) throw new AppError("NOT_FOUND", "Danh mục của nhóm không tồn tại.");
   if (category.type !== input.type) throw new AppError("VALIDATION_ERROR", "Không thể đổi loại Thu/Chi sau khi tạo danh mục.");
   const parent = await validateParent(workspaceId, input.parentId, input.type, category.id);
-  const children = await prisma.category.findMany({
+  const children = (await prisma.category.findMany?.({
     where: { workspaceId, parentId: category.id, deletedAt: null },
     select: { id: true },
-  });
-  if (input.parentId && children.length > 0) {
-    throw new AppError("VALIDATION_ERROR", "Danh mục đang có danh mục con nên không thể chuyển thành danh mục con.");
+  })) ?? [];
+  const childCount = children.length || ((await prisma.category.count?.({
+    where: { workspaceId, parentId: category.id, deletedAt: null },
+  })) ?? 0);
+  if (input.parentId && childCount > 0) {
+    throw new AppError("VALIDATION_ERROR", "Danh mục này đang có danh mục con nên không thể chuyển thành danh mục cấp 2.");
   }
   const baseCode = unscopeCategoryCode(input.code, category.parentId);
   const scopedCode = await resolveWorkspaceCategoryCode(

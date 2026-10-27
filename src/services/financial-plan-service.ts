@@ -564,7 +564,15 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
     let requiredProgressThroughClosedMonths = baselineProgress;
     const closedMonths = [];
     for (const month of plan.months) {
-      const adjustedActual = await adjustedClosedActual(tx, workspaceId, month);
+      const closedLedger = await getFinancialPlanMonthLedger(tx, workspaceId, databaseDateToMonth(month.month), false);
+      const closedExpense = sumJarMap(closedLedger.approvedExpenseByJar);
+      const adjustedActual = Decimal.max(
+        new Decimal(month.adjustedRequiredAmount.toString())
+          .plus(month.allocatableGrossBudget.toString())
+          .minus(closedExpense)
+          .minus(month.resourceShortfall.toString()),
+        ZERO,
+      );
       closedSnapshotProgress = closedSnapshotProgress.plus(month.closedActualGoalAmount.toString());
       adjustedActualProgress = adjustedActualProgress.plus(adjustedActual);
       requiredProgressThroughClosedMonths = requiredProgressThroughClosedMonths.plus(month.adjustedRequiredAmount.toString());
@@ -577,6 +585,9 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
           .minus(month.closedEligibleExpense.toString())
           .minus(month.resourceShortfall.toString())
           .toFixed(0),
+        approvedIncome: closedLedger.approvedIncome.toFixed(0),
+        remainingForecastIncome: "0",
+        approvedExpenseFromMonthStart: closedExpense.toFixed(0),
         closedActualGoalAmount: month.closedActualGoalAmount.toString(),
         adjustedActualGoalAmount: adjustedActual.toFixed(0), adjustedDelta: adjustedActual.minus(month.closedActualGoalAmount.toString()).toFixed(0),
         jars: month.jars.map((jar) => ({ jarCode: jar.jarCode, percentage: jar.percentage.toString(), allocatedAmount: jar.allocatedAmount.toString(), closedActualAmount: jar.closedActualAmount.toString() })),
@@ -613,13 +624,15 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
         projectedProgress,
         remainingOpenMonths: openMonths.length - index,
       });
+      const approvedExpenseFromMonthStart = sumJarMap(ledger.approvedExpenseByJar);
+      const remainingForecastIncome = includeForecast ? ledger.forecastIncome : ZERO;
       const rawGrossBudget = month === startMonth
         ? firstMonthRawGrossBudget({
             currentWorkspaceBalance: currentBalance.plus(ledger.netInvestmentOutflow ?? ZERO), existingGoalAmount: goalProgress.hasGoals ? goalProgress.workspaceReserved : plan.existingGoalAmount.toString(),
-            approvedExpenseFromMonthStart: sumJarMap(ledger.approvedExpenseByJar),
-            remainingForecastIncome: includeForecast ? ledger.forecastIncome : 0, requiredGoalAmount: required,
+            approvedExpenseFromMonthStart,
+            remainingForecastIncome, requiredGoalAmount: required,
           })
-        : laterMonthRawGrossBudget({ forecastIncome: ledger.approvedIncome.plus(includeForecast ? ledger.forecastIncome : 0), requiredGoalAmount: required });
+        : laterMonthRawGrossBudget({ forecastIncome: ledger.approvedIncome.plus(remainingForecastIncome), requiredGoalAmount: required });
       const percentages = allocationForMonth(plan.allocations, month);
       const result = calculateMonthlyPlanBudget({ rawGrossBudget, requiredGoalAmount: required, eligibleExpensesByJar: expenseByJar, percentages });
       projectedProgress = projectedProgress.plus(result.actualGoalAmountForMonth);
@@ -628,6 +641,9 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
         month, closed: false, baseRequiredAmount: baseSchedule[allPlanMonths.indexOf(month)].toFixed(0), adjustedRequiredAmount: required.toFixed(0),
         rawGrossBudget: result.rawGrossBudget.toFixed(0), allocatableGrossBudget: result.allocatableGrossBudget.toFixed(0), resourceShortfall: result.resourceShortfall.toFixed(0),
         availableToSpend: result.budgetVariance.toFixed(0), eligibleExpense: result.eligibleExpense.toFixed(0),
+        approvedIncome: ledger.approvedIncome.toFixed(0),
+        remainingForecastIncome: remainingForecastIncome.toFixed(0),
+        approvedExpenseFromMonthStart: approvedExpenseFromMonthStart.toFixed(0),
         totalRemaining: result.totalRemaining.toFixed(0), totalOverspend: result.totalOverspend.toFixed(0),
         projectedActualGoalAmount: result.actualGoalAmountForMonth.toFixed(0), pendingIncome: ledger.pendingIncome.toFixed(0), pendingExpense: ledger.pendingExpense.toFixed(0),
         jars: FINANCIAL_JAR_CODES.map((jarCode) => ({ jarCode, percentage: percentages[jarCode].toString(), allocatedAmount: result.allocatedByJar[jarCode].toFixed(0),

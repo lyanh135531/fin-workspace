@@ -340,4 +340,135 @@ describe("overview monthly cashflow", () => {
       },
     ]);
   });
+
+  it("keeps net worth neutral across wallet-funded investment contributions and settlements without cost basis param", () => {
+    const dailyRows = buildDailyBalances(
+      [{ id: "wallet-a", name: "Ví chính", balance: "50000000" }],
+      [
+        {
+          amount: "20000000",
+          type: "expense",
+          purpose: "investment_contribution",
+          status: "approved",
+          date: "2026-03-14T10:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: null,
+          categoryId: null,
+          memberId: "m-1",
+        },
+        {
+          amount: "10000000",
+          type: "income",
+          purpose: "investment_settlement",
+          status: "approved",
+          date: "2026-03-15T10:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: null,
+          categoryId: null,
+          memberId: "m-1",
+        },
+      ],
+      {
+        walletId: "all",
+        dateRange: {
+          from: "2026-03-13",
+          to: "2026-03-15",
+        },
+        investmentMarketValue: "50000000",
+      },
+    );
+
+    expect(dailyRows.map((row) => ({ period: row.period, total: row.total }))).toEqual([
+      { period: "2026-03-13", total: "100000000" },
+      { period: "2026-03-14", total: "100000000" },
+      { period: "2026-03-15", total: "100000000" },
+    ]);
+  });
+
+  it("does not leak settled investment profit into historical dates before the investment was opened", () => {
+    // Day 0 (2026-03-10): Wallet had 100M, 0 investments -> Net worth = 100M
+    // Day 1 (2026-03-11): Contributed 100M to savings -> Wallet = 0, Investment = 100M -> Net worth = 100M
+    // Day 2 (2026-03-12): Settled 105M (100M principal + 5M interest) -> Wallet = 105M, Investment = 0 -> Net worth = 105M
+    const dailyRows = buildDailyBalances(
+      [{ id: "wallet-a", name: "Ví chính", balance: "105000000" }],
+      [
+        {
+          amount: "100000000",
+          type: "expense",
+          purpose: "investment_contribution",
+          status: "approved",
+          date: "2026-03-11T09:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: null,
+          categoryId: null,
+          memberId: "m-1",
+        },
+        {
+          amount: "105000000",
+          type: "income",
+          purpose: "investment_settlement",
+          status: "approved",
+          date: "2026-03-12T09:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: null,
+          categoryId: null,
+          memberId: "m-1",
+        },
+      ],
+      {
+        walletId: "all",
+        dateRange: {
+          from: "2026-03-10",
+          to: "2026-03-12",
+        },
+        investmentMarketValue: "0",
+        investmentCostBasis: "0",
+      },
+      "0",
+      "0",
+    );
+
+    expect(dailyRows.map((row) => ({ period: row.period, total: row.total }))).toEqual([
+      { period: "2026-03-10", total: "100000000" },
+      { period: "2026-03-11", total: "100000000" },
+      { period: "2026-03-12", total: "105000000" },
+    ]);
+  });
+
+  it("does not leak unrealized gold gain into dates before the gold was purchased", () => {
+    // Day 0 (2026-03-10): Wallet had 100M, 0 gold -> Net worth = 100M
+    // Day 1 (2026-03-11): Purchased 80M gold from wallet, current market value = 85M -> Wallet = 20M, Investment = 85M -> Net worth = 105M
+    const dailyRows = buildDailyBalances(
+      [{ id: "wallet-a", name: "Ví chính", balance: "20000000" }],
+      [
+        {
+          amount: "80000000",
+          type: "expense",
+          purpose: "investment_contribution",
+          status: "approved",
+          date: "2026-03-11T09:00:00.000Z",
+          walletId: "wallet-a",
+          toWalletId: null,
+          categoryId: null,
+          memberId: "m-1",
+        },
+      ],
+      {
+        walletId: "all",
+        dateRange: {
+          from: "2026-03-10",
+          to: "2026-03-11",
+        },
+        investmentMarketValue: "85000000",
+        investmentCostBasis: "80000000",
+      },
+      "85000000",
+      "80000000",
+    );
+
+    expect(dailyRows.map((row) => ({ period: row.period, total: row.total }))).toEqual([
+      { period: "2026-03-10", total: "100000000" },
+      { period: "2026-03-11", total: "105000000" },
+    ]);
+  });
 });

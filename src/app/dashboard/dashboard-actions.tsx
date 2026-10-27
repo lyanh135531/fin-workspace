@@ -2437,7 +2437,9 @@ function TransactionEditorForm({
               allocations:
                 (draft.type === "expense" || draft.type === "transfer") &&
                 isCard
-                  ? [{ walletId: defaultFundingId, amount: draft.amount }]
+                  ? draft.allocations.length > 1
+                    ? scaleAllocations(draft.allocations, draft.amount)
+                    : [{ walletId: defaultFundingId, amount: draft.amount }]
                   : [],
             });
           }}
@@ -2528,7 +2530,12 @@ function TransactionEditorForm({
             }
             onValueChange={(walletId) =>
               onChange({
-                allocations: [{ walletId, amount: draft.amount }],
+                allocations:
+                  draft.allocations.length > 1
+                    ? draft.allocations.map((alloc, idx) =>
+                        idx === 0 ? { ...alloc, walletId } : alloc,
+                      )
+                    : [{ walletId, amount: draft.amount }],
               })
             }
             options={assetWallets.map((wallet) => ({

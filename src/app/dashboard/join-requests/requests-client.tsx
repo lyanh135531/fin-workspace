@@ -1,3 +1,5 @@
+"use client";
+
 import { Check, ChevronRight, UserPlus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useState, useTransition } from "react";

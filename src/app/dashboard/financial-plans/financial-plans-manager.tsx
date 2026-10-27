@@ -209,6 +209,9 @@ type PlanMonth = {
   allocatableGrossBudget: string;
   resourceShortfall: string;
   availableToSpend: string;
+  approvedIncome?: string;
+  remainingForecastIncome?: string;
+  approvedExpenseFromMonthStart?: string;
   closedActualGoalAmount?: string;
   adjustedActualGoalAmount?: string;
   adjustedDelta?: string;
@@ -1733,78 +1736,183 @@ function PlanDetail({
                         Cách tính ngân sách 6 hũ tháng này
                       </p>
                       <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
-                        Tính từ số dư ví, dư nợ thẻ tín dụng và mức cần tiết kiệm trong tháng.
+                        {currentMonthKey === plan.startMonth
+                          ? "Tính từ số dư ví, dư nợ thẻ tín dụng và mức cần tiết kiệm trong tháng."
+                          : "Tính từ thu nhập trong tháng và mức cần tiết kiệm của kỳ này."}
                       </p>
-                      <dl className="mt-2.5 grid gap-1.5 border-t border-[var(--border)] pt-2.5 tabular-nums">
-                        <div className="flex items-center justify-between gap-2">
-                          <dt className="text-[var(--text-secondary)]">
-                            Số dư hiện tại ({walletSummary.assetWalletCount} ví)
-                          </dt>
-                          <dd
-                            className={cn(
-                              "font-semibold",
-                              new Decimal(walletSummary.totalAssetBalance).isNegative()
-                                ? "text-[var(--destructive)]"
-                                : "text-[var(--success)]",
-                            )}
-                          >
-                            {new Decimal(walletSummary.totalAssetBalance).gt(0)
-                              ? `+${money(walletSummary.totalAssetBalance, currency)}`
-                              : new Decimal(walletSummary.totalAssetBalance).isNegative()
-                                ? `−${money(new Decimal(walletSummary.totalAssetBalance).abs().toFixed(0), currency)}`
-                                : money("0", currency)}
-                          </dd>
-                        </div>
-                        {new Decimal(walletSummary.totalCreditCardDebt).gt(0) && (
-                          <div className="flex items-center justify-between gap-2">
-                            <dt className="text-[var(--text-secondary)]">
-                              <Link
-                                href="/wallets?reservedWalletId=all"
-                                className="underline decoration-dotted hover:text-[var(--primary)]"
-                              >
-                                Dư nợ thẻ tín dụng ({walletSummary.creditCardCount} thẻ)
-                              </Link>
-                            </dt>
-                            <dd className="font-semibold text-[var(--warning)]">
-                              −{money(new Decimal(walletSummary.totalCreditCardDebt).abs().toFixed(0), currency)}
-                            </dd>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between gap-2">
-                          <dt className="text-[var(--text-secondary)]">
-                            Đã tích lũy cho mục tiêu
-                          </dt>
-                          <dd className="font-semibold text-[var(--foreground)]">
-                            {new Decimal(plan.realizedProgress).gt(0)
-                              ? `−${money(new Decimal(plan.realizedProgress).abs().toFixed(0), currency)}`
-                              : money("0", currency)}
-                          </dd>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <dt className="text-[var(--text-secondary)]">
-                            Chi đầu tháng & thu dự kiến
-                          </dt>
-                          <dd className="font-semibold text-[var(--foreground)]">
-                            {spentThisMonth.gt(0)
-                              ? `+${money(spentThisMonth.toFixed(0), currency)}`
-                              : money("0", currency)}
-                          </dd>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <dt className="text-[var(--text-secondary)]">
-                            Trừ khoản tiết kiệm tháng này
-                          </dt>
-                          <dd className="font-semibold text-[var(--primary)]">
-                            {requiredSavingsThisMonth.gt(0)
-                              ? `−${money(requiredSavingsThisMonth.toFixed(0), currency)}`
-                              : money("0", currency)}
-                          </dd>
-                        </div>
-                        <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 font-bold text-[var(--foreground)]">
-                          <dt>= Ngân sách 6 hũ</dt>
-                          <dd>{money(monthlyBudget.toFixed(0), currency)}</dd>
-                        </div>
-                      </dl>
+                      {currentMonthKey === plan.startMonth ? (
+                        (() => {
+                          const approvedExpenseFromMonthStart = new Decimal(
+                            currentMonth?.approvedExpenseFromMonthStart ??
+                              spentThisMonth.toString(),
+                          );
+                          const remainingForecastIncome = new Decimal(
+                            currentMonth?.remainingForecastIncome ?? "0",
+                          );
+                          const grossBeforeSavings = new Decimal(
+                            currentMonth?.rawGrossBudget ?? "0",
+                          ).plus(requiredSavingsThisMonth);
+                          const netStartingCapital = grossBeforeSavings
+                            .minus(approvedExpenseFromMonthStart)
+                            .minus(remainingForecastIncome);
+                          const displayedStartingCapital = new Decimal(
+                            walletSummary.totalAssetBalance,
+                          )
+                            .minus(walletSummary.totalCreditCardDebt)
+                            .minus(plan.realizedProgress);
+                          const capitalAdjustment = netStartingCapital.minus(
+                            displayedStartingCapital,
+                          );
+                          return (
+                            <dl className="mt-2.5 grid gap-1.5 border-t border-[var(--border)] pt-2.5 tabular-nums">
+                              <div className="flex items-center justify-between gap-2">
+                                <dt className="text-[var(--text-secondary)]">
+                                  Số dư hiện tại ({walletSummary.assetWalletCount} ví)
+                                </dt>
+                                <dd
+                                  className={cn(
+                                    "font-semibold",
+                                    new Decimal(walletSummary.totalAssetBalance).isNegative()
+                                      ? "text-[var(--destructive)]"
+                                      : "text-[var(--success)]",
+                                  )}
+                                >
+                                  {new Decimal(walletSummary.totalAssetBalance).gt(0)
+                                    ? `+${money(walletSummary.totalAssetBalance, currency)}`
+                                    : new Decimal(walletSummary.totalAssetBalance).isNegative()
+                                      ? `−${money(new Decimal(walletSummary.totalAssetBalance).abs().toFixed(0), currency)}`
+                                      : money("0", currency)}
+                                </dd>
+                              </div>
+                              {new Decimal(walletSummary.totalCreditCardDebt).gt(0) && (
+                                <div className="flex items-center justify-between gap-2">
+                                  <dt className="text-[var(--text-secondary)]">
+                                    <Link
+                                      href="/wallets?reservedWalletId=all"
+                                      className="underline decoration-dotted hover:text-[var(--primary)]"
+                                    >
+                                      Dư nợ thẻ tín dụng ({walletSummary.creditCardCount} thẻ)
+                                    </Link>
+                                  </dt>
+                                  <dd className="font-semibold text-[var(--warning)]">
+                                    −{money(new Decimal(walletSummary.totalCreditCardDebt).abs().toFixed(0), currency)}
+                                  </dd>
+                                </div>
+                              )}
+                              {!capitalAdjustment.isZero() && (
+                                <div className="flex items-center justify-between gap-2">
+                                  <dt className="text-[var(--text-secondary)]">
+                                    Điều chỉnh vốn đầu kỳ
+                                  </dt>
+                                  <dd
+                                    className={cn(
+                                      "font-semibold",
+                                      capitalAdjustment.isNegative()
+                                        ? "text-[var(--warning)]"
+                                        : "text-[var(--success)]",
+                                    )}
+                                  >
+                                    {capitalAdjustment.gt(0)
+                                      ? `+${money(capitalAdjustment.toFixed(0), currency)}`
+                                      : `−${money(capitalAdjustment.abs().toFixed(0), currency)}`}
+                                  </dd>
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between gap-2">
+                                <dt className="text-[var(--text-secondary)]">
+                                  Đã tích lũy cho mục tiêu
+                                </dt>
+                                <dd className="font-semibold text-[var(--foreground)]">
+                                  {new Decimal(plan.realizedProgress).gt(0)
+                                    ? `−${money(new Decimal(plan.realizedProgress).abs().toFixed(0), currency)}`
+                                    : money("0", currency)}
+                                </dd>
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <dt className="text-[var(--text-secondary)]">
+                                  Chi đầu tháng đã ghi nhận
+                                </dt>
+                                <dd className="font-semibold text-[var(--foreground)]">
+                                  {approvedExpenseFromMonthStart.gt(0)
+                                    ? `+${money(approvedExpenseFromMonthStart.toFixed(0), currency)}`
+                                    : money("0", currency)}
+                                </dd>
+                              </div>
+                              {remainingForecastIncome.gt(0) && (
+                                <div className="flex items-center justify-between gap-2">
+                                  <dt className="text-[var(--text-secondary)]">
+                                    Thu dự kiến còn lại trong tháng
+                                  </dt>
+                                  <dd className="font-semibold text-[var(--success)]">
+                                    +{money(remainingForecastIncome.toFixed(0), currency)}
+                                  </dd>
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between gap-2">
+                                <dt className="text-[var(--text-secondary)]">
+                                  Trừ khoản tiết kiệm tháng này
+                                </dt>
+                                <dd className="font-semibold text-[var(--primary)]">
+                                  {requiredSavingsThisMonth.gt(0)
+                                    ? `−${money(requiredSavingsThisMonth.toFixed(0), currency)}`
+                                    : money("0", currency)}
+                                </dd>
+                              </div>
+                              <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 font-bold text-[var(--foreground)]">
+                                <dt>= Ngân sách 6 hũ</dt>
+                                <dd>{money(monthlyBudget.toFixed(0), currency)}</dd>
+                              </div>
+                            </dl>
+                          );
+                        })()
+                      ) : (
+                        (() => {
+                          const approvedIncome = new Decimal(
+                            currentMonth?.approvedIncome ?? "0",
+                          );
+                          const remainingForecastIncome = new Decimal(
+                            currentMonth?.remainingForecastIncome ?? "0",
+                          );
+                          return (
+                            <dl className="mt-2.5 grid gap-1.5 border-t border-[var(--border)] pt-2.5 tabular-nums">
+                              <div className="flex items-center justify-between gap-2">
+                                <dt className="text-[var(--text-secondary)]">
+                                  Thu nhập đã ghi nhận
+                                </dt>
+                                <dd className="font-semibold text-[var(--success)]">
+                                  {approvedIncome.gt(0)
+                                    ? `+${money(approvedIncome.toFixed(0), currency)}`
+                                    : money("0", currency)}
+                                </dd>
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <dt className="text-[var(--text-secondary)]">
+                                  Thu nhập dự kiến còn lại
+                                </dt>
+                                <dd className="font-semibold text-[var(--success)]">
+                                  {remainingForecastIncome.gt(0)
+                                    ? `+${money(remainingForecastIncome.toFixed(0), currency)}`
+                                    : money("0", currency)}
+                                </dd>
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <dt className="text-[var(--text-secondary)]">
+                                  Trừ khoản tiết kiệm tháng này
+                                </dt>
+                                <dd className="font-semibold text-[var(--primary)]">
+                                  {requiredSavingsThisMonth.gt(0)
+                                    ? `−${money(requiredSavingsThisMonth.toFixed(0), currency)}`
+                                    : money("0", currency)}
+                                </dd>
+                              </div>
+                              <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 font-bold text-[var(--foreground)]">
+                                <dt>= Ngân sách 6 hũ</dt>
+                                <dd>{money(monthlyBudget.toFixed(0), currency)}</dd>
+                              </div>
+                            </dl>
+                          );
+                        })()
+                      )}
                     </PopoverContent>
                   </Popover>
                 ) : (

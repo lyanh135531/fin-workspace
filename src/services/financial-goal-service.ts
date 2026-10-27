@@ -102,7 +102,7 @@ export function getFinancialGoalProgress(
 export async function getPlanGoalProgressSummary(tx: TransactionClient, planId: string) {
   const plan = await tx.financialPlan?.findFirst?.({
     where: { id: planId, deletedAt: null },
-    select: { status: true, cancelledAt: true },
+    select: { status: true, cancelledAt: true, existingGoalAmount: true },
   });
   let goals = await tx.financialPlanGoal.findMany({
     where: {
@@ -132,25 +132,44 @@ export async function getPlanGoalProgressSummary(tx: TransactionClient, planId: 
   }
   let totalProgress = ZERO;
   let workspaceReserved = ZERO;
+  const progressByGoal = new Map<string, Decimal>();
   for (const goal of goals) {
     const liveProgress = Decimal.min(await goalProgress(tx, goal), goal.targetAmount.toString());
-    totalProgress = totalProgress.plus(goal.status === "completed" ? goal.targetAmount.toString() : liveProgress);
+    const effectiveProgress =
+      goal.status === "completed"
+        ? new Decimal(goal.targetAmount.toString())
+        : liveProgress;
+    progressByGoal.set(goal.id, effectiveProgress);
+    totalProgress = totalProgress.plus(effectiveProgress);
     workspaceReserved = workspaceReserved.plus(liveProgress);
   }
-  const manualGoalIds = goals.filter((goal) => goal.trackingMode === "manual").map((goal) => goal.id);
+  const manualGoals = goals.filter((goal) => goal.trackingMode === "manual");
   let openingProgress = ZERO;
-  if (manualGoalIds.length > 0) {
+  for (const goal of manualGoals) {
     const openingAgg = await tx.financialGoalFundingEntry.aggregate({
       where: {
-        goalId: { in: manualGoalIds },
+        goalId: goal.id,
         status: "approved",
         kind: { in: ["opening", "adjustment"] },
         reversedBy: { none: {} },
       },
       _sum: { amount: true },
     });
-    openingProgress = Decimal.min(
+    const goalOpening = Decimal.min(
       Decimal.max(openingAgg?._sum?.amount?.toString() ?? 0, ZERO),
+      progressByGoal.get(goal.id) ?? ZERO,
+    );
+    openingProgress = openingProgress.plus(goalOpening);
+  }
+  if (
+    openingProgress.eq(ZERO) &&
+    goals.length > 0 &&
+    goals.every((goal) => goal.trackingMode === "linked_wallet") &&
+    plan?.existingGoalAmount &&
+    new Decimal(plan.existingGoalAmount.toString()).gt(ZERO)
+  ) {
+    openingProgress = Decimal.min(
+      new Decimal(plan.existingGoalAmount.toString()),
       totalProgress,
     );
   }

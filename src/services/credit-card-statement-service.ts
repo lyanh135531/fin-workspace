@@ -176,18 +176,40 @@ export async function createStatementForCycle(
   for (const [fundingWalletId, balance] of carriedByWallet) {
     if (balance.isZero()) continue;
     if (balance.lt(0)) {
-      const credit = await tx.creditCardObligationEntry.findFirst({
-        where: { cardWalletId, fundingWalletId, amount: { lt: 0 } },
-        orderBy: { postedDate: "asc" },
-        select: { id: true },
-      });
+      const credit =
+        (await tx.creditCardObligationEntry.findFirst({
+          where: { cardWalletId, fundingWalletId, amount: { lt: 0 } },
+          orderBy: { postedDate: "asc" },
+          select: { id: true },
+        })) ??
+        (await tx.creditCardObligationEntry.findFirst({
+          where: { cardWalletId, fundingWalletId },
+          orderBy: [{ postedDate: "desc" }, { id: "desc" }],
+          select: { id: true },
+        })) ??
+        (await tx.creditCardObligationEntry.findFirst({
+          where: { cardWalletId },
+          orderBy: [{ postedDate: "desc" }, { id: "desc" }],
+          select: { id: true },
+        }));
       if (credit) items.push({ obligationEntryId: credit.id, fundingWalletId, amount: balance, isCarry: true });
     } else {
-      const obligation = await tx.creditCardObligationEntry.findFirst({
-        where: { cardWalletId, fundingWalletId, amount: { gt: 0 } },
-        orderBy: [{ postedDate: "asc" }, { id: "asc" }],
-        select: { id: true },
-      });
+      const obligation =
+        (await tx.creditCardObligationEntry.findFirst({
+          where: { cardWalletId, fundingWalletId, amount: { gt: 0 } },
+          orderBy: [{ postedDate: "asc" }, { id: "asc" }],
+          select: { id: true },
+        })) ??
+        (await tx.creditCardObligationEntry.findFirst({
+          where: { cardWalletId, fundingWalletId },
+          orderBy: [{ postedDate: "desc" }, { id: "desc" }],
+          select: { id: true },
+        })) ??
+        (await tx.creditCardObligationEntry.findFirst({
+          where: { cardWalletId },
+          orderBy: [{ postedDate: "desc" }, { id: "desc" }],
+          select: { id: true },
+        }));
       if (obligation) {
         items.push({ obligationEntryId: obligation.id, fundingWalletId, amount: balance, isCarry: true });
       }
@@ -489,7 +511,13 @@ export async function refreshHistoricalCardStatements(tx: Tx, workspaceId: strin
       const obligationEntryId =
         representative.get(fundingWalletId) ??
         obligations.find((o) => o.fundingWalletId === fundingWalletId)?.id ??
-        obligations[0]?.id;
+        obligations[0]?.id ??
+        (
+          await tx.creditCardObligationEntry.findFirst({
+            where: { cardWalletId },
+            select: { id: true },
+          })
+        )?.id;
       if (!obligationEntryId) continue;
       await tx.creditCardStatementItem.create({ data: {
         statementId: statement.id, obligationEntryId,

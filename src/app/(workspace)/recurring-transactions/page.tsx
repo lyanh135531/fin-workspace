@@ -9,6 +9,7 @@ import {
   resolveActiveWorkspaceId,
 } from "@/services/active-workspace";
 import { availableCategoryWhere } from "@/services/category-visibility";
+import { processDueRecurringTransactions } from "@/services/recurring-transaction-service";
 import { calculateActiveRecurringMonthlyNetAmount } from "@/services/recurring-transaction-summary";
 import { PageContainer } from "@/components/base";
 
@@ -23,6 +24,8 @@ export default async function RecurringTransactionsPage() {
   });
   if (!membership) redirect("/dashboard");
   const capabilities = workspaceCapabilities(membership.role.code);
+
+  await processDueRecurringTransactions(workspaceId).catch(() => null);
 
   const [walletLinks, categories, recurringTransactions] = await Promise.all([
     prisma.workspaceWallet.findMany({

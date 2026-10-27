@@ -3900,7 +3900,14 @@ function CreateSavingsDepositSheet({
   const [fundingSelection, setFundingSelection] = useState<string>(
     wallets[0]?.id ?? EXISTING_ASSET_VALUE,
   );
-  const [note] = useState("");
+  const [note, setNote] = useState("");
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setNote("");
+    }
+    onOpenChange(nextOpen);
+  };
 
   const fundingMode =
     fundingSelection === EXISTING_ASSET_VALUE
@@ -3963,12 +3970,13 @@ function CreateSavingsDepositSheet({
         return;
       }
       toast.success(res.message ?? "Đã mở sổ tiết kiệm thành công.");
+      setNote("");
       onSuccess();
     });
   }
 
   return (
-    <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
+    <ResponsiveSheet open={open} onOpenChange={handleOpenChange}>
       <SheetHeader
         icon={Landmark}
         title="Mở Sổ Tiết Kiệm Ngân Hàng"
@@ -4168,6 +4176,15 @@ function CreateSavingsDepositSheet({
                   value={nonTermInterestRate}
                   onChange={(e) => setNonTermInterestRate(e.target.value)}
                 />
+                <div className="col-span-2">
+                  <Input
+                    label="Ghi chú (không bắt buộc)"
+                    className="text-sm"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="VD: Quỹ dự phòng gia đình..."
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -4239,7 +4256,14 @@ function SettleSavingsDepositSheet({
   const [newAnnualRate, setNewAnnualRate] = useState(
     deposit.annualInterestRate,
   );
-  const [note] = useState("");
+  const [note, setNote] = useState("");
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setNote("");
+    }
+    onOpenChange(nextOpen);
+  };
 
   const handleSelectMode = (
     nextMode: "maturity" | "early_partial" | "early_full" | "rollover",
@@ -4313,6 +4337,7 @@ function SettleSavingsDepositSheet({
         return;
       }
       toast.success(res.message ?? "Đã xử lý sổ tiết kiệm thành công.");
+      setNote("");
       onSuccess();
     });
   }
@@ -4332,7 +4357,7 @@ function SettleSavingsDepositSheet({
   ).plus(new Decimal(interestReceived || "0"));
 
   return (
-    <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
+    <ResponsiveSheet open={open} onOpenChange={handleOpenChange}>
       <SheetHeader
         icon={Check}
         title={`Tất toán / Rút tiền / Tái tục — ${deposit.bankName}`}
@@ -4527,6 +4552,14 @@ function SettleSavingsDepositSheet({
               }))}
             />
           )}
+
+          <Input
+            label="Ghi chú (không bắt buộc)"
+            className="text-sm"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="VD: Tất toán tại quầy..."
+          />
 
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/45 p-3 sm:p-3.5 text-xs">
             {settlementType === "rollover" &&

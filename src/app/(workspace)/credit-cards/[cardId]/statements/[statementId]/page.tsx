@@ -9,6 +9,7 @@ import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { generateWorkspaceCreditCardStatements } from "@/services/credit-card-statement-service";
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("vi-VN", {
@@ -31,9 +32,14 @@ export default async function CreditCardStatementPage({
 
   const membership = await prisma.workspaceMember.findFirst({
     where: { userId: session.user.id, workspaceId, status: "active", deletedAt: null },
-    select: { workspace: { select: { baseCurrency: true } } },
+    select: { workspace: { select: { baseCurrency: true, timeZone: true } } },
   });
   if (!membership) redirect("/overview");
+
+  await generateWorkspaceCreditCardStatements(
+    workspaceId,
+    membership.workspace.timeZone,
+  ).catch(() => null);
 
   const statement = await prisma.creditCardStatement.findFirst({
     where: {

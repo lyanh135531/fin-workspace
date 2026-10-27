@@ -459,6 +459,10 @@ export function CategoryManagement({ categories }: { categories: Category[] }) {
                   : categories
               }
               category={editingCategory}
+              hasChildren={Boolean(
+                editingCategory &&
+                  categories.some((item) => item.parentId === editingCategory.id),
+              )}
               pending={pending}
               isMobile={isMobile}
               isDesktop={isDesktop}
@@ -1112,6 +1116,7 @@ function CategoryForm({
   defaultType,
   categories,
   category,
+  hasChildren = false,
   pending,
   isDesktop,
   onCancel,
@@ -1120,6 +1125,7 @@ function CategoryForm({
   defaultType: "income" | "expense";
   categories: Category[];
   category?: Category;
+  hasChildren?: boolean;
   pending: boolean;
   isMobile: boolean;
   isDesktop: boolean;
@@ -1203,7 +1209,9 @@ function CategoryForm({
             <CategoryTreeSelect
               name="parentId"
               value={parentId}
+              disabled={hasChildren}
               onValueChange={(newParentId) => {
+                if (hasChildren) return;
                 setParentId(newParentId);
                 if (newParentId !== "none") {
                   const selectedParent = categories.find(
@@ -1224,6 +1232,14 @@ function CategoryForm({
                   !item.parentId,
               )}
             />
+            {hasChildren && (
+              <>
+                <input type="hidden" name="parentId" value="none" />
+                <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                  Danh mục đang có danh mục con nên luôn giữ ở cấp danh mục gốc.
+                </p>
+              </>
+            )}
           </div>
 
           {categoryType === "expense" &&

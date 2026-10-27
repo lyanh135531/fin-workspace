@@ -252,8 +252,10 @@ export function buildMonthlyBalances(
     walletId: string;
     dateRange?: DateRangeValue;
     investmentMarketValue?: string;
+    investmentCostBasis?: string;
   },
   investmentMarketValue = "0",
+  investmentCostBasis?: string,
 ): MonthlyBalance[] {
   const periods = reportPeriods(filters.endPeriod, filters.range, filters.dateRange);
   const visibleWallets = filters.walletId === "all"
@@ -263,7 +265,21 @@ export function buildMonthlyBalances(
     visibleWallets.map((wallet) => [wallet.id, new Decimal(wallet.balance)]),
   );
   const walletKinds = new Map(visibleWallets.map((wallet) => [wallet.id, wallet.kind ?? "asset"] as const));
-  let investmentBalance = new Decimal((filters.investmentMarketValue ?? investmentMarketValue) || "0");
+  const rawMarketValue = filters.investmentMarketValue ?? investmentMarketValue;
+  const rawCostBasis = filters.investmentCostBasis ?? investmentCostBasis;
+  const investmentByPeriod =
+    filters.walletId === "all"
+      ? buildHistoricalInvestmentBalances(
+          periods,
+          transactions,
+          walletKinds,
+          (tx, period) =>
+            tx.date.slice(0, 7) <= period &&
+            (filters.dateRange === undefined || tx.date.slice(0, 10) <= filters.dateRange.to),
+          rawMarketValue,
+          rawCostBasis,
+        )
+      : null;
   const rows = new Map<string, MonthlyBalance>();
 
   if (filters.dateRange) {
@@ -273,9 +289,6 @@ export function buildMonthlyBalances(
         && transaction.date.slice(0, 10) > filters.dateRange.to
       ) {
         reverseBalanceTransaction(balances, transaction, walletKinds);
-        if (filters.walletId === "all") {
-          investmentBalance = reverseInvestmentTransaction(investmentBalance, transaction, walletKinds);
-        }
       }
     }
   }
@@ -294,8 +307,8 @@ export function buildMonthlyBalances(
         : sum.plus(balances.get(wallet.id) ?? 0),
       new Decimal(0),
     );
-    if (filters.walletId === "all") {
-      total = total.plus(investmentBalance);
+    if (filters.walletId === "all" && investmentByPeriod) {
+      total = total.plus(investmentByPeriod.get(period) ?? new Decimal(0));
     }
 
     rows.set(period, {
@@ -318,9 +331,6 @@ export function buildMonthlyBalances(
       }
 
       reverseBalanceTransaction(balances, transaction, walletKinds);
-      if (filters.walletId === "all") {
-        investmentBalance = reverseInvestmentTransaction(investmentBalance, transaction, walletKinds);
-      }
     }
   }
 
@@ -415,8 +425,10 @@ export function buildDailyBalances(
     walletId: string;
     dateRange: DateRangeValue;
     investmentMarketValue?: string;
+    investmentCostBasis?: string;
   },
   investmentMarketValue = "0",
+  investmentCostBasis?: string,
 ): MonthlyBalance[] {
   const days = daysInDateRange(filters.dateRange);
   const visibleWallets = filters.walletId === "all"
@@ -426,7 +438,19 @@ export function buildDailyBalances(
     visibleWallets.map((wallet) => [wallet.id, new Decimal(wallet.balance)]),
   );
   const walletKinds = new Map(visibleWallets.map((wallet) => [wallet.id, wallet.kind ?? "asset"] as const));
-  let investmentBalance = new Decimal((filters.investmentMarketValue ?? investmentMarketValue) || "0");
+  const rawMarketValue = filters.investmentMarketValue ?? investmentMarketValue;
+  const rawCostBasis = filters.investmentCostBasis ?? investmentCostBasis;
+  const investmentByDay =
+    filters.walletId === "all"
+      ? buildHistoricalInvestmentBalances(
+          days,
+          transactions,
+          walletKinds,
+          (tx, day) => tx.date.slice(0, 10) <= day,
+          rawMarketValue,
+          rawCostBasis,
+        )
+      : null;
   const rows = new Map<string, MonthlyBalance>();
 
   for (const transaction of transactions) {
@@ -435,9 +459,6 @@ export function buildDailyBalances(
       && transaction.date.slice(0, 10) > filters.dateRange.to
     ) {
       reverseBalanceTransaction(balances, transaction, walletKinds);
-      if (filters.walletId === "all") {
-        investmentBalance = reverseInvestmentTransaction(investmentBalance, transaction, walletKinds);
-      }
     }
   }
 
@@ -455,8 +476,8 @@ export function buildDailyBalances(
         : sum.plus(balances.get(wallet.id) ?? 0),
       new Decimal(0),
     );
-    if (filters.walletId === "all") {
-      total = total.plus(investmentBalance);
+    if (filters.walletId === "all" && investmentByDay) {
+      total = total.plus(investmentByDay.get(day) ?? new Decimal(0));
     }
 
     rows.set(day, {
@@ -478,9 +499,6 @@ export function buildDailyBalances(
       }
 
       reverseBalanceTransaction(balances, transaction, walletKinds);
-      if (filters.walletId === "all") {
-        investmentBalance = reverseInvestmentTransaction(investmentBalance, transaction, walletKinds);
-      }
     }
   }
 
@@ -519,22 +537,104 @@ function reportPeriods(
   return dateRange ? periodsInDateRange(dateRange) : recentPeriods(endPeriod, range);
 }
 
-function reverseInvestmentTransaction(
-  investmentBalance: Decimal,
-  transaction: ChartTransaction,
+function buildHistoricalInvestmentBalances(
+  periods: string[],
+  transactions: ChartTransaction[],
   walletKinds: Map<string, "asset" | "credit_card">,
-): Decimal {
-  if (walletKinds.get(transaction.walletId) === "credit_card") {
-    return investmentBalance;
+  isOnOrBeforePeriod: (tx: ChartTransaction, period: string) => boolean,
+  investmentMarketValue?: string,
+  investmentCostBasis?: string,
+): Map<string, Decimal> {
+  const ZERO = new Decimal(0);
+  const result = new Map<string, Decimal>();
+  if (periods.length === 0) return result;
+
+  const targetMarketValue = new Decimal(investmentMarketValue || "0");
+  const targetCostBasis =
+    investmentCostBasis !== undefined
+      ? new Decimal(investmentCostBasis || "0")
+      : undefined;
+
+  const endPeriod = periods[periods.length - 1]!;
+  const sortedInvestmentTxs = transactions
+    .filter(
+      (tx) =>
+        tx.status === "approved" &&
+        walletKinds.get(tx.walletId) !== "credit_card" &&
+        (tx.purpose === "investment_contribution" ||
+          tx.purpose === "investment_settlement") &&
+        isOnOrBeforePeriod(tx, endPeriod),
+    )
+    .slice()
+    .sort((a, b) => {
+      const dayCmp = a.date.slice(0, 10).localeCompare(b.date.slice(0, 10));
+      if (dayCmp !== 0) return dayCmp;
+      const fullCmp = a.date.localeCompare(b.date);
+      if (fullCmp !== 0) return fullCmp;
+      if (a.purpose === b.purpose) return 0;
+      return a.purpose === "investment_contribution" ? -1 : 1;
+    });
+
+  const openPrincipalByPeriod = new Map<string, Decimal>();
+  let openWalletPrincipal = ZERO;
+  let txIdx = 0;
+
+  for (const period of periods) {
+    while (
+      txIdx < sortedInvestmentTxs.length &&
+      isOnOrBeforePeriod(sortedInvestmentTxs[txIdx]!, period)
+    ) {
+      const tx = sortedInvestmentTxs[txIdx]!;
+      const amount = new Decimal(tx.amount || 0);
+      if (tx.purpose === "investment_contribution") {
+        openWalletPrincipal = openWalletPrincipal.plus(amount);
+      } else if (tx.purpose === "investment_settlement") {
+        openWalletPrincipal = Decimal.max(
+          openWalletPrincipal.minus(amount),
+          ZERO,
+        );
+      }
+      txIdx += 1;
+    }
+    openPrincipalByPeriod.set(period, openWalletPrincipal);
   }
-  const amount = new Decimal(transaction.amount || 0);
-  if (transaction.purpose === "investment_contribution") {
-    return Decimal.max(investmentBalance.minus(amount), 0);
+
+  const finalOpenWalletPrincipal = openWalletPrincipal;
+
+  for (const period of periods) {
+    const isFinalPoint = period === endPeriod;
+    const principalAtPeriod = openPrincipalByPeriod.get(period) ?? ZERO;
+
+    if (targetCostBasis !== undefined) {
+      const existingAssetCost = Decimal.max(
+        targetCostBasis.minus(finalOpenWalletPrincipal),
+        ZERO,
+      );
+      if (isFinalPoint) {
+        result.set(period, targetMarketValue);
+      } else {
+        result.set(period, principalAtPeriod.plus(existingAssetCost));
+      }
+    } else {
+      const baselineOffset = Decimal.max(
+        targetMarketValue.minus(finalOpenWalletPrincipal),
+        ZERO,
+      );
+      if (targetMarketValue.lt(finalOpenWalletPrincipal)) {
+        if (isFinalPoint) {
+          result.set(period, targetMarketValue);
+        } else if (principalAtPeriod.eq(ZERO)) {
+          result.set(period, ZERO);
+        } else {
+          result.set(period, principalAtPeriod);
+        }
+      } else {
+        result.set(period, principalAtPeriod.plus(baselineOffset));
+      }
+    }
   }
-  if (transaction.purpose === "investment_settlement") {
-    return investmentBalance.plus(amount);
-  }
-  return investmentBalance;
+
+  return result;
 }
 
 function reverseBalanceTransaction(

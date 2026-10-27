@@ -440,4 +440,57 @@ describe("financial goal service", () => {
       }),
     ).resolves.toEqual({ id: goalId });
   });
+
+  it("clamps each manual goal's opening amount to its own progress in getPlanGoalProgressSummary", async () => {
+    mocks.tx.financialPlanGoal.findMany.mockResolvedValue([
+      { id: "goal-a", trackingMode: "manual", linkedWalletId: null, targetAmount: new Decimal(2_000_000) },
+      { id: "goal-b", trackingMode: "manual", linkedWalletId: null, targetAmount: new Decimal(2_000_000) },
+    ]);
+    // live progress: goal-a = 200,000; goal-b = 1,000,000
+    // opening entries: goal-a = 800,000 (clamped to 200,000); goal-b = 100,000
+    mocks.tx.financialGoalFundingEntry.aggregate
+      .mockResolvedValueOnce({ _sum: { amount: new Decimal(200_000) } })
+      .mockResolvedValueOnce({ _sum: { amount: new Decimal(1_000_000) } })
+      .mockResolvedValueOnce({ _sum: { amount: new Decimal(800_000) } })
+      .mockResolvedValueOnce({ _sum: { amount: new Decimal(100_000) } });
+
+    const result = await getPlanGoalProgressSummary(mocks.tx as never, "plan-1");
+    expect(result.totalProgress.toFixed(0)).toBe("1200000");
+    expect(result.openingProgress).toBe("300000");
+  });
+
+  it("does not falsely mark a goal at_risk when targetAmount is not evenly divisible by month count", async () => {
+    mocks.tx.financialPlanGoal.findMany.mockResolvedValue([
+      {
+        id: goalId,
+        name: "Mục tiêu 10 triệu / 3 tháng",
+        status: "active",
+        trackingMode: "manual",
+        linkedWalletId: null,
+        linkedWallet: null,
+        targetAmount: new Decimal(10_000_000),
+        targetMonth: new Date("2026-12-01T00:00:00.000Z"),
+        sortOrder: 0,
+        createdAt: new Date("2026-10-01T00:00:00.000Z"),
+        financialPlan: { startMonth: new Date("2026-10-01T00:00:00.000Z") },
+        fundingEntries: [],
+      },
+    ]);
+    mocks.tx.financialGoalFundingEntry.aggregate.mockResolvedValue({
+      _sum: { amount: new Decimal(0) },
+    });
+
+    const portfolio = await getFinancialPlanGoalPortfolio(
+      "user-1",
+      workspaceId,
+      "plan-1",
+      new Decimal(3_333_333),
+      new Date("2026-10-01T00:00:00.000Z"),
+    );
+
+    expect(portfolio).toHaveLength(1);
+    expect(portfolio[0]?.projectedAtDeadline).toBe("10000000");
+    expect(portfolio[0]?.health).toBe("on_track");
+  });
 });
+

@@ -1045,7 +1045,10 @@ function CreditCardPanel({
         editAllocations.length > 0
           ? editAllocations
           : (editingActivity.allocations ?? []);
-      if (editWalletId === originalWalletId && existingAllocations.length > 0) {
+      if (
+        (editWalletId === originalWalletId || existingAllocations.length > 1) &&
+        existingAllocations.length > 0
+      ) {
         return scaleEditAllocations(existingAllocations, editAmount);
       }
       const targetCard = allCards?.find((c) => c.id === editWalletId);

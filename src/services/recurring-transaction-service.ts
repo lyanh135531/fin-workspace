@@ -124,7 +124,7 @@ export async function createRecurringTransaction(
   const dayOfMonth = dayOfMonthFromStartDate(input.startDate);
   const now = new Date();
 
-  return prisma.$transaction(async (tx) => {
+  const created = await prisma.$transaction(async (tx) => {
     await requireRecurringTransactionResources(tx, workspaceId, input);
     const record = await tx.recurringTransaction.create({
       data: {
@@ -165,6 +165,8 @@ export async function createRecurringTransaction(
     });
     return record;
   });
+  await processDueRecurringTransactions(workspaceId, now);
+  return created;
 }
 
 async function resolveNextExecutionCandidate(
@@ -203,7 +205,7 @@ export async function updateRecurringTransaction(
   const isAdmin = isAdminRole(member.role.code);
   const today = getBusinessDateInTimeZone(member.workspace.timeZone, now);
 
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const current = await findManagedRecurringTransaction(tx, workspaceId, recurringTransactionId);
     if (!isAdmin) {
       if (current.createdByMemberId !== member.id) {
@@ -313,6 +315,8 @@ export async function updateRecurringTransaction(
     });
     return record;
   });
+  await processDueRecurringTransactions(workspaceId, now);
+  return updated;
 }
 
 export async function setRecurringTransactionStatus(
@@ -325,7 +329,7 @@ export async function setRecurringTransactionStatus(
   const member = await requireWorkspaceMember(userId, workspaceId);
   const isAdmin = isAdminRole(member.role.code);
   const today = getBusinessDateInTimeZone(member.workspace.timeZone, now);
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const current = await findManagedRecurringTransaction(tx, workspaceId, recurringTransactionId);
     if (!isAdmin && current.createdByMemberId !== member.id) {
       throw new AppError("FORBIDDEN", "Bạn chỉ có thể thay đổi lịch do mình tạo.");
@@ -399,6 +403,10 @@ export async function setRecurringTransactionStatus(
     });
     return record;
   });
+  if (status === "active") {
+    await processDueRecurringTransactions(workspaceId, now);
+  }
+  return updated;
 }
 
 export async function deleteRecurringTransaction(
@@ -444,7 +452,7 @@ export async function reviewRecurringTransaction(
 ) {
   const reviewer = await requireWorkspaceMember(userId, workspaceId, true);
   const today = getBusinessDateInTimeZone(reviewer.workspace.timeZone, now);
-  return prisma.$transaction(async (tx) => {
+  const reviewed = await prisma.$transaction(async (tx) => {
     const current = await findManagedRecurringTransaction(tx, workspaceId, recurringTransactionId);
     if (current.approvalStatus !== "pending") {
       throw new AppError("CONFLICT", "Yêu cầu lịch định kỳ đã được xử lý.");
@@ -509,6 +517,10 @@ export async function reviewRecurringTransaction(
     });
     return record;
   });
+  if (approve) {
+    await processDueRecurringTransactions(workspaceId, now);
+  }
+  return reviewed;
 }
 
 async function processOneDueOccurrence(workspaceId: string, recurringTransactionId: string, today: string) {

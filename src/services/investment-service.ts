@@ -1197,35 +1197,44 @@ export async function deleteGoldPurchaseLot(
 
     if (lot.fundingMode === "from_wallet" && lot.sourceWalletId) {
       const wallet = await tx.wallet.findFirst({
-        where: { id: lot.sourceWalletId, deletedAt: null, status: "active" },
+        where: { id: lot.sourceWalletId },
       });
-      if (!wallet || wallet.status !== "active") {
+      if (wallet && wallet.deletedAt === null && wallet.status !== "active") {
         throw new AppError(
           "CONFLICT",
-          "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+          "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
         );
       }
-      await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
-      const freshWallet =
-        (await tx.wallet.findUnique?.({ where: { id: wallet.id } })) ?? wallet;
-      if (
-        !freshWallet ||
-        freshWallet.deletedAt ||
-        freshWallet.status !== "active"
-      ) {
-        throw new AppError(
-          "CONFLICT",
-          "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
-        );
+      if (wallet && wallet.deletedAt === null && wallet.status === "active") {
+        await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
+        const freshWallet =
+          (await tx.wallet.findUnique?.({ where: { id: wallet.id } })) ??
+          wallet;
+        if (
+          freshWallet &&
+          freshWallet.deletedAt === null &&
+          freshWallet.status !== "active"
+        ) {
+          throw new AppError(
+            "CONFLICT",
+            "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+          );
+        }
+        if (
+          freshWallet &&
+          freshWallet.deletedAt === null &&
+          freshWallet.status === "active"
+        ) {
+          await tx.wallet.update({
+            where: { id: wallet.id },
+            data: {
+              currentBalance: new Decimal(
+                freshWallet.currentBalance.toString(),
+              ).plus(totalCost),
+            },
+          });
+        }
       }
-      await tx.wallet.update({
-        where: { id: wallet.id },
-        data: {
-          currentBalance: new Decimal(
-            freshWallet.currentBalance.toString(),
-          ).plus(totalCost),
-        },
-      });
       if (lot.ledgerTransactionId) {
         await tx.transaction.updateMany({
           where: { id: lot.ledgerTransactionId, deletedAt: null },
@@ -1347,37 +1356,53 @@ export async function updateGoldPurchaseLot(
       // Hoàn lại số dư vào ví cũ nếu trước đó trích từ ví
       if (lot.fundingMode === "from_wallet" && lot.sourceWalletId) {
         const oldWallet = await tx.wallet.findFirst({
-          where: { id: lot.sourceWalletId, deletedAt: null, status: "active" },
+          where: { id: lot.sourceWalletId },
         });
-        if (!oldWallet || oldWallet.status !== "active") {
-          throw new AppError(
-            "CONFLICT",
-            "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
-          );
-        }
-        await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${oldWallet.id}::uuid FOR UPDATE`;
-        const freshOldWallet =
-          (await tx.wallet.findUnique?.({
-            where: { id: oldWallet.id },
-          })) ?? oldWallet;
         if (
-          !freshOldWallet ||
-          freshOldWallet.deletedAt ||
-          freshOldWallet.status !== "active"
+          oldWallet &&
+          oldWallet.deletedAt === null &&
+          oldWallet.status !== "active"
         ) {
           throw new AppError(
             "CONFLICT",
-            "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+            "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
           );
         }
-        await tx.wallet.update({
-          where: { id: oldWallet.id },
-          data: {
-            currentBalance: new Decimal(
-              freshOldWallet.currentBalance.toString(),
-            ).plus(oldTotalCost),
-          },
-        });
+        if (
+          oldWallet &&
+          oldWallet.deletedAt === null &&
+          oldWallet.status === "active"
+        ) {
+          await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${oldWallet.id}::uuid FOR UPDATE`;
+          const freshOldWallet =
+            (await tx.wallet.findUnique?.({
+              where: { id: oldWallet.id },
+            })) ?? oldWallet;
+          if (
+            freshOldWallet &&
+            freshOldWallet.deletedAt === null &&
+            freshOldWallet.status !== "active"
+          ) {
+            throw new AppError(
+              "CONFLICT",
+              "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+            );
+          }
+          if (
+            freshOldWallet &&
+            freshOldWallet.deletedAt === null &&
+            freshOldWallet.status === "active"
+          ) {
+            await tx.wallet.update({
+              where: { id: oldWallet.id },
+              data: {
+                currentBalance: new Decimal(
+                  freshOldWallet.currentBalance.toString(),
+                ).plus(oldTotalCost),
+              },
+            });
+          }
+        }
       }
 
       if (input.fundingMode === "from_wallet") {
@@ -1534,46 +1559,50 @@ export async function deleteGoldSaleRecord(
 
     if (sale.destinationWalletId && netProceeds.gt(0)) {
       const wallet = await tx.wallet.findFirst({
-        where: {
-          id: sale.destinationWalletId,
-          deletedAt: null,
-          status: "active",
-        },
+        where: { id: sale.destinationWalletId },
       });
-      if (!wallet || wallet.status !== "active") {
+      if (wallet && wallet.deletedAt === null && wallet.status !== "active") {
         throw new AppError(
           "CONFLICT",
-          "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+          "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
         );
       }
-      await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
-      const freshWallet =
-        (await tx.wallet.findUnique?.({
-          where: { id: wallet.id },
-        })) ?? wallet;
-      if (
-        !freshWallet ||
-        freshWallet.deletedAt ||
-        freshWallet.status !== "active"
-      ) {
-        throw new AppError(
-          "CONFLICT",
-          "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
-        );
+      if (wallet && wallet.deletedAt === null && wallet.status === "active") {
+        await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
+        const freshWallet =
+          (await tx.wallet.findUnique?.({
+            where: { id: wallet.id },
+          })) ?? wallet;
+        if (
+          freshWallet &&
+          freshWallet.deletedAt === null &&
+          freshWallet.status !== "active"
+        ) {
+          throw new AppError(
+            "CONFLICT",
+            "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+          );
+        }
+        if (
+          freshWallet &&
+          freshWallet.deletedAt === null &&
+          freshWallet.status === "active"
+        ) {
+          const walletBalance = new Decimal(
+            freshWallet.currentBalance.toString(),
+          );
+          if (walletBalance.lt(netProceeds)) {
+            throw new AppError(
+              "CONFLICT",
+              `Số dư ví "${freshWallet.name}" hiện không đủ (${walletBalance.toNumber().toLocaleString("vi-VN")} ₫) để thu hồi khoản tiền bán vàng ${netProceeds.toNumber().toLocaleString("vi-VN")} ₫ khi hoàn tác.`,
+            );
+          }
+          await tx.wallet.update({
+            where: { id: freshWallet.id },
+            data: { currentBalance: walletBalance.minus(netProceeds) },
+          });
+        }
       }
-      const walletBalance = new Decimal(
-        freshWallet.currentBalance.toString(),
-      );
-      if (walletBalance.lt(netProceeds)) {
-        throw new AppError(
-          "CONFLICT",
-          `Số dư ví "${freshWallet.name}" hiện không đủ (${walletBalance.toNumber().toLocaleString("vi-VN")} ₫) để thu hồi khoản tiền bán vàng ${netProceeds.toNumber().toLocaleString("vi-VN")} ₫ khi hoàn tác.`,
-        );
-      }
-      await tx.wallet.update({
-        where: { id: freshWallet.id },
-        data: { currentBalance: walletBalance.minus(netProceeds) },
-      });
     }
 
     if (sale.ledgerTransactionId) {
@@ -1776,37 +1805,45 @@ export async function deleteGoldHolding(
     for (const lot of holding.purchaseLots) {
       if (lot.fundingMode === "from_wallet" && lot.sourceWalletId) {
         const wallet = await tx.wallet.findFirst({
-          where: { id: lot.sourceWalletId, deletedAt: null, status: "active" },
+          where: { id: lot.sourceWalletId },
         });
-        if (!wallet || wallet.status !== "active") {
+        if (wallet && wallet.deletedAt === null && wallet.status !== "active") {
           throw new AppError(
             "CONFLICT",
-            "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+            "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
           );
         }
-        await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
-        const freshWallet =
-          (await tx.wallet.findUnique?.({
-            where: { id: wallet.id },
-          })) ?? wallet;
-        if (
-          !freshWallet ||
-          freshWallet.deletedAt ||
-          freshWallet.status !== "active"
-        ) {
-          throw new AppError(
-            "CONFLICT",
-            "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
-          );
+        if (wallet && wallet.deletedAt === null && wallet.status === "active") {
+          await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
+          const freshWallet =
+            (await tx.wallet.findUnique?.({
+              where: { id: wallet.id },
+            })) ?? wallet;
+          if (
+            freshWallet &&
+            freshWallet.deletedAt === null &&
+            freshWallet.status !== "active"
+          ) {
+            throw new AppError(
+              "CONFLICT",
+              "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+            );
+          }
+          if (
+            freshWallet &&
+            freshWallet.deletedAt === null &&
+            freshWallet.status === "active"
+          ) {
+            await tx.wallet.update({
+              where: { id: wallet.id },
+              data: {
+                currentBalance: new Decimal(
+                  freshWallet.currentBalance.toString(),
+                ).plus(lot.totalCostAmount.toString()),
+              },
+            });
+          }
         }
-        await tx.wallet.update({
-          where: { id: wallet.id },
-          data: {
-            currentBalance: new Decimal(
-              freshWallet.currentBalance.toString(),
-            ).plus(lot.totalCostAmount.toString()),
-          },
-        });
         if (lot.ledgerTransactionId) {
           await tx.transaction.updateMany({
             where: { id: lot.ledgerTransactionId, deletedAt: null },
@@ -1969,6 +2006,27 @@ export async function settleSavingsDeposit(
     }
     if (deposit.status !== "active") {
       throw new AppError("CONFLICT", "Sổ tiết kiệm này đã được tất toán trước đó.");
+    }
+
+    const existingSettlements =
+      (deposit as { settlements?: Array<{ settlementDate: Date }> })
+        .settlements ??
+      (await tx.savingsDepositSettlement?.findMany?.({
+        where: { depositId: deposit.id },
+        orderBy: [{ settlementDate: "desc" }, { createdAt: "desc" }],
+        take: 1,
+      })) ??
+      [];
+    const latestExistingSettlement = existingSettlements[0];
+    if (
+      latestExistingSettlement &&
+      formatIsoDate(latestExistingSettlement.settlementDate) >
+        input.settlementDate.slice(0, 10)
+    ) {
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Ngày tất toán hoặc tái tục mới không được trước lần thực hiện gần nhất.",
+      );
     }
 
     const currentPrincipal = new Decimal(
@@ -2250,7 +2308,7 @@ export async function deleteSavingsSettlement(
         deposit: {
           include: {
             settlements: {
-              orderBy: [{ createdAt: "desc" }, { settlementDate: "desc" }],
+              orderBy: [{ settlementDate: "desc" }, { createdAt: "desc" }],
             },
           },
         },
@@ -2276,46 +2334,50 @@ export async function deleteSavingsSettlement(
 
     if (settlement.destinationWalletId && totalReceived.gt(0)) {
       const wallet = await tx.wallet.findFirst({
-        where: {
-          id: settlement.destinationWalletId,
-          deletedAt: null,
-          status: "active",
-        },
+        where: { id: settlement.destinationWalletId },
       });
-      if (!wallet || wallet.status !== "active") {
+      if (wallet && wallet.deletedAt === null && wallet.status !== "active") {
         throw new AppError(
           "CONFLICT",
-          "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+          "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
         );
       }
-      await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
-      const freshWallet =
-        (await tx.wallet.findUnique?.({
-          where: { id: wallet.id },
-        })) ?? wallet;
-      if (
-        !freshWallet ||
-        freshWallet.deletedAt ||
-        freshWallet.status !== "active"
-      ) {
-        throw new AppError(
-          "CONFLICT",
-          "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
-        );
+      if (wallet && wallet.deletedAt === null && wallet.status === "active") {
+        await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
+        const freshWallet =
+          (await tx.wallet.findUnique?.({
+            where: { id: wallet.id },
+          })) ?? wallet;
+        if (
+          freshWallet &&
+          freshWallet.deletedAt === null &&
+          freshWallet.status !== "active"
+        ) {
+          throw new AppError(
+            "CONFLICT",
+            "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+          );
+        }
+        if (
+          freshWallet &&
+          freshWallet.deletedAt === null &&
+          freshWallet.status === "active"
+        ) {
+          const walletBalance = new Decimal(
+            freshWallet.currentBalance.toString(),
+          );
+          if (walletBalance.lt(totalReceived)) {
+            throw new AppError(
+              "CONFLICT",
+              `Số dư ví "${freshWallet.name}" hiện không đủ (${walletBalance.toNumber().toLocaleString("vi-VN")} ₫) để thu hồi khoản tiền tất toán ${totalReceived.toNumber().toLocaleString("vi-VN")} ₫ khi hoàn tác.`,
+            );
+          }
+          await tx.wallet.update({
+            where: { id: freshWallet.id },
+            data: { currentBalance: walletBalance.minus(totalReceived) },
+          });
+        }
       }
-      const walletBalance = new Decimal(
-        freshWallet.currentBalance.toString(),
-      );
-      if (walletBalance.lt(totalReceived)) {
-        throw new AppError(
-          "CONFLICT",
-          `Số dư ví "${freshWallet.name}" hiện không đủ (${walletBalance.toNumber().toLocaleString("vi-VN")} ₫) để thu hồi khoản tiền tất toán ${totalReceived.toNumber().toLocaleString("vi-VN")} ₫ khi hoàn tác.`,
-        );
-      }
-      await tx.wallet.update({
-        where: { id: freshWallet.id },
-        data: { currentBalance: walletBalance.minus(totalReceived) },
-      });
     }
 
     if (settlement.ledgerTransactionId) {
@@ -2484,41 +2546,45 @@ export async function deleteSavingsDeposit(
     if (deposit.status === "active") {
       if (deposit.fundingMode === "from_wallet" && deposit.sourceWalletId) {
         const wallet = await tx.wallet.findFirst({
-          where: {
-            id: deposit.sourceWalletId,
-            deletedAt: null,
-            status: "active",
-          },
+          where: { id: deposit.sourceWalletId },
         });
-        if (!wallet || wallet.status !== "active") {
+        if (wallet && wallet.deletedAt === null && wallet.status !== "active") {
           throw new AppError(
             "CONFLICT",
-            "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+            "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
           );
         }
-        await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
-        const freshWallet =
-          (await tx.wallet.findUnique?.({
-            where: { id: wallet.id },
-          })) ?? wallet;
-        if (
-          !freshWallet ||
-          freshWallet.deletedAt ||
-          freshWallet.status !== "active"
-        ) {
-          throw new AppError(
-            "CONFLICT",
-            "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
-          );
+        if (wallet && wallet.deletedAt === null && wallet.status === "active") {
+          await tx.$queryRaw`SELECT id FROM "WALLETS" WHERE id = ${wallet.id}::uuid FOR UPDATE`;
+          const freshWallet =
+            (await tx.wallet.findUnique?.({
+              where: { id: wallet.id },
+            })) ?? wallet;
+          if (
+            freshWallet &&
+            freshWallet.deletedAt === null &&
+            freshWallet.status !== "active"
+          ) {
+            throw new AppError(
+              "CONFLICT",
+              "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+            );
+          }
+          if (
+            freshWallet &&
+            freshWallet.deletedAt === null &&
+            freshWallet.status === "active"
+          ) {
+            await tx.wallet.update({
+              where: { id: wallet.id },
+              data: {
+                currentBalance: new Decimal(
+                  freshWallet.currentBalance.toString(),
+                ).plus(deposit.principalAmount.toString()),
+              },
+            });
+          }
         }
-        await tx.wallet.update({
-          where: { id: wallet.id },
-          data: {
-            currentBalance: new Decimal(
-              freshWallet.currentBalance.toString(),
-            ).plus(deposit.principalAmount.toString()),
-          },
-        });
         if (deposit.openTransactionId) {
           await tx.transaction.updateMany({
             where: { id: deposit.openTransactionId, deletedAt: null },

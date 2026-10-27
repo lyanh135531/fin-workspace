@@ -51,8 +51,10 @@ export function allocateGoalFundingByPriority(
   goals: GoalFundingCandidate[],
   monthlyFundingCapacity: Decimal.Value,
   currentMonth: string,
+  roundingTolerance: Decimal.Value = ZERO,
 ): GoalFundingAllocation[] {
   let capacity = Decimal.max(monthlyFundingCapacity, ZERO);
+  const tolerance = Decimal.max(roundingTolerance, ZERO);
   return [...goals].sort(compareGoals).map((goal) => {
     const requiredAmount = requiredGoalAmountForMonth(
       goal.targetAmount,
@@ -60,8 +62,19 @@ export function allocateGoalFundingByPriority(
       currentMonth,
       goal.targetMonth,
     );
-    const allocatedAmount = Decimal.min(requiredAmount, capacity);
-    capacity = capacity.minus(allocatedAmount);
+    const monthsLeft =
+      goal.targetMonth < currentMonth
+        ? 1
+        : monthsInclusive(currentMonth, goal.targetMonth).length;
+    const isRoundingRemainder =
+      monthsLeft === 1 &&
+      capacity.greaterThan(ZERO) &&
+      requiredAmount.greaterThan(capacity) &&
+      requiredAmount.minus(capacity).lessThanOrEqualTo(tolerance);
+    const allocatedAmount = isRoundingRemainder
+      ? requiredAmount
+      : Decimal.min(requiredAmount, capacity);
+    capacity = isRoundingRemainder ? ZERO : capacity.minus(allocatedAmount);
     return {
       goalId: goal.id,
       requiredAmount,
@@ -99,11 +112,18 @@ export function simulateGoalFunding(input: {
   const progress = new Map(input.goals.map((goal) => [goal.id, new Decimal(goal.actualProgress)]));
   const lastMonth = [...input.goals].sort((a, b) => b.targetMonth.localeCompare(a.targetMonth))[0]?.targetMonth;
   if (!lastMonth || lastMonth < input.startMonth) return { months: [], projectedByGoal: progress };
-  const months = monthsInclusive(input.startMonth, lastMonth).map((month) => {
+  const allMonths = monthsInclusive(input.startMonth, lastMonth);
+  const roundingTolerance = new Decimal(allMonths.length * Math.max(1, input.goals.length));
+  const months = allMonths.map((month) => {
     const active = input.goals
       .filter((goal) => month <= goal.targetMonth && (progress.get(goal.id) ?? ZERO).lessThan(goal.targetAmount))
       .map((goal) => ({ ...goal, actualProgress: progress.get(goal.id) ?? ZERO }));
-    const allocations = allocateGoalFundingByPriority(active, input.monthlyFundingCapacity, month);
+    const allocations = allocateGoalFundingByPriority(
+      active,
+      input.monthlyFundingCapacity,
+      month,
+      roundingTolerance,
+    );
     for (const allocation of allocations) {
       progress.set(allocation.goalId, (progress.get(allocation.goalId) ?? ZERO).plus(allocation.allocatedAmount));
     }

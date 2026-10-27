@@ -41,91 +41,118 @@ export async function getWorkspaceBalance(
       ? balance.minus(Decimal.max(amount, ZERO))
       : balance.plus(amount);
   }
-  if (!before) {
-    const activePlans =
-      (await tx.creditCardInstallmentPlan?.findMany?.({
-        where: {
-          workspaceId,
-          status: "active",
-          card: { wallet: { deletedAt: null } },
-        },
-        select: {
-          transaction: {
-            select: {
-              date: true,
-              creditCardObligationEntries: {
-                select: {
-                  amount: true,
-                  paymentAllocations: { select: { amount: true } },
+  const activePlans =
+    (await tx.creditCardInstallmentPlan?.findMany?.({
+      where: {
+        workspaceId,
+        status: "active",
+        card: { wallet: { deletedAt: null } },
+      },
+      select: {
+        createdAt: true,
+        transaction: {
+          select: {
+            date: true,
+            creditCardObligationEntries: {
+              select: {
+                amount: true,
+                paymentAllocations: {
+                  select: {
+                    amount: true,
+                    paymentTransaction: { select: { date: true } },
+                  },
                 },
               },
             },
           },
-          importedObligations: {
-            select: {
-              amount: true,
-              paymentAllocations: { select: { amount: true } },
-            },
-          },
-          installments: {
-            select: {
-              dueDate: true,
-              principalAmount: true,
-              statementItems: { select: { id: true } },
+        },
+        importedObligations: {
+          select: {
+            amount: true,
+            paymentAllocations: {
+              select: {
+                amount: true,
+                paymentTransaction: { select: { date: true } },
+              },
             },
           },
         },
-      })) ?? [];
+        installments: {
+          select: {
+            dueDate: true,
+            principalAmount: true,
+            statementItems: {
+              select: {
+                id: true,
+                statement: { select: { cycleEndDate: true } },
+              },
+            },
+          },
+        },
+      },
+    })) ?? [];
 
-    const currentUtcMonth = new Date().toISOString().slice(0, 7);
-    for (const plan of activePlans) {
-      const obligations = [
-        ...(plan.transaction?.creditCardObligationEntries ?? []),
-        ...(plan.importedObligations ?? []),
-      ];
-      const obligationRemaining = obligations.reduce((sum, entry) => {
-        const paid = entry.paymentAllocations.reduce(
-          (pSum, alloc) => pSum.plus(alloc.amount.toString()),
-          ZERO,
-        );
-        return sum.plus(
-          Decimal.max(new Decimal(entry.amount.toString()).minus(paid), ZERO),
-        );
+  const referenceMonth = before
+    ? asIsoDate(new Date(before.getTime() - 86400000)).slice(0, 7)
+    : new Date().toISOString().slice(0, 7);
+  for (const plan of activePlans) {
+    if (before) {
+      const planDate = plan.transaction?.date ?? plan.createdAt;
+      if (planDate && planDate >= before) continue;
+    }
+    const obligations = [
+      ...(plan.transaction?.creditCardObligationEntries ?? []),
+      ...(plan.importedObligations ?? []),
+    ];
+    const obligationRemaining = obligations.reduce((sum, entry) => {
+      const paid = entry.paymentAllocations.reduce((pSum, alloc) => {
+        if (before && alloc.paymentTransaction?.date && alloc.paymentTransaction.date >= before) {
+          return pSum;
+        }
+        return pSum.plus(alloc.amount.toString());
       }, ZERO);
-
-      const sortedInstallments = [...plan.installments].sort((a, b) =>
-        asIsoDate(a.dueDate).localeCompare(asIsoDate(b.dueDate)),
+      return sum.plus(
+        Decimal.max(new Decimal(entry.amount.toString()).minus(paid), ZERO),
       );
-      const unbilled = sortedInstallments.filter(
-        (inst) => inst.statementItems.length === 0,
+    }, ZERO);
+
+    const isBilled = (inst: (typeof plan.installments)[number]) =>
+      inst.statementItems.some(
+        (item) =>
+          !before ||
+          !item.statement?.cycleEndDate ||
+          item.statement.cycleEndDate < before,
       );
-      if (unbilled.length === 0) continue;
 
-      const billedInCurrentOrLater = sortedInstallments.find(
-        (inst) =>
-          inst.statementItems.length > 0 &&
-          asIsoDate(inst.dueDate).slice(0, 7) >= currentUtcMonth,
-      );
-      const baselineMonth = billedInCurrentOrLater
-        ? asIsoDate(billedInCurrentOrLater.dueDate).slice(0, 7)
-        : asIsoDate(unbilled[0].dueDate).slice(0, 7);
+    const sortedInstallments = [...plan.installments].sort((a, b) =>
+      asIsoDate(a.dueDate).localeCompare(asIsoDate(b.dueDate)),
+    );
+    const unbilled = sortedInstallments.filter((inst) => !isBilled(inst));
+    if (unbilled.length === 0) continue;
 
-      const futureUnbilledPrincipal = unbilled
-        .filter((inst) => asIsoDate(inst.dueDate).slice(0, 7) > baselineMonth)
-        .reduce(
-          (sum, inst) => sum.plus(inst.principalAmount.toString()),
-          ZERO,
-        );
+    const billedInReferenceOrLater = sortedInstallments.find(
+      (inst) =>
+        isBilled(inst) &&
+        asIsoDate(inst.dueDate).slice(0, 7) >= referenceMonth,
+    );
+    const baselineMonth = billedInReferenceOrLater
+      ? asIsoDate(billedInReferenceOrLater.dueDate).slice(0, 7)
+      : asIsoDate(unbilled[0].dueDate).slice(0, 7);
 
-      const deferredPrincipal = Decimal.max(
-        Decimal.min(futureUnbilledPrincipal, obligationRemaining),
+    const futureUnbilledPrincipal = unbilled
+      .filter((inst) => asIsoDate(inst.dueDate).slice(0, 7) > baselineMonth)
+      .reduce(
+        (sum, inst) => sum.plus(inst.principalAmount.toString()),
         ZERO,
       );
-      balance = balance.plus(deferredPrincipal);
-    }
-    return balance;
+
+    const deferredPrincipal = Decimal.max(
+      Decimal.min(futureUnbilledPrincipal, obligationRemaining),
+      ZERO,
+    );
+    balance = balance.plus(deferredPrincipal);
   }
-  if (links.length === 0) return balance;
+  if (!before || links.length === 0) return balance;
 
   const walletIds = links.map((link) => link.walletId);
   const laterTransactions = await tx.transaction.findMany({

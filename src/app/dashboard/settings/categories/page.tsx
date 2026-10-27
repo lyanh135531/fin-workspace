@@ -25,7 +25,7 @@ export default async function CategoriesSettingsPage() {
   if (!membership) redirect("/overview");
 
   const isAdmin = isAdminRole(membership.role.code);
-  if (!isAdmin) redirect("/dashboard");
+  if (!isAdmin) redirect("/overview");
 
   const categories = await prisma.category.findMany({
     where: manageableCategoryWhere(workspaceId),

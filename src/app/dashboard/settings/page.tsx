@@ -31,7 +31,7 @@ export default async function SettingsPage({
   if (!membership) redirect("/overview");
 
   const isAdmin = isAdminRole(membership.role.code);
-  if (!isAdmin) redirect("/dashboard");
+  if (!isAdmin) redirect("/overview");
   const inviteCode = /^\d{3}-\d{3}$/.test(membership.workspace.inviteCode)
     ? membership.workspace.inviteCode
     : await regenerateWorkspaceInviteCode(session.user.id, workspaceId);

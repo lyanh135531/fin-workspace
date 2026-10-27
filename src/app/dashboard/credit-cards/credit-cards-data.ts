@@ -51,7 +51,7 @@ export async function getCreditCardsData() {
             _count: {
               select: {
                 sourceTransactions: {
-                  where: { workflowStatus: "approved" },
+                  where: { workflowStatus: "approved", deletedAt: null },
                 },
               },
             },
@@ -605,6 +605,11 @@ export async function getCreditCardsData() {
         }),
       ),
       activities: wallet.sourceTransactions.map((transaction) => {
+        const isInAnyStatement =
+          Boolean(transaction.creditCardStatementId) ||
+          transaction.creditCardObligationEntries.some(
+            (entry) => entry.statementItems.length > 0,
+          );
         const isInPaidStatement = transaction.creditCardObligationEntries.some(
           (entry) =>
             entry.statementItems.some(
@@ -626,7 +631,7 @@ export async function getCreditCardsData() {
           transaction.refundTransactions.length === 0;
         const canDelete =
           transaction.purpose === "credit_card_payment"
-            ? isAdmin
+            ? isAdmin && transaction.workflowStatus !== "rejected"
             : (canModify && !isPaidOrClosed) ||
               (isOwnerOrAdmin && transaction.purpose === "credit_card_refund" && !isPaidOrClosed);
         return {
@@ -657,7 +662,7 @@ export async function getCreditCardsData() {
                 entry.statementItems.length === 0,
             ),
           canDelete,
-          canEdit: canModify && !isPaidOrClosed,
+          canEdit: canModify && !isPaidOrClosed && !isInAnyStatement,
           installmentPlanId: transaction.installmentPlan?.id ?? null,
           refundableAmount:
             transaction.purpose === "standard" && transaction.type === "expense"

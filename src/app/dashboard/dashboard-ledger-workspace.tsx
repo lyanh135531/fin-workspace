@@ -105,6 +105,12 @@ export function DashboardLedgerWorkspace({
     let pending = 0;
 
     for (const item of filteredRows) {
+      if (
+        item.purpose === "investment_contribution" ||
+        item.purpose === "investment_settlement"
+      ) {
+        continue;
+      }
       if (item.status === "approved") {
         if (item.purpose === "credit_card_refund") {
           expense = expense.minus(item.amount);

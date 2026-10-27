@@ -1771,6 +1771,9 @@ export function OverviewDashboard({
                 investmentMarketValue={
                   investmentsSnapshot?.totalPortfolioMarketValue ?? "0"
                 }
+                investmentCostBasis={
+                  investmentsSnapshot?.totalPortfolioCostBasis ?? "0"
+                }
               />
             )}
 
@@ -3541,6 +3544,7 @@ function BalanceHistoryChart({
   isMobile,
   periodOverride,
   investmentMarketValue = "0",
+  investmentCostBasis,
 }: {
   wallets: {
     id: string;
@@ -3554,6 +3558,7 @@ function BalanceHistoryChart({
   isMobile: boolean;
   periodOverride?: DashboardPeriod;
   investmentMarketValue?: string;
+  investmentCostBasis?: string;
 }) {
   const period = periodOverride ?? "month";
   const dateRange = getDashboardPeriodDateRange(reportPeriod, period);
@@ -3566,8 +3571,10 @@ function BalanceHistoryChart({
           walletId: "all",
           dateRange,
           investmentMarketValue,
+          investmentCostBasis,
         },
         investmentMarketValue,
+        investmentCostBasis,
       )
     : buildMonthlyBalances(
         wallets,
@@ -3578,8 +3585,10 @@ function BalanceHistoryChart({
           walletId: "all",
           dateRange,
           investmentMarketValue,
+          investmentCostBasis,
         },
         investmentMarketValue,
+        investmentCostBasis,
       );
 
   const rows = balances.map((row) => {

@@ -759,11 +759,18 @@ export function RecurringTransactionsManager({
                   variant="segmented"
                   className={cn(
                     "grid w-full md:inline-flex md:w-auto",
-                    completedCount > 0 && pendingApprovalCount > 0
-                      ? "grid-cols-5"
-                      : completedCount > 0 || pendingApprovalCount > 0
-                        ? "grid-cols-4"
-                        : "grid-cols-3",
+                    (() => {
+                      const count =
+                        2 +
+                        (pausedCount > 0 ? 1 : 0) +
+                        (pendingApprovalCount > 0 ? 1 : 0) +
+                        (completedCount > 0 ? 1 : 0);
+                      return count === 5
+                        ? "grid-cols-5"
+                        : count === 4
+                          ? "grid-cols-4"
+                          : "grid-cols-3";
+                    })(),
                   )}
                 >
                   <TabsTrigger
@@ -777,9 +784,11 @@ export function RecurringTransactionsManager({
                   <TabsTrigger variant="segmented" value="active" className="px-2 text-xs">
                     Đang bật ({activeCount})
                   </TabsTrigger>
-                  <TabsTrigger variant="segmented" value="deactive" className="px-2 text-xs">
-                    Tạm dừng ({pausedCount})
-                  </TabsTrigger>
+                  {pausedCount > 0 && (
+                    <TabsTrigger variant="segmented" value="deactive" className="px-2 text-xs">
+                      Tạm dừng ({pausedCount})
+                    </TabsTrigger>
+                  )}
                   {pendingApprovalCount > 0 && (
                     <TabsTrigger
                       variant="segmented"
@@ -1084,7 +1093,9 @@ function RecurringScheduleRow({
             <span>
               {schedule.completedAt
                 ? `Đã hoàn tất (${schedule.occurrenceCount} kỳ)`
-                : `Ngày ${schedule.dayOfMonth} hằng tháng · Kỳ tiếp theo: ${dateLabel(schedule.nextExecutionDate)}`}
+                : schedule.approvalStatus === "rejected"
+                  ? `Ngày ${schedule.dayOfMonth} hằng tháng · Đã từ chối duyệt`
+                  : `Ngày ${schedule.dayOfMonth} hằng tháng · Kỳ tiếp theo: ${dateLabel(schedule.nextExecutionDate)}`}
             </span>
           </p>
         </div>

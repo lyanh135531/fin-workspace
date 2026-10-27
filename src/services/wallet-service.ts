@@ -298,6 +298,7 @@ export async function assertWalletHasNoOpenDependencies(
     creditCardDependencies,
     linkedGoals,
     activeSavingsCount,
+    activeGoldLotCount,
   ] = await Promise.all([
     tx.transaction.count({
       where: {
@@ -348,6 +349,15 @@ export async function assertWalletHasNoOpenDependencies(
         deletedAt: null,
       },
     }) ?? 0,
+    tx.goldPurchaseLot?.count?.({
+      where: {
+        workspaceId,
+        sourceWalletId: walletId,
+        fundingMode: "from_wallet",
+        deletedAt: null,
+        holding: { deletedAt: null },
+      },
+    }) ?? 0,
   ]);
 
   if (openTransactions > 0) {
@@ -372,6 +382,12 @@ export async function assertWalletHasNoOpenDependencies(
     throw new AppError(
       "CONFLICT",
       "Ví này đang liên kết với sổ tiết kiệm đang hoạt động. Vui lòng tất toán hoặc đổi ví nguồn sổ tiết kiệm trước khi ngừng sử dụng hoặc xóa ví.",
+    );
+  }
+  if (activeGoldLotCount > 0) {
+    throw new AppError(
+      "CONFLICT",
+      "Ví này đang liên kết với giao dịch mua vàng tích sản. Vui lòng xóa hoặc đổi nguồn vốn lô vàng trước khi ngừng sử dụng hoặc xóa ví.",
     );
   }
 }

@@ -24,10 +24,16 @@ import {
 } from "@/services/wallet-service";
 
 function revalidateWalletViews(workspaceId: string) {
+  revalidatePath("/dashboard");
   revalidatePath("/wallets");
+  revalidatePath("/dashboard/wallets");
   revalidatePath("/credit-cards");
+  revalidatePath("/dashboard/credit-cards");
   revalidatePath(`/workspace/${workspaceId}`);
   revalidatePath("/overview");
+  revalidatePath("/dashboard/overview");
+  revalidatePath("/investments");
+  revalidatePath("/dashboard/investments");
   revalidatePath("/recurring-transactions");
   revalidatePath("/financial-plans");
   revalidatePath("/dashboard/financial-plans");

@@ -32,8 +32,14 @@ export async function selectWorkspaceAction(workspaceId: string) {
       secure: process.env.NODE_ENV === "production",
       path: "/",
     });
+    revalidatePath("/", "layout");
+    revalidatePath("/dashboard");
     revalidatePath("/overview");
     revalidatePath("/wallets");
+    revalidatePath("/financial-plans");
+    revalidatePath("/recurring-transactions");
+    revalidatePath("/investments");
+    revalidatePath("/credit-cards");
     revalidatePath(`/workspace/${id}`);
     revalidatePath("/settings/workspace");
     return { ok: true as const };

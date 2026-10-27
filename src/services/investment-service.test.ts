@@ -5,6 +5,7 @@ import {
   deleteGoldPurchaseLot,
   deleteGoldSaleRecord,
   deleteSavingsSettlement,
+  settleSavingsDeposit,
   updateGoldPurchaseLot,
 } from "@/services/investment-service";
 
@@ -178,7 +179,7 @@ describe("investment-service", () => {
     expect(holdingUpdate?.data.realizedProfitAmount.toFixed(0)).toBe("2000000");
   });
 
-  it("blocks balance reversal when the linked source wallet is deactivated or deleted", async () => {
+  it("blocks balance reversal when the linked source wallet is deactivated", async () => {
     const tx = {
       $queryRaw: vi.fn().mockResolvedValue([]),
       goldPurchaseLot: {
@@ -203,7 +204,13 @@ describe("investment-service", () => {
         update: vi.fn(),
       },
       wallet: {
-        findFirst: vi.fn().mockResolvedValue(null),
+        findFirst: vi.fn().mockResolvedValue({
+          id: "wallet-inactive",
+          name: "Ví ngừng hoạt động",
+          status: "deactive",
+          deletedAt: null,
+          currentBalance: new Decimal("0"),
+        }),
         update: vi.fn(),
       },
     };
@@ -215,10 +222,68 @@ describe("investment-service", () => {
     await expect(
       deleteGoldPurchaseLot("user-1", "workspace-1", "lot-1"),
     ).rejects.toThrow(
-      "Ví liên kết đã ngừng hoạt động hoặc bị xóa, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
+      "Ví liên kết đã ngừng hoạt động, không thể tự động hoàn/thu hồi số dư. Vui lòng kích hoạt lại ví trước.",
     );
     expect(tx.wallet.update).not.toHaveBeenCalled();
     expect(tx.goldPurchaseLot.update).not.toHaveBeenCalled();
+  });
+
+  it("allows deleting a gold purchase lot when the linked source wallet was soft-deleted without mutating wallet balance", async () => {
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      goldPurchaseLot: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "lot-1",
+          workspaceId: "workspace-1",
+          holdingId: "holding-1",
+          fundingMode: "from_wallet",
+          sourceWalletId: "wallet-deleted",
+          ledgerTransactionId: "tx-1",
+          quantityChi: new Decimal("1.0000"),
+          remainingQuantityChi: new Decimal("1.0000"),
+          totalCostAmount: new Decimal("15000000"),
+          holding: {
+            id: "holding-1",
+            deletedAt: null,
+            totalQuantityChi: new Decimal("1.0000"),
+            totalCostBasisAmount: new Decimal("15000000"),
+            saleRecords: [],
+          },
+        }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      wallet: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "wallet-deleted",
+          name: "Ví đã xóa",
+          status: "deactive",
+          deletedAt: new Date("2026-04-01T00:00:00.000Z"),
+          currentBalance: new Decimal("0"),
+        }),
+        update: vi.fn(),
+      },
+      transaction: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      goldHolding: {
+        update: vi.fn().mockResolvedValue({}),
+      },
+    };
+
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (cb: (client: typeof tx) => unknown) => cb(tx),
+    );
+
+    await deleteGoldPurchaseLot("user-1", "workspace-1", "lot-1");
+
+    expect(tx.wallet.update).not.toHaveBeenCalled();
+    expect(tx.transaction.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "tx-1", deletedAt: null },
+      }),
+    );
+    expect(tx.goldPurchaseLot.update).toHaveBeenCalledTimes(1);
+    expect(tx.goldHolding.update).toHaveBeenCalledTimes(1);
   });
 
   it("recreates ledger transaction in updateGoldPurchaseLot when existing ledger transaction was soft-deleted", async () => {
@@ -321,7 +386,7 @@ describe("investment-service", () => {
     expect(updated.ledgerTransactionId).toBe("tx-recreated");
   });
 
-  it("matches exact settlementId audit log and enforces createdAt desc LIFO order in deleteSavingsSettlement", async () => {
+  it("matches exact settlementId audit log and enforces settlementDate desc LIFO order in deleteSavingsSettlement", async () => {
     const tx = {
       $queryRaw: vi.fn().mockResolvedValue([]),
       savingsDepositSettlement: {
@@ -404,7 +469,7 @@ describe("investment-service", () => {
           deposit: {
             include: {
               settlements: {
-                orderBy: [{ createdAt: "desc" }, { settlementDate: "desc" }],
+                orderBy: [{ settlementDate: "desc" }, { createdAt: "desc" }],
               },
             },
           },
@@ -415,5 +480,49 @@ describe("investment-service", () => {
     const updateData = tx.savingsDeposit.update.mock.calls[0]?.[0].data;
     expect(updateData.currentPrincipalAmount.toFixed(0)).toBe("80000000");
     expect(updateData.annualInterestRate.toFixed(1)).toBe("5.5");
+  });
+
+  it("rejects backdated savings settlements earlier than the latest existing settlement", async () => {
+    const tx = {
+      savingsDeposit: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "00000000-0000-4000-8000-000000000002",
+          workspaceId: "workspace-1",
+          status: "active",
+          deletedAt: null,
+          currentPrincipalAmount: new Decimal("100000000"),
+          annualInterestRate: new Decimal("6.0"),
+          nonTermInterestRate: new Decimal("0.1"),
+          termMonths: 6,
+          startDate: new Date("2026-01-01T00:00:00.000Z"),
+          maturityDate: new Date("2026-07-01T00:00:00.000Z"),
+        }),
+      },
+      savingsDepositSettlement: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "settle-latest",
+            settlementDate: new Date("2026-04-15T00:00:00.000Z"),
+          },
+        ]),
+      },
+    };
+
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (cb: (client: typeof tx) => unknown) => cb(tx),
+    );
+
+    await expect(
+      settleSavingsDeposit("user-1", "workspace-1", {
+        depositId: "00000000-0000-4000-8000-000000000002",
+        settlementType: "early_partial",
+        settlementDate: "2026-04-10",
+        destinationWalletId: "00000000-0000-4000-8000-000000000010",
+        principalWithdrawnAmount: "20000000",
+        interestReceivedAmount: "50000",
+      }),
+    ).rejects.toThrow(
+      "Ngày tất toán hoặc tái tục mới không được trước lần thực hiện gần nhất.",
+    );
   });
 });
