@@ -84,6 +84,34 @@ export const reorderWalletsSchema = z.object({
   ),
 });
 
+export const reconcileWalletBalanceSchema = z
+  .object({
+    walletId: idSchema,
+    actualBalance: moneySchema.refine((amount) => amount.gte(0), {
+      message: "Số dư thực tế không được âm.",
+    }),
+    mode: z.enum(["balance_only", "record_cashflow"]).default("balance_only"),
+    categoryId: idSchema
+      .nullable()
+      .optional()
+      .transform((val) => val ?? undefined),
+    note: z
+      .string()
+      .trim()
+      .max(500, "Ghi chú không được vượt quá 500 ký tự.")
+      .optional()
+      .transform((val) => (val ? val.normalize("NFC") : undefined)),
+  })
+  .superRefine((data, ctx) => {
+    if (data.mode === "balance_only" && data.categoryId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["categoryId"],
+        message: "Chế độ chỉ khớp số dư không gắn danh mục thu chi.",
+      });
+    }
+  });
+
 type ParsedCreateWalletInput = z.output<typeof createWalletSchema>;
 export type CreateWalletInput = Omit<ParsedCreateWalletInput, "kind" | "assetSubtype"> & {
   kind?: ParsedCreateWalletInput["kind"];
@@ -91,3 +119,11 @@ export type CreateWalletInput = Omit<ParsedCreateWalletInput, "kind" | "assetSub
 };
 export type UpdateWalletInput = z.output<typeof updateWalletSchema>;
 export type ReorderWalletsInput = z.output<typeof reorderWalletsSchema>;
+type ParsedReconcileWalletBalanceInput = z.output<typeof reconcileWalletBalanceSchema>;
+export type ReconcileWalletBalanceInput = Omit<
+  ParsedReconcileWalletBalanceInput,
+  "categoryId" | "note"
+> & {
+  categoryId?: string | null;
+  note?: string;
+};

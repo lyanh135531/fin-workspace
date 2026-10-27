@@ -17,7 +17,8 @@ type SummaryTransaction = {
     | "credit_card_refund"
     | "credit_card_installment_fee"
     | "investment_contribution"
-    | "investment_settlement";
+    | "investment_settlement"
+    | "balance_reconciliation";
   workflowStatus: "pending" | "scheduled" | "approved" | "rejected";
 };
 
@@ -37,7 +38,8 @@ export function buildLedgerPeriodSummaries(
     summaryByPeriod.set(period, periodSummary);
     if (
       transaction.purpose === "investment_contribution" ||
-      transaction.purpose === "investment_settlement"
+      transaction.purpose === "investment_settlement" ||
+      transaction.purpose === "balance_reconciliation"
     ) {
       continue;
     }

@@ -17,16 +17,19 @@ import {
   PlayCircle,
   Plus,
   Repeat2,
+  Scale,
   ShieldCheck,
   Trash2,
   TrendingUp,
   Wallet,
   WalletCards,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   type DragEvent,
+  type FormEvent,
   useEffect,
   useMemo,
   useState,
@@ -37,6 +40,7 @@ import { usePrivacyMask } from "@/lib/privacy-mask";
 
 import {
   createManagedWalletAction,
+  reconcileManagedWalletBalanceAction,
   reorderManagedWalletsAction,
   setManagedWalletStatusAction,
   softDeleteManagedWalletAction,
@@ -45,6 +49,7 @@ import {
 import {
   Button,
   Card,
+  CategoryTreeSelect,
   Empty,
   Input,
   Loading,
@@ -69,6 +74,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { formatAmount } from "@/lib/format";
+import { MAX_MONEY_INTEGER_DIGITS } from "@/lib/money-limits";
 import { cn } from "@/lib/utils";
 import type { CreditCardCommitmentDetailItem } from "@/services/credit-card-service";
 
@@ -93,6 +99,332 @@ type WalletItem = {
   availableBalance?: string;
   ownerLabel?: string;
 };
+
+type ReconcileCategoryOption = {
+  id: string;
+  name: string;
+  color: string;
+  icon: string | null;
+  parentId: string | null;
+  type: "income" | "expense";
+};
+
+function ReconcileWalletSheetBody({
+  wallet,
+  currency,
+  categories,
+  onClose,
+  onReconciled,
+}: {
+  wallet: WalletItem;
+  currency: string;
+  categories: ReconcileCategoryOption[];
+  onClose: () => void;
+  onReconciled: () => void;
+}) {
+  usePrivacyMask();
+  const systemBalanceDec = new Decimal(wallet.currentBalance || 0);
+  const reservedBalanceDec = new Decimal(wallet.reservedBalance || 0);
+  const initialDigits = Decimal.max(systemBalanceDec, 0)
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    .toFixed(0);
+
+  const [actualBalanceInput, setActualBalanceInput] = useState(initialDigits);
+  const [mode, setMode] = useState<"balance_only" | "record_cashflow">(
+    "balance_only",
+  );
+  const [categoryId, setCategoryId] = useState("none");
+  const [note, setNote] = useState("");
+  const [submitting, startSubmitTransition] = useTransition();
+
+  const digitsOnly = actualBalanceInput.replace(/\D/g, "");
+  const exceedsLimit = digitsOnly.length > MAX_MONEY_INTEGER_DIGITS;
+  const parsedActualBalance =
+    actualBalanceInput.trim() !== "" && !exceedsLimit
+      ? new Decimal(digitsOnly || "0")
+      : null;
+
+  const delta = parsedActualBalance
+    ? parsedActualBalance.minus(systemBalanceDec)
+    : new Decimal(0);
+  const isPositive = parsedActualBalance !== null && delta.gt(0);
+  const isNegative = parsedActualBalance !== null && delta.lt(0);
+  const isUnchanged = parsedActualBalance !== null && delta.isZero();
+
+  const targetTxType: "income" | "expense" = isPositive ? "income" : "expense";
+  const filteredCategories = useMemo(
+    () => categories.filter((cat) => cat.type === targetTxType),
+    [categories, targetTxType],
+  );
+  const effectiveCategoryId = useMemo(() => {
+    if (categoryId === "none") return "none";
+    return filteredCategories.some((cat) => cat.id === categoryId)
+      ? categoryId
+      : "none";
+  }, [categoryId, filteredCategories]);
+
+  const missingRequiredCategory =
+    mode === "record_cashflow" && isNegative && effectiveCategoryId === "none";
+  const canSubmit =
+    !submitting &&
+    parsedActualBalance !== null &&
+    !delta.isZero() &&
+    !missingRequiredCategory;
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!parsedActualBalance) {
+      toast.error("Vui lòng nhập số tiền thực tế hợp lệ.");
+      return;
+    }
+    if (delta.isZero()) {
+      toast.error("Số dư thực tế đang khớp với số dư trên hệ thống.");
+      return;
+    }
+    if (missingRequiredCategory) {
+      toast.error("Vui lòng chọn danh mục chi tiêu cho khoản chênh lệch giảm.");
+      return;
+    }
+
+    startSubmitTransition(async () => {
+      const result = await reconcileManagedWalletBalanceAction({
+        walletId: wallet.id,
+        actualBalance: parsedActualBalance.toFixed(0),
+        mode,
+        categoryId:
+          mode === "record_cashflow" && effectiveCategoryId !== "none"
+            ? effectiveCategoryId
+            : undefined,
+        note: note.trim() || undefined,
+      });
+
+      if (result.ok) {
+        toast.success(
+          `Đã đối soát ví “${wallet.name}” (${delta.gt(0) ? "+" : "−"}${formatAmount(delta.abs())} ${currency}).`,
+        );
+        onReconciled();
+      } else {
+        toast.error(result.message ?? "Không thể đối soát số dư ví.");
+      }
+    });
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      aria-busy={submitting}
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+    >
+      <SheetHeader
+        icon={Scale}
+        title={`Đối soát số dư · ${wallet.name}`}
+        description="Nhập số tiền thực tế đang có trong ví để cân bằng chênh lệch."
+      />
+
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 md:p-5">
+        {/* System Balance & Live Delta Summary */}
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 text-xs">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-[var(--text-secondary)]">
+              Số dư trên hệ thống
+            </span>
+            <strong className="text-sm font-semibold tabular-nums text-[var(--foreground)]">
+              {formatAmount(systemBalanceDec)} {currency}
+            </strong>
+          </div>
+          {reservedBalanceDec.gt(0) && (
+            <div className="mt-1 flex items-baseline justify-between gap-3 text-[11px] text-[var(--text-muted)]">
+              <span>Trong đó chờ trả thẻ</span>
+              <span className="font-medium tabular-nums text-[var(--warning)]">
+                {formatAmount(reservedBalanceDec)} {currency}
+              </span>
+            </div>
+          )}
+
+          <div className="my-2.5 border-t border-[var(--border)]" />
+
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-[var(--text-secondary)]">
+              Chênh lệch đối soát
+            </span>
+            {parsedActualBalance === null ? (
+              <span className="text-[var(--text-muted)]">
+                Nhập số dư thực tế bên dưới
+              </span>
+            ) : isUnchanged ? (
+              <span className="font-medium text-[var(--text-muted)]">
+                Đang khớp hệ thống (0 {currency})
+              </span>
+            ) : isPositive ? (
+              <strong className="text-sm font-bold tabular-nums text-[var(--income)]">
+                +{formatAmount(delta)} {currency}
+              </strong>
+            ) : (
+              <strong className="text-sm font-bold tabular-nums text-[var(--expense)]">
+                −{formatAmount(delta.abs())} {currency}
+              </strong>
+            )}
+          </div>
+        </div>
+
+        {/* Single-Bordered Executive Hero Amount Input */}
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-[var(--primary)]">
+              Số tiền thực tế trong ví
+            </span>
+            <div className="flex items-center gap-1.5">
+              {actualBalanceInput !== initialDigits && (
+                <button
+                  type="button"
+                  onClick={() => setActualBalanceInput(initialDigits)}
+                  className="inline-flex cursor-pointer items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]"
+                >
+                  Đặt lại
+                </button>
+              )}
+              {actualBalanceInput !== "" && (
+                <button
+                  type="button"
+                  onClick={() => setActualBalanceInput("")}
+                  aria-label="Xóa số tiền thực tế"
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]"
+                >
+                  <X className="size-3" aria-hidden="true" />
+                  <span>Xóa</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-1">
+            <MoneyInput
+              wrapperClassName="w-full"
+              className="h-11 rounded-none border-0! bg-transparent! py-0 pl-0 pr-12 text-left text-3xl font-bold tracking-tight text-[var(--foreground)] ring-0! focus-visible:border-0! focus-visible:ring-0! md:h-11 md:py-0 md:text-3xl"
+              autoFocus
+              value={actualBalanceInput}
+              onValueChange={setActualBalanceInput}
+              placeholder="0"
+              aria-label="Số tiền thực tế trong ví"
+            />
+          </div>
+        </div>
+
+        {reservedBalanceDec.gt(0) &&
+          parsedActualBalance !== null &&
+          parsedActualBalance.lt(reservedBalanceDec) && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-[var(--warning)]/30 bg-[color-mix(in_srgb,var(--warning)_10%,var(--surface))] px-3.5 py-2.5 text-xs text-[var(--text-secondary)]">
+              <AlertTriangle
+                size={15}
+                className="mt-0.5 shrink-0 text-[var(--warning)]"
+                aria-hidden="true"
+              />
+              <span className="leading-relaxed">
+                Số dư thực tế thấp hơn khoản đang chờ trả thẻ (
+                {formatAmount(reservedBalanceDec)} {currency}). Số dư khả dụng
+                của ví sẽ âm sau khi đối soát.
+              </span>
+            </div>
+          )}
+
+        {/* Mode Selection */}
+        <div className="space-y-2">
+          <span className="block text-xs font-medium text-[var(--foreground)]">
+            Cách ghi nhận khoản chênh lệch
+          </span>
+          <Tabs
+            value={mode}
+            onValueChange={(val) =>
+              setMode(val as "balance_only" | "record_cashflow")
+            }
+            className="gap-0"
+          >
+            <TabsList
+              variant="navigation"
+              className="grid w-full grid-cols-2"
+              aria-label="Cách ghi nhận khoản chênh lệch"
+            >
+              <TabsTrigger value="balance_only">Chỉ khớp số dư</TabsTrigger>
+              <TabsTrigger value="record_cashflow">
+                Tính vào Thu/Chi
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5 text-xs leading-relaxed text-[var(--text-secondary)]">
+            {mode === "balance_only"
+              ? "Cập nhật số dư ví và lưu bút toán đối soát riêng. Không tính vào báo cáo Thu/Chi tháng hay ngân sách 6 hũ."
+              : isPositive
+                ? "Tạo giao dịch Thu nhập thông thường và tính vào báo cáo Thu/Chi tháng."
+                : "Tạo giao dịch Chi tiêu thông thường, tính vào báo cáo Thu/Chi tháng và ngân sách 6 hũ."}
+          </p>
+        </div>
+
+        {mode === "record_cashflow" && (isPositive || isNegative) && (
+          <CategoryTreeSelect
+            className="h-10 rounded-xl md:h-10 md:rounded-xl"
+            label={isPositive ? "Danh mục thu nhập" : "Danh mục chi tiêu"}
+            required={isNegative}
+            value={effectiveCategoryId}
+            onValueChange={setCategoryId}
+            placeholder={
+              isNegative
+                ? "Chọn danh mục chi tiêu"
+                : "Chọn danh mục (không bắt buộc)"
+            }
+            categories={filteredCategories}
+            emptyOption={
+              isNegative ? undefined : { value: "none", label: "Không chọn" }
+            }
+            spotlight
+          />
+        )}
+
+        <Input
+          label={
+            <>
+              Ghi chú{" "}
+              <span className="font-normal text-[var(--text-muted)]">
+                (tuỳ chọn)
+              </span>
+            </>
+          }
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          maxLength={500}
+          placeholder="Ví dụ: Quên ghi tiền mặt, phí ngân hàng, tiền lẻ..."
+          className="h-10 rounded-xl md:h-10 md:rounded-xl"
+        />
+      </div>
+
+      <SheetFooter className="flex-row justify-end gap-2.5">
+        <Button
+          type="button"
+          variant="outline"
+          className="flex-1 md:flex-none"
+          disabled={submitting}
+          onClick={onClose}
+        >
+          Hủy
+        </Button>
+        <Button
+          type="submit"
+          className="flex-1 md:flex-none"
+          disabled={!canSubmit}
+        >
+          {submitting ? (
+            <Loading label="Đang đối soát..." />
+          ) : (
+            <>
+              <Scale size={15} />
+              <span>Xác nhận đối soát</span>
+            </>
+          )}
+        </Button>
+      </SheetFooter>
+    </form>
+  );
+}
 
 type DestructiveWalletOperation = {
   wallet: WalletItem;
@@ -400,6 +732,7 @@ export function WalletManagement({
   isAdmin,
   commitmentDetails = [],
   initialReservedWalletId,
+  categories = [],
 }: {
   workspace: { name: string; currency: string };
   wallets: WalletItem[];
@@ -407,6 +740,7 @@ export function WalletManagement({
   isAdmin: boolean;
   commitmentDetails?: CreditCardCommitmentDetailItem[];
   initialReservedWalletId?: string;
+  categories?: ReconcileCategoryOption[];
 }) {
   const router = useRouter();
   const [creatingModal, setCreatingModal] = useState(false);
@@ -417,6 +751,16 @@ export function WalletManagement({
   const [createFundingWalletId, setCreateFundingWalletId] = useState("");
   const [editingWallet, setEditingWallet] = useState<WalletItem | null>(null);
   const [detailWallet, setDetailWallet] = useState<WalletItem | null>(null);
+  const [reconcilingWallet, setReconcilingWallet] =
+    useState<WalletItem | null>(null);
+  const activeReconcilingWallet = useMemo(
+    () =>
+      reconcilingWallet
+        ? (wallets.find((w) => w.id === reconcilingWallet.id) ??
+          reconcilingWallet)
+        : null,
+    [reconcilingWallet, wallets],
+  );
   const [reservedBreakdownOpen, setReservedBreakdownOpen] = useState(
     Boolean(initialReservedWalletId),
   );
@@ -768,6 +1112,7 @@ export function WalletManagement({
       reservedBreakdownOpen ||
       detailWallet !== null ||
       editingWallet !== null ||
+      reconcilingWallet !== null ||
       confirmOperation !== null ||
       blockedOperation !== null ||
       creatingModal;
@@ -831,6 +1176,22 @@ export function WalletManagement({
         {isAdmin && (
           <>
             <DropdownMenuSeparator />
+            {!isCredit && isActive && (
+              <DropdownMenuItem
+                disabled={pending}
+                onClick={() => {
+                  setMobileMenuWalletId(null);
+                  setReconcilingWallet(wallet);
+                }}
+              >
+                <Scale
+                  size={15}
+                  className="text-[var(--primary)]"
+                  aria-hidden="true"
+                />
+                <span>Đối soát số dư</span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               disabled={pending}
               onClick={() => {
@@ -1125,6 +1486,20 @@ export function WalletManagement({
                 title="Mở trang thẻ tín dụng"
               >
                 <ArrowUpRight size={15} aria-hidden="true" />
+              </Button>
+            )}
+            {isAdmin && !isCredit && isActive && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8 text-[var(--text-secondary)] hover:text-[var(--primary)]"
+                disabled={pending}
+                onClick={() => setReconcilingWallet(wallet)}
+                aria-label={`Đối soát số dư ${wallet.name}`}
+                title="Đối soát số dư"
+              >
+                <Scale size={14} aria-hidden="true" />
               </Button>
             )}
             {isAdmin && (
@@ -2030,13 +2405,31 @@ export function WalletManagement({
                       detailWallet.kind === "credit_card";
                     return (
                       <>
-                        <span className="block text-xs font-medium text-[var(--text-secondary)]">
-                          {isCreditDetail
-                            ? detailBalDec.lt(0)
-                              ? "Số dư nộp thừa"
-                              : "Dư nợ hiện tại"
-                            : "Số dư hiện tại"}
-                        </span>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="block text-xs font-medium text-[var(--text-secondary)]">
+                            {isCreditDetail
+                              ? detailBalDec.lt(0)
+                                ? "Số dư nộp thừa"
+                                : "Dư nợ hiện tại"
+                              : "Số dư hiện tại"}
+                          </span>
+                          {isAdmin &&
+                            !isCreditDetail &&
+                            detailWallet.status === "active" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const target = detailWallet;
+                                  setDetailWallet(null);
+                                  setReconcilingWallet(target);
+                                }}
+                                className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--primary)] transition-colors hover:bg-[var(--surface-hover)]"
+                              >
+                                <Scale size={13} aria-hidden="true" />
+                                <span>Đối soát số dư</span>
+                              </button>
+                            )}
+                        </div>
                         <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
                           <strong
                             className={cn(
@@ -2865,6 +3258,37 @@ export function WalletManagement({
                 </Button>
               </SheetFooter>
             </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet
+        open={activeReconcilingWallet !== null}
+        onOpenChange={(open) => {
+          if (!open && !pending) {
+            setReconcilingWallet(null);
+          }
+        }}
+      >
+        <SheetContent
+          side={isDesktop ? "right" : "bottom"}
+          placement={isDesktop ? "inset" : "edge"}
+          size="md"
+          spacing="flush"
+          elevation="flat"
+        >
+          {activeReconcilingWallet ? (
+            <ReconcileWalletSheetBody
+              key={activeReconcilingWallet.id}
+              wallet={activeReconcilingWallet}
+              currency={workspace.currency}
+              categories={categories}
+              onClose={() => setReconcilingWallet(null)}
+              onReconciled={() => {
+                setReconcilingWallet(null);
+                router.refresh();
+              }}
+            />
           ) : null}
         </SheetContent>
       </Sheet>

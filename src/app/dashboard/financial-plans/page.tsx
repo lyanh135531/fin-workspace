@@ -105,6 +105,7 @@ export default async function FinancialPlansPage({
                     "credit_card_payment",
                     "investment_contribution",
                     "investment_settlement",
+                    "balance_reconciliation",
                   ],
                 },
               },

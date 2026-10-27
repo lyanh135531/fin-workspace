@@ -175,7 +175,8 @@ export async function WorkspaceDashboard({
         item.workflowStatus !== "rejected" &&
         !isLockedForEdit,
       canRequestDelete:
-        item.purpose === "credit_card_payment"
+        item.purpose === "credit_card_payment" ||
+        item.purpose === "balance_reconciliation"
           ? isAdmin && item.workflowStatus !== "rejected"
           : item.purpose === "credit_card_installment_fee" ||
               item.purpose === "investment_contribution" ||

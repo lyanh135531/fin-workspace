@@ -119,7 +119,8 @@ type Transaction = {
     | "credit_card_refund"
     | "credit_card_installment_fee"
     | "investment_contribution"
-    | "investment_settlement";
+    | "investment_settlement"
+    | "balance_reconciliation";
   investmentPrincipalDelta?: string;
   paymentSources?: { walletId: string; amount: string }[];
 };
@@ -365,7 +366,8 @@ function summarizeTransactions(
         item.status !== "approved" ||
         !isInDateRange(item.date, dateRange) ||
         item.purpose === "investment_contribution" ||
-        item.purpose === "investment_settlement"
+        item.purpose === "investment_settlement" ||
+        item.purpose === "balance_reconciliation"
       ) {
         return result;
       }
@@ -861,6 +863,7 @@ export function OverviewDashboard({
           item.status === "approved" &&
           item.purpose !== "investment_contribution" &&
           item.purpose !== "investment_settlement" &&
+          item.purpose !== "balance_reconciliation" &&
           isInDateRange(item.date, activeDateRange) &&
           (targetType === "income"
             ? item.type === "income" && item.purpose !== "credit_card_refund"
@@ -910,6 +913,7 @@ export function OverviewDashboard({
           t.memberId === m.id &&
           t.purpose !== "investment_contribution" &&
           t.purpose !== "investment_settlement" &&
+          t.purpose !== "balance_reconciliation" &&
           (t.type === "expense" || t.purpose === "credit_card_refund") &&
           t.status === "approved" &&
           isInDateRange(t.date, activeDateRange),
@@ -2947,11 +2951,14 @@ export function OverviewDashboard({
                                       ? "Đầu tư & Gửi tiết kiệm"
                                       : tx.purpose === "investment_settlement"
                                         ? "Bán vàng & Tất toán tiết kiệm"
-                                        : isIncome
-                                          ? "Khoản thu"
-                                          : isExpense
-                                            ? "Khoản chi"
-                                            : "Chuyển khoản")}
+                                        : tx.purpose ===
+                                            "balance_reconciliation"
+                                          ? "Đối soát số dư"
+                                          : isIncome
+                                            ? "Khoản thu"
+                                            : isExpense
+                                              ? "Khoản chi"
+                                              : "Chuyển khoản")}
                             </p>
                             {tx.status !== "approved" && (
                               <span
@@ -3148,7 +3155,9 @@ export function OverviewDashboard({
                                   ? "Đầu tư & Gửi tiết kiệm"
                                   : tx.purpose === "investment_settlement"
                                     ? "Bán vàng & Tất toán tiết kiệm"
-                                    : "Giao dịch chờ duyệt")}
+                                    : tx.purpose === "balance_reconciliation"
+                                      ? "Đối soát số dư"
+                                      : "Giao dịch chờ duyệt")}
                         </p>
                         <p className="mt-0.5 break-words text-xs text-[var(--text-muted)] tabular-nums">
                           {tx.member} · Ví {tx.wallet} ·{" "}
@@ -3242,11 +3251,14 @@ export function OverviewDashboard({
                         : selectedTransaction.purpose ===
                             "investment_settlement"
                           ? "Bán vàng & Tất toán tiết kiệm"
-                          : selectedTransaction.type === "income"
-                            ? "Thu nhập"
-                            : selectedTransaction.type === "expense"
-                              ? "Chi tiêu"
-                              : "Chuyển tiền"}
+                          : selectedTransaction.purpose ===
+                              "balance_reconciliation"
+                            ? "Đối soát số dư ví"
+                            : selectedTransaction.type === "income"
+                              ? "Thu nhập"
+                              : selectedTransaction.type === "expense"
+                                ? "Chi tiêu"
+                                : "Chuyển tiền"}
                 </span>
                 <strong
                   className={cn(

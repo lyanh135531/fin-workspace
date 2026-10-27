@@ -7,6 +7,7 @@ import { workspaceCapabilities } from "@/domain/role-policy";
 import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { availableCategoryWhere } from "@/services/category-visibility";
 import {
   getWorkspaceCreditCardCommitmentDetails,
   getWorkspaceCreditCardCommitments,
@@ -38,7 +39,7 @@ export default async function WalletsPage({
   });
   if (!membership) redirect("/overview");
 
-  const [links, commitments, commitmentDetails] = await Promise.all([
+  const [links, commitments, commitmentDetails, categories] = await Promise.all([
     prisma.workspaceWallet.findMany({
       where: { workspaceId, wallet: { deletedAt: null } },
       include: {
@@ -63,6 +64,18 @@ export default async function WalletsPage({
     }),
     getWorkspaceCreditCardCommitments(workspaceId),
     getWorkspaceCreditCardCommitmentDetails(workspaceId),
+    prisma.category.findMany({
+      where: availableCategoryWhere(workspaceId),
+      select: {
+        id: true,
+        name: true,
+        color: true,
+        icon: true,
+        parentId: true,
+        type: true,
+      },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
   ]);
 
   const totalBalance = links
@@ -89,6 +102,7 @@ export default async function WalletsPage({
         isAdmin={workspaceCapabilities(membership.role.code).canManageWallets}
         commitmentDetails={commitmentDetails}
         initialReservedWalletId={resolvedParams?.reservedWalletId}
+        categories={categories}
         wallets={links.map(({ wallet }) => {
           const committed = commitments.get(wallet.id) ?? ZERO;
           const currentBalanceStr = wallet.currentBalance.toString();

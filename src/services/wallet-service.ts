@@ -1,5 +1,6 @@
 import type {
   CreateWalletInput,
+  ReconcileWalletBalanceInput,
   ReorderWalletsInput,
   UpdateWalletInput,
 } from "@/domain";
@@ -580,5 +581,134 @@ export async function softDeleteWalletForWorkspace(
       },
     });
     return wallet;
+  });
+}
+
+export async function reconcileWalletBalanceForWorkspace(
+  userId: string,
+  workspaceId: string,
+  input: ReconcileWalletBalanceInput,
+) {
+  const member = await requireWorkspaceMember(userId, workspaceId, true);
+
+  return prisma.$transaction(async (tx) => {
+    await lockWallets(tx, [input.walletId]);
+    const link = await tx.workspaceWallet.findFirst({
+      where: { workspaceId, walletId: input.walletId, wallet: { deletedAt: null } },
+      include: { wallet: true },
+    });
+    if (!link) {
+      throw new AppError(
+        "WORKSPACE_ISOLATION_VIOLATION",
+        "Ví không tồn tại trong nhóm này.",
+      );
+    }
+    if (link.wallet.kind === "credit_card") {
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Chỉ hỗ trợ đối soát số dư cho ví thanh toán.",
+      );
+    }
+    if (link.wallet.status !== "active") {
+      throw new AppError(
+        "CONFLICT",
+        "Hãy kích hoạt lại ví trước khi đối soát số dư.",
+      );
+    }
+
+    const previousBalance = new Decimal(link.wallet.currentBalance.toString());
+    const actualBalance = new Decimal(input.actualBalance.toString());
+    const delta = actualBalance.minus(previousBalance);
+
+    if (delta.isZero()) {
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Số dư thực tế đang khớp với số dư trên hệ thống, không cần điều chỉnh.",
+      );
+    }
+
+    const txType = delta.gt(0) ? ("income" as const) : ("expense" as const);
+    const absDelta = delta.abs();
+    const businessDate = getBusinessDateInTimeZone(
+      member.workspace.timeZone,
+      new Date(),
+    );
+    const description = input.note
+      ? `Đối soát số dư: ${input.note}`
+      : `Đối soát số dư ví “${link.wallet.name}”`;
+
+    let transactionId: string;
+
+    if (input.mode === "record_cashflow") {
+      if (txType === "expense" && !input.categoryId) {
+        throw new AppError(
+          "VALIDATION_ERROR",
+          "Vui lòng chọn danh mục chi tiêu cho khoản chênh lệch giảm.",
+        );
+      }
+      const transaction = await createApprovedTransactionInTransaction(
+        tx,
+        workspaceId,
+        member.id,
+        {
+          walletId: link.wallet.id,
+          categoryId: input.categoryId ?? undefined,
+          type: txType,
+          amount: absDelta,
+          description,
+          date: businessDate,
+        },
+      );
+      transactionId = transaction.id;
+    } else {
+      const dbDate = new Date(`${businessDate}T00:00:00.000Z`);
+      const transaction = await tx.transaction.create({
+        data: {
+          memberId: member.id,
+          walletId: link.wallet.id,
+          toWalletId: null,
+          categoryId: null,
+          type: txType,
+          purpose: "balance_reconciliation",
+          jarCode: null,
+          amount: absDelta,
+          description,
+          date: dbDate,
+          postedDate: dbDate,
+          workflowStatus: "approved",
+        },
+      });
+      await tx.wallet.update({
+        where: { id: link.wallet.id },
+        data: { currentBalance: actualBalance },
+      });
+      transactionId = transaction.id;
+    }
+
+    await tx.auditLog.create({
+      data: {
+        workspaceId,
+        actorUserId: userId,
+        action: "workspace.wallet_reconciled",
+        entityType: "wallet",
+        entityId: link.wallet.id,
+        metadata: {
+          transactionId,
+          mode: input.mode,
+          previousBalance: previousBalance.toString(),
+          actualBalance: actualBalance.toString(),
+          delta: delta.toString(),
+        },
+      },
+    });
+
+    return {
+      walletId: link.wallet.id,
+      transactionId,
+      previousBalance: previousBalance.toString(),
+      actualBalance: actualBalance.toString(),
+      delta: delta.toString(),
+      mode: input.mode,
+    };
   });
 }

@@ -15,6 +15,7 @@ const ACTION_LABELS: Record<string, string> = {
   "workspace.wallet_reactivated": "Kích hoạt lại ví",
   "workspace.wallet_deactivated": "Vô hiệu hóa ví",
   "workspace.wallet_deleted": "Xóa ví",
+  "workspace.wallet_reconciled": "Đối soát số dư ví",
   "workspace.credit_card_created": "Tạo thẻ tín dụng",
   "workspace.credit_card_updated": "Cập nhật thẻ tín dụng",
   "workspace.credit_card_deleted": "Xóa thẻ tín dụng",

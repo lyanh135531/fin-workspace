@@ -548,6 +548,12 @@ async function applyUpdate(
       "Giao dịch vàng/tiết kiệm được quản lý tại mục Đầu tư.",
     );
   }
+  if (current.purpose === "balance_reconciliation") {
+    throw new AppError(
+      "CONFLICT",
+      "Giao dịch đối soát số dư không thể chỉnh sửa trực tiếp. Bạn có thể xóa để hoàn tác hoặc đối soát lại trên trang Ví.",
+    );
+  }
   if (current.purpose && current.purpose !== "standard") {
     throw new AppError("CONFLICT", "Giao dịch thẻ chuyên biệt không thể sửa bằng biểu mẫu giao dịch thường.");
   }
@@ -826,8 +832,40 @@ async function softDelete(tx: TransactionClient, workspaceId: string, record: Tr
       "Giao dịch vàng/tiết kiệm được quản lý tại mục Đầu tư.",
     );
   }
-  if (current.purpose && current.purpose !== "standard" && current.purpose !== "credit_card_refund") {
+  if (
+    current.purpose &&
+    current.purpose !== "standard" &&
+    current.purpose !== "credit_card_refund" &&
+    current.purpose !== "balance_reconciliation"
+  ) {
     throw new AppError("CONFLICT", "Giao dịch thẻ chuyên biệt không thể xóa trực tiếp; hãy tạo điều chỉnh.");
+  }
+  if (current.purpose === "balance_reconciliation") {
+    await tx.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "WALLETS" WHERE "id" = CAST(${current.walletId} AS uuid) FOR UPDATE`,
+    );
+    const targetWallet = await tx.wallet.findFirst({
+      where: { id: current.walletId, deletedAt: null },
+      select: { status: true, currentBalance: true },
+    });
+    if (!targetWallet || targetWallet.status !== "active") {
+      throw new AppError(
+        "CONFLICT",
+        "Hãy kích hoạt lại ví trước khi hoàn tác giao dịch đối soát số dư.",
+      );
+    }
+    if (
+      current.workflowStatus === "approved" &&
+      current.type === "income" &&
+      new Decimal(targetWallet.currentBalance.toString()).lt(
+        new Decimal(current.amount.toString()),
+      )
+    ) {
+      throw new AppError(
+        "CONFLICT",
+        "Số dư ví hiện tại không đủ để hoàn tác khoản đối soát tăng số dư này.",
+      );
+    }
   }
   if (current.refundTransactions?.length) {
     throw new AppError("CONFLICT", "Giao dịch đã có hoàn tiền và không thể xóa; hãy xóa các khoản hoàn tiền trước.");
@@ -1191,6 +1229,12 @@ export async function updateTransaction(
         "Giao dịch vàng/tiết kiệm được quản lý tại mục Đầu tư.",
       );
     }
+    if (record.purpose === "balance_reconciliation") {
+      throw new AppError(
+        "CONFLICT",
+        "Giao dịch đối soát số dư không thể chỉnh sửa trực tiếp. Bạn có thể xóa để hoàn tác hoặc đối soát lại trên trang Ví.",
+      );
+    }
     if (record.purpose && record.purpose !== "standard") {
       throw new AppError("CONFLICT", "Giao dịch thẻ chuyên biệt không thể sửa trực tiếp.");
     }
@@ -1290,6 +1334,12 @@ export async function deleteOrRequestTransaction(userId: string, workspaceId: st
       throw new AppError(
         "CONFLICT",
         "Giao dịch vàng/tiết kiệm được quản lý tại mục Đầu tư.",
+      );
+    }
+    if (record.purpose === "balance_reconciliation") {
+      throw new AppError(
+        "FORBIDDEN",
+        "Chỉ Quản trị viên mới có thể xóa giao dịch đối soát số dư.",
       );
     }
     if (

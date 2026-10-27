@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   createWalletSchema,
   idSchema,
+  reconcileWalletBalanceSchema,
   reorderWalletsSchema,
   statusSchema,
   updateWalletSchema,
@@ -17,6 +18,7 @@ import { toActionFailure } from "@/lib/server-error";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 import {
   createWalletForWorkspace,
+  reconcileWalletBalanceForWorkspace,
   reorderWalletsForWorkspace,
   setWalletStatusForWorkspace,
   softDeleteWalletForWorkspace,
@@ -111,5 +113,23 @@ export async function softDeleteManagedWalletAction(input: unknown) {
     return { ok: true as const };
   } catch (error) {
     return toActionFailure(error, "Không thể xóa ví.", { event: "wallet.delete_failed" });
+  }
+}
+
+export async function reconcileManagedWalletBalanceAction(input: unknown) {
+  try {
+    const actor = await walletActor();
+    const parsed = reconcileWalletBalanceSchema.parse(input);
+    const data = await reconcileWalletBalanceForWorkspace(
+      actor.userId,
+      actor.workspaceId,
+      parsed,
+    );
+    revalidateWalletViews(actor.workspaceId);
+    return { ok: true as const, data };
+  } catch (error) {
+    return toActionFailure(error, "Không thể đối soát số dư ví.", {
+      event: "wallet.reconcile_failed",
+    });
   }
 }

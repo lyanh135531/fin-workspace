@@ -101,7 +101,8 @@ type LedgerItem = {
     | "credit_card_refund"
     | "credit_card_installment_fee"
     | "investment_contribution"
-    | "investment_settlement";
+    | "investment_settlement"
+    | "balance_reconciliation";
   status: "pending" | "scheduled" | "approved" | "rejected";
   description: string | null;
   date: string;
@@ -323,7 +324,8 @@ function getLedgerDateTotals(items: LedgerItem[]): LedgerDateTotals {
       if (item.status !== "approved") return totals;
       if (
         item.purpose === "investment_contribution" ||
-        item.purpose === "investment_settlement"
+        item.purpose === "investment_settlement" ||
+        item.purpose === "balance_reconciliation"
       ) {
         return totals;
       }
@@ -392,7 +394,12 @@ function TouchTransactionRow({
   const isTransfer = item.type === "transfer";
   const amountPrefix = isIncome ? "+" : isExpense ? "−" : "↔";
   const categoryName =
-    item.category?.name ?? (isTransfer ? "Chuyển khoản" : "Chưa phân loại");
+    item.category?.name ??
+    (isTransfer
+      ? "Chuyển khoản"
+      : item.purpose === "balance_reconciliation"
+        ? "Đối soát số dư"
+        : "Chưa phân loại");
   const primaryTitle = item.description || categoryName;
   const hasReviewRequest = Boolean(item.pendingChangeRequestId);
   const isDeleteRequest = item.pendingChangeAction === "delete";
@@ -490,6 +497,16 @@ function TouchTransactionRow({
                 />
                 <span className="break-words leading-snug">
                   Đầu tư & Tiết kiệm
+                </span>
+              </span>
+            ) : item.purpose === "balance_reconciliation" ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[0.65rem] font-medium text-[var(--text-secondary)]">
+                <span
+                  className="size-1.5 shrink-0 rounded-full bg-[var(--text-secondary)]"
+                  aria-hidden="true"
+                />
+                <span className="break-words leading-snug">
+                  Đối soát số dư
                 </span>
               </span>
             ) : (
@@ -1201,9 +1218,14 @@ export function Ledger({
     const isExpense = item.type === "expense";
     const isTransfer = item.type === "transfer";
     const amountPrefix = isIncome ? "+" : isExpense ? "−" : "↔";
+    const isBalanceReconciliation = item.purpose === "balance_reconciliation";
     const categoryName =
       item.category?.name ??
-      (isTransfer ? "Chuyển khoản" : "Chưa phân loại");
+      (isTransfer
+        ? "Chuyển khoản"
+        : isBalanceReconciliation
+          ? "Đối soát số dư"
+          : "Chưa phân loại");
     const primaryTitle = item.description || categoryName;
     const isSelected = selected.has(item.id);
     const hasReviewRequest = Boolean(item.pendingChangeRequestId);
@@ -1315,17 +1337,19 @@ export function Ledger({
     const isInvestmentSettlement = item.purpose === "investment_settlement";
     const subtitleText = isTransfer
       ? "Chuyển tiền giữa các ví"
-      : isInvestmentContribution
-        ? "Mua vàng / Mở sổ tiết kiệm"
-        : isInvestmentSettlement
-          ? "Bán vàng / Tất toán tiết kiệm"
-          : isCreditRefund
-            ? "Hoàn tiền thẻ tín dụng"
-            : isCreditWallet
-              ? "Chi tiêu thẻ tín dụng"
-              : isIncome
-                ? "Thu nhập"
-                : "Chi tiêu";
+      : isBalanceReconciliation
+        ? "Điều chỉnh khớp số dư thực tế"
+        : isInvestmentContribution
+          ? "Mua vàng / Mở sổ tiết kiệm"
+          : isInvestmentSettlement
+            ? "Bán vàng / Tất toán tiết kiệm"
+            : isCreditRefund
+              ? "Hoàn tiền thẻ tín dụng"
+              : isCreditWallet
+                ? "Chi tiêu thẻ tín dụng"
+                : isIncome
+                  ? "Thu nhập"
+                  : "Chi tiêu";
 
     return (
       <article
@@ -1454,6 +1478,11 @@ export function Ledger({
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]">
               <ArrowLeftRight className="size-3 shrink-0 text-[var(--primary)]" aria-hidden="true" />
               <span className="break-words leading-snug">Chuyển khoản</span>
+            </span>
+          ) : isBalanceReconciliation ? (
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]">
+              <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-secondary)]" aria-hidden="true" />
+              <span className="break-words leading-snug">Đối soát số dư</span>
             </span>
           ) : isInvestmentContribution || isInvestmentSettlement ? (
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--primary)]">
@@ -2912,6 +2941,21 @@ function TransactionDetailSheetBody({
                 Đầu tư
               </a>
               .
+            </p>
+          </div>
+        )}
+
+        {item.purpose === "balance_reconciliation" && (
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] p-3.5 text-xs text-[var(--text-secondary)]">
+            <p className="font-semibold text-[var(--foreground)]">
+              Bút toán đối soát số dư ví
+            </p>
+            <p className="mt-0.5 leading-relaxed">
+              Khoản điều chỉnh này giúp khớp số dư thực tế trong ví, không tính
+              vào báo cáo Thu/Chi tháng hay ngân sách 6 hũ.{" "}
+              {isAdmin
+                ? "Nếu cần hoàn tác, bạn có thể xóa bút toán này bên dưới."
+                : "Chỉ Quản trị viên mới có thể hoàn tác bút toán đối soát."}
             </p>
           </div>
         )}

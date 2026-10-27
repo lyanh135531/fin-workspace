@@ -650,6 +650,7 @@ export type CreditCardCommitmentDetailItem = {
     | "credit_card_installment_fee"
     | "investment_contribution"
     | "investment_settlement"
+    | "balance_reconciliation"
     | null;
   categoryName: string | null;
   installmentPlan: {

@@ -112,7 +112,8 @@ export function DashboardLedgerWorkspace({
     for (const item of filteredRows) {
       if (
         item.purpose === "investment_contribution" ||
-        item.purpose === "investment_settlement"
+        item.purpose === "investment_settlement" ||
+        item.purpose === "balance_reconciliation"
       ) {
         continue;
       }

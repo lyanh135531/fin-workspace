@@ -104,7 +104,8 @@ type CardActivity = {
     | "credit_card_refund"
     | "credit_card_installment_fee"
     | "investment_contribution"
-    | "investment_settlement";
+    | "investment_settlement"
+    | "balance_reconciliation";
   description: string | null;
   amount: string;
   date: string;

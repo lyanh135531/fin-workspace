@@ -29,6 +29,7 @@ enum TransactionPurpose {
   credit_card_installment_fee
   investment_contribution
   investment_settlement
+  balance_reconciliation
 
   @@map("TRANSACTION_PURPOSE")
 }

@@ -625,5 +625,120 @@ describe("overview monthly cashflow", () => {
       { period: "2026-03-12", total: "212000000" },
     ]);
   });
+
+  it("excludes balance_reconciliation from cashflow and member totals while reversing it in balance history", () => {
+    const reconcileTransactions = [
+      {
+        amount: "500000",
+        type: "expense" as const,
+        purpose: "standard" as const,
+        status: "approved" as const,
+        date: "2026-07-10T00:00:00.000Z",
+        walletId: "wallet-a",
+        toWalletId: null,
+        categoryId: "expense-category",
+        memberId: "member-a",
+      },
+      {
+        amount: "120000",
+        type: "expense" as const,
+        purpose: "balance_reconciliation" as const,
+        status: "approved" as const,
+        date: "2026-07-11T00:00:00.000Z",
+        walletId: "wallet-a",
+        toWalletId: null,
+        categoryId: null,
+        memberId: "member-a",
+      },
+      {
+        amount: "80000",
+        type: "income" as const,
+        purpose: "balance_reconciliation" as const,
+        status: "approved" as const,
+        date: "2026-07-12T00:00:00.000Z",
+        walletId: "wallet-a",
+        toWalletId: null,
+        categoryId: null,
+        memberId: "member-a",
+      },
+    ];
+
+    const monthlyCashflow = buildMonthlyCashflow(reconcileTransactions, filters);
+    expect(monthlyCashflow[2].income).toBe("0");
+    expect(monthlyCashflow[2].expense).toBe("500000");
+
+    const dailyCashflow = buildDailyCashflow(reconcileTransactions, {
+      endPeriod: "2026-07",
+      dateRange: { from: "2026-07-10", to: "2026-07-12" },
+      walletId: "all",
+      categoryId: "all",
+      memberId: "all",
+      transactionType: "all",
+    });
+    expect(dailyCashflow).toEqual([
+      {
+        period: "2026-07-10",
+        income: "0",
+        expense: "500000",
+        warningFrom: "0",
+        warningTo: "500000",
+        hasWarning: true,
+      },
+      {
+        period: "2026-07-11",
+        income: "0",
+        expense: "0",
+        warningFrom: "0",
+        warningTo: "0",
+        hasWarning: false,
+      },
+      {
+        period: "2026-07-12",
+        income: "0",
+        expense: "0",
+        warningFrom: "0",
+        warningTo: "0",
+        hasWarning: false,
+      },
+    ]);
+
+    const memberTotals = buildMemberMonthlyTotals(
+      [{ id: "member-a", name: "An" }],
+      reconcileTransactions,
+      {
+        endPeriod: "2026-07",
+        range: 3,
+        walletId: "all",
+        categoryId: "all",
+        type: "expense",
+      },
+    );
+    expect(memberTotals).toEqual([
+      { period: "2026-05", totals: { "member-a": "0" } },
+      { period: "2026-06", totals: { "member-a": "0" } },
+      { period: "2026-07", totals: { "member-a": "500000" } },
+    ]);
+
+    // Current balance after -500k (Jul 10), -120k (Jul 11), +80k (Jul 12) = 1,460,000
+    // Reversing:
+    //   End of Jul 12 = 1,460,000
+    //   End of Jul 11 = 1,460,000 - 80,000 = 1,380,000
+    //   End of Jul 10 = 1,380,000 + 120,000 = 1,500,000
+    //   End of Jul 09 = 1,500,000 + 500,000 = 2,000,000
+    const dailyBalances = buildDailyBalances(
+      [{ id: "wallet-a", name: "Ví chính", balance: "1460000" }],
+      reconcileTransactions,
+      {
+        walletId: "all",
+        dateRange: { from: "2026-07-09", to: "2026-07-12" },
+      },
+    );
+    expect(dailyBalances.map((row) => ({ period: row.period, total: row.total }))).toEqual([
+      { period: "2026-07-09", total: "2000000" },
+      { period: "2026-07-10", total: "1500000" },
+      { period: "2026-07-11", total: "1380000" },
+      { period: "2026-07-12", total: "1460000" },
+    ]);
+  });
 });
 

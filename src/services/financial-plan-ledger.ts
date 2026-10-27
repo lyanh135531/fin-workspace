@@ -352,6 +352,7 @@ export async function getFinancialPlanMonthLedger(
       record.purpose === "credit_card_payment" ||
       record.purpose === "investment_contribution" ||
       record.purpose === "investment_settlement" ||
+      record.purpose === "balance_reconciliation" ||
       record.type === "transfer" ||
       record.workflowStatus === "rejected"
     ) {
