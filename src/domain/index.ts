@@ -13,3 +13,6 @@ export * from "@/domain/transaction/schemas";
 export * from "@/domain/transaction/policy";
 export * from "@/domain/recurring-transaction/schemas";
 export * from "@/domain/wallet/schemas";
+export * from "@/domain/quick-capture/schemas";
+export * from "@/domain/quick-capture/receipt-parser";
+

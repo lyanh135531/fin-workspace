@@ -274,6 +274,8 @@ model User {
   legalAcceptances     LegalAcceptance[]
   reminderSetting      UserReminderSetting?
   pushSubscriptions    UserPushSubscription[]
+  quickCaptureTokens   QuickCaptureToken[]
+  quickCaptureDrafts   QuickCaptureDraft[]
 
   @@index([status, deletedAt])
   @@map("USERS")
@@ -321,6 +323,9 @@ model Workspace {
   goldSaleRecords            GoldSaleRecord[]
   savingsDeposits            SavingsDeposit[]
   savingsDepositSettlements  SavingsDepositSettlement[]
+  quickCaptureTokens         QuickCaptureToken[]
+  quickCaptureDrafts         QuickCaptureDraft[]
+  quickCapturePayeeRules     QuickCapturePayeeRule[]
 
   @@index([status, deletedAt])
   @@map("WORKSPACES")
@@ -402,31 +407,36 @@ model Wallet {
   goldSaleRecords                  GoldSaleRecord[]               @relation("GoldSaleDestinationWallet")
   savingsDeposits                  SavingsDeposit[]               @relation("SavingsDepositSourceWallet")
   savingsDepositSettlements        SavingsDepositSettlement[]     @relation("SavingsSettlementDestinationWallet")
+  quickCaptureTokens               QuickCaptureToken[]
+  quickCaptureDrafts               QuickCaptureDraft[]
 
   @@index([status, deletedAt])
   @@map("WALLETS")
 }
 
 model Category {
-  id                    String                 @id @default(uuid()) @db.Uuid
-  workspaceId           String                 @map("workspace_id") @db.Uuid
-  name                  String
-  code                  String
-  color                 String                 @db.VarChar(7)
-  type                  CategoryType           @default(expense)
-  icon                  String?
-  parentId              String?                @map("parent_id") @db.Uuid
-  jarCode               JarCode?               @map("jar_code")
-  sortOrder             Int                    @default(0) @map("order")
-  status                Status                 @default(active)
-  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt             DateTime?              @map("deleted_at") @db.Timestamptz(6)
-  workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  parent                Category?              @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  children              Category[]             @relation("CategoryHierarchy")
-  transactions          Transaction[]
-  recurringTransactions RecurringTransaction[]
+  id                     String                  @id @default(uuid()) @db.Uuid
+  workspaceId            String                  @map("workspace_id") @db.Uuid
+  name                   String
+  code                   String
+  color                  String                  @db.VarChar(7)
+  type                   CategoryType            @default(expense)
+  icon                   String?
+  parentId               String?                 @map("parent_id") @db.Uuid
+  jarCode                JarCode?                @map("jar_code")
+  sortOrder              Int                     @default(0) @map("order")
+  status                 Status                  @default(active)
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime?               @map("deleted_at") @db.Timestamptz(6)
+  workspace              Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  parent                 Category?               @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children               Category[]              @relation("CategoryHierarchy")
+  transactions           Transaction[]
+  recurringTransactions  RecurringTransaction[]
+  quickCaptureTokens     QuickCaptureToken[]
+  quickCaptureDrafts     QuickCaptureDraft[]
+  quickCapturePayeeRules QuickCapturePayeeRule[]
 
   @@unique([workspaceId, code])
   @@index([workspaceId, status, deletedAt, sortOrder])
@@ -566,6 +576,7 @@ model Transaction {
   goldSaleRecord                GoldSaleRecord?                @relation("GoldSaleTransaction")
   savingsDeposit                SavingsDeposit?                @relation("SavingsDepositOpenTransaction")
   savingsDepositSettlement      SavingsDepositSettlement?      @relation("SavingsSettlementTransaction")
+  quickCaptureDraft             QuickCaptureDraft?             @relation("QuickCaptureCommittedTransaction")
 
   @@unique([recurringTransactionId, recurringPeriod])
   @@index([memberId, date])
@@ -1199,4 +1210,72 @@ model SavingsDepositSettlement {
   @@map("SAVINGS_DEPOSIT_SETTLEMENT")
 }
 
+model QuickCaptureToken {
+  id                String              @id @default(uuid()) @db.Uuid
+  userId            String              @map("user_id") @db.Uuid
+  workspaceId       String              @map("workspace_id") @db.Uuid
+  defaultWalletId   String              @map("default_wallet_id") @db.Uuid
+  defaultCategoryId String?             @map("default_category_id") @db.Uuid
+  name              String              @db.VarChar(80)
+  tokenPrefix       String              @map("token_prefix") @db.VarChar(24)
+  tokenHash         String              @unique @map("token_hash") @db.VarChar(64)
+  expiresAt         DateTime            @map("expires_at") @db.Timestamptz(6)
+  lastUsedAt        DateTime?           @map("last_used_at") @db.Timestamptz(6)
+  revokedAt         DateTime?           @map("revoked_at") @db.Timestamptz(6)
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace         Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  defaultWallet     Wallet              @relation(fields: [defaultWalletId], references: [id], onDelete: Restrict)
+  defaultCategory   Category?           @relation(fields: [defaultCategoryId], references: [id], onDelete: SetNull)
+  drafts            QuickCaptureDraft[]
 
+  @@index([userId, revokedAt])
+  @@index([workspaceId, revokedAt])
+  @@map("QUICK_CAPTURE_TOKEN")
+}
+
+model QuickCaptureDraft {
+  id                     String             @id @default(uuid()) @db.Uuid
+  tokenId                String?            @map("token_id") @db.Uuid
+  userId                 String             @map("user_id") @db.Uuid
+  workspaceId            String             @map("workspace_id") @db.Uuid
+  walletId               String             @map("wallet_id") @db.Uuid
+  suggestedCategoryId    String?            @map("suggested_category_id") @db.Uuid
+  amount                 Decimal            @db.Decimal(20, 4)
+  payeeName              String?            @map("payee_name") @db.VarChar(200)
+  payeeKey               String?            @map("payee_key") @db.VarChar(200)
+  note                   String?            @db.VarChar(500)
+  provider               String?            @db.VarChar(32)
+  externalRef            String?            @map("external_ref") @db.VarChar(80)
+  committedTransactionId String?            @unique @map("committed_transaction_id") @db.Uuid
+  expiresAt              DateTime           @map("expires_at") @db.Timestamptz(6)
+  consumedAt             DateTime?          @map("consumed_at") @db.Timestamptz(6)
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  token                  QuickCaptureToken? @relation(fields: [tokenId], references: [id], onDelete: SetNull)
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace              Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  wallet                 Wallet             @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  suggestedCategory      Category?          @relation(fields: [suggestedCategoryId], references: [id], onDelete: SetNull)
+  committedTransaction   Transaction?       @relation("QuickCaptureCommittedTransaction", fields: [committedTransactionId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, externalRef])
+  @@index([userId, expiresAt])
+  @@map("QUICK_CAPTURE_DRAFT")
+}
+
+model QuickCapturePayeeRule {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  payeeKey    String    @map("payee_key") @db.VarChar(200)
+  displayName String    @map("display_name") @db.VarChar(200)
+  categoryId  String    @map("category_id") @db.Uuid
+  useCount    Int       @default(1) @map("use_count")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, payeeKey])
+  @@index([workspaceId, useCount])
+  @@map("QUICK_CAPTURE_PAYEE_RULE")
+}
