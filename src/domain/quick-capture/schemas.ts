@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { idSchema, optionalTrimmedTextSchema } from "@/domain/common/schemas";
+import {
+  businessDateSchema,
+  idSchema,
+  optionalTrimmedTextSchema,
+} from "@/domain/common/schemas";
 import { positiveMoneySchema } from "@/lib/decimal";
 
 const CANCEL_LABELS = new Set([
@@ -90,6 +94,12 @@ function normalizeShortcutRecord(
   return normalized;
 }
 
+const optionalDateFromShortcutSchema = z.preprocess((value) => {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "string" && value.trim() === "") return undefined;
+  return value;
+}, businessDateSchema.optional());
+
 const PARSE_KEY_ALIASES: Record<string, string> = {
   text: "text",
   content: "text",
@@ -97,6 +107,9 @@ const PARSE_KEY_ALIASES: Record<string, string> = {
   amount: "amount",
   payeename: "payeeName",
   payee_name: "payeeName",
+  date: "date",
+  transactiondate: "date",
+  transaction_date: "date",
 };
 
 const COMMIT_KEY_ALIASES: Record<string, string> = {
@@ -120,6 +133,9 @@ const COMMIT_KEY_ALIASES: Record<string, string> = {
   note: "note",
   externalref: "externalRef",
   external_ref: "externalRef",
+  date: "date",
+  transactiondate: "date",
+  transaction_date: "date",
 };
 
 export const parseReceiptInputSchema = z.preprocess(
@@ -136,6 +152,7 @@ export const parseReceiptInputSchema = z.preprocess(
       .transform((value) => value.normalize("NFC")),
     amount: positiveMoneySchema.optional(),
     payeeName: optionalTrimmedTextSchema,
+    date: optionalDateFromShortcutSchema,
   }),
 );
 
@@ -180,6 +197,7 @@ export const commitQuickCaptureSchema = z.preprocess(
         .max(80)
         .optional()
         .transform((value) => value || undefined),
+      date: optionalDateFromShortcutSchema,
     })
     .superRefine((data, ctx) => {
       if (isQuickCaptureCancelOption(data.selectedOption)) {

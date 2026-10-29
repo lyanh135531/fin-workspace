@@ -13,7 +13,7 @@ import {
   type PaymentProviderCode,
   type ReceiptRejectionReason,
 } from "@/domain";
-import { getBusinessDateInTimeZone } from "@/lib/date";
+import { getBusinessDateInTimeZone, shiftIsoDate } from "@/lib/date";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
@@ -24,6 +24,7 @@ const TOKEN_PREFIX_TAG = "flx_qc_";
 const DRAFT_TTL_MS = 10 * 60 * 1000;
 const EXPIRED_DRAFT_CLEANUP_MS = 24 * 60 * 60 * 1000;
 const MAX_ACTIVE_TOKENS_PER_WORKSPACE = 10;
+const MAX_RECEIPT_AGE_DAYS = 366;
 
 export const QUICK_CAPTURE_CANCEL_OPTION = "Bỏ qua giao dịch";
 const SUGGESTED_OPTION_SUFFIX = " · Gợi ý";
@@ -516,6 +517,26 @@ function getMissingAmountMessage(
   return "Chưa nhận diện được số tiền thanh toán trên màn hình này.";
 }
 
+function resolveReceiptBusinessDate(
+  candidateIsoDate: string | null | undefined,
+  todayIsoDate: string,
+): string {
+  if (!candidateIsoDate || !/^\d{4}-\d{2}-\d{2}$/.test(candidateIsoDate)) {
+    return todayIsoDate;
+  }
+  const oldestAllowed = shiftIsoDate(todayIsoDate, -MAX_RECEIPT_AGE_DAYS);
+  if (candidateIsoDate > todayIsoDate || candidateIsoDate < oldestAllowed) {
+    return todayIsoDate;
+  }
+  return candidateIsoDate;
+}
+
+function formatShortReceiptDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-");
+  if (!year || !month || !day) return isoDate;
+  return `${day}/${month}/${year}`;
+}
+
 export async function prepareQuickCapture(
   actor: QuickCaptureActor,
   rawInput: unknown,
@@ -531,6 +552,12 @@ export async function prepareQuickCapture(
       getMissingAmountMessage(parsed.rejectedReason),
     );
   }
+
+  const today = getBusinessDateInTimeZone(actor.timeZone, now);
+  const transactionDate = resolveReceiptBusinessDate(
+    input.date ?? parsed.transactionDate,
+    today,
+  );
 
   const payeeName = input.payeeName ?? parsed.payeeName;
   const payeeKey = normalizePayeeKey(payeeName);
@@ -619,6 +646,7 @@ export async function prepareQuickCapture(
       note: parsed.note ? parsed.note.slice(0, 500) : null,
       provider: parsed.provider,
       externalRef: parsed.externalRef,
+      transactionDate,
       expiresAt,
     },
   });
@@ -634,8 +662,12 @@ export async function prepareQuickCapture(
   options.push(QUICK_CAPTURE_CANCEL_OPTION);
 
   const formattedAmount = formatServerVnd(amount);
+  const dateBadge =
+    transactionDate !== today
+      ? ` · ${formatShortReceiptDate(transactionDate)}`
+      : "";
   const headlineTarget = payeeName ? ` · ${payeeName}` : "";
-  const prompt = `-${formattedAmount}${headlineTarget} (${targetWallet.name})`;
+  const prompt = `-${formattedAmount}${dateBadge}${headlineTarget} (${targetWallet.name})`;
 
   return {
     draftId: draft.id,
@@ -644,6 +676,7 @@ export async function prepareQuickCapture(
     parsed: {
       amount: amount.toFixed(0),
       formattedAmount,
+      transactionDate,
       payeeName,
       note: parsed.note,
       provider: parsed.provider,
@@ -750,6 +783,7 @@ export async function commitQuickCapture(
   let note: string | null = null;
   let provider: PaymentProviderCode | null = null;
   let externalRef: string | null = null;
+  let candidateTransactionDate: string | null = null;
   let rejectedReason: ReceiptRejectionReason | null = null;
   let draftWalletId: string | null = null;
   let draftSuggestedCategoryId: string | null = null;
@@ -820,6 +854,7 @@ export async function commitQuickCapture(
     note = input.note ?? draft.note;
     provider = (draft.provider as PaymentProviderCode | null) ?? null;
     externalRef = input.externalRef ?? draft.externalRef;
+    candidateTransactionDate = input.date ?? draft.transactionDate ?? null;
     draftWalletId = draft.walletId;
     draftSuggestedCategoryId = draft.suggestedCategoryId;
   } else {
@@ -830,6 +865,7 @@ export async function commitQuickCapture(
     note = input.note ?? parsed?.note ?? null;
     provider = parsed?.provider ?? null;
     externalRef = input.externalRef ?? parsed?.externalRef ?? null;
+    candidateTransactionDate = input.date ?? parsed?.transactionDate ?? null;
     rejectedReason = parsed?.rejectedReason ?? null;
   }
 
@@ -935,6 +971,10 @@ export async function commitQuickCapture(
     );
 
     const today = getBusinessDateInTimeZone(actor.timeZone, now);
+    const transactionDate = resolveReceiptBusinessDate(
+      candidateTransactionDate,
+      today,
+    );
     const description = buildLedgerDescription({
       provider,
       payeeName,
@@ -947,7 +987,7 @@ export async function commitQuickCapture(
       type: "expense",
       amount: amount.toFixed(4),
       description,
-      date: today,
+      date: transactionDate,
     });
 
     const transaction = await createTransaction(
@@ -962,6 +1002,7 @@ export async function commitQuickCapture(
         where: { id: claimedDraftId },
         data: {
           walletId: targetWallet.id,
+          transactionDate,
           committedTransactionId: transaction.id,
           consumedAt: now,
         },
@@ -980,6 +1021,7 @@ export async function commitQuickCapture(
           note: note ? note.slice(0, 500) : null,
           provider,
           externalRef,
+          transactionDate,
           committedTransactionId: transaction.id,
           expiresAt: now,
           consumedAt: now,
@@ -1013,16 +1055,21 @@ export async function commitQuickCapture(
     }
 
     const formattedAmount = formatServerVnd(amount);
+    const dateSuffix =
+      transactionDate !== today
+        ? ` · ${formatShortReceiptDate(transactionDate)}`
+        : "";
     return {
       cancelled: false as const,
       transactionId: transaction.id,
       workflowStatus: transaction.workflowStatus,
+      transactionDate,
       amount: amount.toFixed(0),
       formattedAmount,
       categoryName: selectedCategory.name,
       walletName: targetWallet.name,
       description,
-      message: `Đã lưu -${formattedAmount} · ${selectedCategory.name} (${targetWallet.name})`,
+      message: `Đã lưu -${formattedAmount}${dateSuffix} · ${selectedCategory.name} (${targetWallet.name})`,
     };
   } catch (error) {
     if (claimedDraftId) {

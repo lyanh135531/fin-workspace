@@ -17,6 +17,7 @@ export type ReceiptRejectionReason = "incoming_credit" | "promotional";
 
 export type ParsedReceiptResult = {
   amount: Decimal | null;
+  transactionDate: string | null;
   payeeName: string | null;
   payeeKey: string | null;
   note: string | null;
@@ -381,6 +382,128 @@ function extractExternalRef(lines: string[], fullText: string): string | null {
   return null;
 }
 
+const RECEIPT_TIME_LABEL_CONTEXT =
+  /(?:thời\s*gian(?:\s*(?:thanh\s*toán|giao\s*dịch|chuyển(?:\s*(?:tiền|khoản))?))?|ngày\s*(?:thực\s*hiện|giao\s*dịch|thanh\s*toán|chuyển(?:\s*(?:tiền|khoản))?|lập)|vào\s*lúc|(?<![\p{L}\p{N}])lúc(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])luc(?![\p{L}\p{N}]))/iu;
+
+const EXPIRY_OR_PROMO_DATE_CONTEXT =
+  /(?:hạn\s*(?:sử\s*dụng|dùng|thanh\s*toán|chót)|(?<![\p{L}\p{N}])hsd(?![\p{L}\p{N}])|hết\s*hạn|có\s*giá\s*trị\s*đến|áp\s*dụng\s*(?:từ|đến)|hiệu\s*lực|ngày\s*sinh|sinh\s*nhật)/iu;
+
+const NOTE_LINE_START =
+  /^(?:lời\s*(?:nhắn|chúc)|nội\s*dung(?:\s*chuyển\s*(?:tiền|khoản)|\s*giao\s*dịch)?|diễn\s*giải|ghi\s*chú)(?:\s*[:\-]|\s+)/iu;
+
+const CLOCK_TIME_IN_LINE = /(?<![\p{L}\p{N}])\d{1,2}:\d{2}(?::\d{2})?(?![\p{L}\p{N}])/u;
+
+function toValidIsoDate(year: number, month: number, day: number): string | null {
+  if (year < 2020 || year > 2099) return null;
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > 31) return null;
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    candidate.getUTCFullYear() !== year ||
+    candidate.getUTCMonth() + 1 !== month ||
+    candidate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function extractTransactionDate(lines: string[]): string | null {
+  type DateCandidate = { iso: string; score: number };
+  const candidates: DateCandidate[] = [];
+
+  // 1. DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
+  const dmy4Regex =
+    /(?<![\p{L}\p{N}/.,\-])(\d{1,2})(?:[ \t]*\/[ \t]*|[\-.])(\d{1,2})(?:[ \t]*\/[ \t]*|[\-.])(20\d{2})(?![\p{L}\p{N}/.,\-])/gu;
+  // 2. Vietnamese textual month: "27 thg 10, 2026" / "27 tháng 10 năm 2026"
+  const vnTextMonthRegex =
+    /(?<![\p{L}\p{N}])(\d{1,2})\s*(?:tháng|thg|th)\s*(\d{1,2})(?:\s*,|\s+năm)?\s*(20\d{2})(?![\p{L}\p{N}])/giu;
+  // 3. ISO YYYY-MM-DD / YYYY/MM/DD
+  const ymdRegex =
+    /(?<![\p{L}\p{N}/.,\-])(20\d{2})[\/\-](\d{1,2})[\/\-](\d{1,2})(?![\p{L}\p{N}/.,\-])/gu;
+  // 4. Short 2-digit year DD/MM/YY or DD-MM-YY (e.g. MB Bank "27/10/26 12:15")
+  const dmy2Regex =
+    /(?<![\p{L}\p{N}/.,\-])(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})(?![\p{L}\p{N}/.,\-:])/gu;
+
+  lines.forEach((rawLine, lineIdx) => {
+    const prevLine = lineIdx > 0 ? lines[lineIdx - 1] ?? "" : "";
+    if (NOTE_LABEL_LINE.test(prevLine) || NOTE_LINE_START.test(rawLine)) {
+      return;
+    }
+    if (EXPIRY_OR_PROMO_DATE_CONTEXT.test(prevLine)) {
+      return;
+    }
+
+    // Strip inline transfer notes ("..." or ND: ...) so dates written inside chat messages never hijack receipt date
+    const sanitizedLine = rawLine
+      .replace(/(?<![\p{L}\p{N}])nd[ \t]*:.*$/iu, "")
+      .replace(/\("[^"\n]*"\)/gu, "");
+
+    if (!sanitizedLine.trim()) return;
+
+    const hasClockTime = CLOCK_TIME_IN_LINE.test(sanitizedLine);
+    const hasPrevTimeLabel = RECEIPT_TIME_LABEL_CONTEXT.test(prevLine);
+
+    const recordCandidate = (
+      matchIndex: number,
+      iso: string | null,
+      baseScore: number,
+    ) => {
+      if (!iso) return;
+      const prefix = sanitizedLine.slice(Math.max(0, matchIndex - 40), matchIndex);
+      if (EXPIRY_OR_PROMO_DATE_CONTEXT.test(prefix)) return;
+
+      let score = baseScore;
+      if (RECEIPT_TIME_LABEL_CONTEXT.test(prefix) || hasPrevTimeLabel) {
+        score += 55;
+      }
+      if (hasClockTime) {
+        score += 35;
+      }
+      if (lineIdx <= 12) {
+        score += 10;
+      }
+      candidates.push({ iso, score });
+    };
+
+    for (const m of sanitizedLine.matchAll(dmy4Regex)) {
+      recordCandidate(
+        m.index ?? 0,
+        toValidIsoDate(Number(m[3]), Number(m[2]), Number(m[1])),
+        45,
+      );
+    }
+    for (const m of sanitizedLine.matchAll(vnTextMonthRegex)) {
+      recordCandidate(
+        m.index ?? 0,
+        toValidIsoDate(Number(m[3]), Number(m[2]), Number(m[1])),
+        50,
+      );
+    }
+    for (const m of sanitizedLine.matchAll(ymdRegex)) {
+      recordCandidate(
+        m.index ?? 0,
+        toValidIsoDate(Number(m[1]), Number(m[2]), Number(m[3])),
+        42,
+      );
+    }
+    for (const m of sanitizedLine.matchAll(dmy2Regex)) {
+      const yy = Number(m[3]);
+      if (yy >= 20 && yy <= 99) {
+        recordCandidate(
+          m.index ?? 0,
+          toValidIsoDate(2000 + yy, Number(m[2]), Number(m[1])),
+          28,
+        );
+      }
+    }
+  });
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0]?.iso ?? null;
+}
+
 export function parsePaymentReceiptText(rawText: string): ParsedReceiptResult {
   const normalized = rawText.normalize("NFC").replace(/\r\n/g, "\n");
   const lines = normalized
@@ -391,6 +514,7 @@ export function parsePaymentReceiptText(rawText: string): ParsedReceiptResult {
 
   const rejectedReason = detectRejectionReason(cleanedText);
   const amount = rejectedReason ? null : extractBestAmount(lines, cleanedText);
+  const transactionDate = extractTransactionDate(lines);
   const payeeName = extractPayeeName(lines, cleanedText);
   const note = extractNote(lines, cleanedText);
   const externalRef = extractExternalRef(lines, cleanedText);
@@ -398,6 +522,7 @@ export function parsePaymentReceiptText(rawText: string): ParsedReceiptResult {
 
   return {
     amount,
+    transactionDate,
     payeeName,
     payeeKey: normalizePayeeKey(payeeName),
     note,

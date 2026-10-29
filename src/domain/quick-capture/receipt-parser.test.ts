@@ -193,6 +193,45 @@ describe("parsePaymentReceiptText", () => {
     expect(parsed.amount).toBeNull();
   });
 
+  it("extracts transaction date from MoMo, Techcombank ('thg'), VCB ('-'), and MB ('DD/MM/YY') while ignoring dates inside notes or voucher expiry", () => {
+    const momoPast = parsePaymentReceiptText(`
+      Giao dịch thành công
+      -85.000đ
+      Thanh toán cho PHUC LONG
+      Lời nhắn: Tra tien hom 01/10/2026
+      Thời gian thanh toán
+      25/10/2026 - 19:42
+      Mã giao dịch: MM2510202699
+      Thẻ quà giảm 20.000đ HSD: 31/12/2026
+    `);
+    expect(momoPast.transactionDate).toBe("2026-10-25");
+
+    const tcbTextMonth = parsePaymentReceiptText(`
+      Techcombank
+      Chuyển thành công
+      tới NGUYEN VAN C
+      VND 120,000
+      Ngày thực hiện
+      24 thg 10, 2026 lúc 08:15
+    `);
+    expect(tcbTextMonth.transactionDate).toBe("2026-10-24");
+
+    const vcbHyphen = parsePaymentReceiptText(
+      "VCB Digibank: Số dư TK VCB 0071001234567 -150,000 VND lúc 26-10-2026 14:20:00. SD 12,350,000 VND. ND: Hop nhom 02/10/2026",
+    );
+    expect(vcbHyphen.transactionDate).toBe("2026-10-26");
+
+    const mbShortYear = parsePaymentReceiptText(
+      "MB Bank: TK 098***123 GD: -65,000VND 27/10/26 12:15 SD: 5,420,000VND",
+    );
+    expect(mbShortYear.transactionDate).toBe("2026-10-27");
+
+    const noteOnlyDate = parsePaymentReceiptText(
+      'MoMo: Bạn vừa chuyển 50.000đ đến NGUYEN VAN A ("Sinh nhat 15/08/2025").',
+    );
+    expect(noteOnlyDate.transactionDate).toBeNull();
+  });
+
   it("normalizes Vietnamese diacritics and punctuation in payeeKey", () => {
     expect(normalizePayeeKey("  Phở   Đình - Quận 1!! ")).toBe("PHO DINH QUAN 1");
     expect(detectPaymentProvider("Thanh toán qua Túi Thần Tài")).toBe("momo");

@@ -1247,6 +1247,7 @@ model QuickCaptureDraft {
   note                   String?            @db.VarChar(500)
   provider               String?            @db.VarChar(32)
   externalRef            String?            @map("external_ref") @db.VarChar(80)
+  transactionDate        String?            @map("transaction_date") @db.VarChar(10)
   committedTransactionId String?            @unique @map("committed_transaction_id") @db.Uuid
   expiresAt              DateTime           @map("expires_at") @db.Timestamptz(6)
   consumedAt             DateTime?          @map("consumed_at") @db.Timestamptz(6)

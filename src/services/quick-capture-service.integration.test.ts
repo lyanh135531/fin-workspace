@@ -276,6 +276,44 @@ describe("quick capture service database invariants", () => {
       "Đây là giao dịch nhận tiền vào ví, không phải khoản chi tiêu.",
     );
 
+    // Past receipt date on screenshot is prioritized over today's date when saving to ledger
+    const fixedNow = new Date("2026-10-29T08:00:00Z");
+    const pastDraft = await prepareQuickCapture(
+      actor,
+      {
+        text: `
+          Giao dịch thành công
+          -75.000đ
+          Thanh toán cho HIGHLANDS COFFEE
+          Thời gian thanh toán
+          25/10/2026 - 18:30
+          Mã giao dịch
+          MM202610250099
+          Nguồn tiền: Ví MoMo
+        `,
+      },
+      fixedNow,
+    );
+    expect(pastDraft.parsed.transactionDate).toBe("2026-10-25");
+    expect(pastDraft.prompt).toContain("25/10/2026");
+
+    const pastCommit = await commitQuickCapture(
+      actor,
+      {
+        selectedOption: "Ăn uống · Gợi ý",
+      },
+      new Date("2026-10-29T08:00:05Z"),
+    );
+    expect(pastCommit.cancelled).toBe(false);
+    if (!pastCommit.cancelled) {
+      expect(pastCommit.transactionDate).toBe("2026-10-25");
+      const savedTx = await prisma.transaction.findUnique({
+        where: { id: pastCommit.transactionId },
+        select: { date: true },
+      });
+      expect(savedTx?.date.toISOString().slice(0, 10)).toBe("2026-10-25");
+    }
+
     // Replaying linear commit without a new draft fails cleanly
     await expect(
       commitQuickCapture(actor, {
