@@ -228,6 +228,13 @@ describe("quick capture service database invariants", () => {
     );
     expect(doubleBearerActor.tokenId).toBe(createdToken.tokenInfo.id);
 
+    // Dismissing either row of 2-item soft-error menu in Shortcuts succeeds cleanly without consuming open drafts
+    const bannerDismiss = await commitQuickCapture(actor, {
+      selectedOption:
+        "Thông báo: Biên lai giao dịch này đã được ghi vào sổ trước đó.",
+    });
+    expect(bannerDismiss.cancelled).toBe(true);
+
     // 3rd receipt -> linear iOS Shortcut commit WITHOUT draftId (only SelectedOption)
     await prepareQuickCapture(actor, {
       Text: "MoMo: Bạn vừa chuyển 45.000đ đến HIGHLANDS COFFEE. Mã GD: MM202610290003",
@@ -236,10 +243,38 @@ describe("quick capture service database invariants", () => {
       SelectedOption: "Ăn uống · Gợi ý",
     });
     expect(linearCommit.cancelled).toBe(false);
+    let thirdTxId = "";
     if (!linearCommit.cancelled) {
       expect(linearCommit.amount).toBe("45000");
       expect(linearCommit.categoryName).toBe("Ăn uống");
+      thirdTxId = linearCommit.transactionId;
     }
+
+    // If user soft-deletes that transaction in Felix (e.g. picked wrong category), re-capturing the same receipt is allowed!
+    await prisma.transaction.update({
+      where: { id: thirdTxId },
+      data: { deletedAt: new Date() },
+    });
+    const recapturedDraft = await prepareQuickCapture(actor, {
+      text: "MoMo: Bạn vừa chuyển 45.000đ đến HIGHLANDS COFFEE. Mã GD: MM202610290003",
+    });
+    expect(recapturedDraft.parsed.amount).toBe("45000");
+    const recapturedCommit = await commitQuickCapture(actor, {
+      selectedOption: "Di chuyển",
+    });
+    expect(recapturedCommit.cancelled).toBe(false);
+    if (!recapturedCommit.cancelled) {
+      expect(recapturedCommit.categoryName).toBe("Di chuyển");
+    }
+
+    // Incoming money notification is rejected with clear Vietnamese message instead of booked as expense
+    await expect(
+      commitQuickCapture(actor, {
+        text: "MoMo: Bạn vừa nhận 200.000đ từ NGUYEN VAN B. Số dư: 2.100.000đ.",
+      }),
+    ).rejects.toThrow(
+      "Đây là giao dịch nhận tiền vào ví, không phải khoản chi tiêu.",
+    );
 
     // Replaying linear commit without a new draft fails cleanly
     await expect(

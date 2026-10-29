@@ -13,6 +13,8 @@ export type PaymentProviderCode =
   | "zalopay"
   | "shopeepay";
 
+export type ReceiptRejectionReason = "incoming_credit" | "promotional";
+
 export type ParsedReceiptResult = {
   amount: Decimal | null;
   payeeName: string | null;
@@ -20,17 +22,34 @@ export type ParsedReceiptResult = {
   note: string | null;
   externalRef: string | null;
   provider: PaymentProviderCode | null;
+  rejectedReason: ReceiptRejectionReason | null;
 };
 
 const BALANCE_OR_FEE_CONTEXT =
-  /(?:số\s*dư(?:\s*[^\d\n:]{0,24})?|so\s*du(?:\s*[^\d\n:]{0,24})?|khả\s*dụng|kha\s*dung|hạn\s*mức(?:\s*[^\d\n:]{0,24})?|han\s*muc(?:\s*[^\d\n:]{0,24})?|tổng\s*phí|phí\s*(?:giao\s*dịch|dịch\s*vụ|chuyển\s*tiền)|phi\s*giao\s*dich|hoàn\s*tiền(?:\s*tối\s*đa)?|tích\s*điểm|xu\s*thưởng)\s*[:\-]?\s*$/iu;
+  /(?:số\s*dư(?:\s*[^\d\n:]{0,24})?|so\s*du(?:\s*[^\d\n:]{0,24})?|(?<![\p{L}\p{N}])sd|khả\s*dụng|kha\s*dung|hạn\s*mức(?:\s*[^\d\n:]{0,24})?|han\s*muc(?:\s*[^\d\n:]{0,24})?|tổng\s*phí|phí\s*(?:giao\s*dịch|dịch\s*vụ|chuyển\s*tiền)|phi\s*giao\s*dich|hoàn\s*tiền(?:\s*(?:đến|tối\s*đa|vào))?|tích\s*điểm|xu\s*thưởng|giảm(?:\s*(?:đến|ngay|tối\s*đa|thêm))?|tặng(?:\s*(?:bạn|ngay))?|thẻ\s*quà(?:\s*giảm)?|voucher(?:\s*giảm)?|mã\s*giảm(?:\s*giá)?|ưu\s*đãi(?:\s*đến)?|lì\s*xì|rinh(?:\s*(?:ngay|quà))?|cho\s*đơn(?:\s*hàng)?\s*từ|đơn\s*tối\s*thiểu)\s*[:\-]?\s*$/iu;
 
 const TRANSACTION_HEADLINE_CONTEXT =
-  /(?:giao\s*dịch\s*thành\s*công|chuyển\s*(?:tiền|khoản)\s*thành\s*công|thanh\s*toán\s*thành\s*công|đã\s*chuyển(?:\s*(?:tiền|khoản))?(?:\s*thành\s*công)?|bạn\s*(?:vừa|đã)\s*(?:chuyển(?:\s*tiền)?(?:\s*thành\s*công)?|thanh\s*toán)|số\s*tiền(?:\s*giao\s*dịch|\s*chuyển|\s*thanh\s*toán)?|tổng\s*tiền(?:\s*thanh\s*toán)?)/iu;
+  /(?:giao\s*dịch\s*thành\s*công|chuyển(?:\s*(?:tiền|khoản))?\s*thành\s*công|thanh\s*toán\s*thành\s*công|đã\s*chuyển(?:\s*(?:tiền|khoản))?(?:\s*thành\s*công)?|bạn\s*(?:vừa|đã)\s*(?:chuyển(?:\s*tiền)?(?:\s*thành\s*công)?|thanh\s*toán)|số\s*tiền(?:\s*giao\s*dịch|\s*chuyển|\s*thanh\s*toán)?|tổng\s*tiền(?:\s*thanh\s*toán)?)/iu;
+
+const EXPLICIT_OUTGOING_ACTION_CONTEXT =
+  /(?:chuyển(?:\s*(?:tiền|khoản))?\s*thành\s*công|thanh\s*toán\s*thành\s*công|đã\s*chuyển(?:\s*(?:tiền|khoản))?(?:\s*thành\s*công)?|bạn\s*(?:vừa|đã)\s*(?:chuyển|thanh\s*toán))/iu;
+
+const INCOMING_CREDIT_HEADLINE_CONTEXT =
+  /(?:nhận\s*(?:tiền|chuyển\s*khoản)\s*thành\s*công|hoàn\s*tiền\s*thành\s*công|bạn\s*(?:vừa|đã)\s*nhận(?:\s*được)?\s+(?:\+\s*)?\d|(?:ghi\s*có|được\s*cộng)\s*[:\-]?\s*\+?\s*\d)/iu;
+
+const EXPLICIT_PLUS_CURRENCY =
+  /(?:(?<![\p{L}\p{N}])\+\s*(?:\d{1,3}(?:[.,]\d{3})+|\d{4,12})\s*(?:đồng|đ|₫|vnđ|vnd)|(?:vnđ|vnd)\s*\+\s*(?:\d{1,3}(?:[.,]\d{3})+|\d{4,12}))(?![\p{L}\p{N}])/iu;
+
+const EXPLICIT_MINUS_CURRENCY =
+  /(?:(?<![\p{L}\p{N}])-\s*(?:\d{1,3}(?:[.,]\d{3})+|\d{4,12})\s*(?:đồng|đ|₫|vnđ|vnd)|(?:vnđ|vnd)\s*-\s*(?:\d{1,3}(?:[.,]\d{3})+|\d{4,12}))(?![\p{L}\p{N}])/iu;
+
+const PROMO_MARKETING_CONTEXT =
+  /(?:thẻ\s*quà|nhập\s*mã|săn\s*ngay|đặt\s*ngay|mua\s*ngay|mở\s*quà|khám\s*phá\s*ngay|ưu\s*đãi\s*độc\s*quyền|chỉ\s*từ\s+\d)/iu;
 
 const PAYEE_INLINE_PATTERNS: RegExp[] = [
   /(?:bạn\s*(?:vừa|đã)\s*(?:chuyển(?:\s*tiền)?(?:\s*thành\s*công)?|thanh\s*toán)(?:\s+[^\n]{1,36}?)?\s+(?:đến|cho|tới))[ \t]+([^\n.(]+?)(?:\s*\(|\.\s+Số\s*dư|\.\s+Mã\s*GD|\s+vào\s+lúc|$)/iu,
-  /^(?:chuyển\s*tiền\s*(?:đến|tới|cho)|thanh\s*toán\s*cho)[ \t]*(?:[:\-][ \t]*|[ \t]+)([^\n]+)$/imu,
+  /^(?:chuyển(?:\s*(?:tiền|khoản))?\s*(?:đến|tới|cho)|thanh\s*toán\s*cho)[ \t]*(?:[:\-][ \t]*|[ \t]+)([^\n]+)$/imu,
+  /^(?:tới|đến)[ \t]+(?!(?:ngân\s*hàng|tài\s*khoản|số\s*tài\s*khoản|số\s*thẻ|ví)\b)([^\n:]+)$/imu,
   /^(?:tên\s*người\s*(?:thụ\s*hưởng|nhận)|người\s*(?:thụ\s*hưởng|nhận)|đơn\s*vị\s*chấp\s*nhận(?:\s*thanh\s*toán)?|nhà\s*cung\s*cấp)[ \t]*(?:[:\-][ \t]*|[ \t]+)([^\n]+)$/imu,
 ];
 
@@ -39,6 +58,7 @@ const PAYEE_LABEL_LINE =
 
 const NOTE_INLINE_PATTERNS: RegExp[] = [
   /^(?:lời\s*(?:nhắn|chúc)|nội\s*dung(?:\s*chuyển\s*(?:tiền|khoản)|\s*giao\s*dịch)?|diễn\s*giải)[ \t]*(?:[:\-][ \t]*|[ \t]+)([^\n]+)$/imu,
+  /(?<![\p{L}\p{N}])nd[ \t]*:[ \t]*([^\n.]+)/iu,
   /\("([^"\n]{2,140})"\)/u,
 ];
 
@@ -46,7 +66,7 @@ const NOTE_LABEL_LINE =
   /^(?:lời\s*(?:nhắn|chúc)|nội\s*dung(?:\s*chuyển\s*(?:tiền|khoản)|\s*giao\s*dịch)?|diễn\s*giải|ghi\s*chú)\s*:?$/iu;
 
 const TX_REF_INLINE =
-  /(?:mã\s*giao\s*dịch|mã\s*gd|ma\s*gd|số\s*tham\s*chiếu|mã\s*tham\s*chiếu)[ \t]*(?:[:\-][ \t]*|[ \t]+)([A-Z0-9][A-Z0-9\-_]{5,39})/iu;
+  /(?:mã\s*giao\s*dịch|mã\s*gd|ma\s*gd|số\s*tham\s*chiếu|mã\s*tham\s*chiếu|(?<![\p{L}\p{N}])ref(?![\p{L}\p{N}]))[ \t]*(?:[:\-][ \t]*|[ \t]+)([A-Z0-9][A-Z0-9.\-_]{5,39})/iu;
 
 const TX_REF_LABEL_LINE =
   /^(?:mã\s*giao\s*dịch|mã\s*gd|ma\s*gd|số\s*tham\s*chiếu|mã\s*tham\s*chiếu)\s*:?$/iu;
@@ -62,6 +82,8 @@ const DESTINATION_BANK_LABEL_LINE =
 
 const DESTINATION_BANK_INLINE =
   /^(?:ngân\s*hàng(?:\s*(?:nhận|thụ\s*hưởng))?|tới\s*ngân\s*hàng|đến\s*ngân\s*hàng)\s*(?:[:\-]\s*|\s+).+$/imu;
+
+const ACCOUNT_NUMBER_ONLY_LINE = /^[\d\s\-.*]{6,24}$/;
 
 const NOISE_VALUE_LINE =
   /^(?:miễn\s*phí|0\s*(?:đ|₫|vnd)|thời\s*gian(?:\s*thanh\s*toán)?|nguồn\s*tiền|tài\s*khoản\s*\/?\s*thẻ|mã\s*giao\s*dịch|ngân\s*hàng|số\s*tài\s*khoản|chi\s*tiết|trang\s*chủ|chia\s*sẻ|tiếp\s*tục|không\s*có|trống|\*{2,}\d+|\d{1,2}:\d{2})$/iu;
@@ -165,6 +187,33 @@ function parseGroupedVndDigits(rawNumber: string): Decimal | null {
   return amount;
 }
 
+function detectRejectionReason(fullText: string): ReceiptRejectionReason | null {
+  const hasExplicitOutgoing = EXPLICIT_OUTGOING_ACTION_CONTEXT.test(fullText);
+
+  if (INCOMING_CREDIT_HEADLINE_CONTEXT.test(fullText) && !hasExplicitOutgoing) {
+    return "incoming_credit";
+  }
+
+  if (
+    EXPLICIT_PLUS_CURRENCY.test(fullText) &&
+    !EXPLICIT_MINUS_CURRENCY.test(fullText) &&
+    !hasExplicitOutgoing
+  ) {
+    return "incoming_credit";
+  }
+
+  if (
+    PROMO_MARKETING_CONTEXT.test(fullText) &&
+    !TRANSACTION_HEADLINE_CONTEXT.test(fullText) &&
+    !EXPLICIT_MINUS_CURRENCY.test(fullText) &&
+    !TX_REF_INLINE.test(fullText)
+  ) {
+    return "promotional";
+  }
+
+  return null;
+}
+
 function extractBestAmount(lines: string[], fullText: string): Decimal | null {
   type Candidate = { amount: Decimal; score: number };
   const candidates: Candidate[] = [];
@@ -188,6 +237,8 @@ function extractBestAmount(lines: string[], fullText: string): Decimal | null {
       rawDigits: string,
       baseScore: number,
     ) => {
+      if (sign === "+") return;
+
       const amount = parseGroupedVndDigits(rawDigits);
       if (!amount) return;
 
@@ -234,7 +285,7 @@ function extractBestAmount(lines: string[], fullText: string): Decimal | null {
     lines.forEach((line, idx) => {
       const trimmed = line.trim();
       const m = /^([+\-])?\s*(\d{1,3}(?:[.,]\d{3})+)$/.exec(trimmed);
-      if (!m) return;
+      if (!m || m[1] === "+") return;
       const prevLine = idx > 0 ? lines[idx - 1] ?? "" : "";
       const nextLine = idx + 1 < lines.length ? lines[idx + 1] ?? "" : "";
       if (BALANCE_OR_FEE_CONTEXT.test(prevLine)) return;
@@ -260,13 +311,29 @@ function extractPayeeName(lines: string[], fullText: string): string | null {
   for (const regex of PAYEE_INLINE_PATTERNS) {
     const match = regex.exec(fullText);
     const cleaned = match?.[1] ? cleanExtractedLabel(match[1]) : null;
-    if (cleaned) return cleaned;
+    if (cleaned && !ACCOUNT_NUMBER_ONLY_LINE.test(cleaned)) return cleaned;
   }
 
   for (let i = 0; i < lines.length - 1; i++) {
     if (PAYEE_LABEL_LINE.test(lines[i] ?? "")) {
-      const nextValue = cleanExtractedLabel(lines[i + 1] ?? "");
-      if (nextValue) return nextValue;
+      const firstLine = (lines[i + 1] ?? "").trim();
+      if (ACCOUNT_NUMBER_ONLY_LINE.test(firstLine) && i + 2 < lines.length) {
+        const secondValue = cleanExtractedLabel(lines[i + 2] ?? "");
+        if (
+          secondValue &&
+          !ACCOUNT_NUMBER_ONLY_LINE.test(secondValue) &&
+          !PAYEE_LABEL_LINE.test(secondValue) &&
+          !NOTE_LABEL_LINE.test(secondValue) &&
+          !TX_REF_LABEL_LINE.test(secondValue)
+        ) {
+          return secondValue;
+        }
+        continue;
+      }
+      const nextValue = cleanExtractedLabel(firstLine);
+      if (nextValue && !ACCOUNT_NUMBER_ONLY_LINE.test(nextValue)) {
+        return nextValue;
+      }
     }
   }
 
@@ -292,14 +359,20 @@ function extractNote(lines: string[], fullText: string): string | null {
 
 function extractExternalRef(lines: string[], fullText: string): string | null {
   const inline = TX_REF_INLINE.exec(fullText);
-  if (inline?.[1] && /\d/.test(inline[1])) {
-    return inline[1].trim().slice(0, 80);
+  if (inline?.[1]) {
+    const trimmedRef = inline[1].replace(/\.+$/, "").trim();
+    if (trimmedRef.length >= 6 && /\d/.test(trimmedRef)) {
+      return trimmedRef.slice(0, 80);
+    }
   }
 
   for (let i = 0; i < lines.length - 1; i++) {
     if (TX_REF_LABEL_LINE.test(lines[i] ?? "")) {
-      const candidate = (lines[i + 1] ?? "").trim();
-      if (/^[A-Z0-9][A-Z0-9\-_]{5,39}$/i.test(candidate) && /\d/.test(candidate)) {
+      const candidate = (lines[i + 1] ?? "").replace(/\.+$/, "").trim();
+      if (
+        /^[A-Z0-9][A-Z0-9.\-_]{5,39}$/i.test(candidate) &&
+        /\d/.test(candidate)
+      ) {
         return candidate.slice(0, 80);
       }
     }
@@ -316,7 +389,8 @@ export function parsePaymentReceiptText(rawText: string): ParsedReceiptResult {
     .filter(Boolean);
   const cleanedText = lines.join("\n");
 
-  const amount = extractBestAmount(lines, cleanedText);
+  const rejectedReason = detectRejectionReason(cleanedText);
+  const amount = rejectedReason ? null : extractBestAmount(lines, cleanedText);
   const payeeName = extractPayeeName(lines, cleanedText);
   const note = extractNote(lines, cleanedText);
   const externalRef = extractExternalRef(lines, cleanedText);
@@ -329,5 +403,6 @@ export function parsePaymentReceiptText(rawText: string): ParsedReceiptResult {
     note,
     externalRef,
     provider,
+    rejectedReason,
   };
 }

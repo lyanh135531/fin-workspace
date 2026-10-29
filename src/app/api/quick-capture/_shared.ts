@@ -23,6 +23,9 @@ const TOKEN_RATE_LIMIT = {
 } as const;
 
 function extractClientIp(request: NextRequest): string {
+  const cfIp = request.headers.get("cf-connecting-ip")?.trim();
+  if (cfIp) return cfIp.slice(0, 64);
+
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
     const first = forwarded.split(",")[0]?.trim();
@@ -53,21 +56,45 @@ function buildShortcutSafeErrorPayload(
     message,
     draftId: "",
     prompt: message,
-    options: ["Đóng"],
+    options: [`Thông báo: ${message}`, "Đóng"],
   };
 }
 
 async function parseFlexibleRequestBody(
   request: NextRequest,
 ): Promise<{ ok: true; body: unknown } | { ok: false; response: NextResponse }> {
+  const declaredLength = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        buildShortcutSafeErrorPayload("Nội dung gửi lên vượt quá giới hạn cho phép."),
+        { status: 413, headers: NO_STORE_HEADERS },
+      ),
+    };
+  }
+
   const contentType = (request.headers.get("content-type") ?? "").toLowerCase();
 
   if (contentType.includes("multipart/form-data")) {
     try {
       const formData = await request.formData();
       const record: Record<string, unknown> = {};
+      let totalChars = 0;
       for (const [key, val] of formData.entries()) {
         if (typeof val === "string") {
+          totalChars += key.length + val.length;
+          if (totalChars > MAX_BODY_BYTES) {
+            return {
+              ok: false,
+              response: NextResponse.json(
+                buildShortcutSafeErrorPayload(
+                  "Nội dung gửi lên vượt quá giới hạn cho phép.",
+                ),
+                { status: 413, headers: NO_STORE_HEADERS },
+              ),
+            };
+          }
           record[key] = val;
         }
       }

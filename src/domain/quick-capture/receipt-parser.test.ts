@@ -123,6 +123,66 @@ describe("parsePaymentReceiptText", () => {
     expect(parsed.provider).toBe("vcb");
   });
 
+  it("parses Techcombank Mobile 'Chuyển thành công / tới ...' receipt and skips bottom promo banner", () => {
+    const tcbMobileOcr = `
+      Techcombank
+      Chuyển thành công
+      tới PHAM MINH TUAN
+      VND 245,000
+      Ngân hàng TMCP Ngoại thương Việt Nam (VCB)
+      0071 0012 3456 7
+      Lời nhắn
+      Tien san cau long
+      Mã giao dịch
+      FT2630299887766
+      Ưu đãi độc quyền: Tặng thẻ quà giảm 50.000đ đặt ngay
+    `;
+
+    const parsed = parsePaymentReceiptText(tcbMobileOcr);
+
+    expect(parsed.rejectedReason).toBeNull();
+    expect(parsed.amount?.toFixed(0)).toBe("245000");
+    expect(parsed.payeeName).toBe("PHAM MINH TUAN");
+    expect(parsed.note).toBe("Tien san cau long");
+    expect(parsed.externalRef).toBe("FT2630299887766");
+    expect(parsed.provider).toBe("tcb");
+  });
+
+  it("parses Vietcombank & MB Bank balance-change debit notifications with SD and Ref/ND", () => {
+    const vcbPush =
+      "VCB Digibank: Số dư TK VCB 0071001234567 -150,000 VND lúc 29-10-2026 14:20:00. SD 12,350,000 VND. Ref MBVCB.73829102. ND: An trua van phong";
+
+    const parsed = parsePaymentReceiptText(vcbPush);
+
+    expect(parsed.rejectedReason).toBeNull();
+    expect(parsed.amount?.toFixed(0)).toBe("150000");
+    expect(parsed.externalRef).toBe("MBVCB.73829102");
+    expect(parsed.note).toBe("An trua van phong");
+    expect(parsed.provider).toBe("vcb");
+  });
+
+  it("rejects incoming money transfers (+ amount or 'Nhận tiền') so credits are never logged as expenses", () => {
+    const momoIncoming =
+      'MoMo: Bạn vừa nhận 500.000đ từ NGUYEN VAN A ("Tra tien com"). Số dư: 2.500.000đ.';
+    const parsedMomo = parsePaymentReceiptText(momoIncoming);
+    expect(parsedMomo.amount).toBeNull();
+    expect(parsedMomo.rejectedReason).toBe("incoming_credit");
+
+    const vcbIncoming =
+      "VCB Digibank: SD TK 0071001234567 +500,000VND luc 29-10-2026. SD 12,850,000VND. Ref MBVCB.88889999.";
+    const parsedVcb = parsePaymentReceiptText(vcbIncoming);
+    expect(parsedVcb.amount).toBeNull();
+    expect(parsedVcb.rejectedReason).toBe("incoming_credit");
+  });
+
+  it("rejects MoMo marketing / voucher push notifications so ads are never logged as expenses", () => {
+    const momoPromo =
+      "MoMo: Tặng bạn thẻ quà giảm 50.000đ cho đơn từ 100.000đ khi thanh toán Điện/Nước, săn ngay!";
+    const parsed = parsePaymentReceiptText(momoPromo);
+    expect(parsed.amount).toBeNull();
+    expect(parsed.rejectedReason).toBe("promotional");
+  });
+
   it("returns null amount when text only contains balance or unrelated text", () => {
     const nonReceipt = `
       Số dư khả dụng: 5.000.000đ

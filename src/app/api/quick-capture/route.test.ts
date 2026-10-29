@@ -28,12 +28,15 @@ describe("quick capture API routes", () => {
     vi.clearAllMocks();
   });
 
-  it("returns 405 with Vietnamese setup hint if called with GET instead of POST", async () => {
+  it("returns 405 with 2-item Vietnamese setup hint so iOS Shortcuts Choose from List pops up", async () => {
     const res = parseGet();
     expect(res.status).toBe(405);
     const json = await res.json();
     expect(json.ok).toBe(false);
-    expect(json.options).toEqual(["Đóng"]);
+    expect(json.options).toEqual([
+      `Thông báo: ${json.message}`,
+      "Đóng",
+    ]);
   });
 
   it("rejects tokens passed via URL query string", async () => {
@@ -50,11 +53,14 @@ describe("quick capture API routes", () => {
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     const json = await res.json();
     expect(json.ok).toBe(false);
-    expect(json.options).toEqual(["Đóng"]);
+    expect(json.options).toEqual([
+      `Thông báo: ${json.message}`,
+      "Đóng",
+    ]);
     expect(authenticateMock).not.toHaveBeenCalled();
   });
 
-  it("returns 401 with Shortcut-safe fallback options when Authorization header is invalid", async () => {
+  it("returns 401 with 2-item Shortcut-safe fallback options when Authorization header is invalid", async () => {
     authenticateMock.mockRejectedValueOnce(
       new AppError("AUTHENTICATION_REQUIRED", "Thiếu khóa kết nối thiết bị."),
     );
@@ -72,7 +78,10 @@ describe("quick capture API routes", () => {
     expect(res.status).toBe(401);
     const json = await res.json();
     expect(json.ok).toBe(false);
-    expect(json.options).toEqual(["Đóng"]);
+    expect(json.options).toEqual([
+      "Thông báo: Thiếu khóa kết nối thiết bị.",
+      "Đóng",
+    ]);
   });
 
   it("accepts both JSON and application/x-www-form-urlencoded payloads", async () => {

@@ -17,8 +17,22 @@ const CANCEL_LABELS = new Set([
   "cancel",
 ]);
 
-export function isQuickCaptureCancelOption(raw: string | undefined | null): boolean {
+const SOFT_ERROR_PREFIXES = ["thông báo:", "thong bao:"];
+
+export function isQuickCaptureSoftDismissOption(
+  raw: string | undefined | null,
+): boolean {
   if (!raw) return false;
+  const normalized = raw.normalize("NFC").trim().toLowerCase();
+  if (normalized === "đóng" || normalized === "dong") return true;
+  return SOFT_ERROR_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+}
+
+export function isQuickCaptureCancelOption(
+  raw: string | undefined | null,
+): boolean {
+  if (!raw) return false;
+  if (isQuickCaptureSoftDismissOption(raw)) return true;
   return CANCEL_LABELS.has(raw.normalize("NFC").trim().toLowerCase());
 }
 

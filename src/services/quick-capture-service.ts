@@ -5,11 +5,13 @@ import {
   createQuickCaptureTokenSchema,
   createTransactionSchema,
   isQuickCaptureCancelOption,
+  isQuickCaptureSoftDismissOption,
   normalizePayeeKey,
   parsePaymentReceiptText,
   parseReceiptInputSchema,
   revokeQuickCaptureTokenSchema,
   type PaymentProviderCode,
+  type ReceiptRejectionReason,
 } from "@/domain";
 import { getBusinessDateInTimeZone } from "@/lib/date";
 import { AppError } from "@/lib/errors";
@@ -502,6 +504,18 @@ export async function revokeQuickCaptureToken(
   return { revoked: true as const };
 }
 
+function getMissingAmountMessage(
+  reason: ReceiptRejectionReason | null | undefined,
+): string {
+  if (reason === "incoming_credit") {
+    return "Đây là giao dịch nhận tiền vào ví, không phải khoản chi tiêu.";
+  }
+  if (reason === "promotional") {
+    return "Thông báo ưu đãi đã được tự động bỏ qua.";
+  }
+  return "Chưa nhận diện được số tiền thanh toán trên màn hình này.";
+}
+
 export async function prepareQuickCapture(
   actor: QuickCaptureActor,
   rawInput: unknown,
@@ -514,7 +528,7 @@ export async function prepareQuickCapture(
   if (!amount || amount.lte(0)) {
     throw new AppError(
       "VALIDATION_ERROR",
-      "Chưa nhận diện được số tiền thanh toán trên màn hình này.",
+      getMissingAmountMessage(parsed.rejectedReason),
     );
   }
 
@@ -537,7 +551,10 @@ export async function prepareQuickCapture(
       where: {
         workspaceId: actor.workspaceId,
         externalRef: parsed.externalRef,
-        committedTransactionId: { not: null },
+        committedTransaction: {
+          deletedAt: null,
+          workflowStatus: { not: "rejected" },
+        },
       },
       select: { id: true },
     });
@@ -682,9 +699,9 @@ export async function commitQuickCapture(
   const input = commitQuickCaptureSchema.parse(rawInput);
 
   if (isQuickCaptureCancelOption(input.selectedOption)) {
-    const normalizedLabel = input.selectedOption?.trim().toLowerCase() ?? "";
-    const isSoftErrorDismiss =
-      normalizedLabel === "đóng" || normalizedLabel === "dong";
+    const isSoftErrorDismiss = isQuickCaptureSoftDismissOption(
+      input.selectedOption,
+    );
 
     if (input.draftId) {
       await prisma.quickCaptureDraft.updateMany({
@@ -706,7 +723,7 @@ export async function commitQuickCapture(
           consumedAt: null,
           expiresAt: { gt: now },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: { id: true },
       });
       if (latestOpenDraft) {
@@ -733,6 +750,7 @@ export async function commitQuickCapture(
   let note: string | null = null;
   let provider: PaymentProviderCode | null = null;
   let externalRef: string | null = null;
+  let rejectedReason: ReceiptRejectionReason | null = null;
   let draftWalletId: string | null = null;
   let draftSuggestedCategoryId: string | null = null;
   let claimedDraftId: string | null = null;
@@ -755,7 +773,7 @@ export async function commitQuickCapture(
             consumedAt: null,
             expiresAt: { gt: now },
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         });
 
     if (!draft) {
@@ -812,13 +830,16 @@ export async function commitQuickCapture(
     note = input.note ?? parsed?.note ?? null;
     provider = parsed?.provider ?? null;
     externalRef = input.externalRef ?? parsed?.externalRef ?? null;
+    rejectedReason = parsed?.rejectedReason ?? null;
   }
 
   try {
     if (!amount || amount.lte(0)) {
       throw new AppError(
         "VALIDATION_ERROR",
-        "Chưa nhận diện được số tiền hợp lệ để lưu giao dịch.",
+        rejectedReason
+          ? getMissingAmountMessage(rejectedReason)
+          : "Chưa nhận diện được số tiền hợp lệ để lưu giao dịch.",
       );
     }
 
@@ -827,7 +848,10 @@ export async function commitQuickCapture(
         where: {
           workspaceId: actor.workspaceId,
           externalRef,
-          committedTransactionId: { not: null },
+          committedTransaction: {
+            deletedAt: null,
+            workflowStatus: { not: "rejected" },
+          },
         },
         select: { id: true },
       });
