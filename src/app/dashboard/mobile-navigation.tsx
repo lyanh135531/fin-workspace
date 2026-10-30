@@ -14,6 +14,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
 import { AccountSettingsModal } from "@/app/dashboard/account-settings-modal";
+import { QuickCaptureSetupSheet } from "@/app/dashboard/quick-capture-controls";
 import { SidebarUserMenu } from "@/app/dashboard/sidebar-user-menu";
 import { FinLogo } from "@/components/fin-logo";
 
@@ -43,6 +44,7 @@ function MobileNavigationDrawer({
 }: MobileNavigationProps) {
   const [open, setOpen] = useState(false);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
 
   return (
     <>
@@ -99,6 +101,10 @@ function MobileNavigationDrawer({
                 setOpen(false);
                 setAccountSettingsOpen(true);
               }}
+              onOpenQuickCapture={() => {
+                setOpen(false);
+                setQuickCaptureOpen(true);
+              }}
             />
           </div>
         </SheetContent>
@@ -108,6 +114,12 @@ function MobileNavigationDrawer({
         open={accountSettingsOpen}
         onClose={() => setAccountSettingsOpen(false)}
         username={username}
+      />
+
+      <QuickCaptureSetupSheet
+        open={quickCaptureOpen}
+        isMobile
+        onClose={() => setQuickCaptureOpen(false)}
       />
     </>
   );

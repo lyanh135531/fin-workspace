@@ -7,7 +7,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/base";
-import { QuickCaptureSetupSheet } from "@/app/dashboard/quick-capture-controls";
 import {
   AccountSettingsClient,
   ChangePasswordSheet,
@@ -19,7 +18,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export type AccountSettingsView =
   | "main"
   | "password"
-  | "quick_capture"
   | "google_link"
   | "google_replace"
   | "google_unlink";
@@ -83,7 +81,6 @@ export function AccountSettingsModal({
 
   const isMainOpen = open && activeView === "main" && !isTransitioning;
   const isPasswordOpen = open && activeView === "password";
-  const isQuickCaptureOpen = open && activeView === "quick_capture";
   const isGoogleOpen = open && activeView.startsWith("google_");
   const googleMode = activeView.startsWith("google_")
     ? (activeView.replace("google_", "") as "link" | "replace" | "unlink")
@@ -134,7 +131,6 @@ export function AccountSettingsModal({
             <AccountSettingsClient
               username={username}
               onOpenPasswordChange={() => setActiveView("password")}
-              onOpenQuickCapture={() => setActiveView("quick_capture")}
               onOpenGoogleAction={(mode, email) => {
                 if (email !== undefined) setGoogleEmail(email ?? null);
                 setLastGoogleMode(mode);
@@ -147,13 +143,6 @@ export function AccountSettingsModal({
 
       <ChangePasswordSheet
         open={isPasswordOpen}
-        isMobile={isMobile}
-        onBack={handleBackToMain}
-        onClose={handleClose}
-      />
-
-      <QuickCaptureSetupSheet
-        open={isQuickCaptureOpen}
         isMobile={isMobile}
         onBack={handleBackToMain}
         onClose={handleClose}

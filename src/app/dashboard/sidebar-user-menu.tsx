@@ -10,6 +10,7 @@ import {
   LogOut,
   ShieldCheck,
   UserRound,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,6 +23,7 @@ import {
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
 import { AccountSettingsModal } from "@/app/dashboard/account-settings-modal";
 import { cleanupBrowserPushBeforeLogout } from "@/app/dashboard/daily-reminder-controls";
+import { QuickCaptureSetupSheet } from "@/app/dashboard/quick-capture-controls";
 import { useOptionalSidebar } from "@/components/ui/sidebar";
 import { usePwaInstall } from "@/app/pwa-install";
 
@@ -36,6 +38,7 @@ type Props = {
   role: "admin" | "member" | "none";
   forceExpanded?: boolean;
   onOpenAccountSettings?: () => void;
+  onOpenQuickCapture?: () => void;
 };
 
 export function SidebarUserMenu({
@@ -43,11 +46,13 @@ export function SidebarUserMenu({
   role,
   forceExpanded = false,
   onOpenAccountSettings,
+  onOpenQuickCapture,
 }: Props) {
   const pathname = usePathname();
   const [pending, start] = useTransition();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const sidebar = useOptionalSidebar();
   const { requestInstall, showAccountAction } = usePwaInstall();
   const collapsed = sidebar?.state === "collapsed" && !forceExpanded;
@@ -115,6 +120,31 @@ export function SidebarUserMenu({
       />
     </Button>
   );
+
+  const OpenQuickCaptureBtn =
+    role !== "none" ? (
+      <Button
+        variant="unstyled"
+        size="auto"
+        type="button"
+        className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
+        onClick={() => {
+          setPopoverOpen(false);
+          if (onOpenQuickCapture) onOpenQuickCapture();
+          else setQuickCaptureOpen(true);
+        }}
+      >
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-[var(--text-secondary)] transition-colors group-hover:bg-[color-mix(in_srgb,var(--primary)_14%,var(--surface))] group-hover:text-[var(--primary)]">
+          <Zap size={14} strokeWidth={2} aria-hidden="true" />
+        </div>
+        <span className="flex-1 font-medium">Ghi nhanh từ biên lai</span>
+        <ChevronRight
+          size={14}
+          className="text-[var(--text-muted)] opacity-60 transition-transform group-hover:translate-x-0.5 group-hover:opacity-100"
+          aria-hidden="true"
+        />
+      </Button>
+    ) : null;
 
   const InstallPwaButton = showAccountAction ? (
     <Button
@@ -228,6 +258,7 @@ export function SidebarUserMenu({
         >
           <div className="flex flex-col gap-0.5">
             {OpenAccountSettingsBtn}
+            {OpenQuickCaptureBtn}
             {InstallPwaButton}
           </div>
 
@@ -246,6 +277,13 @@ export function SidebarUserMenu({
           open={accountModalOpen}
           onClose={() => setAccountModalOpen(false)}
           username={username}
+        />
+      )}
+
+      {!onOpenQuickCapture && (
+        <QuickCaptureSetupSheet
+          open={quickCaptureOpen}
+          onClose={() => setQuickCaptureOpen(false)}
         />
       )}
     </div>

@@ -11,7 +11,6 @@ import {
 } from "react";
 import {
   ArrowRight,
-  BadgeCheck,
   Check,
   ChevronDown,
   ChevronRight,
@@ -171,81 +170,25 @@ function IosSettingsBreadcrumb() {
   );
 }
 
-export function QuickCaptureSummaryCard({
-  onOpenSetup,
-}: {
-  onOpenSetup: () => void;
-}) {
-  const [state, setState] = useState<QuickCaptureSettingsState | null>(null);
+const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
 
-  useEffect(() => {
-    let active = true;
-    void getQuickCaptureStateAction().then((res) => {
-      if (!active) return;
-      if (res.ok) setState(res.data);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+function subscribeMobileViewport(onStoreChange: () => void) {
+  const mql = window.matchMedia(MOBILE_MEDIA_QUERY);
+  mql.addEventListener("change", onStoreChange);
+  return () => mql.removeEventListener("change", onStoreChange);
+}
 
-  const activeTokenCount = state && state.available ? state.tokens.length : 0;
+function getClientIsMobile() {
+  return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
+}
 
-  return (
-    <div className="space-y-2">
-      <p className="px-1 text-[11px] font-semibold uppercase tracking-widest text-[var(--text-muted)]">
-        Tự động hóa
-      </p>
-
-      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-        <button
-          type="button"
-          onClick={onOpenSetup}
-          className="flex w-full cursor-pointer items-center justify-between gap-3 p-4 text-left outline-none transition-colors hover:bg-[var(--surface-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ring)]"
-        >
-          <div className="flex min-w-0 items-center gap-3">
-            <span
-              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
-              aria-hidden="true"
-            >
-              <Zap size={17} />
-            </span>
-            <div className="min-w-0">
-              <h3 className="text-[13px] font-semibold text-[var(--foreground)]">
-                Ghi nhanh từ biên lai
-              </h3>
-              <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--text-muted)]">
-                Chạm mặt lưng điện thoại sau khi thanh toán để chọn danh mục và lưu ngay
-              </p>
-            </div>
-          </div>
-
-          {state === null ? (
-            <Skeleton className="h-5 w-5 shrink-0 rounded-full" />
-          ) : (
-            <div className="flex shrink-0 items-center gap-2">
-              {activeTokenCount > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_12%,var(--surface))] px-2 py-0.5 text-[10px] font-semibold text-[var(--success)]">
-                  <BadgeCheck size={11} aria-hidden="true" />
-                  Đang bật
-                </span>
-              )}
-              <ChevronRight
-                size={16}
-                className="text-[var(--text-muted)]"
-                aria-hidden="true"
-              />
-            </div>
-          )}
-        </button>
-      </div>
-    </div>
-  );
+function getServerIsMobile() {
+  return false;
 }
 
 export function QuickCaptureSetupSheet({
   open,
-  isMobile = false,
+  isMobile: isMobileProp,
   onBack,
   onClose,
 }: {
@@ -254,6 +197,12 @@ export function QuickCaptureSetupSheet({
   onBack?: () => void;
   onClose: () => void;
 }) {
+  const viewportIsMobile = useSyncExternalStore(
+    subscribeMobileViewport,
+    getClientIsMobile,
+    getServerIsMobile,
+  );
+  const isMobile = isMobileProp ?? viewportIsMobile;
   const origin = useSyncExternalStore(
     subscribeNoop,
     getClientOrigin,

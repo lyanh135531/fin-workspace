@@ -15,8 +15,6 @@ import {
   Unlink,
 } from "lucide-react";
 
-import { DailyReminderControls } from "@/app/dashboard/daily-reminder-controls";
-import { QuickCaptureSummaryCard } from "@/app/dashboard/quick-capture-controls";
 import {
   changePasswordAction,
   getAccountSecurityStateAction,
@@ -87,7 +85,6 @@ export function AccountSettingsClient({
   initialAccount,
   onOpenPasswordChange,
   onOpenGoogleAction,
-  onOpenQuickCapture,
 }: {
   username: string;
   initialAccount?: {
@@ -99,7 +96,6 @@ export function AccountSettingsClient({
     mode: "link" | "replace" | "unlink",
     email?: string,
   ) => void;
-  onOpenQuickCapture?: () => void;
 }) {
   const [pending, start] = useTransition();
   const [security, setSecurity] = useState<{
@@ -300,12 +296,6 @@ export function AccountSettingsClient({
           )}
         </div>
       </div>
-
-      {/* ── Post-Payment Back-Tap Quick Capture ─────── */}
-      <QuickCaptureSummaryCard onOpenSetup={() => onOpenQuickCapture?.()} />
-
-      {/* ── Daily Expense Reminder Section ──────────── */}
-      <DailyReminderControls variant="card" />
     </div>
   );
 }
