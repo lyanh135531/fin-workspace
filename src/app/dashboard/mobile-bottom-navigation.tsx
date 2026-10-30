@@ -83,6 +83,7 @@ export function MobileBottomNavigation({
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               aria-current={isActive ? "page" : undefined}
               aria-busy={isPending || undefined}
               onNavigate={(event) => {
@@ -129,6 +130,7 @@ export function MobileBottomNavigation({
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               aria-current={isActive ? "page" : undefined}
               aria-busy={isPending || undefined}
               onNavigate={(event) => {

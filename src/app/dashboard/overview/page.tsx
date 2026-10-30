@@ -23,10 +23,21 @@ import {
   getWorkspaceFinancialPlans,
 } from "@/services/financial-plan-service";
 import { getWorkspaceInvestmentsOverview } from "@/services/investment-service";
+import { queryOverviewPeriodAnalytics } from "@/services/overview-analytics-service";
 import { processDueRecurringTransactions } from "@/services/recurring-transaction-service";
 import { PageContainer } from "@/components/base";
 
 const ZERO = new Decimal(0);
+
+const activityTransactionInclude = {
+  wallet: { select: { name: true } },
+  toWallet: { select: { name: true } },
+  category: { select: { name: true, color: true, icon: true } },
+  member: { select: { user: { select: { username: true } } } },
+  creditCardPaymentSources: {
+    select: { sourceWalletId: true, amount: true },
+  },
+} as const;
 
 export default async function OverviewPage() {
   const session = await requireAcceptedLegalPageSession();
@@ -55,7 +66,8 @@ export default async function OverviewPage() {
     walletLinks,
     allWorkspaceWallets,
     members,
-    transactions,
+    recentRows,
+    pendingRows,
     recurringRows,
     categories,
     commitments,
@@ -114,23 +126,24 @@ export default async function OverviewPage() {
       orderBy: { user: { username: "asc" } },
     }),
     prisma.transaction.findMany({
-      where: { deletedAt: null, member: { workspaceId } },
-      include: {
-        wallet: { select: { name: true } },
-        toWallet: { select: { name: true } },
-        category: { select: { name: true, color: true, icon: true } },
-        member: { include: { user: { select: { username: true } } } },
-        creditCardPaymentSources: {
-          select: { sourceWalletId: true, amount: true },
-        },
-        goldSaleRecord: {
-          select: { costBasisAllocatedAmount: true, deletedAt: true },
-        },
-        savingsDepositSettlement: {
-          select: { principalWithdrawnAmount: true },
-        },
+      where: {
+        deletedAt: null,
+        workflowStatus: { not: "rejected" },
+        member: { workspaceId },
       },
+      include: activityTransactionInclude,
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      take: 6,
+    }),
+    prisma.transaction.findMany({
+      where: {
+        deletedAt: null,
+        workflowStatus: "pending",
+        member: { workspaceId },
+      },
+      include: activityTransactionInclude,
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      take: 50,
     }),
     prisma.recurringTransaction.findMany({
       where: {
@@ -154,8 +167,6 @@ export default async function OverviewPage() {
         name: true,
         color: true,
         icon: true,
-        parentId: true,
-        type: true,
       },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     }),
@@ -166,89 +177,11 @@ export default async function OverviewPage() {
     }).catch(() => null),
   ]);
 
-  // Resolve active financial plan & 6-jars snapshot for the overview command center
   let financialPlanSnapshot: OverviewFinancialPlanSnapshot | null = null;
   const activePlan =
     plans.find((plan) => plan.status === "active") ??
     plans.find((plan) => plan.status === "completed") ??
     plans[0];
-
-  if (activePlan) {
-    try {
-      const planView = await getFinancialPlanView(
-        session.user.id,
-        workspaceId,
-        activePlan.id,
-      );
-      if (planView.status !== "draft") {
-        const currentMonthView =
-          planView.months.find(
-            (month) => month.month === reportPeriod && !month.closed,
-          ) ??
-          planView.months.find((month) => !month.closed) ??
-          planView.months[planView.months.length - 1];
-
-        financialPlanSnapshot = {
-          id: planView.id,
-          name: planView.name,
-          status: planView.status,
-          health: planView.health,
-          targetAmount: planView.targetAmount,
-          realizedProgress: planView.realizedProgress,
-          realizedProgressPercentage: planView.realizedProgressPercentage,
-          targetMonth: planView.targetMonth,
-          currentMonth: currentMonthView
-            ? {
-                month: currentMonthView.month,
-                allocatableGrossBudget:
-                  currentMonthView.allocatableGrossBudget,
-                adjustedRequiredAmount:
-                  currentMonthView.adjustedRequiredAmount,
-                availableToSpend: currentMonthView.availableToSpend,
-                eligibleExpense:
-                  ("eligibleExpense" in currentMonthView
-                    ? currentMonthView.eligibleExpense
-                    : "0") ?? "0",
-                jars: currentMonthView.jars.map((jar) => {
-                  const spent =
-                    ("expenseAmount" in jar
-                      ? jar.expenseAmount
-                      : jar.closedActualAmount) ?? "0";
-                  const allocated = jar.allocatedAmount;
-                  const remaining =
-                    ("remainingAmount" in jar
-                      ? jar.remainingAmount
-                      : Decimal.max(
-                          new Decimal(allocated).minus(spent),
-                          ZERO,
-                        ).toFixed(0)) ?? "0";
-                  const overspend =
-                    ("overspendAmount" in jar
-                      ? jar.overspendAmount
-                      : Decimal.max(
-                          new Decimal(spent).minus(allocated),
-                          ZERO,
-                        ).toFixed(0)) ?? "0";
-                  return {
-                    jarCode: jar.jarCode as FinancialJarCode,
-                    label:
-                      FINANCIAL_JAR_LABELS[jar.jarCode as FinancialJarCode] ??
-                      jar.jarCode,
-                    percentage: jar.percentage,
-                    allocatedAmount: allocated,
-                    spentAmount: spent,
-                    remainingAmount: remaining,
-                    overspendAmount: overspend,
-                  };
-                }),
-              }
-            : null,
-        };
-      }
-    } catch {
-      financialPlanSnapshot = null;
-    }
-  }
 
   const investmentsSnapshot: OverviewInvestmentsSnapshot | null = investmentsData
     ? {
@@ -335,28 +268,106 @@ export default async function OverviewPage() {
     balance: wallet.deletedAt ? "0" : wallet.currentBalance.toString(),
   }));
 
-  const totalByCurrency = balanceHistoryWallets.reduce<Record<string, string>>(
-    (totals, wallet) => {
-      const current = new Decimal(
-        totals[membership.workspace.baseCurrency] ?? 0,
-      );
-      totals[membership.workspace.baseCurrency] = (
-        wallet.kind === "credit_card"
-          ? current.minus(Decimal.max(new Decimal(wallet.balance), 0))
-          : current.plus(wallet.balance)
-      ).toString();
-      return totals;
-    },
-    {},
-  );
+  const mappedMembers = members.map((member) => ({
+    id: member.id,
+    name: member.user.username ?? "Người dùng",
+  }));
 
-  if (investmentsSnapshot) {
-    const baseCurr = membership.workspace.baseCurrency;
-    const currentNet = new Decimal(totalByCurrency[baseCurr] ?? 0);
-    totalByCurrency[baseCurr] = currentNet
-      .plus(new Decimal(investmentsSnapshot.totalPortfolioMarketValue || "0"))
-      .toString();
+  const [planViewResult, initialAnalytics] = await Promise.all([
+    activePlan
+      ? getFinancialPlanView(
+          session.user.id,
+          workspaceId,
+          activePlan.id,
+        ).catch(() => null)
+      : Promise.resolve(null),
+    queryOverviewPeriodAnalytics({
+      userId: session.user.id,
+      workspaceId,
+      reportPeriod,
+      period: "month",
+      preloadedWallets: balanceHistoryWallets,
+      preloadedMembers: mappedMembers,
+      preloadedCategories: categories,
+      preloadedInvestmentTotals: investmentsSnapshot
+        ? {
+            marketValue: investmentsSnapshot.totalPortfolioMarketValue,
+            costBasis: investmentsSnapshot.totalPortfolioCostBasis,
+          }
+        : null,
+    }),
+  ]);
+
+  if (planViewResult && planViewResult.status !== "draft") {
+    const currentMonthView =
+      planViewResult.months.find(
+        (month) => month.month === reportPeriod && !month.closed,
+      ) ??
+      planViewResult.months.find((month) => !month.closed) ??
+      planViewResult.months[planViewResult.months.length - 1];
+
+    financialPlanSnapshot = {
+      id: planViewResult.id,
+      name: planViewResult.name,
+      status: planViewResult.status,
+      health: planViewResult.health,
+      targetAmount: planViewResult.targetAmount,
+      realizedProgress: planViewResult.realizedProgress,
+      realizedProgressPercentage: planViewResult.realizedProgressPercentage,
+      targetMonth: planViewResult.targetMonth,
+      currentMonth: currentMonthView
+        ? {
+            month: currentMonthView.month,
+            allocatableGrossBudget: currentMonthView.allocatableGrossBudget,
+            adjustedRequiredAmount: currentMonthView.adjustedRequiredAmount,
+            availableToSpend: currentMonthView.availableToSpend,
+            eligibleExpense:
+              ("eligibleExpense" in currentMonthView
+                ? currentMonthView.eligibleExpense
+                : "0") ?? "0",
+            jars: currentMonthView.jars.map((jar) => {
+              const spent =
+                ("expenseAmount" in jar
+                  ? jar.expenseAmount
+                  : jar.closedActualAmount) ?? "0";
+              const allocated = jar.allocatedAmount;
+              const remaining =
+                ("remainingAmount" in jar
+                  ? jar.remainingAmount
+                  : Decimal.max(
+                      new Decimal(allocated).minus(spent),
+                      ZERO,
+                    ).toFixed(0)) ?? "0";
+              const overspend =
+                ("overspendAmount" in jar
+                  ? jar.overspendAmount
+                  : Decimal.max(
+                      new Decimal(spent).minus(allocated),
+                      ZERO,
+                    ).toFixed(0)) ?? "0";
+              return {
+                jarCode: jar.jarCode as FinancialJarCode,
+                label:
+                  FINANCIAL_JAR_LABELS[jar.jarCode as FinancialJarCode] ??
+                  jar.jarCode,
+                percentage: jar.percentage,
+                allocatedAmount: allocated,
+                spentAmount: spent,
+                remainingAmount: remaining,
+                overspendAmount: overspend,
+              };
+            }),
+          }
+        : null,
+    };
   }
+
+  const seenActivityIds = new Set<string>();
+  const combinedActivityRows = [...recentRows, ...pendingRows].filter((row) => {
+    if (seenActivityIds.has(row.id)) return false;
+    seenActivityIds.add(row.id);
+    return true;
+  });
 
   return (
     <PageContainer>
@@ -372,6 +383,8 @@ export default async function OverviewPage() {
         canApprove={
           workspaceCapabilities(membership.role.code).canApproveTransactions
         }
+        hasMultipleMembers={mappedMembers.length > 1}
+        initialAnalytics={initialAnalytics}
         financialPlanSnapshot={financialPlanSnapshot}
         investmentsSnapshot={investmentsSnapshot}
         balanceHistoryWallets={balanceHistoryWallets}
@@ -431,61 +444,42 @@ export default async function OverviewPage() {
             updatedAt: wallet.updatedAt.toISOString(),
           };
         })}
-        totalByCurrency={totalByCurrency}
-        members={members.map((member) => ({
-          id: member.id,
-          name: member.user.username ?? "Người dùng",
+        transactions={combinedActivityRows.map((transaction) => ({
+          id: transaction.id,
+          amount: transaction.amount.toString(),
+          type: transaction.type,
+          purpose:
+            transaction.purpose !== "standard"
+              ? transaction.purpose
+              : undefined,
+          status: transaction.workflowStatus,
+          description: transaction.description,
+          date: transaction.date.toISOString().slice(0, 10),
+          walletId: transaction.walletId,
+          toWalletId: transaction.toWalletId,
+          wallet: transaction.wallet.name,
+          toWallet: transaction.toWallet?.name ?? null,
+          categoryId: transaction.categoryId,
+          category: transaction.category,
+          memberId: transaction.memberId,
+          member: transaction.member.user.username ?? "Người dùng",
+          ...(transaction.creditCardPaymentSources.length > 0
+            ? {
+                paymentSources: transaction.creditCardPaymentSources.map(
+                  (source) => ({
+                    walletId: source.sourceWalletId,
+                    amount: source.amount.toString(),
+                  }),
+                ),
+              }
+            : {}),
         }))}
-        categories={categories.map((cat) => ({
-          id: cat.id,
-          name: cat.name,
-          color: cat.color,
-          icon: cat.icon,
-          parentId: cat.parentId,
-          type: cat.type as "income" | "expense",
-        }))}
-        transactions={transactions.map((transaction) => {
-          const investmentPrincipalDelta =
-            transaction.purpose === "investment_settlement"
-              ? transaction.goldSaleRecord && !transaction.goldSaleRecord.deletedAt
-                ? transaction.goldSaleRecord.costBasisAllocatedAmount.toString()
-                : transaction.savingsDepositSettlement
-                  ? transaction.savingsDepositSettlement.principalWithdrawnAmount.toString()
-                  : undefined
-              : undefined;
-
-          return {
-            id: transaction.id,
-            amount: transaction.amount.toString(),
-            type: transaction.type,
-            purpose: transaction.purpose,
-            status: transaction.workflowStatus,
-            description: transaction.description,
-            date: transaction.date.toISOString(),
-            walletId: transaction.walletId,
-            toWalletId: transaction.toWalletId,
-            wallet: transaction.wallet.name,
-            toWallet: transaction.toWallet?.name ?? null,
-            categoryId: transaction.categoryId,
-            category: transaction.category,
-            memberId: transaction.memberId,
-            member: transaction.member.user.username ?? "Người dùng",
-            investmentPrincipalDelta,
-            paymentSources: transaction.creditCardPaymentSources.map(
-              (source) => ({
-                walletId: source.sourceWalletId,
-                amount: source.amount.toString(),
-              }),
-            ),
-          };
-        })}
-        userRole={membership.role.name}
         upcomingRecurring={recurringRows.map((item) => ({
           id: item.id,
           amount: item.amount.toString(),
           type: item.type,
           description: item.description,
-          nextExecutionDate: item.nextExecutionDate.toISOString(),
+          nextExecutionDate: item.nextExecutionDate.toISOString().slice(0, 10),
           wallet: item.wallet.name,
           toWallet: item.toWallet?.name ?? null,
           category: item.category,

@@ -7,12 +7,18 @@ import {
   getMonthDateRange,
   isDateInRange,
 } from "@/app/dashboard/dashboard-ledger-filters";
-import type { LedgerPeriodSummary } from "@/app/dashboard/dashboard-summary-data";
+import { getWorkspaceLedgerWindowAction } from "@/app/dashboard/ledger-window-actions";
 import {
   Card,
   type DateRangeValue,
 } from "@/components/base";
 import { formatAmount } from "@/lib/format";
+import {
+  type CompactLedgerBundle,
+  type HydratedLedgerItem,
+  hydrateLedgerRows,
+  mergeHydratedLedgerRows,
+} from "@/lib/ledger-payload";
 import { usePrivacyMask } from "@/lib/privacy-mask";
 import { cn } from "@/lib/utils";
 import Decimal from "decimal.js";
@@ -21,18 +27,23 @@ import {
   ArrowUpRight,
   CalendarDays,
   CircleAlert,
+  Loader2,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ComponentProps } from "react";
+import { toast } from "sonner";
 
-type LedgerProps = Omit<ComponentProps<typeof Ledger>, "isDesktop">;
+type LedgerProps = Omit<
+  ComponentProps<typeof Ledger>,
+  "isDesktop" | "transactions"
+>;
 
 export function DashboardLedgerWorkspace({
+  initialBundle,
   ledgerProps,
 }: {
-  initialMonth: string;
-  summaries: LedgerPeriodSummary[];
+  initialBundle: CompactLedgerBundle;
   ledgerProps: LedgerProps;
 }) {
   usePrivacyMask();
@@ -49,6 +60,16 @@ export function DashboardLedgerWorkspace({
   );
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [windowState, setWindowState] = useState<{
+    revision: string;
+    windows: Record<string, HydratedLedgerItem[]>;
+    hasLoadedAllHistory: boolean;
+  }>(() => ({
+    revision: initialBundle.revision,
+    windows: {},
+    hasLoadedAllHistory: initialBundle.isCompleteHistory,
+  }));
+  const [loadingRangeKey, setLoadingRangeKey] = useState<string | null>(null);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -58,6 +79,126 @@ export function DashboardLedgerWorkspace({
     return () => mediaQuery.removeEventListener("change", syncViewport);
   }, []);
 
+  const baseTransactions = useMemo(
+    () =>
+      hydrateLedgerRows(
+        initialBundle,
+        ledgerProps.wallets,
+        ledgerProps.categories,
+      ),
+    [initialBundle, ledgerProps.wallets, ledgerProps.categories],
+  );
+
+  const activeWindows = useMemo(
+    () =>
+      windowState.revision === initialBundle.revision
+        ? windowState.windows
+        : {},
+    [initialBundle.revision, windowState],
+  );
+
+  const hasAllHistory =
+    initialBundle.isCompleteHistory ||
+    (windowState.revision === initialBundle.revision &&
+      windowState.hasLoadedAllHistory);
+
+  const rangeKey = dateRange ? `${dateRange.from}:${dateRange.to}` : "all";
+
+  const isCoveredByInitialRange = Boolean(
+    dateRange &&
+      initialBundle.coveredRange &&
+      dateRange.from >= initialBundle.coveredRange.from &&
+      dateRange.to <= initialBundle.coveredRange.to,
+  );
+
+  const isRangeCovered =
+    hasAllHistory ||
+    isCoveredByInitialRange ||
+    Boolean(activeWindows[rangeKey]);
+
+  useEffect(() => {
+    if (isRangeCovered) return;
+
+    let cancelled = false;
+    const requestedKey = rangeKey;
+    const requestedRevision = initialBundle.revision;
+
+    void Promise.resolve().then(async () => {
+      if (cancelled) return;
+      setLoadingRangeKey(requestedKey);
+      try {
+        const result = await getWorkspaceLedgerWindowAction({
+          workspaceId: ledgerProps.workspaceId,
+          from: dateRange?.from ?? null,
+          to: dateRange?.to ?? null,
+        });
+        if (cancelled) return;
+        if (!result.ok) {
+          toast.error(result.message ?? "Không thể tải dữ liệu kỳ giao dịch.");
+          return;
+        }
+        const hydrated = hydrateLedgerRows(
+          result.data,
+          ledgerProps.wallets,
+          ledgerProps.categories,
+        );
+        setWindowState((prev) => {
+          const base =
+            prev.revision === requestedRevision
+              ? prev
+              : {
+                  revision: requestedRevision,
+                  windows: {},
+                  hasLoadedAllHistory: initialBundle.isCompleteHistory,
+                };
+          return {
+            revision: requestedRevision,
+            windows: {
+              ...base.windows,
+              [requestedKey]: hydrated,
+            },
+            hasLoadedAllHistory:
+              base.hasLoadedAllHistory ||
+              requestedKey === "all" ||
+              result.data.isCompleteHistory,
+          };
+        });
+      } finally {
+        if (!cancelled) {
+          setLoadingRangeKey((current) =>
+            current === requestedKey ? null : current,
+          );
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    dateRange,
+    initialBundle.isCompleteHistory,
+    initialBundle.revision,
+    isRangeCovered,
+    ledgerProps.categories,
+    ledgerProps.wallets,
+    ledgerProps.workspaceId,
+    rangeKey,
+  ]);
+
+  const transactions = useMemo(() => {
+    if (activeWindows.all) {
+      return mergeHydratedLedgerRows(activeWindows.all, baseTransactions);
+    }
+    const windowRows = activeWindows[rangeKey];
+    if (windowRows) {
+      return mergeHydratedLedgerRows(windowRows, baseTransactions);
+    }
+    return baseTransactions;
+  }, [activeWindows, baseTransactions, rangeKey]);
+
+  const isWindowLoading = !isRangeCovered && loadingRangeKey === rangeKey;
+
   const categoryFilterIds = useMemo(
     () => getCategoryFilterIds(ledgerProps.categories, filterCategory),
     [ledgerProps.categories, filterCategory],
@@ -65,7 +206,7 @@ export function DashboardLedgerWorkspace({
 
   const filteredRows = useMemo(
     () =>
-      ledgerProps.transactions.filter((item) => {
+      transactions.filter((item) => {
         const itemDate = item.date?.slice(0, 10) || "";
         const needsReview =
           item.status === "pending" || item.pendingChangeRequestId !== null;
@@ -90,7 +231,7 @@ export function DashboardLedgerWorkspace({
         );
       }),
     [
-      ledgerProps.transactions,
+      transactions,
       dateRange,
       filterType,
       filterWallet,
@@ -155,7 +296,10 @@ export function DashboardLedgerWorkspace({
   const cashflow = summary.cashflow;
 
   return (
-    <div className="flex w-full flex-col gap-3.5 md:gap-4">
+    <div
+      className="flex w-full flex-col gap-3.5 md:gap-4"
+      aria-busy={isWindowLoading || undefined}
+    >
       {/* Unified Hero Summary Card */}
       <Card
         as="section"
@@ -175,11 +319,19 @@ export function DashboardLedgerWorkspace({
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 text-[0.7rem] font-medium text-[var(--text-secondary)] transition-colors active:bg-[var(--surface-hover)] tabular-nums"
               title="Chạm để đổi kỳ lọc giao dịch"
             >
-              <CalendarDays
-                size={12}
-                className="shrink-0 text-[var(--primary)]"
-                aria-hidden="true"
-              />
+              {isWindowLoading ? (
+                <Loader2
+                  size={12}
+                  className="shrink-0 animate-spin text-[var(--primary)]"
+                  aria-hidden="true"
+                />
+              ) : (
+                <CalendarDays
+                  size={12}
+                  className="shrink-0 text-[var(--primary)]"
+                  aria-hidden="true"
+                />
+              )}
               <span>{label}</span>
             </button>
           </div>
@@ -266,15 +418,25 @@ export function DashboardLedgerWorkspace({
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-hover)] lg:pointer-events-none tabular-nums"
               title="Đổi kỳ lọc giao dịch"
             >
-              <CalendarDays
-                size={13}
-                className="shrink-0 text-[var(--primary)]"
-                aria-hidden="true"
-              />
+              {isWindowLoading ? (
+                <Loader2
+                  size={13}
+                  className="shrink-0 animate-spin text-[var(--primary)]"
+                  aria-hidden="true"
+                />
+              ) : (
+                <CalendarDays
+                  size={13}
+                  className="shrink-0 text-[var(--primary)]"
+                  aria-hidden="true"
+                />
+              )}
               <span className="break-words leading-snug">{label}</span>
             </button>
             <span className="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 font-medium text-[var(--text-secondary)] tabular-nums">
-              {filteredRows.length} giao dịch
+              {isWindowLoading
+                ? "Đang tải..."
+                : `${filteredRows.length} giao dịch`}
             </span>
             {summary.pending > 0 && (
               <button
@@ -414,6 +576,7 @@ export function DashboardLedgerWorkspace({
       >
         <Ledger
           {...ledgerProps}
+          transactions={transactions}
           isDesktop={isDesktop}
           dateRange={dateRange}
           onDateRangeChange={setDateRange}

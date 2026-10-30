@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { requireAcceptedLegalSession } from "@/lib/legal-access";
 import { toActionFailure } from "@/lib/server-error";
 import {
@@ -38,7 +37,6 @@ export async function createQuickCaptureTokenAction(input: unknown) {
   try {
     const userId = await actor();
     const data = await createQuickCaptureToken(userId, input);
-    revalidatePath("/", "layout");
     return {
       ok: true as const,
       data,
@@ -56,7 +54,6 @@ export async function revokeQuickCaptureTokenAction(tokenId: string) {
   try {
     const userId = await actor();
     const data = await revokeQuickCaptureToken(userId, { tokenId });
-    revalidatePath("/", "layout");
     return {
       ok: true as const,
       data,

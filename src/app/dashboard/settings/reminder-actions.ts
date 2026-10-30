@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { requireAcceptedLegalSession } from "@/lib/legal-access";
@@ -43,7 +42,6 @@ export async function updateUserReminderSettingsAction(input: unknown) {
   try {
     const userId = await actor();
     const data = await updateUserReminderSettings(userId, input);
-    revalidatePath("/", "layout");
     return {
       ok: true as const,
       data,
@@ -61,7 +59,6 @@ export async function saveUserPushSubscriptionAction(input: unknown) {
   try {
     const userId = await actor();
     const result = await saveUserPushSubscription(userId, input);
-    revalidatePath("/", "layout");
     return {
       ok: true as const,
       data: result,
@@ -79,7 +76,6 @@ export async function removeUserPushSubscriptionAction(endpoint: string) {
   try {
     const userId = await actor();
     const result = await removeUserPushSubscription(userId, endpoint);
-    revalidatePath("/", "layout");
     return {
       ok: true as const,
       data: result,
@@ -127,7 +123,6 @@ export async function dismissDailyReminderAction() {
   try {
     const userId = await actor();
     await dismissDailyReminderForToday(userId);
-    revalidatePath("/", "layout");
     return { ok: true as const };
   } catch (error) {
     return reminderFailure(

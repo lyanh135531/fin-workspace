@@ -48,6 +48,7 @@ import { getBusinessDateInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
 import { resolveActiveWorkspaceId } from "@/services/active-workspace";
+import { availableCategoryWhere } from "@/services/category-visibility";
 import { getPendingJoinRequestCount } from "@/services/join-request-query";
 import { processDueRecurringTransactions } from "@/services/recurring-transaction-service";
 import { activateDueScheduledTransactionsForRequest } from "@/services/transaction-service";
@@ -157,52 +158,50 @@ async function loadDashboardShellData() {
         }),
       ]);
 
-  const quickWorkspaceIds = workspaces.map((item) => item.workspaceId);
-  const [quickWalletLinks, quickCategories] = quickWorkspaceIds.length
-    ? await Promise.all([
-        prisma.workspaceWallet.findMany({
-          where: {
-            workspaceId: { in: quickWorkspaceIds },
-            wallet: { status: "active", deletedAt: null },
-          },
-          select: {
-            workspaceId: true,
-            wallet: {
-              select: {
-                id: true,
-                name: true,
-                kind: true,
-                creditCardProfile: { select: { defaultFundingWalletId: true } },
+  const targetQuickWorkspaceId =
+    membership?.workspaceId ?? workspaces[0]?.workspaceId ?? null;
+  const [quickWalletLinks, quickCategories, pendingJoinCount] =
+    await Promise.all([
+      targetQuickWorkspaceId
+        ? prisma.workspaceWallet.findMany({
+            where: {
+              workspaceId: targetQuickWorkspaceId,
+              wallet: { status: "active", deletedAt: null },
+            },
+            select: {
+              workspaceId: true,
+              wallet: {
+                select: {
+                  id: true,
+                  name: true,
+                  kind: true,
+                  creditCardProfile: {
+                    select: { defaultFundingWalletId: true },
+                  },
+                },
               },
             },
-          },
-          orderBy: [
-            { workspaceId: "asc" },
-            { sortOrder: "asc" },
-            { wallet: { name: "asc" } },
-          ],
-        }),
-        prisma.category.findMany({
-          where: {
-            status: "active",
-            deletedAt: null,
-            workspaceId: { in: quickWorkspaceIds },
-          },
-          select: {
-            id: true,
-            workspaceId: true,
-            name: true,
-            color: true,
-            icon: true,
-            parentId: true,
-            type: true,
-          },
-          orderBy: { sortOrder: "asc" },
-        }),
-      ])
-    : [[], []];
+            orderBy: [{ sortOrder: "asc" }, { wallet: { name: "asc" } }],
+          })
+        : Promise.resolve([]),
+      targetQuickWorkspaceId
+        ? prisma.category.findMany({
+            where: availableCategoryWhere(targetQuickWorkspaceId),
+            select: {
+              id: true,
+              workspaceId: true,
+              name: true,
+              color: true,
+              icon: true,
+              parentId: true,
+              type: true,
+            },
+            orderBy: { sortOrder: "asc" },
+          })
+        : Promise.resolve([]),
+      getPendingJoinRequestCount(userId),
+    ]);
 
-  const pendingJoinCount = await getPendingJoinRequestCount(userId);
   const capabilities = workspaceCapabilities(membership?.role.code ?? "");
   const isAdmin = capabilities.canManageWorkspace;
   const userRole: "admin" | "member" | "none" = membership
@@ -214,6 +213,7 @@ async function loadDashboardShellData() {
   return {
     membership,
     workspaces,
+    targetQuickWorkspaceId,
     quickWalletLinks,
     quickCategories,
     pendingJoinCount,
@@ -324,35 +324,46 @@ async function DashboardHeader({ dataPromise }: DashboardShellDataProps) {
 async function DashboardQuickTransaction({
   dataPromise,
 }: DashboardShellDataProps) {
-  const { membership, workspaces, quickWalletLinks, quickCategories } =
-    await dataPromise;
+  const {
+    membership,
+    workspaces,
+    targetQuickWorkspaceId,
+    quickWalletLinks,
+    quickCategories,
+  } = await dataPromise;
+
+  const targetWorkspace = targetQuickWorkspaceId
+    ? workspaces.find((item) => item.workspaceId === targetQuickWorkspaceId)
+    : undefined;
 
   return (
     <QuickTransactionSheet
       key={membership?.workspaceId ?? "none"}
-      initialWorkspaceId={
-        membership?.workspaceId ?? workspaces[0]?.workspaceId ?? ""
+      initialWorkspaceId={targetQuickWorkspaceId ?? ""}
+      workspaces={
+        targetWorkspace
+          ? [
+              {
+                id: targetWorkspace.workspaceId,
+                name: targetWorkspace.workspace.name,
+                currency: targetWorkspace.workspace.baseCurrency,
+                businessDate: getBusinessDateInTimeZone(
+                  targetWorkspace.workspace.timeZone,
+                ),
+                role: targetWorkspace.role.code,
+                wallets: quickWalletLinks.map((link) => link.wallet),
+                categories: quickCategories.map((category) => ({
+                  id: category.id,
+                  name: category.name,
+                  color: category.color,
+                  icon: category.icon,
+                  parentId: category.parentId,
+                  type: category.type as "income" | "expense",
+                })),
+              },
+            ]
+          : []
       }
-      workspaces={workspaces.map((item) => ({
-        id: item.workspaceId,
-        name: item.workspace.name,
-        currency: item.workspace.baseCurrency,
-        businessDate: getBusinessDateInTimeZone(item.workspace.timeZone),
-        role: item.role.code,
-        wallets: quickWalletLinks
-          .filter((link) => link.workspaceId === item.workspaceId)
-          .map((link) => link.wallet),
-        categories: quickCategories
-          .filter((category) => category.workspaceId === item.workspaceId)
-          .map((category) => ({
-            id: category.id,
-            name: category.name,
-            color: category.color,
-            icon: category.icon,
-            parentId: category.parentId,
-            type: category.type as "income" | "expense",
-          })),
-      }))}
     />
   );
 }
@@ -414,6 +425,7 @@ function BrandLink() {
   return (
     <Link
       href="/overview"
+      prefetch={false}
       className="flex h-10 w-full min-w-0 items-center justify-start gap-2.5 rounded-lg px-2 text-[var(--foreground)] outline-none transition-colors duration-150 hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0!"
       aria-label="Felix - về trang tổng quan"
     >
@@ -460,7 +472,7 @@ function FallbackNavigationGroup({
             return (
               <SidebarMenuItem key={link.href}>
                 <SidebarMenuButton
-                  render={<Link href={link.href} />}
+                  render={<Link href={link.href} prefetch={false} />}
                   aria-label={link.label}
                 >
                   <Icon strokeWidth={1.8} />

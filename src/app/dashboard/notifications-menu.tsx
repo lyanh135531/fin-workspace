@@ -2,6 +2,7 @@
 
 import {
   type ReactNode,
+  useCallback,
   useEffect,
   useState,
   useTransition,
@@ -15,6 +16,7 @@ import {
   CircleX,
   CreditCard,
   FilePenLine,
+  Loader2,
   MoonStar,
   Plus,
   ReceiptText,
@@ -35,6 +37,7 @@ import {
   rejectTransactionAction,
   reviewTransactionChangeAction,
 } from "@/app/dashboard/actions";
+import { getWorkspaceNotificationsAction } from "@/app/dashboard/notification-actions";
 import {
   DailyReminderControls,
   detectPushSupport,
@@ -1058,15 +1061,17 @@ function DailyReminderIntroSheet({
 
 export function NotificationsMenu({
   workspaceId,
-  items,
-  roles,
+  initialCount,
+  items: providedItems,
+  roles: providedRoles,
   currency,
   canReview,
   reminderState,
 }: {
   workspaceId: string;
-  items: NotificationItem[];
-  roles: Role[];
+  initialCount?: number;
+  items?: NotificationItem[];
+  roles?: Role[];
   currency: string;
   canReview: boolean;
   reminderState?: UserReminderState | null;
@@ -1084,11 +1089,87 @@ export function NotificationsMenu({
   const [introOpen, setIntroOpen] = useState(false);
   const [pushSupport, setPushSupport] = useState<PushSupportState>("checking");
   const [deviceSubscribed, setDeviceSubscribed] = useState(false);
+  const [loadedFeed, setLoadedFeed] = useState<{
+    workspaceId: string;
+    serverCountSnapshot: number;
+    items: NotificationItem[];
+    roles: Role[];
+    reminderState: UserReminderState | null;
+  } | null>(null);
+  const [loadingFeed, setLoadingFeed] = useState(false);
+
+  const effectiveInitialCount = initialCount ?? providedItems?.length ?? 0;
+  const hasFreshLoadedFeed =
+    loadedFeed !== null &&
+    loadedFeed.workspaceId === workspaceId &&
+    loadedFeed.serverCountSnapshot === effectiveInitialCount;
+
+  const items = providedItems ?? (hasFreshLoadedFeed ? loadedFeed.items : []);
+  const roles = providedRoles ?? (hasFreshLoadedFeed ? loadedFeed.roles : []);
+  const activeReminderState =
+    (hasFreshLoadedFeed ? loadedFeed.reminderState : null) ?? reminderState;
+
   const defaultRoleCode =
     roles.find((role) => role.code === "MEMBER")?.code ??
     roles[0]?.code ??
     "MEMBER";
   const [joinRoles, setJoinRoles] = useState<Record<string, string>>({});
+
+  const fetchFeed = useCallback(
+    async (countSnapshot = effectiveInitialCount) => {
+      if (providedItems) return;
+      setLoadingFeed(true);
+      try {
+        const result = await getWorkspaceNotificationsAction(workspaceId);
+        if (result.ok) {
+          setLoadedFeed({
+            workspaceId,
+            serverCountSnapshot: countSnapshot,
+            items: result.data.items,
+            roles: result.data.roles,
+            reminderState: result.data.reminderState,
+          });
+        }
+      } finally {
+        setLoadingFeed(false);
+      }
+    },
+    [effectiveInitialCount, providedItems, workspaceId],
+  );
+
+  function handleMobileOpenChange(nextOpen: boolean): void {
+    setMobileOpen(nextOpen);
+    if (nextOpen && !providedItems && !hasFreshLoadedFeed) {
+      void fetchFeed();
+    }
+  }
+
+  function handlePopoverOpenChange(nextOpen: boolean): void {
+    setPopoverOpen(nextOpen);
+    if (nextOpen && !providedItems && !hasFreshLoadedFeed) {
+      void fetchFeed();
+    }
+  }
+
+  useEffect(() => {
+    if (
+      !(mobileOpen || popoverOpen) ||
+      providedItems ||
+      hasFreshLoadedFeed ||
+      loadingFeed
+    ) {
+      return;
+    }
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) {
+        void fetchFeed();
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchFeed, hasFreshLoadedFeed, loadingFeed, mobileOpen, popoverOpen, providedItems]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 767px)");
@@ -1198,16 +1279,16 @@ export function NotificationsMenu({
     markIntroSeen();
     window.setTimeout(() => {
       if (isMobile) {
-        setMobileOpen(true);
+        handleMobileOpenChange(true);
       } else {
-        setPopoverOpen(true);
+        handlePopoverOpenChange(true);
       }
       triggerHighlightControls();
     }, 120);
   }
 
   async function handleEnableDeviceFromIntro(): Promise<void> {
-    if (!reminderState) {
+    if (!activeReminderState) {
       handleOpenBellFromIntro();
       return;
     }
@@ -1217,12 +1298,12 @@ export function NotificationsMenu({
     if (!permissionRes.granted) return;
 
     start(async () => {
-      const subRes = await subscribeBrowserToPush(reminderState.vapidPublicKey);
+      const subRes = await subscribeBrowserToPush(activeReminderState.vapidPublicKey);
       if (!subRes.ok) return;
 
       const browserTimeZone =
         Intl.DateTimeFormat().resolvedOptions().timeZone ||
-        reminderState.timeZone;
+        activeReminderState.timeZone;
       await updateUserReminderSettingsAction({
         noonEnabled: true,
         eveningEnabled: true,
@@ -1232,7 +1313,6 @@ export function NotificationsMenu({
       setDeviceSubscribed(true);
       markIntroSeen();
       toast.success("Đã bật nhận thông báo. Bạn có thể đổi giờ nhắc tại mục Thông báo.");
-      router.refresh();
     });
   }
 
@@ -1244,6 +1324,7 @@ export function NotificationsMenu({
         : await rejectTransactionAction(workspaceId, id);
       if (result.ok) {
         toast.success("Đã xử lý giao dịch.");
+        await fetchFeed();
         router.refresh();
       } else {
         toast.error(result.message ?? "Không thể xử lý giao dịch.");
@@ -1273,6 +1354,7 @@ export function NotificationsMenu({
               ? "Đã duyệt thay đổi giao dịch."
               : "Đã từ chối thay đổi giao dịch.",
         );
+        await fetchFeed();
         router.refresh();
       } else {
         toast.error(result.message ?? "Không thể xử lý yêu cầu thay đổi.");
@@ -1298,6 +1380,7 @@ export function NotificationsMenu({
             ? "Đã duyệt thành viên vào nhóm."
             : "Đã từ chối yêu cầu tham gia.",
         );
+        await fetchFeed();
         router.refresh();
       } else {
         toast.error(result.message ?? "Không thể xử lý yêu cầu tham gia.");
@@ -1311,6 +1394,7 @@ export function NotificationsMenu({
       const result = await reviewRecurringTransactionAction(id, approve);
       if (result.ok) {
         toast.success(approve ? "Đã duyệt và kích hoạt lịch." : "Đã từ chối lịch.");
+        await fetchFeed();
         router.refresh();
       } else {
         toast.error(result.message ?? "Không thể xử lý lịch định kỳ.");
@@ -1324,6 +1408,7 @@ export function NotificationsMenu({
       const result = await reviewFinancialGoalFundingAction({ entryId: id, approve });
       if (result.ok) {
         toast.success(approve ? "Đã duyệt khoản đóng góp." : "Đã từ chối khoản đóng góp.");
+        await fetchFeed();
         router.refresh();
       } else toast.error(result.message ?? "Không thể xử lý khoản đóng góp.");
     });
@@ -1345,8 +1430,20 @@ export function NotificationsMenu({
     start(async () => {
       const result = await dismissDailyReminderAction();
       if (result.ok) {
+        setLoadedFeed((current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.filter(
+                  (entry) => entry.kind !== "dailyReminder",
+                ),
+                reminderState: current.reminderState
+                  ? { ...current.reminderState, activeReminderSlot: null }
+                  : null,
+              }
+            : current,
+        );
         toast.success("Đã ghi nhận hôm nay chưa phát sinh chi tiêu.");
-        router.refresh();
       } else {
         toast.error(result.message ?? "Không thể cập nhật nhắc nhở.");
       }
@@ -1370,6 +1467,7 @@ export function NotificationsMenu({
       const result = await runRecurringTransactionNowAction(recurringId);
       if (result.ok) {
         toast.success("Đã thực hiện giao dịch định kỳ cho kỳ này.");
+        await fetchFeed();
         router.refresh();
       } else {
         toast.error(
@@ -1379,7 +1477,14 @@ export function NotificationsMenu({
     });
   }
 
-  const totalBadgeCount = items.length + (showGuideCard ? 1 : 0);
+  const activeServerCount = providedItems
+    ? providedItems.length
+    : hasFreshLoadedFeed
+      ? loadedFeed.items.length
+      : effectiveInitialCount;
+  const totalBadgeCount = activeServerCount + (showGuideCard ? 1 : 0);
+  const isInitialFeedLoading =
+    !providedItems && !hasFreshLoadedFeed && loadingFeed;
 
   const guideNotificationNode = showGuideCard ? (
     <ReminderGuideNotificationCard
@@ -1496,7 +1601,14 @@ export function NotificationsMenu({
     );
   });
 
-  const emptyNotification = totalBadgeCount === 0 && (
+  const loadingNotificationNode = isInitialFeedLoading && (
+    <div className="flex items-center justify-center gap-2 py-10 text-xs text-[var(--text-secondary)]">
+      <Loader2 size={15} className="animate-spin text-[var(--primary)]" />
+      <span>Đang tải thông báo...</span>
+    </div>
+  );
+
+  const emptyNotification = !isInitialFeedLoading && totalBadgeCount === 0 && (
     <Empty
       variant="compact"
       icon={Bell}
@@ -1526,7 +1638,7 @@ export function NotificationsMenu({
     return (
       <>
         {introSheetNode}
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <Sheet open={mobileOpen} onOpenChange={handleMobileOpenChange}>
           <SheetTrigger
             render={
               <Button
@@ -1550,7 +1662,7 @@ export function NotificationsMenu({
 
           <SheetContent
             side="bottom"
-            aria-busy={pending}
+            aria-busy={pending || loadingFeed}
             aria-label="Thông báo"
           >
             <SheetHeader
@@ -1566,7 +1678,7 @@ export function NotificationsMenu({
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-[max(1.25rem,env(safe-area-inset-bottom))]">
               <div className="border-b border-[var(--border)] px-3.5 py-3">
                 <DailyReminderControls
-                  initialState={reminderState}
+                  initialState={activeReminderState}
                   variant="compact"
                   highlighted={highlightControls}
                 />
@@ -1578,6 +1690,7 @@ export function NotificationsMenu({
                 aria-label="Danh sách thông báo"
               >
                 {guideNotificationNode}
+                {loadingNotificationNode}
                 {notificationItems}
                 {emptyNotification}
               </div>
@@ -1591,7 +1704,7 @@ export function NotificationsMenu({
   return (
     <>
       {introSheetNode}
-      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+      <Popover open={popoverOpen} onOpenChange={handlePopoverOpenChange}>
         <PopoverTrigger
           render={
             <Button
@@ -1616,7 +1729,7 @@ export function NotificationsMenu({
         <PopoverContent
           align="end"
           sideOffset={10}
-          aria-busy={pending}
+          aria-busy={pending || loadingFeed}
           className="w-[min(26rem,calc(100vw-1rem))] max-h-[min(42rem,calc(100dvh-5rem))] gap-0 overflow-hidden p-0"
         >
           <header className="flex items-center justify-between gap-4 border-b border-[var(--border)] px-4 py-3.5">
@@ -1639,7 +1752,7 @@ export function NotificationsMenu({
 
           <div className="border-b border-[var(--border)] p-3">
             <DailyReminderControls
-              initialState={reminderState}
+              initialState={activeReminderState}
               variant="compact"
               highlighted={highlightControls}
             />
@@ -1651,6 +1764,7 @@ export function NotificationsMenu({
             aria-label="Danh sách thông báo"
           >
             {guideNotificationNode}
+            {loadingNotificationNode}
             {notificationItems}
             {emptyNotification}
           </div>

@@ -37,6 +37,7 @@ import {
   CreditCard,
   Landmark,
   Layers,
+  Loader2,
   PiggyBank,
   Plus,
   ReceiptText,
@@ -55,12 +56,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { usePrivacyMask } from "@/lib/privacy-mask";
 import {
-  type TransactionCategoryOption,
-} from "@/app/dashboard/desktop-transaction-create-draft";
-import {
   approveTransactionAction,
   rejectTransactionAction,
 } from "@/app/dashboard/actions";
+import { getOverviewPeriodAnalyticsAction } from "@/app/dashboard/overview/overview-analytics-actions";
 import { useOptimisticNavigation } from "@/app/dashboard/use-optimistic-navigation";
 import {
   Area,
@@ -74,14 +73,14 @@ import {
   YAxis,
 } from "recharts";
 import {
-  buildDailyBalances,
-  buildDailyCashflow,
-  buildMonthlyBalances,
-  buildMonthlyCashflow,
   getDashboardPeriodDateRange,
   getVisibleCashflowTypes,
-  type CashflowRange,
+  type MonthlyCashflow,
 } from "@/app/dashboard/overview/overview-chart-data";
+import type {
+  OverviewBalancePoint,
+  OverviewPeriodAnalytics,
+} from "@/services/overview-analytics-service";
 import {
   ChartContainer,
   ChartLegend,
@@ -252,15 +251,13 @@ type Props = {
     balance: string;
     kind?: "asset" | "credit_card";
   }[];
-  totalByCurrency: Record<string, string>;
-  members: { id: string; name: string }[];
+  hasMultipleMembers?: boolean;
+  initialAnalytics: OverviewPeriodAnalytics;
   transactions: Transaction[];
-  userRole?: string;
   canApprove?: boolean;
   financialPlanSnapshot?: OverviewFinancialPlanSnapshot | null;
   investmentsSnapshot?: OverviewInvestmentsSnapshot | null;
   upcomingRecurring?: UpcomingRecurring[];
-  categories?: TransactionCategoryOption[];
   businessDate?: string;
 };
 
@@ -277,29 +274,9 @@ const monthlyChartConfig = {
   expense: { label: "Chi tiêu", color: "var(--expense)" },
 } satisfies ChartConfig;
 
-const memberChartColors = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-  "var(--chart-6)",
-  "var(--chart-7)",
-  "var(--chart-8)",
-];
-
-const memberSeriesColor = (index: number) =>
-  memberChartColors[index] ??
-  `hsl(${Math.round((index * 137.508) % 360)} 58% 52%)`;
-
 const balanceChartConfig = {
   total: { label: "Tổng số dư", color: "var(--primary)" },
 } satisfies ChartConfig;
-
-function isInDateRange(date: string, range: DateRangeValue): boolean {
-  const transactionDate = date.slice(0, 10);
-  return transactionDate >= range.from && transactionDate <= range.to;
-}
 
 function formatDateRangeLabel(dateRange: DateRangeValue): string {
   const formatDate = (value: string): string => {
@@ -322,26 +299,6 @@ function daysBetweenDates(fromIso: string, toIso: string): number {
   return Math.round((toUtc - fromUtc) / (1000 * 60 * 60 * 24));
 }
 
-function shiftReportPeriod(
-  periodStr: string,
-  step: number,
-  period: DashboardPeriod,
-): string {
-  const [year, month] = periodStr.split("-").map(Number);
-  if (period === "month") {
-    const date = new Date(Date.UTC(year, month - 1 + step, 1));
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-  }
-  if (period === "quarter") {
-    const currentQuarter = Math.floor((month - 1) / 3) + 1;
-    const targetQuarter = currentQuarter + step;
-    const date = new Date(Date.UTC(year, targetQuarter * 3 - 1, 1));
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-  }
-  const nextYear = year + step;
-  return `${nextYear}-${String(month).padStart(2, "0")}`;
-}
-
 function formatPeriodLabel(
   periodStr: string,
   period: DashboardPeriod,
@@ -355,45 +312,6 @@ function formatPeriodLabel(
     return `Quý ${quarter}/${year}`;
   }
   return `Năm ${year}`;
-}
-
-function summarizeTransactions(
-  transactions: Transaction[],
-  dateRange: DateRangeValue,
-): { income: Decimal; expense: Decimal; count: number } {
-  const totals = transactions.reduce(
-    (result, item) => {
-      if (
-        item.status !== "approved" ||
-        !isInDateRange(item.date, dateRange) ||
-        item.purpose === "investment_contribution" ||
-        item.purpose === "investment_settlement" ||
-        item.purpose === "balance_reconciliation"
-      ) {
-        return result;
-      }
-
-      if (item.purpose === "credit_card_refund") {
-        result.expense = result.expense.minus(item.amount);
-        result.count += 1;
-        return result;
-      }
-      if (item.type === "income") {
-        result.income = result.income.plus(item.amount);
-        result.count += 1;
-      }
-      if (item.type === "expense") {
-        result.expense = result.expense.plus(item.amount);
-        result.count += 1;
-      }
-      return result;
-    },
-    { income: new Decimal(0), expense: new Decimal(0), count: 0 },
-  );
-  return {
-    ...totals,
-    expense: Decimal.max(new Decimal(0), totals.expense),
-  };
 }
 
 function calculatePeriodProgress(
@@ -489,7 +407,8 @@ export function OverviewDashboard({
   reportPeriod,
   wallets,
   balanceHistoryWallets,
-  members,
+  hasMultipleMembers = false,
+  initialAnalytics,
   transactions,
   canApprove = false,
   financialPlanSnapshot = null,
@@ -573,23 +492,96 @@ export function OverviewDashboard({
     });
   }
 
-  // Period calculations
+  // Period calculations & server-side analytics cache
   const activeDateRange = getDashboardPeriodDateRange(
     activeReportPeriod,
     globalPeriod,
   );
-  const prevReportPeriod = shiftReportPeriod(
-    activeReportPeriod,
-    -1,
-    globalPeriod,
-  );
-  const prevDateRange = getDashboardPeriodDateRange(
-    prevReportPeriod,
-    globalPeriod,
+  const defaultAnalyticsKey = `month:${reportPeriod}`;
+  const activeAnalyticsKey = `${globalPeriod}:${activeReportPeriod}`;
+  const [analyticsCache, setAnalyticsCache] = useState<{
+    revision: string;
+    entries: Record<string, OverviewPeriodAnalytics>;
+    lastResolved: OverviewPeriodAnalytics;
+  }>(() => ({
+    revision: initialAnalytics.revision,
+    entries: {},
+    lastResolved: initialAnalytics,
+  }));
+  const [loadingAnalyticsKey, setLoadingAnalyticsKey] = useState<string | null>(
+    null,
   );
 
-  const activeTotals = summarizeTransactions(transactions, activeDateRange);
-  const prevTotals = summarizeTransactions(transactions, prevDateRange);
+  const validAnalyticsEntries =
+    analyticsCache.revision === initialAnalytics.revision
+      ? analyticsCache.entries
+      : {};
+  const exactAnalytics =
+    activeAnalyticsKey === defaultAnalyticsKey
+      ? initialAnalytics
+      : validAnalyticsEntries[activeAnalyticsKey];
+  const activeAnalytics =
+    exactAnalytics ??
+    (analyticsCache.revision === initialAnalytics.revision
+      ? analyticsCache.lastResolved
+      : initialAnalytics);
+  const isAnalyticsLoading =
+    !exactAnalytics && loadingAnalyticsKey === activeAnalyticsKey;
+
+  useEffect(() => {
+    if (!workspace.id || exactAnalytics) return;
+    let cancelled = false;
+    void Promise.resolve().then(async () => {
+      if (cancelled) return;
+      setLoadingAnalyticsKey(activeAnalyticsKey);
+      const result = await getOverviewPeriodAnalyticsAction({
+        workspaceId: workspace.id,
+        reportPeriod: activeReportPeriod,
+        period: globalPeriod,
+      });
+      if (cancelled) return;
+      setLoadingAnalyticsKey((current) =>
+        current === activeAnalyticsKey ? null : current,
+      );
+      if (!result.ok) {
+        toast.error(result.message);
+        return;
+      }
+      setAnalyticsCache((prev) => {
+        const baseEntries =
+          prev.revision === initialAnalytics.revision ? prev.entries : {};
+        return {
+          revision: initialAnalytics.revision,
+          entries: {
+            ...baseEntries,
+            [activeAnalyticsKey]: result.data,
+          },
+          lastResolved: result.data,
+        };
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    workspace.id,
+    exactAnalytics,
+    activeAnalyticsKey,
+    activeReportPeriod,
+    globalPeriod,
+    initialAnalytics.revision,
+  ]);
+
+  const activeTotals = {
+    income: new Decimal(activeAnalytics.activeTotals.income),
+    expense: new Decimal(activeAnalytics.activeTotals.expense),
+    count: activeAnalytics.activeTotals.count,
+  };
+  const prevTotals = {
+    income: new Decimal(activeAnalytics.prevTotals.income),
+    expense: new Decimal(activeAnalytics.prevTotals.expense),
+    count: activeAnalytics.prevTotals.count,
+  };
   const activeNetCashflow = activeTotals.income.minus(activeTotals.expense);
 
   const incomeDeltaPct = computeDeltaPercent(
@@ -846,111 +838,9 @@ export function OverviewDashboard({
   }, [dueCreditCardStatements, dueSavingsDeposits, upcomingRecurring, todayStr]);
 
   // Structure breakdowns (Expense Categories, Income Categories, Members)
-  const buildCategoryBreakdown = (targetType: "expense" | "income") => {
-    const rows = new Map<
-      string,
-      {
-        id: string;
-        name: string;
-        color: string;
-        icon: string | null;
-        amount: Decimal;
-        count: number;
-      }
-    >();
-    transactions
-      .filter(
-        (item) =>
-          item.status === "approved" &&
-          item.purpose !== "investment_contribution" &&
-          item.purpose !== "investment_settlement" &&
-          item.purpose !== "balance_reconciliation" &&
-          isInDateRange(item.date, activeDateRange) &&
-          (targetType === "income"
-            ? item.type === "income" && item.purpose !== "credit_card_refund"
-            : item.type === "expense" || item.purpose === "credit_card_refund"),
-      )
-      .forEach((item) => {
-        const key = item.categoryId ?? "uncategorized";
-        const prior = rows.get(key);
-        const signedAmount =
-          item.purpose === "credit_card_refund"
-            ? new Decimal(item.amount).negated()
-            : new Decimal(item.amount);
-        rows.set(key, {
-          id: key,
-          name: item.category?.name ?? "Chưa phân loại",
-          color:
-            item.category?.color ??
-            (targetType === "income" ? "var(--income)" : "var(--chart-1)"),
-          icon: item.category?.icon ?? "tag",
-          amount: (prior?.amount ?? new Decimal(0)).plus(signedAmount),
-          count: (prior?.count ?? 0) + 1,
-        });
-      });
-    const positiveRows = [...rows.values()]
-      .filter((row) => row.amount.gt(0))
-      .sort((a, b) => b.amount.comparedTo(a.amount));
-    const positiveTotal = positiveRows.reduce(
-      (sum, row) => sum.plus(row.amount),
-      new Decimal(0),
-    );
-    return positiveRows.map((row, idx) => ({
-      ...row,
-      color: row.color || memberSeriesColor(idx),
-      percent: positiveTotal.isZero()
-        ? 0
-        : row.amount.div(positiveTotal).times(100).toNumber(),
-    }));
-  };
-
-  const expenseByCategory = buildCategoryBreakdown("expense");
-  const incomeByCategory = buildCategoryBreakdown("income");
-
-  const rawMemberExpenses = members
-    .map((m, idx) => {
-      const matched = transactions.filter(
-        (t) =>
-          t.memberId === m.id &&
-          t.purpose !== "investment_contribution" &&
-          t.purpose !== "investment_settlement" &&
-          t.purpose !== "balance_reconciliation" &&
-          (t.type === "expense" || t.purpose === "credit_card_refund") &&
-          t.status === "approved" &&
-          isInDateRange(t.date, activeDateRange),
-      );
-      const memberSpent = Decimal.max(
-        new Decimal(0),
-        matched.reduce(
-          (sum, t) =>
-            t.purpose === "credit_card_refund"
-              ? sum.minus(new Decimal(t.amount))
-              : sum.plus(new Decimal(t.amount)),
-          new Decimal(0),
-        ),
-      );
-      return {
-        id: m.id,
-        name: m.name,
-        color: memberSeriesColor(idx),
-        icon: null as string | null,
-        amount: memberSpent,
-        count: matched.length,
-      };
-    })
-    .filter((m) => m.amount.gt(0))
-    .sort((a, b) => b.amount.comparedTo(a.amount));
-
-  const memberPositiveTotal = rawMemberExpenses.reduce(
-    (sum, m) => sum.plus(m.amount),
-    new Decimal(0),
-  );
-  const memberExpenses = rawMemberExpenses.map((m) => ({
-    ...m,
-    percent: memberPositiveTotal.isZero()
-      ? 0
-      : m.amount.div(memberPositiveTotal).times(100).toNumber(),
-  }));
+  const expenseByCategory = activeAnalytics.expenseByCategory;
+  const incomeByCategory = activeAnalytics.incomeByCategory;
+  const memberExpenses = activeAnalytics.memberExpenses;
 
   const activeStructureItems =
     structureMode === "income"
@@ -963,25 +853,7 @@ export function OverviewDashboard({
     structureMode === "income" ? activeTotals.income : activeTotals.expense;
 
   const cashflowAxisScale = getAmountScale(
-    (globalPeriod === "month"
-      ? buildDailyCashflow(transactions, {
-          endPeriod: activeReportPeriod,
-          walletId: "all",
-          categoryId: "all",
-          memberId: "all",
-          transactionType: "all",
-          dateRange: activeDateRange,
-        })
-      : buildMonthlyCashflow(transactions, {
-          endPeriod: activeReportPeriod,
-          range: 12,
-          walletId: "all",
-          categoryId: "all",
-          memberId: "all",
-          transactionType: "all",
-          dateRange: activeDateRange,
-        })
-      ).flatMap((row) => [row.income, row.expense]),
+    activeAnalytics.cashflowSeries.flatMap((row) => [row.income, row.expense]),
   );
 
   const periodLabel = formatPeriodLabel(activeReportPeriod, globalPeriod);
@@ -1090,14 +962,22 @@ export function OverviewDashboard({
                     />
                   }
                 >
-                  <span
-                    className={cn(
-                      "size-1.5 rounded-full",
-                      activeReportPeriod !== reportPeriod
-                        ? "bg-[var(--primary)]"
-                        : "bg-[var(--text-muted)]/60",
-                    )}
-                  />
+                  {isAnalyticsLoading ? (
+                    <Loader2
+                      className="size-3 animate-spin text-[var(--primary)]"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <span
+                      className={cn(
+                        "size-1.5 rounded-full",
+                        activeReportPeriod !== reportPeriod ||
+                          globalPeriod !== "month"
+                          ? "bg-[var(--primary)]"
+                          : "bg-[var(--text-muted)]/60",
+                      )}
+                    />
+                  )}
                   <span>{periodLabel}</span>
                   <ChevronDown
                     className={cn(
@@ -1631,6 +1511,7 @@ export function OverviewDashboard({
             <Link
               key={stmt.id}
               href={`/credit-cards/${stmt.cardId}`}
+              prefetch={false}
               onClick={(event) => {
                 if (!event.ctrlKey && !event.metaKey && event.button === 0) {
                   event.preventDefault();
@@ -1696,6 +1577,7 @@ export function OverviewDashboard({
             <Link
               key={dep.id}
               href="/investments"
+              prefetch={false}
               onClick={(event) => {
                 if (!event.ctrlKey && !event.metaKey && event.button === 0) {
                   event.preventDefault();
@@ -1800,35 +1682,24 @@ export function OverviewDashboard({
           <div className="flex-1 p-3.5 md:p-5">
             {chartTab === "cashflow" && (
               <MonthlyFinancialChart
-                transactions={transactions}
+                cashflowSeries={activeAnalytics.cashflowSeries}
                 currency={workspace.currency}
-                month={activeReportPeriod}
-                range={12}
-                walletId="all"
-                categoryId="all"
-                memberId="all"
                 transactionType="all"
-                dateRange={activeDateRange}
                 axisScale={cashflowAxisScale}
                 isMobile={isMobile}
-                period={globalPeriod}
+                period={activeAnalytics.period}
               />
             )}
 
             {chartTab === "balance" && (
               <BalanceHistoryChart
-                wallets={balanceHistoryWallets ?? wallets}
-                transactions={transactions}
+                balanceSeries={activeAnalytics.balanceSeries}
+                hasActiveWallets={Boolean(
+                  (balanceHistoryWallets ?? wallets).length,
+                )}
                 currency={workspace.currency}
-                reportPeriod={activeReportPeriod}
-                periodOverride={globalPeriod}
+                periodOverride={activeAnalytics.period}
                 isMobile={isMobile}
-                investmentMarketValue={
-                  investmentsSnapshot?.totalPortfolioMarketValue ?? "0"
-                }
-                investmentCostBasis={
-                  investmentsSnapshot?.totalPortfolioCostBasis ?? "0"
-                }
               />
             )}
 
@@ -1861,7 +1732,7 @@ export function OverviewDashboard({
                     >
                       Thu nhập ({incomeByCategory.length})
                     </button>
-                    {members.length > 1 && (
+                    {hasMultipleMembers && (
                       <button
                         type="button"
                         onClick={() => setStructureMode("member")}
@@ -2055,6 +1926,7 @@ export function OverviewDashboard({
 
               <Link
                 href={walletFilter === "credit_card" ? "/credit-cards" : "/wallets"}
+                prefetch={false}
                 onClick={(event) => {
                   const targetHref =
                     walletFilter === "credit_card"
@@ -2217,6 +2089,7 @@ export function OverviewDashboard({
                   <Link
                     key={wallet.id}
                     href={`/credit-cards/${wallet.id}`}
+                    prefetch={false}
                     onClick={(event) => {
                       if (
                         !event.ctrlKey &&
@@ -2294,6 +2167,7 @@ export function OverviewDashboard({
 
             <Link
               href="/investments"
+              prefetch={false}
               onClick={(event) => {
                 if (!event.ctrlKey && !event.metaKey && event.button === 0) {
                   event.preventDefault();
@@ -2378,6 +2252,7 @@ export function OverviewDashboard({
                           <Link
                             key={holding.id}
                             href="/investments"
+                            prefetch={false}
                             onClick={(event) => {
                               if (
                                 !event.ctrlKey &&
@@ -2425,6 +2300,7 @@ export function OverviewDashboard({
                     <div className="mt-3.5 border-t border-[var(--border)] pt-3">
                       <Link
                         href="/investments"
+                        prefetch={false}
                         onClick={(event) => {
                           if (
                             !event.ctrlKey &&
@@ -2493,6 +2369,7 @@ export function OverviewDashboard({
                         <Link
                           key={dep.id}
                           href="/investments"
+                          prefetch={false}
                           onClick={(event) => {
                             if (
                               !event.ctrlKey &&
@@ -2549,6 +2426,7 @@ export function OverviewDashboard({
                     <div className="mt-3.5 border-t border-[var(--border)] pt-3">
                       <Link
                         href="/investments"
+                        prefetch={false}
                         onClick={(event) => {
                           if (
                             !event.ctrlKey &&
@@ -2581,6 +2459,7 @@ export function OverviewDashboard({
               </div>
               <Link
                 href="/investments"
+                prefetch={false}
                 onClick={(event) => {
                   if (!event.ctrlKey && !event.metaKey && event.button === 0) {
                     event.preventDefault();
@@ -2635,6 +2514,7 @@ export function OverviewDashboard({
 
             <Link
               href="/financial-plans"
+              prefetch={false}
               onClick={(event) => {
                 if (!event.ctrlKey && !event.metaKey && event.button === 0) {
                   event.preventDefault();
@@ -2786,6 +2666,7 @@ export function OverviewDashboard({
               </p>
               <Link
                 href="/financial-plans"
+                prefetch={false}
                 onClick={(event) => {
                   if (!event.ctrlKey && !event.metaKey && event.button === 0) {
                     event.preventDefault();
@@ -2825,6 +2706,7 @@ export function OverviewDashboard({
                     ? "/recurring-transactions"
                     : ledgerHref
                 }
+                prefetch={false}
                 onClick={(event) => {
                   const target =
                     activityTab === "upcoming"
@@ -2875,6 +2757,7 @@ export function OverviewDashboard({
                     ? "/recurring-transactions"
                     : ledgerHref
                 }
+                prefetch={false}
                 onClick={(event) => {
                   const target =
                     activityTab === "upcoming"
@@ -3065,6 +2948,7 @@ export function OverviewDashboard({
                     <Link
                       key={item.id}
                       href={item.href}
+                      prefetch={false}
                       onClick={(event) => {
                         if (
                           !event.ctrlKey &&
@@ -3632,62 +3516,23 @@ export function OverviewDashboard({
 }
 
 function BalanceHistoryChart({
-  wallets,
-  transactions,
+  balanceSeries,
+  hasActiveWallets,
   currency,
-  reportPeriod,
   isMobile,
   periodOverride,
-  investmentMarketValue = "0",
-  investmentCostBasis,
 }: {
-  wallets: {
-    id: string;
-    name: string;
-    balance: string;
-    kind?: "asset" | "credit_card";
-  }[];
-  transactions: Transaction[];
+  balanceSeries: OverviewBalancePoint[];
+  hasActiveWallets: boolean;
   currency: string;
-  reportPeriod: string;
   isMobile: boolean;
   periodOverride?: DashboardPeriod;
-  investmentMarketValue?: string;
-  investmentCostBasis?: string;
 }) {
   const privacyMasked = usePrivacyMask();
   const period = periodOverride ?? "month";
-  const dateRange = getDashboardPeriodDateRange(reportPeriod, period);
   const isDaily = period === "month";
-  const balances = isDaily
-    ? buildDailyBalances(
-        wallets,
-        transactions,
-        {
-          walletId: "all",
-          dateRange,
-          investmentMarketValue,
-          investmentCostBasis,
-        },
-        investmentMarketValue,
-        investmentCostBasis,
-      )
-    : buildMonthlyBalances(
-        wallets,
-        transactions,
-        {
-          endPeriod: reportPeriod,
-          range: 12,
-          walletId: "all",
-          dateRange,
-          investmentMarketValue,
-          investmentCostBasis,
-        },
-        investmentMarketValue,
-        investmentCostBasis,
-      );
 
-  const rows = balances.map((row) => {
+  const rows = balanceSeries.map((row) => {
     const parts = row.period.split("-");
     if (parts.length === 3) {
       const [year, rowMonth, day] = parts;
@@ -3707,12 +3552,12 @@ function BalanceHistoryChart({
     };
   });
 
-  const negativeMonthCount = balances.filter(
+  const negativeMonthCount = balanceSeries.filter(
     (row) => row.hasNegativeBalance,
   ).length;
-  const axisScale = getAmountScale(balances.map((row) => row.total));
+  const axisScale = getAmountScale(balanceSeries.map((row) => row.total));
 
-  if (!wallets.length) {
+  if (!hasActiveWallets) {
     return (
       <Empty
         variant="compact"
@@ -3729,8 +3574,8 @@ function BalanceHistoryChart({
       className="h-[15rem] w-full md:h-[18.5rem]"
       aria-label={
         isDaily
-          ? `Biểu đồ tổng số dư trong ${balances.length} ngày thuộc khoảng đã chọn`
-          : `Biểu đồ tổng số dư trong ${balances.length} tháng thuộc khoảng đã chọn`
+          ? `Biểu đồ tổng số dư trong ${balanceSeries.length} ngày thuộc khoảng đã chọn`
+          : `Biểu đồ tổng số dư trong ${balanceSeries.length} tháng thuộc khoảng đã chọn`
       }
     >
       <AreaChart
@@ -3826,30 +3671,18 @@ function BalanceHistoryChart({
 }
 
 function MonthlyFinancialChart({
-  transactions,
+  cashflowSeries,
   currency,
-  month,
-  range,
-  walletId,
-  categoryId,
-  memberId,
   transactionType,
   categoryType,
-  dateRange,
   axisScale,
   isMobile,
   period,
 }: {
-  transactions: Transaction[];
+  cashflowSeries: MonthlyCashflow[];
   currency: string;
-  month: string;
-  range: CashflowRange;
-  walletId: string;
-  categoryId: string;
-  memberId: string;
   transactionType: string;
   categoryType?: "income" | "expense";
-  dateRange: DateRangeValue;
   axisScale: AmountScale;
   isMobile: boolean;
   period?: DashboardPeriod;
@@ -3857,32 +3690,12 @@ function MonthlyFinancialChart({
   const privacyMasked = usePrivacyMask();
   const visibleTypes = getVisibleCashflowTypes(transactionType, categoryType);
   const isDaily = period === "month";
-  const cashflow = isDaily
-    ? buildDailyCashflow(transactions, {
-        endPeriod: month,
-        walletId,
-        categoryId,
-        memberId,
-        transactionType,
-        categoryType,
-        dateRange,
-      })
-    : buildMonthlyCashflow(transactions, {
-        endPeriod: month,
-        range,
-        walletId,
-        categoryId,
-        memberId,
-        transactionType,
-        categoryType,
-        dateRange,
-      });
 
-  const hasData = cashflow.some((row) =>
+  const hasData = cashflowSeries.some((row) =>
     visibleTypes.some((visibleType) => !new Decimal(row[visibleType]).isZero()),
   );
 
-  const rows = cashflow.map((item) => {
+  const rows = cashflowSeries.map((item) => {
     const parts = item.period.split("-");
     if (parts.length === 3) {
       const [year, rowMonth, day] = parts;
@@ -3919,8 +3732,8 @@ function MonthlyFinancialChart({
           className="h-[15rem] w-full md:h-[18.5rem]"
           aria-label={
             isDaily
-              ? `Biểu đồ thu nhập và chi tiêu trong ${cashflow.length} ngày thuộc khoảng đã chọn`
-              : `Biểu đồ thu nhập và chi tiêu trong ${cashflow.length} tháng thuộc khoảng đã chọn`
+              ? `Biểu đồ thu nhập và chi tiêu trong ${cashflowSeries.length} ngày thuộc khoảng đã chọn`
+              : `Biểu đồ thu nhập và chi tiêu trong ${cashflowSeries.length} tháng thuộc khoảng đã chọn`
           }
         >
           <ComposedChart

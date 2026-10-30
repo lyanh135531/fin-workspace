@@ -129,6 +129,7 @@ function NavigationMenu({
               render={
                 <Link
                   href={item.href}
+                  prefetch={false}
                   aria-current={item.active ? "page" : undefined}
                   aria-busy={isPending || undefined}
                   aria-label={item.description}
