@@ -10,7 +10,6 @@ import {
   SheetTrigger,
 } from "@/components/base";
 import { Menu } from "lucide-react";
-import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { DashboardNavigation } from "@/app/dashboard/dashboard-navigation";
 import { AccountSettingsModal } from "@/app/dashboard/account-settings-modal";
@@ -29,12 +28,7 @@ type MobileNavigationProps = {
   role: "admin" | "member" | "none";
 };
 
-export function MobileNavigation(props: MobileNavigationProps) {
-  const pathname = usePathname();
-  return <MobileNavigationDrawer key={pathname} {...props} />;
-}
-
-function MobileNavigationDrawer({
+export function MobileNavigation({
   currentId,
   workspaces,
   pendingJoinCount,
@@ -89,6 +83,7 @@ function MobileNavigationDrawer({
               username={username}
               forceExpandedWorkspaceSwitcher
               variant="all"
+              onItemSelect={() => setOpen(false)}
             />
           </div>
 

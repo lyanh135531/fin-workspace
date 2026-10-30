@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 
 type MobileNavigationItem = {
+  key: WorkspaceNavigationKey;
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
@@ -46,12 +47,54 @@ function navigationItems(currentWorkspaceId?: string): {
   const primary = workspaceNavigationItems(currentWorkspaceId)
     .filter((item) => item.mobilePrimary && (!item.requiresWorkspace || Boolean(currentWorkspaceId)))
     .map((item) => ({
+      key: item.key,
       href: item.href,
       label: item.key === "ledger" ? "Giao dịch" : item.label,
       icon: icons[item.key],
       active: (pathname: string) => isWorkspaceNavigationActive(item.key, pathname),
     }));
   return { left: primary.slice(0, 2), right: primary.slice(2) };
+}
+
+function MobileBottomNavLink({
+  item,
+  pathname,
+  pendingHref,
+  onNavigate,
+}: {
+  item: MobileNavigationItem;
+  pathname: string;
+  pendingHref: string | null;
+  onNavigate: (href: string) => void;
+}) {
+  const Icon = item.icon;
+  const isActive = item.active(pathname);
+  const isPending = pendingHref
+    ? item.href === pendingHref || isWorkspaceNavigationActive(item.key, pendingHref)
+    : false;
+  const isVisuallyActive = pendingHref ? isPending : isActive;
+
+  return (
+    <Link
+      href={item.href}
+      prefetch={false}
+      aria-current={isActive ? "page" : undefined}
+      aria-busy={isPending || undefined}
+      onNavigate={(event) => {
+        event.preventDefault();
+        onNavigate(item.href);
+      }}
+      className={cn(
+        "relative flex h-full min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 text-[0.68rem] font-medium transition-colors",
+        isVisuallyActive
+          ? "text-[var(--primary)] after:absolute after:top-0 after:h-0.5 after:w-7 after:rounded-b-full after:bg-[var(--primary)]"
+          : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
+      )}
+    >
+      <Icon size={19} strokeWidth={1.95} aria-hidden="true" />
+      <span className="max-w-full px-0.5 text-center leading-tight">{item.label}</span>
+    </Link>
+  );
 }
 
 export function MobileBottomNavigation({
@@ -73,35 +116,15 @@ export function MobileBottomNavigation({
       aria-label="Điều hướng nhanh"
     >
       <div className="mx-auto grid h-16 w-full max-w-md grid-cols-5 items-center gap-1">
-        {left.map((item) => {
-          const Icon = item.icon;
-          const isActive = item.active(pathname);
-          const isPending = pendingHref === item.href;
-          const isVisuallyActive = pendingHref ? isPending : isActive;
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              prefetch={false}
-              aria-current={isActive ? "page" : undefined}
-              aria-busy={isPending || undefined}
-              onNavigate={(event) => {
-                event.preventDefault();
-                beginNavigation(item.href);
-              }}
-              className={cn(
-                "relative flex h-full min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 text-[0.68rem] font-medium transition-colors",
-                isVisuallyActive
-                  ? "font-semibold text-[var(--primary)] after:absolute after:top-0 after:h-0.5 after:w-7 after:rounded-b-full after:bg-[var(--primary)]"
-                  : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
-              )}
-            >
-              <Icon size={19} strokeWidth={isVisuallyActive ? 2.1 : 1.8} aria-hidden="true" />
-              <span className="max-w-full px-0.5 text-center leading-tight">{item.label}</span>
-            </Link>
-          );
-        })}
+        {left.map((item) => (
+          <MobileBottomNavLink
+            key={item.href}
+            item={item}
+            pathname={pathname}
+            pendingHref={pendingHref}
+            onNavigate={beginNavigation}
+          />
+        ))}
 
         {currentWorkspaceId ? (
           <div className="flex h-full items-center justify-center">
@@ -120,35 +143,15 @@ export function MobileBottomNavigation({
           <div aria-hidden="true" />
         )}
 
-        {right.map((item) => {
-          const Icon = item.icon;
-          const isActive = item.active(pathname);
-          const isPending = pendingHref === item.href;
-          const isVisuallyActive = pendingHref ? isPending : isActive;
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              prefetch={false}
-              aria-current={isActive ? "page" : undefined}
-              aria-busy={isPending || undefined}
-              onNavigate={(event) => {
-                event.preventDefault();
-                beginNavigation(item.href);
-              }}
-              className={cn(
-                "relative flex h-full min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 text-[0.68rem] font-medium transition-colors",
-                isVisuallyActive
-                  ? "font-semibold text-[var(--primary)] after:absolute after:top-0 after:h-0.5 after:w-7 after:rounded-b-full after:bg-[var(--primary)]"
-                  : "text-[var(--text-muted)] hover:text-[var(--foreground)]",
-              )}
-            >
-              <Icon size={19} strokeWidth={isVisuallyActive ? 2.1 : 1.8} aria-hidden="true" />
-              <span className="max-w-full px-0.5 text-center leading-tight">{item.label}</span>
-            </Link>
-          );
-        })}
+        {right.map((item) => (
+          <MobileBottomNavLink
+            key={item.href}
+            item={item}
+            pathname={pathname}
+            pendingHref={pendingHref}
+            onNavigate={beginNavigation}
+          />
+        ))}
       </div>
     </nav>
   );

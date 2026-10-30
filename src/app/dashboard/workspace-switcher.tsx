@@ -104,11 +104,13 @@ export function WorkspaceSwitcher({
   workspaces,
   currentId,
   pendingJoinCount = 0,
+  onAfterNavigate,
 }: {
   workspaces: Workspace[];
   currentId: string;
   pendingJoinCount?: number;
   forceExpanded?: boolean;
+  onAfterNavigate?: () => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -122,6 +124,7 @@ export function WorkspaceSwitcher({
   function choose(id: string) {
     if (id === currentId) {
       setOpen(false);
+      onAfterNavigate?.();
       return;
     }
     setError(null);
@@ -133,6 +136,7 @@ export function WorkspaceSwitcher({
           return;
         }
         setOpen(false);
+        onAfterNavigate?.();
         if (pathname.startsWith("/workspace/") || pathname === "/dashboard") {
           router.push(`/workspace/${id}`);
         } else if (pathname.startsWith("/credit-cards/")) {
@@ -233,7 +237,10 @@ export function WorkspaceSwitcher({
         <div className="mt-2 flex flex-col gap-1 border-t border-[var(--border)] pt-2">
           <Link
             href="/workspaces/create"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              onAfterNavigate?.();
+            }}
             className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
           >
             <PlusCircle size={14} />
@@ -243,7 +250,10 @@ export function WorkspaceSwitcher({
           {pendingJoinCount > 0 && (
             <Link
               href="/settings/join"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                onAfterNavigate?.();
+              }}
               className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--warning)] transition-colors hover:bg-[var(--surface-hover)]"
             >
               <Clock size={14} />

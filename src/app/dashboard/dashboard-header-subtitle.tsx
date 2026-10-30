@@ -10,6 +10,8 @@ const PAGE_LABELS: Record<string, string> = {
   "/financial-plans": "Kế hoạch",
   "/wallets": "Ví",
   "/dashboard/wallets": "Ví",
+  "/investments": "Đầu tư",
+  "/dashboard/investments": "Đầu tư",
   "/credit-cards": "Thẻ tín dụng",
   "/dashboard/credit-cards": "Thẻ tín dụng",
   "/settings/account": "Tài khoản",
@@ -28,13 +30,16 @@ const PAGE_LABELS: Record<string, string> = {
 
 export function DashboardHeaderSubtitle({ fallback }: { fallback: string }) {
   const pathname = usePathname();
+  const cleanPath = pathname.split("?")[0].split("#")[0];
   const pageLabel =
-    PAGE_LABELS[pathname] ??
-    (pathname.startsWith("/workspace/")
+    PAGE_LABELS[cleanPath] ??
+    (cleanPath.startsWith("/workspace/")
       ? "Sổ giao dịch"
-      : pathname.startsWith("/credit-cards/")
+      : cleanPath.startsWith("/credit-cards/")
         ? "Thẻ tín dụng"
-        : null);
+        : cleanPath.startsWith("/investments/")
+          ? "Đầu tư"
+          : null);
 
   return (
     <div className="dashboard-header-subtitle flex min-w-0 flex-col justify-center sm:flex-row sm:items-center sm:gap-2">

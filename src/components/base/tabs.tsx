@@ -25,13 +25,13 @@ const tabsListVariantClasses: Record<TabsVariant, string> = {
 
 const tabsTriggerVariantClasses: Record<TabsVariant, string> = {
   default:
-    "h-full flex-none rounded-lg md:rounded-md px-3 text-xs md:text-sm font-medium text-[var(--text-secondary)] data-active:bg-[var(--surface)] data-active:text-[var(--foreground)] data-active:font-semibold",
+    "h-full flex-none rounded-lg md:rounded-md px-3 text-xs md:text-sm font-medium text-[var(--text-secondary)] data-active:bg-[var(--surface)] data-active:text-[var(--foreground)]",
   segmented:
-    "h-full flex-1 rounded-lg md:rounded-md px-3 text-xs md:text-sm font-medium text-[var(--text-secondary)] data-active:bg-[var(--surface)] data-active:text-[var(--foreground)] data-active:font-semibold",
+    "h-full flex-1 rounded-lg md:rounded-md px-3 text-xs md:text-sm font-medium text-[var(--text-secondary)] data-active:bg-[var(--surface)] data-active:text-[var(--foreground)]",
   navigation:
-    "h-full flex-1 rounded-lg md:rounded-md px-3 text-xs md:text-sm font-medium text-[var(--text-secondary)] data-active:bg-[var(--surface)] data-active:text-[var(--primary)] data-active:font-semibold",
+    "h-full flex-1 rounded-lg md:rounded-md px-3 text-xs md:text-sm font-medium text-[var(--text-secondary)] data-active:bg-[var(--surface)] data-active:text-[var(--primary)]",
   underline:
-    "h-10 flex-none rounded-none border-b-2 border-transparent px-1 pb-2.5 pt-2 text-xs md:text-sm font-medium text-[var(--text-secondary)] data-active:border-[var(--primary)] data-active:text-[var(--foreground)] data-active:font-semibold hover:text-[var(--foreground)]",
+    "h-10 flex-none rounded-none border-b-2 border-transparent px-1 pb-2.5 pt-2 text-xs md:text-sm font-medium text-[var(--text-secondary)] data-active:border-[var(--primary)] data-active:text-[var(--foreground)] hover:text-[var(--foreground)]",
 };
 
 const tabsTriggerToneClasses: Record<TabsTone, string> = {

@@ -2,6 +2,7 @@ import {
   BookOpen,
   CalendarRange,
   CreditCard,
+  Landmark,
   LayoutDashboard,
   Repeat2,
   WalletCards,
@@ -82,7 +83,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
           <main
             id="main-content"
-            className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto px-4 pt-4 pb-24 md:px-6 md:py-5 lg:px-8 lg:py-6"
+            className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto [scrollbar-gutter:stable] px-4 pt-4 pb-24 md:px-6 md:py-5 lg:px-8 lg:py-6"
             tabIndex={-1}
           >
             {children}
@@ -386,7 +387,6 @@ function DashboardSidebarFallback() {
       </SidebarHeader>
 
       <SidebarContent>
-        <div className="h-12 shrink-0 px-2 pb-1" aria-hidden />
         <FallbackNavigation />
       </SidebarContent>
 
@@ -446,12 +446,22 @@ function FallbackNavigation() {
       label: "Giao dịch định kỳ",
       icon: Repeat2,
     },
-    { href: "/wallets", label: "Ví", icon: WalletCards },
-    { href: "/credit-cards", label: "Thẻ tín dụng", icon: CreditCard },
     { href: "/financial-plans", label: "Kế hoạch", icon: CalendarRange },
+    { href: "/wallets", label: "Ví", icon: WalletCards },
+    { href: "/investments", label: "Đầu tư", icon: Landmark },
+    { href: "/credit-cards", label: "Thẻ tín dụng", icon: CreditCard },
   ];
   return (
-    <nav className="flex min-h-0 flex-1 flex-col" aria-label="Điều hướng chính">
+    <nav
+      className="flex min-h-0 flex-1 flex-col gap-2"
+      aria-label="Điều hướng chính"
+    >
+      <div className="px-1 pb-2 group-data-[collapsible=icon]:px-0" aria-hidden>
+        <span className="mb-1.5 block px-2 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] group-data-[collapsible=icon]:hidden!">
+          Nhóm tài chính
+        </span>
+        <div className="h-12 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]/50 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-10" />
+      </div>
       <FallbackNavigationGroup links={workspaceLinks} />
     </nav>
   );
@@ -463,7 +473,10 @@ function FallbackNavigationGroup({
   links: Array<{ href: string; label: string; icon: typeof LayoutDashboard }>;
 }) {
   return (
-    <SidebarGroup>
+    <SidebarGroup className="pt-1">
+      <span className="mb-1.5 block px-2 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] group-data-[collapsible=icon]:hidden!">
+        Quản lý
+      </span>
       <SidebarGroupContent>
         <SidebarMenu>
           {links.map((link) => {
@@ -472,11 +485,16 @@ function FallbackNavigationGroup({
             return (
               <SidebarMenuItem key={link.href}>
                 <SidebarMenuButton
+                  className="h-10 rounded-lg px-2.5 group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!"
                   render={<Link href={link.href} prefetch={false} />}
                   aria-label={link.label}
                 >
-                  <Icon strokeWidth={1.8} />
-                  <span>{link.label}</span>
+                  <span className="flex shrink-0 items-center justify-center text-[var(--text-secondary)]">
+                    <Icon size={18} strokeWidth={1.85} />
+                  </span>
+                  <span className="min-w-0 break-words font-medium leading-snug group-data-[collapsible=icon]:hidden!">
+                    {link.label}
+                  </span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             );

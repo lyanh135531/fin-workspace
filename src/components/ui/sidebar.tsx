@@ -297,7 +297,7 @@ function SidebarMenuButton({
     props: mergeProps<"button">(
       {
         className: cn(
-          "relative flex min-h-10 w-full min-w-0 items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-[var(--text-secondary)] outline-none transition-colors duration-150 hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] data-active:bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] data-active:text-[var(--primary)] data-active:font-semibold group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0! [&_svg]:size-[18px] [&_svg]:shrink-0",
+          "relative flex min-h-10 w-full min-w-0 items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-[var(--text-secondary)] outline-none transition-colors duration-150 hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] data-active:bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))] data-active:text-[var(--primary)] group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0! group-data-[collapsible=icon]:p-0! [&_svg]:size-[18px] [&_svg]:shrink-0",
           className,
         ),
       },

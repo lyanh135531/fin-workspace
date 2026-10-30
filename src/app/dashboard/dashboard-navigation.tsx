@@ -34,6 +34,7 @@ export function DashboardNavigation({
   isAdmin = false,
   forceExpandedWorkspaceSwitcher = false,
   variant = "all",
+  onItemSelect,
 }: {
   currentId?: string;
   workspaces: Workspace[];
@@ -42,6 +43,7 @@ export function DashboardNavigation({
   username?: string;
   forceExpandedWorkspaceSwitcher?: boolean;
   variant?: "all" | "secondary";
+  onItemSelect?: () => void;
 }) {
   const pathname = usePathname();
   const { pendingHref, beginNavigation } = useOptimisticNavigation();
@@ -82,6 +84,7 @@ export function DashboardNavigation({
             workspaces={workspaces}
             pendingJoinCount={pendingJoinCount}
             forceExpanded={forceExpandedWorkspaceSwitcher}
+            onAfterNavigate={onItemSelect}
           />
         </div>
       )}
@@ -94,7 +97,10 @@ export function DashboardNavigation({
           <NavigationMenu
             items={workspaceItems}
             pendingHref={pendingHref}
-            onNavigate={beginNavigation}
+            onNavigate={(href) => {
+              onItemSelect?.();
+              beginNavigation(href);
+            }}
           />
         </SidebarGroupContent>
       </SidebarGroup>

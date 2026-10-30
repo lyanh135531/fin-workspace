@@ -1,17 +1,22 @@
-import { WorkspaceDashboard } from "@/app/dashboard/workspace-dashboard";
-import { PageContainer } from "@/components/base";
+import { redirect } from "next/navigation";
+
+import { requireAcceptedLegalPageSession } from "@/lib/legal-access";
+import { resolveActiveWorkspaceId } from "@/services/active-workspace";
 
 export default async function DashboardPage({
   searchParams,
 }: {
   searchParams: Promise<{ action?: string | string[] }>;
 }) {
-  const { action } = await searchParams;
-  return (
-    <PageContainer className="dashboard-page-container">
-      <WorkspaceDashboard
-        startWithNewTransaction={action === "new-transaction"}
-      />
-    </PageContainer>
-  );
+  const [{ action }, session] = await Promise.all([
+    searchParams,
+    requireAcceptedLegalPageSession(),
+  ]);
+  const activeWorkspaceId = await resolveActiveWorkspaceId(session.user.id);
+  if (!activeWorkspaceId) {
+    redirect("/onboarding");
+  }
+
+  const query = action === "new-transaction" ? "?action=new-transaction" : "";
+  redirect(`/workspace/${activeWorkspaceId}${query}`);
 }
