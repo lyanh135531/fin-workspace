@@ -100,6 +100,14 @@ export async function deactivateWorkspaceMember(actorUserId: string, workspaceId
       where: { memberId: member.id, workflowStatus: "pending", deletedAt: null },
       data: { workflowStatus: "rejected" },
     });
+    await tx.quickCaptureToken?.updateMany?.({
+      where: { userId: member.userId, workspaceId, revokedAt: null },
+      data: { revokedAt: now },
+    });
+    await tx.quickCaptureDraft?.updateMany?.({
+      where: { userId: member.userId, workspaceId, consumedAt: null },
+      data: { consumedAt: now },
+    });
     await tx.auditLog.create({ data: { workspaceId, actorUserId, action: "workspace.member_deactivated", entityType: "workspace_member", entityId: member.id, metadata: { userId: member.userId } } });
     return updated;
   });

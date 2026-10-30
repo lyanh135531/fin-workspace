@@ -101,6 +101,10 @@ const ACTION_LABELS: Record<string, string> = {
   "investment.savings_created": "Mở sổ tiết kiệm ngân hàng",
   "investment.savings_settled": "Tất toán / Tái tục sổ tiết kiệm",
   "investment.savings_settlement_reverted": "Hoàn tác tất toán / tái tục sổ tiết kiệm",
+
+  // Quick capture
+  "quick_capture.token_created": "Cấp khóa ghi nhanh thiết bị",
+  "quick_capture.token_revoked": "Thu hồi khóa ghi nhanh thiết bị",
 };
 
 /**

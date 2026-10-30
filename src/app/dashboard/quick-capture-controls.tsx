@@ -263,19 +263,37 @@ export function QuickCaptureSetupSheet({
       return;
     }
     setState(res.data);
-    if (res.data.available && res.data.wallets.length > 0) {
+    if (res.data.available) {
       const wallets = res.data.wallets;
-      setSelectedWalletId((prev) => {
-        if (prev && wallets.some((w) => w.id === prev)) {
-          return prev;
-        }
-        const momoWallet = wallets.find((w) => /\bmomo\b/i.test(w.name));
-        return (momoWallet ?? wallets[0])!.id;
-      });
+      const categories = res.data.categories;
+      if (wallets.length > 0) {
+        setSelectedWalletId((prev) => {
+          if (prev && wallets.some((w) => w.id === prev)) {
+            return prev;
+          }
+          const momoWallet = wallets.find((w) => /\bmomo\b/i.test(w.name));
+          return (momoWallet ?? wallets[0])!.id;
+        });
+      } else {
+        setSelectedWalletId("");
+      }
+      setSelectedCategoryId((prev) =>
+        prev !== NO_CATEGORY_VALUE && categories.some((c) => c.id === prev)
+          ? prev
+          : NO_CATEGORY_VALUE,
+      );
+    } else {
+      setSelectedWalletId("");
+      setSelectedCategoryId(NO_CATEGORY_VALUE);
     }
   }, []);
 
   const resetTransientState = useCallback(() => {
+    setState(null);
+    setSelectedWalletId("");
+    setSelectedCategoryId(NO_CATEGORY_VALUE);
+    setDeviceName("iPhone cá nhân");
+    setExpiresInDays("365");
     setNewlyCreatedToken(null);
     setTokenCopiedFeedback(false);
     setShowCreateForm(false);
@@ -299,7 +317,10 @@ export function QuickCaptureSetupSheet({
           /\bmomo\b/i.test(w.name),
         );
         setSelectedWalletId((momoWallet ?? res.data.wallets[0])!.id);
+      } else {
+        setSelectedWalletId("");
       }
+      setSelectedCategoryId(NO_CATEGORY_VALUE);
     });
     return () => {
       mounted = false;

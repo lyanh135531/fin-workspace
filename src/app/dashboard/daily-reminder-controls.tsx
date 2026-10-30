@@ -492,10 +492,10 @@ export function DailyReminderControls({
           "rounded-2xl border p-3 transition-colors",
           highlighted
             ? "border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))] ring-2 ring-[var(--focus-ring)]"
-            : "border-[var(--border)] bg-[var(--surface-secondary)]/65",
+            : "border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-secondary)_45%,var(--surface))]",
         )}
       >
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <span
               className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary)]"
@@ -506,34 +506,53 @@ export function DailyReminderControls({
             <p className="break-words text-xs font-semibold text-[var(--foreground)]">
               Nhắc ghi chi tiêu
             </p>
-            <span className="shrink-0 rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-              Mặc định
-            </span>
+            {state && (
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                  anySlotEnabled
+                    ? "bg-[var(--primary-soft)] text-[var(--primary)]"
+                    : "bg-[var(--surface)] text-[var(--text-muted)]",
+                )}
+              >
+                {anySlotEnabled ? "Đang bật" : "Đang tắt"}
+              </span>
+            )}
           </div>
 
-          {support === "supported" && !deviceSubscribed && anySlotEnabled ? (
+          {support === "supported" && !deviceSubscribed ? (
             <Button
               type="button"
               variant="default"
               size="sm"
               disabled={pending || !state}
               onClick={handleEnableDeviceOnly}
-              className="h-7 shrink-0 rounded-lg px-2.5 text-[11px]"
             >
               Bật trên máy
             </Button>
-          ) : deviceSubscribed ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={pending || !state}
-              onClick={handleSendTest}
-              className="h-7 shrink-0 rounded-lg px-2.5 text-[11px]"
-            >
-              <Send size={11} aria-hidden="true" />
-              Gửi thử
-            </Button>
+          ) : support === "supported" && deviceSubscribed ? (
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending || !state}
+                onClick={handleSendTest}
+              >
+                <Send size={11} aria-hidden="true" />
+                Gửi thử
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={pending}
+                onClick={handleDisableCurrentDevice}
+                aria-label="Tắt nhận thông báo trên thiết bị này"
+              >
+                Tắt
+              </Button>
+            </div>
           ) : null}
         </div>
 
