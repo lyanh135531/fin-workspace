@@ -24,7 +24,6 @@ import {
   DatePicker,
   DateRangePicker,
   Empty,
-  Input,
   MoneyInput,
   Popover,
   PopoverTrigger,
@@ -38,6 +37,7 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
+  Textarea,
 } from "@/components/base";
 import {
   getMobileLedgerActions,
@@ -51,7 +51,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SpotlightTrigger } from "@/components/ui/spotlight-trigger";
-import { Textarea } from "@/components/ui/textarea";
 import { formatAmount } from "@/lib/format";
 import { usePrivacyMask } from "@/lib/privacy-mask";
 import { cn } from "@/lib/utils";
@@ -436,12 +435,12 @@ function TouchTransactionRow({
 
   const rowContent = (
     <>
-      <div className="flex min-w-0 flex-1 items-start gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         {selectionMode && canSelect && (
           <div
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
-            className="mt-1.5 flex shrink-0 items-center"
+            className="flex shrink-0 items-center"
           >
             <Checkbox
               checked={selected}
@@ -484,48 +483,13 @@ function TouchTransactionRow({
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <strong className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <strong
+              className="min-w-0 truncate text-sm font-semibold leading-snug text-[var(--foreground)]"
+              title={primaryTitle}
+            >
               {primaryTitle}
             </strong>
-
-            {item.purpose === "investment_contribution" ||
-            item.purpose === "investment_settlement" ? (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[0.65rem] font-medium text-[var(--primary)]">
-                <span
-                  className="size-1.5 shrink-0 rounded-full bg-[var(--primary)]"
-                  aria-hidden="true"
-                />
-                <span className="break-words leading-snug">
-                  Đầu tư & Tiết kiệm
-                </span>
-              </span>
-            ) : item.purpose === "balance_reconciliation" ? (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[0.65rem] font-medium text-[var(--text-secondary)]">
-                <span
-                  className="size-1.5 shrink-0 rounded-full bg-[var(--text-secondary)]"
-                  aria-hidden="true"
-                />
-                <span className="break-words leading-snug">
-                  Đối soát số dư
-                </span>
-              </span>
-            ) : (
-              item.description &&
-              item.category && (
-                <span
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.65rem] font-medium"
-                  style={{
-                    backgroundColor: `${item.category.color}16`,
-                    color: item.category.color,
-                  }}
-                >
-                  <span className="break-words leading-snug">
-                    {item.category.name}
-                  </span>
-                </span>
-              )
-            )}
 
             {hasReviewRequest && (
               <span
@@ -559,16 +523,56 @@ function TouchTransactionRow({
             )}
           </div>
 
-          <p className="mt-0.5 break-words text-xs leading-snug text-[var(--text-muted)]">
-            {/^(ví|thẻ)(\s|$)/i.test(item.wallet.trim())
-              ? item.wallet
-              : isCreditWallet
-                ? `Thẻ ${item.wallet}`
-                : `Ví ${item.wallet}`}
-            {item.toWallet ? ` → ${item.toWallet}` : ""}
-            {item.member ? ` · ${item.member}` : ""}
-            {item.isRecurring ? " · Định kỳ" : ""}
-          </p>
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs leading-snug text-[var(--text-muted)]">
+            {item.purpose === "investment_contribution" ||
+            item.purpose === "investment_settlement" ? (
+              <span className="inline-flex max-w-[9.5rem] shrink-0 items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[0.65rem] font-medium text-[var(--primary)]">
+                <span
+                  className="size-1.5 shrink-0 rounded-full bg-[var(--primary)]"
+                  aria-hidden="true"
+                />
+                <span className="truncate leading-snug">
+                  Đầu tư & Tiết kiệm
+                </span>
+              </span>
+            ) : item.purpose === "balance_reconciliation" ? (
+              <span className="inline-flex max-w-[9rem] shrink-0 items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-1.5 py-0.5 text-[0.65rem] font-medium text-[var(--text-secondary)]">
+                <span
+                  className="size-1.5 shrink-0 rounded-full bg-[var(--text-secondary)]"
+                  aria-hidden="true"
+                />
+                <span className="truncate leading-snug">
+                  Đối soát số dư
+                </span>
+              </span>
+            ) : (
+              item.description &&
+              item.category && (
+                <span
+                  className="inline-flex max-w-[8.5rem] shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.65rem] font-medium"
+                  style={{
+                    backgroundColor: `${item.category.color}16`,
+                    color: item.category.color,
+                  }}
+                >
+                  <span className="truncate leading-snug">
+                    {item.category.name}
+                  </span>
+                </span>
+              )
+            )}
+
+            <span className="min-w-0 truncate">
+              {/^(ví|thẻ)(\s|$)/i.test(item.wallet.trim())
+                ? item.wallet
+                : isCreditWallet
+                  ? `Thẻ ${item.wallet}`
+                  : `Ví ${item.wallet}`}
+              {item.toWallet ? ` → ${item.toWallet}` : ""}
+              {item.member ? ` · ${item.member}` : ""}
+              {item.isRecurring ? " · Định kỳ" : ""}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -1292,8 +1296,11 @@ export function Ledger({
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <strong className="break-words text-sm font-medium leading-snug text-[var(--foreground)]">
+              <div className="flex min-w-0 items-center gap-2">
+                <strong
+                  className="min-w-0 truncate text-sm font-medium leading-snug text-[var(--foreground)]"
+                  title={primaryTitle}
+                >
                   {primaryTitle}
                 </strong>
                 {!hasReviewRequest && item.status === "scheduled" && (
@@ -1303,7 +1310,7 @@ export function Ledger({
                 )}
               </div>
               <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                <span className="break-words leading-snug">
+                <span className="truncate leading-snug">
                   {formattedWalletName}
                   {item.toWallet ? ` → ${item.toWallet}` : ""} · {item.member}
                 </span>
@@ -1314,7 +1321,7 @@ export function Ledger({
           <div className="flex shrink-0 items-center gap-2">
             <strong
               className={cn(
-                "block break-words text-sm font-semibold leading-snug tabular-nums",
+                "block whitespace-nowrap text-sm font-semibold leading-snug tabular-nums",
                 isIncome && "text-[var(--income)]",
                 isExpense && "text-[var(--expense)]",
                 isTransfer && "text-[var(--foreground)]",
@@ -1424,8 +1431,11 @@ export function Ledger({
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <strong className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+            <div className="flex min-w-0 items-center gap-2">
+              <strong
+                className="min-w-0 truncate text-sm font-semibold leading-snug text-[var(--foreground)]"
+                title={primaryTitle}
+              >
                 {primaryTitle}
               </strong>
 
@@ -2713,12 +2723,15 @@ function TransactionEditorForm({
           </>
         )}
 
-        <Input
+        <Textarea
           disabled={locked}
           value={draft.description}
           onChange={(event) => onChange({ description: event.target.value })}
-          placeholder="Ăn trưa, cà phê, nhận lương..."
+          placeholder={
+            locked ? "Không có ghi chú" : "Ăn trưa, cà phê, nhận lương..."
+          }
           label="Ghi chú"
+          maxLength={2_000}
         />
       </div>
     </div>

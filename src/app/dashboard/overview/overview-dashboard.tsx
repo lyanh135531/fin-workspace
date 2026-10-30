@@ -2948,8 +2948,11 @@ export function OverviewDashboard({
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <p
+                              className="min-w-0 truncate text-sm font-semibold leading-snug text-[var(--foreground)]"
+                              title={tx.description || undefined}
+                            >
                               {tx.description ||
                                 tx.category?.name ||
                                 (tx.purpose === "credit_card_refund"
@@ -2974,7 +2977,7 @@ export function OverviewDashboard({
                                   className="size-1.5 shrink-0 rounded-full bg-[var(--text-secondary)]"
                                   aria-hidden="true"
                                 />
-                                <span className="break-words leading-snug">
+                                <span className="truncate leading-snug">
                                   Đối soát số dư
                                 </span>
                               </span>
@@ -2982,7 +2985,7 @@ export function OverviewDashboard({
                             {tx.status !== "approved" && (
                               <span
                                 className={cn(
-                                  "inline-flex items-center rounded-full px-1.5 py-0.5 text-[0.62rem] font-medium",
+                                  "inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[0.62rem] font-medium",
                                   tx.status === "pending"
                                     ? "bg-[color-mix(in_srgb,var(--warning)_14%,var(--surface))] text-[var(--warning)]"
                                     : "bg-[var(--surface-secondary)] text-[var(--text-muted)]",
@@ -3163,7 +3166,10 @@ export function OverviewDashboard({
                         onClick={() => setSelectedTransaction(tx)}
                         className="min-w-0 flex-1 text-left"
                       >
-                        <p className="break-words text-sm font-semibold leading-snug text-[var(--foreground)]">
+                        <p
+                          className="truncate text-sm font-semibold leading-snug text-[var(--foreground)]"
+                          title={tx.description || undefined}
+                        >
                           {tx.description ||
                             tx.category?.name ||
                             (tx.purpose === "credit_card_refund"
@@ -3178,7 +3184,7 @@ export function OverviewDashboard({
                                       ? "Đối soát số dư"
                                       : "Giao dịch chờ duyệt")}
                         </p>
-                        <p className="mt-0.5 break-words text-xs text-[var(--text-muted)] tabular-nums">
+                        <p className="mt-0.5 truncate text-xs text-[var(--text-muted)] tabular-nums">
                           {tx.member} · Ví {tx.wallet} ·{" "}
                           {formatShortDate(tx.date)}
                         </p>
