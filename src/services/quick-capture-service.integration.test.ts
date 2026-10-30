@@ -10,6 +10,7 @@ import {
   createQuickCaptureToken,
   hashQuickCaptureToken,
   prepareQuickCapture,
+  resolveConfiguredIosShortcutUrl,
   revokeQuickCaptureToken,
 } from "@/services/quick-capture-service";
 
@@ -329,4 +330,32 @@ describe("quick capture service database invariants", () => {
       authenticateQuickCaptureBearer(`Bearer ${createdToken.token}`),
     ).rejects.toThrow();
   });
+
+  it("strictly validates configured iCloud Shortcut template URLs", () => {
+    expect(
+      resolveConfiguredIosShortcutUrl(
+        "  https://www.icloud.com/shortcuts/0123456789abcdef0123456789abcdef  ",
+      ),
+    ).toBe("https://www.icloud.com/shortcuts/0123456789abcdef0123456789abcdef");
+    expect(
+      resolveConfiguredIosShortcutUrl(
+        "https://icloud.com/shortcuts/abcdef1234567890/",
+      ),
+    ).toBe("https://icloud.com/shortcuts/abcdef1234567890/");
+    expect(resolveConfiguredIosShortcutUrl("")).toBeNull();
+    expect(
+      resolveConfiguredIosShortcutUrl("javascript:alert(1)"),
+    ).toBeNull();
+    expect(
+      resolveConfiguredIosShortcutUrl(
+        "http://www.icloud.com/shortcuts/0123456789abcdef0123456789abcdef",
+      ),
+    ).toBeNull();
+    expect(
+      resolveConfiguredIosShortcutUrl(
+        "https://evil.example.com/shortcuts/0123456789abcdef0123456789abcdef",
+      ),
+    ).toBeNull();
+  });
 });
+

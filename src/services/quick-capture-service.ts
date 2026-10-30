@@ -73,6 +73,18 @@ const PROVIDER_WALLET_MATCHERS: Record<PaymentProviderCode, RegExp> = {
   shopeepay: /\bshopeepay\b/i,
 };
 
+const IOS_SHORTCUT_URL_PATTERN =
+  /^https:\/\/(?:www\.)?icloud\.com\/shortcuts\/[A-Za-z0-9_-]{8,128}\/?$/i;
+
+export function resolveConfiguredIosShortcutUrl(
+  rawUrl = process.env.IOS_SHORTCUT_URL ??
+    process.env.NEXT_PUBLIC_IOS_SHORTCUT_URL,
+): string | null {
+  const trimmed = rawUrl?.trim();
+  if (!trimmed) return null;
+  return IOS_SHORTCUT_URL_PATTERN.test(trimmed) ? trimmed : null;
+}
+
 export type QuickCaptureActor = {
   userId: string;
   workspaceId: string;
@@ -90,6 +102,7 @@ export type QuickCaptureSettingsState =
       available: true;
       workspaceId: string;
       workspaceName: string;
+      iosShortcutUrl: string | null;
       wallets: Array<{
         id: string;
         name: string;
@@ -313,6 +326,7 @@ export async function getQuickCaptureSettingsState(
     available: true,
     workspaceId,
     workspaceName: member.workspace.name,
+    iosShortcutUrl: resolveConfiguredIosShortcutUrl(),
     wallets: wallets.map((w) => ({
       id: w.id,
       name: w.name,

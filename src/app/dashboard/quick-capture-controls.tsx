@@ -54,6 +54,8 @@ const EXPIRY_OPTIONS = [
 ];
 
 const NO_CATEGORY_VALUE = "__none__";
+const IOS_SHORTCUT_URL_CLIENT_PATTERN =
+  /^https:\/\/(?:www\.)?icloud\.com\/shortcuts\/[A-Za-z0-9_-]{8,128}\/?$/i;
 
 function subscribeNoop() {
   return () => {};
@@ -201,7 +203,7 @@ export function QuickCaptureSetupSheet({
   const [selectedWalletId, setSelectedWalletId] = useState<string>("");
   const [selectedCategoryId, setSelectedCategoryId] =
     useState<string>(NO_CATEGORY_VALUE);
-  const [expiresInDays, setExpiresInDays] = useState<string>("90");
+  const [expiresInDays, setExpiresInDays] = useState<string>("365");
   const [newlyCreatedToken, setNewlyCreatedToken] = useState<{
     token: string;
     name: string;
@@ -210,8 +212,16 @@ export function QuickCaptureSetupSheet({
 
   // Phone setup guide state
   const [guidePlatform, setGuidePlatform] = useState<"ios" | "android">("ios");
-  const iosShortcutTemplateUrl =
-    process.env.NEXT_PUBLIC_IOS_SHORTCUT_URL?.trim() || "";
+  const [showManualIosSteps, setShowManualIosSteps] = useState(false);
+
+  const iosShortcutTemplateUrl = useMemo(() => {
+    const serverUrl = state?.available ? state.iosShortcutUrl : null;
+    if (serverUrl && IOS_SHORTCUT_URL_CLIENT_PATTERN.test(serverUrl)) {
+      return serverUrl;
+    }
+    const fallbackUrl = process.env.NEXT_PUBLIC_IOS_SHORTCUT_URL?.trim() || "";
+    return IOS_SHORTCUT_URL_CLIENT_PATTERN.test(fallbackUrl) ? fallbackUrl : "";
+  }, [state]);
 
   const reloadState = useCallback(async () => {
     const res = await getQuickCaptureStateAction();
@@ -236,6 +246,7 @@ export function QuickCaptureSetupSheet({
     setNewlyCreatedToken(null);
     setShowCreateForm(false);
     setShowAdvancedTokenOpts(false);
+    setShowManualIosSteps(false);
     setActiveTab("connect");
   }, []);
 
@@ -272,6 +283,15 @@ export function QuickCaptureSetupSheet({
     }));
   }, [state]);
 
+  const selectedWalletLabel = useMemo(() => {
+    if (!state || !state.available) return "";
+    return (
+      state.wallets.find((w) => w.id === selectedWalletId)?.name ??
+      state.wallets[0]?.name ??
+      ""
+    );
+  }, [state, selectedWalletId]);
+
   const categoryOptions = useMemo(() => {
     if (!state || !state.available) {
       return [{ value: NO_CATEGORY_VALUE, label: "Tự gợi ý theo người nhận" }];
@@ -285,10 +305,13 @@ export function QuickCaptureSetupSheet({
     ];
   }, [state]);
 
-  function handleCreateToken(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function issueTokenWithClipboard(options?: { switchToIosGuide?: boolean }) {
     if (!state || !state.available) return;
-    if (!deviceName.trim()) {
+    const effectiveDeviceName =
+      options?.switchToIosGuide && !deviceName.trim()
+        ? "iPhone cá nhân"
+        : deviceName.trim();
+    if (!effectiveDeviceName) {
       toast.error("Vui lòng nhập tên thiết bị.");
       return;
     }
@@ -297,30 +320,95 @@ export function QuickCaptureSetupSheet({
       return;
     }
 
+    // Reserve transient user activation synchronously for iOS Safari / WebKit
+    let resolveClipboardBlob: ((blob: Blob) => void) | null = null;
+    let rejectClipboardBlob: ((reason?: unknown) => void) | null = null;
+    const clipboardWritePromise =
+      typeof ClipboardItem !== "undefined" &&
+      typeof navigator !== "undefined" &&
+      typeof navigator.clipboard?.write === "function"
+        ? navigator.clipboard
+            .write([
+              new ClipboardItem({
+                "text/plain": new Promise<Blob>((resolve, reject) => {
+                  resolveClipboardBlob = resolve;
+                  rejectClipboardBlob = reject;
+                }),
+              }),
+            ])
+            .then(() => true)
+            .catch(() => false)
+        : null;
+
     startTransition(async () => {
-      const res = await createQuickCaptureTokenAction({
-        workspaceId: state.workspaceId,
-        defaultWalletId: selectedWalletId,
-        defaultCategoryId:
-          selectedCategoryId === NO_CATEGORY_VALUE ? null : selectedCategoryId,
-        name: deviceName,
-        expiresInDays: Number(expiresInDays),
-      });
+      try {
+        const res = await createQuickCaptureTokenAction({
+          workspaceId: state.workspaceId,
+          defaultWalletId: selectedWalletId,
+          defaultCategoryId:
+            selectedCategoryId === NO_CATEGORY_VALUE
+              ? null
+              : selectedCategoryId,
+          name: effectiveDeviceName,
+          expiresInDays: Number(expiresInDays),
+        });
 
-      if (!res.ok) {
-        toast.error(res.message);
-        return;
+        if (!res.ok) {
+          rejectClipboardBlob?.(new Error("token_creation_failed"));
+          toast.error(res.message);
+          return;
+        }
+
+        const bearerValue = `Bearer ${res.data.token}`;
+        resolveClipboardBlob?.(new Blob([bearerValue], { type: "text/plain" }));
+        let copied = clipboardWritePromise
+          ? await clipboardWritePromise
+          : false;
+        if (
+          !copied &&
+          typeof navigator !== "undefined" &&
+          typeof navigator.clipboard?.writeText === "function"
+        ) {
+          copied = await navigator.clipboard
+            .writeText(bearerValue)
+            .then(() => true)
+            .catch(() => false);
+        }
+
+        setNewlyCreatedToken({
+          token: res.data.token,
+          name: res.data.tokenInfo.name,
+          walletName: res.data.tokenInfo.defaultWalletName,
+        });
+        setShowCreateForm(false);
+
+        if (options?.switchToIosGuide) {
+          setGuidePlatform("ios");
+          setActiveTab("guide");
+          toast.success(
+            copied
+              ? "Đã tạo & sao chép khóa xác thực. Bấm \"Chép khóa & Cài phím tắt mẫu\" để mở Phím tắt."
+              : "Đã tạo khóa xác thực. Bấm \"Chép khóa & Cài phím tắt mẫu\" để tiếp tục.",
+          );
+        } else {
+          toast.success(
+            copied
+              ? "Đã tạo & tự động sao chép khóa xác thực."
+              : "Đã tạo khóa liên kết thiết bị.",
+          );
+        }
+
+        await reloadState();
+      } catch {
+        rejectClipboardBlob?.(new Error("token_creation_error"));
+        toast.error("Không thể tạo khóa liên kết lúc này. Vui lòng thử lại.");
       }
-
-      setNewlyCreatedToken({
-        token: res.data.token,
-        name: res.data.tokenInfo.name,
-        walletName: res.data.tokenInfo.defaultWalletName,
-      });
-      setShowCreateForm(false);
-      toast.success("Đã tạo khóa liên kết thiết bị.");
-      await reloadState();
     });
+  }
+
+  function handleCreateToken(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    issueTokenWithClipboard();
   }
 
   function handleRevokeToken(tokenId: string) {
@@ -339,6 +427,175 @@ export function QuickCaptureSetupSheet({
     state?.available === true && state.tokens.length > 0;
   const shouldRenderCreateForm =
     state?.available === true && (!hasLinkedDevices || showCreateForm);
+
+  const manualIosSteps = (
+    <ol className="relative ml-2.5 space-y-4 border-l border-[var(--border)] pl-5 text-xs leading-relaxed text-[var(--text-secondary)]">
+      <li className="relative">
+        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
+          1
+        </span>
+        <p className="font-semibold text-[var(--foreground)]">
+          Chụp & đọc chữ trên màn hình
+        </p>
+        <p className="mt-0.5">
+          Mở ứng dụng{" "}
+          <strong className="font-medium text-[var(--foreground)]">
+            Phím tắt
+          </strong>{" "}
+          <span className="text-[var(--text-muted)]">(Shortcuts)</span>, tạo
+          phím tắt mới và thêm lần lượt:
+        </p>
+        <div className="mt-1.5 rounded-xl bg-[var(--surface-secondary)] px-3 py-2 text-[11px]">
+          <p>
+            1.{" "}
+            <strong className="font-medium text-[var(--foreground)]">
+              Chụp ảnh màn hình
+            </strong>{" "}
+            <span className="text-[var(--text-muted)]">(Take Screenshot)</span>
+          </p>
+          <p className="mt-1">
+            2.{" "}
+            <strong className="font-medium text-[var(--foreground)]">
+              Trích xuất văn bản từ hình ảnh
+            </strong>{" "}
+            <span className="text-[var(--text-muted)]">
+              (Extract Text from Image)
+            </span>
+          </p>
+        </div>
+      </li>
+
+      <li className="relative space-y-1.5">
+        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
+          2
+        </span>
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-semibold text-[var(--foreground)]">
+            Nhận danh sách danh mục
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              void copyToClipboard(parseEndpoint, "Đã sao chép liên kết bước 2.")
+            }
+          >
+            <Copy size={12} />
+            Chép liên kết 1
+          </Button>
+        </div>
+        <p>
+          Thêm{" "}
+          <strong className="font-medium text-[var(--foreground)]">
+            Lấy nội dung của URL
+          </strong>{" "}
+          <span className="text-[var(--text-muted)]">(Get Contents of URL)</span>
+          , dán <em>Liên kết 1</em>, mở mũi tên chi tiết chọn phương thức{" "}
+          <strong className="font-medium text-[var(--foreground)]">POST</strong>:
+        </p>
+        <div className="space-y-1.5 rounded-xl bg-[var(--surface-secondary)] px-3 py-2.5 text-[11px]">
+          <div className="flex flex-wrap items-center justify-between gap-1.5">
+            <span className="text-[var(--text-muted)]">Tiêu đề (Headers)</span>
+            <span className="flex items-center gap-1.5">
+              <CopyableKeyChip value="Authorization" />
+              <span className="text-[var(--foreground)]">= Khóa xác thực</span>
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-[var(--border)] pt-1.5">
+            <span className="text-[var(--text-muted)]">Nội dung (JSON)</span>
+            <span className="flex items-center gap-1.5">
+              <CopyableKeyChip value="text" />
+              <span className="text-[var(--foreground)]">
+                = Văn bản từ Hình ảnh
+              </span>
+            </span>
+          </div>
+        </div>
+      </li>
+
+      <li className="relative">
+        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
+          3
+        </span>
+        <p className="font-semibold text-[var(--foreground)]">
+          Hiện bảng chọn trên màn hình
+        </p>
+        <p className="mt-0.5">
+          Thêm{" "}
+          <strong className="font-medium text-[var(--foreground)]">
+            Lấy giá trị từ điển
+          </strong>{" "}
+          <span className="text-[var(--text-muted)]">(Get Dictionary Value)</span>{" "}
+          với khóa <CopyableKeyChip value="options" />, rồi thêm tiếp{" "}
+          <strong className="font-medium text-[var(--foreground)]">
+            Chọn từ danh sách
+          </strong>{" "}
+          <span className="text-[var(--text-muted)]">(Choose from List)</span>.
+        </p>
+      </li>
+
+      <li className="relative space-y-1.5">
+        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
+          4
+        </span>
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-semibold text-[var(--foreground)]">
+            Lưu vào sổ & gán chạm mặt lưng
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              void copyToClipboard(
+                commitEndpoint,
+                "Đã sao chép liên kết lưu giao dịch.",
+              )
+            }
+          >
+            <Copy size={12} />
+            Chép liên kết 2
+          </Button>
+        </div>
+        <p>
+          Thêm{" "}
+          <strong className="font-medium text-[var(--foreground)]">
+            Lấy nội dung của URL
+          </strong>{" "}
+          lần hai, dán <em>Liên kết 2</em> và đổi sang{" "}
+          <strong className="font-medium text-[var(--foreground)]">POST</strong>:
+        </p>
+        <div className="space-y-1.5 rounded-xl bg-[var(--surface-secondary)] px-3 py-2.5 text-[11px]">
+          <div className="flex flex-wrap items-center justify-between gap-1.5">
+            <span className="text-[var(--text-muted)]">Tiêu đề (Headers)</span>
+            <span className="flex items-center gap-1.5">
+              <CopyableKeyChip value="Authorization" />
+              <span className="text-[var(--foreground)]">= Khóa xác thực</span>
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-[var(--border)] pt-1.5">
+            <span className="text-[var(--text-muted)]">Nội dung (JSON)</span>
+            <span className="flex items-center gap-1.5">
+              <CopyableKeyChip value="selectedOption" />
+              <span className="text-[var(--foreground)]">= Mục được chọn</span>
+            </span>
+          </div>
+        </div>
+        <p className="pt-0.5">
+          Cuối cùng vào{" "}
+          <strong className="font-medium text-[var(--foreground)]">
+            Cài đặt → Trợ năng → Cảm ứng → Chạm vào mặt sau → Chạm hai lần
+          </strong>
+          , chọn phím tắt vừa tạo. Lần đầu chạy hãy bấm{" "}
+          <strong className="font-medium text-[var(--foreground)]">
+            Luôn cho phép
+          </strong>{" "}
+          khi iPhone hỏi quyền kết nối.
+        </p>
+      </li>
+    </ol>
+  );
 
   return (
     <Sheet
@@ -447,30 +704,66 @@ export function QuickCaptureSetupSheet({
                       Bearer {newlyCreatedToken.token}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() =>
-                          void copyToClipboard(
-                            `Bearer ${newlyCreatedToken.token}`,
-                            "Đã sao chép khóa xác thực.",
-                          )
-                        }
-                      >
-                        <Copy size={13} />
-                        Sao chép khóa
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setActiveTab("guide")}
-                      >
-                        Xem hướng dẫn cài
-                        <ArrowRight size={13} />
-                      </Button>
-                    </div>
+                    {iosShortcutTemplateUrl ? (
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            void copyToClipboard(
+                              `Bearer ${newlyCreatedToken.token}`,
+                              "Đã sao chép khóa xác thực.",
+                            )
+                          }
+                          render={
+                            <a
+                              href={iosShortcutTemplateUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            />
+                          }
+                        >
+                          <Smartphone size={13} />
+                          Chép khóa & Cài phím tắt
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setGuidePlatform("ios");
+                            setActiveTab("guide");
+                          }}
+                        >
+                          Xem 2 bước cài
+                          <ArrowRight size={13} />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() =>
+                            void copyToClipboard(
+                              `Bearer ${newlyCreatedToken.token}`,
+                              "Đã sao chép khóa xác thực.",
+                            )
+                          }
+                        >
+                          <Copy size={13} />
+                          Sao chép khóa
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setActiveTab("guide")}
+                        >
+                          Xem hướng dẫn cài
+                          <ArrowRight size={13} />
+                        </Button>
+                      </div>
+                    )}
                   </section>
                 )}
 
@@ -625,15 +918,42 @@ export function QuickCaptureSetupSheet({
                       )}
                     </div>
 
-                    <div className="pt-1">
-                      <Button
-                        type="submit"
-                        disabled={pending || walletOptions.length === 0}
-                        className="w-full"
-                      >
-                        {pending ? "Đang tạo khóa..." : "Tạo khóa liên kết"}
-                      </Button>
-                    </div>
+                    {iosShortcutTemplateUrl ? (
+                      <div className="space-y-2 pt-1">
+                        <Button
+                          type="button"
+                          disabled={pending || walletOptions.length === 0}
+                          onClick={() =>
+                            issueTokenWithClipboard({ switchToIosGuide: true })
+                          }
+                          className="w-full"
+                        >
+                          <Smartphone size={15} />
+                          {pending
+                            ? "Đang chuẩn bị..."
+                            : "Thiết lập nhanh trên iPhone"}
+                        </Button>
+                        <Button
+                          type="submit"
+                          variant="outline"
+                          size="sm"
+                          disabled={pending || walletOptions.length === 0}
+                          className="w-full"
+                        >
+                          Chỉ tạo khóa xác thực (Android / thủ công)
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="pt-1">
+                        <Button
+                          type="submit"
+                          disabled={pending || walletOptions.length === 0}
+                          className="w-full"
+                        >
+                          {pending ? "Đang tạo khóa..." : "Tạo khóa liên kết"}
+                        </Button>
+                      </div>
+                    )}
                   </form>
                 )}
               </TabsContent>
@@ -647,7 +967,7 @@ export function QuickCaptureSetupSheet({
                         Khóa xác thực · {newlyCreatedToken.name}
                       </p>
                       <p className="truncate text-[11px] text-[var(--text-secondary)]">
-                        Bấm chép lại bất cứ lúc nào sau khi dán liên kết
+                        Bấm chép lại bất cứ lúc nào khi dán vào điện thoại
                       </p>
                     </div>
                     <Button
@@ -664,7 +984,8 @@ export function QuickCaptureSetupSheet({
                       Chép khóa
                     </Button>
                   </div>
-                ) : !hasLinkedDevices ? (
+                ) : !hasLinkedDevices &&
+                  (guidePlatform === "android" || !iosShortcutTemplateUrl) ? (
                   <div className="flex items-center justify-between gap-2.5 rounded-2xl bg-[var(--surface-secondary)] px-3.5 py-2.5 text-xs">
                     <span className="text-[var(--text-secondary)]">
                       Tạo khóa xác thực cho máy trước khi cài đặt
@@ -692,174 +1013,175 @@ export function QuickCaptureSetupSheet({
                     <TabsTrigger value="android">Android</TabsTrigger>
                   </TabsList>
 
-                  {/* iOS Self-Contained 4-Step Guide */}
+                  {/* iOS Guide: 2-Step Quick Install when Shortcut URL is configured, 4-Step manual fallback */}
                   <TabsContent value="ios" className="space-y-4">
-                    {iosShortcutTemplateUrl && (
-                      <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-3">
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-[var(--foreground)]">
-                            Phím tắt mẫu có sẵn
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
-                            Thêm nhanh vào iPhone rồi dán khóa xác thực khi được hỏi
-                          </p>
-                        </div>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          render={
-                            <a
-                              href={iosShortcutTemplateUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                    {iosShortcutTemplateUrl ? (
+                      <>
+                        <ol className="relative ml-2.5 space-y-4 border-l border-[var(--border)] pl-5 text-xs leading-relaxed text-[var(--text-secondary)]">
+                          <li className="relative space-y-2">
+                            <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
+                              1
+                            </span>
+                            <p className="font-semibold text-[var(--foreground)]">
+                              Cài phím tắt mẫu & dán khóa xác thực
+                            </p>
+
+                            {newlyCreatedToken ? (
+                              <>
+                                <p>
+                                  Bấm nút bên dưới để chép khóa xác thực và mở ứng dụng{" "}
+                                  <strong className="font-medium text-[var(--foreground)]">
+                                    Phím tắt
+                                  </strong>
+                                  . Khi được hỏi khóa xác thực, chạm{" "}
+                                  <strong className="font-medium text-[var(--foreground)]">
+                                    Dán
+                                  </strong>{" "}
+                                  rồi bấm{" "}
+                                  <strong className="font-medium text-[var(--foreground)]">
+                                    Thêm phím tắt
+                                  </strong>
+                                  .
+                                </p>
+                                <div className="pt-0.5">
+                                  <Button
+                                    size="sm"
+                                    onClick={() =>
+                                      void copyToClipboard(
+                                        `Bearer ${newlyCreatedToken.token}`,
+                                        "Đã sao chép khóa xác thực.",
+                                      )
+                                    }
+                                    render={
+                                      <a
+                                        href={iosShortcutTemplateUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      />
+                                    }
+                                  >
+                                    <Smartphone size={13} />
+                                    Chép khóa & Cài phím tắt mẫu
+                                  </Button>
+                                </div>
+                              </>
+                            ) : !hasLinkedDevices ? (
+                              <>
+                                <p>
+                                  Tạo khóa kết nối cho máy
+                                  {selectedWalletLabel
+                                    ? ` (mặc định trừ ${selectedWalletLabel})`
+                                    : ""}
+                                  , sau đó mở Phím tắt mẫu và chạm{" "}
+                                  <strong className="font-medium text-[var(--foreground)]">
+                                    Dán
+                                  </strong>{" "}
+                                  khóa xác thực khi được hỏi.
+                                </p>
+                                <div className="pt-0.5">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    disabled={
+                                      pending || walletOptions.length === 0
+                                    }
+                                    onClick={() =>
+                                      issueTokenWithClipboard({
+                                        switchToIosGuide: true,
+                                      })
+                                    }
+                                  >
+                                    <Zap size={13} />
+                                    {pending
+                                      ? "Đang tạo khóa..."
+                                      : "Tạo & chép khóa cho iPhone"}
+                                  </Button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <p>
+                                  Mở liên kết bên dưới để thêm Phím tắt mẫu vào iPhone, sau đó dán khóa xác thực khi được hỏi. Nếu chưa lưu khóa cũ, bấm{" "}
+                                  <strong className="font-medium text-[var(--foreground)]">
+                                    Cấp khóa mới
+                                  </strong>
+                                  .
+                                </p>
+                                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                                  <Button
+                                    size="sm"
+                                    render={
+                                      <a
+                                        href={iosShortcutTemplateUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      />
+                                    }
+                                  >
+                                    <Smartphone size={13} />
+                                    Tải phím tắt mẫu
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setShowCreateForm(true);
+                                      setActiveTab("connect");
+                                    }}
+                                  >
+                                    Cấp khóa mới
+                                  </Button>
+                                </div>
+                              </>
+                            )}
+                          </li>
+
+                          <li className="relative">
+                            <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
+                              2
+                            </span>
+                            <p className="font-semibold text-[var(--foreground)]">
+                              Bật chạm hai lần mặt lưng
+                            </p>
+                            <p className="mt-0.5">
+                              Vào{" "}
+                              <strong className="font-medium text-[var(--foreground)]">
+                                Cài đặt → Trợ năng → Cảm ứng → Chạm vào mặt sau → Chạm hai lần
+                              </strong>
+                              , chọn phím tắt vừa thêm. Ở lần chạm đầu tiên sau khi thanh toán, hãy bấm{" "}
+                              <strong className="font-medium text-[var(--foreground)]">
+                                Luôn cho phép
+                              </strong>{" "}
+                              khi iPhone hỏi quyền kết nối.
+                            </p>
+                          </li>
+                        </ol>
+
+                        <div className="border-t border-[var(--border)] pt-3">
+                          <button
+                            type="button"
+                            onClick={() => setShowManualIosSteps((v) => !v)}
+                            className="inline-flex cursor-pointer items-center gap-1.5 py-0.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--foreground)]"
+                          >
+                            <ChevronDown
+                              size={14}
+                              className={cn(
+                                "transition-transform duration-150",
+                                showManualIosSteps && "rotate-180",
+                              )}
                             />
-                          }
-                        >
-                          Tải phím tắt
-                        </Button>
-                      </div>
+                            Tự tạo phím tắt thủ công (4 bước)
+                          </button>
+
+                          {showManualIosSteps && (
+                            <div className="mt-3.5">{manualIosSteps}</div>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      manualIosSteps
                     )}
-
-                    <ol className="relative ml-2.5 space-y-4 border-l border-[var(--border)] pl-5 text-xs leading-relaxed text-[var(--text-secondary)]">
-                      <li className="relative">
-                        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-                          1
-                        </span>
-                        <p className="font-semibold text-[var(--foreground)]">
-                          Chụp & đọc chữ trên màn hình
-                        </p>
-                        <p className="mt-0.5">
-                          Mở ứng dụng <strong className="font-medium text-[var(--foreground)]">Phím tắt</strong> <span className="text-[var(--text-muted)]">(Shortcuts)</span>, tạo phím tắt mới và thêm lần lượt:
-                        </p>
-                        <div className="mt-1.5 rounded-xl bg-[var(--surface-secondary)] px-3 py-2 text-[11px]">
-                          <p>
-                            1. <strong className="font-medium text-[var(--foreground)]">Chụp ảnh màn hình</strong> <span className="text-[var(--text-muted)]">(Take Screenshot)</span>
-                          </p>
-                          <p className="mt-1">
-                            2. <strong className="font-medium text-[var(--foreground)]">Trích xuất văn bản từ hình ảnh</strong> <span className="text-[var(--text-muted)]">(Extract Text from Image)</span>
-                          </p>
-                        </div>
-                      </li>
-
-                      <li className="relative space-y-1.5">
-                        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-                          2
-                        </span>
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-semibold text-[var(--foreground)]">
-                            Nhận danh sách danh mục
-                          </p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              void copyToClipboard(
-                                parseEndpoint,
-                                "Đã sao chép liên kết bước 2.",
-                              )
-                            }
-                          >
-                            <Copy size={12} />
-                            Chép liên kết 1
-                          </Button>
-                        </div>
-                        <p>
-                          Thêm <strong className="font-medium text-[var(--foreground)]">Lấy nội dung của URL</strong> <span className="text-[var(--text-muted)]">(Get Contents of URL)</span>, dán <em>Liên kết 1</em>, mở mũi tên chi tiết chọn phương thức <strong className="font-medium text-[var(--foreground)]">POST</strong>:
-                        </p>
-                        <div className="space-y-1.5 rounded-xl bg-[var(--surface-secondary)] px-3 py-2.5 text-[11px]">
-                          <div className="flex flex-wrap items-center justify-between gap-1.5">
-                            <span className="text-[var(--text-muted)]">
-                              Tiêu đề (Headers)
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <CopyableKeyChip value="Authorization" />
-                              <span className="text-[var(--foreground)]">
-                                = Khóa xác thực
-                              </span>
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-[var(--border)] pt-1.5">
-                            <span className="text-[var(--text-muted)]">
-                              Nội dung (JSON)
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <CopyableKeyChip value="text" />
-                              <span className="text-[var(--foreground)]">
-                                = Văn bản từ Hình ảnh
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-                      </li>
-
-                      <li className="relative">
-                        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-                          3
-                        </span>
-                        <p className="font-semibold text-[var(--foreground)]">
-                          Hiện bảng chọn trên màn hình
-                        </p>
-                        <p className="mt-0.5">
-                          Thêm <strong className="font-medium text-[var(--foreground)]">Lấy giá trị từ điển</strong> <span className="text-[var(--text-muted)]">(Get Dictionary Value)</span> với khóa <CopyableKeyChip value="options" />, rồi thêm tiếp <strong className="font-medium text-[var(--foreground)]">Chọn từ danh sách</strong> <span className="text-[var(--text-muted)]">(Choose from List)</span>.
-                        </p>
-                      </li>
-
-                      <li className="relative space-y-1.5">
-                        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-                          4
-                        </span>
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-semibold text-[var(--foreground)]">
-                            Lưu vào sổ & gán chạm mặt lưng
-                          </p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              void copyToClipboard(
-                                commitEndpoint,
-                                "Đã sao chép liên kết lưu giao dịch.",
-                              )
-                            }
-                          >
-                            <Copy size={12} />
-                            Chép liên kết 2
-                          </Button>
-                        </div>
-                        <p>
-                          Thêm <strong className="font-medium text-[var(--foreground)]">Lấy nội dung của URL</strong> lần hai, dán <em>Liên kết 2</em> và đổi sang <strong className="font-medium text-[var(--foreground)]">POST</strong>:
-                        </p>
-                        <div className="space-y-1.5 rounded-xl bg-[var(--surface-secondary)] px-3 py-2.5 text-[11px]">
-                          <div className="flex flex-wrap items-center justify-between gap-1.5">
-                            <span className="text-[var(--text-muted)]">
-                              Tiêu đề (Headers)
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <CopyableKeyChip value="Authorization" />
-                              <span className="text-[var(--foreground)]">
-                                = Khóa xác thực
-                              </span>
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-[var(--border)] pt-1.5">
-                            <span className="text-[var(--text-muted)]">
-                              Nội dung (JSON)
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <CopyableKeyChip value="selectedOption" />
-                              <span className="text-[var(--foreground)]">
-                                = Mục được chọn
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-                        <p className="pt-0.5">
-                          Cuối cùng vào <strong className="font-medium text-[var(--foreground)]">Cài đặt → Trợ năng → Cảm ứng → Chạm vào mặt sau → Chạm hai lần</strong>, chọn phím tắt vừa tạo. Lần đầu chạy hãy bấm <strong className="font-medium text-[var(--foreground)]">Luôn cho phép</strong> khi iPhone hỏi quyền kết nối.
-                        </p>
-                      </li>
-                    </ol>
                   </TabsContent>
 
                   {/* Android Foolproof Form-Encoded Guide */}
