@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   useTransition,
@@ -11,9 +12,11 @@ import {
 import {
   ArrowRight,
   BadgeCheck,
+  Check,
   ChevronDown,
   ChevronRight,
   Copy,
+  KeyRound,
   Plus,
   Smartphone,
   X,
@@ -39,6 +42,7 @@ import {
   Skeleton,
   Tabs,
   TabsContent,
+  TabsCount,
   TabsList,
   TabsTrigger,
 } from "@/components/base";
@@ -52,6 +56,14 @@ const EXPIRY_OPTIONS = [
   { value: "180", label: "6 tháng" },
   { value: "365", label: "1 năm" },
 ];
+
+const IOS_BACK_TAP_PATH = [
+  "Cài đặt",
+  "Trợ năng",
+  "Cảm ứng",
+  "Chạm vào mặt sau",
+  "Chạm hai lần",
+] as const;
 
 const NO_CATEGORY_VALUE = "__none__";
 const IOS_SHORTCUT_URL_CLIENT_PATTERN =
@@ -79,28 +91,83 @@ function formatShortDate(iso: string): string {
   }).format(date);
 }
 
-async function copyToClipboard(value: string, label: string) {
+async function copyToClipboard(value: string, label: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(value);
     toast.success(label);
+    return true;
   } catch {
     toast.error("Không thể sao chép tự động trên trình duyệt này.");
+    return false;
   }
 }
 
 function CopyableKeyChip({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
   return (
     <button
       type="button"
-      onClick={() =>
-        void copyToClipboard(value, `Đã sao chép khóa "${value}".`)
-      }
+      onClick={() => {
+        void copyToClipboard(value, `Đã sao chép "${value}".`).then((ok) => {
+          if (!ok) return;
+          setCopied(true);
+          if (timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = setTimeout(() => setCopied(false), 1600);
+        });
+      }}
       title={`Chạm để sao chép "${value}"`}
-      className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+      className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
     >
       <span>{value}</span>
-      <Copy size={10} className="text-[var(--text-muted)]" aria-hidden="true" />
+      {copied ? (
+        <Check size={10} className="text-[var(--success)]" aria-hidden="true" />
+      ) : (
+        <Copy
+          size={10}
+          className="text-[var(--text-muted)]"
+          aria-hidden="true"
+        />
+      )}
     </button>
+  );
+}
+
+function IosSettingsBreadcrumb() {
+  return (
+    <div className="flex flex-wrap items-center gap-1 pt-0.5 text-[11px] leading-none">
+      {IOS_BACK_TAP_PATH.map((step, index) => {
+        const isFinal = index === IOS_BACK_TAP_PATH.length - 1;
+        return (
+          <span key={step} className="inline-flex items-center gap-1">
+            {index > 0 && (
+              <ChevronRight
+                size={11}
+                className="text-[var(--text-muted)]"
+                aria-hidden="true"
+              />
+            )}
+            <span
+              className={cn(
+                "rounded-md px-1.5 py-1",
+                isFinal
+                  ? "bg-[var(--primary-soft)] font-semibold text-[var(--primary)]"
+                  : "bg-[var(--surface-secondary)] font-medium text-[var(--text-secondary)]",
+              )}
+            >
+              {step}
+            </span>
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -209,10 +276,27 @@ export function QuickCaptureSetupSheet({
     name: string;
     walletName: string;
   } | null>(null);
+  const [tokenCopiedFeedback, setTokenCopiedFeedback] = useState(false);
+  const tokenCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Phone setup guide state
   const [guidePlatform, setGuidePlatform] = useState<"ios" | "android">("ios");
   const [showManualIosSteps, setShowManualIosSteps] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (tokenCopyTimerRef.current) clearTimeout(tokenCopyTimerRef.current);
+    };
+  }, []);
+
+  const markTokenCopied = useCallback(() => {
+    setTokenCopiedFeedback(true);
+    if (tokenCopyTimerRef.current) clearTimeout(tokenCopyTimerRef.current);
+    tokenCopyTimerRef.current = setTimeout(
+      () => setTokenCopiedFeedback(false),
+      1800,
+    );
+  }, []);
 
   const iosShortcutTemplateUrl = useMemo(() => {
     const serverUrl = state?.available ? state.iosShortcutUrl : null;
@@ -244,6 +328,7 @@ export function QuickCaptureSetupSheet({
 
   const resetTransientState = useCallback(() => {
     setNewlyCreatedToken(null);
+    setTokenCopiedFeedback(false);
     setShowCreateForm(false);
     setShowAdvancedTokenOpts(false);
     setShowManualIosSteps(false);
@@ -305,6 +390,31 @@ export function QuickCaptureSetupSheet({
     ];
   }, [state]);
 
+  const selectedCategorySummary = useMemo(() => {
+    if (selectedCategoryId === NO_CATEGORY_VALUE) return "Tự gợi ý";
+    if (!state || !state.available) return "Tự gợi ý";
+    return (
+      state.categories.find((c) => c.id === selectedCategoryId)?.name ??
+      "Tự gợi ý"
+    );
+  }, [state, selectedCategoryId]);
+
+  const selectedExpirySummary = useMemo(() => {
+    return (
+      EXPIRY_OPTIONS.find((opt) => opt.value === expiresInDays)?.label ??
+      "1 năm"
+    );
+  }, [expiresInDays]);
+
+  function handleCopyBearer(rawToken: string) {
+    void copyToClipboard(
+      `Bearer ${rawToken}`,
+      "Đã sao chép khóa xác thực.",
+    ).then((ok) => {
+      if (ok) markTokenCopied();
+    });
+  }
+
   function issueTokenWithClipboard(options?: { switchToIosGuide?: boolean }) {
     if (!state || !state.available) return;
     const effectiveDeviceName =
@@ -316,7 +426,7 @@ export function QuickCaptureSetupSheet({
       return;
     }
     if (!selectedWalletId) {
-      toast.error("Vui lòng chọn ví trừ tiền mặc định.");
+      toast.error("Vui lòng chọn ví mặc định.");
       return;
     }
 
@@ -375,6 +485,7 @@ export function QuickCaptureSetupSheet({
             .catch(() => false);
         }
 
+        if (copied) markTokenCopied();
         setNewlyCreatedToken({
           token: res.data.token,
           name: res.data.tokenInfo.name,
@@ -387,13 +498,13 @@ export function QuickCaptureSetupSheet({
           setActiveTab("guide");
           toast.success(
             copied
-              ? "Đã tạo & sao chép khóa xác thực. Bấm \"Chép khóa & Cài phím tắt mẫu\" để mở Phím tắt."
-              : "Đã tạo khóa xác thực. Bấm \"Chép khóa & Cài phím tắt mẫu\" để tiếp tục.",
+              ? "Đã tạo & sao chép khóa. Bấm mở Phím tắt mẫu ở bước 1."
+              : "Đã tạo khóa xác thực. Bấm mở Phím tắt mẫu ở bước 1.",
           );
         } else {
           toast.success(
             copied
-              ? "Đã tạo & tự động sao chép khóa xác thực."
+              ? "Đã tạo & sao chép khóa xác thực."
               : "Đã tạo khóa liên kết thiết bị.",
           );
         }
@@ -429,82 +540,74 @@ export function QuickCaptureSetupSheet({
     state?.available === true && (!hasLinkedDevices || showCreateForm);
 
   const manualIosSteps = (
-    <ol className="relative ml-2.5 space-y-4 border-l border-[var(--border)] pl-5 text-xs leading-relaxed text-[var(--text-secondary)]">
-      <li className="relative">
-        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-          1
-        </span>
-        <p className="font-semibold text-[var(--foreground)]">
-          Chụp & đọc chữ trên màn hình
-        </p>
-        <p className="mt-0.5">
-          Mở ứng dụng{" "}
-          <strong className="font-medium text-[var(--foreground)]">
-            Phím tắt
-          </strong>{" "}
-          <span className="text-[var(--text-muted)]">(Shortcuts)</span>, tạo
-          phím tắt mới và thêm lần lượt:
-        </p>
-        <div className="mt-1.5 rounded-xl bg-[var(--surface-secondary)] px-3 py-2 text-[11px]">
-          <p>
-            1.{" "}
-            <strong className="font-medium text-[var(--foreground)]">
-              Chụp ảnh màn hình
-            </strong>{" "}
-            <span className="text-[var(--text-muted)]">(Take Screenshot)</span>
-          </p>
-          <p className="mt-1">
-            2.{" "}
-            <strong className="font-medium text-[var(--foreground)]">
-              Trích xuất văn bản từ hình ảnh
-            </strong>{" "}
-            <span className="text-[var(--text-muted)]">
-              (Extract Text from Image)
-            </span>
+    <ol className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-secondary)_45%,var(--surface))] text-xs leading-relaxed text-[var(--text-secondary)]">
+      <li className="space-y-1.5 p-3.5">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-5 items-center rounded-md bg-[var(--primary-soft)] px-1.5 font-mono text-[10px] font-semibold text-[var(--primary)]">
+            01
+          </span>
+          <p className="text-[13px] font-semibold text-[var(--foreground)]">
+            Chụp & đọc chữ trên màn hình
           </p>
         </div>
+        <p>
+          Trong ứng dụng{" "}
+          <strong className="font-medium text-[var(--foreground)]">
+            Phím tắt
+          </strong>
+          , tạo phím tắt mới và thêm 2 tác vụ:{" "}
+          <strong className="font-medium text-[var(--foreground)]">
+            Chụp ảnh màn hình
+          </strong>{" "}
+          →{" "}
+          <strong className="font-medium text-[var(--foreground)]">
+            Trích xuất văn bản từ hình ảnh
+          </strong>
+          .
+        </p>
       </li>
 
-      <li className="relative space-y-1.5">
-        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-          2
-        </span>
+      <li className="space-y-2 p-3.5">
         <div className="flex items-center justify-between gap-2">
-          <p className="font-semibold text-[var(--foreground)]">
-            Nhận danh sách danh mục
-          </p>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="inline-flex h-5 shrink-0 items-center rounded-md bg-[var(--primary-soft)] px-1.5 font-mono text-[10px] font-semibold text-[var(--primary)]">
+              02
+            </span>
+            <p className="truncate text-[13px] font-semibold text-[var(--foreground)]">
+              Nhận danh sách danh mục
+            </p>
+          </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() =>
-              void copyToClipboard(parseEndpoint, "Đã sao chép liên kết bước 2.")
+              void copyToClipboard(parseEndpoint, "Đã sao chép URL bước 2.")
             }
           >
             <Copy size={12} />
-            Chép liên kết 1
+            URL 1
           </Button>
         </div>
         <p>
           Thêm{" "}
           <strong className="font-medium text-[var(--foreground)]">
             Lấy nội dung của URL
-          </strong>{" "}
-          <span className="text-[var(--text-muted)]">(Get Contents of URL)</span>
-          , dán <em>Liên kết 1</em>, mở mũi tên chi tiết chọn phương thức{" "}
+          </strong>
+          , dán <em>URL 1</em> và chọn phương thức{" "}
           <strong className="font-medium text-[var(--foreground)]">POST</strong>:
         </p>
-        <div className="space-y-1.5 rounded-xl bg-[var(--surface-secondary)] px-3 py-2.5 text-[11px]">
-          <div className="flex flex-wrap items-center justify-between gap-1.5">
-            <span className="text-[var(--text-muted)]">Tiêu đề (Headers)</span>
-            <span className="flex items-center gap-1.5">
+        <div className="space-y-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[var(--text-muted)]">Header</span>
+            <span className="inline-flex items-center gap-1.5">
               <CopyableKeyChip value="Authorization" />
               <span className="text-[var(--foreground)]">= Khóa xác thực</span>
             </span>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-[var(--border)] pt-1.5">
-            <span className="text-[var(--text-muted)]">Nội dung (JSON)</span>
-            <span className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-1.5">
+            <span className="text-[var(--text-muted)]">JSON</span>
+            <span className="inline-flex items-center gap-1.5">
               <CopyableKeyChip value="text" />
               <span className="text-[var(--foreground)]">
                 = Văn bản từ Hình ảnh
@@ -514,48 +617,48 @@ export function QuickCaptureSetupSheet({
         </div>
       </li>
 
-      <li className="relative">
-        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-          3
-        </span>
-        <p className="font-semibold text-[var(--foreground)]">
-          Hiện bảng chọn trên màn hình
-        </p>
-        <p className="mt-0.5">
+      <li className="space-y-1.5 p-3.5">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-5 items-center rounded-md bg-[var(--primary-soft)] px-1.5 font-mono text-[10px] font-semibold text-[var(--primary)]">
+            03
+          </span>
+          <p className="text-[13px] font-semibold text-[var(--foreground)]">
+            Hiện bảng chọn danh mục
+          </p>
+        </div>
+        <p>
           Thêm{" "}
           <strong className="font-medium text-[var(--foreground)]">
             Lấy giá trị từ điển
           </strong>{" "}
-          <span className="text-[var(--text-muted)]">(Get Dictionary Value)</span>{" "}
-          với khóa <CopyableKeyChip value="options" />, rồi thêm tiếp{" "}
+          với khóa <CopyableKeyChip value="options" />, sau đó thêm{" "}
           <strong className="font-medium text-[var(--foreground)]">
             Chọn từ danh sách
-          </strong>{" "}
-          <span className="text-[var(--text-muted)]">(Choose from List)</span>.
+          </strong>
+          .
         </p>
       </li>
 
-      <li className="relative space-y-1.5">
-        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-          4
-        </span>
+      <li className="space-y-2 p-3.5">
         <div className="flex items-center justify-between gap-2">
-          <p className="font-semibold text-[var(--foreground)]">
-            Lưu vào sổ & gán chạm mặt lưng
-          </p>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="inline-flex h-5 shrink-0 items-center rounded-md bg-[var(--primary-soft)] px-1.5 font-mono text-[10px] font-semibold text-[var(--primary)]">
+              04
+            </span>
+            <p className="truncate text-[13px] font-semibold text-[var(--foreground)]">
+              Lưu giao dịch & gán chạm lưng
+            </p>
+          </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() =>
-              void copyToClipboard(
-                commitEndpoint,
-                "Đã sao chép liên kết lưu giao dịch.",
-              )
+              void copyToClipboard(commitEndpoint, "Đã sao chép URL bước 4.")
             }
           >
             <Copy size={12} />
-            Chép liên kết 2
+            URL 2
           </Button>
         </div>
         <p>
@@ -563,36 +666,26 @@ export function QuickCaptureSetupSheet({
           <strong className="font-medium text-[var(--foreground)]">
             Lấy nội dung của URL
           </strong>{" "}
-          lần hai, dán <em>Liên kết 2</em> và đổi sang{" "}
+          lần hai, dán <em>URL 2</em> và chọn{" "}
           <strong className="font-medium text-[var(--foreground)]">POST</strong>:
         </p>
-        <div className="space-y-1.5 rounded-xl bg-[var(--surface-secondary)] px-3 py-2.5 text-[11px]">
-          <div className="flex flex-wrap items-center justify-between gap-1.5">
-            <span className="text-[var(--text-muted)]">Tiêu đề (Headers)</span>
-            <span className="flex items-center gap-1.5">
+        <div className="space-y-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[var(--text-muted)]">Header</span>
+            <span className="inline-flex items-center gap-1.5">
               <CopyableKeyChip value="Authorization" />
               <span className="text-[var(--foreground)]">= Khóa xác thực</span>
             </span>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-[var(--border)] pt-1.5">
-            <span className="text-[var(--text-muted)]">Nội dung (JSON)</span>
-            <span className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-1.5">
+            <span className="text-[var(--text-muted)]">JSON</span>
+            <span className="inline-flex items-center gap-1.5">
               <CopyableKeyChip value="selectedOption" />
               <span className="text-[var(--foreground)]">= Mục được chọn</span>
             </span>
           </div>
         </div>
-        <p className="pt-0.5">
-          Cuối cùng vào{" "}
-          <strong className="font-medium text-[var(--foreground)]">
-            Cài đặt → Trợ năng → Cảm ứng → Chạm vào mặt sau → Chạm hai lần
-          </strong>
-          , chọn phím tắt vừa tạo. Lần đầu chạy hãy bấm{" "}
-          <strong className="font-medium text-[var(--foreground)]">
-            Luôn cho phép
-          </strong>{" "}
-          khi iPhone hỏi quyền kết nối.
-        </p>
+        <IosSettingsBreadcrumb />
       </li>
     </ol>
   );
@@ -635,7 +728,9 @@ export function QuickCaptureSetupSheet({
                 Ghi nhanh từ biên lai
               </SheetTitle>
               <SheetDescription className="truncate">
-                Chạm mặt lưng điện thoại để lưu chi tiêu
+                {state?.available
+                  ? `Sổ ${state.workspaceName} · Chạm mặt lưng lưu chi tiêu`
+                  : "Chạm mặt lưng điện thoại để lưu chi tiêu"}
               </SheetDescription>
             </div>
           </div>
@@ -644,8 +739,8 @@ export function QuickCaptureSetupSheet({
         {state === null ? (
           <div className="space-y-3 p-5">
             <Skeleton className="h-9 w-full rounded-xl" />
-            <Skeleton className="h-28 w-full rounded-2xl" />
-            <Skeleton className="h-28 w-full rounded-2xl" />
+            <Skeleton className="h-36 w-full rounded-2xl" />
+            <Skeleton className="h-10 w-full rounded-xl" />
           </div>
         ) : !state.available ? (
           <div className="p-5">
@@ -659,35 +754,41 @@ export function QuickCaptureSetupSheet({
             onValueChange={(val) => setActiveTab(String(val))}
             className="flex min-h-0 flex-1 flex-col gap-0"
           >
-            {/* Non-scrolling 2-Tab Segmented Bar */}
-            <div className="shrink-0 px-4 pt-3.5 pb-1 sm:px-6">
+            {/* Non-scrolling Segmented Bar */}
+            <div className="shrink-0 px-4 pt-3 pb-1 sm:px-6">
               <TabsList variant="segmented">
-                <TabsTrigger value="connect">Kết nối</TabsTrigger>
+                <TabsTrigger value="connect">
+                  Kết nối
+                  {hasLinkedDevices && (
+                    <TabsCount>{state.tokens.length}</TabsCount>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="guide">Hướng dẫn</TabsTrigger>
               </TabsList>
             </div>
 
             {/* Scrollable Tab Viewport */}
-            <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-3.5 pb-[max(1.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-4">
-              {/* ── TAB 1: CLEAN PASSKEY-STYLE DEVICE CONNECTION ── */}
-              <TabsContent value="connect" className="space-y-4">
-                <div className="flex items-center justify-between gap-2 rounded-xl bg-[var(--surface-secondary)] px-3.5 py-2.5 text-xs">
-                  <span className="text-[var(--text-muted)]">Sổ ghi nhận</span>
-                  <span className="truncate font-semibold text-[var(--foreground)]">
-                    {state.workspaceName}
-                  </span>
-                </div>
-
+            <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-4">
+              {/* ── TAB 1: DEVICE CONNECTION ────────────────────── */}
+              <TabsContent value="connect" className="space-y-3.5">
                 {newlyCreatedToken && (
-                  <section className="space-y-3 rounded-2xl border border-[color-mix(in_srgb,var(--primary)_35%,var(--border))] bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))] p-4">
+                  <section className="space-y-3 rounded-2xl border border-[color-mix(in_srgb,var(--primary)_30%,var(--border))] bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))] p-3.5">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-0.5">
-                        <p className="text-xs font-semibold text-[var(--foreground)]">
-                          Khóa xác thực · {newlyCreatedToken.name}
-                        </p>
-                        <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
-                          Chỉ hiển thị một lần. Sao chép khóa này trước khi chuyển sang bước cài đặt.
-                        </p>
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span
+                          className="grid size-8 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary)]"
+                          aria-hidden="true"
+                        >
+                          <KeyRound size={15} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold text-[var(--foreground)]">
+                            {newlyCreatedToken.name}
+                          </p>
+                          <p className="truncate text-[11px] text-[var(--text-secondary)]">
+                            Ví {newlyCreatedToken.walletName} · Chỉ hiển thị một lần
+                          </p>
+                        </div>
                       </div>
                       <Button
                         type="button"
@@ -700,19 +801,43 @@ export function QuickCaptureSetupSheet({
                       </Button>
                     </div>
 
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 font-mono text-[11px] break-all select-all text-[var(--foreground)]">
-                      Bearer {newlyCreatedToken.token}
+                    <div className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] py-1.5 pr-1.5 pl-3">
+                      <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--foreground)] select-all">
+                        Bearer {newlyCreatedToken.token}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyBearer(newlyCreatedToken.token)}
+                        className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-lg bg-[var(--surface-secondary)] px-2.5 py-1 text-[11px] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-hover)]"
+                      >
+                        {tokenCopiedFeedback ? (
+                          <>
+                            <Check
+                              size={12}
+                              className="text-[var(--success)]"
+                              aria-hidden="true"
+                            />
+                            Đã chép
+                          </>
+                        ) : (
+                          <>
+                            <Copy
+                              size={12}
+                              className="text-[var(--text-secondary)]"
+                              aria-hidden="true"
+                            />
+                            Chép
+                          </>
+                        )}
+                      </button>
                     </div>
 
                     {iosShortcutTemplateUrl ? (
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="space-y-1.5">
                         <Button
                           size="sm"
                           onClick={() =>
-                            void copyToClipboard(
-                              `Bearer ${newlyCreatedToken.token}`,
-                              "Đã sao chép khóa xác thực.",
-                            )
+                            handleCopyBearer(newlyCreatedToken.token)
                           }
                           render={
                             <a
@@ -721,33 +846,32 @@ export function QuickCaptureSetupSheet({
                               rel="noopener noreferrer"
                             />
                           }
+                          className="w-full"
                         >
                           <Smartphone size={13} />
-                          Chép khóa & Cài phím tắt
+                          Chép khóa & Cài phím tắt mẫu
                         </Button>
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           onClick={() => {
                             setGuidePlatform("ios");
                             setActiveTab("guide");
                           }}
+                          className="w-full"
                         >
-                          Xem 2 bước cài
+                          Xem bước bật Chạm hai lần mặt sau
                           <ArrowRight size={13} />
                         </Button>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <Button
                           type="button"
                           size="sm"
                           onClick={() =>
-                            void copyToClipboard(
-                              `Bearer ${newlyCreatedToken.token}`,
-                              "Đã sao chép khóa xác thực.",
-                            )
+                            handleCopyBearer(newlyCreatedToken.token)
                           }
                         >
                           <Copy size={13} />
@@ -759,7 +883,7 @@ export function QuickCaptureSetupSheet({
                           size="sm"
                           onClick={() => setActiveTab("guide")}
                         >
-                          Xem hướng dẫn cài
+                          Hướng dẫn cài
                           <ArrowRight size={13} />
                         </Button>
                       </div>
@@ -768,8 +892,24 @@ export function QuickCaptureSetupSheet({
                 )}
 
                 {hasLinkedDevices && (
-                  <div className="space-y-2.5">
-                    <div className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+                  <section className="space-y-2">
+                    <div className="flex items-center justify-between px-0.5">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                        Thiết bị đang kết nối
+                      </span>
+                      {!showCreateForm && (
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateForm(true)}
+                          className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-[var(--primary)] transition-opacity hover:opacity-80"
+                        >
+                          <Plus size={13} aria-hidden="true" />
+                          Thêm thiết bị
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-secondary)_45%,var(--surface))]">
                       {state.tokens.map((tok) => (
                         <div
                           key={tok.id}
@@ -777,17 +917,21 @@ export function QuickCaptureSetupSheet({
                         >
                           <div className="flex min-w-0 items-center gap-3">
                             <span
-                              className="grid size-8.5 shrink-0 place-items-center rounded-xl bg-[var(--surface-secondary)] text-[var(--text-secondary)]"
+                              className="grid size-8.5 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]"
                               aria-hidden="true"
                             >
                               <Smartphone size={15} />
                             </span>
                             <div className="min-w-0 space-y-0.5">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className="size-1.5 shrink-0 rounded-full bg-[var(--success)]"
+                                  aria-hidden="true"
+                                />
                                 <span className="truncate text-[13px] font-semibold text-[var(--foreground)]">
                                   {tok.name}
                                 </span>
-                                <span className="shrink-0 rounded bg-[var(--surface-secondary)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]">
+                                <span className="shrink-0 font-mono text-[10px] text-[var(--text-muted)]">
                                   {tok.tokenPrefix}•••
                                 </span>
                               </div>
@@ -821,105 +965,92 @@ export function QuickCaptureSetupSheet({
                         </div>
                       ))}
                     </div>
-
-                    {!showCreateForm && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowCreateForm(true)}
-                        className="w-full"
-                      >
-                        <Plus size={14} />
-                        Liên kết thêm thiết bị
-                      </Button>
-                    )}
-                  </div>
+                  </section>
                 )}
 
                 {shouldRenderCreateForm && (
-                  <form
-                    onSubmit={handleCreateToken}
-                    className={cn(
-                      "space-y-3.5",
-                      hasLinkedDevices &&
-                        "border-t border-[var(--border)] pt-4",
-                    )}
-                  >
-                    {hasLinkedDevices && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-[var(--foreground)]">
-                          Thiết bị mới
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowCreateForm(false)}
-                        >
-                          Hủy
-                        </Button>
-                      </div>
-                    )}
-
-                    <Input
-                      label="Tên thiết bị"
-                      id="qc-device-name"
-                      value={deviceName}
-                      onChange={(e) => setDeviceName(e.target.value)}
-                      placeholder="Ví dụ: iPhone cá nhân"
-                      maxLength={80}
-                    />
-
-                    <div className="space-y-1.5">
-                      <Select
-                        label="Ví trừ tiền mặc định"
-                        value={selectedWalletId}
-                        onValueChange={setSelectedWalletId}
-                        options={walletOptions}
-                        placeholder="Chọn ví thanh toán"
-                      />
-                      <p className="text-[11px] leading-snug text-[var(--text-muted)]">
-                        Tự động ưu tiên ví trùng tên ứng dụng thanh toán (MoMo, VCB, Techcombank...).
-                      </p>
-                    </div>
-
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => setShowAdvancedTokenOpts((v) => !v)}
-                        className="inline-flex cursor-pointer items-center gap-1 py-0.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--foreground)]"
-                      >
-                        <ChevronDown
-                          size={14}
-                          className={cn(
-                            "transition-transform duration-150",
-                            showAdvancedTokenOpts && "rotate-180",
-                          )}
-                        />
-                        Tùy chọn nâng cao
-                      </button>
-
-                      {showAdvancedTokenOpts && (
-                        <div className="mt-2.5 grid gap-3 rounded-2xl bg-[var(--surface-secondary)] p-3.5">
-                          <Select
-                            label="Danh mục mặc định khi chưa có gợi ý"
-                            value={selectedCategoryId}
-                            onValueChange={setSelectedCategoryId}
-                            options={categoryOptions}
-                          />
-                          <Select
-                            label="Thời hạn hiệu lực"
-                            value={expiresInDays}
-                            onValueChange={setExpiresInDays}
-                            options={EXPIRY_OPTIONS}
-                          />
+                  <form onSubmit={handleCreateToken} className="space-y-3">
+                    <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-secondary)_45%,var(--surface))] p-3.5">
+                      {hasLinkedDevices && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-[var(--foreground)]">
+                            Thiết bị mới
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowCreateForm(false)}
+                            className="cursor-pointer text-xs font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--foreground)]"
+                          >
+                            Đóng
+                          </button>
                         </div>
                       )}
+
+                      <Input
+                        label="Tên thiết bị"
+                        id="qc-device-name"
+                        value={deviceName}
+                        onChange={(e) => setDeviceName(e.target.value)}
+                        placeholder="Ví dụ: iPhone cá nhân"
+                        maxLength={80}
+                      />
+
+                      <div className="space-y-1.5">
+                        <Select
+                          label="Ví mặc định"
+                          value={selectedWalletId}
+                          onValueChange={setSelectedWalletId}
+                          options={walletOptions}
+                          placeholder="Chọn ví thanh toán"
+                        />
+                        <p className="px-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
+                          Tự ưu tiên ví trùng tên ứng dụng thanh toán trên biên lai.
+                        </p>
+                      </div>
+
+                      <div className="border-t border-[var(--border)] pt-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowAdvancedTokenOpts((v) => !v)}
+                          aria-expanded={showAdvancedTokenOpts}
+                          className="flex w-full cursor-pointer items-center justify-between gap-2 py-0.5 text-left text-xs transition-colors"
+                        >
+                          <span className="inline-flex items-center gap-1.5 font-medium text-[var(--text-secondary)] hover:text-[var(--foreground)]">
+                            <ChevronDown
+                              size={13}
+                              className={cn(
+                                "transition-transform duration-150",
+                                showAdvancedTokenOpts && "rotate-180",
+                              )}
+                            />
+                            Tuỳ chọn nâng cao
+                          </span>
+                          <span className="truncate text-[11px] text-[var(--text-muted)]">
+                            {selectedCategorySummary} · {selectedExpirySummary}
+                          </span>
+                        </button>
+
+                        {showAdvancedTokenOpts && (
+                          <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                            <Select
+                              label="Danh mục mặc định"
+                              value={selectedCategoryId}
+                              onValueChange={setSelectedCategoryId}
+                              options={categoryOptions}
+                            />
+                            <Select
+                              label="Thời hạn hiệu lực"
+                              value={expiresInDays}
+                              onValueChange={setExpiresInDays}
+                              options={EXPIRY_OPTIONS}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {iosShortcutTemplateUrl ? (
-                      <div className="space-y-2 pt-1">
+                      <div className="space-y-1">
                         <Button
                           type="button"
                           disabled={pending || walletOptions.length === 0}
@@ -935,179 +1066,181 @@ export function QuickCaptureSetupSheet({
                         </Button>
                         <Button
                           type="submit"
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           disabled={pending || walletOptions.length === 0}
                           className="w-full"
                         >
-                          Chỉ tạo khóa xác thực (Android / thủ công)
+                          Chỉ tạo khóa kết nối (Android / thủ công)
                         </Button>
                       </div>
                     ) : (
-                      <div className="pt-1">
-                        <Button
-                          type="submit"
-                          disabled={pending || walletOptions.length === 0}
-                          className="w-full"
-                        >
-                          {pending ? "Đang tạo khóa..." : "Tạo khóa liên kết"}
-                        </Button>
-                      </div>
+                      <Button
+                        type="submit"
+                        disabled={pending || walletOptions.length === 0}
+                        className="w-full"
+                      >
+                        <Zap size={15} />
+                        {pending ? "Đang tạo khóa..." : "Tạo khóa kết nối"}
+                      </Button>
                     )}
                   </form>
                 )}
               </TabsContent>
 
-              {/* ── TAB 2: PRODUCTION-READY END-USER GUIDE ──────── */}
-              <TabsContent value="guide" className="space-y-4">
-                {newlyCreatedToken ? (
-                  <div className="flex items-center justify-between gap-2.5 rounded-2xl border border-[color-mix(in_srgb,var(--primary)_35%,var(--border))] bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))] px-3.5 py-2.5 text-xs">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-[var(--foreground)]">
-                        Khóa xác thực · {newlyCreatedToken.name}
-                      </p>
-                      <p className="truncate text-[11px] text-[var(--text-secondary)]">
-                        Bấm chép lại bất cứ lúc nào khi dán vào điện thoại
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() =>
-                        void copyToClipboard(
-                          `Bearer ${newlyCreatedToken.token}`,
-                          "Đã sao chép khóa xác thực.",
-                        )
-                      }
-                    >
-                      <Copy size={12} />
-                      Chép khóa
-                    </Button>
-                  </div>
-                ) : !hasLinkedDevices &&
-                  (guidePlatform === "android" || !iosShortcutTemplateUrl) ? (
-                  <div className="flex items-center justify-between gap-2.5 rounded-2xl bg-[var(--surface-secondary)] px-3.5 py-2.5 text-xs">
-                    <span className="text-[var(--text-secondary)]">
-                      Tạo khóa xác thực cho máy trước khi cài đặt
-                    </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setActiveTab("connect")}
-                    >
-                      Tạo khóa
-                    </Button>
-                  </div>
-                ) : null}
-
+              {/* ── TAB 2: STREAMLINED BENTO SETUP GUIDE ────────── */}
+              <TabsContent value="guide" className="space-y-3">
                 <Tabs
                   value={guidePlatform}
                   onValueChange={(val) =>
                     setGuidePlatform(val === "android" ? "android" : "ios")
                   }
-                  className="gap-4"
+                  className="gap-3"
                 >
-                  <TabsList variant="underline">
-                    <TabsTrigger value="ios">iPhone (iOS)</TabsTrigger>
-                    <TabsTrigger value="android">Android</TabsTrigger>
-                  </TabsList>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="px-0.5 text-xs font-medium text-[var(--text-secondary)]">
+                      Dòng máy của bạn
+                    </span>
+                    <TabsList variant="default">
+                      <TabsTrigger value="ios">iPhone</TabsTrigger>
+                      <TabsTrigger value="android">Android</TabsTrigger>
+                    </TabsList>
+                  </div>
 
-                  {/* iOS Guide: 2-Step Quick Install when Shortcut URL is configured, 4-Step manual fallback */}
-                  <TabsContent value="ios" className="space-y-4">
+                  {newlyCreatedToken ? (
+                    <div className="flex items-center justify-between gap-2.5 rounded-2xl border border-[color-mix(in_srgb,var(--primary)_30%,var(--border))] bg-[color-mix(in_srgb,var(--primary)_6%,var(--surface))] px-3.5 py-2.5 text-xs">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <KeyRound
+                          size={14}
+                          className="shrink-0 text-[var(--primary)]"
+                          aria-hidden="true"
+                        />
+                        <span className="truncate font-medium text-[var(--foreground)]">
+                          Khóa {newlyCreatedToken.name} đã sẵn sàng
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => handleCopyBearer(newlyCreatedToken.token)}
+                      >
+                        {tokenCopiedFeedback ? (
+                          <Check size={12} />
+                        ) : (
+                          <Copy size={12} />
+                        )}
+                        {tokenCopiedFeedback ? "Đã chép" : "Chép khóa"}
+                      </Button>
+                    </div>
+                  ) : !hasLinkedDevices &&
+                    (guidePlatform === "android" || !iosShortcutTemplateUrl) ? (
+                    <div className="flex items-center justify-between gap-2.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3.5 py-2.5 text-xs">
+                      <span className="text-[var(--text-secondary)]">
+                        Cấp khóa xác thực trước khi cài trên máy
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActiveTab("connect")}
+                      >
+                        Tạo khóa
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  {/* iOS Guide */}
+                  <TabsContent value="ios" className="space-y-3">
                     {iosShortcutTemplateUrl ? (
                       <>
-                        <ol className="relative ml-2.5 space-y-4 border-l border-[var(--border)] pl-5 text-xs leading-relaxed text-[var(--text-secondary)]">
-                          <li className="relative space-y-2">
-                            <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-                              1
-                            </span>
-                            <p className="font-semibold text-[var(--foreground)]">
-                              Cài phím tắt mẫu & dán khóa xác thực
-                            </p>
+                        <ol className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-secondary)_45%,var(--surface))] text-xs leading-relaxed text-[var(--text-secondary)]">
+                          <li className="space-y-2.5 p-3.5">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex h-5 items-center rounded-md bg-[var(--primary-soft)] px-1.5 font-mono text-[10px] font-semibold text-[var(--primary)]">
+                                01
+                              </span>
+                              <p className="text-[13px] font-semibold text-[var(--foreground)]">
+                                Cài phím tắt mẫu & dán khóa
+                              </p>
+                            </div>
 
                             {newlyCreatedToken ? (
                               <>
                                 <p>
-                                  Bấm nút bên dưới để chép khóa xác thực và mở ứng dụng{" "}
+                                  Bấm nút bên dưới để mở ứng dụng{" "}
                                   <strong className="font-medium text-[var(--foreground)]">
                                     Phím tắt
                                   </strong>
-                                  . Khi được hỏi khóa xác thực, chạm{" "}
+                                  , chạm{" "}
                                   <strong className="font-medium text-[var(--foreground)]">
                                     Dán
                                   </strong>{" "}
-                                  rồi bấm{" "}
+                                  khóa xác thực khi được hỏi rồi chọn{" "}
                                   <strong className="font-medium text-[var(--foreground)]">
                                     Thêm phím tắt
                                   </strong>
                                   .
                                 </p>
-                                <div className="pt-0.5">
-                                  <Button
-                                    size="sm"
-                                    onClick={() =>
-                                      void copyToClipboard(
-                                        `Bearer ${newlyCreatedToken.token}`,
-                                        "Đã sao chép khóa xác thực.",
-                                      )
-                                    }
-                                    render={
-                                      <a
-                                        href={iosShortcutTemplateUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                      />
-                                    }
-                                  >
-                                    <Smartphone size={13} />
-                                    Chép khóa & Cài phím tắt mẫu
-                                  </Button>
-                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    handleCopyBearer(newlyCreatedToken.token)
+                                  }
+                                  render={
+                                    <a
+                                      href={iosShortcutTemplateUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    />
+                                  }
+                                  className="w-full"
+                                >
+                                  <Smartphone size={13} />
+                                  Chép khóa & Cài phím tắt mẫu
+                                </Button>
                               </>
                             ) : !hasLinkedDevices ? (
                               <>
                                 <p>
-                                  Tạo khóa kết nối cho máy
+                                  Tạo khóa kết nối
                                   {selectedWalletLabel
-                                    ? ` (mặc định trừ ${selectedWalletLabel})`
+                                    ? ` (mặc định ví ${selectedWalletLabel})`
                                     : ""}
                                   , sau đó mở Phím tắt mẫu và chạm{" "}
                                   <strong className="font-medium text-[var(--foreground)]">
                                     Dán
                                   </strong>{" "}
-                                  khóa xác thực khi được hỏi.
+                                  khi được hỏi.
                                 </p>
-                                <div className="pt-0.5">
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    disabled={
-                                      pending || walletOptions.length === 0
-                                    }
-                                    onClick={() =>
-                                      issueTokenWithClipboard({
-                                        switchToIosGuide: true,
-                                      })
-                                    }
-                                  >
-                                    <Zap size={13} />
-                                    {pending
-                                      ? "Đang tạo khóa..."
-                                      : "Tạo & chép khóa cho iPhone"}
-                                  </Button>
-                                </div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={
+                                    pending || walletOptions.length === 0
+                                  }
+                                  onClick={() =>
+                                    issueTokenWithClipboard({
+                                      switchToIosGuide: true,
+                                    })
+                                  }
+                                  className="w-full"
+                                >
+                                  <Zap size={13} />
+                                  {pending
+                                    ? "Đang tạo khóa..."
+                                    : "Tạo & chép khóa iPhone"}
+                                </Button>
                               </>
                             ) : (
                               <>
                                 <p>
-                                  Mở liên kết bên dưới để thêm Phím tắt mẫu vào iPhone, sau đó dán khóa xác thực khi được hỏi. Nếu chưa lưu khóa cũ, bấm{" "}
+                                  Thêm Phím tắt mẫu vào iPhone và dán khóa xác thực khi được hỏi. Nếu chưa lưu khóa cũ, bấm{" "}
                                   <strong className="font-medium text-[var(--foreground)]">
                                     Cấp khóa mới
                                   </strong>
                                   .
                                 </p>
-                                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                                <div className="grid grid-cols-2 gap-2">
                                   <Button
                                     size="sm"
                                     render={
@@ -1119,7 +1252,7 @@ export function QuickCaptureSetupSheet({
                                     }
                                   >
                                     <Smartphone size={13} />
-                                    Tải phím tắt mẫu
+                                    Tải phím tắt
                                   </Button>
                                   <Button
                                     type="button"
@@ -1137,35 +1270,35 @@ export function QuickCaptureSetupSheet({
                             )}
                           </li>
 
-                          <li className="relative">
-                            <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-                              2
-                            </span>
-                            <p className="font-semibold text-[var(--foreground)]">
-                              Bật chạm hai lần mặt lưng
-                            </p>
-                            <p className="mt-0.5">
-                              Vào{" "}
-                              <strong className="font-medium text-[var(--foreground)]">
-                                Cài đặt → Trợ năng → Cảm ứng → Chạm vào mặt sau → Chạm hai lần
-                              </strong>
-                              , chọn phím tắt vừa thêm. Ở lần chạm đầu tiên sau khi thanh toán, hãy bấm{" "}
+                          <li className="space-y-2 p-3.5">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex h-5 items-center rounded-md bg-[var(--primary-soft)] px-1.5 font-mono text-[10px] font-semibold text-[var(--primary)]">
+                                02
+                              </span>
+                              <p className="text-[13px] font-semibold text-[var(--foreground)]">
+                                Gán chạm hai lần mặt lưng
+                              </p>
+                            </div>
+                            <IosSettingsBreadcrumb />
+                            <p>
+                              Chọn phím tắt vừa thêm và bấm{" "}
                               <strong className="font-medium text-[var(--foreground)]">
                                 Luôn cho phép
                               </strong>{" "}
-                              khi iPhone hỏi quyền kết nối.
+                              ở lần chạm đầu tiên sau khi thanh toán.
                             </p>
                           </li>
                         </ol>
 
-                        <div className="border-t border-[var(--border)] pt-3">
+                        <div className="px-1">
                           <button
                             type="button"
                             onClick={() => setShowManualIosSteps((v) => !v)}
-                            className="inline-flex cursor-pointer items-center gap-1.5 py-0.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--foreground)]"
+                            aria-expanded={showManualIosSteps}
+                            className="inline-flex cursor-pointer items-center gap-1.5 py-1 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--foreground)]"
                           >
                             <ChevronDown
-                              size={14}
+                              size={13}
                               className={cn(
                                 "transition-transform duration-150",
                                 showManualIosSteps && "rotate-180",
@@ -1175,7 +1308,7 @@ export function QuickCaptureSetupSheet({
                           </button>
 
                           {showManualIosSteps && (
-                            <div className="mt-3.5">{manualIosSteps}</div>
+                            <div className="mt-2">{manualIosSteps}</div>
                           )}
                         </div>
                       </>
@@ -1184,29 +1317,41 @@ export function QuickCaptureSetupSheet({
                     )}
                   </TabsContent>
 
-                  {/* Android Foolproof Form-Encoded Guide */}
+                  {/* Android Guide */}
                   <TabsContent value="android">
-                    <ol className="relative ml-2.5 space-y-4 border-l border-[var(--border)] pl-5 text-xs leading-relaxed text-[var(--text-secondary)]">
-                      <li className="relative">
-                        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-                          1
-                        </span>
-                        <p className="font-semibold text-[var(--foreground)]">
-                          Bắt thông báo thanh toán
-                        </p>
-                        <p className="mt-0.5">
-                          Trong ứng dụng <strong className="font-medium text-[var(--foreground)]">MacroDroid</strong>, tạo Macro mới với sự kiện <strong className="font-medium text-[var(--foreground)]">Nhận thông báo</strong> <span className="text-[var(--text-muted)]">(Notification Received)</span> từ <strong className="font-medium text-[var(--foreground)]">MoMo</strong> hoặc ứng dụng ngân hàng.
+                    <ol className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-secondary)_45%,var(--surface))] text-xs leading-relaxed text-[var(--text-secondary)]">
+                      <li className="space-y-1.5 p-3.5">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-5 items-center rounded-md bg-[var(--primary-soft)] px-1.5 font-mono text-[10px] font-semibold text-[var(--primary)]">
+                            01
+                          </span>
+                          <p className="text-[13px] font-semibold text-[var(--foreground)]">
+                            Bắt thông báo thanh toán
+                          </p>
+                        </div>
+                        <p>
+                          Trong{" "}
+                          <strong className="font-medium text-[var(--foreground)]">
+                            MacroDroid
+                          </strong>
+                          , tạo Macro mới với sự kiện{" "}
+                          <strong className="font-medium text-[var(--foreground)]">
+                            Nhận thông báo
+                          </strong>{" "}
+                          từ MoMo hoặc ứng dụng ngân hàng.
                         </p>
                       </li>
 
-                      <li className="relative space-y-1.5">
-                        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-                          2
-                        </span>
+                      <li className="space-y-2 p-3.5">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="font-semibold text-[var(--foreground)]">
-                            Tự động gửi về sổ Felix
-                          </p>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="inline-flex h-5 shrink-0 items-center rounded-md bg-[var(--primary-soft)] px-1.5 font-mono text-[10px] font-semibold text-[var(--primary)]">
+                              02
+                            </span>
+                            <p className="truncate text-[13px] font-semibold text-[var(--foreground)]">
+                              Tự động gửi về Felix
+                            </p>
+                          </div>
                           <Button
                             type="button"
                             variant="outline"
@@ -1214,34 +1359,38 @@ export function QuickCaptureSetupSheet({
                             onClick={() =>
                               void copyToClipboard(
                                 commitEndpoint,
-                                "Đã sao chép liên kết lưu giao dịch.",
+                                "Đã sao chép URL lưu giao dịch.",
                               )
                             }
                           >
                             <Copy size={12} />
-                            Chép liên kết
+                            Chép URL
                           </Button>
                         </div>
                         <p>
-                          Thêm hành động <strong className="font-medium text-[var(--foreground)]">Yêu cầu HTTP</strong> <span className="text-[var(--text-muted)]">(HTTP Request)</span>, dán liên kết vừa chép và chọn phương thức <strong className="font-medium text-[var(--foreground)]">POST</strong>:
+                          Thêm hành động{" "}
+                          <strong className="font-medium text-[var(--foreground)]">
+                            Yêu cầu HTTP (POST)
+                          </strong>{" "}
+                          với thông số:
                         </p>
-                        <div className="space-y-1.5 rounded-xl bg-[var(--surface-secondary)] px-3 py-2.5 text-[11px]">
-                          <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <div className="space-y-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px]">
+                          <div className="flex items-center justify-between gap-2">
                             <span className="text-[var(--text-muted)]">
                               Header
                             </span>
-                            <span className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1.5">
                               <CopyableKeyChip value="Authorization" />
                               <span className="text-[var(--foreground)]">
                                 = Khóa xác thực
                               </span>
                             </span>
                           </div>
-                          <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-[var(--border)] pt-1.5">
+                          <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-1.5">
                             <span className="text-[var(--text-muted)]">
-                              Tham số (Form)
+                              Form
                             </span>
-                            <span className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1.5">
                               <CopyableKeyChip value="text" />
                               <span className="font-mono text-[var(--foreground)]">
                                 = [not_title] [not_text]
@@ -1251,15 +1400,17 @@ export function QuickCaptureSetupSheet({
                         </div>
                       </li>
 
-                      <li className="relative">
-                        <span className="absolute -left-[29px] top-0.5 grid size-4.5 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] font-mono text-[10px] font-semibold text-[var(--foreground)]">
-                          3
-                        </span>
-                        <p className="font-semibold text-[var(--foreground)]">
-                          Bật quyền đọc thông báo
-                        </p>
-                        <p className="mt-0.5">
-                          Lưu Macro và cấp quyền truy cập thông báo cho MacroDroid. Mỗi khi chuyển khoản hoặc thanh toán MoMo thành công, giao dịch sẽ tự động ghi vào đúng ví và danh mục gợi ý.
+                      <li className="space-y-1.5 p-3.5">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-5 items-center rounded-md bg-[var(--primary-soft)] px-1.5 font-mono text-[10px] font-semibold text-[var(--primary)]">
+                            03
+                          </span>
+                          <p className="text-[13px] font-semibold text-[var(--foreground)]">
+                            Bật quyền đọc thông báo
+                          </p>
+                        </div>
+                        <p>
+                          Lưu Macro và cấp quyền truy cập thông báo cho MacroDroid để giao dịch tự lưu vào đúng ví và danh mục gợi ý.
                         </p>
                       </li>
                     </ol>
