@@ -12,6 +12,7 @@ import {
   prepareQuickCapture,
   resolveConfiguredIosShortcutUrl,
   revokeQuickCaptureToken,
+  updateQuickCaptureToken,
 } from "@/services/quick-capture-service";
 
 describe("quick capture service database invariants", () => {
@@ -329,6 +330,107 @@ describe("quick capture service database invariants", () => {
     await expect(
       authenticateQuickCaptureBearer(`Bearer ${createdToken.token}`),
     ).rejects.toThrow();
+
+    // Revoked token cannot be updated
+    await expect(
+      updateQuickCaptureToken(memberUserId, {
+        tokenId: createdToken.tokenInfo.id,
+        defaultWalletId: momoWalletId,
+      }),
+    ).rejects.toThrow("Không tìm thấy thiết bị đang kết nối để cập nhật.");
+  });
+
+  it("updates default wallet and fallback category on an active token without rotating the bearer secret", async () => {
+    const outsiderWalletId = randomUUID();
+    await prisma.wallet.create({
+      data: {
+        id: outsiderWalletId,
+        name: "Ví ngoài nhóm",
+        openingBalance: new Decimal(1_000_000),
+        currentBalance: new Decimal(1_000_000),
+      },
+    });
+
+    try {
+      const created = await createQuickCaptureToken(memberUserId, {
+        workspaceId,
+        defaultWalletId: mainWalletId,
+        name: "iPhone ban đầu",
+        expiresInDays: 90,
+      });
+
+      // Another user cannot update this token
+      await expect(
+        updateQuickCaptureToken(randomUUID(), {
+          tokenId: created.tokenInfo.id,
+          defaultWalletId: momoWalletId,
+        }),
+      ).rejects.toThrow("Không tìm thấy thiết bị đang kết nối để cập nhật.");
+
+      // Cannot assign a wallet outside the workspace
+      await expect(
+        updateQuickCaptureToken(memberUserId, {
+          tokenId: created.tokenInfo.id,
+          defaultWalletId: outsiderWalletId,
+        }),
+      ).rejects.toThrow(
+        "Ví mặc định không hợp lệ hoặc không thuộc nhóm tài chính này.",
+      );
+
+      // Update default wallet, fallback category, and device name
+      const updated = await updateQuickCaptureToken(memberUserId, {
+        tokenId: created.tokenInfo.id,
+        defaultWalletId: momoWalletId,
+        defaultCategoryId: transportCategoryId,
+        name: "iPhone 16 Pro",
+      });
+
+      expect(updated.tokenInfo.defaultWalletId).toBe(momoWalletId);
+      expect(updated.tokenInfo.defaultWalletName).toBe("Ví MoMo");
+      expect(updated.tokenInfo.defaultCategoryId).toBe(transportCategoryId);
+      expect(updated.tokenInfo.defaultCategoryName).toBe("Di chuyển");
+      expect(updated.tokenInfo.name).toBe("iPhone 16 Pro");
+
+      // Existing bearer token remains valid and immediately uses the updated wallet & category
+      const actor = await authenticateQuickCaptureBearer(
+        `Bearer ${created.token}`,
+      );
+      expect(actor.defaultWalletId).toBe(momoWalletId);
+      expect(actor.defaultCategoryId).toBe(transportCategoryId);
+
+      // Generic receipt with no provider tag falls back to the newly updated wallet ("Ví MoMo")
+      const prepared = await prepareQuickCapture(actor, {
+        text: "Thanh toán thành công -120.000đ tại CỬA HÀNG TIỆN LỢI",
+      });
+      expect(prepared.wallet.id).toBe(momoWalletId);
+      expect(prepared.wallet.name).toBe("Ví MoMo");
+      expect(prepared.suggestedCategory?.id).toBe(transportCategoryId);
+
+      // Clearing fallback category with null works cleanly
+      const clearedCat = await updateQuickCaptureToken(memberUserId, {
+        tokenId: created.tokenInfo.id,
+        defaultWalletId: mainWalletId,
+        defaultCategoryId: null,
+      });
+      expect(clearedCat.tokenInfo.defaultWalletId).toBe(mainWalletId);
+      expect(clearedCat.tokenInfo.defaultCategoryId).toBeNull();
+      expect(clearedCat.tokenInfo.defaultCategoryName).toBeNull();
+
+      const auditEntry = await prisma.auditLog.findFirst({
+        where: {
+          workspaceId,
+          entityId: created.tokenInfo.id,
+          action: "quick_capture.token_updated",
+        },
+      });
+      expect(auditEntry).not.toBeNull();
+
+      await revokeQuickCaptureToken(memberUserId, {
+        tokenId: created.tokenInfo.id,
+      });
+    } finally {
+      await prisma.wallet.deleteMany({ where: { id: outsiderWalletId } });
+    }
   });
 
   it("strictly validates configured iCloud Shortcut template URLs", () => {

@@ -10,6 +10,7 @@ import {
   parsePaymentReceiptText,
   parseReceiptInputSchema,
   revokeQuickCaptureTokenSchema,
+  updateQuickCaptureTokenSchema,
   type PaymentProviderCode,
   type ReceiptRejectionReason,
 } from "@/domain";
@@ -463,6 +464,138 @@ export async function createQuickCaptureToken(
       tokenPrefix: created.tokenPrefix,
       defaultWalletName: walletLink.wallet.name,
       expiresAt: created.expiresAt.toISOString(),
+    },
+  };
+}
+
+export async function updateQuickCaptureToken(
+  userId: string,
+  rawInput: unknown,
+  now = new Date(),
+) {
+  const input = updateQuickCaptureTokenSchema.parse(rawInput);
+
+  const existing = await prisma.quickCaptureToken.findFirst({
+    where: {
+      id: input.tokenId,
+      userId,
+      revokedAt: null,
+      expiresAt: { gt: now },
+    },
+    select: {
+      id: true,
+      workspaceId: true,
+      name: true,
+      tokenPrefix: true,
+      defaultWalletId: true,
+      defaultCategoryId: true,
+    },
+  });
+
+  if (!existing) {
+    throw new AppError(
+      "NOT_FOUND",
+      "Không tìm thấy thiết bị đang kết nối để cập nhật.",
+    );
+  }
+
+  await requireWorkspaceMember(userId, existing.workspaceId);
+
+  const walletLink = await prisma.workspaceWallet.findFirst({
+    where: {
+      workspaceId: existing.workspaceId,
+      walletId: input.defaultWalletId,
+      wallet: {
+        kind: "asset",
+        status: "active",
+        deletedAt: null,
+      },
+    },
+    include: {
+      wallet: { select: { id: true, name: true } },
+    },
+  });
+  if (!walletLink) {
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "Ví mặc định không hợp lệ hoặc không thuộc nhóm tài chính này.",
+    );
+  }
+
+  let resolvedCategoryName: string | null | undefined = undefined;
+  if (input.defaultCategoryId !== undefined) {
+    if (input.defaultCategoryId === null) {
+      resolvedCategoryName = null;
+    } else {
+      const category = await prisma.category.findFirst({
+        where: {
+          id: input.defaultCategoryId,
+          workspaceId: existing.workspaceId,
+          type: "expense",
+          status: "active",
+          deletedAt: null,
+          jarCode: { not: null },
+        },
+        select: { id: true, name: true },
+      });
+      if (!category) {
+        throw new AppError(
+          "VALIDATION_ERROR",
+          "Danh mục dự phòng không hợp lệ hoặc chưa gắn hũ chi tiêu.",
+        );
+      }
+      resolvedCategoryName = category.name;
+    }
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const record = await tx.quickCaptureToken.update({
+      where: { id: existing.id },
+      data: {
+        defaultWalletId: input.defaultWalletId,
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.defaultCategoryId !== undefined
+          ? { defaultCategoryId: input.defaultCategoryId }
+          : {}),
+      },
+      include: {
+        defaultCategory: { select: { name: true } },
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        workspaceId: existing.workspaceId,
+        actorUserId: userId,
+        action: "quick_capture.token_updated",
+        entityType: "quick_capture_token",
+        entityId: record.id,
+        metadata: {
+          name: record.name,
+          tokenPrefix: record.tokenPrefix,
+          previousDefaultWalletId: existing.defaultWalletId,
+          defaultWalletId: record.defaultWalletId,
+          defaultCategoryId: record.defaultCategoryId,
+        },
+      },
+    });
+
+    return record;
+  });
+
+  return {
+    tokenInfo: {
+      id: updated.id,
+      name: updated.name,
+      tokenPrefix: updated.tokenPrefix,
+      defaultWalletId: updated.defaultWalletId,
+      defaultWalletName: walletLink.wallet.name,
+      defaultCategoryId: updated.defaultCategoryId,
+      defaultCategoryName:
+        resolvedCategoryName !== undefined
+          ? resolvedCategoryName
+          : (updated.defaultCategory?.name ?? null),
+      expiresAt: updated.expiresAt.toISOString(),
     },
   };
 }

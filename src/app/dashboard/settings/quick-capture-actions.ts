@@ -6,6 +6,7 @@ import {
   createQuickCaptureToken,
   getQuickCaptureSettingsState,
   revokeQuickCaptureToken,
+  updateQuickCaptureToken,
 } from "@/services/quick-capture-service";
 
 async function actor() {
@@ -46,6 +47,23 @@ export async function createQuickCaptureTokenAction(input: unknown) {
       error,
       "Không thể tạo khóa liên kết thiết bị.",
       "quick_capture.token_create_failed",
+    );
+  }
+}
+
+export async function updateQuickCaptureTokenAction(input: unknown) {
+  try {
+    const userId = await actor();
+    const data = await updateQuickCaptureToken(userId, input);
+    return {
+      ok: true as const,
+      data,
+    };
+  } catch (error) {
+    return quickCaptureFailure(
+      error,
+      "Không thể cập nhật cấu hình thiết bị.",
+      "quick_capture.token_update_failed",
     );
   }
 }

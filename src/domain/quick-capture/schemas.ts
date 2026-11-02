@@ -62,12 +62,26 @@ const deviceNameSchema = z
   .max(80, "Tên thiết bị không vượt quá 80 ký tự.")
   .transform((value) => value.normalize("NFC"));
 
+const nullableOptionalIdSchema = z.preprocess((value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  return value;
+}, idSchema.nullable().optional());
+
 export const createQuickCaptureTokenSchema = z.object({
   workspaceId: idSchema,
   defaultWalletId: idSchema,
   defaultCategoryId: optionalIdFromShortcutSchema,
   name: deviceNameSchema,
   expiresInDays: z.coerce.number().int().min(7).max(365).default(90),
+});
+
+export const updateQuickCaptureTokenSchema = z.object({
+  tokenId: idSchema,
+  defaultWalletId: idSchema,
+  name: deviceNameSchema.optional(),
+  defaultCategoryId: nullableOptionalIdSchema,
 });
 
 export const revokeQuickCaptureTokenSchema = z.object({
@@ -220,6 +234,7 @@ export const commitQuickCaptureSchema = z.preprocess(
 );
 
 export type CreateQuickCaptureTokenInput = z.output<typeof createQuickCaptureTokenSchema>;
+export type UpdateQuickCaptureTokenInput = z.output<typeof updateQuickCaptureTokenSchema>;
 export type RevokeQuickCaptureTokenInput = z.output<typeof revokeQuickCaptureTokenSchema>;
 export type ParseReceiptInput = z.output<typeof parseReceiptInputSchema>;
 export type CommitQuickCaptureInput = z.output<typeof commitQuickCaptureSchema>;

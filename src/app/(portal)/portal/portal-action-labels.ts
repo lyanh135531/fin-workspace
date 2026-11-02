@@ -104,6 +104,7 @@ const ACTION_LABELS: Record<string, string> = {
 
   // Quick capture
   "quick_capture.token_created": "Cấp khóa ghi nhanh thiết bị",
+  "quick_capture.token_updated": "Cập nhật khóa ghi nhanh thiết bị",
   "quick_capture.token_revoked": "Thu hồi khóa ghi nhanh thiết bị",
 };
 

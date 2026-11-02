@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Copy,
   KeyRound,
+  Pencil,
   Plus,
   Smartphone,
   X,
@@ -26,6 +27,7 @@ import {
   createQuickCaptureTokenAction,
   getQuickCaptureStateAction,
   revokeQuickCaptureTokenAction,
+  updateQuickCaptureTokenAction,
 } from "@/app/dashboard/settings/quick-capture-actions";
 import {
   Button,
@@ -221,10 +223,17 @@ export function QuickCaptureSetupSheet({
     useState<string>(NO_CATEGORY_VALUE);
   const [expiresInDays, setExpiresInDays] = useState<string>("365");
   const [newlyCreatedToken, setNewlyCreatedToken] = useState<{
+    id: string;
     token: string;
     name: string;
     walletName: string;
   } | null>(null);
+  const [editingTokenId, setEditingTokenId] = useState<string | null>(null);
+  const [editWalletId, setEditWalletId] = useState<string>("");
+  const [editCategoryId, setEditCategoryId] =
+    useState<string>(NO_CATEGORY_VALUE);
+  const [editDeviceName, setEditDeviceName] = useState<string>("");
+  const [showAdvancedEditOpts, setShowAdvancedEditOpts] = useState(false);
   const [tokenCopiedFeedback, setTokenCopiedFeedback] = useState(false);
   const tokenCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -295,6 +304,11 @@ export function QuickCaptureSetupSheet({
     setDeviceName("iPhone cá nhân");
     setExpiresInDays("365");
     setNewlyCreatedToken(null);
+    setEditingTokenId(null);
+    setEditWalletId("");
+    setEditCategoryId(NO_CATEGORY_VALUE);
+    setEditDeviceName("");
+    setShowAdvancedEditOpts(false);
     setTokenCopiedFeedback(false);
     setShowCreateForm(false);
     setShowAdvancedTokenOpts(false);
@@ -368,6 +382,14 @@ export function QuickCaptureSetupSheet({
       "Tự gợi ý"
     );
   }, [state, selectedCategoryId]);
+
+  const editCategorySummary = useMemo(() => {
+    if (editCategoryId === NO_CATEGORY_VALUE) return "Tự gợi ý";
+    if (!state || !state.available) return "Tự gợi ý";
+    return (
+      state.categories.find((c) => c.id === editCategoryId)?.name ?? "Tự gợi ý"
+    );
+  }, [state, editCategoryId]);
 
   const selectedExpirySummary = useMemo(() => {
     return (
@@ -457,6 +479,7 @@ export function QuickCaptureSetupSheet({
 
         if (copied) markTokenCopied();
         setNewlyCreatedToken({
+          id: res.data.tokenInfo.id,
           token: res.data.token,
           name: res.data.tokenInfo.name,
           walletName: res.data.tokenInfo.defaultWalletName,
@@ -492,6 +515,86 @@ export function QuickCaptureSetupSheet({
     issueTokenWithClipboard();
   }
 
+  function cancelEditToken() {
+    setEditingTokenId(null);
+    setEditWalletId("");
+    setEditCategoryId(NO_CATEGORY_VALUE);
+    setEditDeviceName("");
+    setShowAdvancedEditOpts(false);
+  }
+
+  function startEditToken(
+    tok: Extract<
+      QuickCaptureSettingsState,
+      { available: true }
+    >["tokens"][number],
+  ) {
+    if (editingTokenId === tok.id) {
+      cancelEditToken();
+      return;
+    }
+    const activeWallets = state?.available ? state.wallets : [];
+    const activeCategories = state?.available ? state.categories : [];
+    const resolvedWalletId = activeWallets.some(
+      (w) => w.id === tok.defaultWalletId,
+    )
+      ? tok.defaultWalletId
+      : (activeWallets[0]?.id ?? "");
+    const resolvedCategoryId =
+      tok.defaultCategoryId &&
+      activeCategories.some((c) => c.id === tok.defaultCategoryId)
+        ? tok.defaultCategoryId
+        : NO_CATEGORY_VALUE;
+
+    setEditingTokenId(tok.id);
+    setEditWalletId(resolvedWalletId);
+    setEditCategoryId(resolvedCategoryId);
+    setEditDeviceName(tok.name);
+    setShowAdvancedEditOpts(false);
+  }
+
+  function handleUpdateToken(
+    e: React.FormEvent<HTMLFormElement>,
+    tokenId: string,
+  ) {
+    e.preventDefault();
+    const trimmedName = editDeviceName.trim();
+    if (!trimmedName) {
+      toast.error("Vui lòng nhập tên thiết bị.");
+      return;
+    }
+    if (!editWalletId) {
+      toast.error("Vui lòng chọn ví mặc định.");
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await updateQuickCaptureTokenAction({
+        tokenId,
+        defaultWalletId: editWalletId,
+        defaultCategoryId:
+          editCategoryId === NO_CATEGORY_VALUE ? null : editCategoryId,
+        name: trimmedName,
+      });
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      setNewlyCreatedToken((prev) =>
+        prev && prev.id === tokenId
+          ? {
+              ...prev,
+              name: res.data.tokenInfo.name,
+              walletName: res.data.tokenInfo.defaultWalletName,
+            }
+          : prev,
+      );
+      cancelEditToken();
+      toast.success("Đã cập nhật cấu hình thiết bị.");
+      await reloadState();
+    });
+  }
+
   function handleRevokeToken(tokenId: string) {
     startTransition(async () => {
       const res = await revokeQuickCaptureTokenAction(tokenId);
@@ -499,6 +602,10 @@ export function QuickCaptureSetupSheet({
         toast.error(res.message);
         return;
       }
+      if (editingTokenId === tokenId) {
+        cancelEditToken();
+      }
+      setNewlyCreatedToken((prev) => (prev?.id === tokenId ? null : prev));
       toast.success("Đã thu hồi liên kết thiết bị.");
       await reloadState();
     });
@@ -880,60 +987,187 @@ export function QuickCaptureSetupSheet({
                     </div>
 
                     <div className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-secondary)_45%,var(--surface))]">
-                      {state.tokens.map((tok) => (
-                        <div
-                          key={tok.id}
-                          className="flex items-center justify-between gap-3 px-3.5 py-3"
-                        >
-                          <div className="flex min-w-0 items-center gap-3">
-                            <span
-                              className="grid size-8.5 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]"
-                              aria-hidden="true"
-                            >
-                              <Smartphone size={15} />
-                            </span>
-                            <div className="min-w-0 space-y-0.5">
-                              <div className="flex items-center gap-1.5">
-                                <span
-                                  className="size-1.5 shrink-0 rounded-full bg-[var(--success)]"
-                                  aria-hidden="true"
-                                />
-                                <span className="truncate text-[13px] font-semibold text-[var(--foreground)]">
-                                  {tok.name}
-                                </span>
-                                <span className="shrink-0 font-mono text-[10px] text-[var(--text-muted)]">
-                                  {tok.tokenPrefix}•••
-                                </span>
-                              </div>
-                              <p className="truncate text-[11px] tabular-nums text-[var(--text-muted)]">
-                                {tok.defaultWalletName}
-                                {tok.lastUsedAt
-                                  ? ` · Dùng ${formatShortDate(tok.lastUsedAt)}`
-                                  : ` · Hạn ${formatShortDate(tok.expiresAt)}`}
-                              </p>
-                            </div>
-                          </div>
+                      {state.tokens.map((tok) => {
+                        const isEditing = editingTokenId === tok.id;
+                        const currentCategoryValue =
+                          tok.defaultCategoryId ?? NO_CATEGORY_VALUE;
+                        const isEditDirty =
+                          editWalletId !== tok.defaultWalletId ||
+                          editCategoryId !== currentCategoryValue ||
+                          editDeviceName.trim() !== tok.name;
 
-                          <ConfirmDelete
-                            ariaLabel={`Thu hồi kết nối ${tok.name}`}
-                            title="Thu hồi liên kết thiết bị?"
-                            description={`Thiết bị "${tok.name}" sẽ ngừng gửi giao dịch vào sổ cho đến khi được cấp khóa mới.`}
-                            confirmLabel="Thu hồi"
-                            onConfirm={() => handleRevokeToken(tok.id)}
-                            trigger={
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="sm"
-                                disabled={pending}
-                                aria-label={`Thu hồi ${tok.name}`}
+                        return (
+                          <div key={tok.id} className="px-3.5 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <span
+                                  className="grid size-8.5 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]"
+                                  aria-hidden="true"
+                                >
+                                  <Smartphone size={15} />
+                                </span>
+                                <div className="min-w-0 space-y-0.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <span
+                                      className="size-1.5 shrink-0 rounded-full bg-[var(--success)]"
+                                      aria-hidden="true"
+                                    />
+                                    <span className="truncate text-[13px] font-semibold text-[var(--foreground)]">
+                                      {tok.name}
+                                    </span>
+                                    <span className="shrink-0 font-mono text-[10px] text-[var(--text-muted)]">
+                                      {tok.tokenPrefix}•••
+                                    </span>
+                                  </div>
+                                  <p className="truncate text-[11px] tabular-nums text-[var(--text-muted)]">
+                                    {tok.defaultWalletName}
+                                    {tok.defaultCategoryName
+                                      ? ` · ${tok.defaultCategoryName}`
+                                      : ""}
+                                    {tok.lastUsedAt
+                                      ? ` · Dùng ${formatShortDate(tok.lastUsedAt)}`
+                                      : ` · Hạn ${formatShortDate(tok.expiresAt)}`}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex shrink-0 items-center gap-1.5">
+                                <Button
+                                  type="button"
+                                  variant={isEditing ? "selected" : "icon"}
+                                  size="icon"
+                                  disabled={pending}
+                                  onClick={() => startEditToken(tok)}
+                                  aria-expanded={isEditing}
+                                  aria-label={
+                                    isEditing
+                                      ? `Đóng chỉnh sửa ${tok.name}`
+                                      : `Chỉnh sửa ví mặc định ${tok.name}`
+                                  }
+                                  title={
+                                    isEditing
+                                      ? "Đóng chỉnh sửa"
+                                      : "Đổi ví mặc định"
+                                  }
+                                >
+                                  <Pencil size={15} aria-hidden="true" />
+                                </Button>
+
+                                <ConfirmDelete
+                                  ariaLabel={`Thu hồi kết nối ${tok.name}`}
+                                  title="Thu hồi liên kết thiết bị?"
+                                  description={`Thiết bị "${tok.name}" sẽ ngừng gửi giao dịch vào sổ cho đến khi được cấp khóa mới.`}
+                                  confirmLabel="Thu hồi"
+                                  onConfirm={() => handleRevokeToken(tok.id)}
+                                  trigger={
+                                    <Button
+                                      type="button"
+                                      variant="destructive"
+                                      size="sm"
+                                      disabled={pending}
+                                      aria-label={`Thu hồi ${tok.name}`}
+                                    >
+                                      Thu hồi
+                                    </Button>
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            {isEditing && (
+                              <form
+                                onSubmit={(e) => handleUpdateToken(e, tok.id)}
+                                className="mt-3 space-y-3 border-t border-[var(--border)] pt-3"
                               >
-                                Thu hồi
-                              </Button>
-                            }
-                          />
-                        </div>
-                      ))}
+                                <div className="space-y-1.5">
+                                  <Select
+                                    label="Ví mặc định"
+                                    value={editWalletId}
+                                    onValueChange={setEditWalletId}
+                                    options={walletOptions}
+                                    placeholder="Chọn ví thanh toán"
+                                    disabled={
+                                      pending || walletOptions.length === 0
+                                    }
+                                  />
+                                  <p className="px-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
+                                    Áp dụng ngay cho các lần chạm tiếp theo mà không cần cài lại Phím tắt.
+                                  </p>
+                                </div>
+
+                                <div className="border-t border-[var(--border)] pt-2.5">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setShowAdvancedEditOpts((v) => !v)
+                                    }
+                                    aria-expanded={showAdvancedEditOpts}
+                                    className="flex w-full cursor-pointer items-center justify-between gap-2 py-0.5 text-left text-xs transition-colors"
+                                  >
+                                    <span className="inline-flex items-center gap-1.5 font-medium text-[var(--text-secondary)] hover:text-[var(--foreground)]">
+                                      <ChevronDown
+                                        size={13}
+                                        className={cn(
+                                          "transition-transform duration-150",
+                                          showAdvancedEditOpts && "rotate-180",
+                                        )}
+                                      />
+                                      Tuỳ chọn khác
+                                    </span>
+                                    <span className="truncate text-[11px] text-[var(--text-muted)]">
+                                      {editCategorySummary}
+                                    </span>
+                                  </button>
+
+                                  {showAdvancedEditOpts && (
+                                    <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                                      <Input
+                                        label="Tên thiết bị"
+                                        id={`qc-edit-name-${tok.id}`}
+                                        value={editDeviceName}
+                                        onChange={(e) =>
+                                          setEditDeviceName(e.target.value)
+                                        }
+                                        placeholder="Ví dụ: iPhone cá nhân"
+                                        maxLength={80}
+                                        disabled={pending}
+                                      />
+                                      <Select
+                                        label="Danh mục mặc định"
+                                        value={editCategoryId}
+                                        onValueChange={setEditCategoryId}
+                                        options={categoryOptions}
+                                        disabled={pending}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={pending}
+                                    onClick={cancelEditToken}
+                                  >
+                                    Hủy
+                                  </Button>
+                                  <Button
+                                    type="submit"
+                                    size="sm"
+                                    disabled={
+                                      pending || !isEditDirty || !editWalletId
+                                    }
+                                  >
+                                    {pending ? "Đang lưu..." : "Lưu thay đổi"}
+                                  </Button>
+                                </div>
+                              </form>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </section>
                 )}
