@@ -79,6 +79,13 @@ export async function syncPlanAggregate(tx: TransactionClient, planId: string) {
   } });
 }
 
+async function closeBeforeGoalMutation(tx: TransactionClient, workspaceId: string, planId: string) {
+  const owned = await tx.financialPlan.findFirst({ where: { id: planId, workspaceId, deletedAt: null } });
+  if (!owned) throw new AppError("NOT_FOUND", "Plan not found in workspace.");
+  const { catchUpFinancialPlanInTransaction } = await import("./financial-plan-service");
+  await catchUpFinancialPlanInTransaction(tx, planId);
+}
+
 async function lockPlan(tx: TransactionClient, planId: string) {
   await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`financial-plan:${planId}`}))`);
 }
@@ -116,6 +123,7 @@ export async function createFinancialPlanGoal(userId: string, workspaceId: strin
   const member = await requireWorkspaceMember(userId, workspaceId, true);
   return prisma.$transaction(async tx => {
     await lockPlan(tx, input.planId);
+    await closeBeforeGoalMutation(tx, workspaceId, input.planId);
     const plan = await tx.financialPlan.findFirst({ where: { id: input.planId, workspaceId, deletedAt: null } });
     if (!plan || !["draft","active"].includes(plan.status)) throw new AppError("CONFLICT", "Chỉ thêm mục tiêu vào kế hoạch nháp hoặc đang chạy.");
     if (input.targetMonth < formatInTimeZone(new Date(), member.workspace.timeZone, "yyyy-MM")) throw new AppError("VALIDATION_ERROR", "Deadline không được trước tháng hiện tại.");
@@ -132,6 +140,7 @@ export async function updateFinancialPlanGoal(userId: string, workspaceId: strin
   return prisma.$transaction(async tx => {
     const candidate = await managedGoal(tx, workspaceId, input.goalId);
     await lockPlan(tx, candidate.financialPlanId);
+    await closeBeforeGoalMutation(tx, workspaceId, candidate.financialPlanId);
     const goal = await managedGoal(tx, workspaceId, input.goalId);
     if (!["draft","active"].includes(goal.status)) throw new AppError("CONFLICT", "Mục tiêu đã kết thúc.");
     if (input.targetMonth < formatInTimeZone(new Date(), member.workspace.timeZone, "yyyy-MM")) throw new AppError("VALIDATION_ERROR", "Deadline không được trước tháng hiện tại.");
@@ -147,6 +156,7 @@ export async function reorderFinancialPlanGoals(userId: string, workspaceId: str
   await requireWorkspaceMember(userId, workspaceId, true);
   return prisma.$transaction(async tx => {
     await lockPlan(tx, planId);
+    await closeBeforeGoalMutation(tx, workspaceId, planId);
     const plan = await tx.financialPlan.findFirst({ where: { id: planId, workspaceId, deletedAt: null, status: { in: ["draft","active"] } } });
     if (!plan) throw new AppError("NOT_FOUND", "Không tìm thấy kế hoạch đang chỉnh sửa.");
     const goals = await tx.financialPlanGoal.findMany({ where: { financialPlanId: planId, deletedAt: null }, select: { id: true } });
@@ -165,6 +175,7 @@ export async function finishFinancialPlanGoal(userId: string, workspaceId: strin
   return prisma.$transaction(async tx => {
     const candidate = await managedGoal(tx, workspaceId, goalId);
     await lockPlan(tx, candidate.financialPlanId);
+    await closeBeforeGoalMutation(tx, workspaceId, candidate.financialPlanId);
     const goal = await managedGoal(tx, workspaceId, goalId);
     const now = new Date();
     if (goal.status === "draft" && status === "cancelled") {
@@ -213,15 +224,17 @@ export async function getFinancialPlanGoalPortfolio(userId: string, workspaceId:
       targetMonth:databaseDateToMonth(g.targetMonth), sortOrder:g.sortOrder, createdAt:g.createdAt,
     }));
     const openingBalance = plan.status === "draft" ? summary.netBalance
-      : plan.startMonth && databaseDateToMonth(plan.startMonth) === month
+      : plan.progressBaselineAt && formatInTimeZone(plan.progressBaselineAt, member.workspace.timeZone, "yyyy-MM") === month
+        ? new Decimal(plan.progressBaselineBalance?.toString() ?? 0)
+        : plan.startMonth && databaseDateToMonth(plan.startMonth) === month
         ? new Decimal(plan.activationWorkspaceBalance?.toString() ?? 0)
         : plan.status === "active" ? await getFinancialPlanNetBalance(tx, workspaceId, monthToDatabaseDate(month)) : summary.netBalance;
     const openingProgress = allocateAutomaticProgress(summary.goals, openingBalance);
     const monthlyCandidates = candidates.map(candidate => ({...candidate, actualProgress: openingProgress.get(candidate.id) ?? ZERO}));
     const allocations = new Map(allocateGoalFundingByPriority(monthlyCandidates, monthlyFundingCapacity, month).map(a => [a.goalId,a]));
     const simulation = simulateGoalFunding({ goals:candidates, monthlyFundingCapacity, startMonth:month });
-    const baseline = allocateAutomaticProgress(summary.goals, plan.activationWorkspaceBalance?.toString() ?? summary.netBalance);
-    const start = plan.startMonth ? databaseDateToMonth(plan.startMonth) : month;
+    const baseline = allocateAutomaticProgress(summary.goals, plan.progressBaselineBalance?.toString() ?? plan.activationWorkspaceBalance?.toString() ?? summary.netBalance);
+    const start = plan.progressBaselineAt ? formatInTimeZone(plan.progressBaselineAt, member.workspace.timeZone, "yyyy-MM") : plan.startMonth ? databaseDateToMonth(plan.startMonth) : month;
     return goals.map(g => {
       const actual = summary.progressByGoal.get(g.id) ?? ZERO;
       const target = new Decimal(g.targetAmount.toString());

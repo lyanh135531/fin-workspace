@@ -2,7 +2,7 @@ import Decimal from "decimal.js";
 import { Prisma, type JarCode } from "@/generated/prisma/client";
 import { FINANCIAL_JAR_CODES, type FinancialJarCode } from "@/domain/financial-jar/jars";
 import { decimalMap, type JarDecimalMap } from "@/domain/financial-plan/calculator";
-import { monthDateRange } from "@/domain/financial-plan/month";
+import { addMonths, monthDateRange } from "@/domain/financial-plan/month";
 
 type TransactionClient = Prisma.TransactionClient;
 const ZERO = new Decimal(0);
@@ -190,6 +190,8 @@ export type FinancialPlanMonthLedger = {
   pendingIncome: Decimal;
   pendingExpense: Decimal;
   netInvestmentOutflow: Decimal;
+  overdueIncome: Decimal;
+  overdueExpense: Decimal;
   forecastNetChange: Decimal;
   forecastReservedCardExpense: Decimal;
 };
@@ -210,7 +212,13 @@ export async function getFinancialPlanMonthLedger(
 ): Promise<FinancialPlanMonthLedger> {
   const { start, end } = monthDateRange(month);
   const records = await tx.transaction.findMany({
-    where: { member: { workspaceId }, deletedAt: null, date: { gte: start, lt: end } },
+    where: { member: { workspaceId }, deletedAt: null,
+      OR: [
+        { date: { gte: start, lt: end } },
+        ...(includeForecast && options?.businessDate?.slice(0, 7) === month
+          ? [{ workflowStatus: "scheduled" as const, date: { lt: start } }] : []),
+      ],
+    },
     select: {
       date: true,
       type: true,
@@ -262,10 +270,10 @@ export async function getFinancialPlanMonthLedger(
     approvedIncome: new Decimal(0), forecastIncome: new Decimal(0),
     approvedExpenseByJar: decimalMap(), forecastExpenseByJar: decimalMap(),
     pendingIncome: new Decimal(0), pendingExpense: new Decimal(0),
-    netInvestmentOutflow: ZERO, forecastNetChange: ZERO, forecastReservedCardExpense: ZERO,
+    netInvestmentOutflow: ZERO, overdueIncome: ZERO, overdueExpense: ZERO, forecastNetChange: ZERO, forecastReservedCardExpense: ZERO,
   };
   for (const record of records) {
-    if (record.workflowStatus === "scheduled" && options?.businessDate && asIsoDate(record.date) < options.businessDate) continue;
+
     const amount = new Decimal(record.amount.toString());
     if (record.workflowStatus === "approved") {
       if (record.purpose === "investment_contribution") {
@@ -371,6 +379,13 @@ export async function getFinancialPlanMonthLedger(
     ) {
       continue;
     }
+    if (record.workflowStatus === "scheduled" && options?.businessDate && asIsoDate(record.date) < options.businessDate) {
+      if (record.type === "income" || record.purpose === "credit_card_refund") {
+        result.overdueIncome = result.overdueIncome.plus(amount);
+        continue;
+      }
+      result.overdueExpense = result.overdueExpense.plus(amount);
+    }
     if (record.workflowStatus === "scheduled" && includeForecast) {
       result.forecastNetChange = result.forecastNetChange.plus(
         record.purpose === "credit_card_refund" || record.type === "income" ? amount : amount.negated(),
@@ -474,21 +489,32 @@ export async function getFinancialPlanMonthLedger(
     const materialized = await tx.transaction.findMany({
       where: {
         recurringTransactionId: { in: rules.map((rule) => rule.id) },
-        recurringPeriod: month,
+        recurringPeriod: { lte: month },
         deletedAt: null,
       },
-      select: { recurringTransactionId: true },
+      select: { recurringTransactionId: true, recurringPeriod: true },
     });
-    const materializedIds = new Set(materialized.map((record) => record.recurringTransactionId));
+    const materializedIds = new Set(materialized.map((record) => record.recurringTransactionId + ":" + (record.recurringPeriod ?? month)));
     for (const rule of rules) {
-      if (materializedIds.has(rule.id) || rule.type === "transfer") continue;
-      const dueDate = occurrenceDate(month, rule.dayOfMonth);
-      if (options?.businessDate && dueDate < options.businessDate) continue;
-      if (dueDate < asIsoDate(rule.startDate) || (rule.endDate && dueDate > asIsoDate(rule.endDate))) continue;
-      if (rule.nextExecutionDate && dueDate < asIsoDate(rule.nextExecutionDate)) continue;
-      result.forecastNetChange = result.forecastNetChange.plus(rule.type === "income" ? rule.amount.toString() : new Decimal(rule.amount.toString()).negated());
-      if (rule.type === "income") result.forecastIncome = result.forecastIncome.plus(rule.amount.toString());
-      else addExpense(result.forecastExpenseByJar, rule.category?.jarCode ?? null, rule.amount.toString());
+      if (rule.type === "transfer") continue;
+      const firstMonth = options?.businessDate?.slice(0, 7) === month && rule.nextExecutionDate
+        ? asIsoDate(rule.nextExecutionDate).slice(0, 7) : month;
+      for (let period = firstMonth; period <= month; period = addMonths(period, 1)) {
+        if (materializedIds.has(rule.id + ":" + period)) continue;
+        const dueDate = occurrenceDate(period, rule.dayOfMonth);
+        if (dueDate < asIsoDate(rule.startDate) || (rule.endDate && dueDate > asIsoDate(rule.endDate))) continue;
+        if (rule.nextExecutionDate && dueDate < asIsoDate(rule.nextExecutionDate)) continue;
+        if (options?.businessDate && dueDate < options.businessDate) {
+          if (rule.type === "income") {
+            result.overdueIncome = result.overdueIncome.plus(rule.amount.toString());
+            continue;
+          }
+          result.overdueExpense = result.overdueExpense.plus(rule.amount.toString());
+        }
+        result.forecastNetChange = result.forecastNetChange.plus(rule.type === "income" ? rule.amount.toString() : new Decimal(rule.amount.toString()).negated());
+        if (rule.type === "income") result.forecastIncome = result.forecastIncome.plus(rule.amount.toString());
+        else addExpense(result.forecastExpenseByJar, rule.category?.jarCode ?? null, rule.amount.toString());
+      }
     }
   }
   for (const jarCode of FINANCIAL_JAR_CODES) {

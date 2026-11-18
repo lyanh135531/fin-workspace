@@ -14,7 +14,7 @@ vi.mock("@/services/financial-plan-ledger",()=>({
  combinedExpenseByJar:(ledger:{approvedExpenseByJar:Record<string,Decimal>;forecastExpenseByJar:Record<string,Decimal>},forecast:boolean)=>Object.fromEntries(Object.entries(ledger.approvedExpenseByJar).map(([code,value])=>[code,value.plus(forecast?ledger.forecastExpenseByJar[code]:0)])),
 }));
 import {decimalMap,DEFAULT_PLAN_JAR_PERCENTAGES} from "@/domain/financial-plan/calculator";
-import {activateFinancialPlan,catchUpFinancialPlan,getFinancialPlanView,updateFinancialPlanAllocations,updateFinancialPlanDeadline} from "./financial-plan-service";
+import {activateFinancialPlan,catchUpFinancialPlan,getFinancialPlanView,updateFinancialPlanAllocations,updateFinancialPlanDeadline,catchUpFinancialPlanInTransaction} from "./financial-plan-service";
 function fixture(start="2026-11",target="2026-12") {
  return{id:"plan",workspaceId:"ws",name:"Plan",createdByMemberId:"member",status:"active" as "active"|"draft"|"completed",targetAmount:new Decimal(20000000),existingGoalAmount:new Decimal(0),
  startMonth:new Date(start+"-01"),targetMonth:new Date(target+"-01"),activationWorkspaceBalance:new Decimal(0),activatedAt:new Date(start+"-01"),
@@ -131,4 +131,23 @@ it("preserves fractional jar percentages when reopening a draft",async()=>{
  if(view.status!=="draft")throw Error("Expected draft");
  expect(view.percentages.ESSENTIAL).toBe("55.55");
  expect(view.percentages.RESPONSIBILITY).toBe("9.45");
+});
+
+
+it("uses the explicit transition balance instead of the legacy installment-adjusted activation balance",async()=>{
+  plan.activationWorkspaceBalance=new Decimal(18000000);
+  Object.assign(plan,{progressBaselineAt:new Date("2026-11-18T05:00:00Z"),progressBaselineBalance:new Decimal(8000000)});
+  m.net.mockResolvedValue(new Decimal(8000000));
+  const view=await getFinancialPlanView("user","ws","plan",new Date("2026-11-18"));
+  if(view.status==="draft")throw Error("Expected active plan");
+  expect(view.existingGoalAmount).toBe("8000000");
+  expect(view.progressBaselineAt).toBe("2026-11-18T05:00:00.000Z");
+});
+
+it("closes missing months within the mutation transaction without duplicating snapshots",async()=>{
+  plan=fixture("2026-10");
+  await catchUpFinancialPlanInTransaction(m.tx as never,"plan",new Date("2026-11-18"));
+  await catchUpFinancialPlanInTransaction(m.tx as never,"plan",new Date("2026-11-18"));
+  expect(m.tx.financialPlanMonth.create).toHaveBeenCalledTimes(1);
+  expect(m.tx.financialPlanMonth.create.mock.calls[0][0].data.month).toEqual(new Date("2026-10-01"));
 });

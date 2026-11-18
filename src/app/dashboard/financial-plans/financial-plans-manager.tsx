@@ -220,6 +220,8 @@ type PlanMonth = {
   totalRemaining?: string;
   totalOverspend?: string;
   projectedActualGoalAmount?: string;
+  overdueIncome?: string;
+  overdueExpense?: string;
   pendingIncome?: string;
   pendingExpense?: string;
   jars: PlanMonthJar[];
@@ -239,6 +241,7 @@ type DraftView = {
 };
 
 type RunningView = {
+  progressBaselineAt?: string | null;
   id: string;
   name: string;
   status: "active" | "completed" | "cancelled";
@@ -1416,6 +1419,18 @@ function PlanDetail({
 
   return (
     <div className="grid gap-4">
+      {plan.progressBaselineAt && (
+        <p className="text-sm text-[var(--text-secondary)]">
+          Mốc tính tự động được chuyển tiếp từ {plan.progressBaselineAt.slice(0, 10)}.
+        </p>
+      )}
+      {(new Decimal(currentMonth?.overdueExpense ?? 0).gt(0) || new Decimal(currentMonth?.overdueIncome ?? 0).gt(0)) && (
+        <p role="status" className="text-sm text-[var(--text-secondary)]">
+          Quá hạn chưa thực hiện: chi {money(currentMonth?.overdueExpense ?? "0", currency)}
+          {" · "}thu {money(currentMonth?.overdueIncome ?? "0", currency)}.
+          Khoản chi đã được giữ trong dự báo; khoản thu chưa cộng vào ngân sách có thể chi.
+        </p>
+      )}
       {/* Unified Executive Plan Hero Card */}
       <Card className="overflow-hidden border border-[var(--border)] bg-[var(--surface)]">
         {/* Top Identity & Action Bar */}

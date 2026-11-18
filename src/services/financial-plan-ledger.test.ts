@@ -461,3 +461,37 @@ describe("remaining-month forecast for automatic plans", () => {
     expect(ledger.forecastNetChange.toFixed(0)).toBe("70");
   });
 });
+
+
+it("reserves overdue expenses across months and excludes already materialized recurring periods", async () => {
+  const tx = {
+    transaction: { findMany: vi.fn().mockResolvedValueOnce([
+      {date:new Date("2026-10-15"),type:"expense",purpose:"standard",workflowStatus:"scheduled",amount:new Decimal(50),jarCode:"ESSENTIAL",category:null},
+      {date:new Date("2026-10-15"),type:"income",purpose:"standard",workflowStatus:"scheduled",amount:new Decimal(90),jarCode:null,category:null},
+    ]).mockResolvedValueOnce([{recurringTransactionId:"rent",recurringPeriod:"2026-10"}]) },
+    recurringTransaction: {findMany:vi.fn().mockResolvedValue([
+      {id:"rent",type:"expense",amount:new Decimal(100),dayOfMonth:10,startDate:new Date("2026-01-01"),endDate:null,nextExecutionDate:new Date("2026-09-10"),category:{jarCode:"ESSENTIAL"}},
+    ])},
+  } as unknown as Prisma.TransactionClient;
+  const ledger=await getFinancialPlanMonthLedger(tx,"ws","2026-11",true,{businessDate:"2026-11-18"});
+  // September and November remain due; October already has a transaction.
+  expect(ledger.forecastExpenseByJar.ESSENTIAL.toFixed(0)).toBe("250");
+  expect(ledger.overdueExpense.toFixed(0)).toBe("250");
+  expect(ledger.overdueIncome.toFixed(0)).toBe("90");
+  expect(ledger.forecastIncome.toFixed(0)).toBe("0");
+  expect(ledger.forecastNetChange.toFixed(0)).toBe("-250");
+  expect(tx.transaction.findMany).toHaveBeenNthCalledWith(1,expect.objectContaining({
+    where:expect.objectContaining({OR:expect.arrayContaining([{workflowStatus:"scheduled",date:{lt:new Date("2026-11-01")}}])}),
+  }));
+});
+
+it("does not subtract scheduled expenses again after approval",async()=>{
+  const tx={
+    transaction:{findMany:vi.fn().mockResolvedValue([{date:new Date("2026-11-10"),type:"expense",purpose:"standard",workflowStatus:"approved",amount:new Decimal(50),jarCode:"ESSENTIAL",category:null}])},
+    recurringTransaction:{findMany:vi.fn().mockResolvedValue([])},
+  } as unknown as Prisma.TransactionClient;
+  const ledger=await getFinancialPlanMonthLedger(tx,"ws","2026-11",true,{businessDate:"2026-11-18"});
+  expect(ledger.approvedExpenseByJar.ESSENTIAL.toFixed(0)).toBe("50");
+  expect(ledger.forecastNetChange.toFixed(0)).toBe("0");
+  expect(ledger.overdueExpense.toFixed(0)).toBe("0");
+});

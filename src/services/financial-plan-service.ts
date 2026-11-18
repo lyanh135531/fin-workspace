@@ -242,7 +242,10 @@ async function automaticMonth(tx: TransactionClient, plan: Awaited<ReturnType<ty
 }
 
 async function closeOneFinancialPlanMonth(planId: string, month: string, now: Date) {
-  return prisma.$transaction(async tx => {
+  return prisma.$transaction(tx => closeFinancialPlanMonthInTransaction(tx, planId, month, now));
+}
+
+async function closeFinancialPlanMonthInTransaction(tx: TransactionClient, planId: string, month: string, now: Date) {
     await advisoryPlanLock(tx, planId);
     const plan = await tx.financialPlan.findFirst({
       where: { id: planId, status: "active", deletedAt: null },
@@ -256,7 +259,9 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
     if (firstUnclosed !== month) throw new AppError("CONFLICT", "Phải đóng tháng theo đúng thứ tự.");
     const range = monthDateRange(month);
     const endBalance = await getFinancialPlanNetBalance(tx, plan.workspaceId, range.end);
-    const opening = month === start && plan.activationWorkspaceBalance !== null
+    const opening = plan.progressBaselineAt && plan.progressBaselineBalance !== null && month === currentMonth(plan.workspace.timeZone, plan.progressBaselineAt)
+      ? new Decimal(plan.progressBaselineBalance.toString())
+      : month === start && plan.activationWorkspaceBalance !== null
       ? new Decimal(plan.activationWorkspaceBalance.toString())
       : await getFinancialPlanNetBalance(tx, plan.workspaceId, range.start);
     const calc = await automaticMonth(tx, plan, month, endBalance, opening, false, month + "-01");
@@ -291,7 +296,22 @@ async function closeOneFinancialPlanMonth(planId: string, month: string, now: Da
       await tx.auditLog.create({ data: { workspaceId: plan.workspaceId, action: "financial_plan.completed", entityType: "financial_plan", entityId: plan.id, metadata: { automatic: true, realizedProgress: endBalance.toFixed(0) } } });
     }
     return { kind: "closed" as const, completed };
+}
+
+// Call under the same plan lock and transaction as the subsequent mutation.
+export async function catchUpFinancialPlanInTransaction(tx: TransactionClient, planId: string, now = new Date()) {
+  await advisoryPlanLock(tx, planId);
+  const plan = await tx.financialPlan.findFirst({
+    where: { id: planId, status: "active", deletedAt: null },
+    include: { workspace: true, months: true },
   });
+  if (!plan?.startMonth || plan.status !== "active") return;
+  const last = addMonths(currentMonth(plan.workspace.timeZone, now), -1);
+  for (const month of monthsInclusive(databaseDateToMonth(plan.startMonth), databaseDateToMonth(plan.targetMonth))) {
+    if (month > last) break;
+    const result = await closeFinancialPlanMonthInTransaction(tx, planId, month, now);
+    if (result.kind === "closed" && result.completed) break;
+  }
 }
 
 export async function catchUpFinancialPlan(planId: string, now = new Date()) {
@@ -449,13 +469,14 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
     const targetMonth = databaseDateToMonth(plan.targetMonth);
     const businessMonth = currentMonth(member.workspace.timeZone, now);
     const businessDate = formatInTimeZone(now, member.workspace.timeZone, "yyyy-MM-dd");
-    const baseline = new Decimal(plan.activationWorkspaceBalance?.toString() ?? 0);
+    const baseline = new Decimal(plan.progressBaselineBalance?.toString() ?? plan.activationWorkspaceBalance?.toString() ?? 0);
+    const baselineMonth = plan.progressBaselineAt ? currentMonth(member.workspace.timeZone, plan.progressBaselineAt) : startMonth;
     const baselineByGoal = allocateAutomaticProgress(summary.goals, baseline);
     const expectedThrough = (month: string) => summary.goals.reduce((sum,g) => {
       const initial = baselineByGoal.get(g.id) ?? ZERO;
       const deadline = databaseDateToMonth(g.targetMonth);
-      const schedule = splitVndAcrossMonths(Decimal.max(new Decimal(g.targetAmount.toString()).minus(initial), ZERO), monthsInclusive(startMonth, deadline < startMonth ? startMonth : deadline).length);
-      const count = month < startMonth ? 0 : Math.min(monthsInclusive(startMonth, month).length, schedule.length);
+      const schedule = splitVndAcrossMonths(Decimal.max(new Decimal(g.targetAmount.toString()).minus(initial), ZERO), monthsInclusive(baselineMonth, deadline < baselineMonth ? baselineMonth : deadline).length);
+      const count = month < baselineMonth ? 0 : Math.min(monthsInclusive(baselineMonth, month).length, schedule.length);
       return sum.plus(initial).plus(schedule.slice(0,count).reduce((total,value) => total.plus(value), ZERO));
     }, ZERO);
     let closedSnapshotProgress = new Decimal(plan.existingGoalAmount.toString());
@@ -483,7 +504,7 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
     const projectedMonths = [];
     for (const month of open) {
       const current = month <= businessMonth;
-      const opening = month === startMonth ? baseline : current
+      const opening = month === baselineMonth ? baseline : current
         ? await getFinancialPlanNetBalance(tx, workspaceId, monthDateRange(month).start)
         : projectedNet;
       const reference = current ? await getFinancialPlanNetBalance(tx, workspaceId, month < businessMonth ? monthDateRange(month).end : undefined) : projectedNet;
@@ -500,6 +521,7 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
         totalRemaining:result.totalRemaining.toFixed(0),totalOverspend:result.totalOverspend.toFixed(0),
         accumulationAtEnd:Decimal.max(projectedNet,ZERO).toFixed(0),
         projectedActualGoalAmount:Decimal.max(projectedNet,ZERO).minus(Decimal.max(opening,ZERO)).toFixed(0),
+        overdueIncome:calc.ledger.overdueIncome?.toFixed(0) ?? "0",overdueExpense:calc.ledger.overdueExpense?.toFixed(0) ?? "0",
         pendingIncome:calc.ledger.pendingIncome.toFixed(0),pendingExpense:calc.ledger.pendingExpense.toFixed(0),
         jars:FINANCIAL_JAR_CODES.map(jarCode => ({jarCode,percentage:calc.percentages[jarCode].toFixed(2),allocatedAmount:result.allocatedByJar[jarCode].toFixed(0),expenseAmount:result.expenseByJar[jarCode].toFixed(0),remainingAmount:result.remainingByJar[jarCode].toFixed(0),overspendAmount:result.overspendByJar[jarCode].toFixed(0)})),
       });
@@ -509,6 +531,7 @@ export async function getFinancialPlanView(userId: string, workspaceId: string, 
     const percentage = (amount:Decimal) => Decimal.min(amount.div(plan.targetAmount.toString()).times(100),100).toDecimalPlaces(1).toString();
     return {
       id:plan.id,name:plan.name,status:plan.status as "active"|"completed"|"cancelled",health,targetAmount:plan.targetAmount.toString(),
+      progressBaselineAt:plan.progressBaselineAt?.toISOString() ?? null,
       existingGoalAmount:Decimal.max(baseline,ZERO).toFixed(0),startMonth,targetMonth,realizedProgress:realized.toFixed(0),
       closedSnapshotProgress:closedSnapshotProgress.toFixed(0),adjustedActualProgress:realized.toFixed(0),
       projectedEndOfCurrentMonthProgress:projectedCurrent.toFixed(0),projectedEndOfPlanProgress:Decimal.max(projectedNet,ZERO).toFixed(0),

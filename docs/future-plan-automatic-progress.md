@@ -50,3 +50,11 @@ Phạm vi thay đổi chỉ gồm Kế hoạch. Ví, giao dịch, định kỳ v
 - Không xóa funding đã duyệt, không ghi lại snapshot lịch sử, không thay đổi số dư ví hoặc giao dịch.
 - Áp dụng migration theo quy trình deploy hiện có trước khi mở giao diện mới.
 
+
+## Follow-up corrections
+
+- Scheduled expenses not yet posted remain reserved even when overdue, including prior months. Overdue income is reported separately and excluded from spendable budget.
+- Recurring forecasts include unmaterialized overdue periods from nextExecutionDate; a materialized period is never counted a second time.
+- Adding, editing, reordering or finishing goals closes past months under the same plan advisory lock and database transaction before applying the mutation.
+- Migration 20261118100000 adds a dated transition baseline for existing active plans. Exact activation history cannot be guaranteed because wallet membership is not versioned, so the transition uses the current asset pool minus full card debt. Original activation values and closed snapshots are retained; the new balance/date and old value are audited.
+- Baseline migration can be replayed without resetting a transitioned plan or duplicating its audit entry. Apply this migration before deploying code which reads the new fields.

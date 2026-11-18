@@ -850,6 +850,8 @@ model FinancialPlan {
   status                     FinancialPlanStatus  @default(draft)
   createdByMemberId          String               @map("created_by_member_id") @db.Uuid
   activationWorkspaceBalance Decimal?             @map("activation_workspace_balance") @db.Decimal(20, 4)
+  progressBaselineBalance    Decimal?             @map("progress_baseline_balance") @db.Decimal(20, 4)
+  progressBaselineAt         DateTime?            @map("progress_baseline_at") @db.Timestamptz(6)
   activatedAt                DateTime?            @map("activated_at") @db.Timestamptz(6)
   completedAt                DateTime?            @map("completed_at") @db.Timestamptz(6)
   cancelledAt                DateTime?            @map("cancelled_at") @db.Timestamptz(6)

@@ -2,13 +2,14 @@ import Decimal from "decimal.js";
 import { beforeEach,describe,expect,it,vi } from "vitest";
 const m=vi.hoisted(()=>({tx:{
   $executeRaw:vi.fn(),financialPlan:{findFirst:vi.fn(),findFirstOrThrow:vi.fn(),update:vi.fn()},
-  financialPlanGoal:{findMany:vi.fn(),count:vi.fn(),create:vi.fn()},financialPlanMonth:{findFirst:vi.fn()},
+  financialPlanGoal:{findMany:vi.fn(),findFirst:vi.fn(),update:vi.fn(),count:vi.fn(),create:vi.fn()},financialPlanMonth:{findFirst:vi.fn()},
   financialGoalFundingEntry:{aggregate:vi.fn(),create:vi.fn()},auditLog:{create:vi.fn()},
-},net:vi.fn(),member:vi.fn()}));
+},net:vi.fn(),member:vi.fn(),catchup:vi.fn()}));
 vi.mock("@/lib/prisma",()=>({prisma:{$transaction:async(cb: (tx: typeof m.tx)=>unknown)=>cb(m.tx)}}));
+vi.mock("./financial-plan-service",()=>({catchUpFinancialPlanInTransaction:m.catchup}));
 vi.mock("@/services/workspace-access",()=>({requireWorkspaceMember:m.member}));
 vi.mock("@/services/financial-plan-progress",()=>({getFinancialPlanNetBalance:m.net}));
-import {allocateAutomaticProgress,createFinancialPlanGoal,createFinancialGoalFunding,reviewFinancialGoalFunding,reverseFinancialGoalFunding,getPlanGoalProgressSummary,syncPlanAggregate} from "./financial-goal-service";
+import {updateFinancialPlanGoal,allocateAutomaticProgress,createFinancialPlanGoal,createFinancialGoalFunding,reviewFinancialGoalFunding,reverseFinancialGoalFunding,getPlanGoalProgressSummary,syncPlanAggregate} from "./financial-goal-service";
 function goal(id:string,target:number,order:number,month="2026-12"){return{id,targetAmount:new Decimal(target),sortOrder:order,targetMonth:new Date(month+"-01"),createdAt:new Date("2026-01-01"),status:"active" as const};}
 beforeEach(()=>{
  vi.resetAllMocks();m.member.mockResolvedValue({id:"member",role:{code:"ADMIN"},workspace:{timeZone:"Asia/Ho_Chi_Minh"}});
@@ -54,3 +55,25 @@ describe("automatic goal progress",()=>{
  });
 });
 
+
+
+it("closes old months before editing the target, under the same transaction",async()=>{
+  const events:string[]=[];
+  const plan={id:"plan",workspaceId:"ws",status:"active",startMonth:new Date("2026-09-01"),existingGoalAmount:new Decimal(0)};
+  const original={...goal("a",100,0),financialPlanId:"plan",financialPlan:plan};
+  m.tx.financialPlan.findFirst.mockResolvedValue(plan);
+  m.tx.financialPlanGoal.findFirst.mockResolvedValue(original);
+  m.catchup.mockImplementation(async(tx:unknown,id:string)=>{
+    expect(tx).toBe(m.tx);expect(id).toBe("plan");events.push("closed:100");
+  });
+  m.tx.financialPlanGoal.update.mockImplementation(async()=>{events.push("updated:200");return original;});
+  await updateFinancialPlanGoal("user","ws",{goalId:"a",name:"Updated",targetAmount:new Decimal(200),targetMonth:"2099-12",trackingMode:"manual",linkedWalletId:null});
+  expect(events).toEqual(["closed:100","updated:200"]);
+});
+
+it("does not perform catchup writes for a foreign workspace",async()=>{
+  m.tx.financialPlan.findFirst.mockResolvedValue(null);
+  await expect(createFinancialPlanGoal("user","foreign",{planId:"plan",name:"Goal",targetAmount:new Decimal(100),targetMonth:"2099-12",trackingMode:"manual",existingAmount:new Decimal(0),linkedWalletId:null})).rejects.toThrow();
+  expect(m.catchup).not.toHaveBeenCalled();
+  expect(m.tx.financialPlanGoal.create).not.toHaveBeenCalled();
+});
