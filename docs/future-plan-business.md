@@ -1,5 +1,7 @@
 # Nghiệp vụ lập kế hoạch tài chính tương lai
 
+> Cập nhật 18/11/2026: nguồn tiến độ tự động, ngân sách và tỷ lệ sáu hũ tuân theo [Kế hoạch phiên bản 2](future-plan-automatic-progress.md). Các phần mô tả đóng góp thủ công và hiệu lực tỷ lệ từ tháng sau bên dưới là tài liệu lịch sử.
+
 > Trạng thái: Nghiệp vụ đã chốt, đủ điều kiện thiết kế chi tiết và triển khai.  
 > Kế hoạch kỹ thuật: `docs/future-plan-implementation-plan.md`.
 

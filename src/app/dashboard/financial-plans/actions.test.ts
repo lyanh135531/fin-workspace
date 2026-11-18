@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   createDraft: vi.fn(), deletePlan: vi.fn(), activate: vi.fn(), revalidatePath: vi.fn(),
 }));
 
+vi.mock("@/lib/prisma", () => ({ prisma: { $transaction: vi.fn() } }));
 vi.mock("next-auth", () => ({ getServerSession: mocks.getServerSession }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("@/auth", () => ({ authOptions: {} }));

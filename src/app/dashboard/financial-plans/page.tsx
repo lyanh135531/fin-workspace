@@ -65,9 +65,11 @@ export default async function FinancialPlansPage({
           session.user.id,
           workspaceId,
           selected.id,
-          currentPlanMonth?.projectedActualGoalAmount ??
+          currentPlanMonth?.projectedActualGoalAmount ? Decimal.max(currentPlanMonth.projectedActualGoalAmount, 0) :
             currentPlanMonth?.adjustedRequiredAmount ??
             draftMonthlyGoalAmount,
+          new Date(),
+          view && view.status !== "draft" ? view.months.map(month => ({ month: month.month, balance: month.accumulationAtEnd ?? "0" })) : [],
         )
       : Promise.resolve([]),
     prisma.workspaceWallet.findMany({

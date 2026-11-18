@@ -24,11 +24,9 @@ export const planJarPercentagesSchema = z.record(financialJarCodeSchema, percent
 export const createFinancialPlanSchema = z.object({
   name: z.string().trim().min(1, "Tên kế hoạch là bắt buộc.").max(160),
   targetAmount: positiveVndSchema,
-  existingGoalAmount: nonNegativeVndSchema.default(new Decimal(0)),
+  existingGoalAmount: nonNegativeVndSchema.default(new Decimal(0)).transform(() => new Decimal(0)),
   targetMonth: monthSchema,
   percentages: planJarPercentagesSchema,
-}).refine((value) => value.existingGoalAmount.lessThanOrEqualTo(value.targetAmount), {
-  path: ["existingGoalAmount"], message: "Tiền đã dành sẵn không được lớn hơn mục tiêu.",
 });
 
 export const updateFinancialPlanDraftSchema = createFinancialPlanSchema.extend({ planId: idSchema });
@@ -42,27 +40,14 @@ export const financialGoalStatusSchema = z.enum(["draft", "active", "completed",
 const financialPlanGoalBaseSchema = z.object({
   name: z.string().trim().min(1, "Tên mục tiêu là bắt buộc.").max(160),
   targetAmount: positiveVndSchema,
-  existingAmount: nonNegativeVndSchema.default(new Decimal(0)),
+  existingAmount: nonNegativeVndSchema.default(new Decimal(0)).transform(() => new Decimal(0)),
   targetMonth: monthSchema,
-  trackingMode: financialGoalTrackingModeSchema,
-  linkedWalletId: idSchema.nullable().optional(),
+  trackingMode: z.literal("manual").default("manual"),
+  linkedWalletId: z.null().optional(),
 });
 
-function validateGoalSource(value: { trackingMode: "manual" | "linked_wallet"; linkedWalletId?: string | null }, ctx: z.RefinementCtx) {
-  if (value.trackingMode === "linked_wallet" && !value.linkedWalletId) {
-    ctx.addIssue({ code: "custom", path: ["linkedWalletId"], message: "Hãy chọn ví dùng để xác nhận tiến độ." });
-  }
-  if (value.trackingMode === "manual" && value.linkedWalletId) {
-    ctx.addIssue({ code: "custom", path: ["linkedWalletId"], message: "Mục tiêu thủ công không được liên kết ví." });
-  }
-}
-
-export const financialPlanGoalInputSchema = financialPlanGoalBaseSchema.superRefine((value, ctx) => {
-  if (value.existingAmount.greaterThan(value.targetAmount)) {
-    ctx.addIssue({ code: "custom", path: ["existingAmount"], message: "Tiền đã xác nhận không được lớn hơn mục tiêu." });
-  }
-  validateGoalSource(value, ctx);
-});
+// Legacy amount fields are accepted for compatibility, but never supply progress.
+export const financialPlanGoalInputSchema = financialPlanGoalBaseSchema;
 
 export const createFinancialPlanWithGoalsSchema = z.object({
   name: z.string().trim().min(1, "Tên kế hoạch là bắt buộc.").max(160),
@@ -70,14 +55,11 @@ export const createFinancialPlanWithGoalsSchema = z.object({
   percentages: planJarPercentagesSchema,
 });
 
-export const createFinancialPlanGoalSchema = financialPlanGoalBaseSchema.extend({ planId: idSchema }).superRefine((value, ctx) => {
-  if (value.existingAmount.greaterThan(value.targetAmount)) ctx.addIssue({ code: "custom", path: ["existingAmount"], message: "Tiền đã xác nhận không được lớn hơn mục tiêu." });
-  validateGoalSource(value, ctx);
-});
-export const updateFinancialPlanGoalSchema = financialPlanGoalBaseSchema.omit({ existingAmount: true }).extend({ goalId: idSchema }).superRefine(validateGoalSource);
+export const createFinancialPlanGoalSchema = financialPlanGoalBaseSchema.extend({ planId: idSchema });
+export const updateFinancialPlanGoalSchema = financialPlanGoalBaseSchema.omit({ existingAmount: true }).extend({ goalId: idSchema });
 export const reorderFinancialPlanGoalsSchema = z.object({
   planId: idSchema,
-  goalIds: z.array(idSchema).min(1).max(20),
+  goalIds: z.array(idSchema).min(1).max(20).refine(ids => new Set(ids).size === ids.length, "Danh sách mục tiêu không được trùng."),
 });
 export const financialPlanGoalIdSchema = idSchema;
 export const createFinancialGoalFundingSchema = z.object({

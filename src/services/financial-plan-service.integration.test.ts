@@ -71,15 +71,15 @@ describe("financial plan service database invariants", () => {
   it("serializes concurrent activation and closes missed months idempotently", async () => {
     const draftInput = {
       name: "Mục tiêu 30 triệu", targetAmount: new Decimal(30_000_000), existingGoalAmount: new Decimal(0),
-      targetMonth: "2026-10", percentages,
+      targetMonth: "2027-10", percentages,
     };
     const [first, second] = await Promise.all([
       createFinancialPlanDraft(userId, workspaceId, draftInput),
       createFinancialPlanDraft(userId, workspaceId, { ...draftInput, name: "Kế hoạch cạnh tranh" }),
     ]);
     const activations = await Promise.allSettled([
-      activateFinancialPlan(userId, workspaceId, first.id, new Date("2026-08-15T05:00:00.000Z")),
-      activateFinancialPlan(userId, workspaceId, second.id, new Date("2026-08-15T05:00:00.000Z")),
+      activateFinancialPlan(userId, workspaceId, first.id, new Date("2027-08-15T05:00:00.000Z")),
+      activateFinancialPlan(userId, workspaceId, second.id, new Date("2027-08-15T05:00:00.000Z")),
     ]);
     expect(activations.filter((result) => result.status === "fulfilled")).toHaveLength(1);
     expect(await prisma.financialPlan.count({ where: { workspaceId, status: "active" } })).toBe(1);
@@ -92,20 +92,20 @@ describe("financial plan service database invariants", () => {
       });
       await tx.transaction.create({ data: {
         memberId, walletId, categoryId, type: "expense", workflowStatus: "approved",
-        amount: new Decimal(12_000_000), date: new Date("2026-08-20T00:00:00.000Z"),
+        amount: new Decimal(12_000_000), date: new Date("2027-08-20T00:00:00.000Z"),
         jarCode: "ESSENTIAL", description: "Live reforecast overspend",
       } });
     });
-    const view = await getFinancialPlanView(userId, workspaceId, active.id, new Date("2026-08-15T05:00:00.000Z"));
+    const view = await getFinancialPlanView(userId, workspaceId, active.id, new Date("2027-08-15T05:00:00.000Z"));
     expect(view.status).toBe("active");
     if (!("months" in view) || !view.months) throw new Error("Active plan view must include its month schedule.");
-    expect(view.months[0]?.rawGrossBudget).toBe("10000000");
-    expect(view.months[0]?.availableToSpend).toBe("-2000000");
-    expect(view.months[0]?.projectedActualGoalAmount).toBe("8000000");
+    expect(view.months[0]?.rawGrossBudget).toBe("-3333333");
+    expect(view.months[0]?.availableToSpend).toBe("-15333333");
+    expect(view.months[0]?.projectedActualGoalAmount).toBe("-12000000");
     expect(view.months[1]?.adjustedRequiredAmount).toBe("11000000");
 
-    const firstCatchUp = await catchUpFinancialPlan(active.id, new Date("2026-10-01T00:00:00.000Z"));
-    const secondCatchUp = await catchUpFinancialPlan(active.id, new Date("2026-10-01T00:00:00.000Z"));
+    const firstCatchUp = await catchUpFinancialPlan(active.id, new Date("2027-10-01T00:00:00.000Z"));
+    const secondCatchUp = await catchUpFinancialPlan(active.id, new Date("2027-10-01T00:00:00.000Z"));
     expect(firstCatchUp.closed).toBe(2);
     expect(secondCatchUp.closed).toBe(0);
     expect(await prisma.financialPlanMonth.count({ where: { financialPlanId: active.id } })).toBe(2);
@@ -120,10 +120,10 @@ describe("financial plan service database invariants", () => {
       amount: new Decimal(1),
       kind: "adjustment",
       status: "approved",
-      effectiveDate: new Date("2026-09-01T00:00:00.000Z"),
+      effectiveDate: new Date("2027-09-01T00:00:00.000Z"),
       requesterMemberId: memberId,
       reviewerMemberId: memberId,
-      reviewedAt: new Date("2026-09-01T00:00:00.000Z"),
+      reviewedAt: new Date("2027-09-01T00:00:00.000Z"),
     } });
     await expect(prisma.financialGoalFundingEntry.update({ where: { id: approvedFunding.id }, data: { note: "tampered" } }))
       .rejects.toThrow("immutable");
@@ -131,26 +131,26 @@ describe("financial plan service database invariants", () => {
     await expect(prisma.financialPlanMonth.update({ where: { id: snapshot.id }, data: { calculatorVersion: "tampered" } }))
       .rejects.toThrow("immutable");
     await expect(prisma.planJarAllocation.create({ data: {
-      financialPlanId: active.id, effectiveMonth: new Date("2026-10-01T00:00:00.000Z"),
+      financialPlanId: active.id, effectiveMonth: new Date("2027-10-01T00:00:00.000Z"),
       jarCode: "ESSENTIAL", percentage: new Decimal(100),
     } })).rejects.toThrow("six jars");
 
-    await updateFinancialPlanDeadline(userId, workspaceId, active.id, "2026-11", new Date("2026-10-01T00:00:00.000Z"));
-    await updateFinancialPlanAllocations(userId, workspaceId, active.id, percentages, new Date("2026-10-01T00:00:00.000Z"));
-    expect(await prisma.planJarAllocation.count({ where: { financialPlanId: active.id, effectiveMonth: new Date("2026-11-01T00:00:00.000Z") } })).toBe(6);
-    await cancelFinancialPlan(userId, workspaceId, active.id, new Date("2026-10-01T00:00:00.000Z"));
+    await updateFinancialPlanDeadline(userId, workspaceId, active.id, "2027-11", new Date("2027-10-01T00:00:00.000Z"));
+    await updateFinancialPlanAllocations(userId, workspaceId, active.id, percentages, new Date("2027-10-01T00:00:00.000Z"));
+    expect(await prisma.planJarAllocation.count({ where: { financialPlanId: active.id, effectiveMonth: new Date("2027-11-01T00:00:00.000Z") } })).toBe(6);
+    await cancelFinancialPlan(userId, workspaceId, active.id, new Date("2027-10-01T00:00:00.000Z"));
     const nextPlan = first.id === active.id ? second : first;
-    await activateFinancialPlan(userId, workspaceId, nextPlan.id, new Date("2026-10-01T00:00:00.000Z"));
+    await activateFinancialPlan(userId, workspaceId, nextPlan.id, new Date("2027-10-01T00:00:00.000Z"));
     expect(await prisma.financialPlan.count({ where: { workspaceId, status: "active" } })).toBe(1);
     expect(await prisma.financialPlan.count({ where: { workspaceId, status: "cancelled" } })).toBe(1);
-    const memberView = await getFinancialPlanView(readOnlyUserId, workspaceId, nextPlan.id, new Date("2026-10-01T00:00:00.000Z"));
+    const memberView = await getFinancialPlanView(readOnlyUserId, workspaceId, nextPlan.id, new Date("2027-10-01T00:00:00.000Z"));
     expect(memberView.canManage).toBe(false);
-    await expect(cancelFinancialPlan(readOnlyUserId, workspaceId, nextPlan.id, new Date("2026-10-01T00:00:00.000Z"))).rejects.toThrow("quyền truy cập");
-    await expect(getFinancialPlanView(userId, randomUUID(), nextPlan.id, new Date("2026-10-01T00:00:00.000Z"))).rejects.toThrow("quyền truy cập");
-    await cancelFinancialPlan(userId, workspaceId, nextPlan.id, new Date("2026-10-01T00:00:00.000Z"));
+    await expect(cancelFinancialPlan(readOnlyUserId, workspaceId, nextPlan.id, new Date("2027-10-01T00:00:00.000Z"))).rejects.toThrow("quyền truy cập");
+    await expect(getFinancialPlanView(userId, randomUUID(), nextPlan.id, new Date("2027-10-01T00:00:00.000Z"))).rejects.toThrow("quyền truy cập");
+    await cancelFinancialPlan(userId, workspaceId, nextPlan.id, new Date("2027-10-01T00:00:00.000Z"));
   });
 
-  it("keeps startMonth 6-jar rawGrossBudget invariant when setting aside goal contributions in startMonth", async () => {
+  it("ignores legacy manual funding when measuring automatic workspace progress", async () => {
     await prisma.transaction.deleteMany({ where: { memberId } });
     await prisma.wallet.update({
       where: { id: walletId },
@@ -161,24 +161,24 @@ describe("financial plan service database invariants", () => {
       name: "Mục tiêu 30M không trừ kép",
       targetAmount: new Decimal(30_000_000),
       existingGoalAmount: new Decimal(0),
-      targetMonth: "2026-12",
+      targetMonth: "2027-12",
       percentages,
     });
-    await activateFinancialPlan(userId, workspaceId, draft.id, new Date("2026-10-02T05:00:00.000Z"));
+    await activateFinancialPlan(userId, workspaceId, draft.id, new Date("2027-10-02T05:00:00.000Z"));
 
     const beforeContribution = await getFinancialPlanView(
       userId,
       workspaceId,
       draft.id,
-      new Date("2026-10-05T05:00:00.000Z"),
+      new Date("2027-10-05T05:00:00.000Z"),
     );
     if (!("months" in beforeContribution) || !beforeContribution.months) {
       throw new Error("Active plan view must include its month schedule.");
     }
-    expect(beforeContribution.realizedProgress).toBe("0");
-    expect(beforeContribution.months[0]?.adjustedRequiredAmount).toBe("10000000");
-    expect(beforeContribution.months[0]?.rawGrossBudget).toBe("15000000");
-    expect(beforeContribution.months[0]?.projectedActualGoalAmount).toBe("25000000");
+    expect(beforeContribution.realizedProgress).toBe("25000000");
+    expect(beforeContribution.months[0]?.adjustedRequiredAmount).toBe("1666666");
+    expect(beforeContribution.months[0]?.rawGrossBudget).toBe("-1666666");
+    expect(beforeContribution.months[0]?.projectedActualGoalAmount).toBe("0");
 
     const goal = await prisma.financialPlanGoal.findFirstOrThrow({
       where: { financialPlanId: draft.id, deletedAt: null },
@@ -189,10 +189,10 @@ describe("financial plan service database invariants", () => {
         amount: new Decimal(10_000_000),
         kind: "contribution",
         status: "approved",
-        effectiveDate: new Date("2026-10-10T00:00:00.000Z"),
+        effectiveDate: new Date("2027-10-10T00:00:00.000Z"),
         requesterMemberId: memberId,
         reviewerMemberId: memberId,
-        reviewedAt: new Date("2026-10-10T05:00:00.000Z"),
+        reviewedAt: new Date("2027-10-10T05:00:00.000Z"),
       },
     });
 
@@ -200,16 +200,16 @@ describe("financial plan service database invariants", () => {
       userId,
       workspaceId,
       draft.id,
-      new Date("2026-10-12T05:00:00.000Z"),
+      new Date("2027-10-12T05:00:00.000Z"),
     );
     if (!("months" in afterContribution) || !afterContribution.months) {
       throw new Error("Active plan view must include its month schedule.");
     }
-    expect(afterContribution.realizedProgress).toBe("10000000");
-    expect(afterContribution.months[0]?.adjustedRequiredAmount).toBe("10000000");
-    expect(afterContribution.months[0]?.rawGrossBudget).toBe("15000000");
-    expect(afterContribution.months[0]?.availableToSpend).toBe("15000000");
-    expect(afterContribution.months[0]?.projectedActualGoalAmount).toBe("25000000");
+    expect(afterContribution.realizedProgress).toBe("25000000");
+    expect(afterContribution.months[0]?.adjustedRequiredAmount).toBe("1666666");
+    expect(afterContribution.months[0]?.rawGrossBudget).toBe("-1666666");
+    expect(afterContribution.months[0]?.availableToSpend).toBe("-1666666");
+    expect(afterContribution.months[0]?.projectedActualGoalAmount).toBe("0");
     expect(afterContribution.projectedEndOfCurrentMonthProgress).toBe("25000000");
   });
 });

@@ -442,3 +442,22 @@ describe("financial plan ledger projection", () => {
     expect(ledger.approvedExpenseByJar.INVESTMENT.toFixed(0)).toBe("0");
   });
 });
+
+describe("remaining-month forecast for automatic plans", () => {
+  it("does not treat overdue scheduled or recurring income as money still expected this month", async () => {
+    const tx = {
+      transaction: { findMany: vi.fn()
+        .mockResolvedValueOnce([
+          {date:new Date("2026-11-01"),type:"income",purpose:"standard",workflowStatus:"scheduled",amount:new Decimal(100),jarCode:null,category:null},
+          {date:new Date("2026-11-25"),type:"income",purpose:"standard",workflowStatus:"scheduled",amount:new Decimal(30),jarCode:null,category:null},
+        ]).mockResolvedValueOnce([]) },
+      recurringTransaction: {findMany:vi.fn().mockResolvedValue([
+        {id:"past",type:"income",amount:new Decimal(200),dayOfMonth:10,startDate:new Date("2026-01-01"),endDate:null,nextExecutionDate:new Date("2026-11-10"),category:null},
+        {id:"future",type:"income",amount:new Decimal(40),dayOfMonth:30,startDate:new Date("2026-01-01"),endDate:null,nextExecutionDate:new Date("2026-11-30"),category:null},
+      ])},
+    } as unknown as Prisma.TransactionClient;
+    const ledger = await getFinancialPlanMonthLedger(tx,"ws","2026-11",true,{businessDate:"2026-11-18"});
+    expect(ledger.forecastIncome.toFixed(0)).toBe("70");
+    expect(ledger.forecastNetChange.toFixed(0)).toBe("70");
+  });
+});

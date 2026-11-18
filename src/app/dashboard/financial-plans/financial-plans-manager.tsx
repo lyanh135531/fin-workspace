@@ -213,6 +213,7 @@ type PlanMonth = {
   remainingForecastIncome?: string;
   approvedExpenseFromMonthStart?: string;
   closedActualGoalAmount?: string;
+  accumulationAtEnd?: string;
   adjustedActualGoalAmount?: string;
   adjustedDelta?: string;
   eligibleExpense?: string;
@@ -590,10 +591,7 @@ export function FinancialPlansManager({
     ) ??
     running?.months.find((month) => !month.closed) ??
     running?.months.at(-1);
-  const nextAllocationMonth =
-    running?.months.find(
-      (month) => month.month === nextMonth(running.businessMonth),
-    ) ?? currentPlanMonth;
+  const nextAllocationMonth = currentPlanMonth;
 
   return (
     <div className="grid gap-4">
@@ -880,6 +878,7 @@ export function FinancialPlansManager({
               ? { ...selectedPlan, financialGoals }
               : null
           }
+          availableBalance={walletSummary ? Decimal.max(new Decimal(walletSummary.totalAssetBalance).minus(walletSummary.totalCreditCardDebt), 0).toFixed(0) : "0"}
           canAutoActivate={!activeExists}
           hasMultipleGoals={
             editorMode === "edit" &&
@@ -935,7 +934,7 @@ export function FinancialPlansManager({
                       planId: running.id,
                       percentages,
                     }),
-                  "Tỷ lệ 6 hũ mới sẽ áp dụng từ tháng sau.",
+                  "Đã áp dụng tỷ lệ 6 hũ cho tháng hiện tại.",
                   () => setAllocationOpen(false),
                 )
               }
@@ -1174,7 +1173,7 @@ function DraftReview({
         </div>
         <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
           <p className="break-words text-xs font-medium leading-snug text-[var(--text-secondary)]">
-            Số tiền đã có sẵn
+            Nguồn tiền ròng hiện có
           </p>
           <p className="mt-1 text-base font-bold tracking-tight text-[var(--foreground)] tabular-nums shrink-0 md:text-lg">
             {money(plan.existingGoalAmount, currency)}
@@ -1339,12 +1338,8 @@ function PlanDetail({
     0,
     currentMonth?.allocatableGrossBudget ?? "0",
   );
-  const estimatedIncome = Decimal.max(
-    0,
-    new Decimal(currentMonth?.rawGrossBudget ?? "0").plus(
-      requiredSavingsThisMonth,
-    ),
-  );
+  const estimatedIncome = new Decimal(currentMonth?.approvedIncome ?? "0")
+    .plus(currentMonth?.remainingForecastIncome ?? "0");
   const spentThisMonth = new Decimal(
     currentMonth?.eligibleExpense ??
       (currentMonth?.jars
@@ -1735,184 +1730,20 @@ function PlanDetail({
                       <p className="font-bold text-[var(--foreground)]">
                         Cách tính ngân sách 6 hũ tháng này
                       </p>
-                      <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
-                        {currentMonthKey === plan.startMonth
-                          ? "Tính từ số dư ví, dư nợ thẻ tín dụng và mức cần tiết kiệm trong tháng."
-                          : "Tính từ thu nhập trong tháng và mức cần tiết kiệm của kỳ này."}
+                      <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">
+                        Nguồn tiền ròng bằng tổng số dư ví tài sản trừ toàn bộ dư nợ thẻ,
+                        bao gồm khoản trả góp chưa thanh toán. Tiến độ tự cập nhật khi số dư thay đổi.
                       </p>
-                      {currentMonthKey === plan.startMonth ? (
-                        (() => {
-                          const approvedExpenseFromMonthStart = new Decimal(
-                            currentMonth?.approvedExpenseFromMonthStart ??
-                              spentThisMonth.toString(),
-                          );
-                          const remainingForecastIncome = new Decimal(
-                            currentMonth?.remainingForecastIncome ?? "0",
-                          );
-                          const grossBeforeSavings = new Decimal(
-                            currentMonth?.rawGrossBudget ?? "0",
-                          ).plus(requiredSavingsThisMonth);
-                          const netStartingCapital = grossBeforeSavings
-                            .minus(approvedExpenseFromMonthStart)
-                            .minus(remainingForecastIncome);
-                          const displayedStartingCapital = new Decimal(
-                            walletSummary.totalAssetBalance,
-                          )
-                            .minus(walletSummary.totalCreditCardDebt)
-                            .minus(plan.realizedProgress);
-                          const capitalAdjustment = netStartingCapital.minus(
-                            displayedStartingCapital,
-                          );
-                          return (
-                            <dl className="mt-2.5 grid gap-1.5 border-t border-[var(--border)] pt-2.5 tabular-nums">
-                              <div className="flex items-center justify-between gap-2">
-                                <dt className="text-[var(--text-secondary)]">
-                                  Số dư hiện tại ({walletSummary.assetWalletCount} ví)
-                                </dt>
-                                <dd
-                                  className={cn(
-                                    "font-semibold",
-                                    new Decimal(walletSummary.totalAssetBalance).isNegative()
-                                      ? "text-[var(--destructive)]"
-                                      : "text-[var(--success)]",
-                                  )}
-                                >
-                                  {new Decimal(walletSummary.totalAssetBalance).gt(0)
-                                    ? `+${money(walletSummary.totalAssetBalance, currency)}`
-                                    : new Decimal(walletSummary.totalAssetBalance).isNegative()
-                                      ? `−${money(new Decimal(walletSummary.totalAssetBalance).abs().toFixed(0), currency)}`
-                                      : money("0", currency)}
-                                </dd>
-                              </div>
-                              {new Decimal(walletSummary.totalCreditCardDebt).gt(0) && (
-                                <div className="flex items-center justify-between gap-2">
-                                  <dt className="text-[var(--text-secondary)]">
-                                    <Link
-                                      href="/wallets?reservedWalletId=all"
-                                      className="underline decoration-dotted hover:text-[var(--primary)]"
-                                    >
-                                      Dư nợ thẻ tín dụng ({walletSummary.creditCardCount} thẻ)
-                                    </Link>
-                                  </dt>
-                                  <dd className="font-semibold text-[var(--warning)]">
-                                    −{money(new Decimal(walletSummary.totalCreditCardDebt).abs().toFixed(0), currency)}
-                                  </dd>
-                                </div>
-                              )}
-                              {!capitalAdjustment.isZero() && (
-                                <div className="flex items-center justify-between gap-2">
-                                  <dt className="text-[var(--text-secondary)]">
-                                    Điều chỉnh vốn đầu kỳ
-                                  </dt>
-                                  <dd
-                                    className={cn(
-                                      "font-semibold",
-                                      capitalAdjustment.isNegative()
-                                        ? "text-[var(--warning)]"
-                                        : "text-[var(--success)]",
-                                    )}
-                                  >
-                                    {capitalAdjustment.gt(0)
-                                      ? `+${money(capitalAdjustment.toFixed(0), currency)}`
-                                      : `−${money(capitalAdjustment.abs().toFixed(0), currency)}`}
-                                  </dd>
-                                </div>
-                              )}
-                              <div className="flex items-center justify-between gap-2">
-                                <dt className="text-[var(--text-secondary)]">
-                                  Đã tích lũy cho mục tiêu
-                                </dt>
-                                <dd className="font-semibold text-[var(--foreground)]">
-                                  {new Decimal(plan.realizedProgress).gt(0)
-                                    ? `−${money(new Decimal(plan.realizedProgress).abs().toFixed(0), currency)}`
-                                    : money("0", currency)}
-                                </dd>
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <dt className="text-[var(--text-secondary)]">
-                                  Chi đầu tháng đã ghi nhận
-                                </dt>
-                                <dd className="font-semibold text-[var(--foreground)]">
-                                  {approvedExpenseFromMonthStart.gt(0)
-                                    ? `+${money(approvedExpenseFromMonthStart.toFixed(0), currency)}`
-                                    : money("0", currency)}
-                                </dd>
-                              </div>
-                              {remainingForecastIncome.gt(0) && (
-                                <div className="flex items-center justify-between gap-2">
-                                  <dt className="text-[var(--text-secondary)]">
-                                    Thu dự kiến còn lại trong tháng
-                                  </dt>
-                                  <dd className="font-semibold text-[var(--success)]">
-                                    +{money(remainingForecastIncome.toFixed(0), currency)}
-                                  </dd>
-                                </div>
-                              )}
-                              <div className="flex items-center justify-between gap-2">
-                                <dt className="text-[var(--text-secondary)]">
-                                  Trừ khoản tiết kiệm tháng này
-                                </dt>
-                                <dd className="font-semibold text-[var(--primary)]">
-                                  {requiredSavingsThisMonth.gt(0)
-                                    ? `−${money(requiredSavingsThisMonth.toFixed(0), currency)}`
-                                    : money("0", currency)}
-                                </dd>
-                              </div>
-                              <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 font-bold text-[var(--foreground)]">
-                                <dt>= Ngân sách 6 hũ</dt>
-                                <dd>{money(monthlyBudget.toFixed(0), currency)}</dd>
-                              </div>
-                            </dl>
-                          );
-                        })()
-                      ) : (
-                        (() => {
-                          const approvedIncome = new Decimal(
-                            currentMonth?.approvedIncome ?? "0",
-                          );
-                          const remainingForecastIncome = new Decimal(
-                            currentMonth?.remainingForecastIncome ?? "0",
-                          );
-                          return (
-                            <dl className="mt-2.5 grid gap-1.5 border-t border-[var(--border)] pt-2.5 tabular-nums">
-                              <div className="flex items-center justify-between gap-2">
-                                <dt className="text-[var(--text-secondary)]">
-                                  Thu nhập đã ghi nhận
-                                </dt>
-                                <dd className="font-semibold text-[var(--success)]">
-                                  {approvedIncome.gt(0)
-                                    ? `+${money(approvedIncome.toFixed(0), currency)}`
-                                    : money("0", currency)}
-                                </dd>
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <dt className="text-[var(--text-secondary)]">
-                                  Thu nhập dự kiến còn lại
-                                </dt>
-                                <dd className="font-semibold text-[var(--success)]">
-                                  {remainingForecastIncome.gt(0)
-                                    ? `+${money(remainingForecastIncome.toFixed(0), currency)}`
-                                    : money("0", currency)}
-                                </dd>
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <dt className="text-[var(--text-secondary)]">
-                                  Trừ khoản tiết kiệm tháng này
-                                </dt>
-                                <dd className="font-semibold text-[var(--primary)]">
-                                  {requiredSavingsThisMonth.gt(0)
-                                    ? `−${money(requiredSavingsThisMonth.toFixed(0), currency)}`
-                                    : money("0", currency)}
-                                </dd>
-                              </div>
-                              <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 font-bold text-[var(--foreground)]">
-                                <dt>= Ngân sách 6 hũ</dt>
-                                <dd>{money(monthlyBudget.toFixed(0), currency)}</dd>
-                              </div>
-                            </dl>
-                          );
-                        })()
-                      )}
+                      <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">
+                        Hạn mức tháng xét nguồn tiền ròng, thu nhập dự kiến còn lại và mốc tiền
+                        cần giữ cho từng mục tiêu. Chi phí từ đầu tháng được cộng lại khi xác định
+                        hạn mức gộp, sau đó trừ đúng một lần trong từng hũ.
+                      </p>
+                      <dl className="mt-3 grid gap-2 text-xs tabular-nums">
+                        <div className="flex justify-between gap-3"><dt>Nguồn tiền ròng hiện tại</dt><dd>{money(new Decimal(walletSummary.totalAssetBalance).minus(walletSummary.totalCreditCardDebt).toFixed(0), currency)}</dd></div>
+                        <div className="flex justify-between gap-3"><dt>Cần dành tháng này</dt><dd>{money(requiredSavingsThisMonth.toFixed(0), currency)}</dd></div>
+                        <div className="flex justify-between gap-3"><dt>Hạn mức sáu hũ</dt><dd>{money(monthlyBudget.toFixed(0), currency)}</dd></div>
+                      </dl>
                     </PopoverContent>
                   </Popover>
                 ) : (
@@ -2175,7 +2006,7 @@ function PlanDetail({
                             size="sm"
                             onClick={onEditAllocation}
                             disabled={disabled}
-                            aria-label="Điều chỉnh tỷ lệ 6 hũ tháng sau"
+                            aria-label="Điều chỉnh tỷ lệ 6 hũ tháng này"
                           >
                             <SlidersHorizontal size={14} aria-hidden="true" />
                             <span>Tỷ lệ 6 hũ</span>
@@ -2885,8 +2716,8 @@ function SixJarsSection({
               size="sm"
               onClick={onEditAllocation}
               disabled={disabled}
-              aria-label="Điều chỉnh tỷ lệ 6 hũ tháng sau"
-              title="Điều chỉnh tỷ lệ 6 hũ tháng sau"
+              aria-label="Điều chỉnh tỷ lệ 6 hũ tháng này"
+              title="Điều chỉnh tỷ lệ 6 hũ tháng này"
               className="h-8 px-2.5 text-xs"
             >
               <SlidersHorizontal size={13} aria-hidden="true" />
@@ -3922,8 +3753,7 @@ function MonthSheetDetail({
 }) {
   const availableToSpend = new Decimal(month.availableToSpend);
   const hasShortfall = new Decimal(month.resourceShortfall).greaterThan(0);
-  const savedAmount =
-    month.closedActualGoalAmount ?? month.projectedActualGoalAmount ?? "0";
+  const savedAmount = month.accumulationAtEnd ?? month.closedActualGoalAmount ?? "0";
   const isMobile = device === "mobile";
 
   return (
@@ -3942,7 +3772,7 @@ function MonthSheetDetail({
             {money(month.adjustedRequiredAmount, currency)}
           </dd>
           <small className="mt-0.5 block text-[11px] text-[var(--text-muted)] tabular-nums sm:text-xs">
-            Đã tiết kiệm: {money(savedAmount, currency)}
+            {month.accumulationAtEnd ? (month.closed ? "Tích lũy cuối tháng" : "Tích lũy cuối tháng (dự kiến)") : "Tiết kiệm đã chốt (công thức cũ)"}: {money(savedAmount, currency)}
           </small>
         </div>
 
@@ -4017,6 +3847,7 @@ function PlanEditorSheet({
   businessMonth,
   plan,
   canAutoActivate,
+  availableBalance,
   hasMultipleGoals,
   device,
   disabled,
@@ -4027,6 +3858,7 @@ function PlanEditorSheet({
   businessMonth: string;
   plan: DraftView | null;
   canAutoActivate?: boolean;
+  availableBalance: string;
   hasMultipleGoals: boolean;
   device: DeviceTier;
   disabled: boolean;
@@ -4050,18 +3882,15 @@ function PlanEditorSheet({
         : {
             name: "",
             targetAmount: "",
-            existingGoalAmount: "0",
+            existingGoalAmount: availableBalance,
             targetMonth: nextMonth(businessMonth),
             percentages: { ...DEFAULT_RATIOS },
           },
-    [plan, businessMonth],
+    [plan, businessMonth, availableBalance],
   );
   const [draft, setDraft] = useState(initial);
   const total = ratioTotal(draft.percentages);
-  const hideExistingGoalAmount =
-    hasMultipleGoals ||
-    (plan?.financialGoals?.length === 1 &&
-      plan.financialGoals[0]?.trackingMode === "linked_wallet");
+
   const hasPositiveTarget = useMemo(() => {
     try {
       return new Decimal(draft.targetAmount || 0).gt(0);
@@ -4082,7 +3911,7 @@ function PlanEditorSheet({
       if (plan) {
         const result = await updateFinancialPlanDraftAction({
           ...draft,
-          existingGoalAmount: hideExistingGoalAmount ? "0" : draft.existingGoalAmount,
+          existingGoalAmount: "0",
           planId: plan.id,
         });
         if (!result.ok) {
@@ -4100,7 +3929,7 @@ function PlanEditorSheet({
           {
             name: draft.name,
             targetAmount: draft.targetAmount,
-            existingAmount: draft.existingGoalAmount,
+            existingAmount: "0",
             targetMonth: draft.targetMonth,
             trackingMode: "manual" as const,
             linkedWalletId: null,
@@ -4210,15 +4039,6 @@ function PlanEditorSheet({
                       }
                     />
                   )}
-                  {!hideExistingGoalAmount && (
-                    <MoneyInput
-                      label="Số tiền đã có sẵn"
-                      value={draft.existingGoalAmount}
-                      onValueChange={(existingGoalAmount) =>
-                        setDraft({ ...draft, existingGoalAmount })
-                      }
-                    />
-                  )}
                   {!hasMultipleGoals ? (
                     <DraftFeasibilityPreview
                       draft={draft}
@@ -4275,12 +4095,7 @@ function PlanEditorSheet({
                   )}
                 </div>
                 {!hasMultipleGoals && (
-                  <div
-                    className={cn(
-                      "grid gap-4",
-                      !hideExistingGoalAmount && "grid-cols-2",
-                    )}
-                  >
+                  <div className="grid gap-4">
                     <MoneyInput
                       label="Số tiền mục tiêu"
                       required
@@ -4289,15 +4104,6 @@ function PlanEditorSheet({
                         setDraft({ ...draft, targetAmount })
                       }
                     />
-                    {!hideExistingGoalAmount && (
-                      <MoneyInput
-                        label="Số tiền đã có sẵn"
-                        value={draft.existingGoalAmount}
-                        onValueChange={(existingGoalAmount) =>
-                          setDraft({ ...draft, existingGoalAmount })
-                        }
-                      />
-                    )}
                   </div>
                 )}
                 {!hasMultipleGoals ? (
@@ -4559,7 +4365,7 @@ function AllocationSheet({
         <PlanSheetHeader
           icon={SlidersHorizontal}
           title="Tỷ lệ phân bổ 6 hũ"
-          description="Tỷ lệ mới sẽ áp dụng từ tháng sau."
+          description="Tỷ lệ mới áp dụng ngay cho tháng đang mở; số tiền đã chi được giữ nguyên."
         />
         <div
           className={cn(
@@ -4578,7 +4384,7 @@ function AllocationSheet({
         <SheetFooter
           onCancel={() => onOpenChange(false)}
           cancelLabel="Hủy"
-          submitLabel="Áp dụng từ tháng sau"
+          submitLabel="Áp dụng ngay"
           submitDisabled={disabled || !total.equals(100)}
           onSubmit={() => onSave(ratios)}
           submitType="button"

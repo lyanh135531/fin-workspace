@@ -13,9 +13,9 @@ describe("financial plan schemas", () => {
     expect(parsed.targetAmount.toFixed(0)).toBe("100000000");
   });
 
-  it("rejects fractional VND and existing money above target", () => {
+  it("rejects fractional VND and ignores legacy manual progress", () => {
     expect(createFinancialPlanSchema.safeParse({ name: "Tết", targetAmount: "100.5", targetMonth: "2027-05", percentages }).success).toBe(false);
-    expect(createFinancialPlanSchema.safeParse({ name: "Tết", targetAmount: "100", existingGoalAmount: "101", targetMonth: "2027-05", percentages }).success).toBe(false);
+    expect(createFinancialPlanSchema.parse({ name: "Tết", targetAmount: "100", existingGoalAmount: "101", targetMonth: "2027-05", percentages }).existingGoalAmount.toFixed(0)).toBe("0");
   });
 
   it("requires all six jars and an exact 100 percent total", () => {
@@ -25,7 +25,7 @@ describe("financial plan schemas", () => {
     expect(planJarPercentagesSchema.safeParse(missing).success).toBe(false);
   });
 
-  it("requires exactly one valid progress source for each goal", () => {
+  it("defaults to automatic progress and rejects individual wallet sources", () => {
     const manual = financialPlanGoalInputSchema.safeParse({
       name: "Quỹ khẩn cấp", targetAmount: "50000000", existingAmount: "5000000",
       targetMonth: "2027-06", trackingMode: "manual",
@@ -47,11 +47,12 @@ describe("financial plan schemas", () => {
       name: "Kế hoạch gia đình",
       goals: [
         { name: "Quỹ khẩn cấp", targetAmount: "50000000", existingAmount: "5000000", targetMonth: "2027-06", trackingMode: "manual" },
-        { name: "Du lịch", targetAmount: "20000000", existingAmount: "0", targetMonth: "2027-03", trackingMode: "linked_wallet", linkedWalletId: "30000000-0000-0000-0000-000000000003" },
+        { name: "Du lịch", targetAmount: "20000000", existingAmount: "0", targetMonth: "2027-03", trackingMode: "manual", linkedWalletId: null },
       ],
       percentages,
     });
     expect(parsed.goals).toHaveLength(2);
+    expect(parsed.goals[0].existingAmount.toFixed(0)).toBe("0");
     expect(parsed.goals[0].targetAmount.toFixed(0)).toBe("50000000");
   });
 });

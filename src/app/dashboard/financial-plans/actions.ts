@@ -42,6 +42,8 @@ import {
   reverseFinancialGoalFunding,
   updateFinancialPlanGoal,
 } from "@/services/financial-goal-service";
+import { prisma } from "@/lib/prisma";
+import { getFinancialPlanNetBalance } from "@/services/financial-plan-progress";
 import { requireWorkspaceMember } from "@/services/workspace-access";
 
 async function adminActor() {
@@ -142,9 +144,8 @@ export async function createFinancialGoalFundingAction(input: unknown) {
     const workspaceId = await resolveActiveWorkspaceId(session.user.id);
     if (!workspaceId) throw new AppError("FORBIDDEN", "Không có nhóm tài chính đang hoạt động.");
     const parsed = createFinancialGoalFundingSchema.parse(input);
-    const entry = await createFinancialGoalFunding(session.user.id, workspaceId, parsed);
-    refresh();
-    return { ok: true as const, status: entry.status };
+    await createFinancialGoalFunding(session.user.id, workspaceId, parsed);
+    return { ok: false as const, message: "Tiến độ được tính tự động; không còn nhập đóng góp thủ công." };
   } catch (error) { return failure(error, "Không thể ghi nhận khoản đóng góp.", "financial_goal.funding_create_failed"); }
 }
 
@@ -189,8 +190,9 @@ export async function cancelFinancialPlanGoalAction(goalId: unknown) {
 
 export async function previewFinancialPlanAction(input: unknown) {
   try {
-    await requireAcceptedLegalSession();
-    return { ok: true as const, preview: previewFinancialPlan(financialPlanPreviewSchema.parse(input)) };
+    const actor = await adminActor();
+    const balance = await prisma.$transaction(tx => getFinancialPlanNetBalance(tx, actor.workspaceId));
+    return { ok: true as const, preview: previewFinancialPlan(financialPlanPreviewSchema.parse(input), balance) };
   } catch (error) { return failure(error, "Không thể tính bản xem trước.", "financial_plan.preview_failed"); }
 }
 

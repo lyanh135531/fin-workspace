@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ prisma: { $transaction: mocks.transaction } }));
 vi.mock("@/services/workspace-access", () => ({ requireWorkspaceMember: mocks.requireWorkspaceMember }));
+vi.mock("@/services/financial-plan-progress", () => ({ getFinancialPlanNetBalance: mocks.getWorkspaceBalance }));
 vi.mock("@/services/financial-plan-ledger", () => ({
   getWorkspaceBalance: mocks.getWorkspaceBalance,
   getFinancialPlanMonthLedger: vi.fn(),
@@ -42,7 +43,7 @@ describe("activateFinancialPlan", () => {
       role: { code: "ADMIN" }, workspace: { timeZone: "Asia/Ho_Chi_Minh" },
     });
     const plan = {
-      id: "plan-1", status: "draft", targetMonth: new Date("2027-12-01T00:00:00.000Z"),
+      id: "plan-1", status: "draft", targetAmount: new Decimal(10000000), targetMonth: new Date("2027-12-01T00:00:00.000Z"),
       allocations: Object.entries(DEFAULT_PLAN_JAR_PERCENTAGES).map(([jarCode, percentage]) => ({
         jarCode, percentage, effectiveMonth: new Date("1970-01-01T00:00:00.000Z"),
       })),
@@ -56,7 +57,7 @@ describe("activateFinancialPlan", () => {
 
   it.each([
     ["1500000.3333", "1500000"],
-    ["1500000.9999", "1500001"],
+    ["1500000.9999", "1500000"],
     ["-100.5000", "-101"],
     ["1000", "1000"],
   ])("stores a whole-VND activation snapshot for balance %s", async (balance, expected) => {

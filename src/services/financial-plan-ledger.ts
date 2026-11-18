@@ -190,6 +190,8 @@ export type FinancialPlanMonthLedger = {
   pendingIncome: Decimal;
   pendingExpense: Decimal;
   netInvestmentOutflow: Decimal;
+  forecastNetChange: Decimal;
+  forecastReservedCardExpense: Decimal;
 };
 
 export type MonthLedgerResult = FinancialPlanMonthLedger;
@@ -204,11 +206,13 @@ export async function getFinancialPlanMonthLedger(
   workspaceId: string,
   month: string,
   includeForecast: boolean,
+  options?: { businessDate?: string },
 ): Promise<FinancialPlanMonthLedger> {
   const { start, end } = monthDateRange(month);
   const records = await tx.transaction.findMany({
     where: { member: { workspaceId }, deletedAt: null, date: { gte: start, lt: end } },
     select: {
+      date: true,
       type: true,
       purpose: true,
       workflowStatus: true,
@@ -258,9 +262,10 @@ export async function getFinancialPlanMonthLedger(
     approvedIncome: new Decimal(0), forecastIncome: new Decimal(0),
     approvedExpenseByJar: decimalMap(), forecastExpenseByJar: decimalMap(),
     pendingIncome: new Decimal(0), pendingExpense: new Decimal(0),
-    netInvestmentOutflow: ZERO,
+    netInvestmentOutflow: ZERO, forecastNetChange: ZERO, forecastReservedCardExpense: ZERO,
   };
   for (const record of records) {
+    if (record.workflowStatus === "scheduled" && options?.businessDate && asIsoDate(record.date) < options.businessDate) continue;
     const amount = new Decimal(record.amount.toString());
     if (record.workflowStatus === "approved") {
       if (record.purpose === "investment_contribution") {
@@ -366,6 +371,11 @@ export async function getFinancialPlanMonthLedger(
     ) {
       continue;
     }
+    if (record.workflowStatus === "scheduled" && includeForecast) {
+      result.forecastNetChange = result.forecastNetChange.plus(
+        record.purpose === "credit_card_refund" || record.type === "income" ? amount : amount.negated(),
+      );
+    }
     const refundJar = record.jarCode ?? record.category?.jarCode ?? null;
     if (record.workflowStatus === "approved") {
       if (record.purpose === "credit_card_refund") addExpense(result.approvedExpenseByJar, refundJar, amount.negated());
@@ -411,7 +421,7 @@ export async function getFinancialPlanMonthLedger(
       },
     })) ?? [];
 
-  const currentUtcMonth = new Date().toISOString().slice(0, 7);
+  const currentUtcMonth = options?.businessDate?.slice(0, 7) ?? new Date().toISOString().slice(0, 7);
   for (const inst of installments) {
     const instJar =
       inst.plan.transaction?.jarCode ??
@@ -429,6 +439,7 @@ export async function getFinancialPlanMonthLedger(
       addExpense(result.approvedExpenseByJar, instJar, instAmount);
     } else {
       addExpense(result.forecastExpenseByJar, instJar, instAmount);
+      result.forecastReservedCardExpense = result.forecastReservedCardExpense.plus(instAmount);
     }
   }
 
@@ -472,8 +483,10 @@ export async function getFinancialPlanMonthLedger(
     for (const rule of rules) {
       if (materializedIds.has(rule.id) || rule.type === "transfer") continue;
       const dueDate = occurrenceDate(month, rule.dayOfMonth);
+      if (options?.businessDate && dueDate < options.businessDate) continue;
       if (dueDate < asIsoDate(rule.startDate) || (rule.endDate && dueDate > asIsoDate(rule.endDate))) continue;
       if (rule.nextExecutionDate && dueDate < asIsoDate(rule.nextExecutionDate)) continue;
+      result.forecastNetChange = result.forecastNetChange.plus(rule.type === "income" ? rule.amount.toString() : new Decimal(rule.amount.toString()).negated());
       if (rule.type === "income") result.forecastIncome = result.forecastIncome.plus(rule.amount.toString());
       else addExpense(result.forecastExpenseByJar, rule.category?.jarCode ?? null, rule.amount.toString());
     }
