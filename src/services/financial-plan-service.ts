@@ -230,7 +230,11 @@ async function automaticMonth(tx: TransactionClient, plan: Awaited<ReturnType<ty
     g.targetAmount.toString(), openingProgress.get(g.id) ?? ZERO, month, databaseDateToMonth(g.targetMonth),
   )), ZERO);
   const reserve = Decimal.min(Decimal.max(openingBalance, ZERO), plan.targetAmount.toString()).plus(required);
-  const ledger = await getFinancialPlanMonthLedger(tx, plan.workspaceId, month, includeForecast, { businessDate });
+  const ledger = await getFinancialPlanMonthLedger(tx, plan.workspaceId, month, includeForecast, {
+    businessDate,
+    includeScheduledTransactions: month === businessDate.slice(0, 7),
+    includeRecurringForecast: month > businessDate.slice(0, 7),
+  });
   const percentages = allocationForMonth(plan.allocations, month);
   const result = calculateMonthlyPlanBudget({
     rawGrossBudget: referenceBalance.plus(sumJarMap(ledger.approvedExpenseByJar))

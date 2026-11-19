@@ -208,7 +208,7 @@ export async function getFinancialPlanMonthLedger(
   workspaceId: string,
   month: string,
   includeForecast: boolean,
-  options?: { businessDate?: string },
+  options?: { businessDate?: string; includeScheduledTransactions?: boolean; includeRecurringForecast?: boolean },
 ): Promise<FinancialPlanMonthLedger> {
   const { start, end } = monthDateRange(month);
   const records = await tx.transaction.findMany({
@@ -379,14 +379,14 @@ export async function getFinancialPlanMonthLedger(
     ) {
       continue;
     }
-    if (record.workflowStatus === "scheduled" && options?.businessDate && asIsoDate(record.date) < options.businessDate) {
+    if (record.workflowStatus === "scheduled" && includeForecast && options?.includeScheduledTransactions !== false && options?.businessDate && asIsoDate(record.date) < options.businessDate) {
       if (record.type === "income" || record.purpose === "credit_card_refund") {
         result.overdueIncome = result.overdueIncome.plus(amount);
         continue;
       }
       result.overdueExpense = result.overdueExpense.plus(amount);
     }
-    if (record.workflowStatus === "scheduled" && includeForecast) {
+    if (record.workflowStatus === "scheduled" && includeForecast && options?.includeScheduledTransactions !== false) {
       result.forecastNetChange = result.forecastNetChange.plus(
         record.purpose === "credit_card_refund" || record.type === "income" ? amount : amount.negated(),
       );
@@ -396,7 +396,7 @@ export async function getFinancialPlanMonthLedger(
       if (record.purpose === "credit_card_refund") addExpense(result.approvedExpenseByJar, refundJar, amount.negated());
       else if (record.type === "income") result.approvedIncome = result.approvedIncome.plus(amount);
       else addExpense(result.approvedExpenseByJar, refundJar, amount);
-    } else if (record.workflowStatus === "scheduled" && includeForecast) {
+    } else if (record.workflowStatus === "scheduled" && includeForecast && options?.includeScheduledTransactions !== false) {
       if (record.purpose === "credit_card_refund") addExpense(result.forecastExpenseByJar, refundJar, amount.negated());
       else if (record.type === "income") result.forecastIncome = result.forecastIncome.plus(amount);
       else addExpense(result.forecastExpenseByJar, refundJar, amount);
@@ -463,7 +463,7 @@ export async function getFinancialPlanMonthLedger(
   }
   result.pendingExpense = Decimal.max(ZERO, result.pendingExpense);
 
-  if (!includeForecast) return result;
+  if (!includeForecast || options?.includeRecurringForecast === false) return result;
   const rules = await tx.recurringTransaction.findMany({
     where: {
       workspaceId,
